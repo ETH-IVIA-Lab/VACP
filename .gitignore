@@ -17,7 +17,9 @@ __pycache__/
 .venv/
 .python-version
 
+# Smoke test artifacts
+.artifacts/
+
 # OS / editor
 .DS_Store
 .vscode/
-
