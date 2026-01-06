@@ -47,6 +47,19 @@
         color: #6b7280;
         font-size: 13px;
       }
+      .row {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+        flex-wrap: wrap;
+      }
+      button {
+        padding: 6px 10px;
+        border-radius: 8px;
+        border: 1px solid #e5e7eb;
+        background: #fff;
+        cursor: pointer;
+      }
     </style>
   </head>
   <body>
@@ -66,7 +79,18 @@
         <div id="app"></div>
       </div>
       <div class="card">
-        <div class="muted" style="margin-bottom: 8px">Debug: Mermaid diagram (paste into any Mermaid renderer)</div>
+        <div class="row" style="justify-content: space-between; margin-bottom: 8px">
+          <div class="muted">Debug: bridge + annotations + Mermaid</div>
+          <div class="row">
+            <button id="demo-set" type="button">Demo: set selection</button>
+            <button id="demo-clear" type="button">Clear selection</button>
+            <button id="refresh" type="button">Refresh</button>
+          </div>
+        </div>
+        <div id="checks" class="muted" style="margin-bottom: 8px">(loading…)</div>
+        <div class="muted" style="margin: 10px 0 8px">State</div>
+        <pre id="state">(loading…)</pre>
+        <div class="muted" style="margin: 10px 0 8px">Mermaid</div>
         <pre id="diagram">(loading…)</pre>
       </div>
     </div>
