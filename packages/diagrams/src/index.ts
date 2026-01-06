@@ -71,10 +71,12 @@ function escapeMermaidLabel(s: string): string {
 function toStatePreview(value: unknown, maxLen: number): string | null {
   if (value === undefined) return null;
   try {
-    const s = JSON.stringify(value);
-    return clampLabel(s, maxLen);
+    // Mermaid labels don't reliably support escaped quotes inside quoted label
+    // strings. Keep previews readable but strictly quote-free.
+    const s = JSON.stringify(value).replaceAll('"', "'");
+    return clampLabel(s.replaceAll('\n', ' '), maxLen);
   } catch {
-    return clampLabel(String(value), maxLen);
+    return clampLabel(String(value).replaceAll('"', "'").replaceAll('\n', ' '), maxLen);
   }
 }
 

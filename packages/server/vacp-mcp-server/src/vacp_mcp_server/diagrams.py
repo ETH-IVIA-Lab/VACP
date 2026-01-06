@@ -43,7 +43,8 @@ def short_ref(ref: str) -> str:
 
 def _escape_mermaid_label(s: str) -> str:
     # Prevent accidental syntax termination inside ["..."] node labels.
-    return s.replace('\\', '\\\\').replace('\r', '').replace('\n', '\\n').replace('"', '\\"')
+    # Mermaid parsing is sensitive to quotes inside labels; keep this strict.
+    return s.replace('\\', '\\\\').replace('\r', '').replace('\n', '\\n').replace('"', "'")
 
 
 def render_mermaid(*, graph: dict, state: dict | None, options: DiagramOptions) -> str:
