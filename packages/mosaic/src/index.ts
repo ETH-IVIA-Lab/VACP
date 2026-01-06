@@ -322,7 +322,12 @@ export function installVacpOnVgplot(plot: VgplotPlotLike, svg: SVGElement, optio
     actionDescriptors.push(...describeInteractorActions({ options, interactor, interactorId }));
   });
 
+  const actionByName = new Map<string, VacpActionDescriptor>();
   for (const desc of actionDescriptors) {
+    if (!actionByName.has(desc.name)) actionByName.set(desc.name, desc);
+  }
+
+  for (const desc of actionByName.values()) {
     actionRegistry.register(desc, async (params) => {
       // bridge format uses VacpActionCall; for registry we only get params.
       const call: VacpActionCall = {

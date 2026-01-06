@@ -256,7 +256,12 @@ export function installVacpOnVegaLiteView({
   const actionRegistry = new VacpActionRegistry();
   const actionDescriptors = actionsForParams(options, spec);
 
+  const actionByName = new Map<string, VacpActionDescriptor>();
   actionDescriptors.forEach((desc) => {
+    if (!actionByName.has(desc.name)) actionByName.set(desc.name, desc);
+  });
+
+  actionByName.forEach((desc) => {
     actionRegistry.register(desc, async (params) => {
       const call: VacpActionCall = { callId: crypto.randomUUID(), name: desc.name, params };
       return executeAction(view, call);

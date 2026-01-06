@@ -25,6 +25,11 @@ export class VacpActionRegistry {
   private readonly handlers = new Map<string, VacpActionHandler>();
 
   register(descriptor: VacpActionDescriptor, handler: VacpActionHandler): void {
+    if (this.handlers.has(descriptor.name)) {
+      throw new Error(
+        `Duplicate action registration for "${descriptor.name}". Register each action name once (handlers should route via params).`,
+      );
+    }
     this.descriptors.set(descriptor.name, descriptor);
     this.handlers.set(descriptor.name, handler);
   }
