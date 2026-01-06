@@ -99,6 +99,10 @@ export const VACP_SVG_METADATA_TYPE = 'application/vacp+json';
  * - a DOM-based fallback path when no window bridge is available.
  */
 export function embedVacpGraphInSvg(svg: SVGElement, graph: VacpGraph): void {
+  // Keep this operation idempotent: re-rendering/patching cycles should not
+  // accumulate metadata nodes.
+  svg.querySelectorAll(`metadata[type="${VACP_SVG_METADATA_TYPE}"]`).forEach((n) => n.remove());
+
   const metadata = svg.ownerDocument.createElementNS('http://www.w3.org/2000/svg', 'metadata');
   metadata.setAttribute('type', VACP_SVG_METADATA_TYPE);
   metadata.textContent = JSON.stringify(graph);
