@@ -341,47 +341,119 @@ export function installVacpOnVgplot(plot: VgplotPlotLike, svg: SVGElement, optio
 
   const graph = buildGraph({ plot, options, actions: actionDescriptors });
 
-  /**
-   * DOM/SVG annotations are a convenience and a fallback surface.
-   * The primary path for the MCP server is the window bridge installed below.
-   */
-  // Annotate the root SVG element for DOM-based fallbacks.
   const plotRef = makeRef({ appId: options.appId, viewId: options.viewId, plotId: options.plotId, suffix: '' });
-  applyVacpAttributes(svg, {
-    ref: plotRef,
-    layer: 'VisualizationLayer',
-    kind: 'Visualization',
-    title: options.title,
-    description: options.description,
-    data: { plotId: options.plotId },
-  });
-  applyVacpInteractionAttributes(svg, {
-    targetRef: plotRef,
-    layer: 'VisualizationLayer',
-    description: 'Programmatic interactions for this Mosaic/vgplot visualization.',
-    actions: actionDescriptors,
-  });
 
-  // Annotate mark groups if vgplot has applied data-index to them.
-  svg.querySelectorAll('[data-index]').forEach((el) => {
-    const idx = el.getAttribute('data-index') ?? 'unknown';
-    const markRef = makeRef({
-      appId: options.appId,
-      viewId: options.viewId,
-      plotId: options.plotId,
-      suffix: `/mark/${idx}`,
-    });
-    applyVacpAttributes(el, {
-      ref: markRef,
+  const applyAnnotationsToSvg = (svgEl: SVGElement): void => {
+    /**
+     * DOM/SVG annotations are a convenience and a fallback surface.
+     * The primary path for the MCP server is the window bridge installed below.
+     *
+     * Important: vgplot interactors can mutate the SVG after initial creation
+     * (e.g., to install brushes). Keep this operation idempotent so it can be
+     * re-applied after those mutations without accumulating duplicate metadata.
+     */
+
+    // Annotate the root SVG element for DOM-based fallbacks.
+    applyVacpAttributes(svgEl, {
+      ref: plotRef,
       layer: 'VisualizationLayer',
-      kind: 'Mark',
-      title: `mark ${idx}`,
-      description: 'vgplot mark output group',
-      data: { index: idx },
+      kind: 'Visualization',
+      title: options.title,
+      description: options.description,
+      data: { plotId: options.plotId },
     });
+    applyVacpInteractionAttributes(svgEl, {
+      targetRef: plotRef,
+      layer: 'VisualizationLayer',
+      description: 'Programmatic interactions for this Mosaic/vgplot visualization.',
+      actions: actionDescriptors,
+    });
+
+    // Annotate mark groups if vgplot has applied data-index to them.
+    svgEl.querySelectorAll('[data-index]').forEach((el) => {
+      const idx = el.getAttribute('data-index') ?? 'unknown';
+      const markRef = makeRef({
+        appId: options.appId,
+        viewId: options.viewId,
+        plotId: options.plotId,
+        suffix: `/mark/${idx}`,
+      });
+      applyVacpAttributes(el, {
+        ref: markRef,
+        layer: 'VisualizationLayer',
+        kind: 'Mark',
+        title: `mark ${idx}`,
+        description: 'vgplot mark output group',
+        data: { index: idx },
+      });
+    });
+
+    embedVacpGraphInSvg(svgEl, graph);
+  };
+
+  /**
+   * Hook into the plot lifecycle.
+   *
+   * vgplot interactors can install UI affordances (brushes, listeners) in their
+   * `init(svg)` method. Some implementations mutate the SVG tree in a way that
+   * can drop appended `<metadata>` nodes. We patch `init` so annotations are
+   * re-applied after the interactor has finished its SVG work.
+   */
+  plot.interactors.forEach((it) => {
+    const origInit = it.init;
+    it.init = async (svgEl: SVGElement) => {
+      const res = origInit ? await origInit.call(it, svgEl) : undefined;
+      applyAnnotationsToSvg(svgEl);
+      return res;
+    };
   });
 
-  embedVacpGraphInSvg(svg, graph);
+  // Apply annotations to the currently rendered SVG as well.
+  applyAnnotationsToSvg(svg);
+
+  /**
+   * Some vgplot configurations replace the `<svg>` element during or shortly
+   * after initialization. Keep the fallback surface stable by re-applying the
+   * annotations to the latest SVG under the same host container.
+   */
+  const anyPlot = plot as unknown as { __vacpObserver?: MutationObserver };
+  anyPlot.__vacpObserver?.disconnect();
+  const host = svg.parentElement ?? plot.element ?? null;
+  if (host) {
+    const anyPlot2 = plot as unknown as { __vacpSvgObserver?: MutationObserver };
+
+    const attachSvgObserver = (svgEl: SVGElement) => {
+      anyPlot2.__vacpSvgObserver?.disconnect();
+      let inApply = false;
+      const svgObs = new MutationObserver(() => {
+        if (inApply) return;
+        // Some render pipelines reset `svg.innerHTML`, which drops the metadata.
+        if (!svgEl.querySelector('metadata[type="application/vacp+json"]')) {
+          inApply = true;
+          try {
+            applyAnnotationsToSvg(svgEl);
+          } finally {
+            inApply = false;
+          }
+        }
+      });
+      svgObs.observe(svgEl, { childList: true });
+      anyPlot2.__vacpSvgObserver = svgObs;
+    };
+
+    let lastSvg = svg;
+    attachSvgObserver(lastSvg);
+
+    const obs = new MutationObserver(() => {
+      const next = host.querySelector('svg');
+      if (!next || next === lastSvg) return;
+      lastSvg = next;
+      applyAnnotationsToSvg(next);
+      attachSvgObserver(next);
+    });
+    obs.observe(host, { childList: true, subtree: true });
+    anyPlot.__vacpObserver = obs;
+  }
 
   if (options.annotateHostElement && plot.element) {
     applyVacpAttributes(plot.element, {
@@ -408,10 +480,18 @@ export function installVacpOnVgplot(plot: VgplotPlotLike, svg: SVGElement, optio
           plotId: options.plotId,
           suffix: `/interactor/${i}`,
         });
+        const selectionValue =
+          (
+            interactor as unknown as {
+              selection?: {
+                value?: unknown;
+              };
+            }
+          ).selection?.value ?? undefined;
         state[interactorRef] = {
           kind: interactor.constructor?.name ?? 'Interactor',
           value: (interactor as { value?: unknown }).value,
-          selection: (interactor as { selection?: unknown }).selection,
+          selectionValue,
         };
       });
       return { version: VACP_SCHEMA_VERSION, createdAt: nowIso(), state };
