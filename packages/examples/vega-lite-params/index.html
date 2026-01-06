@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>VACP Example - Vega-Lite Spec Gallery</title>
+    <style>
+      * {
+        font-family:
+          system-ui,
+          -apple-system,
+          BlinkMacSystemFont,
+          'Segoe UI',
+          Roboto,
+          Oxygen,
+          Ubuntu,
+          Cantarell,
+          'Open Sans',
+          'Helvetica Neue',
+          sans-serif;
+      }
+      body {
+        margin: 24px;
+      }
+      .layout {
+        display: grid;
+        grid-template-columns: 1fr 420px;
+        gap: 16px;
+        align-items: start;
+      }
+      pre {
+        background: #0b1020;
+        color: #e7e9ee;
+        padding: 12px;
+        border-radius: 8px;
+        overflow: auto;
+        max-height: 70vh;
+        font-size: 12px;
+      }
+      .card {
+        border: 1px solid #e5e7eb;
+        border-radius: 10px;
+        padding: 12px;
+      }
+      .muted {
+        color: #6b7280;
+        font-size: 13px;
+      }
+    </style>
+  </head>
+  <body>
+    <h2>VACP Example: Vega-Lite spec gallery + <code>@vacp/vega-lite</code></h2>
+    <p class="muted">
+      Pick a spec and VACP will expose Vega-Lite <code>params</code> as nodes/actions at <code>window.__vacp</code>.
+      Enable the rendered overlay with <code>?vacpDebug=1</code>.
+    </p>
+
+    <div class="layout">
+      <div class="card">
+        <div style="display: flex; gap: 10px; align-items: center; margin-bottom: 10px">
+          <div class="muted" style="min-width: 80px">Spec</div>
+          <select id="spec" style="flex: 1; padding: 6px 8px; border-radius: 8px; border: 1px solid #e5e7eb"></select>
+        </div>
+        <div id="spec-meta" class="muted" style="margin-bottom: 10px"></div>
+        <div id="app"></div>
+      </div>
+      <div class="card">
+        <div class="muted" style="margin-bottom: 8px">Debug: Mermaid diagram (paste into any Mermaid renderer)</div>
+        <pre id="diagram">(loading…)</pre>
+      </div>
+    </div>
+
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

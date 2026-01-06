@@ -1,0 +1,9 @@
+**/dist/**
+**/build/**
+**/.turbo/**
+**/.vite/**
+**/node_modules/**
+**/.venv/**
+**/__pycache__/**
+**/*.lock
+

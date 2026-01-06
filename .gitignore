@@ -1,0 +1,23 @@
+node_modules/
+dist/
+.turbo/
+.vite/
+.env
+.env.*
+
+# Vite builds in examples
+packages/examples/*/dist/
+
+# TypeScript build artifacts
+*.tsbuildinfo
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+.python-version
+
+# OS / editor
+.DS_Store
+.vscode/
+

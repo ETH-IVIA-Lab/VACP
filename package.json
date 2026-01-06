@@ -1,0 +1,20 @@
+{
+  "name": "vacp",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@10.15.1",
+  "scripts": {
+    "build": "pnpm -r build",
+    "lint": "pnpm -r lint",
+    "typecheck": "pnpm -r typecheck",
+    "format": "prettier . --write",
+    "format:check": "prettier . --check"
+  },
+  "devDependencies": {
+    "@types/node": "^24.1.0",
+    "oxlint": "^1.38.0",
+    "prettier": "^3.7.4",
+    "tsup": "^8.5.0",
+    "typescript": "^5.9.3"
+  }
+}

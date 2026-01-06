@@ -1,0 +1,12 @@
+{
+  "files": [],
+  "references": [
+    { "path": "packages/core" },
+    { "path": "packages/gateway" },
+    { "path": "packages/dom" },
+    { "path": "packages/diagrams" },
+    { "path": "packages/debug-ui" },
+    { "path": "packages/mosaic" },
+    { "path": "packages/vega-lite" }
+  ]
+}
