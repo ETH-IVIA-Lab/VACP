@@ -228,7 +228,7 @@ async def _test_mosaic_gallery(page: Page) -> None:
             )
             _assert(
                 len(rt_after_set.get('history', [])) >= before_hist + 1,
-                'Expected runtime history to grow after demo-set',
+                f'Expected runtime history to grow after demo-set (spec={spec_id} before={before_hist} after={len(rt_after_set.get("history", []))})',
             )
 
         await page.click('#demo-clear')
