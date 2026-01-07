@@ -265,6 +265,22 @@ export function installVacpDebugUi(options?: VacpDebugUiOptions): void {
   const actions = document.createElement('div');
   actions.className = 'vacp-debug-ui-actions';
 
+  const liveBtn = document.createElement('button');
+  liveBtn.type = 'button';
+  liveBtn.textContent = 'Live';
+
+  const undoBtn = document.createElement('button');
+  undoBtn.type = 'button';
+  undoBtn.textContent = 'Undo';
+
+  const redoBtn = document.createElement('button');
+  redoBtn.type = 'button';
+  redoBtn.textContent = 'Redo';
+
+  const observeBtn = document.createElement('button');
+  observeBtn.type = 'button';
+  observeBtn.textContent = 'Observe: on';
+
   const refreshBtn = document.createElement('button');
   refreshBtn.type = 'button';
   refreshBtn.textContent = 'Refresh';
@@ -277,7 +293,7 @@ export function installVacpDebugUi(options?: VacpDebugUiOptions): void {
   closeBtn.type = 'button';
   closeBtn.textContent = 'Close';
 
-  actions.append(refreshBtn, copyBtn, closeBtn);
+  actions.append(liveBtn, undoBtn, redoBtn, observeBtn, refreshBtn, copyBtn, closeBtn);
   header.append(title, actions);
 
   const body = document.createElement('div');
@@ -323,9 +339,9 @@ export function installVacpDebugUi(options?: VacpDebugUiOptions): void {
   document.body.append(root);
 
   let lastMermaid = '';
-  let lastRuntime: VacpRuntimeSnapshot | null = null;
   let currentTab: DebugTab = 'Graph';
   let unsubscribe: (() => void) | null = null;
+  let observeEnabled = true;
 
   async function renderSvg(mermaidText: string): Promise<void> {
     svgHost.textContent = '';
@@ -402,7 +418,17 @@ export function installVacpDebugUi(options?: VacpDebugUiOptions): void {
     hint.textContent =
       'Tip: timeline entries are captured on agent actions (execute), explicit refresh, and provider-driven human changes (if supported).';
 
-    historyPane.append(title, list, hint);
+    const detailsTitle = document.createElement('div');
+    detailsTitle.className = 'vacp-debug-ui-section-title';
+    detailsTitle.textContent = 'Selected entry';
+
+    const details = document.createElement('div');
+    details.className = 'vacp-debug-ui-small';
+    const idx = runtime.mode === 'inspect' ? runtime.cursor : runtime.history.length - 1;
+    const selected = idx >= 0 ? runtime.history[idx] : null;
+    details.textContent = selected ? JSON.stringify(selected, null, 2) : '(no history yet)';
+
+    historyPane.append(title, list, hint, detailsTitle, details);
   }
 
   function renderActions(runtime: VacpRuntimeSnapshot, bridge: VacpWindowBridge): void {
@@ -412,26 +438,59 @@ export function installVacpDebugUi(options?: VacpDebugUiOptions): void {
     title.textContent = 'Dispatch Action';
 
     const actions = runtime.currentCapabilities.graph.actions ?? [];
-    if (!actions.length) {
-      const empty = document.createElement('div');
-      empty.className = 'vacp-debug-ui-small';
-      empty.textContent = 'No actions available in the current capabilities graph.';
-      actionsPane.append(title, empty);
-      return;
-    }
-
     const selectField = document.createElement('div');
     selectField.className = 'vacp-debug-ui-field';
     const selectLabel = document.createElement('label');
     selectLabel.textContent = 'Action';
     const select = document.createElement('select');
-    actions.forEach((a) => {
-      const opt = document.createElement('option');
-      opt.value = a.name;
-      opt.textContent = a.name;
-      select.append(opt);
-    });
+    const customName = '__custom__';
+    const knownActions = actions.slice();
+    if (knownActions.length) {
+      knownActions.forEach((a) => {
+        const opt = document.createElement('option');
+        opt.value = a.name;
+        opt.textContent = a.name;
+        select.append(opt);
+      });
+    }
+    const customOpt = document.createElement('option');
+    customOpt.value = customName;
+    customOpt.textContent = '(custom action name)';
+    select.append(customOpt);
     selectField.append(selectLabel, select);
+
+    const customField = document.createElement('div');
+    customField.className = 'vacp-debug-ui-field';
+    const customLabel = document.createElement('label');
+    customLabel.textContent = 'Custom action name';
+    const customInput = document.createElement('input');
+    customInput.value = '';
+    customField.append(customLabel, customInput);
+
+    const metaTitle = document.createElement('div');
+    metaTitle.className = 'vacp-debug-ui-section-title';
+    metaTitle.textContent = 'Dispatch metadata';
+
+    const sourceField = document.createElement('div');
+    sourceField.className = 'vacp-debug-ui-field';
+    const sourceLabel = document.createElement('label');
+    sourceLabel.textContent = 'Source';
+    const sourceSelect = document.createElement('select');
+    (['debug', 'agent', 'human', 'system'] as const).forEach((v) => {
+      const opt = document.createElement('option');
+      opt.value = v;
+      opt.textContent = v;
+      sourceSelect.append(opt);
+    });
+    sourceField.append(sourceLabel, sourceSelect);
+
+    const messageField = document.createElement('div');
+    messageField.className = 'vacp-debug-ui-field';
+    const messageLabel = document.createElement('label');
+    messageLabel.textContent = 'Message (optional)';
+    const messageInput = document.createElement('input');
+    messageInput.value = 'manual dispatch';
+    messageField.append(messageLabel, messageInput);
 
     const schemaTitle = document.createElement('div');
     schemaTitle.className = 'vacp-debug-ui-section-title';
@@ -459,8 +518,10 @@ export function installVacpDebugUi(options?: VacpDebugUiOptions): void {
     resultPre.textContent = '(not executed yet)';
 
     function updateActionUi(): void {
-      const a = actions.find((x) => x.name === select.value) ?? actions[0];
-      schemaPre.textContent = JSON.stringify(a.parameters ?? {}, null, 2);
+      const sel = select.value;
+      customField.style.display = sel === customName ? 'block' : 'none';
+      const a = knownActions.find((x) => x.name === sel);
+      schemaPre.textContent = a ? JSON.stringify(a.parameters ?? {}, null, 2) : '(no schema available)';
     }
     select.addEventListener('change', () => updateActionUi());
     updateActionUi();
@@ -468,9 +529,17 @@ export function installVacpDebugUi(options?: VacpDebugUiOptions): void {
     run.addEventListener('click', async () => {
       try {
         run.disabled = true;
-        const name = select.value;
+        const selected = select.value;
+        const name = selected === customName ? customInput.value.trim() : selected;
+        if (!name) throw new Error('Action name is required');
         const parsed = params.value.trim() ? (JSON.parse(params.value) as unknown) : undefined;
-        const res = await bridge.execute({ callId: makeId(), name, params: parsed });
+        const call = { callId: makeId(), name, params: parsed };
+        const source = sourceSelect.value as 'debug' | 'agent' | 'human' | 'system';
+        const message = messageInput.value.trim();
+        const res =
+          typeof bridge.dispatch === 'function'
+            ? await bridge.dispatch(call, { source, message: message || undefined })
+            : await bridge.execute(call);
         resultPre.textContent = JSON.stringify(res, null, 2);
         if (typeof bridge.refresh === 'function') await bridge.refresh({ source: 'debug', message: `after ${name}` });
       } catch (err) {
@@ -480,7 +549,27 @@ export function installVacpDebugUi(options?: VacpDebugUiOptions): void {
       }
     });
 
-    actionsPane.append(title, selectField, schemaTitle, schemaPre, paramsField, run, resultTitle, resultPre);
+    const emptyHint = document.createElement('div');
+    emptyHint.className = 'vacp-debug-ui-small';
+    emptyHint.textContent = actions.length
+      ? 'Pick a registered action, or enter a custom action name to test error paths and timeline behavior.'
+      : 'No actions registered: enter a custom action name to test the dispatch pipeline and timeline.';
+
+    actionsPane.append(
+      title,
+      emptyHint,
+      selectField,
+      customField,
+      metaTitle,
+      sourceField,
+      messageField,
+      schemaTitle,
+      schemaPre,
+      paramsField,
+      run,
+      resultTitle,
+      resultPre,
+    );
   }
 
   function renderJson(runtime: VacpRuntimeSnapshot, bridge: VacpWindowBridge): void {
@@ -579,7 +668,15 @@ export function installVacpDebugUi(options?: VacpDebugUiOptions): void {
     }
     try {
       const runtime = await readRuntime(bridge);
-      lastRuntime = runtime;
+      title.textContent = `VACP Debug (${globalKey}) • mode=${runtime.mode} cursor=${runtime.cursor} history=${runtime.history.length}${
+        runtime.runtimeId ? ` • runtime=${runtime.runtimeId.slice(0, 8)}` : ''
+      }`;
+
+      liveBtn.disabled = typeof bridge.setMode !== 'function';
+      undoBtn.disabled = typeof bridge.undo !== 'function' || runtime.history.length === 0;
+      redoBtn.disabled = typeof bridge.redo !== 'function' || runtime.history.length === 0;
+      observeBtn.disabled = typeof bridge.startObserving !== 'function' || typeof bridge.stopObserving !== 'function';
+      observeBtn.textContent = `Observe: ${observeEnabled ? 'on' : 'off'}`;
 
       const diagram = renderVacpDiagramMermaid({
         capabilities: runtime.currentCapabilities,
@@ -630,6 +727,30 @@ export function installVacpDebugUi(options?: VacpDebugUiOptions): void {
   refreshBtn.addEventListener('click', async () => {
     const bridge = getBridge(globalKey);
     if (bridge && typeof bridge.refresh === 'function') await bridge.refresh({ source: 'debug', message: 'manual refresh' });
+    void refresh();
+  });
+  liveBtn.addEventListener('click', () => {
+    const bridge = getBridge(globalKey);
+    if (bridge && typeof bridge.setMode === 'function') bridge.setMode('live', { source: 'debug', message: 'live' });
+    void refresh();
+  });
+  undoBtn.addEventListener('click', () => {
+    const bridge = getBridge(globalKey);
+    if (bridge && typeof bridge.undo === 'function') bridge.undo({ source: 'debug', message: 'undo' });
+    void refresh();
+  });
+  redoBtn.addEventListener('click', () => {
+    const bridge = getBridge(globalKey);
+    if (bridge && typeof bridge.redo === 'function') bridge.redo({ source: 'debug', message: 'redo' });
+    void refresh();
+  });
+  observeBtn.addEventListener('click', () => {
+    const bridge = getBridge(globalKey);
+    if (!bridge) return;
+    if (typeof bridge.startObserving !== 'function' || typeof bridge.stopObserving !== 'function') return;
+    observeEnabled = !observeEnabled;
+    if (observeEnabled) bridge.startObserving({ source: 'debug', message: 'observe' });
+    else bridge.stopObserving();
     void refresh();
   });
   copyBtn.addEventListener('click', async () => {

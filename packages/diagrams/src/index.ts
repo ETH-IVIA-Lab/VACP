@@ -68,6 +68,12 @@ function escapeMermaidLabel(s: string): string {
   return s.replaceAll('\\', '\\\\').replaceAll('\r', '').replaceAll('\n', '\\n').replaceAll('"', '\\"');
 }
 
+function escapeMermaidEdgeLabel(s: string): string {
+  // Edge labels are *not* quoted (they sit between `|...|`), so keep them very
+  // conservative to avoid parse errors.
+  return s.replaceAll('|', '/').replaceAll('\r', '').replaceAll('\n', ' ');
+}
+
 function toStatePreview(value: unknown, maxLen: number): string | null {
   if (value === undefined) return null;
   try {
@@ -115,7 +121,8 @@ export function renderVacpGraphMermaid(input: VacpDiagramRenderInput, options?: 
     const fromIdx = nodeIndexByRef.get(e.from);
     const toIdx = nodeIndexByRef.get(e.to);
     if (fromIdx === undefined || toIdx === undefined) return;
-    lines.push(`${mermaidIdForIndex(fromIdx)} -->|${e.kind}| ${mermaidIdForIndex(toIdx)}`);
+    const label = escapeMermaidEdgeLabel(clampLabel(e.kind, maxLabelLength));
+    lines.push(`${mermaidIdForIndex(fromIdx)} -->|${label}| ${mermaidIdForIndex(toIdx)}`);
   });
 
   if (includeActions) {
