@@ -1,6 +1,6 @@
 import type {
   VacpCapabilitiesSnapshot,
-  VacpDemo,
+  VacpPlaybook,
   VacpRuntimeBridge,
   VacpRuntimeSnapshot,
   VacpStateSnapshot,
@@ -24,11 +24,12 @@ export interface VacpDebugUiOptions {
   includeStatePreview?: boolean;
 }
 
-export type DebugTab = 'Graph' | 'Data' | 'Actions' | 'History' | 'Demo' | 'JSON';
+export type DebugTab = 'Graph' | 'Data' | 'Actions' | 'History' | 'Playbook' | 'JSON';
 
 export type VacpWindowBridge = VacpRuntimeBridge & {
   getCapabilities: () => Promise<VacpCapabilitiesSnapshot>;
   getState: () => Promise<VacpStateSnapshot>;
   getRuntime?: () => Promise<VacpRuntimeSnapshot>;
-  getDemos?: () => Promise<VacpDemo[]>;
+  getPlaybooks?: () => Promise<VacpPlaybook[]>;
+  getDemos?: () => Promise<VacpPlaybook[]>;
 };

@@ -1,5 +1,5 @@
-import type { VacpDemo, VacpRuntimeSnapshot } from '@vacp/core';
-import { getBridge, readDemos, readRuntime } from './bridge';
+import type { VacpPlaybook, VacpRuntimeSnapshot } from '@vacp/core';
+import { getBridge, readPlaybooks, readRuntime } from './bridge';
 import { shouldEnable } from './enabled';
 import { renderMermaidToHost } from './mermaid';
 import { renderActionsPane } from './panes/actions';
@@ -7,7 +7,7 @@ import { createInitialDataUiState, renderDataPane } from './panes/data';
 import { mermaidSourceFromRuntime } from './panes/graph';
 import { renderHistoryPane } from './panes/history';
 import { renderJsonPane } from './panes/json';
-import { renderDemoPane } from './panes/demo';
+import { renderPlaybookPane } from './panes/playbook';
 import { ensureStyles } from './styles';
 import type { DebugTab, VacpDebugUiOptions, VacpWindowBridge } from './types';
 function copyText(text: string): void {
@@ -122,7 +122,7 @@ export function installVacpDebugUi(options?: VacpDebugUiOptions): void {
     Data: document.createElement('button'),
     Actions: document.createElement('button'),
     History: document.createElement('button'),
-    Demo: document.createElement('button'),
+    Playbook: document.createElement('button'),
     JSON: document.createElement('button'),
   };
 
@@ -141,8 +141,8 @@ export function installVacpDebugUi(options?: VacpDebugUiOptions): void {
             ? 'Manually dispatch semantic actions'
             : t === 'History'
               ? 'Inspect runtime timeline entries'
-              : t === 'Demo'
-                ? 'Step through provider-supplied demo scripts'
+              : t === 'Playbook'
+                ? 'Step through provider-supplied playbooks (scripted action sequences)'
                 : 'Override/apply state (inspect vs live)';
     tabs.append(b);
   });
@@ -152,14 +152,14 @@ export function installVacpDebugUi(options?: VacpDebugUiOptions): void {
     Data: document.createElement('div'),
     Actions: document.createElement('div'),
     History: document.createElement('div'),
-    Demo: document.createElement('div'),
+    Playbook: document.createElement('div'),
     JSON: document.createElement('div'),
   };
   (Object.keys(panes) as DebugTab[]).forEach((t) => {
     panes[t].style.display = 'none';
   });
 
-  codeHost.append(tabs, panes.Graph, panes.Data, panes.Actions, panes.History, panes.Demo, panes.JSON);
+  codeHost.append(tabs, panes.Graph, panes.Data, panes.Actions, panes.History, panes.Playbook, panes.JSON);
   body.append(svgHost, codeHost);
   panel.append(header, body);
   root.append(button, panel);
@@ -275,8 +275,8 @@ export function installVacpDebugUi(options?: VacpDebugUiOptions): void {
   let lastMermaid = '';
   let unsubscribe: (() => void) | null = null;
 
-  let demos: VacpDemo[] = [];
-  let selectedDemoId: string | null = null;
+  let playbooks: VacpPlaybook[] = [];
+  let selectedPlaybookId: string | null = null;
   let selectedStepIdx = 0;
 
   const actionUi = { selectedAction: undefined as string | undefined, paramsText: '{}' };
@@ -386,16 +386,16 @@ export function installVacpDebugUi(options?: VacpDebugUiOptions): void {
         requestRender();
       });
     }
-    if (currentTab === 'Demo') {
-      renderDemoPane({
-        container: panes.Demo,
+    if (currentTab === 'Playbook') {
+      renderPlaybookPane({
+        container: panes.Playbook,
         runtime,
         bridge,
-        demos,
-        selectedDemoId,
+        playbooks,
+        selectedId: selectedPlaybookId,
         selectedStepIdx,
         setSelected: (next) => {
-          if (next.demoId !== undefined) selectedDemoId = next.demoId;
+          if (next.playbookId !== undefined) selectedPlaybookId = next.playbookId;
           if (next.stepIdx !== undefined) selectedStepIdx = next.stepIdx;
           requestRender();
         },
@@ -431,7 +431,7 @@ export function installVacpDebugUi(options?: VacpDebugUiOptions): void {
     if (!bridge) return;
     activeBridge = bridge;
 
-    demos = await readDemos(bridge);
+    playbooks = await readPlaybooks(bridge);
     if (typeof bridge.subscribe === 'function') {
       unsubscribe?.();
       unsubscribe = bridge.subscribe(() => {

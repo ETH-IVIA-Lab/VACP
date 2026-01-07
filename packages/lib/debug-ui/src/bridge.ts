@@ -1,4 +1,4 @@
-import type { VacpDemo, VacpRuntimeSnapshot } from '@vacp/core';
+import type { VacpPlaybook, VacpRuntimeSnapshot } from '@vacp/core';
 
 import type { VacpWindowBridge } from './types';
 
@@ -26,8 +26,9 @@ export async function readRuntime(bridge: VacpWindowBridge): Promise<VacpRuntime
   };
 }
 
-export async function readDemos(bridge: VacpWindowBridge): Promise<VacpDemo[]> {
-  if (typeof bridge.getDemos !== 'function') return [];
-  const res = await bridge.getDemos();
-  return Array.isArray(res) ? res : [];
+export async function readPlaybooks(bridge: VacpWindowBridge): Promise<VacpPlaybook[]> {
+  const fn = typeof bridge.getPlaybooks === 'function' ? bridge.getPlaybooks : bridge.getDemos;
+  if (typeof fn !== 'function') return [];
+  const res = await fn.call(bridge);
+  return Array.isArray(res) ? (res as VacpPlaybook[]) : [];
 }

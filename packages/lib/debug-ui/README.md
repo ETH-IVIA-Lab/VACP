@@ -18,9 +18,10 @@ anchor (corners/edges/center).
 - **Data**: pick a `DataHandle` and run DuckDB SQL via `vacp.data_sql` (includes selection preview)
 - **Actions**: manual dispatch (no pixel automation)
 - **History**: runtime timeline + time travel (live/undo/redo)
-- **Demo**: provider-supplied scripted stepper (shows “agent-like” sequences)
+- **Playbook**: provider-supplied scripted stepper (shows “agent-like” sequences)
 - **JSON**: inspection overrides + opt-in apply-to-live
 
-The overlay works best when the bridge supports `getRuntime()` and `getDemos()`, but it still functions with the minimal bridge (`getCapabilities/getState/execute`).
+The overlay works best when the bridge supports `getRuntime()` and `getPlaybooks()` (or the older `getDemos()`), but it
+still functions with the minimal bridge (`getCapabilities/getState/execute`).
 
 For a runnable reference, see any of the example apps under `packages/examples/*`.
