@@ -1,23 +1,24 @@
 type DockPos = { left: number; top: number };
 
 /**
- * Floating overlay docking + snapping.
+ * Floating button docking + snapping.
  *
- * This is UI plumbing, not VACP logic:
- * - remembers position in localStorage
- * - snaps to a small set of stable anchors
- * - keeps the panel opening direction sensible
+ * The "bar" should feel like devtools overlays:
+ * - draggable but not fiddly
+ * - snaps to stable anchors
+ * - persists position
  */
 export function createVacpDebugDock(args: {
   root: HTMLElement;
-  panel: HTMLElement;
-  button: HTMLElement;
-  titleEl: HTMLElement;
+  handles: HTMLElement[];
   storageKey: string;
+  onMove?: () => void;
+  onDrop?: () => void;
 }) {
-  const { root, panel, button, titleEl, storageKey } = args;
+  const { root, handles, storageKey, onMove: onDockMove, onDrop } = args;
 
   const clamp = (n: number, min: number, max: number) => Math.max(min, Math.min(max, n));
+  const DRAG_THRESHOLD = 6;
   const prefersReducedMotion =
     typeof window !== 'undefined' &&
     typeof window.matchMedia === 'function' &&
@@ -86,33 +87,19 @@ export function createVacpDebugDock(args: {
     return best;
   };
 
-  const positionPanel = () => {
-    const rect = root.getBoundingClientRect();
-    const openDown = rect.top < window.innerHeight / 2;
-    const openRight = rect.left < window.innerWidth / 2;
-    const gap = 10;
-    const btnRect = button.getBoundingClientRect();
-    const btnH = btnRect.height || 40;
-
-    panel.style.top = openDown ? `${btnH + gap}px` : 'auto';
-    panel.style.bottom = openDown ? 'auto' : `${btnH + gap}px`;
-    panel.style.left = openRight ? '0px' : 'auto';
-    panel.style.right = openRight ? 'auto' : '0px';
-  };
-
   const snapToNearest = (opts?: { animate?: boolean }) => {
     const rect = root.getBoundingClientRect();
     const target = nearestSnapPos({ left: rect.left, top: rect.top });
     const animate = !!opts?.animate && !prefersReducedMotion;
     if (animate) root.classList.add('vacp-debug-ui-snap');
     applyPos(target);
-    positionPanel();
     const nextRect = root.getBoundingClientRect();
     savePos({ left: nextRect.left, top: nextRect.top });
+    onDockMove?.();
     if (!animate) return;
     const cleanup = () => root.classList.remove('vacp-debug-ui-snap');
     root.addEventListener('transitionend', cleanup, { once: true });
-    window.setTimeout(cleanup, 260);
+    window.setTimeout(cleanup, 220);
   };
 
   const applyInitialPos = () => {
@@ -120,60 +107,116 @@ export function createVacpDebugDock(args: {
     if (saved) {
       applyPos(saved);
     } else {
-      const b = button.getBoundingClientRect();
-      applyPos({ left: window.innerWidth - b.width - 14, top: window.innerHeight - b.height - 14 });
+      const margin = 14;
+      const rect = root.getBoundingClientRect();
+      applyPos({ left: window.innerWidth - rect.width - margin, top: window.innerHeight - rect.height - margin });
     }
     snapToNearest({ animate: false });
   };
 
   const installDrag = (handle: HTMLElement) => {
     let dragging = false;
+    let suppressClick = false;
     let startX = 0;
     let startY = 0;
     let startLeft = 0;
     let startTop = 0;
+    let lastPointerDownAt = 0;
 
-    const onMove = (ev: PointerEvent) => {
-      if (!dragging) return;
-      const dx = ev.clientX - startX;
-      const dy = ev.clientY - startY;
-      applyPos({ left: startLeft + dx, top: startTop + dy });
-      positionPanel();
-    };
-
-    const onUp = () => {
-      if (!dragging) return;
-      dragging = false;
-      window.removeEventListener('pointermove', onMove);
-      window.removeEventListener('pointerup', onUp);
-      window.removeEventListener('pointercancel', onUp);
-      root.classList.remove('vacp-debug-ui-dragging');
-      snapToNearest({ animate: true });
-    };
-
-    handle.addEventListener('pointerdown', (ev) => {
-      if (ev.button !== 0) return;
+    const beginDrag = () => {
+      if (dragging) return;
       dragging = true;
       root.classList.remove('vacp-debug-ui-snap');
       root.classList.add('vacp-debug-ui-dragging');
+    };
+
+    const maybeMove = (x: number, y: number) => {
+      const dx = x - startX;
+      const dy = y - startY;
+      const dist = Math.abs(dx) + Math.abs(dy);
+
+      // Treat small movements as a click, not a drag, so the button remains usable.
+      if (!dragging && dist < DRAG_THRESHOLD) return;
+      beginDrag();
+      applyPos({ left: startLeft + dx, top: startTop + dy });
+      onDockMove?.();
+    };
+
+    const endDrag = () => {
+      if (!dragging) return;
+      dragging = false;
+      suppressClick = true;
+      root.classList.remove('vacp-debug-ui-dragging');
+      snapToNearest({ animate: true });
+      onDrop?.();
+    };
+
+    const onPointerMove = (ev: PointerEvent) => maybeMove(ev.clientX, ev.clientY);
+    const onMouseMove = (ev: MouseEvent) => maybeMove(ev.clientX, ev.clientY);
+
+    const cleanupWindowListeners = () => {
+      window.removeEventListener('pointermove', onPointerMove);
+      window.removeEventListener('pointerup', onPointerUp);
+      window.removeEventListener('pointercancel', onPointerUp);
+      window.removeEventListener('mousemove', onMouseMove);
+      window.removeEventListener('mouseup', onMouseUp);
+    };
+
+    const onPointerUp = () => {
+      cleanupWindowListeners();
+      endDrag();
+    };
+
+    const onMouseUp = () => {
+      cleanupWindowListeners();
+      endDrag();
+    };
+
+    const start = (x: number, y: number) => {
+      suppressClick = false;
+      dragging = false;
       const rect = root.getBoundingClientRect();
-      startX = ev.clientX;
-      startY = ev.clientY;
+      startX = x;
+      startY = y;
       startLeft = rect.left;
       startTop = rect.top;
-      handle.setPointerCapture?.(ev.pointerId);
-      window.addEventListener('pointermove', onMove);
-      window.addEventListener('pointerup', onUp);
-      window.addEventListener('pointercancel', onUp);
+      window.addEventListener('pointermove', onPointerMove);
+      window.addEventListener('pointerup', onPointerUp);
+      window.addEventListener('pointercancel', onPointerUp);
+      window.addEventListener('mousemove', onMouseMove);
+      window.addEventListener('mouseup', onMouseUp);
+    };
+
+    handle.addEventListener(
+      'click',
+      (ev) => {
+        if (!suppressClick) return;
+        suppressClick = false;
+        ev.preventDefault();
+        ev.stopPropagation();
+      },
+      { capture: true },
+    );
+
+    handle.addEventListener('pointerdown', (ev) => {
+      if (ev.button !== 0) return;
+      lastPointerDownAt = performance.now();
+      start(ev.clientX, ev.clientY);
+    });
+
+    // Fallback for environments that do not emit PointerEvents for mouse input.
+    handle.addEventListener('mousedown', (ev) => {
+      if (ev.button !== 0) return;
+      if (performance.now() - lastPointerDownAt < 40) return;
+      start(ev.clientX, ev.clientY);
     });
   };
 
   const attach = () => {
-    installDrag(button);
-    installDrag(titleEl);
+    handles.forEach((h) => installDrag(h));
     queueMicrotask(() => applyInitialPos());
     window.addEventListener('resize', () => snapToNearest({ animate: false }));
   };
 
-  return { attach, positionPanel, snapToNearest, installDrag };
+  return { attach, snapToNearest };
 }
