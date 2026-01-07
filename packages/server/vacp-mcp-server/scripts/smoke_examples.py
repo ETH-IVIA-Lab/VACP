@@ -131,6 +131,22 @@ def _assert(cond: bool, msg: str) -> None:
         raise AssertionError(msg)
 
 
+def _param_values(snapshot: dict[str, Any]) -> dict[str, float]:
+    out: dict[str, float] = {}
+    st = snapshot.get('state', {})
+    if not isinstance(st, dict):
+        return out
+    for ref, val in st.items():
+        if not isinstance(ref, str) or not isinstance(val, dict):
+            continue
+        if val.get('kind') != 'Param':
+            continue
+        v = val.get('value')
+        if isinstance(v, (int, float)):
+            out[ref] = float(v)
+    return out
+
+
 async def _test_debug_overlay(page: Page) -> None:
     # The overlay can open before the bridge is installed; ensure the bridge is
     # ready first so the overlay renders a diagram immediately.
@@ -426,9 +442,11 @@ async def _test_vega_lite_gallery(page: Page) -> None:
             )
             after_h = await _get_state(page)
             rt_h1 = await _get_runtime(page)
+            before_vals = _param_values(before_h)
+            after_vals = _param_values(after_h)
             _assert(
-                json.dumps(before_h, sort_keys=True) != json.dumps(after_h, sort_keys=True),
-                'Expected state to change after human slider change',
+                any(ref in after_vals and after_vals[ref] != before_vals.get(ref) for ref in before_vals),
+                'Expected at least one Param value to change after human slider change',
             )
             _assert(
                 rt_h0.get('runtimeId') == rt_h1.get('runtimeId'),
