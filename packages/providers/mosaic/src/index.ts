@@ -3,6 +3,7 @@ import type {
   VacpActionDescriptor,
   VacpCapabilitiesSnapshot,
   VacpChangeSource,
+  VacpDemo,
   VacpEdge,
   VacpGraph,
   VacpNode,
@@ -75,6 +76,8 @@ export interface InstallVacpOnVgplotOptions {
    * lets a debug UI apply JSON state overrides to the live plot (best-effort).
    */
   includeApplyStateAction?: boolean;
+  /** Optional demo scripts for debug tooling. */
+  demos?: VacpDemo[];
 }
 
 function makeRef({
@@ -555,7 +558,12 @@ export function installVacpOnVgplot(plot: VgplotPlotLike, svg: SVGElement, optio
     },
   };
 
-  const bridge = installVacpRuntimeBridge({ snapshots, actions: actionRegistry, globalKey: options.globalKey });
+  const bridge = installVacpRuntimeBridge({
+    snapshots,
+    actions: actionRegistry,
+    demos: options.demos,
+    globalKey: options.globalKey,
+  });
 
   const refreshRuntimeNow = (source: VacpChangeSource, message: string) => {
     if (typeof bridge.refresh !== 'function') return;

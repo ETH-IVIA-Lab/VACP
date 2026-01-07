@@ -1,6 +1,7 @@
 import type {
   VacpActionDescriptor,
   VacpCapabilitiesSnapshot,
+  VacpDemo,
   VacpGraph,
   VacpRef,
   VacpStateSnapshot,
@@ -149,6 +150,38 @@ function main() {
   }
 
   // ---- VACP wiring (no framework) -----------------------------------------
+  const demoPoly: DomainPoint[] = [
+    { x: 25, y: 25 },
+    { x: 75, y: 25 },
+    { x: 75, y: 75 },
+    { x: 25, y: 75 },
+  ];
+
+  const demos: VacpDemo[] = [
+    {
+      id: 'lasso',
+      title: 'Lasso selection (agent ↔ human)',
+      description: 'Shows lasso set/clear actions and the debug apply-state override, all recorded into history.',
+      steps: [
+        { title: 'Clear lasso', call: { name: 'vanilla.clear_lasso', params: {} } },
+        { title: 'Set lasso polygon', call: { name: 'vanilla.set_lasso_polygon', params: { points: demoPoly } } },
+        {
+          title: 'Apply polygon via debug override',
+          description: 'Uses `vacp.debug.apply_state` to apply the same selection using a state JSON map.',
+          call: {
+            name: 'vacp.debug.apply_state',
+            params: {
+              state: {
+                [lassoRef]: { kind: 'Selection', polygon: demoPoly, selectedCount: 0 },
+              },
+            },
+          },
+        },
+        { title: 'Clear lasso again', call: { name: 'vanilla.clear_lasso', params: {} } },
+      ],
+    },
+  ];
+
   const actions: VacpActionDescriptor[] = [
     {
       name: 'vanilla.set_lasso_polygon',
@@ -181,9 +214,21 @@ function main() {
   const graph: VacpGraph = {
     version: VACP_SCHEMA_VERSION,
     nodes: [
-      { ref: vizRef, kind: 'Visualization', layer: 'VisualizationLayer', title: 'D3 lasso scatter', data: { width, height } },
+      {
+        ref: vizRef,
+        kind: 'Visualization',
+        layer: 'VisualizationLayer',
+        title: 'D3 lasso scatter',
+        data: { width, height },
+      },
       { ref: pointsRef, kind: 'Mark', layer: 'VisualizationLayer', title: 'points', description: 'scatter points' },
-      { ref: lassoRef, kind: 'Selection', layer: 'InteractionFeedbackLayer', title: 'lasso', description: 'freeform polygon selection' },
+      {
+        ref: lassoRef,
+        kind: 'Selection',
+        layer: 'InteractionFeedbackLayer',
+        title: 'lasso',
+        description: 'freeform polygon selection',
+      },
     ],
     edges: [
       { from: vizRef, to: pointsRef, kind: 'contains' },
@@ -244,7 +289,12 @@ function main() {
   );
   actions.push(applyStateDesc);
 
-  applyVacpAttributes(svg.node()!, { ref: vizRef, layer: 'VisualizationLayer', kind: 'Visualization', title: 'D3 lasso scatter' });
+  applyVacpAttributes(svg.node()!, {
+    ref: vizRef,
+    layer: 'VisualizationLayer',
+    kind: 'Visualization',
+    title: 'D3 lasso scatter',
+  });
   applyVacpInteractionAttributes(svg.node()!, {
     targetRef: vizRef,
     layer: 'VisualizationLayer',
@@ -254,7 +304,11 @@ function main() {
   embedVacpGraphInSvg(svg.node()!, graph);
 
   const snapshots = {
-    getCapabilities: async (): Promise<VacpCapabilitiesSnapshot> => ({ version: VACP_SCHEMA_VERSION, createdAt: nowIso(), graph }),
+    getCapabilities: async (): Promise<VacpCapabilitiesSnapshot> => ({
+      version: VACP_SCHEMA_VERSION,
+      createdAt: nowIso(),
+      graph,
+    }),
     getState: async (): Promise<VacpStateSnapshot> => ({
       version: VACP_SCHEMA_VERSION,
       createdAt: nowIso(),
@@ -268,7 +322,7 @@ function main() {
     }),
   };
 
-  const bridge = installVacpRuntimeBridge({ snapshots, actions: registry, globalKey: '__vacp' });
+  const bridge = installVacpRuntimeBridge({ snapshots, actions: registry, demos, globalKey: '__vacp' });
 
   async function refreshDebug(): Promise<void> {
     const [cap, st] = await Promise.all([bridge.getCapabilities(), bridge.getState()]);

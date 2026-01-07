@@ -1,4 +1,4 @@
-import type { VacpCapabilitiesSnapshot, VacpStateSnapshot } from '@vacp/core';
+import type { VacpCapabilitiesSnapshot, VacpDemo, VacpStateSnapshot } from '@vacp/core';
 import { coordinator, DuckDBWASMConnector } from '@uwdata/mosaic-core';
 import { astToDOM, parseSpec, type Spec } from '@uwdata/mosaic-spec';
 import { createAPIContext } from '@uwdata/vgplot';
@@ -20,6 +20,64 @@ async function waitForSvg(root: ParentNode, timeoutMs = 10_000): Promise<SVGElem
 
 type GalleryMeta = { title: string; description?: string };
 type GalleryEntry = { id: string; meta: GalleryMeta; yaml: string; spec: Spec };
+
+function buildDemos(entry: GalleryEntry): VacpDemo[] {
+  const is1d = entry.id === 'crossfilter';
+  const interactorId = '0';
+
+  const steps: VacpDemo['steps'] = is1d
+    ? [
+        {
+          title: 'Clear brush',
+          description: 'Reset the interval selection.',
+          call: { name: 'mosaic.clear_interval_1d', params: { interactorId } },
+        },
+        {
+          title: 'Set brush (narrow)',
+          description: 'Apply a small interval in domain units.',
+          call: { name: 'mosaic.set_interval_1d', params: { interactorId, min: -10, max: 10 } },
+        },
+        {
+          title: 'Set brush (wide)',
+          description: 'Move/resize the interval to see linked views update.',
+          call: { name: 'mosaic.set_interval_1d', params: { interactorId, min: -25, max: 70 } },
+        },
+        {
+          title: 'Clear brush again',
+          call: { name: 'mosaic.clear_interval_1d', params: { interactorId } },
+        },
+      ]
+    : [
+        {
+          title: 'Clear brush',
+          description: 'Reset the 2D interval selection.',
+          call: { name: 'mosaic.clear_interval_2d', params: { interactorId } },
+        },
+        {
+          title: 'Set brush (small box)',
+          description: 'Apply a small x/y box in domain units.',
+          call: { name: 'mosaic.set_interval_2d', params: { interactorId, x0: 30, x1: 60, y0: 30, y1: 60 } },
+        },
+        {
+          title: 'Set brush (different box)',
+          call: { name: 'mosaic.set_interval_2d', params: { interactorId, x0: 10, x1: 40, y0: 50, y1: 90 } },
+        },
+        {
+          title: 'Clear brush again',
+          call: { name: 'mosaic.clear_interval_2d', params: { interactorId } },
+        },
+      ];
+
+  return [
+    {
+      id: `${entry.id}-brush`,
+      title: 'Bidirectional selection',
+      description:
+        'Runs the same selection operations an agent would, then you can compare with human brushing and time-travel the history.',
+      steps,
+    },
+  ];
+}
 
 function fileIdFromPath(path: string): string {
   const name = path.split('/').pop() ?? path;
@@ -222,6 +280,7 @@ async function main() {
       title: entry.meta.title,
       globalKey: '__vacp',
       includeApplyStateAction: true,
+      demos: buildDemos(entry),
     });
 
     currentPlot = plot as VgplotPlotLike;
@@ -236,7 +295,10 @@ async function main() {
             params?: unknown;
           }) => Promise<{ ok: boolean; result?: unknown }>;
           subscribe?: (fn: () => void) => () => void;
-          refresh?: (options?: { source?: 'human' | 'agent' | 'debug' | 'system'; message?: string }) => Promise<unknown>;
+          refresh?: (options?: {
+            source?: 'human' | 'agent' | 'debug' | 'system';
+            message?: string;
+          }) => Promise<unknown>;
         };
       }
     ).__vacp;

@@ -3,6 +3,7 @@ import type {
   VacpActionDescriptor,
   VacpCapabilitiesSnapshot,
   VacpChangeSource,
+  VacpDemo,
   VacpEdge,
   VacpGraph,
   VacpNode,
@@ -89,6 +90,8 @@ export interface InstallVacpOnVegaLiteOptions {
    * lets a debug UI apply JSON state overrides to the live Vega view.
    */
   includeApplyStateAction?: boolean;
+  /** Optional demo scripts for debug tooling. */
+  demos?: VacpDemo[];
 }
 
 function makeRef({
@@ -400,9 +403,14 @@ export function installVacpOnVegaLiteView({
 
             // Selection parameters: best-effort set/clear via signals.
             const rec = raw && typeof raw === 'object' ? (raw as Record<string, unknown>) : {};
-            const signals = rec.signals && typeof rec.signals === 'object' ? (rec.signals as Record<string, unknown>) : null;
+            const signals =
+              rec.signals && typeof rec.signals === 'object' ? (rec.signals as Record<string, unknown>) : null;
             if (!signals || Object.keys(signals).length === 0) {
-              await executeAction(view, { callId: crypto.randomUUID(), name: 'vega_lite.clear_selection', params: { ref } }, { paramByRef, watchedSignalsByParam, allSignals });
+              await executeAction(
+                view,
+                { callId: crypto.randomUUID(), name: 'vega_lite.clear_selection', params: { ref } },
+                { paramByRef, watchedSignalsByParam, allSignals },
+              );
               applied += 1;
               continue;
             }
@@ -482,7 +490,12 @@ export function installVacpOnVegaLiteView({
     },
   };
 
-  const bridge = installVacpRuntimeBridge({ snapshots, actions: actionRegistry, globalKey: options.globalKey });
+  const bridge = installVacpRuntimeBridge({
+    snapshots,
+    actions: actionRegistry,
+    demos: options.demos,
+    globalKey: options.globalKey,
+  });
 
   // Keep the runtime timeline updated on human-driven param changes (signals).
   // This enables seamless human/agent handoff and makes time-travel debugging

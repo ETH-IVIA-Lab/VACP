@@ -5,6 +5,7 @@ import type {
   VacpCapabilitiesSnapshot,
   VacpChangeSource,
   VacpDebugApplyStateParams,
+  VacpDemo,
   VacpHistoryEntry,
   VacpRuntimeBridge,
   VacpRuntimeMode,
@@ -84,8 +85,7 @@ export function registerVacpDebugApplyStateAction(
   const descriptor: VacpActionDescriptor = {
     name: VACP_DEBUG_APPLY_STATE_ACTION,
     description:
-      options?.description ??
-      'Debug: apply a desired VACP state map to the live app (best-effort; provider-defined).',
+      options?.description ?? 'Debug: apply a desired VACP state map to the live app (best-effort; provider-defined).',
     targetRef: options?.targetRef as any,
     parameters: {
       type: 'object',
@@ -203,12 +203,14 @@ function findNextIndexWithState(history: VacpHistoryEntry[], startIdx: number): 
 function createRuntimeBridge({
   snapshots,
   actions,
+  demos,
 }: {
   snapshots: VacpSnapshotProvider;
   actions: VacpActionRegistry;
+  demos?: VacpDemo[];
 }): VacpRuntimeBridge {
-  type Adapter = { snapshots: VacpSnapshotProvider; actions: VacpActionRegistry };
-  const adapter: Adapter = { snapshots, actions };
+  type Adapter = { snapshots: VacpSnapshotProvider; actions: VacpActionRegistry; demos?: VacpDemo[] };
+  const adapter: Adapter = { snapshots, actions, demos: demos ?? [] };
 
   const listeners = new Set<(entry: VacpHistoryEntry) => void>();
   const runtimeId = makeEntryId();
@@ -352,7 +354,7 @@ function createRuntimeBridge({
     if (stateOverride) return stateOverride;
     const idx = cursor >= 0 ? cursor : history.length - 1;
     const entry = idx >= 0 ? history[idx] : undefined;
-    return entry ? stateFromEntry(entry) ?? liveState : liveState;
+    return entry ? (stateFromEntry(entry) ?? liveState) : liveState;
   }
 
   function setMode(next: VacpRuntimeMode, options?: { source?: VacpChangeSource; message?: string }): void {
@@ -411,7 +413,10 @@ function createRuntimeBridge({
     cursor = history.length - 1;
   }
 
-  function setGraphOverrideGraph(next: VacpCapabilitiesSnapshot['graph'], options?: { source?: VacpChangeSource; message?: string }): void {
+  function setGraphOverrideGraph(
+    next: VacpCapabilitiesSnapshot['graph'],
+    options?: { source?: VacpChangeSource; message?: string },
+  ): void {
     const base = liveCapabilities ?? {
       version: VACP_SCHEMA_VERSION,
       createdAt: nowIso(),
@@ -465,12 +470,16 @@ function createRuntimeBridge({
   function updateAdapters(next: Adapter, options?: { source?: VacpChangeSource; message?: string }): void {
     adapter.snapshots = next.snapshots;
     adapter.actions = next.actions;
+    adapter.demos = next.demos ?? [];
     // Clear inspection overrides on update: new providers may change refs.
     graphOverride = null;
     stateOverride = null;
     mode = 'live';
     // Capture a fresh snapshot asynchronously.
-    void bridge.refresh?.({ source: entrySource(options?.source), message: entryMessage(options?.message) ?? 'bridge updated' });
+    void bridge.refresh?.({
+      source: entrySource(options?.source),
+      message: entryMessage(options?.message) ?? 'bridge updated',
+    });
   }
 
   const bridge: VacpRuntimeBridge = {
@@ -508,6 +517,8 @@ function createRuntimeBridge({
         currentState: currentState(),
       };
     },
+
+    getDemos: async () => adapter.demos ?? [],
 
     subscribe: (listener) => {
       listeners.add(listener);
@@ -548,8 +559,11 @@ function createRuntimeBridge({
   };
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  (bridge as any).__vacpUpdate = (next: { snapshots: VacpSnapshotProvider; actions: VacpActionRegistry }) =>
-    updateAdapters(next, { source: 'system' });
+  (bridge as any).__vacpUpdate = (next: {
+    snapshots: VacpSnapshotProvider;
+    actions: VacpActionRegistry;
+    demos?: VacpDemo[];
+  }) => updateAdapters({ ...next, demos: next.demos ?? [] }, { source: 'system' });
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   (bridge as any).__vacpRuntimeId = runtimeId;
 
@@ -572,11 +586,13 @@ function createRuntimeBridge({
 export function createVacpWindowBridge({
   snapshots,
   actions,
+  demos,
 }: {
   snapshots: VacpSnapshotProvider;
   actions: VacpActionRegistry;
+  demos?: VacpDemo[];
 }): VacpRuntimeBridge {
-  return createRuntimeBridge({ snapshots, actions });
+  return createRuntimeBridge({ snapshots, actions, demos });
 }
 
 function isRuntimeBridge(value: unknown): value is VacpRuntimeBridge {
@@ -596,10 +612,12 @@ function isRuntimeBridge(value: unknown): value is VacpRuntimeBridge {
 export function installVacpRuntimeBridge({
   snapshots,
   actions,
+  demos,
   globalKey,
 }: {
   snapshots: VacpSnapshotProvider;
   actions: VacpActionRegistry;
+  demos?: VacpDemo[];
   globalKey?: string;
 }): VacpRuntimeBridge {
   const key = globalKey ?? '__vacp';
@@ -609,13 +627,13 @@ export function installVacpRuntimeBridge({
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const upd = (existing as any).__vacpUpdate as
       | undefined
-      | ((next: { snapshots: VacpSnapshotProvider; actions: VacpActionRegistry }) => void);
+      | ((next: { snapshots: VacpSnapshotProvider; actions: VacpActionRegistry; demos?: VacpDemo[] }) => void);
     if (typeof upd === 'function') {
-      upd({ snapshots, actions });
+      upd({ snapshots, actions, demos });
       return existing as VacpRuntimeBridge;
     }
   }
-  const bridge = createRuntimeBridge({ snapshots, actions });
+  const bridge = createRuntimeBridge({ snapshots, actions, demos });
   root[key] = bridge;
   return bridge;
 }

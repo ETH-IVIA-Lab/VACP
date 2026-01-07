@@ -1,4 +1,11 @@
-import type { VacpCapabilitiesSnapshot, VacpHistoryEntry, VacpRuntimeBridge, VacpRuntimeSnapshot, VacpStateSnapshot } from '@vacp/core';
+import type {
+  VacpCapabilitiesSnapshot,
+  VacpDemo,
+  VacpHistoryEntry,
+  VacpRuntimeBridge,
+  VacpRuntimeSnapshot,
+  VacpStateSnapshot,
+} from '@vacp/core';
 import { VACP_DEBUG_APPLY_STATE_ACTION } from '@vacp/core';
 import { renderVacpDiagramMermaid } from '@vacp/diagrams';
 
@@ -252,7 +259,7 @@ function ensureStyles(): void {
   document.head.append(style);
 }
 
-type DebugTab = 'Graph' | 'Actions' | 'History' | 'JSON';
+type DebugTab = 'Graph' | 'Actions' | 'History' | 'Demo' | 'JSON';
 
 export function installVacpDebugUi(options?: VacpDebugUiOptions): void {
   const enabled = options?.enabled ?? 'auto';
@@ -340,6 +347,7 @@ export function installVacpDebugUi(options?: VacpDebugUiOptions): void {
     Graph: document.createElement('button'),
     Actions: document.createElement('button'),
     History: document.createElement('button'),
+    Demo: document.createElement('button'),
     JSON: document.createElement('button'),
   };
 
@@ -349,18 +357,34 @@ export function installVacpDebugUi(options?: VacpDebugUiOptions): void {
     b.className = 'vacp-debug-ui-tab';
     b.textContent = t;
     b.setAttribute('aria-selected', 'false');
-    b.title = t === 'Graph' ? 'Rendered graph diagram + Mermaid source' : t === 'Actions' ? 'Manually dispatch actions' : t === 'History' ? 'Inspect runtime timeline entries' : 'Edit debug overrides';
+    b.title =
+      t === 'Graph'
+        ? 'Rendered graph diagram + Mermaid source'
+        : t === 'Actions'
+          ? 'Manually dispatch actions'
+          : t === 'History'
+            ? 'Inspect runtime timeline entries'
+            : t === 'Demo'
+              ? 'Step through provider-supplied demo scripts'
+              : 'Edit debug overrides and apply to the live app (if supported)';
     tabs.append(b);
   });
 
   const graphPane = document.createElement('div');
   const actionsPane = document.createElement('div');
   const historyPane = document.createElement('div');
+  const demoPane = document.createElement('div');
   const jsonPane = document.createElement('div');
 
-  const panes: Record<DebugTab, HTMLElement> = { Graph: graphPane, Actions: actionsPane, History: historyPane, JSON: jsonPane };
+  const panes: Record<DebugTab, HTMLElement> = {
+    Graph: graphPane,
+    Actions: actionsPane,
+    History: historyPane,
+    Demo: demoPane,
+    JSON: jsonPane,
+  };
 
-  codeHost.append(tabs, graphPane, actionsPane, historyPane, jsonPane);
+  codeHost.append(tabs, graphPane, actionsPane, historyPane, demoPane, jsonPane);
 
   body.append(svgHost, codeHost);
   panel.append(header, body);
@@ -371,6 +395,9 @@ export function installVacpDebugUi(options?: VacpDebugUiOptions): void {
   let currentTab: DebugTab = 'Graph';
   let unsubscribe: (() => void) | null = null;
   let observeEnabled = true;
+  let demos: VacpDemo[] = [];
+  let selectedDemoId: string | null = null;
+  let selectedStepIdx = 0;
 
   async function renderSvg(mermaidText: string): Promise<void> {
     svgHost.textContent = '';
@@ -392,7 +419,9 @@ export function installVacpDebugUi(options?: VacpDebugUiOptions): void {
 
   function setTab(next: DebugTab): void {
     currentTab = next;
-    (Object.keys(tabButtons) as DebugTab[]).forEach((t) => tabButtons[t].setAttribute('aria-selected', t === next ? 'true' : 'false'));
+    (Object.keys(tabButtons) as DebugTab[]).forEach((t) =>
+      tabButtons[t].setAttribute('aria-selected', t === next ? 'true' : 'false'),
+    );
     (Object.keys(panes) as DebugTab[]).forEach((t) => {
       panes[t].style.display = t === next ? 'block' : 'none';
     });
@@ -414,6 +443,12 @@ export function installVacpDebugUi(options?: VacpDebugUiOptions): void {
       currentCapabilities: capabilities,
       currentState: state,
     };
+  }
+
+  async function readDemos(bridge: VacpWindowBridge): Promise<VacpDemo[]> {
+    if (typeof bridge.getDemos !== 'function') return [];
+    const res = await bridge.getDemos();
+    return Array.isArray(res) ? res : [];
   }
 
   function renderHistory(runtime: VacpRuntimeSnapshot, bridge: VacpWindowBridge): void {
@@ -548,7 +583,8 @@ export function installVacpDebugUi(options?: VacpDebugUiOptions): void {
     const run = document.createElement('button');
     run.type = 'button';
     run.textContent = 'Execute';
-    run.title = 'Execute the selected action. Uses bridge.dispatch() when available so the timeline records the chosen source/message.';
+    run.title =
+      'Execute the selected action. Uses bridge.dispatch() when available so the timeline records the chosen source/message.';
 
     const resultTitle = document.createElement('div');
     resultTitle.className = 'vacp-debug-ui-section-title';
@@ -610,6 +646,168 @@ export function installVacpDebugUi(options?: VacpDebugUiOptions): void {
       resultTitle,
       resultPre,
     );
+  }
+
+  function renderDemo(bridge: VacpWindowBridge): void {
+    demoPane.textContent = '';
+
+    const title = document.createElement('div');
+    title.className = 'vacp-debug-ui-section-title';
+    title.textContent = 'Demo Stepper';
+
+    const hint = document.createElement('div');
+    hint.className = 'vacp-debug-ui-small';
+    hint.textContent =
+      'Demos are optional scripts provided by the app. Step through them to see how actions mutate state and show up in history.';
+
+    if (!demos.length) {
+      const empty = document.createElement('div');
+      empty.className = 'vacp-debug-ui-small';
+      empty.textContent = 'No demos provided by the current bridge.';
+      demoPane.append(title, hint, empty);
+      return;
+    }
+
+    const selectField = document.createElement('div');
+    selectField.className = 'vacp-debug-ui-field';
+    const selectLabel = document.createElement('label');
+    selectLabel.textContent = 'Demo';
+    const select = document.createElement('select');
+    select.title = 'Choose which demo script to run/step through';
+    demos.forEach((d) => {
+      const opt = document.createElement('option');
+      opt.value = d.id;
+      opt.textContent = d.title;
+      select.append(opt);
+    });
+    selectField.append(selectLabel, select);
+
+    const current = demos.find((d) => d.id === (selectedDemoId ?? demos[0]!.id)) ?? demos[0]!;
+    select.value = current.id;
+    selectedDemoId = current.id;
+
+    const desc = document.createElement('div');
+    desc.className = 'vacp-debug-ui-small';
+    desc.textContent = current.description ?? '';
+
+    const controls = document.createElement('div');
+    controls.className = 'vacp-debug-ui-actions';
+
+    const prev = document.createElement('button');
+    prev.type = 'button';
+    prev.textContent = 'Prev';
+    prev.title = 'Move to the previous demo step (does not execute)';
+
+    const run = document.createElement('button');
+    run.type = 'button';
+    run.textContent = 'Run step';
+    run.title = 'Execute the currently selected step action (if any)';
+
+    const next = document.createElement('button');
+    next.type = 'button';
+    next.textContent = 'Next';
+    next.title = 'Move to the next demo step (does not execute)';
+
+    const runAll = document.createElement('button');
+    runAll.type = 'button';
+    runAll.textContent = 'Run all';
+    runAll.title = 'Execute all remaining steps from the current position';
+
+    const reset = document.createElement('button');
+    reset.type = 'button';
+    reset.textContent = 'Reset';
+    reset.title = 'Jump back to step 0 (does not execute)';
+
+    controls.append(prev, run, next, runAll, reset);
+
+    const stepsTitle = document.createElement('div');
+    stepsTitle.className = 'vacp-debug-ui-section-title';
+    stepsTitle.textContent = `Steps (${current.steps.length})`;
+
+    const list = document.createElement('div');
+    list.className = 'vacp-debug-ui-list';
+
+    const clampedIdx = Math.max(0, Math.min(selectedStepIdx, Math.max(0, current.steps.length - 1)));
+    selectedStepIdx = clampedIdx;
+
+    current.steps.forEach((s, idx) => {
+      const row = document.createElement('div');
+      row.className = 'vacp-debug-ui-row';
+      row.setAttribute('aria-selected', idx === selectedStepIdx ? 'true' : 'false');
+      row.title = 'Click to select this step (does not execute)';
+      row.textContent = `${idx}. ${s.title}${s.call ? ` • ${s.call.name}` : ''}`;
+      row.addEventListener('click', () => {
+        selectedStepIdx = idx;
+        renderDemo(bridge);
+      });
+      list.append(row);
+    });
+
+    const stepDetails = document.createElement('div');
+    stepDetails.className = 'vacp-debug-ui-small';
+    const step = current.steps[selectedStepIdx];
+    stepDetails.textContent = step
+      ? `${step.description ? `${step.description}\n\n` : ''}${step.call ? JSON.stringify(step.call, null, 2) : '(informational step)'}`
+      : '';
+
+    const runStep = async (idx: number) => {
+      const s = current.steps[idx];
+      if (!s?.call) return;
+      const call = { callId: makeId(), name: s.call.name, params: s.call.params };
+      const message = `demo:${current.id} step:${idx} ${s.title}`;
+      if (typeof bridge.dispatch === 'function') await bridge.dispatch(call, { source: 'debug', message });
+      else await bridge.execute(call);
+    };
+
+    select.addEventListener('change', () => {
+      selectedDemoId = select.value;
+      selectedStepIdx = 0;
+      renderDemo(bridge);
+    });
+
+    prev.addEventListener('click', () => {
+      selectedStepIdx = Math.max(0, selectedStepIdx - 1);
+      renderDemo(bridge);
+    });
+
+    next.addEventListener('click', () => {
+      selectedStepIdx = Math.min(current.steps.length - 1, selectedStepIdx + 1);
+      renderDemo(bridge);
+    });
+
+    reset.addEventListener('click', () => {
+      selectedStepIdx = 0;
+      renderDemo(bridge);
+    });
+
+    run.addEventListener('click', async () => {
+      try {
+        run.disabled = true;
+        await runStep(selectedStepIdx);
+        if (typeof bridge.refresh === 'function') await bridge.refresh({ source: 'debug', message: 'after demo step' });
+        selectedStepIdx = Math.min(current.steps.length - 1, selectedStepIdx + 1);
+      } finally {
+        run.disabled = false;
+      }
+      void refresh();
+    });
+
+    runAll.addEventListener('click', async () => {
+      try {
+        runAll.disabled = true;
+        for (let i = selectedStepIdx; i < current.steps.length; i++) {
+          await runStep(i);
+        }
+        if (typeof bridge.refresh === 'function')
+          await bridge.refresh({ source: 'debug', message: 'after demo run all' });
+        selectedStepIdx = current.steps.length - 1;
+      } finally {
+        runAll.disabled = false;
+      }
+      void refresh();
+    });
+
+    demoPane.append(title, hint, selectField, desc, controls, stepsTitle, list, stepDetails);
   }
 
   function renderJson(runtime: VacpRuntimeSnapshot, bridge: VacpWindowBridge): void {
@@ -682,7 +880,10 @@ export function installVacpDebugUi(options?: VacpDebugUiOptions): void {
       try {
         if (typeof bridge.setStateOverride !== 'function') throw new Error('Bridge does not support state overrides');
         const parsed = JSON.parse(stateArea.value) as Record<string, unknown>;
-        bridge.setStateOverride(parsed as unknown as Record<string, any>, { source: 'debug', message: 'state override' });
+        bridge.setStateOverride(parsed as unknown as Record<string, any>, {
+          source: 'debug',
+          message: 'state override',
+        });
         if (typeof bridge.setMode === 'function') bridge.setMode('inspect', { source: 'debug', message: 'inspect' });
         note.textContent = 'State override applied.';
       } catch (err) {
@@ -725,7 +926,8 @@ export function installVacpDebugUi(options?: VacpDebugUiOptions): void {
             ? await bridge.dispatch(call, { source: 'debug', message: 'apply live state' })
             : await bridge.execute(call);
         liveResult.textContent = `Result:\n${JSON.stringify(res, null, 2)}`;
-        if (typeof bridge.refresh === 'function') await bridge.refresh({ source: 'debug', message: 'after live apply' });
+        if (typeof bridge.refresh === 'function')
+          await bridge.refresh({ source: 'debug', message: 'after live apply' });
       } catch (err) {
         liveResult.textContent = `Failed: ${String(err)}`;
       } finally {
@@ -769,6 +971,7 @@ export function installVacpDebugUi(options?: VacpDebugUiOptions): void {
     }
     try {
       const runtime = await readRuntime(bridge);
+      demos = await readDemos(bridge);
       title.textContent = `VACP Debug (${globalKey}) • mode=${runtime.mode} cursor=${runtime.cursor} history=${runtime.history.length}${
         runtime.runtimeId ? ` • runtime=${runtime.runtimeId.slice(0, 8)}` : ''
       }`;
@@ -792,6 +995,7 @@ export function installVacpDebugUi(options?: VacpDebugUiOptions): void {
       renderGraphText(runtime);
       renderActions(runtime, bridge);
       renderHistory(runtime, bridge);
+      renderDemo(bridge);
       renderJson(runtime, bridge);
       await renderSvg(diagram);
     } catch (err) {
@@ -827,7 +1031,8 @@ export function installVacpDebugUi(options?: VacpDebugUiOptions): void {
   closeBtn.addEventListener('click', () => close());
   refreshBtn.addEventListener('click', async () => {
     const bridge = getBridge(globalKey);
-    if (bridge && typeof bridge.refresh === 'function') await bridge.refresh({ source: 'debug', message: 'manual refresh' });
+    if (bridge && typeof bridge.refresh === 'function')
+      await bridge.refresh({ source: 'debug', message: 'manual refresh' });
     void refresh();
   });
   liveBtn.addEventListener('click', () => {

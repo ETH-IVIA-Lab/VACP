@@ -229,6 +229,33 @@ export interface VacpRuntimeSnapshot {
 }
 
 /**
+ * Demo scripts (concepts).
+ *
+ * A demo is a lightweight, provider-supplied sequence of actions that can be
+ * stepped through in a debug UI. This makes it easy for new users to
+ * understand what "bidirectional" interaction means in practice.
+ *
+ * Demos are optional and meant for examples / development tooling.
+ */
+export type VacpDemoStep = {
+  id?: string;
+  title: string;
+  description?: string;
+  /**
+   * Action call template (callId will be provided by the caller).
+   * If omitted, the step is informational only.
+   */
+  call?: Omit<VacpActionCall, 'callId'>;
+};
+
+export type VacpDemo = {
+  id: string;
+  title: string;
+  description?: string;
+  steps: VacpDemoStep[];
+};
+
+/**
  * Optional extended in-page bridge contract for debugging and time travel.
  *
  * This is still VACP (protocol + snapshots + actions), but exposes runtime
@@ -236,6 +263,8 @@ export interface VacpRuntimeSnapshot {
  */
 export interface VacpRuntimeBridge extends VacpWindowBridge {
   getRuntime?: () => Promise<VacpRuntimeSnapshot> | VacpRuntimeSnapshot;
+  /** Optional demo scripts provided by the app/provider (examples/dev only). */
+  getDemos?: () => Promise<VacpDemo[]> | VacpDemo[];
   /**
    * Subscribe to runtime entries. Returns an unsubscribe function.
    * Listeners are only invoked in-page (not over MCP).
@@ -261,7 +290,10 @@ export interface VacpRuntimeBridge extends VacpWindowBridge {
    * Dispatch an action with an explicit source label for the local runtime
    * timeline. `execute()` remains MCP-friendly and defaults to `source="agent"`.
    */
-  dispatch?: (call: VacpActionCall, options?: { source?: VacpChangeSource; message?: string }) => Promise<VacpActionResult>;
+  dispatch?: (
+    call: VacpActionCall,
+    options?: { source?: VacpChangeSource; message?: string },
+  ) => Promise<VacpActionResult>;
 
   /**
    * Optional state observer:

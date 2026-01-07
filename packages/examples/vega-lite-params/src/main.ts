@@ -1,4 +1,4 @@
-import type { VacpCapabilitiesSnapshot, VacpStateSnapshot } from '@vacp/core';
+import type { VacpCapabilitiesSnapshot, VacpDemo, VacpStateSnapshot } from '@vacp/core';
 import { renderVacpDiagramMermaid } from '@vacp/diagrams';
 import { installVacpDebugUi } from '@vacp/debug-ui';
 import { installVacpOnVegaLiteView, type VegaLiteSpecLike, type VegaViewLike } from '@vacp/vega-lite';
@@ -6,6 +6,75 @@ import embed, { type VisualizationSpec } from 'vega-embed';
 
 type GalleryMeta = { id: string; title: string; description?: string };
 type GalleryEntry = { id: string; meta: GalleryMeta; createSpec: () => VegaLiteSpecLike };
+
+function buildDemos(entry: GalleryEntry): VacpDemo[] {
+  const base = `vacp://vacp-examples/vega-lite/${entry.id}/${entry.id}`;
+  const steps: VacpDemo['steps'] =
+    entry.id === 'bars-point-select'
+      ? [
+          {
+            title: 'Set baseOpacity (low)',
+            call: { name: 'vega_lite.set_param', params: { ref: `${base}/param/baseOpacity`, value: 0.2 } },
+          },
+          {
+            title: 'Set baseOpacity (high)',
+            call: { name: 'vega_lite.set_param', params: { ref: `${base}/param/baseOpacity`, value: 0.8 } },
+          },
+          {
+            title: 'Apply state via debug override (baseOpacity)',
+            description: 'Uses the opt-in debug apply-state action instead of the normal set_param action.',
+            call: {
+              name: 'vacp.debug.apply_state',
+              params: {
+                state: {
+                  [`${base}/param/baseOpacity`]: { kind: 'Param', name: 'baseOpacity', value: 0.35 },
+                },
+              },
+            },
+          },
+          {
+            title: 'Clear selection',
+            description: 'If you selected a bar manually, this clears it.',
+            call: { name: 'vega_lite.clear_selection', params: { ref: `${base}/param/pick` } },
+          },
+        ]
+      : [
+          {
+            title: 'Set pointSize (small)',
+            call: { name: 'vega_lite.set_param', params: { ref: `${base}/param/pointSize`, value: 12 } },
+          },
+          {
+            title: 'Set pointSize (large)',
+            call: { name: 'vega_lite.set_param', params: { ref: `${base}/param/pointSize`, value: 90 } },
+          },
+          {
+            title: 'Apply state via debug override (pointSize)',
+            call: {
+              name: 'vacp.debug.apply_state',
+              params: {
+                state: {
+                  [`${base}/param/pointSize`]: { kind: 'Param', name: 'pointSize', value: 36 },
+                },
+              },
+            },
+          },
+          {
+            title: 'Clear brush selection',
+            description: 'If you brushed the scatterplot manually, this clears it.',
+            call: { name: 'vega_lite.clear_selection', params: { ref: `${base}/param/brush` } },
+          },
+        ];
+
+  return [
+    {
+      id: `${entry.id}-params`,
+      title: 'Params and selection',
+      description:
+        'Steps through programmatic parameter updates (agent-like) and shows how they appear in state/history.',
+      steps,
+    },
+  ];
+}
 
 function fileIdFromPath(path: string): string {
   const name = path.split('/').pop() ?? path;
@@ -156,6 +225,7 @@ async function main() {
         globalKey: '__vacp',
         includeSetSignalAction: false,
         includeApplyStateAction: true,
+        demos: buildDemos(entry),
       },
     });
 
@@ -170,7 +240,10 @@ async function main() {
             params?: unknown;
           }) => Promise<{ ok: boolean; result?: unknown }>;
           subscribe?: (fn: () => void) => () => void;
-          refresh?: (options?: { source?: 'human' | 'agent' | 'debug' | 'system'; message?: string }) => Promise<unknown>;
+          refresh?: (options?: {
+            source?: 'human' | 'agent' | 'debug' | 'system';
+            message?: string;
+          }) => Promise<unknown>;
         };
       }
     ).__vacp;
