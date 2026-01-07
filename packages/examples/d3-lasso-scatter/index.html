@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>VACP Example - D3 Lasso Scatter</title>
+    <style>
+      * {
+        font-family:
+          system-ui,
+          -apple-system,
+          BlinkMacSystemFont,
+          'Segoe UI',
+          Roboto,
+          Oxygen,
+          Ubuntu,
+          Cantarell,
+          'Open Sans',
+          'Helvetica Neue',
+          sans-serif;
+      }
+      body {
+        margin: 24px;
+      }
+      .layout {
+        display: grid;
+        grid-template-columns: 1fr 420px;
+        gap: 16px;
+        align-items: start;
+      }
+      pre {
+        background: #0b1020;
+        color: #e7e9ee;
+        padding: 12px;
+        border-radius: 8px;
+        overflow: auto;
+        max-height: 70vh;
+        font-size: 12px;
+      }
+      .card {
+        border: 1px solid #e5e7eb;
+        border-radius: 10px;
+        padding: 12px;
+      }
+      .muted {
+        color: #6b7280;
+        font-size: 13px;
+      }
+      .row {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+        flex-wrap: wrap;
+      }
+      button {
+        padding: 6px 10px;
+        border-radius: 8px;
+        border: 1px solid #e5e7eb;
+        background: #fff;
+        cursor: pointer;
+      }
+      #plot {
+        width: 100%;
+      }
+    </style>
+  </head>
+  <body>
+    <h2>VACP Example: Frameworkless D3 scatter + lasso</h2>
+    <p class="muted">
+      This is a vanilla (no framework) visualization that still exposes a VACP bridge at <code>window.__vacp</code>.
+      Lasso with the mouse; then compare with the programmatic action dispatch. Enable the overlay with
+      <code>?vacpDebug=1</code>.
+    </p>
+
+    <div class="layout">
+      <div class="card">
+        <div id="plot"></div>
+      </div>
+      <div class="card">
+        <div class="row" style="justify-content: space-between; margin-bottom: 8px">
+          <div class="muted">Debug: lasso selection + actions + Mermaid</div>
+          <div class="row">
+            <button id="demo-set" type="button">Demo: set lasso</button>
+            <button id="demo-clear" type="button">Clear lasso</button>
+            <button id="refresh" type="button">Refresh</button>
+          </div>
+        </div>
+        <div id="checks" class="muted" style="margin-bottom: 8px">(loading…)</div>
+        <div class="muted" style="margin: 10px 0 8px">State</div>
+        <pre id="state">(loading…)</pre>
+        <div class="muted" style="margin: 10px 0 8px">Mermaid</div>
+        <pre id="diagram">(loading…)</pre>
+      </div>
+    </div>
+
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
+

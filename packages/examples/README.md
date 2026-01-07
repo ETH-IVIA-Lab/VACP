@@ -4,6 +4,7 @@ Runnable example apps (similar in spirit to `mosaic/packages/examples/*`).
 
 - `mosaic-linear-regression`: Mosaic spec gallery (YAML in `src/specs/`) installed via `@vacp/mosaic`
 - `vega-lite-params`: Vega-Lite spec gallery (modules in `src/specs/`) installed via `@vacp/vega-lite`
+- `d3-lasso-scatter`: Frameworkless D3 scatter with lasso selection (provider assembled directly from `@vacp/*` building blocks)
 
 Both examples also include the optional `@vacp/debug-ui` overlay:
 

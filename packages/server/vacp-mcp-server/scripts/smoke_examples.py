@@ -465,9 +465,74 @@ async def _test_vega_lite_gallery(page: Page) -> None:
         await page.wait_for_selector('svg metadata[type="application/vacp+json"]', timeout=10_000, state='attached')
 
 
+async def _test_d3_lasso(page: Page) -> None:
+    await _expect_bridge(page)
+
+    caps = await _get_capabilities(page)
+    graph = caps.get('graph', {})
+    _assert(isinstance(graph, dict), 'capabilities.graph must be an object')
+    _assert(
+        any(isinstance(a, dict) and a.get('name') == 'vanilla.set_lasso_polygon' for a in graph.get('actions', [])),
+        'Expected vanilla.set_lasso_polygon action to exist',
+    )
+    _assert(
+        any(isinstance(a, dict) and a.get('name') == 'vanilla.clear_lasso' for a in graph.get('actions', [])),
+        'Expected vanilla.clear_lasso action to exist',
+    )
+
+    await page.wait_for_selector('svg metadata[type="application/vacp+json"]', timeout=10_000, state='attached')
+
+    before = await _get_state(page)
+    rt_before = await _get_runtime(page)
+    before_hist = len(rt_before.get('history', []))
+    await page.click('#demo-set')
+    await page.wait_for_function(
+        '(n) => globalThis.__vacp.getRuntime().then(rt => (rt.history||[]).length >= n)',
+        arg=before_hist + 1,
+        timeout=15_000,
+    )
+    after_set = await _get_state(page)
+    _assert(
+        json.dumps(before, sort_keys=True) != json.dumps(after_set, sort_keys=True),
+        'Expected state to change after demo-set',
+    )
+
+    await page.click('#demo-clear')
+    await page.wait_for_timeout(250)
+    after_clear = await _get_state(page)
+    _assert(
+        json.dumps(after_set, sort_keys=True) != json.dumps(after_clear, sort_keys=True),
+        'Expected state to change after demo-clear',
+    )
+
+    # Human lasso: draw a polygon in the plot.
+    svg = page.locator('#plot svg').first
+    box = await svg.bounding_box()
+    if box:
+        rt_h0 = await _get_runtime(page)
+        before_h = await _get_state(page)
+        await page.mouse.move(box['x'] + box['width'] * 0.25, box['y'] + box['height'] * 0.35)
+        await page.mouse.down()
+        await page.mouse.move(box['x'] + box['width'] * 0.55, box['y'] + box['height'] * 0.30, steps=8)
+        await page.mouse.move(box['x'] + box['width'] * 0.60, box['y'] + box['height'] * 0.55, steps=8)
+        await page.mouse.move(box['x'] + box['width'] * 0.30, box['y'] + box['height'] * 0.60, steps=8)
+        await page.mouse.up()
+        await page.wait_for_function(
+            '(n) => globalThis.__vacp.getRuntime().then(rt => (rt.history||[]).length >= n)',
+            arg=len(rt_h0.get('history', [])) + 1,
+            timeout=15_000,
+        )
+        after_h = await _get_state(page)
+        _assert(
+            json.dumps(before_h, sort_keys=True) != json.dumps(after_h, sort_keys=True),
+            'Expected state to change after human lasso',
+        )
+
+
 async def main() -> int:
     mosaic_port = _free_port()
     vega_port = _free_port()
+    d3_port = _free_port()
 
     mosaic_srv = await _start_vite_dev_server(
         'mosaic-linear-regression',
@@ -478,6 +543,11 @@ async def main() -> int:
         'vega-lite-params',
         EXAMPLES_DIR / 'vega-lite-params',
         vega_port,
+    )
+    d3_srv = await _start_vite_dev_server(
+        'd3-lasso-scatter',
+        EXAMPLES_DIR / 'd3-lasso-scatter',
+        d3_port,
     )
 
     try:
@@ -497,12 +567,19 @@ async def main() -> int:
             await _test_vega_lite_gallery(page)
             await page.close()
 
+            page = await ctx.new_page()
+            await page.goto(d3_srv.url + '?vacpDebug=1', wait_until='domcontentloaded')
+            await _test_debug_overlay(page)
+            await _test_d3_lasso(page)
+            await page.close()
+
             await ctx.close()
             await browser.close()
 
     finally:
         await mosaic_srv.stop()
         await vega_srv.stop()
+        await d3_srv.stop()
 
     print('OK: examples smoke tests passed')
     return 0
