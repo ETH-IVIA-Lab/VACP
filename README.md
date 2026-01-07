@@ -24,9 +24,9 @@ From `vacp/`:
 
 Run an example app:
 
-- `pnpm -C packages/examples/mosaic-linear-regression dev`
-- `pnpm -C packages/examples/vega-lite-params dev`
-- `pnpm -C packages/examples/d3-lasso-scatter dev`
+- `pnpm -C packages/examples/mosaic-gallery dev`
+- `pnpm -C packages/examples/vega-lite-gallery dev`
+- `pnpm -C packages/examples/d3-scatter-lasso dev`
 
 Enable the in-page overlay:
 
@@ -59,6 +59,7 @@ MCP is “just a wire”. The protocol lives in the app.
 ## Where To Read Next
 
 - System overview: `vacp/ARCHITECTURE.md`
+- Deep dive (flows, rationale, extension points): `vacp/ARCHITECTURE_DETAILS.md`
 - Runnable demos: `vacp/packages/examples/README.md`
 - MCP server: `vacp/packages/vacp-mcp-server/README.md`
 
