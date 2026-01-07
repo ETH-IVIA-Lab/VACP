@@ -419,8 +419,12 @@ async def _test_vega_lite_gallery(page: Page) -> None:
                 'Expected state to change after human slider change',
             )
             _assert(
+                rt_h0.get('runtimeId') == rt_h1.get('runtimeId'),
+                f'Expected stable runtime across slider change (before={rt_h0.get("runtimeId")} after={rt_h1.get("runtimeId")})',
+            )
+            _assert(
                 len(rt_h1.get('history', [])) >= len(rt_h0.get('history', [])) + 1,
-                'Expected runtime history to grow after human slider change',
+                f'Expected runtime history to grow after human slider change (before={len(rt_h0.get("history", []))} after={len(rt_h1.get("history", []))})',
             )
 
         # DOM/SVG fallback evidence: metadata graph must be embedded when rendering to SVG.
