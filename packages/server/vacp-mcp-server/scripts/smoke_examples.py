@@ -207,8 +207,13 @@ async def _test_mosaic_gallery(page: Page) -> None:
 
         before = await _get_state(page)
         rt_before = await _get_runtime(page)
+        before_hist = len(rt_before.get('history', []))
         await page.click('#demo-set')
-        await page.wait_for_timeout(300)
+        await page.wait_for_function(
+            '(n) => globalThis.__vacp.getRuntime().then(rt => (rt.history||[]).length >= n)',
+            before_hist + 1,
+            timeout=15_000,
+        )
         after_set = await _get_state(page)
         rt_after_set = await _get_runtime(page)
         if has_2d or has_1d:
@@ -217,13 +222,16 @@ async def _test_mosaic_gallery(page: Page) -> None:
                 'Expected state to change after demo-set',
             )
             _assert(
-                int(rt_after_set.get('historyLen', len(rt_after_set.get('history', []))))
-                >= int(rt_before.get('historyLen', len(rt_before.get('history', [])))) + 1,
+                len(rt_after_set.get('history', [])) >= before_hist + 1,
                 'Expected runtime history to grow after demo-set',
             )
 
         await page.click('#demo-clear')
-        await page.wait_for_timeout(300)
+        await page.wait_for_function(
+            '(n) => globalThis.__vacp.getRuntime().then(rt => (rt.history||[]).length >= n)',
+            len(rt_after_set.get('history', [])) + 1,
+            timeout=15_000,
+        )
         after_clear = await _get_state(page)
         rt_after_clear = await _get_runtime(page)
         if has_2d or has_1d:
@@ -232,8 +240,7 @@ async def _test_mosaic_gallery(page: Page) -> None:
                 'Expected state to change after demo-clear',
             )
             _assert(
-                int(rt_after_clear.get('historyLen', len(rt_after_clear.get('history', []))))
-                >= int(rt_after_set.get('historyLen', len(rt_after_set.get('history', [])))) + 1,
+                len(rt_after_clear.get('history', [])) >= len(rt_after_set.get('history', [])) + 1,
                 'Expected runtime history to grow after demo-clear',
             )
 
@@ -248,7 +255,11 @@ async def _test_mosaic_gallery(page: Page) -> None:
                 await page.mouse.down()
                 await page.mouse.move(box['x'] + box['width'] * 0.65, box['y'] + box['height'] * 0.65, steps=12)
                 await page.mouse.up()
-                await page.wait_for_timeout(500)
+                await page.wait_for_function(
+                    '(n) => globalThis.__vacp.getRuntime().then(rt => (rt.history||[]).length >= n)',
+                    len(rt_h0.get('history', [])) + 1,
+                    timeout=15_000,
+                )
                 after_h = await _get_state(page)
                 rt_h1 = await _get_runtime(page)
                 _assert(
@@ -256,8 +267,7 @@ async def _test_mosaic_gallery(page: Page) -> None:
                     'Expected state to change after human brush drag',
                 )
                 _assert(
-                    int(rt_h1.get('historyLen', len(rt_h1.get('history', []))))
-                    >= int(rt_h0.get('historyLen', len(rt_h0.get('history', [])))) + 1,
+                    len(rt_h1.get('history', [])) >= len(rt_h0.get('history', [])) + 1,
                     'Expected runtime history to grow after human brush drag',
                 )
 
@@ -296,8 +306,13 @@ async def _test_vega_lite_gallery(page: Page) -> None:
 
         before = await _get_state(page)
         rt_before = await _get_runtime(page)
+        before_hist = len(rt_before.get('history', []))
         await page.click('#demo-set')
-        await page.wait_for_timeout(200)
+        await page.wait_for_function(
+            '(n) => globalThis.__vacp.getRuntime().then(rt => (rt.history||[]).length >= n)',
+            before_hist + 1,
+            timeout=15_000,
+        )
         after_set = await _get_state(page)
         _assert(
             json.dumps(before, sort_keys=True) != json.dumps(after_set, sort_keys=True),
@@ -305,8 +320,7 @@ async def _test_vega_lite_gallery(page: Page) -> None:
         )
         rt_after_set = await _get_runtime(page)
         _assert(
-            int(rt_after_set.get('historyLen', len(rt_after_set.get('history', []))))
-            >= int(rt_before.get('historyLen', len(rt_before.get('history', [])))) + 1,
+            len(rt_after_set.get('history', [])) >= before_hist + 1,
             'Expected runtime history to grow after demo-set',
         )
 
@@ -315,7 +329,11 @@ async def _test_vega_lite_gallery(page: Page) -> None:
         )
         if has_clear:
             await page.click('#demo-clear')
-            await page.wait_for_timeout(200)
+            await page.wait_for_function(
+                '(n) => globalThis.__vacp.getRuntime().then(rt => (rt.history||[]).length >= n)',
+                len(rt_after_set.get('history', [])) + 1,
+                timeout=15_000,
+            )
             after_clear = await _get_state(page)
             _assert(
                 json.dumps(after_set, sort_keys=True) != json.dumps(after_clear, sort_keys=True),
@@ -323,8 +341,7 @@ async def _test_vega_lite_gallery(page: Page) -> None:
             )
             rt_after_clear = await _get_runtime(page)
             _assert(
-                int(rt_after_clear.get('historyLen', len(rt_after_clear.get('history', []))))
-                >= int(rt_after_set.get('historyLen', len(rt_after_set.get('history', [])))) + 1,
+                len(rt_after_clear.get('history', [])) >= len(rt_after_set.get('history', [])) + 1,
                 'Expected runtime history to grow after demo-clear',
             )
 
@@ -343,7 +360,11 @@ async def _test_vega_lite_gallery(page: Page) -> None:
                 " return true;"
                 " }"
             )
-            await page.wait_for_timeout(250)
+            await page.wait_for_function(
+                '(n) => globalThis.__vacp.getRuntime().then(rt => (rt.history||[]).length >= n)',
+                len(rt_h0.get('history', [])) + 1,
+                timeout=15_000,
+            )
             after_h = await _get_state(page)
             rt_h1 = await _get_runtime(page)
             _assert(
@@ -351,8 +372,7 @@ async def _test_vega_lite_gallery(page: Page) -> None:
                 'Expected state to change after human slider change',
             )
             _assert(
-                int(rt_h1.get('historyLen', len(rt_h1.get('history', []))))
-                >= int(rt_h0.get('historyLen', len(rt_h0.get('history', [])))) + 1,
+                len(rt_h1.get('history', [])) >= len(rt_h0.get('history', [])) + 1,
                 'Expected runtime history to grow after human slider change',
             )
 
