@@ -198,10 +198,35 @@ function createRuntimeBridge({
 
   let observeTimer: number | null = null;
   let lastObservedHash: string | null = null;
+  let lastRecordedStateHash: string | null = null;
   let observeOptions: { intervalMs: number; source: VacpChangeSource; message?: string } = {
     intervalMs: 200,
     source: 'system',
     message: 'observed change',
+  };
+
+  const recordIfStateChanged = (source: VacpChangeSource, message: string) => {
+    if (!liveState) return;
+    try {
+      const hash = stableStringify(liveState.state);
+      if (lastRecordedStateHash === null) {
+        lastRecordedStateHash = hash;
+        return;
+      }
+      if (hash === lastRecordedStateHash) return;
+      lastRecordedStateHash = hash;
+      record({
+        id: makeEntryId(),
+        at: nowIso(),
+        kind: 'snapshot',
+        source,
+        message,
+        capabilities: liveCapabilities ?? undefined,
+        state: liveState,
+      });
+    } catch {
+      // ignore
+    }
   };
 
   const observeOnce = async () => {
@@ -410,6 +435,7 @@ function createRuntimeBridge({
 
     getState: async () => {
       await ensureLive();
+      recordIfStateChanged('system', 'observed state');
       return liveState as VacpStateSnapshot;
     },
 
@@ -419,6 +445,7 @@ function createRuntimeBridge({
 
     getRuntime: async (): Promise<VacpRuntimeSnapshot> => {
       await ensureLive();
+      recordIfStateChanged('system', 'observed state');
       const liveCap = liveCapabilities as VacpCapabilitiesSnapshot;
       const liveSt = liveState as VacpStateSnapshot;
       return {
