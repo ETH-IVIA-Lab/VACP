@@ -43,22 +43,17 @@ export function installVacpDebugUi(options?: VacpDebugUiOptions): void {
   const direction = options?.direction ?? 'LR';
   const includeActions = options?.includeActions ?? true;
   const includeStatePreview = options?.includeStatePreview ?? true;
-
   ensureStyles();
-
   const root = document.createElement('div');
   root.id = 'vacp-debug-ui-root';
   root.setAttribute('data-vacp-debug-ui', '1');
-
   const button = document.createElement('button');
   button.className = 'vacp-debug-ui-button';
   button.type = 'button';
   button.textContent = 'VACP';
   button.title = 'Open VACP debug overlay';
-
   const panel = document.createElement('div');
   panel.className = 'vacp-debug-ui-panel';
-
   const header = document.createElement('header');
   const titleEl = document.createElement('div');
   titleEl.className = 'vacp-debug-ui-title';
@@ -187,8 +182,6 @@ export function installVacpDebugUi(options?: VacpDebugUiOptions): void {
   };
   setTab('Graph');
 
-  (Object.keys(tabButtons) as DebugTab[]).forEach((t) => tabButtons[t].addEventListener('click', () => setTab(t)));
-
   const updateTitle = (rt: VacpRuntimeSnapshot) => {
     const rid = (rt.runtimeId ?? '').toString().slice(0, 8);
     titleEl.textContent = `VACP Debug (${globalKey}) • mode=${rt.mode} cursor=${rt.cursor} history=${rt.history.length} • runtime=${rid}`;
@@ -252,6 +245,13 @@ export function installVacpDebugUi(options?: VacpDebugUiOptions): void {
       void render(activeBridge);
     });
   };
+
+  (Object.keys(tabButtons) as DebugTab[]).forEach((t) =>
+    tabButtons[t].addEventListener('click', () => {
+      setTab(t);
+      requestRender();
+    }),
+  );
 
   const connect = async () => {
     const bridge = getBridge(globalKey);
