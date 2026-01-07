@@ -1,5 +1,4 @@
 import type {
-  VacpActionCall,
   VacpActionDescriptor,
   VacpCapabilitiesSnapshot,
   VacpGraph,
@@ -51,6 +50,9 @@ function main() {
   if (!plotRoot || !diagramEl || !stateEl || !checksEl || !refreshBtn || !demoSetBtn || !demoClearBtn) {
     throw new Error('Missing root elements');
   }
+  const statePre = stateEl;
+  const diagramPre = diagramEl;
+  const checksDiv = checksEl;
 
   installVacpDebugUi({ enabled: 'auto', globalKey: '__vacp' });
 
@@ -130,14 +132,14 @@ function main() {
     recomputeSelection();
 
     pointsG
-      .selectAll('circle')
-      .data(data, (d) => (d as Point).id)
+      .selectAll<SVGCircleElement, Point>('circle')
+      .data(data, (d) => d.id)
       .join('circle')
-      .attr('cx', (d) => x((d as Point).x))
-      .attr('cy', (d) => y((d as Point).y))
+      .attr('cx', (d) => x(d.x))
+      .attr('cy', (d) => y(d.y))
       .attr('r', 3)
-      .attr('fill', (d) => (selectedIds.has((d as Point).id) ? '#2563eb' : '#94a3b8'))
-      .attr('opacity', (d) => (selectedIds.has((d as Point).id) ? 0.95 : 0.35));
+      .attr('fill', (d) => (selectedIds.has(d.id) ? '#2563eb' : '#94a3b8'))
+      .attr('opacity', (d) => (selectedIds.has(d.id) ? 0.95 : 0.35));
 
     if (lassoPolygonDomain && lassoPolygonDomain.length >= 3) {
       lassoPath.attr('display', null).attr('d', polygonDomainToPath(lassoPolygonDomain));
@@ -235,13 +237,13 @@ function main() {
 
   async function refreshDebug(): Promise<void> {
     const [cap, st] = await Promise.all([bridge.getCapabilities(), bridge.getState()]);
-    stateEl.textContent = safeJson(st);
+    statePre.textContent = safeJson(st);
     const diagram = renderVacpDiagramMermaid({
       capabilities: cap,
       state: st,
       options: { direction: 'LR', includeActions: true, includeStatePreview: true },
     });
-    diagramEl.textContent = `\`\`\`mermaid\n${diagram}\n\`\`\``;
+    diagramPre.textContent = `\`\`\`mermaid\n${diagram}\n\`\`\``;
 
     const svgEl = svg.node()!;
     const hasMeta = !!svgEl.querySelector('metadata[type="application/vacp+json"]');
@@ -252,7 +254,7 @@ function main() {
       `SVG metadata graph: ${hasMeta ? 'ok' : 'missing'}`,
       `Selected: ${selectedIds.size}`,
     ];
-    checksEl.textContent = checks.join(' • ');
+    checksDiv.textContent = checks.join(' • ');
   }
 
   void refreshDebug();
@@ -280,24 +282,24 @@ function main() {
   const toDomain = (px: [number, number]): DomainPoint => ({ x: x.invert(px[0]), y: y.invert(px[1]) });
 
   overlay
-    .on('pointerdown', (event) => {
+    .on('pointerdown', (event: PointerEvent) => {
       drawing = true;
       polyPx = [];
-      const [px, py] = d3.pointer(event as PointerEvent, overlay.node() as SVGRectElement);
+      const [px, py] = d3.pointer(event, overlay.node()!);
       polyPx.push([px, py]);
       lassoPath.attr('display', null).attr('d', `${d3.line()(polyPx) ?? ''}`);
-      (overlay.node() as SVGRectElement).setPointerCapture((event as PointerEvent).pointerId);
+      overlay.node()!.setPointerCapture(event.pointerId);
     })
-    .on('pointermove', (event) => {
+    .on('pointermove', (event: PointerEvent) => {
       if (!drawing) return;
-      const [px, py] = d3.pointer(event as PointerEvent, overlay.node() as SVGRectElement);
+      const [px, py] = d3.pointer(event, overlay.node()!);
       polyPx.push([px, py]);
       lassoPath.attr('d', `${d3.line()(polyPx) ?? ''}`);
     })
-    .on('pointerup', async (event) => {
+    .on('pointerup', async (event: PointerEvent) => {
       if (!drawing) return;
       drawing = false;
-      (overlay.node() as SVGRectElement).releasePointerCapture((event as PointerEvent).pointerId);
+      overlay.node()!.releasePointerCapture(event.pointerId);
       if (polyPx.length >= 3) {
         lassoPolygonDomain = polyPx.map(toDomain);
       } else {
@@ -312,4 +314,3 @@ function main() {
 }
 
 main();
-

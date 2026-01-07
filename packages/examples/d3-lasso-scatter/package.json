@@ -11,6 +11,7 @@
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "devDependencies": {
+    "@types/d3": "^7.4.3",
     "vite": "^7.2.4"
   },
   "dependencies": {
@@ -22,4 +23,3 @@
     "d3": "^7.9.0"
   }
 }
-
