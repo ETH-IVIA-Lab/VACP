@@ -348,7 +348,11 @@ export function installVacpDebugUi(options?: VacpDebugUiOptions): void {
     try {
       const mod = await import('mermaid');
       const mermaid = mod.default;
-      mermaid.initialize({ startOnLoad: false, securityLevel: 'strict' });
+      mermaid.initialize({
+        startOnLoad: false,
+        securityLevel: 'strict',
+        flowchart: { htmlLabels: true },
+      });
       const id = `vacp_${Math.random().toString(16).slice(2)}`;
       const res = await mermaid.render(id, mermaidText);
       svgHost.innerHTML = res.svg;
