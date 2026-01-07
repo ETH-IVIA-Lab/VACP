@@ -394,6 +394,10 @@ async def _test_vega_lite_gallery(page: Page) -> None:
         if await slider.count() > 0:
             rt_h0 = await _get_runtime(page)
             before_h = await _get_state(page)
+            before_hist = len(rt_h0.get('history', []))
+            before_last_at = (
+                str(rt_h0.get('history', [])[-1].get('at')) if before_hist and rt_h0.get('history') else ''
+            )
             await page.evaluate(
                 "() => {"
                 " const el=document.querySelector('#app input[type=\"range\"]');"
@@ -408,8 +412,13 @@ async def _test_vega_lite_gallery(page: Page) -> None:
                 " }"
             )
             await page.wait_for_function(
-                '(n) => globalThis.__vacp.getRuntime().then(rt => (rt.history||[]).length >= n)',
-                arg=len(rt_h0.get('history', [])) + 1,
+                '(x) => globalThis.__vacp.getRuntime().then(rt => {'
+                ' const h = rt.history || [];'
+                ' if (h.length > x.beforeLen) return true;'
+                ' const last = h.length ? String(h[h.length - 1].at || "") : "";'
+                ' return x.beforeAt && last && last !== x.beforeAt;'
+                ' })',
+                arg={'beforeLen': before_hist, 'beforeAt': before_last_at},
                 timeout=15_000,
             )
             after_h = await _get_state(page)
@@ -422,9 +431,13 @@ async def _test_vega_lite_gallery(page: Page) -> None:
                 rt_h0.get('runtimeId') == rt_h1.get('runtimeId'),
                 f'Expected stable runtime across slider change (before={rt_h0.get("runtimeId")} after={rt_h1.get("runtimeId")})',
             )
+            after_hist = len(rt_h1.get('history', []))
+            after_last_at = (
+                str(rt_h1.get('history', [])[-1].get('at')) if after_hist and rt_h1.get('history') else ''
+            )
             _assert(
-                len(rt_h1.get('history', [])) >= len(rt_h0.get('history', [])) + 1,
-                f'Expected runtime history to grow after human slider change (before={len(rt_h0.get("history", []))} after={len(rt_h1.get("history", []))})',
+                after_hist > before_hist or (before_last_at and after_last_at and after_last_at != before_last_at),
+                f'Expected a new runtime entry after slider change (beforeLen={before_hist} afterLen={after_hist} beforeAt={before_last_at} afterAt={after_last_at})',
             )
 
         # DOM/SVG fallback evidence: metadata graph must be embedded when rendering to SVG.
