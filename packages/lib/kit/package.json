@@ -15,6 +15,7 @@
   "dependencies": {
     "@vacp/core": "workspace:*",
     "@vacp/dom": "workspace:*",
+    "@vacp/duckdb": "workspace:*",
     "@vacp/gateway": "workspace:*"
   },
   "scripts": {
