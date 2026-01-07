@@ -24,35 +24,23 @@ importers:
         specifier: ^5.9.3
         version: 5.9.3
 
-  packages/adapters/diagrams:
-    dependencies:
-      '@vacp/core':
-        specifier: workspace:*
-        version: link:../../protocol/core
-
-  packages/adapters/dom:
-    dependencies:
-      '@vacp/core':
-        specifier: workspace:*
-        version: link:../../protocol/core
-
   packages/examples/d3-lasso-scatter:
     dependencies:
       '@vacp/core':
         specifier: workspace:*
-        version: link:../../protocol/core
+        version: link:../../lib/core
       '@vacp/debug-ui':
         specifier: workspace:*
-        version: link:../../tools/debug-ui
+        version: link:../../lib/debug-ui
       '@vacp/diagrams':
         specifier: workspace:*
-        version: link:../../adapters/diagrams
+        version: link:../../lib/diagrams
       '@vacp/dom':
         specifier: workspace:*
-        version: link:../../adapters/dom
+        version: link:../../lib/dom
       '@vacp/gateway':
         specifier: workspace:*
-        version: link:../../runtime/gateway
+        version: link:../../lib/gateway
       d3:
         specifier: ^7.9.0
         version: 7.9.0
@@ -77,16 +65,16 @@ importers:
         version: 0.21.1
       '@vacp/core':
         specifier: workspace:*
-        version: link:../../protocol/core
+        version: link:../../lib/core
       '@vacp/debug-ui':
         specifier: workspace:*
-        version: link:../../tools/debug-ui
+        version: link:../../lib/debug-ui
       '@vacp/diagrams':
         specifier: workspace:*
-        version: link:../../adapters/diagrams
+        version: link:../../lib/diagrams
       '@vacp/mosaic':
         specifier: workspace:*
-        version: link:../../providers/mosaic
+        version: link:../../lib/mosaic
       yaml:
         specifier: ^2.8.2
         version: 2.8.2
@@ -99,16 +87,16 @@ importers:
     dependencies:
       '@vacp/core':
         specifier: workspace:*
-        version: link:../../protocol/core
+        version: link:../../lib/core
       '@vacp/debug-ui':
         specifier: workspace:*
-        version: link:../../tools/debug-ui
+        version: link:../../lib/debug-ui
       '@vacp/diagrams':
         specifier: workspace:*
-        version: link:../../adapters/diagrams
+        version: link:../../lib/diagrams
       '@vacp/vega-lite':
         specifier: workspace:*
-        version: link:../../providers/vega-lite
+        version: link:../../lib/vega-lite
       vega:
         specifier: ^6.2.0
         version: 6.2.0
@@ -123,34 +111,64 @@ importers:
         specifier: ^7.2.4
         version: 7.3.0(@types/node@24.10.4)(yaml@2.8.2)
 
-  packages/protocol/core: {}
+  packages/lib/core: {}
 
-  packages/providers/mosaic:
+  packages/lib/debug-ui:
+    dependencies:
+      '@vacp/core':
+        specifier: workspace:*
+        version: link:../core
+      '@vacp/diagrams':
+        specifier: workspace:*
+        version: link:../diagrams
+      mermaid:
+        specifier: ^11.5.0
+        version: 11.12.2
+
+  packages/lib/diagrams:
+    dependencies:
+      '@vacp/core':
+        specifier: workspace:*
+        version: link:../core
+
+  packages/lib/dom:
+    dependencies:
+      '@vacp/core':
+        specifier: workspace:*
+        version: link:../core
+
+  packages/lib/gateway:
+    dependencies:
+      '@vacp/core':
+        specifier: workspace:*
+        version: link:../core
+
+  packages/lib/mosaic:
     dependencies:
       '@uwdata/mosaic-core':
         specifier: '*'
         version: 0.21.1
       '@vacp/core':
         specifier: workspace:*
-        version: link:../../protocol/core
+        version: link:../core
       '@vacp/dom':
         specifier: workspace:*
-        version: link:../../adapters/dom
+        version: link:../dom
       '@vacp/gateway':
         specifier: workspace:*
-        version: link:../../runtime/gateway
+        version: link:../gateway
 
-  packages/providers/vega-lite:
+  packages/lib/vega-lite:
     dependencies:
       '@vacp/core':
         specifier: workspace:*
-        version: link:../../protocol/core
+        version: link:../core
       '@vacp/dom':
         specifier: workspace:*
-        version: link:../../adapters/dom
+        version: link:../dom
       '@vacp/gateway':
         specifier: workspace:*
-        version: link:../../runtime/gateway
+        version: link:../gateway
       vega:
         specifier: '*'
         version: 6.2.0
@@ -160,24 +178,6 @@ importers:
       vega-lite:
         specifier: '*'
         version: 6.4.1(vega@6.2.0)
-
-  packages/runtime/gateway:
-    dependencies:
-      '@vacp/core':
-        specifier: workspace:*
-        version: link:../../protocol/core
-
-  packages/tools/debug-ui:
-    dependencies:
-      '@vacp/core':
-        specifier: workspace:*
-        version: link:../../protocol/core
-      '@vacp/diagrams':
-        specifier: workspace:*
-        version: link:../../adapters/diagrams
-      mermaid:
-        specifier: ^11.5.0
-        version: 11.12.2
 
 packages:
 
