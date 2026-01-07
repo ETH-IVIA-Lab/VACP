@@ -53,6 +53,22 @@
         align-items: center;
         flex-wrap: wrap;
       }
+      ul {
+        margin: 8px 0 0 18px;
+        padding: 0;
+      }
+      li {
+        margin: 4px 0;
+      }
+      code {
+        background: #f3f4f6;
+        padding: 1px 6px;
+        border-radius: 6px;
+      }
+      pre code {
+        background: transparent;
+        padding: 0;
+      }
       button {
         padding: 6px 10px;
         border-radius: 8px;
@@ -68,6 +84,25 @@
       Pick a spec and VACP will attach to the generated plot, exposing a bridge at <code>window.__vacp</code>. Enable
       the rendered overlay with <code>?vacpDebug=1</code>.
     </p>
+
+    <div class="card" style="margin-bottom: 16px">
+      <div class="muted" style="margin-bottom: 8px">What to try</div>
+      <ul class="muted">
+        <li>Open the overlay: add <code>?vacpDebug=1</code>, click the floating <code>VACP</code> button.</li>
+        <li>
+          In the overlay, go to <strong>Demo</strong> and click <strong>Run all</strong> to replay a scripted selection
+          sequence (agent-like interaction).
+        </li>
+        <li>
+          Brush on the chart with your mouse (human interaction) and watch <strong>State</strong> and history update.
+        </li>
+        <li>Use <strong>Actions</strong> to dispatch the same semantic operations manually (no pixel automation).</li>
+        <li>
+          Use <strong>JSON</strong> → <strong>Apply state to live app</strong> to apply an edited state map (dev-only,
+          best-effort).
+        </li>
+      </ul>
+    </div>
 
     <div class="layout">
       <div class="card">

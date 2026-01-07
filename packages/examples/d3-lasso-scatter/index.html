@@ -53,6 +53,22 @@
         align-items: center;
         flex-wrap: wrap;
       }
+      ul {
+        margin: 8px 0 0 18px;
+        padding: 0;
+      }
+      li {
+        margin: 4px 0;
+      }
+      code {
+        background: #f3f4f6;
+        padding: 1px 6px;
+        border-radius: 6px;
+      }
+      pre code {
+        background: transparent;
+        padding: 0;
+      }
       button {
         padding: 6px 10px;
         border-radius: 8px;
@@ -72,6 +88,25 @@
       Lasso with the mouse; then compare with the programmatic action dispatch. Enable the overlay with
       <code>?vacpDebug=1</code>.
     </p>
+
+    <div class="card" style="margin-bottom: 16px">
+      <div class="muted" style="margin-bottom: 8px">What to try</div>
+      <ul class="muted">
+        <li>Open the overlay: add <code>?vacpDebug=1</code>, click the floating <code>VACP</code> button.</li>
+        <li>In the overlay, go to <strong>Demo</strong> and click <strong>Run all</strong> to replay lasso actions.</li>
+        <li>
+          Draw a lasso polygon with the mouse (human interaction) and watch <strong>Selected</strong> and state update.
+        </li>
+        <li>
+          Use <strong>Actions</strong> to call <code>vanilla.set_lasso_polygon</code> /
+          <code>vanilla.clear_lasso</code>.
+        </li>
+        <li>
+          Use <strong>JSON</strong> → <strong>Apply state to live app</strong> to apply an edited polygon (dev-only,
+          best-effort).
+        </li>
+      </ul>
+    </div>
 
     <div class="layout">
       <div class="card">
@@ -97,4 +132,3 @@
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>
-
