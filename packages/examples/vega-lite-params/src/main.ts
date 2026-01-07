@@ -83,7 +83,10 @@ async function main() {
     getCapabilities: () => Promise<VacpCapabilitiesSnapshot>;
     getState: () => Promise<VacpStateSnapshot>;
     execute: (call: { callId: string; name: string; params?: unknown }) => Promise<{ ok: boolean; result?: unknown }>;
+    subscribe?: (fn: () => void) => () => void;
+    refresh?: (options?: { source?: 'human' | 'agent' | 'debug' | 'system'; message?: string }) => Promise<unknown>;
   } | null = null;
+  let unsubscribe: (() => void) | null = null;
 
   function safeJson(value: unknown): string {
     try {
@@ -133,6 +136,7 @@ async function main() {
     diagramPre.textContent = '(loading…)';
     statePre.textContent = '(loading…)';
     metaDiv.textContent = entry.meta.description ?? '';
+    checksDiv.textContent = '(loading…)';
 
     appRoot.replaceChildren();
     const spec: VegaLiteSpecLike = entry.createSpec();
@@ -162,11 +166,19 @@ async function main() {
             name: string;
             params?: unknown;
           }) => Promise<{ ok: boolean; result?: unknown }>;
+          subscribe?: (fn: () => void) => () => void;
+          refresh?: (options?: { source?: 'human' | 'agent' | 'debug' | 'system'; message?: string }) => Promise<unknown>;
         };
       }
     ).__vacp;
     if (!bridge) throw new Error('window.__vacp not installed');
     currentBridge = bridge;
+
+    unsubscribe?.();
+    unsubscribe = null;
+    if (typeof bridge.subscribe === 'function') {
+      unsubscribe = bridge.subscribe(() => void refreshDebug());
+    }
 
     await refreshDebug();
   }
@@ -221,7 +233,12 @@ async function main() {
     const id = selectEl.value;
     window.location.hash = id;
     const entry = gallery.find((g) => g.id === id);
-    if (entry) void render(entry);
+    if (entry) {
+      void render(entry).catch((err) => {
+        checksDiv.textContent = `Render failed: ${String(err)}`;
+        diagramPre.textContent = String(err);
+      });
+    }
   });
 
   const initial = gallery.find((g) => g.id === selectEl.value);
