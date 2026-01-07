@@ -44,6 +44,7 @@ function labelForEntry(e: VacpHistoryEntry, idx: number): string {
 export function createHistoryModule(): VacpDebugModule {
   let selectedIdx: number | null = null;
   let lastOutput = '';
+  let observeEnabled = false;
 
   return {
     id: 'history',
@@ -51,6 +52,58 @@ export function createHistoryModule(): VacpDebugModule {
     icon: '⏱️',
     render: (container, ctx) => {
       container.textContent = '';
+
+      const runtimeTitle = document.createElement('div');
+      runtimeTitle.className = 'vacp-debug-ui-section-title';
+      runtimeTitle.textContent = 'Runtime';
+
+      const runtimeHint = document.createElement('div');
+      runtimeHint.className = 'vacp-debug-ui-small';
+      runtimeHint.textContent = `mode=${ctx.runtime.mode} cursor=${ctx.runtime.cursor} history=${ctx.runtime.history.length}`;
+
+      const runtimeActions = document.createElement('div');
+      runtimeActions.className = 'vacp-debug-ui-actions';
+
+      const liveBtn = document.createElement('button');
+      liveBtn.type = 'button';
+      liveBtn.textContent = 'Live';
+      liveBtn.title = 'Return to live mode (inspect cursor follows the latest entry).';
+
+      const undoBtn = document.createElement('button');
+      undoBtn.type = 'button';
+      undoBtn.textContent = 'Undo';
+      undoBtn.title = 'Step the inspect cursor backward (does not mutate the live app).';
+
+      const redoBtn = document.createElement('button');
+      redoBtn.type = 'button';
+      redoBtn.textContent = 'Redo';
+      redoBtn.title = 'Step the inspect cursor forward (does not mutate the live app).';
+
+      const observeBtn = document.createElement('button');
+      observeBtn.type = 'button';
+      observeBtn.textContent = observeEnabled ? 'Observe: on' : 'Observe: off';
+      observeBtn.title =
+        'Poll and record snapshots periodically (useful if a provider cannot emit events for human interactions).';
+      observeBtn.setAttribute('aria-pressed', observeEnabled ? 'true' : 'false');
+
+      const refreshBtn = document.createElement('button');
+      refreshBtn.type = 'button';
+      refreshBtn.textContent = 'Refresh';
+      refreshBtn.title = 'Capture a fresh snapshot into the runtime timeline.';
+
+      runtimeActions.append(liveBtn, undoBtn, redoBtn, observeBtn, refreshBtn);
+
+      liveBtn.addEventListener('click', () => ctx.bridge.setMode?.('live', { source: 'debug', message: 'live' }));
+      undoBtn.addEventListener('click', () => ctx.bridge.undo?.({ source: 'debug', message: 'undo' }));
+      redoBtn.addEventListener('click', () => ctx.bridge.redo?.({ source: 'debug', message: 'redo' }));
+      observeBtn.addEventListener('click', () => {
+        observeEnabled = !observeEnabled;
+        observeBtn.setAttribute('aria-pressed', observeEnabled ? 'true' : 'false');
+        observeBtn.textContent = observeEnabled ? 'Observe: on' : 'Observe: off';
+        if (observeEnabled) ctx.bridge.startObserving?.({ intervalMs: 250, source: 'debug', message: 'observe' });
+        else ctx.bridge.stopObserving?.();
+      });
+      refreshBtn.addEventListener('click', () => void ctx.bridge.refresh?.({ source: 'debug', message: 'refresh' }));
 
       const title = document.createElement('div');
       title.className = 'vacp-debug-ui-section-title';
@@ -66,7 +119,14 @@ export function createHistoryModule(): VacpDebugModule {
 
       const entries = ctx.runtime.history;
       if (!entries.length) {
-        container.append(title, hint, document.createTextNode('\n(no history yet)\n'));
+        container.append(
+          runtimeTitle,
+          runtimeHint,
+          runtimeActions,
+          title,
+          hint,
+          document.createTextNode('\n(no history yet)\n'),
+        );
         return;
       }
 
@@ -151,7 +211,18 @@ export function createHistoryModule(): VacpDebugModule {
 
       copyBtn.addEventListener('click', () => copyText(details.textContent || ''));
 
-      container.append(title, hint, list, actionsTitle, btnRow, out, details);
+      container.append(
+        runtimeTitle,
+        runtimeHint,
+        runtimeActions,
+        title,
+        hint,
+        list,
+        actionsTitle,
+        btnRow,
+        out,
+        details,
+      );
     },
   };
 }

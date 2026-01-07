@@ -10,29 +10,8 @@ import { ensureStyles } from './styles';
 import type { VacpDebugModule, VacpDebugModuleId, VacpDebugUiOptions, VacpWindowBridge } from './types';
 import { createVacpDebugUiDom } from './ui';
 
-function copyText(text: string): void {
-  const t = text ?? '';
-  if (navigator.clipboard?.writeText) {
-    void navigator.clipboard.writeText(t).catch(() => {});
-    return;
-  }
-  const el = document.createElement('textarea');
-  el.value = t;
-  el.style.position = 'fixed';
-  el.style.left = '-9999px';
-  document.body.append(el);
-  el.select();
-  try {
-    document.execCommand('copy');
-  } catch {
-    // ignore
-  } finally {
-    el.remove();
-  }
-}
-
 function setPanelVisible(panel: HTMLElement, visible: boolean): void {
-  panel.style.display = visible ? 'block' : 'none';
+  panel.style.display = visible ? 'grid' : 'none';
 }
 
 function isPanelVisible(panel: HTMLElement): boolean {
@@ -49,28 +28,13 @@ export function installVacpDebugUi(options?: VacpDebugUiOptions): void {
   if (document.getElementById('vacp-debug-ui-root')) return;
 
   const globalKey = options?.globalKey ?? '__vacp';
-  const initialDirection = options?.direction ?? 'LR';
   const initialIncludeActions = options?.includeActions ?? true;
   const initialIncludeStatePreview = options?.includeStatePreview ?? true;
 
   ensureStyles();
 
   const dom = createVacpDebugUiDom({ globalKey });
-  const {
-    root,
-    button,
-    panel,
-    titleEl,
-    moduleBar,
-    content,
-    liveBtn,
-    undoBtn,
-    redoBtn,
-    observeBtn,
-    refreshBtn,
-    copyBtn,
-    closeBtn,
-  } = dom;
+  const { root, button, panel, titleEl, moduleSelect, moduleList, content, closeBtn } = dom;
 
   document.body.append(root);
   document.body.append(panel);
@@ -116,7 +80,6 @@ export function installVacpDebugUi(options?: VacpDebugUiOptions): void {
   const modules: VacpDebugModule[] =
     options?.modules ??
     createDefaultModules({
-      direction: initialDirection,
       includeActions: initialIncludeActions,
       includeStatePreview: initialIncludeStatePreview,
     });
@@ -140,8 +103,6 @@ export function installVacpDebugUi(options?: VacpDebugUiOptions): void {
   };
 
   let currentModuleId: VacpDebugModuleId = readModuleId();
-  let observeEnabled = true;
-  let lastMermaid = '';
   let playbooks: VacpPlaybook[] = [];
   let activeBridge: VacpWindowBridge | null = null;
   let unsubscribe: (() => void) | null = null;
@@ -149,28 +110,46 @@ export function installVacpDebugUi(options?: VacpDebugUiOptions): void {
 
   const dbg = (message: string) => ({ source: 'debug' as const, message });
 
-  const moduleButtons = new Map<VacpDebugModuleId, HTMLButtonElement>();
-  const renderModuleBar = () => {
-    moduleBar.textContent = '';
-    moduleButtons.clear();
+  const renderModuleNav = () => {
+    moduleList.textContent = '';
+    moduleSelect.textContent = '';
+
     modules.forEach((m) => {
+      const label = m.icon ? `${m.icon} ${m.title}` : m.title;
+
+      const opt = document.createElement('option');
+      opt.value = m.id;
+      opt.textContent = label;
+      moduleSelect.append(opt);
+
       const b = document.createElement('button');
       b.type = 'button';
       b.className = 'vacp-debug-ui-module';
-      b.textContent = m.icon ? `${m.icon} ${m.title}` : m.title;
+      b.textContent = label;
       b.setAttribute('aria-current', m.id === currentModuleId ? 'true' : 'false');
       b.title = m.title;
       b.addEventListener('click', () => {
         currentModuleId = m.id;
         saveModuleId(currentModuleId);
-        renderModuleBar();
+        renderModuleNav();
         requestRender();
       });
-      moduleButtons.set(m.id, b);
-      moduleBar.append(b);
+      moduleList.append(b);
     });
+
+    moduleSelect.value = currentModuleId;
   };
-  renderModuleBar();
+
+  moduleSelect.addEventListener('change', () => {
+    const next = moduleSelect.value;
+    if (!modules.some((m) => m.id === next)) return;
+    currentModuleId = next;
+    saveModuleId(currentModuleId);
+    renderModuleNav();
+    requestRender();
+  });
+
+  renderModuleNav();
 
   const updateTitle = (rt: VacpRuntimeSnapshot) => {
     const rid = (rt.runtimeId ?? '').toString().slice(0, 8);
@@ -178,11 +157,6 @@ export function installVacpDebugUi(options?: VacpDebugUiOptions): void {
   };
 
   const currentModule = (): VacpDebugModule | null => modules.find((m) => m.id === currentModuleId) ?? null;
-
-  const updateCopyEnabled = () => {
-    copyBtn.disabled = !lastMermaid;
-  };
-  updateCopyEnabled();
 
   const render = async (bridge: VacpWindowBridge) => {
     activeBridge = bridge;
@@ -197,10 +171,7 @@ export function installVacpDebugUi(options?: VacpDebugUiOptions): void {
       runtime,
       playbooks,
       requestRender,
-      setDiagramMermaid: (m) => {
-        lastMermaid = m;
-        updateCopyEnabled();
-      },
+      setDiagramMermaid: () => {},
     });
   };
 
@@ -262,26 +233,6 @@ export function installVacpDebugUi(options?: VacpDebugUiOptions): void {
 
   closeBtn.addEventListener('click', () => setPanelVisible(panel, false));
 
-  liveBtn.addEventListener('click', () => void withBridge((b) => b.setMode?.('live', dbg('live'))));
-  undoBtn.addEventListener('click', () => void withBridge((b) => b.undo?.(dbg('undo'))));
-  redoBtn.addEventListener('click', () => void withBridge((b) => b.redo?.(dbg('redo'))));
-
-  observeBtn.addEventListener('click', () => {
-    observeEnabled = !observeEnabled;
-    observeBtn.setAttribute('aria-pressed', observeEnabled ? 'true' : 'false');
-    observeBtn.textContent = observeEnabled ? 'Observe: on' : 'Observe: off';
-    void withBridge((b) => {
-      if (observeEnabled) b.startObserving?.(dbg('observe'));
-      else b.stopObserving?.();
-    });
-  });
-
-  refreshBtn.addEventListener('click', () => void withBridge(async (b) => void (await b.refresh?.(dbg('refresh')))));
-  copyBtn.addEventListener('click', () => {
-    if (!lastMermaid) return;
-    copyText(lastMermaid);
-  });
-
   window.addEventListener('resize', () => panelPosition());
 
   installVacpDebugShortcuts({
@@ -292,9 +243,9 @@ export function installVacpDebugUi(options?: VacpDebugUiOptions): void {
       if (!modules.some((m) => m.id === id)) return;
       currentModuleId = id;
       saveModuleId(id);
-      renderModuleBar();
+      renderModuleNav();
       requestRender();
     },
-    refresh: () => refreshBtn.click(),
+    refresh: () => void withBridge(async (b) => void (await b.refresh?.(dbg('refresh')))),
   });
 }

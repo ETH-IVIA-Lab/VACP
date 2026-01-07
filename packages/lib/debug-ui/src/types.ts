@@ -37,8 +37,6 @@ export interface VacpDebugUiOptions {
   enabled?: VacpDebugUiEnabled;
   /** Which global bridge key to read (defaults to `__vacp`). */
   globalKey?: string;
-  /** Default diagram direction. */
-  direction?: 'LR' | 'TB';
   includeActions?: boolean;
   includeStatePreview?: boolean;
   /**

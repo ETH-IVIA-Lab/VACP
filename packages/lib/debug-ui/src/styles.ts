@@ -56,20 +56,21 @@ const CSS = `
     box-shadow: 0 16px 40px rgba(0, 0, 0, 0.35);
     display: none;
     isolation: isolate;
+    grid-template-rows: auto 1fr;
+    opacity: 1;
+    mix-blend-mode: normal;
+    background-image: none;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
   }
 
   .vacp-debug-ui-header {
-    display: grid;
-    grid-template-columns: 1fr auto;
-    gap: 10px;
+    display: flex;
+    justify-content: space-between;
     align-items: center;
     padding: 10px 12px;
     border-bottom: 1px solid var(--vacp-border-weak);
-  }
-  .vacp-debug-ui-header-left {
-    display: grid;
-    gap: 6px;
-    min-width: 0;
+    background: var(--vacp-bg);
   }
   .vacp-debug-ui-title {
     font: 12px system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
@@ -79,22 +80,45 @@ const CSS = `
     overflow: hidden;
     text-overflow: ellipsis;
   }
-  .vacp-debug-ui-modulebar {
-    display: flex;
+
+  .vacp-debug-ui-shell {
+    height: calc(100% - 44px);
+    display: grid;
+    grid-template-columns: 180px 1fr;
+    min-height: 0;
+  }
+
+  .vacp-debug-ui-nav {
+    padding: 10px;
+    border-right: 1px solid var(--vacp-border-weak);
+    background: rgba(231, 233, 238, 0.03);
+    min-height: 0;
+    overflow: hidden;
+    display: grid;
+    gap: 10px;
+    align-content: start;
+  }
+
+  .vacp-debug-ui-nav-select {
+    width: 100%;
+    background: var(--vacp-surface);
+    border: 1px solid var(--vacp-border);
+    color: var(--vacp-fg);
+    border-radius: 10px;
+    padding: 8px;
+    font: 12px system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    display: none;
+  }
+
+  .vacp-debug-ui-nav-list {
+    display: grid;
     gap: 6px;
-    flex-wrap: nowrap;
-    overflow-x: auto;
-    padding-bottom: 2px;
+    overflow: auto;
+    padding-right: 2px;
   }
-  .vacp-debug-ui-modulebar::-webkit-scrollbar {
-    height: 6px;
-  }
-  .vacp-debug-ui-modulebar::-webkit-scrollbar-thumb {
-    background: rgba(231, 233, 238, 0.18);
-    border-radius: 999px;
-  }
+
   .vacp-debug-ui-module {
-    display: inline-flex;
+    display: flex;
     align-items: center;
     gap: 8px;
     background: var(--vacp-surface-2);
@@ -106,28 +130,12 @@ const CSS = `
     font: 12px system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
     line-height: 1;
     white-space: nowrap;
+    width: 100%;
+    text-align: left;
   }
   .vacp-debug-ui-module[aria-current="true"] {
     border-color: rgba(121, 178, 255, 0.6);
     box-shadow: 0 0 0 2px rgba(121, 178, 255, 0.18) inset;
-  }
-
-  .vacp-debug-ui-header-actions {
-    display: flex;
-    gap: 6px;
-    align-items: center;
-    justify-content: flex-end;
-    flex-wrap: nowrap;
-    overflow-x: auto;
-    max-width: 46vw;
-    padding-bottom: 2px;
-  }
-  .vacp-debug-ui-header-actions::-webkit-scrollbar {
-    height: 6px;
-  }
-  .vacp-debug-ui-header-actions::-webkit-scrollbar-thumb {
-    background: rgba(231, 233, 238, 0.18);
-    border-radius: 999px;
   }
 
   .vacp-debug-ui-actions {
@@ -138,7 +146,7 @@ const CSS = `
   }
 
   .vacp-debug-ui-actions button,
-  .vacp-debug-ui-header-actions button {
+  .vacp-debug-ui-header button {
     background: var(--vacp-surface-2);
     color: var(--vacp-fg);
     border: 1px solid var(--vacp-border);
@@ -150,20 +158,23 @@ const CSS = `
     white-space: nowrap;
   }
   .vacp-debug-ui-actions button[disabled],
-  .vacp-debug-ui-header-actions button[disabled] {
+  .vacp-debug-ui-header button[disabled] {
     opacity: 0.55;
     cursor: not-allowed;
   }
   .vacp-debug-ui-actions button[aria-pressed="true"],
-  .vacp-debug-ui-header-actions button[aria-pressed="true"] {
+  .vacp-debug-ui-header button[aria-pressed="true"] {
     background: rgba(231, 233, 238, 0.18);
     border-color: rgba(231, 233, 238, 0.22);
   }
 
   .vacp-debug-ui-content {
-    height: calc(100% - 56px);
+    height: 100%;
     overflow: auto;
     padding: 12px;
+    min-width: 0;
+    min-height: 0;
+    background: var(--vacp-bg);
   }
 
   .vacp-debug-ui-section-title {
@@ -292,6 +303,22 @@ const CSS = `
   }
   .vacp-debug-ui-panel.vacp-debug-ui-resizing {
     user-select: none;
+  }
+
+  @media (max-width: 520px) {
+    .vacp-debug-ui-shell {
+      grid-template-columns: 1fr;
+    }
+    .vacp-debug-ui-nav {
+      border-right: none;
+      border-bottom: 1px solid var(--vacp-border-weak);
+    }
+    .vacp-debug-ui-nav-select {
+      display: block;
+    }
+    .vacp-debug-ui-nav-list {
+      display: none;
+    }
   }
 `;
 

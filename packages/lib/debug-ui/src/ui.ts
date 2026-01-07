@@ -5,23 +5,21 @@ export type VacpDebugUiDom = {
   panel: HTMLDivElement;
   titleEl: HTMLDivElement;
 
-  moduleBar: HTMLDivElement;
+  moduleSelect: HTMLSelectElement;
+  moduleList: HTMLDivElement;
   content: HTMLDivElement;
 
-  liveBtn: HTMLButtonElement;
-  undoBtn: HTMLButtonElement;
-  redoBtn: HTMLButtonElement;
-  observeBtn: HTMLButtonElement;
-  refreshBtn: HTMLButtonElement;
-  copyBtn: HTMLButtonElement;
   closeBtn: HTMLButtonElement;
 };
 
 /**
  * Debug UI shell DOM.
  *
- * The shell is deliberately boring and stable. "Features" live in modules that
- * render into `content` and are selected via `moduleBar`.
+ * The shell is deliberately boring and stable:
+ * - a small floating pill to open/close
+ * - a panel with a vertical tool nav + a single focused content area
+ *
+ * "Features" live in modules that render into `content`.
  */
 export function createVacpDebugUiDom(args: { globalKey: string }): VacpDebugUiDom {
   const root = document.createElement('div');
@@ -38,68 +36,46 @@ export function createVacpDebugUiDom(args: { globalKey: string }): VacpDebugUiDo
   const panel = document.createElement('div');
   panel.id = 'vacp-debug-ui-panel';
   panel.className = 'vacp-debug-ui-panel';
+  // Inline background as a last-resort guard against app-level CSS that
+  // accidentally overrides our stylesheet.
+  panel.style.background = '#0b1020';
+  panel.style.color = '#e7e9ee';
 
   const header = document.createElement('header');
   header.className = 'vacp-debug-ui-header';
-
-  const left = document.createElement('div');
-  left.className = 'vacp-debug-ui-header-left';
 
   const titleEl = document.createElement('div');
   titleEl.className = 'vacp-debug-ui-title';
   titleEl.textContent = `VACP Debug (${args.globalKey})`;
 
-  const moduleBar = document.createElement('div');
-  moduleBar.className = 'vacp-debug-ui-modulebar';
-
-  left.append(titleEl, moduleBar);
-
-  const right = document.createElement('div');
-  right.className = 'vacp-debug-ui-header-actions';
-
-  const liveBtn = document.createElement('button');
-  liveBtn.type = 'button';
-  liveBtn.textContent = 'Live';
-  liveBtn.title = 'Return to live mode (inspect cursor follows the latest entry)';
-
-  const undoBtn = document.createElement('button');
-  undoBtn.type = 'button';
-  undoBtn.textContent = 'Undo';
-  undoBtn.title = 'Step the inspect cursor backward through history (does not mutate the live app)';
-
-  const redoBtn = document.createElement('button');
-  redoBtn.type = 'button';
-  redoBtn.textContent = 'Redo';
-  redoBtn.title = 'Step the inspect cursor forward through history (does not mutate the live app)';
-
-  const observeBtn = document.createElement('button');
-  observeBtn.type = 'button';
-  observeBtn.textContent = 'Observe: on';
-  observeBtn.title = 'Toggle snapshot polling (useful when a provider cannot emit human interaction events)';
-  observeBtn.setAttribute('aria-pressed', 'true');
-
-  const refreshBtn = document.createElement('button');
-  refreshBtn.type = 'button';
-  refreshBtn.textContent = 'Refresh';
-  refreshBtn.title = 'Capture a fresh snapshot into the runtime timeline';
-
-  const copyBtn = document.createElement('button');
-  copyBtn.type = 'button';
-  copyBtn.textContent = 'Copy diagram';
-  copyBtn.title = 'Copy the current diagram Mermaid source to clipboard';
-
   const closeBtn = document.createElement('button');
   closeBtn.type = 'button';
   closeBtn.textContent = 'Close';
-  closeBtn.title = 'Close debug tools';
+  closeBtn.title = 'Close debug tools (Esc)';
 
-  right.append(liveBtn, undoBtn, redoBtn, observeBtn, refreshBtn, copyBtn, closeBtn);
-  header.append(left, right);
+  header.append(titleEl, closeBtn);
+
+  const shell = document.createElement('div');
+  shell.className = 'vacp-debug-ui-shell';
+
+  const nav = document.createElement('nav');
+  nav.className = 'vacp-debug-ui-nav';
+
+  const moduleSelect = document.createElement('select');
+  moduleSelect.className = 'vacp-debug-ui-nav-select';
+  moduleSelect.title = 'Select a debug tool';
+
+  const moduleList = document.createElement('div');
+  moduleList.className = 'vacp-debug-ui-nav-list';
+
+  nav.append(moduleSelect, moduleList);
 
   const content = document.createElement('div');
   content.className = 'vacp-debug-ui-content';
 
-  panel.append(header, content);
+  shell.append(nav, content);
+
+  panel.append(header, shell);
 
   root.append(button);
 
@@ -108,14 +84,9 @@ export function createVacpDebugUiDom(args: { globalKey: string }): VacpDebugUiDo
     button,
     panel,
     titleEl,
-    moduleBar,
+    moduleSelect,
+    moduleList,
     content,
-    liveBtn,
-    undoBtn,
-    redoBtn,
-    observeBtn,
-    refreshBtn,
-    copyBtn,
     closeBtn,
   };
 }
