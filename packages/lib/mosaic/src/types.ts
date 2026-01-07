@@ -1,0 +1,58 @@
+import type { VacpDemo } from '@vacp/core';
+
+/**
+ * Mosaic/vgplot provider (project concepts).
+ *
+ * vgplot is a semantic runtime (marks, selections, interactors, widgets).
+ * The provider exposes that runtime as a stable, agent-friendly protocol:
+ * - VACP graph (what exists)
+ * - VACP state snapshots (what is active)
+ * - semantic actions (what can be done)
+ */
+
+/**
+ * Minimal structural types for vgplot Plot/Mark/Interactor objects.
+ * This keeps `@vacp/mosaic` usable even if Mosaic types are not installed.
+ */
+export interface VgplotMarkLike {
+  type?: string;
+  index?: number;
+  sourceTable?: () => string | null;
+  channels?: Array<{ channel: string; as?: string; field?: unknown }>;
+}
+
+export interface VgplotInteractorLike {
+  constructor: { name: string };
+  value?: unknown;
+  selection?: { value?: unknown; update?: (...args: unknown[]) => unknown };
+  init?: (svg: SVGElement) => unknown | Promise<unknown>;
+}
+
+export interface VgplotPlotLike {
+  element?: HTMLElement;
+  marks: VgplotMarkLike[];
+  interactors: VgplotInteractorLike[];
+  setAttribute?: (name: string, value: unknown, options?: { silent?: boolean }) => boolean;
+  update?: (...args: unknown[]) => unknown;
+  getAttribute?: (name: string) => unknown;
+}
+
+export interface InstallVacpOnVgplotOptions {
+  appId: string;
+  viewId: string;
+  plotId: string;
+  title?: string;
+  description?: string;
+  annotateHostElement?: boolean;
+  globalKey?: string;
+  demos?: VacpDemo[];
+}
+
+export interface InstallVacpOnVgplotDashboardOptions {
+  appId: string;
+  viewId: string;
+  title?: string;
+  description?: string;
+  globalKey?: string;
+  demos?: VacpDemo[];
+}
