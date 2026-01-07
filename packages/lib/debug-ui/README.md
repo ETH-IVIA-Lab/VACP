@@ -9,15 +9,15 @@ It is provider-agnostic: it only talks to `window.__vacp` (the runtime bridge in
 - add `?vacpDebug=1` to the URL, or
 - set localStorage `vacp:debug=1`
 
-The overlay can be dragged by the “VACP” pill (closed) or by the title bar (open). When released, it snaps to a nearby
-anchor (corners/edges/center).
+The overlay button (“VACP” pill) is draggable and snaps to nearby anchors (corners/edges/center). The tools panel opens
+next to the pill and stays within the viewport.
 
 ## What it shows
 
-- **Graph**: current graph rendered as Mermaid → SVG (plus Mermaid source)
+- **Graph**: rendered graph diagram (Mermaid → SVG)
 - **Data**: pick a `DataHandle` and run DuckDB SQL via `vacp.data_sql` (includes selection preview)
 - **Actions**: manual dispatch (no pixel automation)
-- **History**: runtime timeline + time travel (live/undo/redo)
+- **History**: runtime timeline + time travel (inspect cursor) + apply-to-live (“rewind”)
 - **Playbook**: provider-supplied scripted stepper (shows “agent-like” sequences)
 - **JSON**: inspection overrides + opt-in apply-to-live
 
@@ -25,3 +25,11 @@ The overlay works best when the bridge supports `getRuntime()` and `getPlaybooks
 still functions with the minimal bridge (`getCapabilities/getState/execute`).
 
 For a runnable reference, see any of the example apps under `packages/examples/*`.
+
+## Shortcuts
+
+When the tools panel is open:
+
+- `Esc` closes it
+- `Alt+1..9` selects modules by order
+- `Alt+R` captures a fresh snapshot

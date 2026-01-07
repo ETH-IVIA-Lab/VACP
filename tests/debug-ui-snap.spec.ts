@@ -9,6 +9,7 @@ const vacpRoot = resolve(here, '..');
 const examplesDir = resolve(vacpRoot, 'packages', 'examples');
 
 type Rect = { left: number; top: number; width: number; height: number; innerWidth: number; innerHeight: number };
+type PanelRect = { left: number; top: number; right: number; bottom: number; innerWidth: number; innerHeight: number };
 
 function clamp(n: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, n));
@@ -57,6 +58,31 @@ async function expectNear(page: Page, anchor: 'top-left' | 'center' | 'bottom-ri
   expect(dy, `top delta=${dy} (expected ${exp.top}, got ${rect.top})`).toBeLessThanOrEqual(14);
 }
 
+async function getPanelRect(page: Page): Promise<PanelRect> {
+  return await page.evaluate(() => {
+    const el = document.getElementById('vacp-debug-ui-panel');
+    if (!el) throw new Error('Missing #vacp-debug-ui-panel');
+    const r = el.getBoundingClientRect();
+    return {
+      left: r.left,
+      top: r.top,
+      right: r.right,
+      bottom: r.bottom,
+      innerWidth: window.innerWidth,
+      innerHeight: window.innerHeight,
+    };
+  });
+}
+
+async function expectPanelWithinViewport(page: Page): Promise<void> {
+  const r = await getPanelRect(page);
+  const margin = 10;
+  expect(r.left, `panel left=${r.left}`).toBeGreaterThanOrEqual(margin - 1);
+  expect(r.top, `panel top=${r.top}`).toBeGreaterThanOrEqual(margin - 1);
+  expect(r.right, `panel right=${r.right}`).toBeLessThanOrEqual(r.innerWidth - margin + 1);
+  expect(r.bottom, `panel bottom=${r.bottom}`).toBeLessThanOrEqual(r.innerHeight - margin + 1);
+}
+
 test('debug-ui: drag snaps to anchors', async ({ page }) => {
   const srv = await startViteDevServer({ name: 'vanilla-minimal', cwd: resolve(examplesDir, 'vanilla-minimal') });
   try {
@@ -83,12 +109,12 @@ test('debug-ui: drag snaps to anchors', async ({ page }) => {
     await page.waitForTimeout(260);
     await expectNear(page, 'top-left');
 
-    // Open the panel, then drag by title and snap to bottom-right.
+    // Open the panel, then drag the pill and ensure the panel stays fully visible.
     await pill.click();
-    const title = page.locator('.vacp-debug-ui-title');
-    await expect(title).toBeVisible();
-    const tbox = await title.boundingBox();
-    if (!tbox) throw new Error('Missing title bounding box');
+    await expect(page.locator('#vacp-debug-ui-panel')).toBeVisible();
+
+    const tbox = await pill.boundingBox();
+    if (!tbox) throw new Error('Missing pill bounding box (open)');
     await dragFromTo(
       page,
       { x: tbox.x + tbox.width / 2, y: tbox.y + tbox.height / 2 },
@@ -96,6 +122,10 @@ test('debug-ui: drag snaps to anchors', async ({ page }) => {
     );
     await page.waitForTimeout(260);
     await expectNear(page, 'bottom-right');
+    await expectPanelWithinViewport(page);
+
+    // Graph module should show a rendered diagram (no Mermaid code in the UI).
+    await expect(page.locator('.vacp-debug-ui-content')).not.toContainText('flowchart');
   } finally {
     await srv.stop();
   }

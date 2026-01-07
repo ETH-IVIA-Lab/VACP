@@ -1,12 +1,13 @@
-import type { DebugTab } from './types';
-
 export type VacpDebugUiDom = {
   root: HTMLDivElement;
   button: HTMLButtonElement;
+
   panel: HTMLDivElement;
   titleEl: HTMLDivElement;
 
-  layoutBtn: HTMLButtonElement;
+  moduleBar: HTMLDivElement;
+  content: HTMLDivElement;
+
   liveBtn: HTMLButtonElement;
   undoBtn: HTMLButtonElement;
   redoBtn: HTMLButtonElement;
@@ -14,12 +15,14 @@ export type VacpDebugUiDom = {
   refreshBtn: HTMLButtonElement;
   copyBtn: HTMLButtonElement;
   closeBtn: HTMLButtonElement;
-
-  svgHost: HTMLDivElement;
-  tabButtons: Record<DebugTab, HTMLButtonElement>;
-  panes: Record<DebugTab, HTMLDivElement>;
 };
 
+/**
+ * Debug UI shell DOM.
+ *
+ * The shell is deliberately boring and stable. "Features" live in modules that
+ * render into `content` and are selected via `moduleBar`.
+ */
 export function createVacpDebugUiDom(args: { globalKey: string }): VacpDebugUiDom {
   const root = document.createElement('div');
   root.id = 'vacp-debug-ui-root';
@@ -30,24 +33,29 @@ export function createVacpDebugUiDom(args: { globalKey: string }): VacpDebugUiDo
   button.className = 'vacp-debug-ui-button';
   button.type = 'button';
   button.textContent = 'VACP';
-  button.title = 'Open VACP debug overlay';
+  button.title = 'Open VACP debug tools';
 
   const panel = document.createElement('div');
+  panel.id = 'vacp-debug-ui-panel';
   panel.className = 'vacp-debug-ui-panel';
 
   const header = document.createElement('header');
+  header.className = 'vacp-debug-ui-header';
+
+  const left = document.createElement('div');
+  left.className = 'vacp-debug-ui-header-left';
 
   const titleEl = document.createElement('div');
   titleEl.className = 'vacp-debug-ui-title';
   titleEl.textContent = `VACP Debug (${args.globalKey})`;
 
-  const actionsEl = document.createElement('div');
-  actionsEl.className = 'vacp-debug-ui-header-actions';
+  const moduleBar = document.createElement('div');
+  moduleBar.className = 'vacp-debug-ui-modulebar';
 
-  const layoutBtn = document.createElement('button');
-  layoutBtn.type = 'button';
-  layoutBtn.textContent = 'Layout: split';
-  layoutBtn.title = 'Cycle overlay layout (diagram + inspector / inspector only / diagram only)';
+  left.append(titleEl, moduleBar);
+
+  const right = document.createElement('div');
+  right.className = 'vacp-debug-ui-header-actions';
 
   const liveBtn = document.createElement('button');
   liveBtn.type = 'button';
@@ -68,6 +76,7 @@ export function createVacpDebugUiDom(args: { globalKey: string }): VacpDebugUiDo
   observeBtn.type = 'button';
   observeBtn.textContent = 'Observe: on';
   observeBtn.title = 'Toggle snapshot polling (useful when a provider cannot emit human interaction events)';
+  observeBtn.setAttribute('aria-pressed', 'true');
 
   const refreshBtn = document.createElement('button');
   refreshBtn.type = 'button';
@@ -76,82 +85,31 @@ export function createVacpDebugUiDom(args: { globalKey: string }): VacpDebugUiDo
 
   const copyBtn = document.createElement('button');
   copyBtn.type = 'button';
-  copyBtn.textContent = 'Copy Mermaid';
-  copyBtn.title = 'Copy the current Mermaid source to clipboard';
+  copyBtn.textContent = 'Copy diagram';
+  copyBtn.title = 'Copy the current diagram Mermaid source to clipboard';
 
   const closeBtn = document.createElement('button');
   closeBtn.type = 'button';
   closeBtn.textContent = 'Close';
-  closeBtn.title = 'Close the overlay (does not remove the VACP runtime)';
+  closeBtn.title = 'Close debug tools';
 
-  actionsEl.append(layoutBtn, liveBtn, undoBtn, redoBtn, observeBtn, refreshBtn, copyBtn, closeBtn);
-  header.append(titleEl, actionsEl);
+  right.append(liveBtn, undoBtn, redoBtn, observeBtn, refreshBtn, copyBtn, closeBtn);
+  header.append(left, right);
 
-  const body = document.createElement('div');
-  body.className = 'vacp-debug-ui-body';
+  const content = document.createElement('div');
+  content.className = 'vacp-debug-ui-content';
 
-  const svgHost = document.createElement('div');
-  svgHost.className = 'vacp-debug-ui-svg';
+  panel.append(header, content);
 
-  const codeHost = document.createElement('div');
-  codeHost.className = 'vacp-debug-ui-code';
-
-  const tabs = document.createElement('div');
-  tabs.className = 'vacp-debug-ui-tabs';
-
-  const tabButtons: Record<DebugTab, HTMLButtonElement> = {
-    Graph: document.createElement('button'),
-    Data: document.createElement('button'),
-    Actions: document.createElement('button'),
-    History: document.createElement('button'),
-    Playbook: document.createElement('button'),
-    JSON: document.createElement('button'),
-  };
-
-  (Object.keys(tabButtons) as DebugTab[]).forEach((t) => {
-    const b = tabButtons[t];
-    b.type = 'button';
-    b.className = 'vacp-debug-ui-tab';
-    b.textContent = t;
-    b.setAttribute('aria-selected', 'false');
-    b.title =
-      t === 'Graph'
-        ? 'Rendered graph diagram + Mermaid source'
-        : t === 'Data'
-          ? 'Inspect and query the current DataHandle via DuckDB (vacp.data_sql)'
-          : t === 'Actions'
-            ? 'Manually dispatch semantic actions'
-            : t === 'History'
-              ? 'Inspect runtime timeline entries'
-              : t === 'Playbook'
-                ? 'Step through provider-supplied playbooks (scripted action sequences)'
-                : 'Override/apply state (inspect vs live)';
-    tabs.append(b);
-  });
-
-  const panes: Record<DebugTab, HTMLDivElement> = {
-    Graph: document.createElement('div'),
-    Data: document.createElement('div'),
-    Actions: document.createElement('div'),
-    History: document.createElement('div'),
-    Playbook: document.createElement('div'),
-    JSON: document.createElement('div'),
-  };
-  (Object.keys(panes) as DebugTab[]).forEach((t) => {
-    panes[t].style.display = 'none';
-  });
-
-  codeHost.append(tabs, panes.Graph, panes.Data, panes.Actions, panes.History, panes.Playbook, panes.JSON);
-  body.append(svgHost, codeHost);
-  panel.append(header, body);
-  root.append(button, panel);
+  root.append(button);
 
   return {
     root,
     button,
     panel,
     titleEl,
-    layoutBtn,
+    moduleBar,
+    content,
     liveBtn,
     undoBtn,
     redoBtn,
@@ -159,8 +117,5 @@ export function createVacpDebugUiDom(args: { globalKey: string }): VacpDebugUiDo
     refreshBtn,
     copyBtn,
     closeBtn,
-    svgHost,
-    tabButtons,
-    panes,
   };
 }

@@ -66,10 +66,12 @@ function escapeMermaidLabel(s: string): string {
   // We want readable multi-line labels in Mermaid. Mermaid flowcharts support
   // HTML labels (including `<br/>`) when `htmlLabels` is enabled.
   //
-  // We also want this renderer to be safe with untrusted titles: escape all
-  // HTML by default, and explicitly allow only `<br/>` as a line-break marker.
+  // We also want this renderer to be safe with untrusted titles: escape HTML by
+  // default and explicitly re-allow only a tiny whitelist used for formatting.
   const BR = '__VACP_BR__';
-  const withPlaceholders = s.replaceAll('<br/>', BR);
+  const B0 = '__VACP_B0__';
+  const B1 = '__VACP_B1__';
+  const withPlaceholders = s.replaceAll('<br/>', BR).replaceAll('<b>', B0).replaceAll('</b>', B1);
 
   const escapedHtml = withPlaceholders
     .replaceAll('&', '&amp;')
@@ -79,7 +81,12 @@ function escapeMermaidLabel(s: string): string {
     .replaceAll('\n', ' ');
 
   // Restore line breaks and escape Mermaid string delimiters.
-  return escapedHtml.replaceAll(BR, '<br/>').replaceAll('\\', '\\\\').replaceAll('"', '\\"');
+  return escapedHtml
+    .replaceAll(BR, '<br/>')
+    .replaceAll(B0, '<b>')
+    .replaceAll(B1, '</b>')
+    .replaceAll('\\', '\\\\')
+    .replaceAll('"', '\\"');
 }
 
 function escapeMermaidEdgeLabel(s: string): string {
@@ -118,16 +125,41 @@ export function renderVacpGraphMermaid(input: VacpDiagramRenderInput, options?: 
   const lines: string[] = [];
   lines.push(`flowchart ${direction}`);
 
+  const iconForKind = (kind: string): string => {
+    switch (kind) {
+      case 'View':
+        return '🧭';
+      case 'Visualization':
+        return '📊';
+      case 'Mark':
+        return '✳️';
+      case 'Selection':
+        return '🎯';
+      case 'Param':
+        return '🎚️';
+      case 'Widget':
+        return '🔧';
+      case 'DataHandle':
+        return '🗄️';
+      case 'InteractionTarget':
+        return '🖱️';
+      default:
+        return '🧩';
+    }
+  };
+
   input.graph.nodes.forEach((n, i) => {
     const id = mermaidIdForIndex(i);
     const title = n.title ? clampLabel(n.title, maxLabelLength) : '';
     const ref = clampLabel(shortRef(n.ref), maxLabelLength);
-    const base = [n.kind, title, ref].filter(Boolean).join('<br/>');
+    const base = [`${iconForKind(n.kind)} <b>${n.kind}</b>`, title ? `<b>${title}</b>` : '', ref ? `🔗 ${ref}` : '']
+      .filter(Boolean)
+      .join('<br/>');
     const statePreview =
       includeStatePreview && input.state
         ? toStatePreview((input.state.state as Record<string, unknown>)[n.ref], maxLabelLength)
         : null;
-    const label = statePreview ? `${base}<br/>state=${statePreview}` : base;
+    const label = statePreview ? `${base}<br/>🧾 state=${statePreview}` : base;
     lines.push(`${id}["${escapeMermaidLabel(label)}"]`);
   });
 
@@ -143,7 +175,7 @@ export function renderVacpGraphMermaid(input: VacpDiagramRenderInput, options?: 
     input.graph.actions.forEach((a, i) => {
       const aid = actionIdForIndex(i);
       const name = clampLabel(a.name, maxLabelLength);
-      lines.push(`${aid}(["${escapeMermaidLabel(`action<br/>${name}`)}"])`);
+      lines.push(`${aid}(["${escapeMermaidLabel(`⚡ <b>action</b><br/><b>${name}</b>`)}"])`);
       if (a.targetRef) {
         const targetIdx = nodeIndexByRef.get(a.targetRef);
         if (targetIdx !== undefined) {

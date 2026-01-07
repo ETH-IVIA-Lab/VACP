@@ -1,20 +1,15 @@
 import type { VacpPlaybook, VacpRuntimeSnapshot } from '@vacp/core';
+
 import { getBridge, readPlaybooks, readRuntime } from './bridge';
 import { createVacpDebugDock } from './dock';
 import { shouldEnable } from './enabled';
-import { renderMermaidToHost } from './mermaid';
-import { renderActionsPane } from './panes/actions';
-import { createInitialDataUiState, renderDataPane } from './panes/data';
-import { renderGraphPane, type GraphUiState } from './panes/graph-pane';
-import { mermaidSourceFromRuntime } from './panes/graph';
-import { renderHistoryPane } from './panes/history';
-import { renderJsonPane } from './panes/json';
-import { renderPlaybookPane } from './panes/playbook';
+import { createDefaultModules } from './modules';
 import { installVacpDebugResizer } from './resize';
 import { installVacpDebugShortcuts } from './shortcuts';
 import { ensureStyles } from './styles';
-import type { DebugTab, VacpDebugUiOptions, VacpWindowBridge } from './types';
+import type { VacpDebugModule, VacpDebugModuleId, VacpDebugUiOptions, VacpWindowBridge } from './types';
 import { createVacpDebugUiDom } from './ui';
+
 function copyText(text: string): void {
   const t = text ?? '';
   if (navigator.clipboard?.writeText) {
@@ -35,29 +30,39 @@ function copyText(text: string): void {
     el.remove();
   }
 }
+
 function setPanelVisible(panel: HTMLElement, visible: boolean): void {
   panel.style.display = visible ? 'block' : 'none';
 }
+
 function isPanelVisible(panel: HTMLElement): boolean {
   return getComputedStyle(panel).display !== 'none';
+}
+
+function clamp(n: number, min: number, max: number): number {
+  return Math.max(min, Math.min(max, n));
 }
 
 export function installVacpDebugUi(options?: VacpDebugUiOptions): void {
   const enabled = options?.enabled ?? 'auto';
   if (!shouldEnable(enabled)) return;
   if (document.getElementById('vacp-debug-ui-root')) return;
+
   const globalKey = options?.globalKey ?? '__vacp';
   const initialDirection = options?.direction ?? 'LR';
   const initialIncludeActions = options?.includeActions ?? true;
   const initialIncludeStatePreview = options?.includeStatePreview ?? true;
+
   ensureStyles();
+
   const dom = createVacpDebugUiDom({ globalKey });
   const {
     root,
     button,
     panel,
     titleEl,
-    layoutBtn,
+    moduleBar,
+    content,
     liveBtn,
     undoBtn,
     redoBtn,
@@ -66,152 +71,137 @@ export function installVacpDebugUi(options?: VacpDebugUiOptions): void {
     copyBtn,
     closeBtn,
   } = dom;
-  const { tabButtons, panes, svgHost } = dom;
+
   document.body.append(root);
+  document.body.append(panel);
+
+  const panelPosition = () => {
+    if (!isPanelVisible(panel)) return;
+    const margin = 10;
+    const gap = 10;
+    const dockRect = root.getBoundingClientRect();
+    const panelRect = panel.getBoundingClientRect();
+    const w = panelRect.width;
+    const h = panelRect.height;
+
+    const openRight = dockRect.left < window.innerWidth / 2;
+    const openDown = dockRect.top < window.innerHeight / 2;
+    let left = openRight ? dockRect.left : dockRect.right - w;
+    let top = openDown ? dockRect.bottom + gap : dockRect.top - gap - h;
+
+    left = clamp(left, margin, Math.max(margin, window.innerWidth - w - margin));
+    top = clamp(top, margin, Math.max(margin, window.innerHeight - h - margin));
+
+    panel.style.left = `${left}px`;
+    panel.style.top = `${top}px`;
+    panel.style.right = 'auto';
+    panel.style.bottom = 'auto';
+  };
 
   const dock = createVacpDebugDock({
     root,
-    panel,
-    button,
-    titleEl,
+    handles: [button],
     storageKey: 'vacp:debug:pos',
+    onMove: () => panelPosition(),
+    onDrop: () => panelPosition(),
   });
   dock.attach();
+
   installVacpDebugResizer({
     panel,
     storageKey: 'vacp:debug:size',
-    onResizeEnd: () => dock.snapToNearest({ animate: false }),
+    onResizeEnd: () => panelPosition(),
   });
 
-  let currentTab: DebugTab = 'Graph';
-  let observeEnabled = true;
-  let lastMermaid = '';
-  let unsubscribe: (() => void) | null = null;
+  const modules: VacpDebugModule[] =
+    options?.modules ??
+    createDefaultModules({
+      direction: initialDirection,
+      includeActions: initialIncludeActions,
+      includeStatePreview: initialIncludeStatePreview,
+    });
 
-  type LayoutMode = 'split' | 'inspector' | 'diagram';
-  const LAYOUT_KEY = 'vacp:debug:layout';
-  const readLayout = (): LayoutMode => {
+  const MODULE_KEY = 'vacp:debug:module';
+  const readModuleId = (): VacpDebugModuleId => {
     try {
-      const raw = localStorage.getItem(LAYOUT_KEY);
-      if (raw === 'inspector' || raw === 'diagram' || raw === 'split') return raw;
-      return 'split';
+      const raw = localStorage.getItem(MODULE_KEY);
+      if (raw && modules.some((m) => m.id === raw)) return raw;
+      return modules[0]?.id ?? 'graph';
     } catch {
-      return 'split';
+      return modules[0]?.id ?? 'graph';
     }
   };
-  const saveLayout = (mode: LayoutMode) => {
+  const saveModuleId = (id: VacpDebugModuleId) => {
     try {
-      localStorage.setItem(LAYOUT_KEY, mode);
+      localStorage.setItem(MODULE_KEY, id);
     } catch {
       // ignore
     }
   };
-  let layout: LayoutMode = readLayout();
 
+  let currentModuleId: VacpDebugModuleId = readModuleId();
+  let observeEnabled = true;
+  let lastMermaid = '';
   let playbooks: VacpPlaybook[] = [];
-  let selectedPlaybookId: string | null = null;
-  let selectedStepIdx = 0;
-
-  const actionUi = { selectedAction: undefined as string | undefined, paramsText: '{}' };
-  const dataUi = createInitialDataUiState();
-  const graphUi: GraphUiState = {
-    direction: initialDirection,
-    includeActions: initialIncludeActions,
-    includeStatePreview: initialIncludeStatePreview,
-  };
-  const jsonUi = { text: '{}' };
   let activeBridge: VacpWindowBridge | null = null;
+  let unsubscribe: (() => void) | null = null;
   let pendingRender = false;
+
   const dbg = (message: string) => ({ source: 'debug' as const, message });
 
-  const setTab = (next: DebugTab) => {
-    currentTab = next;
-    (Object.keys(tabButtons) as DebugTab[]).forEach((t) =>
-      tabButtons[t].setAttribute('aria-selected', t === next ? 'true' : 'false'),
-    );
-    (Object.keys(panes) as DebugTab[]).forEach((t) => {
-      panes[t].style.display = t === next ? 'block' : 'none';
+  const moduleButtons = new Map<VacpDebugModuleId, HTMLButtonElement>();
+  const renderModuleBar = () => {
+    moduleBar.textContent = '';
+    moduleButtons.clear();
+    modules.forEach((m) => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'vacp-debug-ui-module';
+      b.textContent = m.icon ? `${m.icon} ${m.title}` : m.title;
+      b.setAttribute('aria-current', m.id === currentModuleId ? 'true' : 'false');
+      b.title = m.title;
+      b.addEventListener('click', () => {
+        currentModuleId = m.id;
+        saveModuleId(currentModuleId);
+        renderModuleBar();
+        requestRender();
+      });
+      moduleButtons.set(m.id, b);
+      moduleBar.append(b);
     });
   };
-  setTab('Graph');
-
-  const applyLayout = () => {
-    layoutBtn.textContent = `Layout: ${layout}`;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const body = panel.querySelector('.vacp-debug-ui-body') as any as HTMLElement | null;
-    if (body) body.setAttribute('data-layout', layout);
-    dock.positionPanel();
-  };
-  applyLayout();
+  renderModuleBar();
 
   const updateTitle = (rt: VacpRuntimeSnapshot) => {
     const rid = (rt.runtimeId ?? '').toString().slice(0, 8);
     titleEl.textContent = `VACP Debug (${globalKey}) • mode=${rt.mode} cursor=${rt.cursor} history=${rt.history.length} • runtime=${rid}`;
   };
 
+  const currentModule = (): VacpDebugModule | null => modules.find((m) => m.id === currentModuleId) ?? null;
+
+  const updateCopyEnabled = () => {
+    copyBtn.disabled = !lastMermaid;
+  };
+  updateCopyEnabled();
+
   const render = async (bridge: VacpWindowBridge) => {
     activeBridge = bridge;
     const runtime = await readRuntime(bridge);
     updateTitle(runtime);
 
-    const mermaid = mermaidSourceFromRuntime(runtime, {
-      direction: graphUi.direction,
-      includeActions: graphUi.includeActions,
-      includeStatePreview: graphUi.includeStatePreview,
+    const mod = currentModule();
+    if (!mod) return;
+
+    await mod.render(content, {
+      bridge,
+      runtime,
+      playbooks,
+      requestRender,
+      setDiagramMermaid: (m) => {
+        lastMermaid = m;
+        updateCopyEnabled();
+      },
     });
-    lastMermaid = mermaid;
-
-    if (currentTab === 'Graph') {
-      renderGraphPane({
-        container: panes.Graph,
-        mermaid,
-        state: graphUi,
-        onChange: (next) => {
-          Object.assign(graphUi, next);
-          requestRender();
-        },
-      });
-    }
-
-    if (currentTab === 'Data') {
-      await renderDataPane({
-        container: panes.Data,
-        runtime,
-        bridge,
-        state: dataUi,
-        onChange: (next) => {
-          Object.assign(dataUi, next);
-          requestRender();
-        },
-      });
-    }
-
-    if (currentTab === 'History') renderHistoryPane(panes.History, runtime, bridge);
-    if (currentTab === 'Actions') {
-      renderActionsPane(panes.Actions, runtime, bridge, actionUi, (next) => {
-        Object.assign(actionUi, next);
-        requestRender();
-      });
-    }
-    if (currentTab === 'Playbook') {
-      renderPlaybookPane({
-        container: panes.Playbook,
-        runtime,
-        bridge,
-        playbooks,
-        selectedId: selectedPlaybookId,
-        selectedStepIdx,
-        setSelected: (next) => {
-          if (next.playbookId !== undefined) selectedPlaybookId = next.playbookId;
-          if (next.stepIdx !== undefined) selectedStepIdx = next.stepIdx;
-          requestRender();
-        },
-      });
-    }
-    if (currentTab === 'JSON')
-      renderJsonPane(panes.JSON, runtime, bridge, jsonUi, (next) => Object.assign(jsonUi, next));
-
-    await renderMermaidToHost(svgHost, mermaid);
   };
 
   const requestRender = () => {
@@ -226,28 +216,20 @@ export function installVacpDebugUi(options?: VacpDebugUiOptions): void {
     });
   };
 
-  (Object.keys(tabButtons) as DebugTab[]).forEach((t) =>
-    tabButtons[t].addEventListener('click', () => {
-      setTab(t);
-      requestRender();
-    }),
-  );
-
   const connect = async () => {
     const bridge = getBridge(globalKey);
     if (!bridge) {
-      svgHost.textContent = '';
-      svgHost.append(document.createTextNode('No VACP bridge found on this page.'));
-      panes.Graph.textContent = '';
+      activeBridge = null;
+      content.textContent = '';
       const msg = document.createElement('div');
       msg.className = 'vacp-debug-ui-small';
-      msg.textContent = `Expected window.${globalKey} with getCapabilities/getState/execute.\n\nTip: enable VACP in the app (provider install) and reload.`;
-      panes.Graph.append(msg);
+      msg.textContent = `No VACP bridge found.\n\nExpected window.${globalKey} with getCapabilities/getState/execute.\n\nTip: enable VACP in the app and reload.`;
+      content.append(msg);
       return;
     }
     activeBridge = bridge;
-
     playbooks = await readPlaybooks(bridge);
+
     if (typeof bridge.subscribe === 'function') {
       unsubscribe?.();
       unsubscribe = bridge.subscribe(() => {
@@ -266,19 +248,15 @@ export function installVacpDebugUi(options?: VacpDebugUiOptions): void {
   };
 
   button.addEventListener('click', () => {
-    setPanelVisible(panel, !isPanelVisible(panel));
-    if (isPanelVisible(panel)) {
-      dock.positionPanel();
+    const next = !isPanelVisible(panel);
+    setPanelVisible(panel, next);
+    if (next) {
+      panelPosition();
       void connect();
     }
   });
-  closeBtn.addEventListener('click', () => setPanelVisible(panel, false));
 
-  layoutBtn.addEventListener('click', () => {
-    layout = layout === 'split' ? 'inspector' : layout === 'inspector' ? 'diagram' : 'split';
-    saveLayout(layout);
-    applyLayout();
-  });
+  closeBtn.addEventListener('click', () => setPanelVisible(panel, false));
 
   liveBtn.addEventListener('click', () => void withBridge((b) => b.setMode?.('live', dbg('live'))));
   undoBtn.addEventListener('click', () => void withBridge((b) => b.undo?.(dbg('undo'))));
@@ -286,6 +264,7 @@ export function installVacpDebugUi(options?: VacpDebugUiOptions): void {
 
   observeBtn.addEventListener('click', () => {
     observeEnabled = !observeEnabled;
+    observeBtn.setAttribute('aria-pressed', observeEnabled ? 'true' : 'false');
     observeBtn.textContent = observeEnabled ? 'Observe: on' : 'Observe: off';
     void withBridge((b) => {
       if (observeEnabled) b.startObserving?.(dbg('observe'));
@@ -294,14 +273,24 @@ export function installVacpDebugUi(options?: VacpDebugUiOptions): void {
   });
 
   refreshBtn.addEventListener('click', () => void withBridge(async (b) => void (await b.refresh?.(dbg('refresh')))));
-  copyBtn.addEventListener('click', () => copyText(lastMermaid));
+  copyBtn.addEventListener('click', () => {
+    if (!lastMermaid) return;
+    copyText(lastMermaid);
+  });
+
+  window.addEventListener('resize', () => panelPosition());
 
   installVacpDebugShortcuts({
     isPanelVisible: () => isPanelVisible(panel),
     setPanelVisible: (v) => setPanelVisible(panel, v),
-    setTab,
-    requestRender,
-    cycleLayout: () => layoutBtn.click(),
+    moduleIds: modules.map((m) => m.id),
+    selectModule: (id) => {
+      if (!modules.some((m) => m.id === id)) return;
+      currentModuleId = id;
+      saveModuleId(id);
+      renderModuleBar();
+      requestRender();
+    },
     refresh: () => refreshBtn.click(),
   });
 }

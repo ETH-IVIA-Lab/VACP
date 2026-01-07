@@ -8,6 +8,25 @@ import type {
 
 export type VacpDebugUiEnabled = boolean | 'auto';
 
+export type VacpDebugModuleId = string;
+
+export type VacpDebugModuleContext = {
+  bridge: VacpWindowBridge;
+  runtime: VacpRuntimeSnapshot;
+  playbooks: VacpPlaybook[];
+  requestRender: () => void;
+  /** If provided, modules can report the current diagram source for clipboard/export. */
+  setDiagramMermaid?: (mermaid: string) => void;
+};
+
+export type VacpDebugModule = {
+  id: VacpDebugModuleId;
+  title: string;
+  icon?: string;
+  /** Render the module into the provided container. Should fully replace its contents. */
+  render: (container: HTMLElement, ctx: VacpDebugModuleContext) => void | Promise<void>;
+};
+
 export interface VacpDebugUiOptions {
   /**
    * If `true`, always show the overlay.
@@ -22,9 +41,12 @@ export interface VacpDebugUiOptions {
   direction?: 'LR' | 'TB';
   includeActions?: boolean;
   includeStatePreview?: boolean;
+  /**
+   * Optional custom modules. When omitted, the built-in modules are installed.
+   * This is the extension point for growing debug features without rewriting the shell UI.
+   */
+  modules?: VacpDebugModule[];
 }
-
-export type DebugTab = 'Graph' | 'Data' | 'Actions' | 'History' | 'Playbook' | 'JSON';
 
 export type VacpWindowBridge = VacpRuntimeBridge & {
   getCapabilities: () => Promise<VacpCapabilitiesSnapshot>;

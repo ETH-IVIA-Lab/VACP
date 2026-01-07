@@ -1,20 +1,18 @@
-import type { DebugTab } from './types';
+import type { VacpDebugModuleId } from './types';
 
 /**
- * Keyboard shortcuts (debug overlay ergonomics).
+ * Keyboard shortcuts (overlay ergonomics).
  *
  * Intentionally minimal and opt-in (panel must be open):
  * - Esc closes
- * - Alt+1..6 switches tabs
- * - Alt+L cycles layout
+ * - Alt+1..9 selects modules by order
  * - Alt+R refreshes snapshots
  */
 export function installVacpDebugShortcuts(args: {
   isPanelVisible: () => boolean;
   setPanelVisible: (visible: boolean) => void;
-  setTab: (tab: DebugTab) => void;
-  requestRender: () => void;
-  cycleLayout: () => void;
+  moduleIds: VacpDebugModuleId[];
+  selectModule: (id: VacpDebugModuleId) => void;
   refresh: () => void;
 }) {
   window.addEventListener('keydown', (ev) => {
@@ -29,32 +27,17 @@ export function installVacpDebugShortcuts(args: {
 
     if (!ev.altKey) return;
 
-    const tabByKey: Record<string, DebugTab> = {
-      '1': 'Graph',
-      '2': 'Data',
-      '3': 'Actions',
-      '4': 'History',
-      '5': 'Playbook',
-      '6': 'JSON',
-    };
-    const t = tabByKey[ev.key];
-    if (t) {
-      ev.preventDefault();
-      args.setTab(t);
-      args.requestRender();
-      return;
-    }
-
-    if (ev.key.toLowerCase() === 'l') {
-      ev.preventDefault();
-      args.cycleLayout();
-      return;
-    }
-
     if (ev.key.toLowerCase() === 'r') {
       ev.preventDefault();
       args.refresh();
       return;
     }
+
+    const n = Number(ev.key);
+    if (!Number.isFinite(n) || n <= 0) return;
+    const id = args.moduleIds[n - 1];
+    if (!id) return;
+    ev.preventDefault();
+    args.selectModule(id);
   });
 }
