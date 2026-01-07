@@ -200,7 +200,12 @@ async function main() {
       const state = await currentBridge.getState();
       const cur = (state.state as Record<string, unknown>)[paramNode.ref];
       const curValue = cur && typeof cur === 'object' ? (cur as { value?: unknown }).value : undefined;
-      const next = typeof curValue === 'number' ? curValue + 10 : 42;
+      const next =
+        typeof curValue === 'number'
+          ? curValue >= 0 && curValue <= 1
+            ? Math.min(1, curValue + 0.1)
+            : curValue + 10
+          : 42;
 
       await currentBridge.execute({
         callId: crypto.randomUUID(),
