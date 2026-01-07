@@ -1,4 +1,4 @@
-import type { VacpCapabilitiesSnapshot, VacpStateSnapshot } from '@vacp/core';
+import type { VacpCapabilitiesSnapshot, VacpHistoryEntry, VacpRuntimeBridge, VacpRuntimeSnapshot, VacpStateSnapshot } from '@vacp/core';
 import { renderVacpDiagramMermaid } from '@vacp/diagrams';
 
 /**
@@ -32,7 +32,7 @@ export interface VacpDebugUiOptions {
   includeStatePreview?: boolean;
 }
 
-type VacpWindowBridge = {
+type VacpWindowBridge = VacpRuntimeBridge & {
   getCapabilities: () => Promise<VacpCapabilitiesSnapshot>;
   getState: () => Promise<VacpStateSnapshot>;
 };
@@ -57,6 +57,11 @@ function getBridge(globalKey: string): VacpWindowBridge | null {
   const maybe = b as Partial<VacpWindowBridge>;
   if (typeof maybe.getCapabilities !== 'function' || typeof maybe.getState !== 'function') return null;
   return maybe as VacpWindowBridge;
+}
+
+function makeId(): string {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') return crypto.randomUUID();
+  return `vacp_${Math.random().toString(16).slice(2)}_${Date.now().toString(16)}`;
 }
 
 function ensureStyles(): void {
@@ -120,6 +125,10 @@ function ensureStyles(): void {
       cursor: pointer;
       font: 12px system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
     }
+    .vacp-debug-ui-actions button[disabled] {
+      opacity: 0.55;
+      cursor: not-allowed;
+    }
     .vacp-debug-ui-body {
       display: grid;
       grid-template-columns: 1fr 340px;
@@ -145,9 +154,86 @@ function ensureStyles(): void {
       white-space: pre;
       color: #e7e9ee;
     }
+    .vacp-debug-ui-tabs {
+      display: flex;
+      gap: 6px;
+      padding: 8px 0 10px 0;
+      border-bottom: 1px solid rgba(231, 233, 238, 0.12);
+      margin-bottom: 10px;
+    }
+    .vacp-debug-ui-tab {
+      background: rgba(231, 233, 238, 0.08);
+      color: #e7e9ee;
+      border: 1px solid rgba(231, 233, 238, 0.14);
+      border-radius: 999px;
+      padding: 4px 8px;
+      cursor: pointer;
+      font: 12px system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    }
+    .vacp-debug-ui-tab[aria-selected="true"] {
+      background: rgba(231, 233, 238, 0.18);
+      border-color: rgba(231, 233, 238, 0.22);
+    }
+    .vacp-debug-ui-section-title {
+      font: 11px system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      opacity: 0.75;
+      margin: 10px 0 6px 0;
+    }
+    .vacp-debug-ui-small {
+      font: 11px ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
+      opacity: 0.85;
+      white-space: pre-wrap;
+    }
+    .vacp-debug-ui-field {
+      display: grid;
+      gap: 6px;
+      margin: 8px 0;
+    }
+    .vacp-debug-ui-field label {
+      font: 12px system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      opacity: 0.9;
+    }
+    .vacp-debug-ui-field textarea,
+    .vacp-debug-ui-field select,
+    .vacp-debug-ui-field input {
+      width: 100%;
+      background: rgba(231, 233, 238, 0.08);
+      border: 1px solid rgba(231, 233, 238, 0.18);
+      color: #e7e9ee;
+      border-radius: 8px;
+      padding: 8px;
+      font: 12px ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
+      box-sizing: border-box;
+    }
+    .vacp-debug-ui-field textarea {
+      min-height: 110px;
+      resize: vertical;
+      white-space: pre;
+    }
+    .vacp-debug-ui-list {
+      display: grid;
+      gap: 6px;
+    }
+    .vacp-debug-ui-row {
+      border: 1px solid rgba(231, 233, 238, 0.12);
+      border-radius: 10px;
+      padding: 8px;
+      cursor: pointer;
+      background: rgba(231, 233, 238, 0.06);
+    }
+    .vacp-debug-ui-row:hover {
+      background: rgba(231, 233, 238, 0.10);
+    }
+    .vacp-debug-ui-row[aria-selected="true"] {
+      outline: 2px solid rgba(231, 233, 238, 0.25);
+    }
   `;
   document.head.append(style);
 }
+
+type DebugTab = 'Graph' | 'Actions' | 'History' | 'JSON';
 
 export function installVacpDebugUi(options?: VacpDebugUiOptions): void {
   const enabled = options?.enabled ?? 'auto';
@@ -161,6 +247,7 @@ export function installVacpDebugUi(options?: VacpDebugUiOptions): void {
 
   const root = document.createElement('div');
   root.id = 'vacp-debug-ui-root';
+  root.setAttribute('data-vacp-debug-ui', '1');
 
   const button = document.createElement('button');
   button.className = 'vacp-debug-ui-button';
@@ -201,7 +288,34 @@ export function installVacpDebugUi(options?: VacpDebugUiOptions): void {
 
   const codeHost = document.createElement('div');
   codeHost.className = 'vacp-debug-ui-code';
-  codeHost.textContent = '(loading…)';
+
+  const tabs = document.createElement('div');
+  tabs.className = 'vacp-debug-ui-tabs';
+
+  const tabButtons: Record<DebugTab, HTMLButtonElement> = {
+    Graph: document.createElement('button'),
+    Actions: document.createElement('button'),
+    History: document.createElement('button'),
+    JSON: document.createElement('button'),
+  };
+
+  (Object.keys(tabButtons) as DebugTab[]).forEach((t) => {
+    const b = tabButtons[t];
+    b.type = 'button';
+    b.className = 'vacp-debug-ui-tab';
+    b.textContent = t;
+    b.setAttribute('aria-selected', 'false');
+    tabs.append(b);
+  });
+
+  const graphPane = document.createElement('div');
+  const actionsPane = document.createElement('div');
+  const historyPane = document.createElement('div');
+  const jsonPane = document.createElement('div');
+
+  const panes: Record<DebugTab, HTMLElement> = { Graph: graphPane, Actions: actionsPane, History: historyPane, JSON: jsonPane };
+
+  codeHost.append(tabs, graphPane, actionsPane, historyPane, jsonPane);
 
   body.append(svgHost, codeHost);
   panel.append(header, body);
@@ -209,6 +323,9 @@ export function installVacpDebugUi(options?: VacpDebugUiOptions): void {
   document.body.append(root);
 
   let lastMermaid = '';
+  let lastRuntime: VacpRuntimeSnapshot | null = null;
+  let currentTab: DebugTab = 'Graph';
+  let unsubscribe: (() => void) | null = null;
 
   async function renderSvg(mermaidText: string): Promise<void> {
     svgHost.textContent = '';
@@ -224,18 +341,249 @@ export function installVacpDebugUi(options?: VacpDebugUiOptions): void {
     }
   }
 
+  function setTab(next: DebugTab): void {
+    currentTab = next;
+    (Object.keys(tabButtons) as DebugTab[]).forEach((t) => tabButtons[t].setAttribute('aria-selected', t === next ? 'true' : 'false'));
+    (Object.keys(panes) as DebugTab[]).forEach((t) => {
+      panes[t].style.display = t === next ? 'block' : 'none';
+    });
+  }
+
+  async function readRuntime(bridge: VacpWindowBridge): Promise<VacpRuntimeSnapshot> {
+    if (typeof bridge.getRuntime === 'function') {
+      const rt = await bridge.getRuntime();
+      return rt;
+    }
+    const [capabilities, state] = await Promise.all([bridge.getCapabilities(), bridge.getState()]);
+    return {
+      version: capabilities.version,
+      mode: 'live',
+      cursor: -1,
+      history: [],
+      liveCapabilities: capabilities,
+      liveState: state,
+      currentCapabilities: capabilities,
+      currentState: state,
+    };
+  }
+
+  function renderHistory(runtime: VacpRuntimeSnapshot, bridge: VacpWindowBridge): void {
+    historyPane.textContent = '';
+    const title = document.createElement('div');
+    title.className = 'vacp-debug-ui-section-title';
+    title.textContent = 'Timeline';
+
+    const list = document.createElement('div');
+    list.className = 'vacp-debug-ui-list';
+
+    const selectedCursor = runtime.cursor;
+    runtime.history.forEach((e, idx) => {
+      const row = document.createElement('div');
+      row.className = 'vacp-debug-ui-row';
+      row.setAttribute('aria-selected', idx === selectedCursor && runtime.mode === 'inspect' ? 'true' : 'false');
+      const label = [
+        `${idx}`,
+        e.kind,
+        e.source,
+        e.call?.name ? `action=${e.call.name}` : '',
+        e.message ? `msg=${e.message}` : '',
+      ]
+        .filter(Boolean)
+        .join(' • ');
+      row.textContent = label;
+      row.addEventListener('click', () => {
+        if (typeof bridge.setCursor === 'function') bridge.setCursor(idx, { source: 'debug', message: 'inspect' });
+      });
+      list.append(row);
+    });
+
+    const hint = document.createElement('div');
+    hint.className = 'vacp-debug-ui-small';
+    hint.textContent =
+      'Tip: timeline entries are captured on agent actions (execute), explicit refresh, and provider-driven human changes (if supported).';
+
+    historyPane.append(title, list, hint);
+  }
+
+  function renderActions(runtime: VacpRuntimeSnapshot, bridge: VacpWindowBridge): void {
+    actionsPane.textContent = '';
+    const title = document.createElement('div');
+    title.className = 'vacp-debug-ui-section-title';
+    title.textContent = 'Dispatch Action';
+
+    const actions = runtime.currentCapabilities.graph.actions ?? [];
+    if (!actions.length) {
+      const empty = document.createElement('div');
+      empty.className = 'vacp-debug-ui-small';
+      empty.textContent = 'No actions available in the current capabilities graph.';
+      actionsPane.append(title, empty);
+      return;
+    }
+
+    const selectField = document.createElement('div');
+    selectField.className = 'vacp-debug-ui-field';
+    const selectLabel = document.createElement('label');
+    selectLabel.textContent = 'Action';
+    const select = document.createElement('select');
+    actions.forEach((a) => {
+      const opt = document.createElement('option');
+      opt.value = a.name;
+      opt.textContent = a.name;
+      select.append(opt);
+    });
+    selectField.append(selectLabel, select);
+
+    const schemaTitle = document.createElement('div');
+    schemaTitle.className = 'vacp-debug-ui-section-title';
+    schemaTitle.textContent = 'Parameters schema';
+    const schemaPre = document.createElement('div');
+    schemaPre.className = 'vacp-debug-ui-small';
+
+    const paramsField = document.createElement('div');
+    paramsField.className = 'vacp-debug-ui-field';
+    const paramsLabel = document.createElement('label');
+    paramsLabel.textContent = 'Params (JSON)';
+    const params = document.createElement('textarea');
+    params.value = '{}';
+    paramsField.append(paramsLabel, params);
+
+    const run = document.createElement('button');
+    run.type = 'button';
+    run.textContent = 'Execute';
+
+    const resultTitle = document.createElement('div');
+    resultTitle.className = 'vacp-debug-ui-section-title';
+    resultTitle.textContent = 'Result';
+    const resultPre = document.createElement('div');
+    resultPre.className = 'vacp-debug-ui-small';
+    resultPre.textContent = '(not executed yet)';
+
+    function updateActionUi(): void {
+      const a = actions.find((x) => x.name === select.value) ?? actions[0];
+      schemaPre.textContent = JSON.stringify(a.parameters ?? {}, null, 2);
+    }
+    select.addEventListener('change', () => updateActionUi());
+    updateActionUi();
+
+    run.addEventListener('click', async () => {
+      try {
+        run.disabled = true;
+        const name = select.value;
+        const parsed = params.value.trim() ? (JSON.parse(params.value) as unknown) : undefined;
+        const res = await bridge.execute({ callId: makeId(), name, params: parsed });
+        resultPre.textContent = JSON.stringify(res, null, 2);
+        if (typeof bridge.refresh === 'function') await bridge.refresh({ source: 'debug', message: `after ${name}` });
+      } catch (err) {
+        resultPre.textContent = `Execute failed: ${String(err)}`;
+      } finally {
+        run.disabled = false;
+      }
+    });
+
+    actionsPane.append(title, selectField, schemaTitle, schemaPre, paramsField, run, resultTitle, resultPre);
+  }
+
+  function renderJson(runtime: VacpRuntimeSnapshot, bridge: VacpWindowBridge): void {
+    jsonPane.textContent = '';
+
+    const title = document.createElement('div');
+    title.className = 'vacp-debug-ui-section-title';
+    title.textContent = 'Inspection Overrides (debug only)';
+
+    const hint = document.createElement('div');
+    hint.className = 'vacp-debug-ui-small';
+    hint.textContent =
+      'These overrides do not mutate the live app. They only affect what the debug UI shows (diagram/state) while in inspect mode.';
+
+    const stateField = document.createElement('div');
+    stateField.className = 'vacp-debug-ui-field';
+    const stateLabel = document.createElement('label');
+    stateLabel.textContent = 'State override (JSON object keyed by vacp:// refs)';
+    const stateArea = document.createElement('textarea');
+    stateArea.value = JSON.stringify(runtime.currentState.state ?? {}, null, 2);
+    stateField.append(stateLabel, stateArea);
+
+    const graphField = document.createElement('div');
+    graphField.className = 'vacp-debug-ui-field';
+    const graphLabel = document.createElement('label');
+    graphLabel.textContent = 'Graph override (VacpGraph JSON)';
+    const graphArea = document.createElement('textarea');
+    graphArea.value = JSON.stringify(runtime.currentCapabilities.graph ?? {}, null, 2);
+    graphField.append(graphLabel, graphArea);
+
+    const applyState = document.createElement('button');
+    applyState.type = 'button';
+    applyState.textContent = 'Apply state override';
+
+    const applyGraph = document.createElement('button');
+    applyGraph.type = 'button';
+    applyGraph.textContent = 'Apply graph override';
+
+    const clear = document.createElement('button');
+    clear.type = 'button';
+    clear.textContent = 'Clear overrides';
+
+    const note = document.createElement('div');
+    note.className = 'vacp-debug-ui-small';
+    note.textContent = '';
+
+    applyState.addEventListener('click', () => {
+      try {
+        if (typeof bridge.setStateOverride !== 'function') throw new Error('Bridge does not support state overrides');
+        const parsed = JSON.parse(stateArea.value) as Record<string, unknown>;
+        bridge.setStateOverride(parsed as unknown as Record<string, any>, { source: 'debug', message: 'state override' });
+        if (typeof bridge.setMode === 'function') bridge.setMode('inspect', { source: 'debug', message: 'inspect' });
+        note.textContent = 'State override applied.';
+      } catch (err) {
+        note.textContent = `Failed: ${String(err)}`;
+      }
+    });
+
+    applyGraph.addEventListener('click', () => {
+      try {
+        if (typeof bridge.setGraphOverride !== 'function') throw new Error('Bridge does not support graph overrides');
+        const parsed = JSON.parse(graphArea.value) as unknown as any;
+        bridge.setGraphOverride(parsed, { source: 'debug', message: 'graph override' });
+        if (typeof bridge.setMode === 'function') bridge.setMode('inspect', { source: 'debug', message: 'inspect' });
+        note.textContent = 'Graph override applied.';
+      } catch (err) {
+        note.textContent = `Failed: ${String(err)}`;
+      }
+    });
+
+    clear.addEventListener('click', () => {
+      if (typeof bridge.clearOverrides === 'function') bridge.clearOverrides({ source: 'debug', message: 'clear' });
+      note.textContent = 'Overrides cleared.';
+    });
+
+    jsonPane.append(title, hint, stateField, applyState, graphField, applyGraph, clear, note);
+  }
+
+  function renderGraphText(runtime: VacpRuntimeSnapshot): void {
+    graphPane.textContent = '';
+    const summary = document.createElement('div');
+    summary.className = 'vacp-debug-ui-small';
+    summary.textContent = `mode=${runtime.mode} cursor=${runtime.cursor} history=${runtime.history.length}`;
+    const pre = document.createElement('div');
+    pre.className = 'vacp-debug-ui-small';
+    pre.textContent = `\n${lastMermaid}`;
+    graphPane.append(summary, pre);
+  }
+
   async function refresh(): Promise<void> {
     const bridge = getBridge(globalKey);
     if (!bridge) {
-      codeHost.textContent = `No bridge found at window.${globalKey}.`;
+      graphPane.textContent = `No bridge found at window.${globalKey}.`;
       svgHost.textContent = '';
       return;
     }
     try {
-      const [capabilities, state] = await Promise.all([bridge.getCapabilities(), bridge.getState()]);
+      const runtime = await readRuntime(bridge);
+      lastRuntime = runtime;
+
       const diagram = renderVacpDiagramMermaid({
-        capabilities,
-        state,
+        capabilities: runtime.currentCapabilities,
+        state: runtime.currentState,
         options: {
           direction,
           includeActions: options?.includeActions ?? true,
@@ -243,16 +591,20 @@ export function installVacpDebugUi(options?: VacpDebugUiOptions): void {
         },
       });
       lastMermaid = diagram;
-      codeHost.textContent = diagram;
+      renderGraphText(runtime);
+      renderActions(runtime, bridge);
+      renderHistory(runtime, bridge);
+      renderJson(runtime, bridge);
       await renderSvg(diagram);
     } catch (err) {
-      codeHost.textContent = `Failed to read VACP state: ${String(err)}`;
+      graphPane.textContent = `Failed to read VACP state: ${String(err)}`;
       svgHost.textContent = '';
     }
   }
 
   function open(): void {
     panel.style.display = 'block';
+    attachSubscription();
     void refresh();
   }
 
@@ -260,12 +612,26 @@ export function installVacpDebugUi(options?: VacpDebugUiOptions): void {
     panel.style.display = 'none';
   }
 
+  function attachSubscription(): void {
+    const bridge = getBridge(globalKey);
+    if (!bridge) return;
+    unsubscribe?.();
+    unsubscribe = null;
+    if (typeof bridge.subscribe === 'function') {
+      unsubscribe = bridge.subscribe((_e: VacpHistoryEntry) => void refresh());
+    }
+  }
+
   button.addEventListener('click', () => {
     if (panel.style.display === 'block') close();
     else open();
   });
   closeBtn.addEventListener('click', () => close());
-  refreshBtn.addEventListener('click', () => void refresh());
+  refreshBtn.addEventListener('click', async () => {
+    const bridge = getBridge(globalKey);
+    if (bridge && typeof bridge.refresh === 'function') await bridge.refresh({ source: 'debug', message: 'manual refresh' });
+    void refresh();
+  });
   copyBtn.addEventListener('click', async () => {
     if (!lastMermaid) return;
     try {
@@ -278,6 +644,10 @@ export function installVacpDebugUi(options?: VacpDebugUiOptions): void {
       // ignore
     }
   });
+
+  (Object.keys(tabButtons) as DebugTab[]).forEach((t) => tabButtons[t].addEventListener('click', () => setTab(t)));
+  setTab(currentTab);
+  attachSubscription();
 
   // Best-effort: keep it unobtrusive unless explicitly opened.
 }
