@@ -1,7 +1,7 @@
 import type { VacpCapabilitiesSnapshot } from '@vacp/core';
 import type { VgplotPlotLike } from '@vacp/mosaic';
 
-import { pickInterval1D, pickInterval2D } from './vgplot_helpers';
+import { pickInterval1D, pickInterval2D } from './vgplot-helpers';
 
 export type BridgeLike = {
   getCapabilities: () => Promise<VacpCapabilitiesSnapshot>;

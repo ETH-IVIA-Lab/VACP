@@ -1,7 +1,7 @@
 import type { VacpDemo, VacpRuntimeBridge, VacpWindowBridge } from '@vacp/core';
 
-import { VacpActionRegistry } from '../action_registry';
-import { createRuntimeBridge } from './create_runtime_bridge';
+import { VacpActionRegistry } from '../action-registry';
+import { createRuntimeBridge } from './create-runtime-bridge';
 import type { VacpSnapshotProvider } from './types';
 
 /**

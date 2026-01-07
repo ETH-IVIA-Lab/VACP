@@ -10,8 +10,8 @@ import { createAPIContext } from '@uwdata/vgplot';
 import { buildDemos } from './demos';
 import type { GalleryEntry } from './gallery';
 import { loadGallery } from './gallery';
-import { wireDemoButtons } from './demo_buttons';
-import { waitForSvg } from './vgplot_helpers';
+import { wireDemoButtons } from './demo-buttons';
+import { waitForSvg } from './vgplot-helpers';
 
 type Bridge = {
   getCapabilities: () => Promise<VacpCapabilitiesSnapshot>;

@@ -3,7 +3,7 @@ import { renderVacpDiagramMermaid } from '@vacp/diagrams';
 import { installVacpDebugUi } from '@vacp/debug-ui';
 import * as d3 from 'd3';
 
-import { installVacpForD3ScatterLasso, type DomainPoint } from './vacp_integration';
+import { installVacpForD3ScatterLasso, type DomainPoint } from './vacp-integration';
 
 type Point = { id: string; x: number; y: number };
 

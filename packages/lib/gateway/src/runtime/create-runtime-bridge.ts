@@ -11,7 +11,7 @@ import type {
   VacpStateSnapshot,
 } from '@vacp/core';
 import { nowIso, VACP_SCHEMA_VERSION } from '@vacp/core';
-import { VacpActionRegistry } from '../action_registry';
+import { VacpActionRegistry } from '../action-registry';
 import { createStateObserver } from './observer';
 import type { VacpSnapshotProvider } from './types';
 import {

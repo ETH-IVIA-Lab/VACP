@@ -60,4 +60,4 @@ The point: the “human lasso” and the “semantic action” mutate the same u
 ## Useful entry points
 
 - App wiring + D3 rendering: `src/app.ts`
-- VACP provider implementation: `src/vacp_integration.ts`
+- VACP provider implementation: `src/vacp-integration.ts`

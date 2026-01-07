@@ -5,7 +5,7 @@ import { installVacpRuntimeBridge, registerVacpApplyStateAction, VacpActionRegis
 
 import { annotateInput, annotatePlotSvg } from './annotations';
 import { actionDescriptorsForDashboard } from './actions';
-import { makeApplyStateHandler } from './apply_state';
+import { makeApplyStateHandler } from './apply-state';
 import { collectInputs, executeInputAction, type CollectedInput } from './inputs';
 import { executeIntervalAction } from './interactors/interval';
 import { executeToggleAction } from './interactors/toggle';

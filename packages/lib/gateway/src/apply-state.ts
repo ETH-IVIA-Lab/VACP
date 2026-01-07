@@ -1,7 +1,7 @@
 import type { VacpActionDescriptor, VacpApplyStateParams } from '@vacp/core';
 import { VACP_APPLY_STATE_ACTION } from '@vacp/core';
 
-import { VacpActionRegistry } from './action_registry';
+import { VacpActionRegistry } from './action-registry';
 
 export type VacpApplyStateHandler = (state: Record<string, unknown>) => unknown | Promise<unknown>;
 

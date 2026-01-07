@@ -1,9 +1,9 @@
 import type { VacpDemo, VacpRuntimeBridge } from '@vacp/core';
 
-import { VacpActionRegistry } from '../action_registry';
-import { createRuntimeBridge } from './create_runtime_bridge';
+import { VacpActionRegistry } from '../action-registry';
+import { createRuntimeBridge } from './create-runtime-bridge';
 import type { VacpSnapshotProvider } from './types';
-import { isRuntimeBridge } from './window_runtime_bridge';
+import { isRuntimeBridge } from './window-runtime-bridge';
 
 /**
  * Install-or-update a runtime bridge at a given global key (default `__vacp`).
