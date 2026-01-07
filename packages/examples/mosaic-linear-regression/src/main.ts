@@ -7,7 +7,7 @@ import { installVacpDebugUi } from '@vacp/debug-ui';
 import { installVacpOnVgplot, type VgplotPlotLike } from '@vacp/mosaic';
 import { parse } from 'yaml';
 
-async function waitForSvg(root: HTMLElement, timeoutMs = 10_000): Promise<SVGElement> {
+async function waitForSvg(root: ParentNode, timeoutMs = 10_000): Promise<SVGElement> {
   const start = performance.now();
   // eslint-disable-next-line no-constant-condition
   while (true) {
