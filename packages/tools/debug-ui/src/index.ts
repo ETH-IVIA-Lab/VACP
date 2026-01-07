@@ -102,32 +102,48 @@ function ensureStyles(): void {
     .vacp-debug-ui-panel header {
       display: flex;
       gap: 8px;
-      align-items: center;
+      align-items: flex-start;
       justify-content: space-between;
+      flex-wrap: wrap;
+      row-gap: 6px;
       padding: 10px 12px;
       border-bottom: 1px solid rgba(231, 233, 238, 0.12);
     }
     .vacp-debug-ui-title {
+      flex: 1;
+      min-width: 220px;
       font: 12px system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
       opacity: 0.9;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
     .vacp-debug-ui-actions {
       display: flex;
       gap: 8px;
       align-items: center;
+      justify-content: flex-end;
+      flex-wrap: wrap;
     }
     .vacp-debug-ui-actions button {
       background: rgba(231, 233, 238, 0.1);
       color: #e7e9ee;
       border: 1px solid rgba(231, 233, 238, 0.18);
-      border-radius: 8px;
-      padding: 6px 8px;
+      border-radius: 10px;
+      padding: 6px 10px;
       cursor: pointer;
       font: 12px system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      line-height: 1;
+      white-space: nowrap;
     }
     .vacp-debug-ui-actions button[disabled] {
       opacity: 0.55;
       cursor: not-allowed;
+    }
+    .vacp-debug-ui-actions button:focus-visible,
+    .vacp-debug-ui-tab:focus-visible {
+      outline: 2px solid rgba(231, 233, 238, 0.35);
+      outline-offset: 2px;
     }
     .vacp-debug-ui-body {
       display: grid;
@@ -165,10 +181,12 @@ function ensureStyles(): void {
       background: rgba(231, 233, 238, 0.08);
       color: #e7e9ee;
       border: 1px solid rgba(231, 233, 238, 0.14);
-      border-radius: 999px;
-      padding: 4px 8px;
+      border-radius: 10px;
+      padding: 6px 10px;
       cursor: pointer;
       font: 12px system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      line-height: 1;
+      white-space: nowrap;
     }
     .vacp-debug-ui-tab[aria-selected="true"] {
       background: rgba(231, 233, 238, 0.18);
@@ -202,7 +220,7 @@ function ensureStyles(): void {
       background: rgba(231, 233, 238, 0.08);
       border: 1px solid rgba(231, 233, 238, 0.18);
       color: #e7e9ee;
-      border-radius: 8px;
+      border-radius: 10px;
       padding: 8px;
       font: 12px ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
       box-sizing: border-box;
@@ -253,6 +271,7 @@ export function installVacpDebugUi(options?: VacpDebugUiOptions): void {
   button.className = 'vacp-debug-ui-button';
   button.type = 'button';
   button.textContent = 'VACP';
+  button.title = 'Open VACP debug overlay';
 
   const panel = document.createElement('div');
   panel.className = 'vacp-debug-ui-panel';
@@ -268,30 +287,38 @@ export function installVacpDebugUi(options?: VacpDebugUiOptions): void {
   const liveBtn = document.createElement('button');
   liveBtn.type = 'button';
   liveBtn.textContent = 'Live';
+  liveBtn.title = 'Return to live mode (inspect cursor follows the latest entry)';
 
   const undoBtn = document.createElement('button');
   undoBtn.type = 'button';
   undoBtn.textContent = 'Undo';
+  undoBtn.title = 'Step the inspect cursor backward through history (does not mutate the live app)';
 
   const redoBtn = document.createElement('button');
   redoBtn.type = 'button';
   redoBtn.textContent = 'Redo';
+  redoBtn.title = 'Step the inspect cursor forward through history (does not mutate the live app)';
 
   const observeBtn = document.createElement('button');
   observeBtn.type = 'button';
   observeBtn.textContent = 'Observe: on';
+  observeBtn.title =
+    'Toggle snapshot polling. Useful when a provider cannot emit human interaction events; the runtime will record a new entry when state changes.';
 
   const refreshBtn = document.createElement('button');
   refreshBtn.type = 'button';
   refreshBtn.textContent = 'Refresh';
+  refreshBtn.title = 'Capture a fresh snapshot into the runtime timeline (useful after human interaction)';
 
   const copyBtn = document.createElement('button');
   copyBtn.type = 'button';
   copyBtn.textContent = 'Copy Mermaid';
+  copyBtn.title = 'Copy the Mermaid source for the current graph to clipboard';
 
   const closeBtn = document.createElement('button');
   closeBtn.type = 'button';
   closeBtn.textContent = 'Close';
+  closeBtn.title = 'Close the overlay (does not remove the VACP runtime)';
 
   actions.append(liveBtn, undoBtn, redoBtn, observeBtn, refreshBtn, copyBtn, closeBtn);
   header.append(title, actions);
@@ -321,6 +348,7 @@ export function installVacpDebugUi(options?: VacpDebugUiOptions): void {
     b.className = 'vacp-debug-ui-tab';
     b.textContent = t;
     b.setAttribute('aria-selected', 'false');
+    b.title = t === 'Graph' ? 'Rendered graph diagram + Mermaid source' : t === 'Actions' ? 'Manually dispatch actions' : t === 'History' ? 'Inspect runtime timeline entries' : 'Edit debug overrides';
     tabs.append(b);
   });
 
@@ -447,6 +475,7 @@ export function installVacpDebugUi(options?: VacpDebugUiOptions): void {
     const selectLabel = document.createElement('label');
     selectLabel.textContent = 'Action';
     const select = document.createElement('select');
+    select.title = 'Pick an action registered by the provider (or choose custom to test errors)';
     const customName = '__custom__';
     const knownActions = actions.slice();
     if (knownActions.length) {
@@ -469,6 +498,7 @@ export function installVacpDebugUi(options?: VacpDebugUiOptions): void {
     customLabel.textContent = 'Custom action name';
     const customInput = document.createElement('input');
     customInput.value = '';
+    customInput.title = 'Exact action name to call when using “(custom action name)”';
     customField.append(customLabel, customInput);
 
     const metaTitle = document.createElement('div');
@@ -486,6 +516,8 @@ export function installVacpDebugUi(options?: VacpDebugUiOptions): void {
       opt.textContent = v;
       sourceSelect.append(opt);
     });
+    sourceSelect.title =
+      'Label the call source in the local runtime timeline. Use “debug” for manual testing; “agent” is typical for MCP.';
     sourceField.append(sourceLabel, sourceSelect);
 
     const messageField = document.createElement('div');
@@ -494,6 +526,7 @@ export function installVacpDebugUi(options?: VacpDebugUiOptions): void {
     messageLabel.textContent = 'Message (optional)';
     const messageInput = document.createElement('input');
     messageInput.value = 'manual dispatch';
+    messageInput.title = 'Short note recorded into the runtime timeline entry (optional)';
     messageField.append(messageLabel, messageInput);
 
     const schemaTitle = document.createElement('div');
@@ -508,11 +541,13 @@ export function installVacpDebugUi(options?: VacpDebugUiOptions): void {
     paramsLabel.textContent = 'Params (JSON)';
     const params = document.createElement('textarea');
     params.value = '{}';
+    params.title = 'JSON object passed as action params. Must match the action schema.';
     paramsField.append(paramsLabel, params);
 
     const run = document.createElement('button');
     run.type = 'button';
     run.textContent = 'Execute';
+    run.title = 'Execute the selected action. Uses bridge.dispatch() when available so the timeline records the chosen source/message.';
 
     const resultTitle = document.createElement('div');
     resultTitle.className = 'vacp-debug-ui-section-title';
@@ -607,14 +642,17 @@ export function installVacpDebugUi(options?: VacpDebugUiOptions): void {
     const applyState = document.createElement('button');
     applyState.type = 'button';
     applyState.textContent = 'Apply state override';
+    applyState.title = 'Inspection-only: changes what the debug UI shows (does not mutate the live app)';
 
     const applyGraph = document.createElement('button');
     applyGraph.type = 'button';
     applyGraph.textContent = 'Apply graph override';
+    applyGraph.title = 'Inspection-only: changes what the debug UI shows (does not mutate the live app)';
 
     const clear = document.createElement('button');
     clear.type = 'button';
     clear.textContent = 'Clear overrides';
+    clear.title = 'Clear inspection overrides and return to showing live snapshots';
 
     const note = document.createElement('div');
     note.className = 'vacp-debug-ui-small';
