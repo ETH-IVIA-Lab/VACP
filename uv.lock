@@ -1544,10 +1544,14 @@ dependencies = [
     { name = "httpx" },
     { name = "playwright" },
     { name = "pydantic" },
+    { name = "uvicorn" },
+]
+
+[package.dev-dependencies]
+dev = [
     { name = "pytest" },
     { name = "pytest-asyncio" },
     { name = "ruff" },
-    { name = "uvicorn" },
 ]
 
 [package.metadata]
@@ -1557,10 +1561,14 @@ requires-dist = [
     { name = "httpx", specifier = ">=0.27.0" },
     { name = "playwright", specifier = ">=1.49.0" },
     { name = "pydantic", specifier = ">=2.8.0" },
+    { name = "uvicorn", specifier = ">=0.30.0" },
+]
+
+[package.metadata.requires-dev]
+dev = [
     { name = "pytest", specifier = ">=8.0.0" },
     { name = "pytest-asyncio", specifier = ">=0.24.0" },
     { name = "ruff", specifier = ">=0.8.0" },
-    { name = "uvicorn", specifier = ">=0.30.0" },
 ]
 
 [[package]]
