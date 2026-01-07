@@ -104,7 +104,9 @@ async def _start_vite_dev_server(name: str, cwd: Path, port: int) -> DevServer:
 
 async def _expect_bridge(page: Page) -> None:
     await page.wait_for_function(
-        "() => !!globalThis.__vacp && typeof globalThis.__vacp.getCapabilities === 'function' && typeof globalThis.__vacp.getRuntime === 'function'"
+        '() => !!globalThis.__vacp && '
+        "typeof globalThis.__vacp.getCapabilities === 'function' && "
+        "typeof globalThis.__vacp.getRuntime === 'function'"
     )
 
 
@@ -114,6 +116,7 @@ async def _get_capabilities(page: Page) -> dict[str, Any]:
 
 async def _get_state(page: Page) -> dict[str, Any]:
     return await page.evaluate('async () => await globalThis.__vacp.getState()')
+
 
 async def _get_runtime(page: Page) -> dict[str, Any]:
     return await page.evaluate('async () => await globalThis.__vacp.getRuntime()')
@@ -207,7 +210,8 @@ async def _test_mosaic_gallery(page: Page) -> None:
         await page.wait_for_selector('svg', timeout=60_000)
         await _expect_bridge(page)
         await page.wait_for_function(
-            '(needle) => globalThis.__vacp.getCapabilities().then(c => String(c.graph?.nodes?.[0]?.ref || "").includes(needle))',
+            '(needle) => globalThis.__vacp.getCapabilities().then(c => '
+            'String(c.graph?.nodes?.[0]?.ref || "").includes(needle))',
             arg=f'/{spec_id}/plot-0',
             timeout=60_000,
         )
@@ -238,13 +242,18 @@ async def _test_mosaic_gallery(page: Page) -> None:
         after_set = await _get_state(page)
         rt_after_set = await _get_runtime(page)
         if has_2d or has_1d:
+            after_len = len(rt_after_set.get('history', []))
             _assert(
                 json.dumps(before, sort_keys=True) != json.dumps(after_set, sort_keys=True),
                 'Expected state to change after demo-set',
             )
+            msg = (
+                f'Expected runtime history to grow after demo-set '
+                f'(spec={spec_id} before={before_hist} after={after_len})'
+            )
             _assert(
-                len(rt_after_set.get('history', [])) >= before_hist + 1,
-                f'Expected runtime history to grow after demo-set (spec={spec_id} before={before_hist} after={len(rt_after_set.get("history", []))})',
+                after_len >= before_hist + 1,
+                msg,
             )
 
         await page.click('#demo-clear')
@@ -313,7 +322,8 @@ async def _test_vega_lite_gallery(page: Page) -> None:
         await page.wait_for_selector('svg', timeout=30_000)
         await _expect_bridge(page)
         await page.wait_for_function(
-            '(needle) => globalThis.__vacp.getCapabilities().then(c => String(c.graph?.nodes?.[0]?.ref || "").includes(needle))',
+            '(needle) => globalThis.__vacp.getCapabilities().then(c => '
+            'String(c.graph?.nodes?.[0]?.ref || "").includes(needle))',
             arg=f'/vega-lite/{spec_id}/{spec_id}',
             timeout=60_000,
         )
@@ -414,21 +424,19 @@ async def _test_vega_lite_gallery(page: Page) -> None:
             rt_h0 = await _get_runtime(page)
             before_h = await _get_state(page)
             before_hist = len(rt_h0.get('history', []))
-            before_last_at = (
-                str(rt_h0.get('history', [])[-1].get('at')) if before_hist and rt_h0.get('history') else ''
-            )
+            before_last_at = str(rt_h0.get('history', [])[-1].get('at')) if before_hist and rt_h0.get('history') else ''
             await page.evaluate(
-                "() => {"
-                " const el=document.querySelector('#app input[type=\"range\"]');"
-                " if (!el) return false;"
+                '() => {'
+                ' const el=document.querySelector(\'#app input[type="range"]\');'
+                ' if (!el) return false;'
                 " const min = Number(el.min || '0');"
                 " const max = Number(el.max || '100');"
-                " const next = String(min + 0.8 * (max - min));"
-                " el.value = next;"
+                ' const next = String(min + 0.8 * (max - min));'
+                ' el.value = next;'
                 " el.dispatchEvent(new Event('input', {bubbles:true}));"
                 " el.dispatchEvent(new Event('change', {bubbles:true}));"
-                " return true;"
-                " }"
+                ' return true;'
+                ' }'
             )
             await page.wait_for_function(
                 '(x) => globalThis.__vacp.getRuntime().then(rt => {'
@@ -448,17 +456,18 @@ async def _test_vega_lite_gallery(page: Page) -> None:
                 any(ref in after_vals and after_vals[ref] != before_vals.get(ref) for ref in before_vals),
                 'Expected at least one Param value to change after human slider change',
             )
+            before_runtime_id = rt_h0.get('runtimeId')
+            after_runtime_id = rt_h1.get('runtimeId')
             _assert(
-                rt_h0.get('runtimeId') == rt_h1.get('runtimeId'),
-                f'Expected stable runtime across slider change (before={rt_h0.get("runtimeId")} after={rt_h1.get("runtimeId")})',
+                before_runtime_id == after_runtime_id,
+                f'Expected stable runtime across slider change (before={before_runtime_id} after={after_runtime_id})',
             )
             after_hist = len(rt_h1.get('history', []))
-            after_last_at = (
-                str(rt_h1.get('history', [])[-1].get('at')) if after_hist and rt_h1.get('history') else ''
-            )
+            after_last_at = str(rt_h1.get('history', [])[-1].get('at')) if after_hist and rt_h1.get('history') else ''
             _assert(
                 after_hist > before_hist or (before_last_at and after_last_at and after_last_at != before_last_at),
-                f'Expected a new runtime entry after slider change (beforeLen={before_hist} afterLen={after_hist} beforeAt={before_last_at} afterAt={after_last_at})',
+                f'Expected a new runtime entry after slider change '
+                f'(beforeLen={before_hist} afterLen={after_hist} beforeAt={before_last_at} afterAt={after_last_at})',
             )
 
         # DOM/SVG fallback evidence: metadata graph must be embedded when rendering to SVG.
