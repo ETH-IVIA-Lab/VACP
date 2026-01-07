@@ -34,18 +34,15 @@ importers:
       '@vacp/debug-ui':
         specifier: workspace:*
         version: link:../../lib/debug-ui
-      '@vacp/diagrams':
-        specifier: workspace:*
-        version: link:../../lib/diagrams
-      '@vacp/dom':
-        specifier: workspace:*
-        version: link:../../lib/dom
       '@vacp/duckdb':
         specifier: workspace:*
         version: link:../../lib/duckdb
       '@vacp/gateway':
         specifier: workspace:*
         version: link:../../lib/gateway
+      '@vacp/kit':
+        specifier: workspace:*
+        version: link:../../lib/kit
       d3:
         specifier: ^7.9.0
         version: 7.9.0
@@ -74,9 +71,6 @@ importers:
       '@vacp/debug-ui':
         specifier: workspace:*
         version: link:../../lib/debug-ui
-      '@vacp/diagrams':
-        specifier: workspace:*
-        version: link:../../lib/diagrams
       '@vacp/mosaic':
         specifier: workspace:*
         version: link:../../lib/mosaic
@@ -96,15 +90,15 @@ importers:
       '@vacp/debug-ui':
         specifier: workspace:*
         version: link:../../lib/debug-ui
-      '@vacp/dom':
-        specifier: workspace:*
-        version: link:../../lib/dom
       '@vacp/duckdb':
         specifier: workspace:*
         version: link:../../lib/duckdb
       '@vacp/gateway':
         specifier: workspace:*
         version: link:../../lib/gateway
+      '@vacp/kit':
+        specifier: workspace:*
+        version: link:../../lib/kit
     devDependencies:
       vite:
         specifier: ^7.2.4
@@ -118,9 +112,6 @@ importers:
       '@vacp/debug-ui':
         specifier: workspace:*
         version: link:../../lib/debug-ui
-      '@vacp/diagrams':
-        specifier: workspace:*
-        version: link:../../lib/diagrams
       '@vacp/vega-lite':
         specifier: workspace:*
         version: link:../../lib/vega-lite
@@ -181,6 +172,18 @@ importers:
       '@vacp/core':
         specifier: workspace:*
         version: link:../core
+
+  packages/lib/kit:
+    dependencies:
+      '@vacp/core':
+        specifier: workspace:*
+        version: link:../core
+      '@vacp/dom':
+        specifier: workspace:*
+        version: link:../dom
+      '@vacp/gateway':
+        specifier: workspace:*
+        version: link:../gateway
 
   packages/lib/mosaic:
     dependencies:

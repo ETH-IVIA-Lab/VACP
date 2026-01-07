@@ -20,7 +20,7 @@ Instead of clicking pixels, an agent calls `window.__vacp.execute({ name, params
 - **Providers (TypeScript)**: first-class integrations for specific visualization stacks:
   - Mosaic/vgplot (`@vacp/mosaic`)
   - Vega-Lite/Vega params (`@vacp/vega-lite`)
-  - a frameworkless D3 example (shows you can build your own provider)
+  - a small “BYO provider” kit (`@vacp/kit`) used by the frameworkless examples
 - **Transport (Python)**: `vacp-mcp-server` (Playwright + MCP), which lets an agent reach `window.__vacp`.
 - **Examples**: runnable demos that double as smoke tests (`pnpm test:examples`).
 
@@ -79,6 +79,7 @@ VACP has two layers:
 1. **Protocol (inside the app)** — TypeScript packages:
    - `@vacp/core`: types (graph, state snapshots, actions)
    - `@vacp/gateway`: runtime bridge + action registry + history (undo/time travel support)
+   - `@vacp/kit`: tiny helpers for “bring-your-own-provider” integrations
    - `@vacp/dom`: optional DOM/SVG annotations and embedded SVG metadata
 2. **Transport (optional)** — ways to reach the app from an agent:
    - `vacp-mcp-server`: exposes the protocol over MCP by driving a browser via Playwright

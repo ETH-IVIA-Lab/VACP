@@ -8,6 +8,7 @@ type VacpBridge = {
   getCapabilities: () => Promise<any>;
   getState: () => Promise<any>;
   getRuntime: () => Promise<any>;
+  getDemos?: () => Promise<any>;
   execute: (call: { callId: string; name: string; params?: unknown }) => Promise<any>;
 };
 
@@ -35,6 +36,34 @@ async function getState(page: Page): Promise<any> {
 
 async function getRuntime(page: Page): Promise<any> {
   return await page.evaluate(async () => await (globalThis as any).__vacp.getRuntime());
+}
+
+async function getDemos(page: Page): Promise<any[]> {
+  await expectBridge(page);
+  return await page.evaluate(async () => {
+    const b = (globalThis as any).__vacp;
+    if (!b || typeof b.getDemos !== 'function') return [];
+    return await b.getDemos();
+  });
+}
+
+async function runFirstNonClearDemoStep(page: Page): Promise<void> {
+  const demos = await getDemos(page);
+  if (!Array.isArray(demos) || demos.length === 0) throw new Error('No demos found');
+  const steps = demos.flatMap((d: any) => (Array.isArray(d?.steps) ? d.steps : []));
+  const candidates = steps.filter(
+    (s: any) =>
+      s?.call &&
+      typeof s.call?.name === 'string' &&
+      !/clear/i.test(String(s.call.name)) &&
+      !/clear/i.test(String(s.title ?? '')),
+  );
+  const step = (candidates[0] ?? steps.find((s: any) => s?.call)) as any;
+  if (!step?.call) throw new Error('No runnable demo steps found');
+  await page.evaluate(async (call) => {
+    const b = (globalThis as any).__vacp;
+    await b.execute({ callId: crypto.randomUUID(), name: call.name, params: call.params });
+  }, step.call);
 }
 
 async function dataSql(page: Page, args: { handleRef: string; sql: string; maxRows?: number }): Promise<any> {
@@ -135,7 +164,7 @@ test('examples: mosaic-gallery', async ({ page }) => {
       const before = await getState(page);
       const rtBefore = await getRuntime(page);
       const beforeHist = (rtBefore.history ?? []).length;
-      await page.click('#demo-set');
+      await runFirstNonClearDemoStep(page);
       await waitForHistoryLenAtLeast(page, beforeHist + 1);
       const afterSet = await getState(page);
       expect(stableJson(before)).not.toEqual(stableJson(afterSet));
@@ -224,7 +253,7 @@ test('examples: d3-scatter-lasso', async ({ page }) => {
 
     const rtBefore = await getRuntime(page);
     const beforeHist = (rtBefore.history ?? []).length;
-    await page.click('#demo-set');
+    await runFirstNonClearDemoStep(page);
     await waitForHistoryLenAtLeast(page, beforeHist + 1);
   } finally {
     await srv.stop();

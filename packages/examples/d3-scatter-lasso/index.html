@@ -23,21 +23,6 @@
       body {
         margin: 24px;
       }
-      .layout {
-        display: grid;
-        grid-template-columns: 1fr 420px;
-        gap: 16px;
-        align-items: start;
-      }
-      pre {
-        background: #0b1020;
-        color: #e7e9ee;
-        padding: 12px;
-        border-radius: 8px;
-        overflow: auto;
-        max-height: 70vh;
-        font-size: 12px;
-      }
       .card {
         border: 1px solid #e5e7eb;
         border-radius: 10px;
@@ -65,10 +50,6 @@
         padding: 1px 6px;
         border-radius: 6px;
       }
-      pre code {
-        background: transparent;
-        padding: 0;
-      }
       button {
         padding: 6px 10px;
         border-radius: 8px;
@@ -78,6 +59,23 @@
       }
       #plot {
         width: 100%;
+      }
+      .toolbar {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+        flex-wrap: wrap;
+        justify-content: space-between;
+        margin: 12px 0;
+      }
+      .pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        background: #f8fafc;
+        border: 1px solid #e2e8f0;
+        border-radius: 999px;
+        padding: 6px 10px;
       }
     </style>
   </head>
@@ -108,25 +106,16 @@
       </ul>
     </div>
 
-    <div class="layout">
-      <div class="card">
-        <div id="plot"></div>
-      </div>
-      <div class="card">
-        <div class="row" style="justify-content: space-between; margin-bottom: 8px">
-          <div class="muted">Debug: lasso selection + actions + Mermaid</div>
-          <div class="row">
-            <button id="demo-set" type="button">Demo: set lasso</button>
-            <button id="demo-clear" type="button">Clear lasso</button>
-            <button id="refresh" type="button">Refresh</button>
-          </div>
+    <div class="card">
+      <div class="toolbar">
+        <div class="pill muted">
+          Selected: <strong class="muted" style="color: inherit"><span id="selected">0</span></strong>
         </div>
-        <div id="checks" class="muted" style="margin-bottom: 8px">(loading…)</div>
-        <div class="muted" style="margin: 10px 0 8px">State</div>
-        <pre id="state">(loading…)</pre>
-        <div class="muted" style="margin: 10px 0 8px">Mermaid</div>
-        <pre id="diagram">(loading…)</pre>
+        <div class="row">
+          <button id="clear" type="button">Clear lasso</button>
+        </div>
       </div>
+      <div id="plot"></div>
     </div>
 
     <script type="module" src="/src/main.ts"></script>

@@ -23,21 +23,6 @@
       body {
         margin: 24px;
       }
-      .layout {
-        display: grid;
-        grid-template-columns: 1fr 420px;
-        gap: 16px;
-        align-items: start;
-      }
-      pre {
-        background: #0b1020;
-        color: #e7e9ee;
-        padding: 12px;
-        border-radius: 8px;
-        overflow: auto;
-        max-height: 70vh;
-        font-size: 12px;
-      }
       .card {
         border: 1px solid #e5e7eb;
         border-radius: 10px;
@@ -64,17 +49,6 @@
         background: #f3f4f6;
         padding: 1px 6px;
         border-radius: 6px;
-      }
-      pre code {
-        background: transparent;
-        padding: 0;
-      }
-      button {
-        padding: 6px 10px;
-        border-radius: 8px;
-        border: 1px solid #e5e7eb;
-        background: #fff;
-        cursor: pointer;
       }
     </style>
   </head>
@@ -104,30 +78,13 @@
       </ul>
     </div>
 
-    <div class="layout">
-      <div class="card">
-        <div style="display: flex; gap: 10px; align-items: center; margin-bottom: 10px">
-          <div class="muted" style="min-width: 80px">Spec</div>
-          <select id="spec" style="flex: 1; padding: 6px 8px; border-radius: 8px; border: 1px solid #e5e7eb"></select>
-        </div>
-        <div id="spec-meta" class="muted" style="margin-bottom: 10px"></div>
-        <div id="app"></div>
+    <div class="card">
+      <div style="display: flex; gap: 10px; align-items: center; margin-bottom: 10px">
+        <div class="muted" style="min-width: 80px">Spec</div>
+        <select id="spec" style="flex: 1; padding: 6px 8px; border-radius: 8px; border: 1px solid #e5e7eb"></select>
       </div>
-      <div class="card">
-        <div class="row" style="justify-content: space-between; margin-bottom: 8px">
-          <div class="muted">Debug: bridge + annotations + Mermaid</div>
-          <div class="row">
-            <button id="demo-set" type="button">Demo: set selection</button>
-            <button id="demo-clear" type="button">Clear selection</button>
-            <button id="refresh" type="button">Refresh</button>
-          </div>
-        </div>
-        <div id="checks" class="muted" style="margin-bottom: 8px">(loading…)</div>
-        <div class="muted" style="margin: 10px 0 8px">State</div>
-        <pre id="state">(loading…)</pre>
-        <div class="muted" style="margin: 10px 0 8px">Mermaid</div>
-        <pre id="diagram">(loading…)</pre>
-      </div>
+      <div id="spec-meta" class="muted" style="margin-bottom: 10px"></div>
+      <div id="app"></div>
     </div>
 
     <script type="module" src="/src/main.ts"></script>

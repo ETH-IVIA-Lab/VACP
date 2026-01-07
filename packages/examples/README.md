@@ -4,7 +4,7 @@ Runnable example apps (similar in spirit to `mosaic/packages/examples/*`).
 
 - `mosaic-gallery`: Mosaic spec gallery (YAML in `src/specs/`) installed via `@vacp/mosaic`
 - `vega-lite-gallery`: Vega-Lite spec gallery (modules in `src/specs/`) installed via `@vacp/vega-lite`
-- `d3-scatter-lasso`: Frameworkless D3 scatter with lasso selection (provider assembled directly from `@vacp/*` building blocks)
+- `d3-scatter-lasso`: Frameworkless D3 scatter with lasso selection (a “bring-your-own-provider” integration using `@vacp/kit`)
 - `vanilla-minimal`: The smallest possible “bring-your-own-provider” example (plain SVG + click selection + `vacp.data_sql`)
 
 Each example package has its own tutorial README:

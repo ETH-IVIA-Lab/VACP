@@ -211,6 +211,7 @@ TypeScript (pnpm):
 
 - `@vacp/core`: protocol types (the JSON contract).
 - `@vacp/gateway`: runtime bridge + action registry + history/time travel.
+- `@vacp/kit`: small helpers for “bring-your-own-provider” integrations (used by vanilla/D3 examples).
 - `@vacp/dom`: DOM/SVG adapter (tags + embedded SVG metadata).
 - `@vacp/diagrams`: Mermaid source generation for graphs.
 - `@vacp/debug-ui`: in-page overlay that inspects `window.__vacp`.

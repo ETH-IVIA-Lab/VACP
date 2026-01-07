@@ -1,16 +1,12 @@
-import type { VacpActionDescriptor, VacpCapabilitiesSnapshot, VacpGraph, VacpRef, VacpStateSnapshot } from '@vacp/core';
-import { nowIso, VACP_SCHEMA_VERSION } from '@vacp/core';
-import { applyVacpAttributes, applyVacpInteractionAttributes, embedVacpGraphInSvg } from '@vacp/dom';
+import type { VacpActionDescriptor } from '@vacp/core';
+import { VACP_SCHEMA_VERSION } from '@vacp/core';
+import type { VacpGraphBase } from '@vacp/kit';
+import { createVacpRefBuilder, installVacpDom, installVacpProvider } from '@vacp/kit';
 import { createDuckDbDataSqlHandler, createDuckDbWasmClient } from '@vacp/duckdb';
 import { installVacpDebugUi } from '@vacp/debug-ui';
 import { registerVacpApplyStateAction, registerVacpDataSqlAction, VacpActionRegistry } from '@vacp/gateway';
-import { installVacpRuntimeBridge } from '@vacp/gateway';
 
 type Datum = { id: number; x: number; y: number; group: 'A' | 'B' | 'C' };
-
-function makeRef(args: { appId: string; viewId: string; vizId: string; suffix: string }): VacpRef {
-  return `vacp://${args.appId}/${args.viewId}/${args.vizId}${args.suffix}` as VacpRef;
-}
 
 function randomData(n = 80): Datum[] {
   const out: Datum[] = [];
@@ -96,9 +92,12 @@ export async function run(): Promise<void> {
   const viewId = 'vanilla/minimal';
   const vizId = 'scatter';
 
-  const vizRef = makeRef({ appId, viewId, vizId, suffix: '' });
-  const selectionRef = makeRef({ appId, viewId, vizId, suffix: '/selection/points' });
-  const handleRef = makeRef({ appId, viewId, vizId, suffix: '/data/points' });
+  const viewRefs = createVacpRefBuilder({ appId, viewId });
+  const vizRefs = createVacpRefBuilder({ appId, viewId, vizId });
+  const viewRef = viewRefs.root;
+  const vizRef = vizRefs.root;
+  const selectionRef = vizRefs.ref('/selection/points');
+  const handleRef = vizRefs.ref('/data/points');
 
   const data = randomData();
   const selectedIds = new Set<number>();
@@ -112,7 +111,7 @@ export async function run(): Promise<void> {
   );
 
   const actionRegistry = new VacpActionRegistry();
-  const actionDescriptors: VacpActionDescriptor[] = [];
+  let rerender: (source: 'human' | 'agent' | 'system') => void = () => {};
 
   const selectAction: VacpActionDescriptor = {
     name: 'vanilla.toggle_point',
@@ -132,7 +131,6 @@ export async function run(): Promise<void> {
     rerender('agent');
     return { selectedIds: Array.from(selectedIds) };
   });
-  actionDescriptors.push(selectAction);
 
   const clearAction: VacpActionDescriptor = {
     name: 'vanilla.clear_selection',
@@ -145,55 +143,50 @@ export async function run(): Promise<void> {
     rerender('agent');
     return { selectedIds: [] };
   });
-  actionDescriptors.push(clearAction);
 
-  actionDescriptors.push(
-    registerVacpApplyStateAction(
-      actionRegistry,
-      async (state) => {
-        const rec = state[selectionRef];
-        const v = rec && typeof rec === 'object' ? ((rec as any).value ?? rec) : rec;
-        const ids = Array.isArray(v) ? v : [];
-        selectedIds.clear();
-        ids.forEach((x) => {
-          if (typeof x === 'number' && Number.isFinite(x)) selectedIds.add(x);
-        });
-        rerender('agent');
-        return { selectedIds: Array.from(selectedIds) };
+  registerVacpApplyStateAction(
+    actionRegistry,
+    async (state) => {
+      const rec = state[selectionRef];
+      const v = rec && typeof rec === 'object' ? ((rec as any).value ?? rec) : rec;
+      const ids = Array.isArray(v) ? v : [];
+      selectedIds.clear();
+      ids.forEach((x) => {
+        if (typeof x === 'number' && Number.isFinite(x)) selectedIds.add(x);
+      });
+      rerender('agent');
+      return { selectedIds: Array.from(selectedIds) };
+    },
+    { targetRef: selectionRef, description: 'Apply selection state (selected ids).' },
+  );
+
+  registerVacpDataSqlAction(
+    actionRegistry,
+    createDuckDbDataSqlHandler({
+      duckdb,
+      resolveHandle: async (ref) => {
+        if (ref !== handleRef) return null;
+        const allSql = `SELECT * FROM ${tableName}`;
+        const selected = selectedIds.size
+          ? `SELECT * FROM ${tableName} WHERE id IN (${Array.from(selectedIds).join(',')})`
+          : allSql;
+        return { allSql, selectedSql: selected };
       },
-      { targetRef: selectionRef, description: 'Apply selection state (selected ids).' },
-    ),
+    }),
+    { targetRef: handleRef, description: 'Query the selected points via DuckDB SQL.' },
   );
 
-  actionDescriptors.push(
-    registerVacpDataSqlAction(
-      actionRegistry,
-      createDuckDbDataSqlHandler({
-        duckdb,
-        resolveHandle: async (ref) => {
-          if (ref !== handleRef) return null;
-          const allSql = `SELECT * FROM ${tableName}`;
-          const selected = selectedIds.size
-            ? `SELECT * FROM ${tableName} WHERE id IN (${Array.from(selectedIds).join(',')})`
-            : allSql;
-          return { allSql, selectedSql: selected };
-        },
-      }),
-      { targetRef: handleRef, description: 'Query the selected points via DuckDB SQL.' },
-    ),
-  );
-
-  const graph: VacpGraph = {
+  const graph: VacpGraphBase = {
     version: VACP_SCHEMA_VERSION,
     nodes: [
       {
-        ref: vizRef,
-        kind: 'Visualization',
-        layer: 'VisualizationLayer',
-        title: 'Scatterplot (vanilla)',
-        description: 'A minimal provider: SVG + click selection + DuckDB DataHandle.',
-        data: { provider: 'vanilla' },
+        ref: viewRef,
+        kind: 'View',
+        layer: 'ViewLayer',
+        title: 'Vanilla minimal',
+        description: 'A minimal VACP provider: SVG + click selection + DuckDB DataHandle.',
       },
+      { ref: vizRef, kind: 'Visualization', layer: 'VisualizationLayer', title: 'Scatterplot (SVG)' },
       {
         ref: selectionRef,
         kind: 'Selection',
@@ -212,39 +205,29 @@ export async function run(): Promise<void> {
       },
     ],
     edges: [
+      { from: viewRef, to: vizRef, kind: 'contains' },
       { from: vizRef, to: selectionRef, kind: 'contains' },
       { from: vizRef, to: handleRef, kind: 'contains' },
       { from: selectionRef, to: handleRef, kind: 'controls' },
     ],
-    actions: actionDescriptors,
   };
 
-  const snapshots = {
-    getCapabilities: async (): Promise<VacpCapabilitiesSnapshot> => ({
-      version: VACP_SCHEMA_VERSION,
-      createdAt: nowIso(),
-      graph,
+  const { bridge, snapshots } = installVacpProvider({
+    graph,
+    actions: actionRegistry,
+    globalKey,
+    getState: () => ({
+      [selectionRef]: { kind: 'Selection', value: Array.from(selectedIds) },
+      [handleRef]: {
+        kind: 'DataHandle',
+        tableName,
+        selectedCount: selectedIds.size,
+        selectedMeaning: selectedIds.size ? 'rows whose id is selected' : 'all rows (empty selection)',
+      },
     }),
-    getState: async (): Promise<VacpStateSnapshot> => ({
-      version: VACP_SCHEMA_VERSION,
-      createdAt: nowIso(),
-      state: {
-        [selectionRef]: { kind: 'Selection', value: Array.from(selectedIds) },
-        [handleRef]: {
-          kind: 'DataHandle',
-          tableName,
-          selectedMeaning: selectedIds.size ? 'rows whose id is selected' : 'all rows (empty selection)',
-        },
-      } as any,
-    }),
-  };
+  });
 
-  applyVacpAttributes(app, { ref: vizRef, kind: 'View', layer: 'ViewLayer', title: 'Vanilla minimal' });
-  applyVacpInteractionAttributes(app, { targetRef: vizRef, layer: 'ViewLayer', actions: actionDescriptors });
-
-  const bridge = installVacpRuntimeBridge({ snapshots, actions: actionRegistry, globalKey });
-
-  const rerender = (source: 'human' | 'agent' | 'system') => {
+  rerender = (source: 'human' | 'agent' | 'system') => {
     const svg = renderScatter({
       root: app,
       data,
@@ -255,7 +238,29 @@ export async function run(): Promise<void> {
         rerender('human');
       },
     });
-    embedVacpGraphInSvg(svg, graph);
+    const getGraph = () => snapshots.getGraph();
+    installVacpDom({
+      root: app,
+      rootAnnotation: { ref: viewRef, kind: 'View', layer: 'ViewLayer', title: 'Vanilla minimal' },
+      getGraph,
+    });
+    installVacpDom({
+      root: svg,
+      svg,
+      rootAnnotation: {
+        ref: vizRef,
+        kind: 'Visualization',
+        layer: 'VisualizationLayer',
+        title: 'Scatterplot (SVG)',
+      },
+      interactions: {
+        targetRef: vizRef,
+        layer: 'VisualizationLayer',
+        description: 'Semantic actions for selection and DuckDB queries.',
+        actions: () => actionRegistry.list(),
+      },
+      getGraph,
+    });
     void bridge.refresh?.({ source, message: 'selection changed' }).catch(() => {});
   };
 

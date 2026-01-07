@@ -1,33 +1,19 @@
-import type {
-  VacpActionDescriptor,
-  VacpCapabilitiesSnapshot,
-  VacpDemo,
-  VacpGraph,
-  VacpRef,
-  VacpStateSnapshot,
-} from '@vacp/core';
-import { nowIso, VACP_SCHEMA_VERSION } from '@vacp/core';
-import { applyVacpAttributes, applyVacpInteractionAttributes, embedVacpGraphInSvg } from '@vacp/dom';
+import type { VacpActionDescriptor, VacpDemo } from '@vacp/core';
+import { VACP_SCHEMA_VERSION } from '@vacp/core';
 import { createDuckDbDataSqlHandler, createDuckDbWasmClient } from '@vacp/duckdb';
-import {
-  installVacpRuntimeBridge,
-  registerVacpApplyStateAction,
-  registerVacpDataSqlAction,
-  VacpActionRegistry,
-} from '@vacp/gateway';
+import type { VacpGraphBase } from '@vacp/kit';
+import { createVacpRefBuilder, installVacpDom, installVacpProvider } from '@vacp/kit';
+import { registerVacpApplyStateAction, registerVacpDataSqlAction, VacpActionRegistry } from '@vacp/gateway';
 
 export type DomainPoint = { x: number; y: number };
 export type DataPoint = { id: string; x: number; y: number };
-
-function makeRef(parts: string[]): VacpRef {
-  return `vacp://${parts.join('/')}` as VacpRef;
-}
 
 function sqlStringLiteral(value: string): string {
   return `'${value.replaceAll("'", "''")}'`;
 }
 
 export function installVacpForD3ScatterLasso(args: {
+  root: Element;
   svg: SVGSVGElement;
   appId: string;
   viewId: string;
@@ -44,38 +30,14 @@ export function installVacpForD3ScatterLasso(args: {
   getSelectedCount: () => number;
   clearSelection: () => void;
 }) {
-  const vizRef = makeRef([args.appId, args.viewId, args.vizId]);
-  const pointsRef = makeRef([args.appId, args.viewId, args.vizId, 'mark', 'points']);
-  const lassoRef = makeRef([args.appId, args.viewId, args.vizId, 'selection', 'lasso']);
-  const handleRef = makeRef([args.appId, args.viewId, args.vizId, 'data', 'points']);
+  const viewRefs = createVacpRefBuilder({ appId: args.appId, viewId: args.viewId });
+  const vizRefs = createVacpRefBuilder({ appId: args.appId, viewId: args.viewId, vizId: args.vizId });
 
-  const actions: VacpActionDescriptor[] = [
-    {
-      name: 'vanilla.set_lasso_polygon',
-      description: 'Set the lasso selection polygon in data (domain) coordinates.',
-      targetRef: lassoRef,
-      parameters: {
-        type: 'object',
-        properties: {
-          points: {
-            type: 'array',
-            items: {
-              type: 'object',
-              properties: { x: { type: 'number' }, y: { type: 'number' } },
-              required: ['x', 'y'],
-            },
-          },
-        },
-        required: ['points'],
-      },
-    },
-    {
-      name: 'vanilla.clear_lasso',
-      description: 'Clear the current lasso selection.',
-      targetRef: lassoRef,
-      parameters: { type: 'object', properties: {} },
-    },
-  ];
+  const viewRef = viewRefs.root;
+  const vizRef = vizRefs.root;
+  const pointsRef = vizRefs.ref('/mark/points');
+  const lassoRef = vizRefs.ref('/selection/lasso');
+  const handleRef = vizRefs.ref('/data/points');
 
   const registry = new VacpActionRegistry();
 
@@ -103,9 +65,16 @@ export function installVacpForD3ScatterLasso(args: {
     }
   };
 
-  const graph: VacpGraph = {
+  const graph: VacpGraphBase = {
     version: VACP_SCHEMA_VERSION,
     nodes: [
+      {
+        ref: viewRef,
+        kind: 'View',
+        layer: 'ViewLayer',
+        title: 'D3 scatter + lasso',
+        description: 'A frameworkless D3 chart with lasso selection + DuckDB DataHandle.',
+      },
       {
         ref: vizRef,
         kind: 'Visualization',
@@ -132,14 +101,41 @@ export function installVacpForD3ScatterLasso(args: {
       },
     ],
     edges: [
+      { from: viewRef, to: vizRef, kind: 'contains' },
       { from: vizRef, to: pointsRef, kind: 'contains' },
       { from: vizRef, to: lassoRef, kind: 'contains' },
       { from: vizRef, to: handleRef, kind: 'contains' },
     ],
-    actions,
   };
 
-  registry.register(actions[0], async (params) => {
+  const setLassoAction: VacpActionDescriptor = {
+    name: 'vanilla.set_lasso_polygon',
+    description: 'Set the lasso selection polygon in data (domain) coordinates.',
+    targetRef: lassoRef,
+    parameters: {
+      type: 'object',
+      properties: {
+        points: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: { x: { type: 'number' }, y: { type: 'number' } },
+            required: ['x', 'y'],
+          },
+        },
+      },
+      required: ['points'],
+    },
+  };
+
+  const clearLassoAction: VacpActionDescriptor = {
+    name: 'vanilla.clear_lasso',
+    description: 'Clear the current lasso selection.',
+    targetRef: lassoRef,
+    parameters: { type: 'object', properties: {} },
+  };
+
+  registry.register(setLassoAction, async (params) => {
     const p = (params ?? {}) as { points?: Array<{ x: unknown; y: unknown }> };
     const pts = Array.isArray(p.points) ? p.points : [];
     const poly: DomainPoint[] = pts
@@ -149,12 +145,12 @@ export function installVacpForD3ScatterLasso(args: {
     return { ok: true, selectedCount: args.getSelectedCount() };
   });
 
-  registry.register(actions[1], async () => {
+  registry.register(clearLassoAction, async () => {
     args.clearSelection();
     return { ok: true };
   });
 
-  const dataSqlDesc = registerVacpDataSqlAction(
+  registerVacpDataSqlAction(
     registry,
     createDuckDbDataSqlHandler({
       duckdb: {
@@ -179,9 +175,8 @@ export function installVacpForD3ScatterLasso(args: {
     }),
     { targetRef: handleRef, description: 'Query the currently selected points using DuckDB SQL.' },
   );
-  actions.push(dataSqlDesc);
 
-  const applyStateDesc = registerVacpApplyStateAction(
+  registerVacpApplyStateAction(
     registry,
     async (state) => {
       const errors: Array<{ ref: string; message: string }> = [];
@@ -209,48 +204,45 @@ export function installVacpForD3ScatterLasso(args: {
     },
     { targetRef: lassoRef, description: 'Apply lasso selection state (polygon) to the live D3 plot.' },
   );
-  actions.push(applyStateDesc);
 
-  applyVacpAttributes(args.svg, { ref: vizRef, layer: 'VisualizationLayer', kind: 'Visualization', title: args.title });
-  applyVacpInteractionAttributes(args.svg, {
-    targetRef: vizRef,
-    layer: 'VisualizationLayer',
-    description: 'Programmatic interactions for this D3 visualization.',
-    actions,
-  });
-  embedVacpGraphInSvg(args.svg, graph);
-
-  const snapshots = {
-    getCapabilities: async (): Promise<VacpCapabilitiesSnapshot> => ({
-      version: VACP_SCHEMA_VERSION,
-      createdAt: nowIso(),
-      graph,
-    }),
-    getState: async (): Promise<VacpStateSnapshot> => ({
-      version: VACP_SCHEMA_VERSION,
-      createdAt: nowIso(),
-      state: {
-        [lassoRef]: {
-          kind: 'Selection',
-          polygon: args.getLassoPolygon() ?? null,
-          selectedCount: args.getSelectedCount(),
-        },
-        [handleRef]: {
-          kind: 'DataHandle',
-          allCount: args.data.length,
-          selectedCount: args.getSelectedCount(),
-          selectedMeaning: 'lasso-selected rows; falls back to all rows if empty',
-        },
-      },
-    }),
-  };
-
-  const bridge = installVacpRuntimeBridge({
-    snapshots,
+  const { bridge, snapshots } = installVacpProvider({
+    graph,
     actions: registry,
     demos: args.demos,
     globalKey: args.globalKey,
+    getState: () => ({
+      [lassoRef]: {
+        kind: 'Selection',
+        polygon: args.getLassoPolygon() ?? null,
+        selectedCount: args.getSelectedCount(),
+      },
+      [handleRef]: {
+        kind: 'DataHandle',
+        allCount: args.data.length,
+        selectedCount: args.getSelectedCount(),
+        selectedMeaning: 'lasso-selected rows; falls back to all rows if empty',
+      },
+    }),
   });
 
-  return { bridge, vizRef, pointsRef, lassoRef, actions, graph };
+  const getGraph = () => snapshots.getGraph();
+  const annotate = () => {
+    installVacpDom({ root: args.root, rootAnnotation: { ref: viewRef, kind: 'View', layer: 'ViewLayer' }, getGraph });
+    installVacpDom({
+      root: args.svg,
+      svg: args.svg,
+      rootAnnotation: { ref: vizRef, kind: 'Visualization', layer: 'VisualizationLayer', title: args.title },
+      interactions: {
+        targetRef: vizRef,
+        layer: 'VisualizationLayer',
+        description: 'Semantic actions for lasso selection and DuckDB queries.',
+        actions: () => registry.list(),
+      },
+      getGraph,
+    });
+  };
+
+  annotate();
+
+  return { bridge, vizRef, pointsRef, lassoRef, handleRef };
 }

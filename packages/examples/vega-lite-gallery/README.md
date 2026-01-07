@@ -50,14 +50,10 @@ The key promise: an agent can manipulate interactive Vega-Lite charts **without*
 
 ### Try it: agent-style actions
 
-Use the page buttons:
-
-- **Demo: set param**: increments a param value (chooses the first `Param` node)
-- **Demo: clear selection**: clears a selection param (chooses the first `Selection` node)
-
-Or use the overlay:
+Use the overlay:
 
 - Debug overlay → **Demo** → **Run all**
+- Debug overlay → **Actions** to call `vega_lite.set_param` / `vega_lite.clear_selection` manually
 
 ## How to add or edit specs
 

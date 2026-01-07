@@ -1,5 +1,3 @@
-import type { VacpCapabilitiesSnapshot, VacpStateSnapshot } from '@vacp/core';
-import { renderVacpDiagramMermaid } from '@vacp/diagrams';
 import { installVacpDebugUi } from '@vacp/debug-ui';
 import { installVacpOnVegaLiteView, type VegaViewLike } from '@vacp/vega-lite';
 import embed, { type VisualizationSpec } from 'vega-embed';
@@ -8,63 +6,15 @@ import { buildDemos } from './demos';
 import { loadGallery } from './gallery';
 import type { GalleryEntry } from './gallery';
 
-type Bridge = {
-  getCapabilities: () => Promise<VacpCapabilitiesSnapshot>;
-  getState: () => Promise<VacpStateSnapshot>;
-  execute: (call: { callId: string; name: string; params?: unknown }) => Promise<{ ok: boolean; result?: unknown }>;
-  subscribe?: (fn: () => void) => () => void;
-  refresh?: (options?: { source?: 'human' | 'agent' | 'debug' | 'system'; message?: string }) => Promise<unknown>;
-};
-
-function safeJson(value: unknown): string {
-  try {
-    return JSON.stringify(value, null, 2);
-  } catch {
-    return String(value);
-  }
-}
-
-function getBridge(globalKey: string): Bridge | null {
-  const root = globalThis as unknown as Record<string, unknown>;
-  const v = root[globalKey];
-  if (!v || typeof v !== 'object') return null;
-  const b = v as Partial<Bridge>;
-  if (typeof b.getCapabilities !== 'function' || typeof b.getState !== 'function' || typeof b.execute !== 'function')
-    return null;
-  return b as Bridge;
-}
-
 export async function run(): Promise<void> {
   const app = document.querySelector<HTMLDivElement>('#app');
-  const diagramEl = document.querySelector<HTMLPreElement>('#diagram');
-  const stateEl = document.querySelector<HTMLPreElement>('#state');
-  const checksEl = document.querySelector<HTMLDivElement>('#checks');
-  const refreshBtn = document.querySelector<HTMLButtonElement>('#refresh');
-  const demoSetBtn = document.querySelector<HTMLButtonElement>('#demo-set');
-  const demoClearBtn = document.querySelector<HTMLButtonElement>('#demo-clear');
   const selectEl = document.querySelector<HTMLSelectElement>('#spec');
   const metaEl = document.querySelector<HTMLDivElement>('#spec-meta');
-  if (
-    !app ||
-    !diagramEl ||
-    !stateEl ||
-    !checksEl ||
-    !refreshBtn ||
-    !demoSetBtn ||
-    !demoClearBtn ||
-    !selectEl ||
-    !metaEl
-  ) {
+  if (!app || !selectEl || !metaEl) {
     throw new Error('Missing root elements');
   }
 
   const appRoot = app;
-  const diagramPre = diagramEl;
-  const statePre = stateEl;
-  const checksDiv = checksEl;
-  const refreshButton = refreshBtn;
-  const demoSetButton = demoSetBtn;
-  const demoClearButton = demoClearBtn;
   const metaDiv = metaEl;
 
   const globalKey = '__vacp';
@@ -83,49 +33,8 @@ export async function run(): Promise<void> {
   if (initialId && gallery.some((g) => g.id === initialId)) selectEl.value = initialId;
   else selectEl.value = gallery[0]?.id ?? '';
 
-  let currentBridge: Bridge | null = null;
-  let unsubscribe: (() => void) | null = null;
-
-  const validateDom = (): string[] => {
-    const details: string[] = [];
-    const hasRootVacpRef = !!appRoot.getAttribute('data-vacp-ref');
-    const hasRootInteractions = !!appRoot.getAttribute('data-interaction-vacp-actions');
-    const svg = appRoot.querySelector('svg');
-    const hasSvg = !!svg;
-    const hasMeta = !!svg?.querySelector('metadata[type="application/vacp+json"]');
-    details.push(`Root data-vacp-ref: ${hasRootVacpRef ? 'ok' : 'missing'}`);
-    details.push(`Root data-interaction-vacp-actions: ${hasRootInteractions ? 'ok' : 'missing'}`);
-    details.push(`SVG render: ${hasSvg ? 'ok' : 'missing'}`);
-    details.push(`SVG <metadata type="application/vacp+json">: ${hasMeta ? 'ok' : 'missing'}`);
-    return details;
-  };
-
-  const refreshDebug = async (): Promise<void> => {
-    if (!currentBridge) {
-      checksDiv.textContent = 'No bridge installed.';
-      statePre.textContent = '';
-      diagramPre.textContent = '';
-      return;
-    }
-    const [capabilities, state] = await Promise.all([currentBridge.getCapabilities(), currentBridge.getState()]);
-    statePre.textContent = safeJson(state);
-    const diagram = renderVacpDiagramMermaid({
-      capabilities,
-      state,
-      options: { direction: 'LR', includeActions: true, includeStatePreview: true },
-    });
-    diagramPre.textContent = `\`\`\`mermaid\n${diagram}\n\`\`\``;
-    const checks: string[] = [];
-    checks.push(`Bridge: ok (actions=${capabilities.graph.actions.length}, nodes=${capabilities.graph.nodes.length})`);
-    checks.push(...validateDom());
-    checksDiv.textContent = checks.join(' • ');
-  };
-
   const render = async (entry: GalleryEntry): Promise<void> => {
-    diagramPre.textContent = '(loading…)';
-    statePre.textContent = '(loading…)';
     metaDiv.textContent = entry.meta.description ?? '';
-    checksDiv.textContent = '(loading…)';
 
     appRoot.replaceChildren();
     const spec = entry.createSpec();
@@ -146,71 +55,7 @@ export async function run(): Promise<void> {
         demos: buildDemos(entry),
       },
     });
-
-    const bridge = getBridge(globalKey);
-    if (!bridge) throw new Error(`window.${globalKey} not installed`);
-    currentBridge = bridge;
-
-    unsubscribe?.();
-    unsubscribe = null;
-    if (typeof bridge.subscribe === 'function') unsubscribe = bridge.subscribe(() => void refreshDebug());
-
-    await refreshDebug();
   };
-
-  refreshButton.addEventListener('click', () => void refreshDebug());
-
-  demoSetButton.addEventListener('click', async () => {
-    try {
-      if (!currentBridge) throw new Error('No bridge available');
-      const capabilities = await currentBridge.getCapabilities();
-      const action = capabilities.graph.actions.find((a) => a.name === 'vega_lite.set_param');
-      if (!action) throw new Error('No vega_lite.set_param action available');
-
-      const paramNode = capabilities.graph.nodes.find((n) => n.kind === 'Param');
-      if (!paramNode) throw new Error('No Param nodes found in this spec');
-
-      const state = await currentBridge.getState();
-      const cur = (state.state as Record<string, unknown>)[paramNode.ref];
-      const curValue = cur && typeof cur === 'object' ? (cur as { value?: unknown }).value : undefined;
-      const next =
-        typeof curValue === 'number'
-          ? curValue >= 0 && curValue <= 1
-            ? Math.min(1, curValue + 0.1)
-            : curValue + 10
-          : 42;
-
-      await currentBridge.execute({
-        callId: crypto.randomUUID(),
-        name: 'vega_lite.set_param',
-        params: { ref: paramNode.ref, value: next },
-      });
-      await refreshDebug();
-    } catch (err) {
-      checksDiv.textContent = `Demo failed: ${String(err)}`;
-    }
-  });
-
-  demoClearButton.addEventListener('click', async () => {
-    try {
-      if (!currentBridge) throw new Error('No bridge available');
-      const capabilities = await currentBridge.getCapabilities();
-      const action = capabilities.graph.actions.find((a) => a.name === 'vega_lite.clear_selection');
-      if (!action) throw new Error('No vega_lite.clear_selection action available in this spec');
-
-      const selNode = capabilities.graph.nodes.find((n) => n.kind === 'Selection');
-      if (!selNode) throw new Error('No Selection nodes found in this spec');
-
-      await currentBridge.execute({
-        callId: crypto.randomUUID(),
-        name: 'vega_lite.clear_selection',
-        params: { ref: selNode.ref },
-      });
-      await refreshDebug();
-    } catch (err) {
-      checksDiv.textContent = `Clear failed: ${String(err)}`;
-    }
-  });
 
   selectEl.addEventListener('change', () => {
     const id = selectEl.value;
@@ -218,8 +63,7 @@ export async function run(): Promise<void> {
     const entry = gallery.find((g) => g.id === id);
     if (entry) {
       void render(entry).catch((err) => {
-        checksDiv.textContent = `Render failed: ${String(err)}`;
-        diagramPre.textContent = String(err);
+        metaDiv.textContent = `Render failed: ${String(err)}`;
       });
     }
   });

@@ -17,10 +17,9 @@
   "dependencies": {
     "@vacp/core": "workspace:*",
     "@vacp/debug-ui": "workspace:*",
-    "@vacp/diagrams": "workspace:*",
     "@vacp/duckdb": "workspace:*",
-    "@vacp/dom": "workspace:*",
     "@vacp/gateway": "workspace:*",
+    "@vacp/kit": "workspace:*",
     "d3": "^7.9.0"
   }
 }

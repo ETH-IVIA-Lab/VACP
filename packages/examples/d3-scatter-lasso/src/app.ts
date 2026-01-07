@@ -1,19 +1,10 @@
 import type { VacpDemo } from '@vacp/core';
-import { renderVacpDiagramMermaid } from '@vacp/diagrams';
 import { installVacpDebugUi } from '@vacp/debug-ui';
 import * as d3 from 'd3';
 
 import { installVacpForD3ScatterLasso, type DomainPoint } from './vacp-integration';
 
 type Point = { id: string; x: number; y: number };
-
-function safeJson(value: unknown): string {
-  try {
-    return JSON.stringify(value, null, 2);
-  } catch {
-    return String(value);
-  }
-}
 
 function makePoints(n = 250): Point[] {
   const pts: Point[] = [];
@@ -25,18 +16,9 @@ function makePoints(n = 250): Point[] {
 
 export function run(): void {
   const plotRoot = document.querySelector<HTMLDivElement>('#plot');
-  const diagramEl = document.querySelector<HTMLPreElement>('#diagram');
-  const stateEl = document.querySelector<HTMLPreElement>('#state');
-  const checksEl = document.querySelector<HTMLDivElement>('#checks');
-  const refreshBtn = document.querySelector<HTMLButtonElement>('#refresh');
-  const demoSetBtn = document.querySelector<HTMLButtonElement>('#demo-set');
-  const demoClearBtn = document.querySelector<HTMLButtonElement>('#demo-clear');
-  if (!plotRoot || !diagramEl || !stateEl || !checksEl || !refreshBtn || !demoSetBtn || !demoClearBtn) {
-    throw new Error('Missing root elements');
-  }
-  const statePre = stateEl;
-  const diagramPre = diagramEl;
-  const checksDiv = checksEl;
+  const selectedEl = document.querySelector<HTMLSpanElement>('#selected');
+  const clearBtn = document.querySelector<HTMLButtonElement>('#clear');
+  if (!plotRoot || !selectedEl || !clearBtn) throw new Error('Missing root elements');
 
   const globalKey = '__vacp';
   installVacpDebugUi({ enabled: 'auto', globalKey });
@@ -149,6 +131,7 @@ export function run(): void {
   ];
 
   const { bridge } = installVacpForD3ScatterLasso({
+    root: plotRoot,
     svg: svgEl,
     appId,
     viewId,
@@ -166,45 +149,14 @@ export function run(): void {
     clearSelection,
   });
 
-  const refreshDebug = async (): Promise<void> => {
-    const [cap, st] = await Promise.all([bridge.getCapabilities(), bridge.getState()]);
-    statePre.textContent = safeJson(st);
-    const diagram = renderVacpDiagramMermaid({
-      capabilities: cap,
-      state: st,
-      options: { direction: 'LR', includeActions: true, includeStatePreview: true },
-    });
-    diagramPre.textContent = `\`\`\`mermaid\n${diagram}\n\`\`\``;
-    const svgEl = svg.node()!;
-    const hasMeta = !!svgEl.querySelector('metadata[type="application/vacp+json"]');
-    const checks = [
-      `Bridge: ok (actions=${cap.graph.actions.length}, nodes=${cap.graph.nodes.length})`,
-      `SVG <metadata type="application/vacp+json">: ${hasMeta ? 'ok' : 'missing'}`,
-    ];
-    checksDiv.textContent = checks.join(' • ');
+  const refreshUi = (source: 'human' | 'agent' | 'system') => {
+    selectedEl.textContent = String(selectedIds.size);
+    void bridge.refresh?.({ source, message: 'selection changed' }).catch(() => {});
   };
 
-  refreshBtn.addEventListener('click', () => void refreshDebug());
-  demoSetBtn.addEventListener('click', async () => {
-    const r = await bridge.execute({
-      callId: crypto.randomUUID(),
-      name: 'vanilla.set_lasso_polygon',
-      params: {
-        points: [
-          { x: 20, y: 20 },
-          { x: 80, y: 20 },
-          { x: 80, y: 80 },
-          { x: 20, y: 80 },
-        ],
-      },
-    });
-    if (!r.ok) checksDiv.textContent = `Demo failed: ${r.error.message}`;
-    await refreshDebug();
-  });
-  demoClearBtn.addEventListener('click', async () => {
-    const r = await bridge.execute({ callId: crypto.randomUUID(), name: 'vanilla.clear_lasso', params: {} });
-    if (!r.ok) checksDiv.textContent = `Clear failed: ${r.error.message}`;
-    await refreshDebug();
+  clearBtn.addEventListener('click', () => {
+    clearSelection();
+    refreshUi('human');
   });
 
   // Human interaction: freehand lasso in pixel space, converted to domain on commit.
@@ -227,14 +179,14 @@ export function run(): void {
     svgEl.releasePointerCapture((event as PointerEvent).pointerId);
     if (lassoPointsPx.length < 3) {
       clearSelection();
-      void refreshDebug();
+      refreshUi('human');
       return;
     }
     const polyDomain: DomainPoint[] = lassoPointsPx.map(([px, py]) => ({ x: x.invert(px), y: y.invert(py) }));
     setLassoPolygon(polyDomain);
-    void refreshDebug();
+    refreshUi('human');
   });
 
   render();
-  void refreshDebug();
+  refreshUi('system');
 }

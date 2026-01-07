@@ -45,7 +45,7 @@ The important part: **VACP is not a “UI test script”**. It is a stable, type
 
 ### Try it: agent-style actions
 
-Use the “demo” controls in the page (right-side panel), or use the overlay:
+Use the debug overlay:
 
 - Debug overlay → **Demo** → **Run all**
 

@@ -49,11 +49,10 @@ Enable the debug overlay:
 
 ### Try it: agent-style actions
 
-Use the page buttons or the debug overlay:
+Use the debug overlay:
 
-- **Demo: set lasso** runs `vanilla.set_lasso_polygon`
-- **Clear lasso** runs `vanilla.clear_lasso`
-- Debug overlay → **Actions** lets you dispatch the same calls with custom parameters
+- Debug overlay → **Demo** → **Run all**
+- Debug overlay → **Actions** lets you dispatch `vanilla.set_lasso_polygon` / `vanilla.clear_lasso` with custom params
 
 The point: the “human lasso” and the “semantic action” mutate the same underlying state shape.
 
