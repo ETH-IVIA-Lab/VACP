@@ -7,11 +7,13 @@
     "build": "pnpm -r build",
     "lint": "pnpm -r lint",
     "typecheck": "pnpm -r typecheck",
-    "test:examples": "cd packages/vacp-mcp-server && uv run python scripts/smoke_examples.py",
+    "test:examples": "pnpm exec playwright test",
+    "test:server": "cd packages/vacp-mcp-server && uv run pytest",
     "format": "prettier . --write",
     "format:check": "prettier . --check"
   },
   "devDependencies": {
+    "@playwright/test": "^1.55.0",
     "@types/node": "^24.1.0",
     "oxlint": "^1.38.0",
     "prettier": "^3.7.4",
