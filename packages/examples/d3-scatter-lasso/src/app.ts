@@ -158,8 +158,10 @@ export function run(): void {
     title: 'D3 lasso scatter',
     globalKey,
     demos,
+    data,
     getLassoPolygon: () => lassoPolygonDomain,
     setLassoPolygon,
+    getSelectedIds: () => Array.from(selectedIds),
     getSelectedCount: () => selectedIds.size,
     clearSelection,
   });

@@ -8,12 +8,18 @@ import type {
 } from '@vacp/core';
 import { nowIso, VACP_SCHEMA_VERSION } from '@vacp/core';
 import { applyVacpAttributes, applyVacpInteractionAttributes, embedVacpGraphInSvg } from '@vacp/dom';
-import { installVacpRuntimeBridge, registerVacpApplyStateAction, VacpActionRegistry } from '@vacp/gateway';
+import { createDuckDbDataSqlHandler, createDuckDbWasmClient } from '@vacp/duckdb';
+import { installVacpRuntimeBridge, registerVacpApplyStateAction, registerVacpDataSqlAction, VacpActionRegistry } from '@vacp/gateway';
 
 export type DomainPoint = { x: number; y: number };
+export type DataPoint = { id: string; x: number; y: number };
 
 function makeRef(parts: string[]): VacpRef {
   return `vacp://${parts.join('/')}` as VacpRef;
+}
+
+function sqlStringLiteral(value: string): string {
+  return `'${value.replaceAll("'", "''")}'`;
 }
 
 export function installVacpForD3ScatterLasso(args: {
@@ -26,14 +32,17 @@ export function installVacpForD3ScatterLasso(args: {
   title: string;
   globalKey: string;
   demos: VacpDemo[];
+  data: DataPoint[];
   getLassoPolygon: () => DomainPoint[] | null;
   setLassoPolygon: (poly: DomainPoint[] | null) => void;
+  getSelectedIds: () => string[];
   getSelectedCount: () => number;
   clearSelection: () => void;
 }) {
   const vizRef = makeRef([args.appId, args.viewId, args.vizId]);
   const pointsRef = makeRef([args.appId, args.viewId, args.vizId, 'mark', 'points']);
   const lassoRef = makeRef([args.appId, args.viewId, args.vizId, 'selection', 'lasso']);
+  const handleRef = makeRef([args.appId, args.viewId, args.vizId, 'data', 'points']);
 
   const actions: VacpActionDescriptor[] = [
     {
@@ -65,6 +74,30 @@ export function installVacpForD3ScatterLasso(args: {
 
   const registry = new VacpActionRegistry();
 
+  const duckdbPromise = createDuckDbWasmClient({ log: false });
+  const pointsTable = 'vacp_d3_points';
+
+  const ensureDuckDbLoaded = async (): Promise<void> => {
+    const db = await duckdbPromise;
+    await db.exec(`CREATE TABLE IF NOT EXISTS ${pointsTable} (id VARCHAR, x DOUBLE, y DOUBLE)`);
+    const existing = await db.queryJson(`SELECT COUNT(*)::INTEGER AS n FROM ${pointsTable}`);
+    if ((existing.rows[0]?.n as number | undefined) === args.data.length) return;
+    await db.exec(`DELETE FROM ${pointsTable}`);
+    await db.loadObjectsAsTable(pointsTable, args.data, { create: false });
+  };
+
+  const syncSelectedIds = async (): Promise<void> => {
+    const db = await duckdbPromise;
+    await ensureDuckDbLoaded();
+    await db.exec('CREATE TEMP TABLE IF NOT EXISTS vacp_d3_selected_ids(id VARCHAR)');
+    await db.exec('DELETE FROM vacp_d3_selected_ids');
+    const ids = args.getSelectedIds();
+    if (ids.length) {
+      const values = ids.map((id) => `(${sqlStringLiteral(id)})`).join(',');
+      await db.exec(`INSERT INTO vacp_d3_selected_ids VALUES ${values}`);
+    }
+  };
+
   const graph: VacpGraph = {
     version: VACP_SCHEMA_VERSION,
     nodes: [
@@ -83,10 +116,20 @@ export function installVacpForD3ScatterLasso(args: {
         title: 'lasso',
         description: 'freeform polygon selection',
       },
+      {
+        ref: handleRef,
+        kind: 'DataHandle',
+        layer: 'DataLayer',
+        title: 'points (DuckDB handle)',
+        description:
+          'A DuckDB-backed handle for the scatter dataset. `vacp_handle` is the lasso-selected subset (or all rows if empty).',
+        data: { primaryKey: 'id', allTable: pointsTable },
+      },
     ],
     edges: [
       { from: vizRef, to: pointsRef, kind: 'contains' },
       { from: vizRef, to: lassoRef, kind: 'contains' },
+      { from: vizRef, to: handleRef, kind: 'contains' },
     ],
     actions,
   };
@@ -105,6 +148,32 @@ export function installVacpForD3ScatterLasso(args: {
     args.clearSelection();
     return { ok: true };
   });
+
+  const dataSqlDesc = registerVacpDataSqlAction(
+    registry,
+    createDuckDbDataSqlHandler({
+      duckdb: {
+        getConnection: () => duckdbPromise.then((d) => d.getConnection()),
+        exec: (sql) => duckdbPromise.then((d) => d.exec(sql)),
+        queryJson: (sql) => duckdbPromise.then((d) => d.queryJson(sql)),
+        queryArrowIpcBase64: (sql) => duckdbPromise.then((d) => d.queryArrowIpcBase64(sql)),
+        loadObjectsAsTable: (tableName, rows, options) => duckdbPromise.then((d) => d.loadObjectsAsTable(tableName, rows, options)),
+      },
+      resolveHandle: async (ref) => {
+        if (ref !== handleRef) return null;
+        await syncSelectedIds();
+        const selectedCount = args.getSelectedCount();
+        const allSql = `SELECT * FROM ${pointsTable}`;
+        const selectedSql =
+          selectedCount > 0
+            ? `SELECT p.* FROM ${pointsTable} p JOIN vacp_d3_selected_ids s USING(id)`
+            : `SELECT * FROM ${pointsTable}`;
+        return { allSql, selectedSql };
+      },
+    }),
+    { targetRef: handleRef, description: 'Query the currently selected points using DuckDB SQL.' },
+  );
+  actions.push(dataSqlDesc);
 
   const applyStateDesc = registerVacpApplyStateAction(
     registry,
@@ -159,6 +228,12 @@ export function installVacpForD3ScatterLasso(args: {
           kind: 'Selection',
           polygon: args.getLassoPolygon() ?? null,
           selectedCount: args.getSelectedCount(),
+        },
+        [handleRef]: {
+          kind: 'DataHandle',
+          allCount: args.data.length,
+          selectedCount: args.getSelectedCount(),
+          selectedMeaning: 'lasso-selected rows; falls back to all rows if empty',
         },
       },
     }),
