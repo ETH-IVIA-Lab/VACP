@@ -1490,7 +1490,7 @@ wheels = [
 [[package]]
 name = "vacp-mcp-server"
 version = "0.0.0"
-source = { editable = "packages/server/vacp-mcp-server" }
+source = { editable = "packages/transport/vacp-mcp-server" }
 dependencies = [
     { name = "fastapi" },
     { name = "fastmcp" },

@@ -1,6 +1,6 @@
 [tool.uv.workspace]
 members = [
-  "packages/server/vacp-mcp-server",
+  "packages/transport/vacp-mcp-server",
 ]
 
 [tool.ruff]
@@ -12,4 +12,3 @@ select = ["E", "F", "I", "UP", "B", "SIM"]
 
 [tool.ruff.format]
 quote-style = "single"
-

@@ -7,7 +7,7 @@
     "build": "pnpm -r build",
     "lint": "pnpm -r lint",
     "typecheck": "pnpm -r typecheck",
-    "test:examples": "cd packages/server/vacp-mcp-server && uv run python scripts/smoke_examples.py",
+    "test:examples": "cd packages/transport/vacp-mcp-server && uv run python scripts/smoke_examples.py",
     "format": "prettier . --write",
     "format:check": "prettier . --check"
   },

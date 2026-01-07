@@ -1,5 +1,5 @@
 {
-  "extends": "../../tsconfig.base.json",
+  "extends": "../../../tsconfig.base.json",
   "compilerOptions": {
     "rootDir": "./src",
     "outDir": "./dist",
@@ -8,5 +8,6 @@
     "declarationMap": true,
     "sourceMap": true
   },
+  "references": [{ "path": "../../protocol/core" }, { "path": "../../adapters/diagrams" }],
   "include": ["src"]
 }
