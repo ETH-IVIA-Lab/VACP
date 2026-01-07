@@ -10,6 +10,19 @@ It’s a good starting point if you care about:
 - Mosaic interactors (brushes, toggles, menus)
 - “human ↔ agent” bidirectionality (the same selection can be done by mouse or by dispatching a semantic action)
 
+The gallery includes a small, curated set of Mosaic specs:
+
+- Olympic Athletes
+- Crossfilter (Flights)
+- Flights Hexbin
+- Line Multi-Series
+- Normalized Stock Prices
+- NYC Taxi Rides
+- Pan & Zoom
+- Seattle Weather
+- U.S. States
+- WNBA Shot Chart
+
 ## Run it
 
 From the `vacp/` repo root:

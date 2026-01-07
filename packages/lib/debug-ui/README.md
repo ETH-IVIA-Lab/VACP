@@ -17,7 +17,7 @@ next to the pill and stays within the viewport.
 - **Graph**: rendered graph diagram (Mermaid → SVG)
 - **Data**: pick a `DataHandle` and run DuckDB SQL via `vacp.data_sql` (includes selection preview)
 - **Actions**: manual dispatch (no pixel automation)
-- **History**: runtime timeline + time travel (inspect cursor) + apply-to-live (“rewind”)
+- **History**: runtime controls + timeline + time travel (inspect cursor) + apply-to-live (“rewind”)
 - **Playbook**: provider-supplied scripted stepper (shows “agent-like” sequences)
 - **JSON**: inspection overrides + opt-in apply-to-live
 
