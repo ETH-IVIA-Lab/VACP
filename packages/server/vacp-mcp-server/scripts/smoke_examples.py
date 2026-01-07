@@ -103,7 +103,9 @@ async def _start_vite_dev_server(name: str, cwd: Path, port: int) -> DevServer:
 
 
 async def _expect_bridge(page: Page) -> None:
-    await page.wait_for_function("() => !!globalThis.__vacp && typeof globalThis.__vacp.getCapabilities === 'function'")
+    await page.wait_for_function(
+        "() => !!globalThis.__vacp && typeof globalThis.__vacp.getCapabilities === 'function' && typeof globalThis.__vacp.getRuntime === 'function'"
+    )
 
 
 async def _get_capabilities(page: Page) -> dict[str, Any]:
@@ -112,6 +114,9 @@ async def _get_capabilities(page: Page) -> dict[str, Any]:
 
 async def _get_state(page: Page) -> dict[str, Any]:
     return await page.evaluate('async () => await globalThis.__vacp.getState()')
+
+async def _get_runtime(page: Page) -> dict[str, Any]:
+    return await page.evaluate('async () => await globalThis.__vacp.getRuntime()')
 
 
 async def _execute(page: Page, name: str, params: dict[str, Any]) -> dict[str, Any]:
@@ -201,23 +206,60 @@ async def _test_mosaic_gallery(page: Page) -> None:
         has_1d = any(isinstance(a, dict) and a.get('name') == 'mosaic.set_interval_1d' for a in actions)
 
         before = await _get_state(page)
+        rt_before = await _get_runtime(page)
         await page.click('#demo-set')
         await page.wait_for_timeout(300)
         after_set = await _get_state(page)
+        rt_after_set = await _get_runtime(page)
         if has_2d or has_1d:
             _assert(
                 json.dumps(before, sort_keys=True) != json.dumps(after_set, sort_keys=True),
                 'Expected state to change after demo-set',
             )
+            _assert(
+                int(rt_after_set.get('historyLen', len(rt_after_set.get('history', []))))
+                >= int(rt_before.get('historyLen', len(rt_before.get('history', [])))) + 1,
+                'Expected runtime history to grow after demo-set',
+            )
 
         await page.click('#demo-clear')
         await page.wait_for_timeout(300)
         after_clear = await _get_state(page)
+        rt_after_clear = await _get_runtime(page)
         if has_2d or has_1d:
             _assert(
                 json.dumps(after_set, sort_keys=True) != json.dumps(after_clear, sort_keys=True),
                 'Expected state to change after demo-clear',
             )
+            _assert(
+                int(rt_after_clear.get('historyLen', len(rt_after_clear.get('history', []))))
+                >= int(rt_after_set.get('historyLen', len(rt_after_set.get('history', [])))) + 1,
+                'Expected runtime history to grow after demo-clear',
+            )
+
+        # Human interaction: simulate a brush drag on the plot when possible.
+        if has_2d or has_1d:
+            svg = page.locator('.plot svg').first
+            box = await svg.bounding_box()
+            if box:
+                rt_h0 = await _get_runtime(page)
+                before_h = await _get_state(page)
+                await page.mouse.move(box['x'] + box['width'] * 0.25, box['y'] + box['height'] * 0.25)
+                await page.mouse.down()
+                await page.mouse.move(box['x'] + box['width'] * 0.65, box['y'] + box['height'] * 0.65, steps=12)
+                await page.mouse.up()
+                await page.wait_for_timeout(500)
+                after_h = await _get_state(page)
+                rt_h1 = await _get_runtime(page)
+                _assert(
+                    json.dumps(before_h, sort_keys=True) != json.dumps(after_h, sort_keys=True),
+                    'Expected state to change after human brush drag',
+                )
+                _assert(
+                    int(rt_h1.get('historyLen', len(rt_h1.get('history', []))))
+                    >= int(rt_h0.get('historyLen', len(rt_h0.get('history', [])))) + 1,
+                    'Expected runtime history to grow after human brush drag',
+                )
 
 
 async def _test_vega_lite_gallery(page: Page) -> None:
@@ -253,12 +295,19 @@ async def _test_vega_lite_gallery(page: Page) -> None:
         )
 
         before = await _get_state(page)
+        rt_before = await _get_runtime(page)
         await page.click('#demo-set')
         await page.wait_for_timeout(200)
         after_set = await _get_state(page)
         _assert(
             json.dumps(before, sort_keys=True) != json.dumps(after_set, sort_keys=True),
             'Expected state to change after demo-set',
+        )
+        rt_after_set = await _get_runtime(page)
+        _assert(
+            int(rt_after_set.get('historyLen', len(rt_after_set.get('history', []))))
+            >= int(rt_before.get('historyLen', len(rt_before.get('history', [])))) + 1,
+            'Expected runtime history to grow after demo-set',
         )
 
         has_clear = any(
@@ -271,6 +320,40 @@ async def _test_vega_lite_gallery(page: Page) -> None:
             _assert(
                 json.dumps(after_set, sort_keys=True) != json.dumps(after_clear, sort_keys=True),
                 'Expected state to change after demo-clear',
+            )
+            rt_after_clear = await _get_runtime(page)
+            _assert(
+                int(rt_after_clear.get('historyLen', len(rt_after_clear.get('history', []))))
+                >= int(rt_after_set.get('historyLen', len(rt_after_set.get('history', [])))) + 1,
+                'Expected runtime history to grow after demo-clear',
+            )
+
+        # Human interaction: try to change a slider param (if present).
+        slider = page.locator('#app input[type="range"]').first
+        if await slider.count() > 0:
+            rt_h0 = await _get_runtime(page)
+            before_h = await _get_state(page)
+            await page.evaluate(
+                "() => {"
+                " const el=document.querySelector('#app input[type=\"range\"]');"
+                " if (!el) return false;"
+                " el.value='80';"
+                " el.dispatchEvent(new Event('input', {bubbles:true}));"
+                " el.dispatchEvent(new Event('change', {bubbles:true}));"
+                " return true;"
+                " }"
+            )
+            await page.wait_for_timeout(250)
+            after_h = await _get_state(page)
+            rt_h1 = await _get_runtime(page)
+            _assert(
+                json.dumps(before_h, sort_keys=True) != json.dumps(after_h, sort_keys=True),
+                'Expected state to change after human slider change',
+            )
+            _assert(
+                int(rt_h1.get('historyLen', len(rt_h1.get('history', []))))
+                >= int(rt_h0.get('historyLen', len(rt_h0.get('history', [])))) + 1,
+                'Expected runtime history to grow after human slider change',
             )
 
         # DOM/SVG fallback evidence: metadata graph must be embedded when rendering to SVG.
