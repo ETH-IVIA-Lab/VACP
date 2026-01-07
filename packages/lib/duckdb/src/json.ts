@@ -38,4 +38,3 @@ export function arrowTableToJson(table: unknown): { columns: string[]; rows: Rec
   });
   return { columns: cols, rows };
 }
-

@@ -66,4 +66,3 @@ export function registerVacpDataSqlAction(
 
   return descriptor;
 }
-

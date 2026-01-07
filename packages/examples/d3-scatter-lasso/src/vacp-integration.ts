@@ -9,7 +9,12 @@ import type {
 import { nowIso, VACP_SCHEMA_VERSION } from '@vacp/core';
 import { applyVacpAttributes, applyVacpInteractionAttributes, embedVacpGraphInSvg } from '@vacp/dom';
 import { createDuckDbDataSqlHandler, createDuckDbWasmClient } from '@vacp/duckdb';
-import { installVacpRuntimeBridge, registerVacpApplyStateAction, registerVacpDataSqlAction, VacpActionRegistry } from '@vacp/gateway';
+import {
+  installVacpRuntimeBridge,
+  registerVacpApplyStateAction,
+  registerVacpDataSqlAction,
+  VacpActionRegistry,
+} from '@vacp/gateway';
 
 export type DomainPoint = { x: number; y: number };
 export type DataPoint = { id: string; x: number; y: number };
@@ -157,7 +162,8 @@ export function installVacpForD3ScatterLasso(args: {
         exec: (sql) => duckdbPromise.then((d) => d.exec(sql)),
         queryJson: (sql) => duckdbPromise.then((d) => d.queryJson(sql)),
         queryArrowIpcBase64: (sql) => duckdbPromise.then((d) => d.queryArrowIpcBase64(sql)),
-        loadObjectsAsTable: (tableName, rows, options) => duckdbPromise.then((d) => d.loadObjectsAsTable(tableName, rows, options)),
+        loadObjectsAsTable: (tableName, rows, options) =>
+          duckdbPromise.then((d) => d.loadObjectsAsTable(tableName, rows, options)),
       },
       resolveHandle: async (ref) => {
         if (ref !== handleRef) return null;

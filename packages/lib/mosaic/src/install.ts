@@ -2,7 +2,12 @@ import type { VacpCapabilitiesSnapshot, VacpChangeSource, VacpRef, VacpStateSnap
 import { nowIso, VACP_SCHEMA_VERSION } from '@vacp/core';
 import { applyVacpAttributes } from '@vacp/dom';
 import { createDuckDbDataSqlHandler } from '@vacp/duckdb';
-import { installVacpRuntimeBridge, registerVacpApplyStateAction, registerVacpDataSqlAction, VacpActionRegistry } from '@vacp/gateway';
+import {
+  installVacpRuntimeBridge,
+  registerVacpApplyStateAction,
+  registerVacpDataSqlAction,
+  VacpActionRegistry,
+} from '@vacp/gateway';
 
 import { annotateInput, annotatePlotSvg } from './annotations';
 import { actionDescriptorsForDashboard } from './actions';
@@ -134,7 +139,7 @@ export function installVacpOnVgplotDashboard(args: {
       actionRegistry,
       createDuckDbDataSqlHandler({
         duckdb: options.duckdbClient,
-      resolveHandle: async (ref) => {
+        resolveHandle: async (ref) => {
           const meta = handleByRef.get(ref);
           if (!meta) return null;
           const plot = plotsById.get(meta.plotId);
@@ -207,7 +212,9 @@ export function installVacpOnVgplotDashboard(args: {
           state[h.ref] = {
             kind: 'DataHandle',
             table: h.table ?? (plot ? discoverPlotTables(plot)[0] : undefined),
-            selectionWhere: plot ? whereClauseForMosaicDashboardSelection({ plots: plots.map((p) => p.plot), inputs }) : null,
+            selectionWhere: plot
+              ? whereClauseForMosaicDashboardSelection({ plots: plots.map((p) => p.plot), inputs })
+              : null,
             selectedMeaning: 'rows matching current plot selection; falls back to all rows if none',
           };
         });

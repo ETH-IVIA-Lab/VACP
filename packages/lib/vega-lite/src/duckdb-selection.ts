@@ -73,7 +73,7 @@ function intervalPredicatesFromSelection(
 
   const preds: string[] = [];
   for (const t of terms) {
-    const field = t.field ?? (t.channel ? findEncodingField(spec, t.channel) ?? undefined : undefined);
+    const field = t.field ?? (t.channel ? (findEncodingField(spec, t.channel) ?? undefined) : undefined);
     if (!field) continue;
     const ident = sqlIdentifier(field);
 
@@ -111,7 +111,7 @@ function pointPredicatesFromSelection(
 
   const preds: string[] = [];
   for (const t of terms) {
-    const field = t.field ?? (t.channel ? findEncodingField(spec, t.channel) ?? undefined : undefined);
+    const field = t.field ?? (t.channel ? (findEncodingField(spec, t.channel) ?? undefined) : undefined);
     if (!field) continue;
     const ident = sqlIdentifier(field);
 

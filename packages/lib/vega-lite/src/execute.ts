@@ -84,7 +84,10 @@ export async function executeAction(
       try {
         // Accessing `view.data(name)` throws if the dataset is missing.
         void view.data(storeName);
-        view.change(storeName, changeset().remove(() => true));
+        view.change(
+          storeName,
+          changeset().remove(() => true),
+        );
         cleared += 1;
       } catch {
         // Fall back below.

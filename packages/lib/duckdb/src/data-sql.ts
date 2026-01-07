@@ -4,7 +4,9 @@ import type { VacpDuckDbClient } from './client';
 import { normalizeSingleStatementSql } from './sql';
 
 export type VacpDuckDbHandle = { allSql: string; selectedSql: string };
-export type VacpDuckDbHandleResolver = (handleRef: VacpRef) => VacpDuckDbHandle | null | Promise<VacpDuckDbHandle | null>;
+export type VacpDuckDbHandleResolver = (
+  handleRef: VacpRef,
+) => VacpDuckDbHandle | null | Promise<VacpDuckDbHandle | null>;
 
 export function createDuckDbDataSqlHandler(args: {
   duckdb: VacpDuckDbClient;

@@ -102,18 +102,22 @@ export function installVacpOnVegaLiteView(args: {
   const enableDuckDb = options.enableDuckDbDataHandle ?? true;
   const inlineValues = spec.data && typeof spec.data === 'object' && Array.isArray((spec.data as any).values);
   const dataRows = inlineValues ? ((spec.data as any).values as unknown[]) : null;
-  const handleRef = enableDuckDb && dataRows ? (makeRef({
-    appId: options.appId,
-    viewId: options.viewId,
-    vizId: options.vizId,
-    suffix: '/data/main',
-  }) as VacpRef) : null;
+  const handleRef =
+    enableDuckDb && dataRows
+      ? (makeRef({
+          appId: options.appId,
+          viewId: options.viewId,
+          vizId: options.vizId,
+          suffix: '/data/main',
+        }) as VacpRef)
+      : null;
   const duckdbPromise: Promise<VacpDuckDbClient> | null = (() => {
     if (!handleRef) return null;
     if (options.duckdbClient) return Promise.resolve(options.duckdbClient);
     const rootAny = globalThis as unknown as Record<string, unknown>;
     const existing = rootAny.__vacpDuckDbClient;
-    if (existing && typeof (existing as Promise<unknown>).then === 'function') return existing as Promise<VacpDuckDbClient>;
+    if (existing && typeof (existing as Promise<unknown>).then === 'function')
+      return existing as Promise<VacpDuckDbClient>;
     const created: Promise<VacpDuckDbClient> = createDuckDbWasmClient({ log: false });
     rootAny.__vacpDuckDbClient = created;
     return created;

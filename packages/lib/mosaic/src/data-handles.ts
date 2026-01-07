@@ -26,7 +26,11 @@ function djb2Hash(text: string): string {
 }
 
 function slugify(text: string): string {
-  const s = text.trim().toLowerCase().replaceAll(/[^a-z0-9]+/g, '-').replaceAll(/^-+|-+$/g, '');
+  const s = text
+    .trim()
+    .toLowerCase()
+    .replaceAll(/[^a-z0-9]+/g, '-')
+    .replaceAll(/^-+|-+$/g, '');
   return s || 'table';
 }
 
