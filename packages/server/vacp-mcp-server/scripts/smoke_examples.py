@@ -335,7 +335,7 @@ async def _test_vega_lite_gallery(page: Page) -> None:
         )
 
         has_clear = any(
-            isinstance(a, dict) and a.get('name') == 'vega_lite.clear_param' for a in graph.get('actions', [])
+            isinstance(a, dict) and a.get('name') == 'vega_lite.clear_selection' for a in graph.get('actions', [])
         )
         if has_clear:
             await page.click('#demo-clear')
@@ -353,6 +353,40 @@ async def _test_vega_lite_gallery(page: Page) -> None:
             _assert(
                 len(rt_after_clear.get('history', [])) >= len(rt_after_set.get('history', [])) + 1,
                 'Expected runtime history to grow after demo-clear',
+            )
+
+        # Human interaction:
+        # - try to brush-drag on the SVG (interval selection specs)
+        # - else click a bar/mark (point selection specs)
+        svg = page.locator('#app svg').first
+        box = await svg.bounding_box()
+        if box:
+            rt_h0 = await _get_runtime(page)
+            before_h = await _get_state(page)
+
+            bar = page.locator('#app svg rect').first
+            if await bar.count() > 0:
+                await bar.click()
+            else:
+                await page.mouse.move(box['x'] + box['width'] * 0.25, box['y'] + box['height'] * 0.25)
+                await page.mouse.down()
+                await page.mouse.move(box['x'] + box['width'] * 0.65, box['y'] + box['height'] * 0.65, steps=12)
+                await page.mouse.up()
+
+            await page.wait_for_function(
+                '(n) => globalThis.__vacp.getRuntime().then(rt => (rt.history||[]).length >= n)',
+                arg=len(rt_h0.get('history', [])) + 1,
+                timeout=15_000,
+            )
+            after_h = await _get_state(page)
+            rt_h1 = await _get_runtime(page)
+            _assert(
+                json.dumps(before_h, sort_keys=True) != json.dumps(after_h, sort_keys=True),
+                'Expected state to change after human interaction (brush or click)',
+            )
+            _assert(
+                len(rt_h1.get('history', [])) >= len(rt_h0.get('history', [])) + 1,
+                'Expected runtime history to grow after human interaction (brush or click)',
             )
 
         # Human interaction: try to change a slider param (if present).
