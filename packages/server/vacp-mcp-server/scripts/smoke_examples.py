@@ -211,7 +211,7 @@ async def _test_mosaic_gallery(page: Page) -> None:
         await page.click('#demo-set')
         await page.wait_for_function(
             '(n) => globalThis.__vacp.getRuntime().then(rt => (rt.history||[]).length >= n)',
-            before_hist + 1,
+            arg=before_hist + 1,
             timeout=15_000,
         )
         after_set = await _get_state(page)
@@ -229,7 +229,7 @@ async def _test_mosaic_gallery(page: Page) -> None:
         await page.click('#demo-clear')
         await page.wait_for_function(
             '(n) => globalThis.__vacp.getRuntime().then(rt => (rt.history||[]).length >= n)',
-            len(rt_after_set.get('history', [])) + 1,
+            arg=len(rt_after_set.get('history', [])) + 1,
             timeout=15_000,
         )
         after_clear = await _get_state(page)
@@ -257,7 +257,7 @@ async def _test_mosaic_gallery(page: Page) -> None:
                 await page.mouse.up()
                 await page.wait_for_function(
                     '(n) => globalThis.__vacp.getRuntime().then(rt => (rt.history||[]).length >= n)',
-                    len(rt_h0.get('history', [])) + 1,
+                    arg=len(rt_h0.get('history', [])) + 1,
                     timeout=15_000,
                 )
                 after_h = await _get_state(page)
@@ -310,7 +310,7 @@ async def _test_vega_lite_gallery(page: Page) -> None:
         await page.click('#demo-set')
         await page.wait_for_function(
             '(n) => globalThis.__vacp.getRuntime().then(rt => (rt.history||[]).length >= n)',
-            before_hist + 1,
+            arg=before_hist + 1,
             timeout=15_000,
         )
         after_set = await _get_state(page)
@@ -331,7 +331,7 @@ async def _test_vega_lite_gallery(page: Page) -> None:
             await page.click('#demo-clear')
             await page.wait_for_function(
                 '(n) => globalThis.__vacp.getRuntime().then(rt => (rt.history||[]).length >= n)',
-                len(rt_after_set.get('history', [])) + 1,
+                arg=len(rt_after_set.get('history', [])) + 1,
                 timeout=15_000,
             )
             after_clear = await _get_state(page)
@@ -362,7 +362,7 @@ async def _test_vega_lite_gallery(page: Page) -> None:
             )
             await page.wait_for_function(
                 '(n) => globalThis.__vacp.getRuntime().then(rt => (rt.history||[]).length >= n)',
-                len(rt_h0.get('history', [])) + 1,
+                arg=len(rt_h0.get('history', [])) + 1,
                 timeout=15_000,
             )
             after_h = await _get_state(page)
