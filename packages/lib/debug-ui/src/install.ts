@@ -251,6 +251,10 @@ export function installVacpDebugUi(options?: VacpDebugUiOptions): void {
     const next = !isPanelVisible(panel);
     setPanelVisible(panel, next);
     if (next) {
+      // Keep the debug UI above provider-level portals/tooltips that may
+      // re-parent elements into <body> with their own z-index.
+      document.body.append(root);
+      document.body.append(panel);
       panelPosition();
       void connect();
     }

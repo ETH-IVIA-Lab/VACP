@@ -1,5 +1,6 @@
 const CSS = `
-  .vacp-debug-ui-root {
+  .vacp-debug-ui-root,
+  .vacp-debug-ui-panel {
     --vacp-bg: #0b1020;
     --vacp-fg: #e7e9ee;
     --vacp-muted: rgba(231, 233, 238, 0.8);
@@ -8,12 +9,14 @@ const CSS = `
     --vacp-surface: rgba(231, 233, 238, 0.08);
     --vacp-surface-2: rgba(231, 233, 238, 0.12);
     --vacp-accent: rgba(121, 178, 255, 0.9);
+    --vacp-debug-ui-z: 2147483000;
   }
 
   .vacp-debug-ui-root {
     position: fixed;
-    z-index: 2147483647;
+    z-index: var(--vacp-debug-ui-z);
     touch-action: none;
+    isolation: isolate;
     transition: none;
   }
   .vacp-debug-ui-root.vacp-debug-ui-snap {
@@ -42,7 +45,7 @@ const CSS = `
 
   .vacp-debug-ui-panel {
     position: fixed;
-    z-index: 2147483647;
+    z-index: calc(var(--vacp-debug-ui-z) + 1);
     width: min(860px, calc(100vw - 28px));
     height: min(680px, calc(100vh - 92px));
     background: var(--vacp-bg);
@@ -52,6 +55,7 @@ const CSS = `
     overflow: hidden;
     box-shadow: 0 16px 40px rgba(0, 0, 0, 0.35);
     display: none;
+    isolation: isolate;
   }
 
   .vacp-debug-ui-header {
