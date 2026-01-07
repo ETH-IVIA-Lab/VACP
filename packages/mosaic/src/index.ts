@@ -10,7 +10,7 @@ import type {
 } from '@vacp/core';
 import { nowIso, VACP_SCHEMA_VERSION } from '@vacp/core';
 import { applyVacpAttributes, applyVacpInteractionAttributes, embedVacpGraphInSvg } from '@vacp/dom';
-import { createVacpWindowBridge, installVacpWindowBridge, VacpActionRegistry } from '@vacp/gateway';
+import { installVacpRuntimeBridge, VacpActionRegistry } from '@vacp/gateway';
 
 /**
  * Mosaic/vgplot provider (project concepts).
@@ -441,8 +441,7 @@ export function installVacpOnVgplot(plot: VgplotPlotLike, svg: SVGElement, optio
     },
   };
 
-  const bridge = createVacpWindowBridge({ snapshots, actions: actionRegistry });
-  installVacpWindowBridge(bridge, { globalKey: options.globalKey });
+  const bridge = installVacpRuntimeBridge({ snapshots, actions: actionRegistry, globalKey: options.globalKey });
 
   const refreshRuntimeNow = (source: VacpChangeSource, message: string) => {
     if (typeof bridge.refresh !== 'function') return;

@@ -10,7 +10,7 @@ import type {
 } from '@vacp/core';
 import { nowIso, VACP_SCHEMA_VERSION } from '@vacp/core';
 import { applyVacpAttributes, applyVacpInteractionAttributes, embedVacpGraphInSvg } from '@vacp/dom';
-import { createVacpWindowBridge, installVacpWindowBridge, VacpActionRegistry } from '@vacp/gateway';
+import { installVacpRuntimeBridge, VacpActionRegistry } from '@vacp/gateway';
 
 /**
  * Vega-Lite provider (project concepts).
@@ -330,8 +330,7 @@ export function installVacpOnVegaLiteView({
     },
   };
 
-  const bridge = createVacpWindowBridge({ snapshots, actions: actionRegistry });
-  installVacpWindowBridge(bridge, { globalKey: options.globalKey });
+  const bridge = installVacpRuntimeBridge({ snapshots, actions: actionRegistry, globalKey: options.globalKey });
 
   // Keep the runtime timeline updated on human-driven param changes (signals).
   // This enables seamless human/agent handoff and makes time-travel debugging
