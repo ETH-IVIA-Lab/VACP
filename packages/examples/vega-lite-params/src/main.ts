@@ -141,6 +141,8 @@ async function main() {
     appRoot.replaceChildren();
     const spec: VegaLiteSpecLike = entry.createSpec();
     const result = await embed(appRoot, spec as unknown as VisualizationSpec, { actions: false, renderer: 'svg' });
+    // Expose for debugging / introspection in devtools.
+    (globalThis as unknown as { __vegaView?: unknown }).__vegaView = result.view;
 
     installVacpOnVegaLiteView({
       root: appRoot,
@@ -190,21 +192,20 @@ async function main() {
       const capabilities = await currentBridge.getCapabilities();
       const action = capabilities.graph.actions.find((a) => a.name === 'vega_lite.set_param');
       if (!action) throw new Error('No vega_lite.set_param action available');
-      const constName = (action.parameters as { properties?: { name?: { const?: unknown } } } | undefined)?.properties
-        ?.name?.const;
-      const name = typeof constName === 'string' ? constName : null;
-      if (!name) throw new Error('No parameter name found in action descriptor');
+
+      // Pick the first Param node and bump its current value.
+      const paramNode = capabilities.graph.nodes.find((n) => n.kind === 'Param');
+      if (!paramNode) throw new Error('No Param nodes found in this spec');
 
       const state = await currentBridge.getState();
-      const targetRef = action.targetRef;
-      const node = typeof targetRef === 'string' ? (state.state as Record<string, unknown>)[targetRef] : undefined;
-      const nodeValue = node && typeof node === 'object' ? (node as { value?: unknown }).value : undefined;
-      const next = typeof nodeValue === 'number' ? nodeValue + 10 : 42;
+      const cur = (state.state as Record<string, unknown>)[paramNode.ref];
+      const curValue = cur && typeof cur === 'object' ? (cur as { value?: unknown }).value : undefined;
+      const next = typeof curValue === 'number' ? curValue + 10 : 42;
 
       await currentBridge.execute({
         callId: crypto.randomUUID(),
         name: 'vega_lite.set_param',
-        params: { name, value: next },
+        params: { ref: paramNode.ref, value: next },
       });
       await refreshDebug();
     } catch (err) {
@@ -216,13 +217,17 @@ async function main() {
     try {
       if (!currentBridge) throw new Error('No bridge available');
       const capabilities = await currentBridge.getCapabilities();
-      const action = capabilities.graph.actions.find((a) => a.name === 'vega_lite.clear_param');
-      if (!action) throw new Error('No vega_lite.clear_param action available in this spec');
-      const constName = (action.parameters as { properties?: { name?: { const?: unknown } } } | undefined)?.properties
-        ?.name?.const;
-      const name = typeof constName === 'string' ? constName : null;
-      if (!name) throw new Error('No selection name found in action descriptor');
-      await currentBridge.execute({ callId: crypto.randomUUID(), name: 'vega_lite.clear_param', params: { name } });
+      const action = capabilities.graph.actions.find((a) => a.name === 'vega_lite.clear_selection');
+      if (!action) throw new Error('No vega_lite.clear_selection action available in this spec');
+
+      const selNode = capabilities.graph.nodes.find((n) => n.kind === 'Selection');
+      if (!selNode) throw new Error('No Selection nodes found in this spec');
+
+      await currentBridge.execute({
+        callId: crypto.randomUUID(),
+        name: 'vega_lite.clear_selection',
+        params: { ref: selNode.ref },
+      });
       await refreshDebug();
     } catch (err) {
       checksDiv.textContent = `Clear failed: ${String(err)}`;

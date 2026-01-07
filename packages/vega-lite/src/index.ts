@@ -3,6 +3,7 @@ import type {
   VacpActionDescriptor,
   VacpCapabilitiesSnapshot,
   VacpChangeSource,
+  VacpEdge,
   VacpGraph,
   VacpNode,
   VacpRef,
@@ -129,6 +130,8 @@ function buildGraph({
     },
   ];
 
+  const edges: VacpEdge[] = [];
+
   (spec.params ?? []).forEach((p) => {
     const { kind, details } = classifyParam(p);
     const pref = makeRef({
@@ -145,55 +148,49 @@ function buildGraph({
       description: kind === 'Selection' ? 'Vega-Lite selection parameter' : 'Vega-Lite variable parameter',
       data: details,
     });
+    edges.push({ from: vizRef, to: pref, kind: 'contains' });
   });
 
-  return { version: VACP_SCHEMA_VERSION, nodes, edges: [], actions };
+  return { version: VACP_SCHEMA_VERSION, nodes, edges, actions };
 }
 
 function actionsForParams(options: InstallVacpOnVegaLiteOptions, spec: VegaLiteSpecLike): VacpActionDescriptor[] {
   const vizRef = makeRef({ appId: options.appId, viewId: options.viewId, vizId: options.vizId, suffix: '' });
   const actions: VacpActionDescriptor[] = [];
 
-  (spec.params ?? []).forEach((p) => {
-    const { kind } = classifyParam(p);
-    const targetRef = makeRef({
-      appId: options.appId,
-      viewId: options.viewId,
-      vizId: options.vizId,
-      suffix: `/param/${p.name}`,
-    });
+  const hasParam = (spec.params ?? []).some((p) => !p.select);
+  const hasSelection = (spec.params ?? []).some((p) => !!p.select);
 
-    // Variable params: set directly.
+  if (hasParam) {
     actions.push({
       name: 'vega_lite.set_param',
-      description: 'Set a Vega-Lite parameter by name (implemented via Vega view signals).',
-      targetRef,
+      description: 'Set a Vega-Lite variable parameter (implemented via Vega view signals).',
+      targetRef: vizRef,
       parameters: {
         type: 'object',
         properties: {
-          name: { type: 'string', const: p.name },
+          ref: { type: 'string', description: 'VACP ref of the Param node (vacp://.../param/<name>)' },
           value: {},
         },
-        required: ['name', 'value'],
+        required: ['ref', 'value'],
       },
     });
+  }
 
-    // Selection params: clearing is commonly useful even if setting is complex.
-    if (kind === 'Selection') {
-      actions.push({
-        name: 'vega_lite.clear_param',
-        description: 'Clear a Vega-Lite selection parameter (best-effort: sets the backing signal to null).',
-        targetRef,
-        parameters: {
-          type: 'object',
-          properties: {
-            name: { type: 'string', const: p.name },
-          },
-          required: ['name'],
+  if (hasSelection) {
+    actions.push({
+      name: 'vega_lite.clear_selection',
+      description: 'Clear a Vega-Lite selection parameter (best-effort; uses Vega signals).',
+      targetRef: vizRef,
+      parameters: {
+        type: 'object',
+        properties: {
+          ref: { type: 'string', description: 'VACP ref of the Selection node (vacp://.../param/<name>)' },
         },
-      });
-    }
-  });
+        required: ['ref'],
+      },
+    });
+  }
 
   // Debugging escape hatch: set any signal.
   if (options.includeSetSignalAction) {
@@ -215,31 +212,99 @@ function actionsForParams(options: InstallVacpOnVegaLiteOptions, spec: VegaLiteS
   return actions;
 }
 
-async function executeAction(view: VegaViewLike, call: VacpActionCall): Promise<unknown> {
+function tryGetSignal(view: VegaViewLike, name: string): unknown {
+  try {
+    return view.signal(name);
+  } catch {
+    return undefined;
+  }
+}
+
+function trySetSignal(view: VegaViewLike, name: string, value: unknown): boolean {
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    view.signal(name, value as any);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function signalNamesFromView(view: VegaViewLike): string[] {
+  if (typeof view.getState !== 'function') return [];
+  try {
+    const st = view.getState();
+    if (!st || typeof st !== 'object') return [];
+    const signals = (st as { signals?: unknown }).signals;
+    if (!signals || typeof signals !== 'object') return [];
+    return Object.keys(signals as Record<string, unknown>);
+  } catch {
+    return [];
+  }
+}
+
+async function executeAction(
+  view: VegaViewLike,
+  call: VacpActionCall,
+  helpers: {
+    paramByRef: Map<string, { param: VegaLiteParamLike; kind: 'Param' | 'Selection' }>;
+    watchedSignalsByParam: Map<string, string[]>;
+    allSignals: string[];
+  },
+): Promise<unknown> {
   const params = (call.params ?? {}) as Record<string, unknown>;
+  const ref = typeof params.ref === 'string' ? params.ref : null;
 
   if (call.name === 'vega_lite.set_param') {
-    const name = String(params.name ?? '');
+    if (!ref) throw new Error('Missing param ref');
+    const meta = helpers.paramByRef.get(ref);
+    if (!meta) throw new Error(`Unknown param ref: ${ref}`);
+    if (meta.kind !== 'Param') throw new Error(`Param ref is not a variable parameter: ${ref}`);
+    const name = meta.param.name;
     if (!name) throw new Error('Missing param name');
-    // Vega-Lite variable parameters can be modified via Vega view signals.
-    // See: https://vega.github.io/vega/docs/api/view/#signals
-    view.signal(name, params.value);
+    // Vega-Lite variable parameters can be modified via Vega View signals.
+    trySetSignal(view, name, params.value);
     await view.runAsync();
-    return { set: true, name };
+    return { set: true, name, ref };
   }
 
-  if (call.name === 'vega_lite.clear_param') {
-    const name = String(params.name ?? '');
-    if (!name) throw new Error('Missing param name');
-    view.signal(name, null);
+  if (call.name === 'vega_lite.clear_selection') {
+    if (!ref) throw new Error('Missing selection ref');
+    const meta = helpers.paramByRef.get(ref);
+    if (!meta) throw new Error(`Unknown param ref: ${ref}`);
+    if (meta.kind !== 'Selection') throw new Error(`Ref is not a selection parameter: ${ref}`);
+    const name = meta.param.name;
+    if (!name) throw new Error('Missing selection name');
+
+    // Best-effort clearing. Vega-Lite selections compile to several signals;
+    // common ones include `${name}_clear` and `${name}_tuple`.
+    const clearSig = `${name}_clear`;
+    if (helpers.allSignals.includes(clearSig)) {
+      trySetSignal(view, clearSig, true);
+      await view.runAsync();
+      trySetSignal(view, clearSig, false);
+      await view.runAsync();
+      return { cleared: true, name, ref, via: clearSig };
+    }
+
+    const watched = helpers.watchedSignalsByParam.get(name) ?? [name];
+    let any = false;
+    for (const s of watched) {
+      if (!helpers.allSignals.includes(s)) continue;
+      if (trySetSignal(view, s, null)) any = true;
+    }
+    if (!any) {
+      // Fall back to trying the param name even if it wasn't in getState().
+      any = trySetSignal(view, name, null);
+    }
     await view.runAsync();
-    return { cleared: true, name };
+    return { cleared: true, name, ref, via: any ? 'signals' : 'unknown' };
   }
 
   if (call.name === 'vega.set_signal') {
     const name = String(params.name ?? '');
     if (!name) throw new Error('Missing signal name');
-    view.signal(name, params.value);
+    trySetSignal(view, name, params.value);
     await view.runAsync();
     return { set: true, name };
   }
@@ -266,17 +331,36 @@ export function installVacpOnVegaLiteView({
   const actionDescriptors = actionsForParams(options, spec);
   let lastChangeSource: VacpChangeSource = 'human';
 
-  const actionByName = new Map<string, VacpActionDescriptor>();
-  actionDescriptors.forEach((desc) => {
-    if (!actionByName.has(desc.name)) actionByName.set(desc.name, desc);
+  const descriptorsByName = new Map<string, VacpActionDescriptor>();
+  actionDescriptors.forEach((desc) => descriptorsByName.set(desc.name, desc));
+
+  const allSignals = signalNamesFromView(view);
+  const watchedSignalsByParam = new Map<string, string[]>();
+  const paramByRef = new Map<string, { param: VegaLiteParamLike; kind: 'Param' | 'Selection' }>();
+
+  (spec.params ?? []).forEach((p) => {
+    const { kind } = classifyParam(p);
+    const pref = makeRef({
+      appId: options.appId,
+      viewId: options.viewId,
+      vizId: options.vizId,
+      suffix: `/param/${p.name}`,
+    });
+    paramByRef.set(pref, { param: p, kind });
+    if (kind === 'Selection') {
+      const matches = allSignals.filter((s) => s === p.name || s.startsWith(`${p.name}_`));
+      watchedSignalsByParam.set(p.name, matches.length ? matches : [p.name]);
+    } else {
+      watchedSignalsByParam.set(p.name, [p.name]);
+    }
   });
 
-  actionByName.forEach((desc) => {
+  descriptorsByName.forEach((desc) => {
     actionRegistry.register(desc, async (params) => {
       const call: VacpActionCall = { callId: crypto.randomUUID(), name: desc.name, params };
       lastChangeSource = 'agent';
       try {
-        return await executeAction(view, call);
+        return await executeAction(view, call, { paramByRef, watchedSignalsByParam, allSignals });
       } finally {
         queueMicrotask(() => {
           lastChangeSource = 'human';
@@ -323,7 +407,16 @@ export function installVacpOnVegaLiteView({
           vizId: options.vizId,
           suffix: `/param/${p.name}`,
         });
-        state[pref] = { name: p.name, value: view.signal(p.name) };
+        const { kind } = classifyParam(p);
+        const watched = watchedSignalsByParam.get(p.name) ?? [p.name];
+        const signals: Record<string, unknown> = {};
+        watched.forEach((s) => {
+          signals[s] = tryGetSignal(view, s);
+        });
+        state[pref] =
+          kind === 'Selection'
+            ? { kind, name: p.name, signals }
+            : { kind, name: p.name, value: tryGetSignal(view, p.name), bind: p.bind };
       });
 
       return { version: VACP_SCHEMA_VERSION, createdAt: nowIso(), state };
@@ -336,20 +429,25 @@ export function installVacpOnVegaLiteView({
   // This enables seamless human/agent handoff and makes time-travel debugging
   // meaningful.
   if (typeof view.addSignalListener === 'function') {
-    let pending = false;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const onSignal = (_name: string, _value: any) => {
-      if (pending) return;
-      pending = true;
-      queueMicrotask(() => {
-        pending = false;
+    // Human input (brush/drag) can emit many intermediate signal updates;
+    // coalesce them into a timeline suitable for inspection.
+    let pendingTimer: number | null = null;
+    const onSignal = () => {
+      if (pendingTimer !== null) return;
+      pendingTimer = window.setTimeout(() => {
+        pendingTimer = null;
         if (typeof bridge.refresh === 'function') {
           void bridge.refresh({ source: lastChangeSource, message: 'signal change' }).catch(() => {
             // ignore instrumentation failures
           });
         }
-      });
+      }, 120);
     };
-    (spec.params ?? []).forEach((p) => view.addSignalListener?.(p.name, onSignal));
+
+    const watched = new Set<string>();
+    (spec.params ?? []).forEach((p) => {
+      (watchedSignalsByParam.get(p.name) ?? [p.name]).forEach((s) => watched.add(s));
+    });
+    watched.forEach((s) => view.addSignalListener?.(s, onSignal));
   }
 }
