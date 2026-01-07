@@ -155,6 +155,7 @@ async function main() {
         title: entry.meta.title,
         globalKey: '__vacp',
         includeSetSignalAction: false,
+        includeApplyStateAction: true,
       },
     });
 

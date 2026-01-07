@@ -4,6 +4,7 @@ import type {
   VacpActionResult,
   VacpCapabilitiesSnapshot,
   VacpChangeSource,
+  VacpDebugApplyStateParams,
   VacpHistoryEntry,
   VacpRuntimeBridge,
   VacpRuntimeMode,
@@ -11,7 +12,7 @@ import type {
   VacpStateSnapshot,
   VacpWindowBridge,
 } from '@vacp/core';
-import { nowIso, VACP_SCHEMA_VERSION } from '@vacp/core';
+import { nowIso, VACP_DEBUG_APPLY_STATE_ACTION, VACP_SCHEMA_VERSION } from '@vacp/core';
 
 export type VacpActionHandler = (params: unknown) => unknown | Promise<unknown>;
 
@@ -61,6 +62,53 @@ export class VacpActionRegistry {
       return { callId: call.callId, ok: false, error: { message, details: error } };
     }
   }
+}
+
+export type VacpDebugApplyStateHandler = (state: Record<string, unknown>) => unknown | Promise<unknown>;
+
+/**
+ * Register the standard debug action `vacp.debug.apply_state`.
+ *
+ * This action is intended for local tooling: it lets a debug UI submit a JSON
+ * "desired state" map keyed by VACP refs. The provider decides how to interpret
+ * and apply these values to the live app (usually by translating them into the
+ * provider's normal semantic actions).
+ *
+ * Providers should only enable this in development.
+ */
+export function registerVacpDebugApplyStateAction(
+  registry: VacpActionRegistry,
+  handler: VacpDebugApplyStateHandler,
+  options?: { targetRef?: string; description?: string },
+): VacpActionDescriptor {
+  const descriptor: VacpActionDescriptor = {
+    name: VACP_DEBUG_APPLY_STATE_ACTION,
+    description:
+      options?.description ??
+      'Debug: apply a desired VACP state map to the live app (best-effort; provider-defined).',
+    targetRef: options?.targetRef as any,
+    parameters: {
+      type: 'object',
+      properties: {
+        state: {
+          type: 'object',
+          description: 'Desired state keyed by vacp:// refs.',
+        },
+      },
+      required: ['state'],
+    },
+  };
+
+  registry.register(descriptor, async (params) => {
+    const p = (params ?? {}) as Partial<VacpDebugApplyStateParams> | null;
+    const st = p && typeof p === 'object' ? (p as any).state : null;
+    if (!st || typeof st !== 'object' || Array.isArray(st)) {
+      throw new Error('Expected params.state to be an object keyed by vacp:// refs');
+    }
+    return handler(st as Record<string, unknown>);
+  });
+
+  return descriptor;
 }
 
 export interface VacpWindowBridgeOptions {

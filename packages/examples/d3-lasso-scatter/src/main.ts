@@ -8,7 +8,7 @@ import type {
 import { nowIso, VACP_SCHEMA_VERSION } from '@vacp/core';
 import { renderVacpDiagramMermaid } from '@vacp/diagrams';
 import { applyVacpAttributes, applyVacpInteractionAttributes, embedVacpGraphInSvg } from '@vacp/dom';
-import { installVacpRuntimeBridge, VacpActionRegistry } from '@vacp/gateway';
+import { installVacpRuntimeBridge, registerVacpDebugApplyStateAction, VacpActionRegistry } from '@vacp/gateway';
 import { installVacpDebugUi } from '@vacp/debug-ui';
 import * as d3 from 'd3';
 
@@ -177,6 +177,7 @@ function main() {
     },
   ];
 
+  const registry = new VacpActionRegistry();
   const graph: VacpGraph = {
     version: VACP_SCHEMA_VERSION,
     nodes: [
@@ -191,16 +192,6 @@ function main() {
     actions,
   };
 
-  applyVacpAttributes(svg.node()!, { ref: vizRef, layer: 'VisualizationLayer', kind: 'Visualization', title: 'D3 lasso scatter' });
-  applyVacpInteractionAttributes(svg.node()!, {
-    targetRef: vizRef,
-    layer: 'VisualizationLayer',
-    description: 'Programmatic interactions for this D3 visualization.',
-    actions,
-  });
-  embedVacpGraphInSvg(svg.node()!, graph);
-
-  const registry = new VacpActionRegistry();
   registry.register(actions[0], async (params) => {
     const p = (params ?? {}) as { points?: Array<{ x: unknown; y: unknown }> };
     const pts = Array.isArray(p.points) ? p.points : [];
@@ -217,6 +208,50 @@ function main() {
     render();
     return { ok: true };
   });
+
+  // Standard debug action: allow applying a state JSON map to the live plot.
+  // This is a "glue" action intended for a debug UI, not for production agents.
+  const applyStateDesc = registerVacpDebugApplyStateAction(
+    registry,
+    async (state) => {
+      const errors: Array<{ ref: string; message: string }> = [];
+      const raw = state[lassoRef];
+      if (raw === undefined) return { applied: 0, errors };
+      const rec = raw && typeof raw === 'object' ? (raw as Record<string, unknown>) : {};
+      const poly = rec.polygon;
+      try {
+        if (poly === null || poly === undefined) {
+          lassoPolygonDomain = null;
+          selectedIds = new Set<string>();
+          render();
+          return { applied: 1, errors };
+        }
+        if (!Array.isArray(poly)) throw new Error('Expected polygon to be an array of {x,y}');
+        const pts = poly
+          .map((p) => (p && typeof p === 'object' ? (p as Record<string, unknown>) : {}))
+          .map((p) => ({ x: Number(p.x), y: Number(p.y) }))
+          .filter((p) => Number.isFinite(p.x) && Number.isFinite(p.y));
+        lassoPolygonDomain = pts.length >= 3 ? pts : null;
+        render();
+        return { applied: 1, errors };
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        errors.push({ ref: lassoRef, message });
+        return { applied: 0, errors };
+      }
+    },
+    { targetRef: lassoRef, description: 'Debug: apply lasso selection state (polygon) to the live D3 plot.' },
+  );
+  actions.push(applyStateDesc);
+
+  applyVacpAttributes(svg.node()!, { ref: vizRef, layer: 'VisualizationLayer', kind: 'Visualization', title: 'D3 lasso scatter' });
+  applyVacpInteractionAttributes(svg.node()!, {
+    targetRef: vizRef,
+    layer: 'VisualizationLayer',
+    description: 'Programmatic interactions for this D3 visualization.',
+    actions,
+  });
+  embedVacpGraphInSvg(svg.node()!, graph);
 
   const snapshots = {
     getCapabilities: async (): Promise<VacpCapabilitiesSnapshot> => ({ version: VACP_SCHEMA_VERSION, createdAt: nowIso(), graph }),
