@@ -364,9 +364,12 @@ async def _test_vega_lite_gallery(page: Page) -> None:
             rt_h0 = await _get_runtime(page)
             before_h = await _get_state(page)
 
-            bar = page.locator('#app svg rect').first
-            if await bar.count() > 0:
-                await bar.click()
+            rects = page.locator('#app svg rect')
+            if await rects.count() > 5:
+                # Clicking a specific bar rect is fragile (background rects and
+                # clipping rects can be non-interactive). Click within the plot
+                # area instead.
+                await page.mouse.click(box['x'] + box['width'] * 0.2, box['y'] + box['height'] * 0.85)
             else:
                 await page.mouse.move(box['x'] + box['width'] * 0.25, box['y'] + box['height'] * 0.25)
                 await page.mouse.down()
