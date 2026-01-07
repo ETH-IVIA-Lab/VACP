@@ -9,7 +9,6 @@ import {
   VacpActionRegistry,
 } from '@vacp/gateway';
 
-import { annotateInput, annotatePlotSvg } from './annotations';
 import { actionDescriptorsForDashboard } from './actions';
 import { makeApplyStateHandler } from './apply-state';
 import { collectMosaicDataHandles, discoverPlotTables } from './data-handles';
@@ -18,8 +17,9 @@ import { collectInputs, executeInputAction, type CollectedInput } from './inputs
 import { executeIntervalAction } from './interactors/interval';
 import { executeToggleAction } from './interactors/toggle';
 import { buildDashboardGraph } from './graph';
+import { installMosaicInputObservers, installMosaicPlotObservers } from './observe';
 import { makePlotRef, makeViewRef } from './refs';
-import { createRuntimeNotifier, wrapUpdate } from './runtime';
+import { createRuntimeNotifier } from './runtime';
 import type { InstallVacpOnVgplotDashboardOptions, InstallVacpOnVgplotOptions, VgplotPlotLike } from './types';
 
 export function installVacpOnVgplotDashboard(args: {
@@ -235,67 +235,8 @@ export function installVacpOnVgplotDashboard(args: {
     refresh: ({ source, message }) => bridge.refresh?.({ source, message }),
   });
 
-  for (const input of inputs) {
-    annotateInput({ input, graph });
-    if (input.input.selection) wrapUpdate(input.input.selection, 'input.selection.update', (m) => notifyRuntime(m));
-  }
-
-  for (const { plotId, plot, svg } of plots) {
-    plot.interactors.forEach((it) => {
-      const origInit = it.init;
-      it.init = async (svgEl: SVGElement) => {
-        const res = origInit ? await origInit.call(it, svgEl) : undefined;
-        annotatePlotSvg({ svg: svgEl, plotId, appId: options.appId, viewId: options.viewId, graph });
-        notifyRuntime('interactor.init', { immediate: true });
-        if (it.selection) wrapUpdate(it.selection, 'selection.update', (m) => notifyRuntime(m));
-        return res;
-      };
-      if (it.selection) wrapUpdate(it.selection, 'selection.update', (m) => notifyRuntime(m));
-    });
-
-    annotatePlotSvg({ svg, plotId, appId: options.appId, viewId: options.viewId, graph });
-
-    const anyPlot = plot as unknown as { __vacpObserver?: MutationObserver; __vacpSvgObserver?: MutationObserver };
-    anyPlot.__vacpObserver?.disconnect();
-    anyPlot.__vacpSvgObserver?.disconnect();
-
-    const host = svg.closest('.plot') ?? svg.parentElement ?? plot.element ?? null;
-    if (!host) continue;
-
-    const attachSvgObserver = (svgEl: SVGElement) => {
-      anyPlot.__vacpSvgObserver?.disconnect();
-      let inApply = false;
-      const svgObs = new MutationObserver(() => {
-        if (inApply) return;
-        const needs =
-          !svgEl.querySelector('metadata[type="application/vacp+json"]') ||
-          !svgEl.getAttribute('data-vacp-ref') ||
-          !svgEl.getAttribute('data-interaction-vacp-actions');
-        if (!needs) return;
-        inApply = true;
-        try {
-          annotatePlotSvg({ svg: svgEl, plotId, appId: options.appId, viewId: options.viewId, graph });
-        } finally {
-          inApply = false;
-        }
-      });
-      svgObs.observe(svgEl, { childList: true, attributes: true });
-      anyPlot.__vacpSvgObserver = svgObs;
-    };
-
-    let lastSvg = svg;
-    attachSvgObserver(lastSvg);
-
-    const obs = new MutationObserver(() => {
-      const next = host.querySelector('svg');
-      if (!next || next === lastSvg) return;
-      lastSvg = next;
-      annotatePlotSvg({ svg: next, plotId, appId: options.appId, viewId: options.viewId, graph });
-      attachSvgObserver(next);
-    });
-    obs.observe(host, { childList: true, subtree: true });
-    anyPlot.__vacpObserver = obs;
-  }
+  installMosaicInputObservers({ inputs, graph, notifyRuntime });
+  installMosaicPlotObservers({ plots, graph, appId: options.appId, viewId: options.viewId, notifyRuntime });
 
   notifyRuntime('installed', { immediate: true });
 }
