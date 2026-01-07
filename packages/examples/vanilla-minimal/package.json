@@ -1,0 +1,23 @@
+{
+  "name": "vacp-example-vanilla-minimal",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "lint": "oxlint src",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "devDependencies": {
+    "vite": "^7.2.4"
+  },
+  "dependencies": {
+    "@vacp/core": "workspace:*",
+    "@vacp/debug-ui": "workspace:*",
+    "@vacp/duckdb": "workspace:*",
+    "@vacp/dom": "workspace:*",
+    "@vacp/gateway": "workspace:*"
+  }
+}
