@@ -12,7 +12,7 @@ import type {
 } from '@vacp/core';
 import { nowIso, VACP_SCHEMA_VERSION } from '@vacp/core';
 import { applyVacpAttributes, applyVacpInteractionAttributes, embedVacpGraphInSvg } from '@vacp/dom';
-import { installVacpRuntimeBridge, registerVacpDebugApplyStateAction, VacpActionRegistry } from '@vacp/gateway';
+import { installVacpRuntimeBridge, registerVacpApplyStateAction, VacpActionRegistry } from '@vacp/gateway';
 
 /**
  * Mosaic/vgplot provider (project concepts).
@@ -71,11 +71,6 @@ export interface InstallVacpOnVgplotOptions {
   annotateHostElement?: boolean;
   /** Global key for `window.__vacp`. */
   globalKey?: string;
-  /**
-   * If true, include the standard debug action `vacp.debug.apply_state` that
-   * lets a debug UI apply JSON state overrides to the live plot (best-effort).
-   */
-  includeApplyStateAction?: boolean;
   /** Optional demo scripts for debug tooling. */
   demos?: VacpDemo[];
 }
@@ -391,89 +386,87 @@ export function installVacpOnVgplot(plot: VgplotPlotLike, svg: SVGElement, optio
     });
   }
 
-  // Optional debugging affordance: allow applying a state JSON map to the live
-  // plot by translating it into Mosaic interactor actions.
-  if (options.includeApplyStateAction) {
-    const applyDescriptor = registerVacpDebugApplyStateAction(
-      actionRegistry,
-      async (state) => {
-        const errors: Array<{ ref: string; message: string }> = [];
-        let applied = 0;
+  // Standard high-level affordance: apply a desired state map to the live plot
+  // by translating it into Mosaic interactor actions.
+  const applyDescriptor = registerVacpApplyStateAction(
+    actionRegistry,
+    async (state) => {
+      const errors: Array<{ ref: string; message: string }> = [];
+      let applied = 0;
 
-        for (const [ref, raw] of Object.entries(state)) {
-          const idx = ref.lastIndexOf('/interactor/');
-          if (idx < 0) continue;
-          const interactorId = ref.slice(idx + '/interactor/'.length);
-          const interactor = plot.interactors[Number(interactorId)];
-          if (!interactor) {
-            errors.push({ ref, message: `Unknown interactorId: ${interactorId}` });
+      for (const [ref, raw] of Object.entries(state)) {
+        const idx = ref.lastIndexOf('/interactor/');
+        if (idx < 0) continue;
+        const interactorId = ref.slice(idx + '/interactor/'.length);
+        const interactor = plot.interactors[Number(interactorId)];
+        if (!interactor) {
+          errors.push({ ref, message: `Unknown interactorId: ${interactorId}` });
+          continue;
+        }
+
+        const ctorName = interactor.constructor?.name ?? 'Interactor';
+        // Common state shape emitted by this provider:
+        // { kind, value, selectionValue }
+        const rec = raw && typeof raw === 'object' ? (raw as Record<string, unknown>) : {};
+        const desired = (rec.value ?? rec.selectionValue ?? raw) as unknown;
+
+        const callId = crypto.randomUUID();
+        const baseParams = { interactorId };
+
+        const run = async (name: string, params: Record<string, unknown>) => {
+          lastChangeSource = 'agent';
+          try {
+            await executeMosaicAction(plot, { callId, name, params });
+            applied += 1;
+          } finally {
+            queueMicrotask(() => {
+              lastChangeSource = 'human';
+            });
+          }
+        };
+
+        try {
+          if (desired === null || desired === undefined) {
+            if (ctorName === 'Interval1D') await run('mosaic.clear_interval_1d', baseParams);
+            else if (ctorName === 'Interval2D') await run('mosaic.clear_interval_2d', baseParams);
+            else errors.push({ ref, message: `Unsupported interactor kind for clear: ${ctorName}` });
             continue;
           }
 
-          const ctorName = interactor.constructor?.name ?? 'Interactor';
-          // Common state shape emitted by this provider:
-          // { kind, value, selectionValue }
-          const rec = raw && typeof raw === 'object' ? (raw as Record<string, unknown>) : {};
-          const desired = (rec.value ?? rec.selectionValue ?? raw) as unknown;
-
-          const callId = crypto.randomUUID();
-          const baseParams = { interactorId };
-
-          const run = async (name: string, params: Record<string, unknown>) => {
-            lastChangeSource = 'debug';
-            try {
-              await executeMosaicAction(plot, { callId, name, params });
-              applied += 1;
-            } finally {
-              queueMicrotask(() => {
-                lastChangeSource = 'human';
-              });
-            }
-          };
-
-          try {
-            if (desired === null || desired === undefined) {
-              if (ctorName === 'Interval1D') await run('mosaic.clear_interval_1d', baseParams);
-              else if (ctorName === 'Interval2D') await run('mosaic.clear_interval_2d', baseParams);
-              else errors.push({ ref, message: `Unsupported interactor kind for clear: ${ctorName}` });
-              continue;
-            }
-
-            if (ctorName === 'Interval1D') {
-              const val = Array.isArray(desired) ? desired : [rec.min, rec.max];
-              const min = Number((val as unknown[])[0]);
-              const max = Number((val as unknown[])[1]);
-              if (!Number.isFinite(min) || !Number.isFinite(max)) throw new Error('Expected [min, max] numbers');
-              await run('mosaic.set_interval_1d', { ...baseParams, min, max });
-              continue;
-            }
-
-            if (ctorName === 'Interval2D') {
-              const arr = desired as unknown;
-              const xPair = Array.isArray(arr) && Array.isArray((arr as unknown[])[0]) ? (arr as unknown[][])[0] : null;
-              const yPair = Array.isArray(arr) && Array.isArray((arr as unknown[])[1]) ? (arr as unknown[][])[1] : null;
-              const x0 = Number(xPair?.[0]);
-              const x1 = Number(xPair?.[1]);
-              const y0 = Number(yPair?.[0]);
-              const y1 = Number(yPair?.[1]);
-              if (![x0, x1, y0, y1].every(Number.isFinite)) throw new Error('Expected [[x0,x1],[y0,y1]] numbers');
-              await run('mosaic.set_interval_2d', { ...baseParams, x0, x1, y0, y1 });
-              continue;
-            }
-
-            errors.push({ ref, message: `Unsupported interactor kind: ${ctorName}` });
-          } catch (err) {
-            const message = err instanceof Error ? err.message : String(err);
-            errors.push({ ref, message });
+          if (ctorName === 'Interval1D') {
+            const val = Array.isArray(desired) ? desired : [rec.min, rec.max];
+            const min = Number((val as unknown[])[0]);
+            const max = Number((val as unknown[])[1]);
+            if (!Number.isFinite(min) || !Number.isFinite(max)) throw new Error('Expected [min, max] numbers');
+            await run('mosaic.set_interval_1d', { ...baseParams, min, max });
+            continue;
           }
-        }
 
-        return { applied, errors };
-      },
-      { targetRef: plotRef, description: 'Debug: apply a state map to Mosaic interactors (Interval1D/Interval2D).' },
-    );
-    actionDescriptors.push(applyDescriptor);
-  }
+          if (ctorName === 'Interval2D') {
+            const arr = desired as unknown;
+            const xPair = Array.isArray(arr) && Array.isArray((arr as unknown[])[0]) ? (arr as unknown[][])[0] : null;
+            const yPair = Array.isArray(arr) && Array.isArray((arr as unknown[])[1]) ? (arr as unknown[][])[1] : null;
+            const x0 = Number(xPair?.[0]);
+            const x1 = Number(xPair?.[1]);
+            const y0 = Number(yPair?.[0]);
+            const y1 = Number(yPair?.[1]);
+            if (![x0, x1, y0, y1].every(Number.isFinite)) throw new Error('Expected [[x0,x1],[y0,y1]] numbers');
+            await run('mosaic.set_interval_2d', { ...baseParams, x0, x1, y0, y1 });
+            continue;
+          }
+
+          errors.push({ ref, message: `Unsupported interactor kind: ${ctorName}` });
+        } catch (err) {
+          const message = err instanceof Error ? err.message : String(err);
+          errors.push({ ref, message });
+        }
+      }
+
+      return { applied, errors };
+    },
+    { targetRef: plotRef, description: 'Apply a state map to Mosaic interactors (Interval1D/Interval2D).' },
+  );
+  actionDescriptors.push(applyDescriptor);
 
   const graph = buildGraph({ plot, options, actions: actionDescriptors });
 

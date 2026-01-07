@@ -5,10 +5,6 @@
     "outDir": "dist",
     "composite": true
   },
-  "references": [
-    { "path": "../../protocol/core" },
-    { "path": "../../adapters/dom" },
-    { "path": "../../runtime/gateway" }
-  ],
+  "references": [{ "path": "../core" }],
   "include": ["src/**/*.ts"]
 }

@@ -6,7 +6,7 @@ import type {
   VacpRuntimeSnapshot,
   VacpStateSnapshot,
 } from '@vacp/core';
-import { VACP_DEBUG_APPLY_STATE_ACTION } from '@vacp/core';
+import { VACP_APPLY_STATE_ACTION } from '@vacp/core';
 import { renderVacpDiagramMermaid } from '@vacp/diagrams';
 
 /**
@@ -855,18 +855,18 @@ export function installVacpDebugUi(options?: VacpDebugUiOptions): void {
 
     const liveTitle = document.createElement('div');
     liveTitle.className = 'vacp-debug-ui-section-title';
-    liveTitle.textContent = 'Apply To Live App (opt-in)';
+    liveTitle.textContent = 'Apply To Live App (vacp.apply_state)';
 
     const liveHint = document.createElement('div');
     liveHint.className = 'vacp-debug-ui-small';
     liveHint.textContent =
-      'If the provider exposes a debug apply-state action, you can apply the edited state JSON to the live app. This is intended for local development only.';
+      'If the provider exposes `vacp.apply_state`, you can apply the edited state JSON to the live app. This is powerful; use it for local development and debugging.';
 
     const applyLiveState = document.createElement('button');
     applyLiveState.type = 'button';
     applyLiveState.textContent = 'Apply state to live app';
     applyLiveState.title =
-      'Requires the provider to register the debug action vacp.debug.apply_state. Applies by translating JSON into provider semantics (best-effort).';
+      'Calls vacp.apply_state. Providers interpret the JSON map and apply it to the live app (best-effort).';
 
     const liveResult = document.createElement('div');
     liveResult.className = 'vacp-debug-ui-small';
@@ -909,7 +909,7 @@ export function installVacpDebugUi(options?: VacpDebugUiOptions): void {
     });
 
     const supportsLiveApply =
-      (runtime.currentCapabilities.graph.actions ?? []).some((a) => a.name === VACP_DEBUG_APPLY_STATE_ACTION) &&
+      (runtime.currentCapabilities.graph.actions ?? []).some((a) => a.name === VACP_APPLY_STATE_ACTION) &&
       (typeof bridge.dispatch === 'function' || typeof bridge.execute === 'function');
     applyLiveState.disabled = !supportsLiveApply;
     if (!supportsLiveApply) {
@@ -920,7 +920,7 @@ export function installVacpDebugUi(options?: VacpDebugUiOptions): void {
       try {
         applyLiveState.disabled = true;
         const parsed = JSON.parse(stateArea.value) as Record<string, unknown>;
-        const call = { callId: makeId(), name: VACP_DEBUG_APPLY_STATE_ACTION, params: { state: parsed } };
+        const call = { callId: makeId(), name: VACP_APPLY_STATE_ACTION, params: { state: parsed } };
         const res =
           typeof bridge.dispatch === 'function'
             ? await bridge.dispatch(call, { source: 'debug', message: 'apply live state' })

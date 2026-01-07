@@ -279,7 +279,6 @@ async function main() {
       plotId: 'plot-0',
       title: entry.meta.title,
       globalKey: '__vacp',
-      includeApplyStateAction: true,
       demos: buildDemos(entry),
     });
 

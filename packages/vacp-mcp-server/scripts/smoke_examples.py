@@ -23,7 +23,8 @@ The tests intentionally run the example Vite dev servers to match how humans
 interact during development.
 """
 
-ROOT = Path(__file__).resolve().parents[4]  # vacp/
+# `.../vacp/packages/vacp-mcp-server/scripts/smoke_examples.py` -> `.../vacp`
+ROOT = Path(__file__).resolve().parents[3]
 EXAMPLES_DIR = ROOT / 'packages' / 'examples'
 ARTIFACTS_DIR = ROOT / '.artifacts' / 'examples-smoke'
 

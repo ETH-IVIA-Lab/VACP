@@ -8,6 +8,6 @@
     "declarationMap": true,
     "sourceMap": true
   },
-  "references": [{ "path": "../../protocol/core" }, { "path": "../../adapters/diagrams" }],
+  "references": [{ "path": "../core" }, { "path": "../diagrams" }],
   "include": ["src"]
 }

@@ -9,7 +9,12 @@ Runnable example apps (similar in spirit to `mosaic/packages/examples/*`).
 All examples include the optional `@vacp/debug-ui` overlay:
 
 - Enable: add `?vacpDebug=1` to the URL (or set localStorage `vacp:debug=1`)
-- Click the “VACP” button to render the graph as an SVG Mermaid diagram and manually dispatch actions / inspect history
+- Click the “VACP” button to inspect:
+  - **Graph** (Mermaid → SVG)
+  - **Actions** (manual dispatch)
+  - **History** (time travel)
+  - **Demo** (scripted stepper)
+  - **JSON** (inspection overrides + opt-in apply-to-live)
 
 From `vacp/`:
 

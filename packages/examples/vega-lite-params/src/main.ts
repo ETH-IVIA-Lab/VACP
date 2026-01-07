@@ -24,7 +24,7 @@ function buildDemos(entry: GalleryEntry): VacpDemo[] {
             title: 'Apply state via debug override (baseOpacity)',
             description: 'Uses the opt-in debug apply-state action instead of the normal set_param action.',
             call: {
-              name: 'vacp.debug.apply_state',
+              name: 'vacp.apply_state',
               params: {
                 state: {
                   [`${base}/param/baseOpacity`]: { kind: 'Param', name: 'baseOpacity', value: 0.35 },
@@ -50,7 +50,7 @@ function buildDemos(entry: GalleryEntry): VacpDemo[] {
           {
             title: 'Apply state via debug override (pointSize)',
             call: {
-              name: 'vacp.debug.apply_state',
+              name: 'vacp.apply_state',
               params: {
                 state: {
                   [`${base}/param/pointSize`]: { kind: 'Param', name: 'pointSize', value: 36 },
@@ -224,7 +224,6 @@ async function main() {
         title: entry.meta.title,
         globalKey: '__vacp',
         includeSetSignalAction: false,
-        includeApplyStateAction: true,
         demos: buildDemos(entry),
       },
     });

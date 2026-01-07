@@ -5,6 +5,10 @@
     "outDir": "dist",
     "composite": true
   },
-  "references": [{ "path": "../../protocol/core" }],
+  "references": [
+    { "path": "../core" },
+    { "path": "../dom" },
+    { "path": "../gateway" }
+  ],
   "include": ["src/**/*.ts"]
 }

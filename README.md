@@ -31,7 +31,8 @@ Run an example app:
 Enable the in-page overlay:
 
 - Add `?vacpDebug=1` to the URL
-- Click the “VACP” button to inspect the graph, timeline, and dispatch actions manually
+- Click the “VACP” button to inspect the graph, timeline, demos, and dispatch actions manually
+- Use `JSON → Apply state to live app` (opt-in) to apply edited state maps during development
 
 Run the MCP server:
 
@@ -40,7 +41,7 @@ Run the MCP server:
 
 For interactive development, it’s often nicer to attach to an existing Chrome via CDP:
 
-- See `vacp/packages/server/vacp-mcp-server/README.md`
+- See `vacp/packages/vacp-mcp-server/README.md`
 
 ## How It Works (Plain Version)
 
@@ -59,13 +60,10 @@ MCP is “just a wire”. The protocol lives in the app.
 
 - System overview: `vacp/ARCHITECTURE.md`
 - Runnable demos: `vacp/packages/examples/README.md`
-- MCP server: `vacp/packages/server/vacp-mcp-server/README.md`
+- MCP server: `vacp/packages/vacp-mcp-server/README.md`
 
 ## Repository Layout
 
-- `vacp/packages/*`: TypeScript workspace (pnpm)
-  - protocol/runtime building blocks: `core`, `gateway`, `dom`
-  - providers: `mosaic`, `vega-lite`
-  - tooling: `debug-ui`, `diagrams`
+- `vacp/packages/lib/*`: TypeScript workspace (pnpm)
 - `vacp/packages/examples/*`: runnable demos (also serve as regression tests)
-- `vacp/packages/server/*`: Python workspace (uv), including `vacp-mcp-server`
+- `vacp/packages/vacp-mcp-server`: Python MCP transport (uv)

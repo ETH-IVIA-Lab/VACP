@@ -1,7 +1,3 @@
 packages:
-  - 'packages/protocol/*'
-  - 'packages/runtime/*'
-  - 'packages/adapters/*'
-  - 'packages/providers/*'
-  - 'packages/tools/*'
+  - 'packages/lib/*'
   - 'packages/examples/*'

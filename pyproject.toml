@@ -1,6 +1,6 @@
 [tool.uv.workspace]
 members = [
-  "packages/transport/vacp-mcp-server",
+  "packages/vacp-mcp-server",
 ]
 
 [tool.ruff]

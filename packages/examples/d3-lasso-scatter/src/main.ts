@@ -9,7 +9,7 @@ import type {
 import { nowIso, VACP_SCHEMA_VERSION } from '@vacp/core';
 import { renderVacpDiagramMermaid } from '@vacp/diagrams';
 import { applyVacpAttributes, applyVacpInteractionAttributes, embedVacpGraphInSvg } from '@vacp/dom';
-import { installVacpRuntimeBridge, registerVacpDebugApplyStateAction, VacpActionRegistry } from '@vacp/gateway';
+import { installVacpRuntimeBridge, registerVacpApplyStateAction, VacpActionRegistry } from '@vacp/gateway';
 import { installVacpDebugUi } from '@vacp/debug-ui';
 import * as d3 from 'd3';
 
@@ -167,9 +167,9 @@ function main() {
         { title: 'Set lasso polygon', call: { name: 'vanilla.set_lasso_polygon', params: { points: demoPoly } } },
         {
           title: 'Apply polygon via debug override',
-          description: 'Uses `vacp.debug.apply_state` to apply the same selection using a state JSON map.',
+          description: 'Uses `vacp.apply_state` to apply the same selection using a state JSON map.',
           call: {
-            name: 'vacp.debug.apply_state',
+            name: 'vacp.apply_state',
             params: {
               state: {
                 [lassoRef]: { kind: 'Selection', polygon: demoPoly, selectedCount: 0 },
@@ -256,7 +256,7 @@ function main() {
 
   // Standard debug action: allow applying a state JSON map to the live plot.
   // This is a "glue" action intended for a debug UI, not for production agents.
-  const applyStateDesc = registerVacpDebugApplyStateAction(
+  const applyStateDesc = registerVacpApplyStateAction(
     registry,
     async (state) => {
       const errors: Array<{ ref: string; message: string }> = [];
@@ -285,7 +285,7 @@ function main() {
         return { applied: 0, errors };
       }
     },
-    { targetRef: lassoRef, description: 'Debug: apply lasso selection state (polygon) to the live D3 plot.' },
+    { targetRef: lassoRef, description: 'Apply lasso selection state (polygon) to the live D3 plot.' },
   );
   actions.push(applyStateDesc);
 

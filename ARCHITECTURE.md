@@ -43,34 +43,37 @@ But the preferred, stable integration path is a **window bridge** (`window.__vac
 
 The monorepo uses:
 
-- **pnpm** for TypeScript packages in `vacp/packages/*`
-- **uv** for Python packages in `vacp/packages/server/*`
+- **pnpm** for TypeScript packages in `vacp/packages/lib/*` and `vacp/packages/examples/*`
+- **uv** for the Python MCP transport in `vacp/packages/vacp-mcp-server`
 
 ### TypeScript packages
 
-- `vacp/packages/core` (`@vacp/core`)
+- `vacp/packages/lib/core` (`@vacp/core`)
   - Protocol types and contracts:
     - graph model (`VacpGraph`, `VacpNode`, `VacpEdge`)
     - actions (`VacpActionDescriptor`, `VacpActionCall`, `VacpActionResult`)
     - snapshots (`VacpCapabilitiesSnapshot`, `VacpStateSnapshot`)
     - in-page bridge contract (`VacpWindowBridge`)
-- `vacp/packages/gateway` (`@vacp/gateway`)
+- `vacp/packages/lib/gateway` (`@vacp/gateway`)
   - In-page runtime + execution:
     - `VacpActionRegistry` (register/execute semantic actions)
     - `installVacpRuntimeBridge` (installs/updates a stable `window.__vacp`)
     - records history entries for actions and state changes (time travel / undo/redo tooling)
-- `vacp/packages/dom` (`@vacp/dom`)
+- `vacp/packages/lib/dom` (`@vacp/dom`)
   - DOM/SVG adapter:
     - `applyVacpAttributes` / `applyVacpInteractionAttributes` (`data-vacp-*`, `data-interaction-vacp-*`)
     - `embedVacpGraphInSvg` via `<metadata type="application/vacp+json">`
-- `vacp/packages/mosaic` (`@vacp/mosaic`)
+- `vacp/packages/lib/diagrams` (`@vacp/diagrams`)
+  - Debug diagrams:
+    - renders VACP graphs to Mermaid (used by the debug overlay)
+- `vacp/packages/lib/mosaic` (`@vacp/mosaic`)
   - Mosaic/vgplot-first integration:
     - `installVacpOnVgplot(plot, svg, options)`:
       - annotates SVG + mark groups (`[data-index]`)
       - embeds the canonical graph in SVG metadata
       - installs `window.__vacp`
       - registers minimal actions for vgplot interactors (Interval1D/Interval2D)
-- `vacp/packages/vega-lite` (`@vacp/vega-lite`)
+- `vacp/packages/lib/vega-lite` (`@vacp/vega-lite`)
   - Vega-Lite-first integration:
     - `installVacpOnVegaLiteView({ root, view, spec, options })`
     - Exposes Vega-Lite `params` as VACP nodes:
@@ -78,15 +81,17 @@ The monorepo uses:
       - selection params → `Selection` nodes (InteractionFeedbackLayer)
     - Registers actions to set/clear params by name (implemented via Vega View signals)
     - Installs an in-page bridge (`window.__vacp`) for stable access
-- `vacp/packages/debug-ui` (`@vacp/debug-ui`)
+- `vacp/packages/lib/debug-ui` (`@vacp/debug-ui`)
   - Optional in-app debug overlay:
     - gated by `?vacpDebug=1` / localStorage `vacp:debug=1`
     - renders the current graph to SVG using Mermaid (on demand)
     - lets you dispatch actions and inspect the runtime timeline
+    - provides a demo stepper (provider-supplied scripts)
+    - can apply a state map to the live app via `vacp.apply_state`
 
 ### Python packages
 
-- `vacp/packages/server/vacp-mcp-server` (`vacp-mcp-server`)
+- `vacp/packages/vacp-mcp-server` (`vacp-mcp-server`)
   - Runs Playwright, exposes MCP tools for:
     - `vacp_capabilities()`
     - `vacp_state()`
@@ -365,4 +370,4 @@ Create a package like `@vacp/<provider>` that:
   - `tsc -b` project references for typechecking/build (`pnpm -C vacp -r typecheck`)
 - Python:
   - `ruff` for lint + format (`uv run ruff check ...`, `uv run ruff format ...`)
-  - `ty` for typechecking (run it in the project env so imports resolve): `cd packages/server/vacp-mcp-server && uv run --with ty ty check src/vacp_mcp_server`
+  - `ty` for typechecking (run it in the project env so imports resolve): `cd packages/vacp-mcp-server && uv run --with ty ty check src/vacp_mcp_server`

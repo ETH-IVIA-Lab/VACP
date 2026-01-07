@@ -12,7 +12,7 @@ import type {
 } from '@vacp/core';
 import { nowIso, VACP_SCHEMA_VERSION } from '@vacp/core';
 import { applyVacpAttributes, applyVacpInteractionAttributes, embedVacpGraphInSvg } from '@vacp/dom';
-import { installVacpRuntimeBridge, registerVacpDebugApplyStateAction, VacpActionRegistry } from '@vacp/gateway';
+import { installVacpRuntimeBridge, registerVacpApplyStateAction, VacpActionRegistry } from '@vacp/gateway';
 
 /**
  * Vega-Lite provider (project concepts).
@@ -85,11 +85,6 @@ export interface InstallVacpOnVegaLiteOptions {
    * This is powerful but should be used carefully in production UIs.
    */
   includeSetSignalAction?: boolean;
-  /**
-   * If true, include the standard debug action `vacp.debug.apply_state` that
-   * lets a debug UI apply JSON state overrides to the live Vega view.
-   */
-  includeApplyStateAction?: boolean;
   /** Optional demo scripts for debug tooling. */
   demos?: VacpDemo[];
 }
@@ -379,64 +374,61 @@ export function installVacpOnVegaLiteView({
 
   const vizRef = makeRef({ appId: options.appId, viewId: options.viewId, vizId: options.vizId, suffix: '' });
 
-  if (options.includeApplyStateAction) {
-    const desc = registerVacpDebugApplyStateAction(
-      actionRegistry,
-      async (state) => {
-        const errors: Array<{ ref: string; message: string }> = [];
-        let applied = 0;
+  const desc = registerVacpApplyStateAction(
+    actionRegistry,
+    async (state) => {
+      const errors: Array<{ ref: string; message: string }> = [];
+      let applied = 0;
 
-        for (const [ref, raw] of Object.entries(state)) {
-          const meta = paramByRef.get(ref);
-          if (!meta) continue;
-          try {
-            lastChangeSource = 'debug';
-            if (meta.kind === 'Param') {
-              const rec = raw && typeof raw === 'object' ? (raw as Record<string, unknown>) : {};
-              const value = rec.value;
-              if (value === undefined) throw new Error('Missing value for Param');
-              trySetSignal(view, meta.param.name, value);
-              await view.runAsync();
-              applied += 1;
-              continue;
-            }
-
-            // Selection parameters: best-effort set/clear via signals.
+      for (const [ref, raw] of Object.entries(state)) {
+        const meta = paramByRef.get(ref);
+        if (!meta) continue;
+        try {
+          lastChangeSource = 'agent';
+          if (meta.kind === 'Param') {
             const rec = raw && typeof raw === 'object' ? (raw as Record<string, unknown>) : {};
-            const signals =
-              rec.signals && typeof rec.signals === 'object' ? (rec.signals as Record<string, unknown>) : null;
-            if (!signals || Object.keys(signals).length === 0) {
-              await executeAction(
-                view,
-                { callId: crypto.randomUUID(), name: 'vega_lite.clear_selection', params: { ref } },
-                { paramByRef, watchedSignalsByParam, allSignals },
-              );
-              applied += 1;
-              continue;
-            }
-            let any = false;
-            for (const [name, value] of Object.entries(signals)) {
-              if (!name) continue;
-              if (trySetSignal(view, name, value)) any = true;
-            }
+            const value = rec.value;
+            if (value === undefined) throw new Error('Missing value for Param');
+            trySetSignal(view, meta.param.name, value);
             await view.runAsync();
-            if (any) applied += 1;
-          } catch (err) {
-            const message = err instanceof Error ? err.message : String(err);
-            errors.push({ ref, message });
-          } finally {
-            queueMicrotask(() => {
-              lastChangeSource = 'human';
-            });
+            applied += 1;
+            continue;
           }
-        }
 
-        return { applied, errors };
-      },
-      { targetRef: vizRef, description: 'Debug: apply a state map to Vega-Lite params (signals).' },
-    );
-    actionDescriptors.push(desc);
-  }
+          // Selection parameters: best-effort set/clear via signals.
+          const rec = raw && typeof raw === 'object' ? (raw as Record<string, unknown>) : {};
+          const signals = rec.signals && typeof rec.signals === 'object' ? (rec.signals as Record<string, unknown>) : null;
+          if (!signals || Object.keys(signals).length === 0) {
+            await executeAction(
+              view,
+              { callId: crypto.randomUUID(), name: 'vega_lite.clear_selection', params: { ref } },
+              { paramByRef, watchedSignalsByParam, allSignals },
+            );
+            applied += 1;
+            continue;
+          }
+          let any = false;
+          for (const [name, value] of Object.entries(signals)) {
+            if (!name) continue;
+            if (trySetSignal(view, name, value)) any = true;
+          }
+          await view.runAsync();
+          if (any) applied += 1;
+        } catch (err) {
+          const message = err instanceof Error ? err.message : String(err);
+          errors.push({ ref, message });
+        } finally {
+          queueMicrotask(() => {
+            lastChangeSource = 'human';
+          });
+        }
+      }
+
+      return { applied, errors };
+    },
+    { targetRef: vizRef, description: 'Apply a state map to Vega-Lite params (signals).' },
+  );
+  actionDescriptors.push(desc);
 
   const graph = buildGraph({ spec, options, actions: actionDescriptors });
   applyVacpAttributes(root, {

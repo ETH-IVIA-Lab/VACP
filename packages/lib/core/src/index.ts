@@ -96,18 +96,19 @@ export interface VacpActionDescriptor {
 }
 
 /**
- * Standard debug action names.
+ * Standard action names (protocol-level).
  *
- * These are opt-in and intended for local development tools (like the debug
- * overlay). Providers should only expose them when explicitly enabled.
+ * `vacp.apply_state` is intentionally high-level and powerful:
+ * - the caller supplies a *desired state map* keyed by `vacp://...` refs
+ * - the provider decides how to interpret and apply that state (best-effort)
+ *
+ * This enables generic tooling (debug overlays, transports, tests) without
+ * hardcoding provider-specific action names.
  */
-export const VACP_DEBUG_APPLY_STATE_ACTION = 'vacp.debug.apply_state' as const;
+export const VACP_APPLY_STATE_ACTION = 'vacp.apply_state' as const;
 
-export type VacpDebugApplyStateParams = {
-  /**
-   * Desired state keyed by `vacp://...` refs. Providers interpret these values
-   * and translate them into their own semantic actions (best-effort).
-   */
+export type VacpApplyStateParams = {
+  /** Desired state keyed by `vacp://...` refs. */
   state: Record<VacpRef, unknown>;
 };
 

@@ -1,12 +1,12 @@
 {
   "files": [],
   "references": [
-    { "path": "packages/protocol/core" },
-    { "path": "packages/runtime/gateway" },
-    { "path": "packages/adapters/dom" },
-    { "path": "packages/adapters/diagrams" },
-    { "path": "packages/tools/debug-ui" },
-    { "path": "packages/providers/mosaic" },
-    { "path": "packages/providers/vega-lite" }
+    { "path": "packages/lib/core" },
+    { "path": "packages/lib/gateway" },
+    { "path": "packages/lib/dom" },
+    { "path": "packages/lib/diagrams" },
+    { "path": "packages/lib/debug-ui" },
+    { "path": "packages/lib/mosaic" },
+    { "path": "packages/lib/vega-lite" }
   ]
 }
