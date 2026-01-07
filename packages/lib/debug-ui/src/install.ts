@@ -167,6 +167,10 @@ export function installVacpDebugUi(options?: VacpDebugUiOptions): void {
 
   const POS_KEY = 'vacp:debug:pos';
   const clamp = (n: number, min: number, max: number) => Math.max(min, Math.min(max, n));
+  const prefersReducedMotion =
+    typeof window !== 'undefined' &&
+    typeof window.matchMedia === 'function' &&
+    window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   const readPos = (): DockPos | null => {
     try {
       const raw = localStorage.getItem(POS_KEY);
@@ -195,6 +199,50 @@ export function installVacpDebugUi(options?: VacpDebugUiOptions): void {
     root.style.right = 'auto';
     root.style.bottom = 'auto';
   };
+  const snapTargets = (rect: DOMRect): DockPos[] => {
+    const margin = 10;
+    const left = margin;
+    const right = Math.max(margin, window.innerWidth - rect.width - margin);
+    const top = margin;
+    const bottom = Math.max(margin, window.innerHeight - rect.height - margin);
+    const centerX = clamp((window.innerWidth - rect.width) / 2, margin, right);
+    const centerY = clamp((window.innerHeight - rect.height) / 2, margin, bottom);
+    const xs = [left, centerX, right];
+    const ys = [top, centerY, bottom];
+    const out: DockPos[] = [];
+    ys.forEach((y) => xs.forEach((x) => out.push({ left: x, top: y })));
+    return out;
+  };
+  const nearestSnapPos = (pos: DockPos): DockPos => {
+    const rect = root.getBoundingClientRect();
+    const targets = snapTargets(rect);
+    let best = targets[0]!;
+    let bestD = Number.POSITIVE_INFINITY;
+    for (const t of targets) {
+      const dx = t.left - pos.left;
+      const dy = t.top - pos.top;
+      const d = dx * dx + dy * dy;
+      if (d < bestD) {
+        bestD = d;
+        best = t;
+      }
+    }
+    return best;
+  };
+  const snapToNearest = (opts?: { animate?: boolean }) => {
+    const rect = root.getBoundingClientRect();
+    const target = nearestSnapPos({ left: rect.left, top: rect.top });
+    const animate = !!opts?.animate && !prefersReducedMotion;
+    if (animate) root.classList.add('vacp-debug-ui-snap');
+    applyPos(target);
+    positionPanel();
+    const nextRect = root.getBoundingClientRect();
+    savePos({ left: nextRect.left, top: nextRect.top });
+    if (!animate) return;
+    const cleanup = () => root.classList.remove('vacp-debug-ui-snap');
+    root.addEventListener('transitionend', cleanup, { once: true });
+    window.setTimeout(cleanup, 260);
+  };
   const positionPanel = () => {
     const rect = root.getBoundingClientRect();
     const openDown = rect.top < window.innerHeight / 2;
@@ -217,10 +265,10 @@ export function installVacpDebugUi(options?: VacpDebugUiOptions): void {
       const b = button.getBoundingClientRect();
       applyPos({ left: window.innerWidth - b.width - 14, top: window.innerHeight - b.height - 14 });
     }
-    positionPanel();
+    snapToNearest({ animate: false });
   });
 
-  window.addEventListener('resize', () => positionPanel());
+  window.addEventListener('resize', () => snapToNearest({ animate: false }));
 
   let currentTab: DebugTab = 'Graph';
   let observeEnabled = true;
@@ -270,13 +318,15 @@ export function installVacpDebugUi(options?: VacpDebugUiOptions): void {
       window.removeEventListener('pointermove', onMove);
       window.removeEventListener('pointerup', onUp);
       window.removeEventListener('pointercancel', onUp);
-      const rect = root.getBoundingClientRect();
-      savePos({ left: rect.left, top: rect.top });
+      root.classList.remove('vacp-debug-ui-dragging');
+      snapToNearest({ animate: true });
     };
 
     handle.addEventListener('pointerdown', (ev) => {
       if (ev.button !== 0) return;
       dragging = true;
+      root.classList.remove('vacp-debug-ui-snap');
+      root.classList.add('vacp-debug-ui-dragging');
       const rect = root.getBoundingClientRect();
       startX = ev.clientX;
       startY = ev.clientY;

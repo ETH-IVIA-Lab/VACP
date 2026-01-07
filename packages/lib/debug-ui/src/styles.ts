@@ -3,6 +3,15 @@ const CSS = `
     position: fixed;
     z-index: 2147483647;
     touch-action: none;
+    transition: none;
+  }
+  .vacp-debug-ui-root.vacp-debug-ui-snap {
+    transition:
+      left 180ms cubic-bezier(0.2, 0.8, 0.2, 1),
+      top 180ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+  .vacp-debug-ui-root.vacp-debug-ui-dragging {
+    transition: none !important;
   }
   .vacp-debug-ui-button {
     background: #0b1020;

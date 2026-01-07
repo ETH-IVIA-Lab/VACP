@@ -9,7 +9,8 @@ It is provider-agnostic: it only talks to `window.__vacp` (the runtime bridge in
 - add `?vacpDebug=1` to the URL, or
 - set localStorage `vacp:debug=1`
 
-The overlay can be dragged by the “VACP” pill (closed) or by the title bar (open).
+The overlay can be dragged by the “VACP” pill (closed) or by the title bar (open). When released, it snaps to a nearby
+anchor (corners/edges/center).
 
 ## What it shows
 
