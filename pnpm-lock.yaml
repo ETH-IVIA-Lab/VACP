@@ -88,6 +88,28 @@ importers:
         specifier: ^7.2.4
         version: 7.3.0(@types/node@24.10.4)(yaml@2.8.2)
 
+  packages/examples/vanilla-minimal:
+    dependencies:
+      '@vacp/core':
+        specifier: workspace:*
+        version: link:../../lib/core
+      '@vacp/debug-ui':
+        specifier: workspace:*
+        version: link:../../lib/debug-ui
+      '@vacp/dom':
+        specifier: workspace:*
+        version: link:../../lib/dom
+      '@vacp/duckdb':
+        specifier: workspace:*
+        version: link:../../lib/duckdb
+      '@vacp/gateway':
+        specifier: workspace:*
+        version: link:../../lib/gateway
+    devDependencies:
+      vite:
+        specifier: ^7.2.4
+        version: 7.3.0(@types/node@24.10.4)(yaml@2.8.2)
+
   packages/examples/vega-lite-gallery:
     dependencies:
       '@vacp/core':
