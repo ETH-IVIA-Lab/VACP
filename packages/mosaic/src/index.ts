@@ -3,6 +3,7 @@ import type {
   VacpActionDescriptor,
   VacpCapabilitiesSnapshot,
   VacpChangeSource,
+  VacpEdge,
   VacpGraph,
   VacpNode,
   VacpRef,
@@ -124,6 +125,8 @@ function buildGraph({
     },
   ];
 
+  const edges: VacpEdge[] = [];
+
   for (const mark of plot.marks) {
     const idx = typeof mark.index === 'number' ? mark.index : undefined;
     const markRef = makeRef({
@@ -144,10 +147,32 @@ function buildGraph({
         table: safe(() => mark.sourceTable?.() ?? undefined),
       },
     });
+    edges.push({ from: plotRef, to: markRef, kind: 'contains' });
   }
 
-  // For now keep edges minimal; consumers can traverse by ref prefixes.
-  return { version: VACP_SCHEMA_VERSION, nodes, edges: [], actions };
+  // Interactors are the semantic interaction surface and should be first-class
+  // nodes so:
+  // - actions can target an existing ref
+  // - state snapshots can be visualized and time-traveled
+  plot.interactors.forEach((it, i) => {
+    const interactorRef = makeRef({
+      appId: options.appId,
+      viewId: options.viewId,
+      plotId: options.plotId,
+      suffix: `/interactor/${i}`,
+    });
+    nodes.push({
+      ref: interactorRef,
+      kind: 'InteractionTarget',
+      layer: 'InteractionFeedbackLayer',
+      title: it.constructor?.name ?? 'Interactor',
+      description: 'vgplot interactor (selection/brush)',
+      data: { interactorId: String(i) },
+    });
+    edges.push({ from: plotRef, to: interactorRef, kind: 'contains' });
+  });
+
+  return { version: VACP_SCHEMA_VERSION, nodes, edges, actions };
 }
 
 function describeInteractorActions({
