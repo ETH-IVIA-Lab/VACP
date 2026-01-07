@@ -2,6 +2,7 @@ import type {
   VacpActionCall,
   VacpActionDescriptor,
   VacpCapabilitiesSnapshot,
+  VacpChangeSource,
   VacpGraph,
   VacpNode,
   VacpRef,
@@ -36,6 +37,14 @@ export interface VegaViewLike {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   signal(name: string, value?: any): any;
   runAsync(): Promise<unknown>;
+  /**
+   * Optional Vega View API: subscribe to signal changes.
+   * Used to keep the VACP runtime timeline in sync with human interactions.
+   */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  addSignalListener?: (name: string, handler: (name: string, value: any) => void) => void;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  removeSignalListener?: (name: string, handler: (name: string, value: any) => void) => void;
   /**
    * Optional Vega View API: list available signal names.
    * (Not guaranteed; provider will degrade gracefully.)
@@ -255,6 +264,7 @@ export function installVacpOnVegaLiteView({
 }): void {
   const actionRegistry = new VacpActionRegistry();
   const actionDescriptors = actionsForParams(options, spec);
+  let lastChangeSource: VacpChangeSource = 'human';
 
   const actionByName = new Map<string, VacpActionDescriptor>();
   actionDescriptors.forEach((desc) => {
@@ -264,7 +274,14 @@ export function installVacpOnVegaLiteView({
   actionByName.forEach((desc) => {
     actionRegistry.register(desc, async (params) => {
       const call: VacpActionCall = { callId: crypto.randomUUID(), name: desc.name, params };
-      return executeAction(view, call);
+      lastChangeSource = 'agent';
+      try {
+        return await executeAction(view, call);
+      } finally {
+        queueMicrotask(() => {
+          lastChangeSource = 'human';
+        });
+      }
     });
   });
 
@@ -315,4 +332,23 @@ export function installVacpOnVegaLiteView({
 
   const bridge = createVacpWindowBridge({ snapshots, actions: actionRegistry });
   installVacpWindowBridge(bridge, { globalKey: options.globalKey });
+
+  // Keep the runtime timeline updated on human-driven param changes (signals).
+  // This enables seamless human/agent handoff and makes time-travel debugging
+  // meaningful.
+  if (typeof view.addSignalListener === 'function') {
+    let pending = false;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const onSignal = (_name: string, _value: any) => {
+      if (pending) return;
+      pending = true;
+      queueMicrotask(() => {
+        pending = false;
+        if (typeof bridge.refresh === 'function') {
+          void bridge.refresh({ source: lastChangeSource, message: 'signal change' });
+        }
+      });
+    };
+    (spec.params ?? []).forEach((p) => view.addSignalListener?.(p.name, onSignal));
+  }
 }

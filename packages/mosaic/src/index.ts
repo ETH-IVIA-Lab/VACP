@@ -2,6 +2,7 @@ import type {
   VacpActionCall,
   VacpActionDescriptor,
   VacpCapabilitiesSnapshot,
+  VacpChangeSource,
   VacpGraph,
   VacpNode,
   VacpRef,
@@ -101,6 +102,14 @@ function buildGraph({
 }): VacpGraph {
   const plotRef = makeRef({ appId: options.appId, viewId: options.viewId, plotId: options.plotId, suffix: '' });
 
+  const safe = <T>(fn: () => T): T | undefined => {
+    try {
+      return fn();
+    } catch {
+      return undefined;
+    }
+  };
+
   const nodes: VacpNode[] = [
     {
       ref: plotRef,
@@ -109,8 +118,8 @@ function buildGraph({
       title: options.title,
       description: options.description,
       data: {
-        width: plot.getAttribute?.('width'),
-        height: plot.getAttribute?.('height'),
+        width: safe(() => plot.getAttribute?.('width')),
+        height: safe(() => plot.getAttribute?.('height')),
       },
     },
   ];
@@ -132,7 +141,7 @@ function buildGraph({
       data: {
         type: mark.type,
         index: idx,
-        table: mark.sourceTable?.() ?? undefined,
+        table: safe(() => mark.sourceTable?.() ?? undefined),
       },
     });
   }
@@ -308,6 +317,7 @@ async function executeMosaicAction(plot: VgplotPlotLike, call: VacpActionCall): 
 
 export function installVacpOnVgplot(plot: VgplotPlotLike, svg: SVGElement, options: InstallVacpOnVgplotOptions): void {
   const actionRegistry = new VacpActionRegistry();
+  let lastChangeSource: VacpChangeSource = 'human';
 
   /**
    * Provider responsibility:
@@ -335,7 +345,14 @@ export function installVacpOnVgplot(plot: VgplotPlotLike, svg: SVGElement, optio
         name: desc.name,
         params,
       };
-      return executeMosaicAction(plot, call);
+      lastChangeSource = 'agent';
+      try {
+        return await executeMosaicAction(plot, call);
+      } finally {
+        queueMicrotask(() => {
+          lastChangeSource = 'human';
+        });
+      }
     });
   }
 
@@ -391,80 +408,6 @@ export function installVacpOnVgplot(plot: VgplotPlotLike, svg: SVGElement, optio
     embedVacpGraphInSvg(svgEl, graph);
   };
 
-  /**
-   * Hook into the plot lifecycle.
-   *
-   * vgplot interactors can install UI affordances (brushes, listeners) in their
-   * `init(svg)` method. Some implementations mutate the SVG tree in a way that
-   * can drop appended `<metadata>` nodes. We patch `init` so annotations are
-   * re-applied after the interactor has finished its SVG work.
-   */
-  plot.interactors.forEach((it) => {
-    const origInit = it.init;
-    it.init = async (svgEl: SVGElement) => {
-      const res = origInit ? await origInit.call(it, svgEl) : undefined;
-      applyAnnotationsToSvg(svgEl);
-      return res;
-    };
-  });
-
-  // Apply annotations to the currently rendered SVG as well.
-  applyAnnotationsToSvg(svg);
-
-  /**
-   * Some vgplot configurations replace the `<svg>` element during or shortly
-   * after initialization. Keep the fallback surface stable by re-applying the
-   * annotations to the latest SVG under the same host container.
-   */
-  const anyPlot = plot as unknown as { __vacpObserver?: MutationObserver };
-  anyPlot.__vacpObserver?.disconnect();
-  const host = svg.parentElement ?? plot.element ?? null;
-  if (host) {
-    const anyPlot2 = plot as unknown as { __vacpSvgObserver?: MutationObserver };
-
-    const attachSvgObserver = (svgEl: SVGElement) => {
-      anyPlot2.__vacpSvgObserver?.disconnect();
-      let inApply = false;
-      const svgObs = new MutationObserver(() => {
-        if (inApply) return;
-        // Some render pipelines reset `svg.innerHTML`, which drops the metadata.
-        if (!svgEl.querySelector('metadata[type="application/vacp+json"]')) {
-          inApply = true;
-          try {
-            applyAnnotationsToSvg(svgEl);
-          } finally {
-            inApply = false;
-          }
-        }
-      });
-      svgObs.observe(svgEl, { childList: true });
-      anyPlot2.__vacpSvgObserver = svgObs;
-    };
-
-    let lastSvg = svg;
-    attachSvgObserver(lastSvg);
-
-    const obs = new MutationObserver(() => {
-      const next = host.querySelector('svg');
-      if (!next || next === lastSvg) return;
-      lastSvg = next;
-      applyAnnotationsToSvg(next);
-      attachSvgObserver(next);
-    });
-    obs.observe(host, { childList: true, subtree: true });
-    anyPlot.__vacpObserver = obs;
-  }
-
-  if (options.annotateHostElement && plot.element) {
-    applyVacpAttributes(plot.element, {
-      ref: makeRef({ appId: options.appId, viewId: options.viewId, plotId: options.plotId, suffix: '/host' }),
-      layer: 'ViewLayer',
-      kind: 'InteractionTarget',
-      description: 'Host element containing the vgplot visualization and associated legends.',
-      data: { plotId: options.plotId },
-    });
-  }
-
   const snapshots = {
     getCapabilities: async (): Promise<VacpCapabilitiesSnapshot> => ({
       version: VACP_SCHEMA_VERSION,
@@ -500,4 +443,107 @@ export function installVacpOnVgplot(plot: VgplotPlotLike, svg: SVGElement, optio
 
   const bridge = createVacpWindowBridge({ snapshots, actions: actionRegistry });
   installVacpWindowBridge(bridge, { globalKey: options.globalKey });
+
+  const notifyRuntime = (message: string) => {
+    if (typeof bridge.refresh !== 'function') return;
+    void bridge.refresh({ source: lastChangeSource, message });
+  };
+
+  /**
+   * Hook into the plot lifecycle.
+   *
+   * vgplot interactors can install UI affordances (brushes, listeners) in their
+   * `init(svg)` method. Some implementations mutate the SVG tree in a way that
+   * can drop appended `<metadata>` nodes. We patch `init` so annotations are
+   * re-applied after the interactor has finished its SVG work.
+   */
+  plot.interactors.forEach((it) => {
+    const origInit = it.init;
+    it.init = async (svgEl: SVGElement) => {
+      const res = origInit ? await origInit.call(it, svgEl) : undefined;
+      applyAnnotationsToSvg(svgEl);
+      notifyRuntime('interactor.init');
+      return res;
+    };
+
+    // Human interactions often publish via selection.update(). Wrap it to keep
+    // VACP's runtime timeline in sync with the app state.
+    const anyIt = it as unknown as { selection?: { update?: (...args: unknown[]) => unknown } };
+    const sel = anyIt.selection;
+    if (sel && typeof sel.update === 'function' && !(sel.update as unknown as { __vacpWrapped?: boolean }).__vacpWrapped) {
+      const orig = sel.update;
+      const wrapped = (...args: unknown[]) => {
+        const out = orig.apply(sel, args);
+        queueMicrotask(() => notifyRuntime('selection.update'));
+        return out;
+      };
+      (wrapped as unknown as { __vacpWrapped?: boolean }).__vacpWrapped = true;
+      sel.update = wrapped;
+    }
+  });
+
+  // Apply annotations to the currently rendered SVG as well.
+  applyAnnotationsToSvg(svg);
+
+  /**
+   * Some vgplot configurations replace the `<svg>` element during or shortly
+   * after initialization. Keep the fallback surface stable by re-applying the
+   * annotations to the latest SVG under the same host container.
+   */
+  const anyPlot = plot as unknown as { __vacpObserver?: MutationObserver };
+  anyPlot.__vacpObserver?.disconnect();
+  const host = svg.closest('.plot') ?? svg.parentElement ?? plot.element ?? null;
+  if (host) {
+    const anyPlot2 = plot as unknown as { __vacpSvgObserver?: MutationObserver };
+
+    const attachSvgObserver = (svgEl: SVGElement) => {
+      anyPlot2.__vacpSvgObserver?.disconnect();
+      let inApply = false;
+      const svgObs = new MutationObserver(() => {
+        if (inApply) return;
+        // Some render pipelines reset `svg.innerHTML` or rebuild the SVG,
+        // which can drop both metadata and custom attributes.
+        const needs =
+          !svgEl.querySelector('metadata[type="application/vacp+json"]') ||
+          !svgEl.getAttribute('data-vacp-ref') ||
+          !svgEl.getAttribute('data-interaction-vacp-actions');
+        if (needs) {
+          inApply = true;
+          try {
+            applyAnnotationsToSvg(svgEl);
+          } finally {
+            inApply = false;
+          }
+        }
+      });
+      svgObs.observe(svgEl, { childList: true, attributes: true });
+      anyPlot2.__vacpSvgObserver = svgObs;
+    };
+
+    let lastSvg = svg;
+    attachSvgObserver(lastSvg);
+
+    const obs = new MutationObserver(() => {
+      const next = host.querySelector('svg');
+      if (!next || next === lastSvg) return;
+      lastSvg = next;
+      applyAnnotationsToSvg(next);
+      attachSvgObserver(next);
+    });
+    obs.observe(host, { childList: true, subtree: true });
+    anyPlot.__vacpObserver = obs;
+  }
+
+  if (options.annotateHostElement && plot.element) {
+    applyVacpAttributes(plot.element, {
+      ref: makeRef({ appId: options.appId, viewId: options.viewId, plotId: options.plotId, suffix: '/host' }),
+      layer: 'ViewLayer',
+      kind: 'InteractionTarget',
+      description: 'Host element containing the vgplot visualization and associated legends.',
+      data: { plotId: options.plotId },
+    });
+  }
+
+  // Capture an initial snapshot so tooling sees the graph immediately.
+  notifyRuntime('installed');
 }
