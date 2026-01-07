@@ -1,12 +1,13 @@
 # vacp-mcp-server
 
-An MCP server exposing VACP snapshots (capabilities + state) and executing VACP actions
-against a live browser page.
+An MCP server that exposes a VACP-enabled web page to an agent via Playwright.
 
 This server is intentionally generic:
 
-- **Preferred path:** calls into an in-page `window.__vacp` bridge (fast, stable).
-- **Fallback path:** scans DOM/SVG annotations (`data-vacp-*`, `data-interaction-vacp-*`, SVG `<metadata type="application/vacp+json">`).
+- **Preferred path:** call the in-page `window.__vacp` bridge (fast, stable, no DOM scraping).
+- **Fallback path:** scan DOM/SVG annotations (`data-vacp-*`, `data-interaction-vacp-*`, SVG `<metadata type="application/vacp+json">`).
+
+MCP is only a transport. The VACP protocol and runtime live inside the app.
 
 ## Run
 

@@ -23,6 +23,12 @@ VACP’s canonical representation is:
 - A list of **action descriptors** (callable interactions) with parameter schemas.
 - A **state snapshot** keyed by stable node references.
 
+In practice you also want a small **runtime** in the app:
+
+- records a timeline of snapshots and action results (for debugging and replay),
+- enables “time travel” inspection (without mutating the live app),
+- supports tooling like an in-page debug overlay.
+
 DOM/SVG annotations are used for:
 
 - discoverability and debugging,
@@ -49,9 +55,10 @@ The monorepo uses:
     - snapshots (`VacpCapabilitiesSnapshot`, `VacpStateSnapshot`)
     - in-page bridge contract (`VacpWindowBridge`)
 - `vacp/packages/gateway` (`@vacp/gateway`)
-  - Action execution runtime:
-    - `VacpActionRegistry` (register/execute)
-    - `createVacpWindowBridge` + `installVacpWindowBridge` (exposes `window.__vacp`)
+  - In-page runtime + execution:
+    - `VacpActionRegistry` (register/execute semantic actions)
+    - `installVacpRuntimeBridge` (installs/updates a stable `window.__vacp`)
+    - records history entries for actions and state changes (time travel / undo/redo tooling)
 - `vacp/packages/dom` (`@vacp/dom`)
   - DOM/SVG adapter:
     - `applyVacpAttributes` / `applyVacpInteractionAttributes` (`data-vacp-*`, `data-interaction-vacp-*`)
@@ -75,6 +82,7 @@ The monorepo uses:
   - Optional in-app debug overlay:
     - gated by `?vacpDebug=1` / localStorage `vacp:debug=1`
     - renders the current graph to SVG using Mermaid (on demand)
+    - lets you dispatch actions and inspect the runtime timeline
 
 ### Python packages
 
@@ -122,11 +130,11 @@ flowchart TB
   mcp -. reads/writes JSON .-> core
 ```
 
-Justification:
+Why this split works:
 
 - `@vacp/core` is dependency-free and defines the stable contract.
-- Adapters (`dom`, `mosaic`) build on `core` but do not redefine protocol semantics.
-- Execution (`gateway`) stays reusable: Mosaic is “just another provider” that registers actions and snapshots.
+- Providers (`mosaic`, `vega-lite`, “D3”, …) build on `core` and `gateway` but don’t change protocol semantics.
+- `@vacp/dom` is optional: the bridge is the preferred access path; DOM tags are for compatibility and debugging.
 
 ---
 
@@ -136,25 +144,42 @@ Justification:
 
 ```mermaid
 flowchart LR
-  Agent["Agent / LLM Client"] -->|MCP tools| MCP["vacp-mcp-server (FastMCP/FastAPI)"]
+  Agent["Agent / LLM Client"] -->|MCP tools| MCP["vacp-mcp-server (MCP + Playwright)"]
 
-  subgraph Browser["Browser - Playwright launched or external CDP"]
-    App["VA App - Mosaic/vgplot"]
-    Bridge["window.__vacp (capabilities/state/execute)"]
-    DOM["Annotated DOM/SVG (data-vacp-*, SVG metadata)"]
-    App --> Bridge
+  subgraph Browser["Browser (Playwright-launched or external Chrome via CDP)"]
+    App["Visualization app (Mosaic / Vega-Lite / D3 / …)"]
+    Runtime["VACP runtime (action registry + history)"]
+    Bridge["window.__vacp (capabilities / state / execute)"]
+    Debug["Optional debug UI overlay"]
+    DOM["Optional DOM/SVG annotations + SVG metadata"]
+
+    App --> Runtime
+    Runtime --> Bridge
+    Debug --> Bridge
     App --> DOM
   end
 
   MCP -->|Playwright evaluate| Bridge
   MCP -->|DOM scan fallback| DOM
-  MCP -->|execute action| Bridge
 ```
 
-Justification:
+Why this is flexible:
 
-- **Bridge-first** avoids brittle DOM scraping, and returns canonical data that is stable across rerenders.
-- **DOM fallback** provides compatibility with apps that only annotate the DOM/SVG (or for debugging).
+- **Bridge-first** avoids brittle DOM scraping and stays stable across rerenders.
+- **DOM fallback** keeps partially-integrated pages usable (and helps debugging).
+- The **runtime** is app-local and transport-agnostic: MCP is only one way to reach it.
+
+---
+
+## Bidirectionality (why this matters)
+
+The project value is _interchangeable_ control:
+
+- A human can brush/select/click normally.
+- An agent can dispatch the equivalent semantic action.
+- Both produce the same state updates and show up in the same runtime history.
+
+This is what makes “handoff” and “mixed initiative” realistic: agents are not a separate automation system; they are another client of the same contract.
 
 ---
 
@@ -218,7 +243,7 @@ sequenceDiagram
   S-->>A: result
 ```
 
-Justification:
+Why this is better than pixel automation:
 
 - The agent does not click or drag pixels.
 - The action handler can enforce parameter validation and app-specific safety.
@@ -263,6 +288,11 @@ This cleanly supports:
 - future backends: Selenium, remote CDP, native apps, etc.
 
 This keeps the MCP server generic and avoids hardcoding Mosaic logic into Python.
+
+In practice, this also enables two browser modes:
+
+- **Playwright-launched** (default): easiest for automation and CI.
+- **External Chrome via CDP**: best for interactive development (keep tabs/cookies/localStorage).
 
 ---
 

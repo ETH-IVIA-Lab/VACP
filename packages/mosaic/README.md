@@ -23,4 +23,6 @@ This will:
 
 - annotate the SVG with `data-vacp-*` and `data-interaction-vacp-*`
 - embed a canonical VACP graph in SVG `<metadata type="application/vacp+json">`
-- install an in-page bridge at `window.__vacp` (configurable)
+- install (or update) a stable in-page bridge at `window.__vacp` (configurable)
+- expose vgplot interactors as first-class nodes and actions (Interval1D / Interval2D)
+- keep a lightweight runtime history so you can inspect state changes over time
