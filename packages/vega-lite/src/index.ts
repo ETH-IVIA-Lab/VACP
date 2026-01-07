@@ -345,7 +345,9 @@ export function installVacpOnVegaLiteView({
       queueMicrotask(() => {
         pending = false;
         if (typeof bridge.refresh === 'function') {
-          void bridge.refresh({ source: lastChangeSource, message: 'signal change' });
+          void bridge.refresh({ source: lastChangeSource, message: 'signal change' }).catch(() => {
+            // ignore instrumentation failures
+          });
         }
       });
     };

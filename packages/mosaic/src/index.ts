@@ -446,7 +446,9 @@ export function installVacpOnVgplot(plot: VgplotPlotLike, svg: SVGElement, optio
 
   const notifyRuntime = (message: string) => {
     if (typeof bridge.refresh !== 'function') return;
-    void bridge.refresh({ source: lastChangeSource, message });
+    void bridge.refresh({ source: lastChangeSource, message }).catch(() => {
+      // ignore instrumentation failures
+    });
   };
 
   /**
