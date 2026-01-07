@@ -206,9 +206,9 @@ async function main() {
 
     appRoot.replaceChildren(element);
 
-    // Some Mosaic specs render multiple plots. For this minimal example we
-    // attach to the first plot element found.
-    const plotEl = element.querySelector<HTMLElement>('.plot');
+    // Mosaic's astToDOM can return either a wrapper that *contains* `.plot`
+    // elements or the `.plot` element itself. Treat both shapes uniformly.
+    const plotEl = element.classList.contains('plot') ? element : element.querySelector<HTMLElement>('.plot');
     if (!plotEl) throw new Error('No vgplot element found');
     const plot = (plotEl as unknown as { value?: unknown }).value;
     if (!plot) throw new Error('vgplot element does not expose plot instance via .value');
