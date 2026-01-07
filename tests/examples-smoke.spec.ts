@@ -8,6 +8,7 @@ type VacpBridge = {
   getCapabilities: () => Promise<any>;
   getState: () => Promise<any>;
   getRuntime: () => Promise<any>;
+  getPlaybooks?: () => Promise<any>;
   getDemos?: () => Promise<any>;
   execute: (call: { callId: string; name: string; params?: unknown }) => Promise<any>;
 };
@@ -38,19 +39,21 @@ async function getRuntime(page: Page): Promise<any> {
   return await page.evaluate(async () => await (globalThis as any).__vacp.getRuntime());
 }
 
-async function getDemos(page: Page): Promise<any[]> {
+async function getPlaybooks(page: Page): Promise<any[]> {
   await expectBridge(page);
   return await page.evaluate(async () => {
     const b = (globalThis as any).__vacp;
-    if (!b || typeof b.getDemos !== 'function') return [];
-    return await b.getDemos();
+    if (!b) return [];
+    if (typeof b.getPlaybooks === 'function') return await b.getPlaybooks();
+    if (typeof b.getDemos === 'function') return await b.getDemos();
+    return [];
   });
 }
 
 async function runFirstNonClearDemoStep(page: Page): Promise<void> {
-  const demos = await getDemos(page);
-  if (!Array.isArray(demos) || demos.length === 0) throw new Error('No demos found');
-  const steps = demos.flatMap((d: any) => (Array.isArray(d?.steps) ? d.steps : []));
+  const playbooks = await getPlaybooks(page);
+  if (!Array.isArray(playbooks) || playbooks.length === 0) throw new Error('No playbooks found');
+  const steps = playbooks.flatMap((d: any) => (Array.isArray(d?.steps) ? d.steps : []));
   const candidates = steps.filter(
     (s: any) =>
       s?.call &&

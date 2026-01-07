@@ -1,4 +1,4 @@
-import type { VacpDemo, VacpRuntimeBridge } from '@vacp/core';
+import type { VacpDemo, VacpPlaybook, VacpRuntimeBridge } from '@vacp/core';
 
 import { VacpActionRegistry } from '../action-registry';
 import { createRuntimeBridge } from './create-runtime-bridge';
@@ -16,7 +16,7 @@ import { isRuntimeBridge } from './window-runtime-bridge';
 export function installVacpRuntimeBridge(args: {
   snapshots: VacpSnapshotProvider;
   actions: VacpActionRegistry;
-  demos?: VacpDemo[];
+  demos?: VacpPlaybook[];
   globalKey?: string;
 }): VacpRuntimeBridge {
   const key = args.globalKey ?? '__vacp';

@@ -62,15 +62,15 @@ export interface VacpRuntimeSnapshot {
 }
 
 /**
- * Demo scripts (concepts).
+ * Playbooks (concepts).
  *
- * A demo is a lightweight, provider-supplied sequence of actions that can be
- * stepped through in a debug UI. This makes it easy for new users to
- * understand what "bidirectional" interaction means in practice.
+ * A playbook is a lightweight, provider-supplied sequence of steps (usually
+ * actions) that can be stepped through in a debug UI. This makes it easy for
+ * new users to understand what "bidirectional" interaction means in practice.
  *
- * Demos are optional and meant for examples / development tooling.
+ * Playbooks are optional and meant for examples / development tooling.
  */
-export type VacpDemoStep = {
+export type VacpPlaybookStep = {
   id?: string;
   title: string;
   description?: string;
@@ -81,12 +81,20 @@ export type VacpDemoStep = {
   call?: Omit<VacpActionCall, 'callId'>;
 };
 
-export type VacpDemo = {
+export type VacpPlaybook = {
   id: string;
   title: string;
   description?: string;
-  steps: VacpDemoStep[];
+  steps: VacpPlaybookStep[];
 };
+
+/**
+ * Backward-compatible aliases.
+ *
+ * `VacpDemo` is kept for older code, but "playbook" is the preferred term.
+ */
+export type VacpDemoStep = VacpPlaybookStep;
+export type VacpDemo = VacpPlaybook;
 
 /**
  * Optional extended in-page bridge contract for debugging and time travel.
@@ -96,7 +104,9 @@ export type VacpDemo = {
  */
 export interface VacpRuntimeBridge extends VacpWindowBridge {
   getRuntime?: () => Promise<VacpRuntimeSnapshot> | VacpRuntimeSnapshot;
-  /** Optional demo scripts provided by the app/provider (examples/dev only). */
+  /** Optional scripted playbooks provided by the app/provider (examples/dev only). */
+  getPlaybooks?: () => Promise<VacpPlaybook[]> | VacpPlaybook[];
+  /** Backward-compatible name for `getPlaybooks()`. */
   getDemos?: () => Promise<VacpDemo[]> | VacpDemo[];
   /**
    * Subscribe to runtime entries. Returns an unsubscribe function.

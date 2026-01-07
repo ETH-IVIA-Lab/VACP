@@ -1,4 +1,4 @@
-import type { VacpDemo } from '@vacp/core';
+import type { VacpPlaybook } from '@vacp/core';
 
 /**
  * Mosaic/vgplot provider (project concepts).
@@ -45,7 +45,7 @@ export interface InstallVacpOnVgplotOptions {
   description?: string;
   annotateHostElement?: boolean;
   globalKey?: string;
-  demos?: VacpDemo[];
+  demos?: VacpPlaybook[];
 }
 
 export interface InstallVacpOnVgplotDashboardOptions {
@@ -54,7 +54,7 @@ export interface InstallVacpOnVgplotDashboardOptions {
   title?: string;
   description?: string;
   globalKey?: string;
-  demos?: VacpDemo[];
+  demos?: VacpPlaybook[];
   /**
    * Optional DuckDB client to back the standard `vacp.data_sql` action.
    *

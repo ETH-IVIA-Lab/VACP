@@ -3,8 +3,8 @@ import type {
   VacpActionResult,
   VacpCapabilitiesSnapshot,
   VacpChangeSource,
-  VacpDemo,
   VacpHistoryEntry,
+  VacpPlaybook,
   VacpRuntimeBridge,
   VacpRuntimeMode,
   VacpRuntimeSnapshot,
@@ -37,9 +37,9 @@ import {
 export function createRuntimeBridge(args: {
   snapshots: VacpSnapshotProvider;
   actions: VacpActionRegistry;
-  demos?: VacpDemo[];
+  demos?: VacpPlaybook[];
 }): VacpRuntimeBridge {
-  type Adapter = { snapshots: VacpSnapshotProvider; actions: VacpActionRegistry; demos?: VacpDemo[] };
+  type Adapter = { snapshots: VacpSnapshotProvider; actions: VacpActionRegistry; demos?: VacpPlaybook[] };
   const adapter: Adapter = { ...args, demos: args.demos ?? [] };
 
   const listeners = new Set<(entry: VacpHistoryEntry) => void>();
@@ -247,6 +247,7 @@ export function createRuntimeBridge(args: {
       };
     },
 
+    getPlaybooks: async () => adapter.demos ?? [],
     getDemos: async () => adapter.demos ?? [],
 
     subscribe: (listener) => {
@@ -289,7 +290,7 @@ export function createRuntimeBridge(args: {
   (bridge as any).__vacpUpdate = (next: {
     snapshots: VacpSnapshotProvider;
     actions: VacpActionRegistry;
-    demos?: VacpDemo[];
+    demos?: VacpPlaybook[];
   }) => updateAdapters({ ...next, demos: next.demos ?? [] }, { source: 'system' });
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   (bridge as any).__vacpRuntimeId = runtimeId;

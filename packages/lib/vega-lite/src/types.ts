@@ -1,4 +1,4 @@
-import type { VacpDemo } from '@vacp/core';
+import type { VacpPlaybook } from '@vacp/core';
 
 export interface VegaViewLike {
   /**
@@ -80,6 +80,6 @@ export interface InstallVacpOnVegaLiteOptions {
    * This is powerful but should be used carefully in production UIs.
    */
   includeSetSignalAction?: boolean;
-  /** Optional demo scripts for debug tooling. */
-  demos?: VacpDemo[];
+  /** Optional playbooks for debug tooling. */
+  demos?: VacpPlaybook[];
 }
