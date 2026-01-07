@@ -190,6 +190,11 @@ async def _test_mosaic_gallery(page: Page) -> None:
 
         await page.wait_for_selector('svg', timeout=60_000)
         await _expect_bridge(page)
+        await page.wait_for_function(
+            '(needle) => globalThis.__vacp.getCapabilities().then(c => String(c.graph?.nodes?.[0]?.ref || "").includes(needle))',
+            arg=f'/{spec_id}/plot-0',
+            timeout=60_000,
+        )
 
         caps = await _get_capabilities(page)
         graph = caps.get('graph', {})
@@ -291,6 +296,11 @@ async def _test_vega_lite_gallery(page: Page) -> None:
         )
         await page.wait_for_selector('svg', timeout=30_000)
         await _expect_bridge(page)
+        await page.wait_for_function(
+            '(needle) => globalThis.__vacp.getCapabilities().then(c => String(c.graph?.nodes?.[0]?.ref || "").includes(needle))',
+            arg=f'/vega-lite/{spec_id}/{spec_id}',
+            timeout=60_000,
+        )
 
         caps = await _get_capabilities(page)
         graph = caps.get('graph', {})
