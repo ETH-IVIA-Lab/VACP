@@ -1,13 +1,13 @@
 import type { VgplotPlotLike } from '@vacp/mosaic';
 import { installVacpDebugUi } from '@vacp/debug-ui';
-import { installVacpOnVgplotDashboard } from '@vacp/mosaic';
+import type { VacpDuckDbClient } from '@vacp/duckdb';
 import { coordinator, DuckDBWASMConnector } from '@uwdata/mosaic-core';
 import { astToDOM, parseSpec } from '@uwdata/mosaic-spec';
 import { createAPIContext } from '@uwdata/vgplot';
 
-import { buildDemos } from './demos';
 import type { GalleryEntry } from './gallery';
 import { loadGallery } from './gallery';
+import { installVacpLayerForMosaic } from './vacp';
 import { waitForSvg } from './vgplot-helpers';
 
 function selectOption(selectEl: HTMLSelectElement, id: string): void {
@@ -34,7 +34,7 @@ export async function run(): Promise<void> {
   const connector = new DuckDBWASMConnector({ log: false });
   mc.databaseConnector(connector);
 
-  const duckdbClient = {
+  const duckdbClient: VacpDuckDbClient = {
     getConnection: async () => await connector.getConnection(),
     exec: async (sql: string) => {
       await mc.query(sql, { type: 'json', cache: false });
@@ -64,7 +64,11 @@ export async function run(): Promise<void> {
       }
       return btoa(binary);
     },
-    loadObjectsAsTable: async () => {
+    loadObjectsAsTable: async (
+      _tableName: string,
+      _rows: Record<string, unknown>[],
+      _options?: { create?: boolean },
+    ) => {
       throw new Error('loadObjectsAsTable is not supported in this example (data is managed by Mosaic)');
     },
   };
@@ -104,18 +108,8 @@ export async function run(): Promise<void> {
       }),
     );
 
-    installVacpOnVgplotDashboard({
-      root: element,
-      plots,
-      options: {
-        appId: 'vacp-examples',
-        viewId: `mosaic/${entry.id}`,
-        title: entry.meta.title,
-        globalKey,
-        demos: buildDemos(entry),
-        duckdbClient,
-      },
-    });
+    // VACP layer: attaches a bridge (`window.__vacp`), actions, state snapshots, and DuckDB access.
+    installVacpLayerForMosaic({ root: element, plots, entry, globalKey, duckdbClient });
   };
 
   selectEl.addEventListener('change', () => {

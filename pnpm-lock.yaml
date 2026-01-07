@@ -37,9 +37,6 @@ importers:
       '@vacp/duckdb':
         specifier: workspace:*
         version: link:../../lib/duckdb
-      '@vacp/gateway':
-        specifier: workspace:*
-        version: link:../../lib/gateway
       '@vacp/kit':
         specifier: workspace:*
         version: link:../../lib/kit
@@ -71,6 +68,12 @@ importers:
       '@vacp/debug-ui':
         specifier: workspace:*
         version: link:../../lib/debug-ui
+      '@vacp/duckdb':
+        specifier: workspace:*
+        version: link:../../lib/duckdb
+      '@vacp/kit':
+        specifier: workspace:*
+        version: link:../../lib/kit
       '@vacp/mosaic':
         specifier: workspace:*
         version: link:../../lib/mosaic
@@ -93,9 +96,6 @@ importers:
       '@vacp/duckdb':
         specifier: workspace:*
         version: link:../../lib/duckdb
-      '@vacp/gateway':
-        specifier: workspace:*
-        version: link:../../lib/gateway
       '@vacp/kit':
         specifier: workspace:*
         version: link:../../lib/kit
@@ -112,6 +112,9 @@ importers:
       '@vacp/debug-ui':
         specifier: workspace:*
         version: link:../../lib/debug-ui
+      '@vacp/kit':
+        specifier: workspace:*
+        version: link:../../lib/kit
       '@vacp/vega-lite':
         specifier: workspace:*
         version: link:../../lib/vega-lite
@@ -181,6 +184,9 @@ importers:
       '@vacp/dom':
         specifier: workspace:*
         version: link:../dom
+      '@vacp/duckdb':
+        specifier: workspace:*
+        version: link:../duckdb
       '@vacp/gateway':
         specifier: workspace:*
         version: link:../gateway

@@ -19,6 +19,8 @@
     "@uwdata/vgplot": "^0.21.1",
     "@vacp/core": "workspace:*",
     "@vacp/debug-ui": "workspace:*",
+    "@vacp/duckdb": "workspace:*",
+    "@vacp/kit": "workspace:*",
     "@vacp/mosaic": "workspace:*",
     "yaml": "^2.8.2"
   }

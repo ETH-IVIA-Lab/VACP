@@ -1,10 +1,10 @@
 import { installVacpDebugUi } from '@vacp/debug-ui';
-import { installVacpOnVegaLiteView, type VegaViewLike } from '@vacp/vega-lite';
+import { type VegaViewLike } from '@vacp/vega-lite';
 import embed, { type VisualizationSpec } from 'vega-embed';
 
-import { buildDemos } from './demos';
 import { loadGallery } from './gallery';
 import type { GalleryEntry } from './gallery';
+import { installVacpLayerForVegaLite } from './vacp';
 
 export async function run(): Promise<void> {
   const app = document.querySelector<HTMLDivElement>('#app');
@@ -41,19 +41,13 @@ export async function run(): Promise<void> {
     const result = await embed(appRoot, spec as unknown as VisualizationSpec, { actions: false, renderer: 'svg' });
     (globalThis as unknown as { __vegaView?: unknown }).__vegaView = result.view;
 
-    installVacpOnVegaLiteView({
+    // VACP layer: exposes Vega params/selections as nodes/actions at `window.__vacp`.
+    installVacpLayerForVegaLite({
       root: appRoot,
       view: result.view as unknown as VegaViewLike,
-      spec,
-      options: {
-        appId: 'vacp-examples',
-        viewId: `vega-lite/${entry.id}`,
-        vizId: entry.id,
-        title: entry.meta.title,
-        globalKey,
-        includeSetSignalAction: false,
-        demos: buildDemos(entry),
-      },
+      spec: spec as unknown as VisualizationSpec,
+      entry,
+      globalKey,
     });
   };
 

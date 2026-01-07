@@ -52,7 +52,7 @@ The key promise: an agent can manipulate interactive Vega-Lite charts **without*
 
 Use the overlay:
 
-- Debug overlay → **Demo** → **Run all**
+- Debug overlay → **Playbook** → **Run all**
 - Debug overlay → **Actions** to call `vega_lite.set_param` / `vega_lite.clear_selection` manually
 
 ## How to add or edit specs
@@ -83,6 +83,6 @@ export function createSpec() {
 ## Useful entry points
 
 - App wiring: `src/app.ts`
-- Demo scripts: `src/demos.ts`
+- Playbook scripts: `src/playbooks.ts`
 - Spec gallery loader: `src/gallery.ts`
 - Specs: `src/specs/`

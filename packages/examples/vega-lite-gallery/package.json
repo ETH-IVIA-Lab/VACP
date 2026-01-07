@@ -16,6 +16,7 @@
   "dependencies": {
     "@vacp/core": "workspace:*",
     "@vacp/debug-ui": "workspace:*",
+    "@vacp/kit": "workspace:*",
     "@vacp/vega-lite": "workspace:*",
     "vega": "^6.2.0",
     "vega-embed": "^7.1.0",

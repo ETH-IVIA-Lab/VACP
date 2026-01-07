@@ -51,12 +51,13 @@ Enable the debug overlay:
 
 Use the debug overlay:
 
-- Debug overlay → **Demo** → **Run all**
+- Debug overlay → **Playbook** → **Run all**
 - Debug overlay → **Actions** lets you dispatch `vanilla.set_lasso_polygon` / `vanilla.clear_lasso` with custom params
 
 The point: the “human lasso” and the “semantic action” mutate the same underlying state shape.
 
 ## Useful entry points
 
-- App wiring + D3 rendering: `src/app.ts`
-- VACP provider implementation: `src/vacp-integration.ts`
+- App wiring: `src/app.ts`
+- D3 chart (no VACP): `src/chart.ts`
+- VACP layer: `src/vacp.ts`

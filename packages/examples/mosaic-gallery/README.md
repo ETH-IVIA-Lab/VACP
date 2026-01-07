@@ -47,7 +47,7 @@ The important part: **VACP is not a “UI test script”**. It is a stable, type
 
 Use the debug overlay:
 
-- Debug overlay → **Demo** → **Run all**
+- Debug overlay → **Playbook** → **Run all**
 
 That dispatches the same semantic actions an agent would call via MCP.
 
@@ -84,5 +84,5 @@ Everything under `meta` is ignored by Mosaic and only used by the gallery UI.
 ## Useful entry points
 
 - App wiring: `src/app.ts`
-- Demo scripts: `src/demos.ts`
+- Playbook scripts: `src/playbooks.ts`
 - Specs + metadata: `src/specs/`
