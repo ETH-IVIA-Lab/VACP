@@ -246,6 +246,14 @@ export interface VacpRuntimeBridge extends VacpWindowBridge {
    * timeline. `execute()` remains MCP-friendly and defaults to `source="agent"`.
    */
   dispatch?: (call: VacpActionCall, options?: { source?: VacpChangeSource; message?: string }) => Promise<VacpActionResult>;
+
+  /**
+   * Optional state observer:
+   * - records timeline entries when snapshots change
+   * - useful when the provider cannot emit events for human interactions
+   */
+  startObserving?: (options?: { intervalMs?: number; source?: VacpChangeSource; message?: string }) => void;
+  stopObserving?: () => void;
 }
 
 export function isVacpRef(value: unknown): value is VacpRef {

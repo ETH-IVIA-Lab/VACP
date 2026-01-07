@@ -176,6 +176,79 @@ function createRuntimeBridge({
   let graphOverride: VacpCapabilitiesSnapshot | null = null;
   let stateOverride: VacpStateSnapshot | null = null;
 
+  const stableStringify = (value: unknown): string => {
+    const seen = new WeakSet<object>();
+    const walk = (v: unknown): unknown => {
+      if (!v || typeof v !== 'object') return v;
+      const obj = v as object;
+      if (seen.has(obj)) return '[Circular]';
+      seen.add(obj);
+      if (Array.isArray(v)) return v.map(walk);
+      const rec = v as Record<string, unknown>;
+      const out: Record<string, unknown> = {};
+      Object.keys(rec)
+        .sort()
+        .forEach((k) => {
+          out[k] = walk(rec[k]);
+        });
+      return out;
+    };
+    return JSON.stringify(walk(value));
+  };
+
+  let observeTimer: number | null = null;
+  let lastObservedHash: string | null = null;
+  let observeOptions: { intervalMs: number; source: VacpChangeSource; message?: string } = {
+    intervalMs: 200,
+    source: 'system',
+    message: 'observed change',
+  };
+
+  const observeOnce = async () => {
+    try {
+      const st = await adapter.snapshots.getState();
+      const hash = stableStringify(st.state);
+      if (lastObservedHash === null) {
+        lastObservedHash = hash;
+        return;
+      }
+      if (hash === lastObservedHash) return;
+      lastObservedHash = hash;
+      await ensureLive();
+      record({
+        id: makeEntryId(),
+        at: nowIso(),
+        kind: 'snapshot',
+        source: observeOptions.source,
+        message: observeOptions.message,
+        capabilities: liveCapabilities ?? undefined,
+        state: liveState ?? undefined,
+      });
+    } catch {
+      // Ignore observer failures; runtime must never break the host app.
+    }
+  };
+
+  const startObserving = (options?: { intervalMs?: number; source?: VacpChangeSource; message?: string }) => {
+    if (observeTimer !== null) return;
+    observeOptions = {
+      intervalMs: options?.intervalMs ?? 200,
+      source: entrySource(options?.source),
+      message: entryMessage(options?.message) ?? 'observed change',
+    };
+    lastObservedHash = null;
+    // Seed immediately, then poll.
+    void observeOnce();
+    observeTimer = globalThis.setInterval(() => void observeOnce(), observeOptions.intervalMs) as unknown as number;
+  };
+
+  const stopObserving = () => {
+    if (observeTimer === null) return;
+    globalThis.clearInterval(observeTimer);
+    observeTimer = null;
+    lastObservedHash = null;
+  };
+
   function record(entry: VacpHistoryEntry): void {
     history.push(entry);
     notify(listeners, entry);
@@ -363,7 +436,12 @@ function createRuntimeBridge({
 
     subscribe: (listener) => {
       listeners.add(listener);
-      return () => listeners.delete(listener);
+      // Automatically observe snapshot changes while someone is listening.
+      if (listeners.size === 1) startObserving({ source: 'system', message: 'observe' });
+      return () => {
+        listeners.delete(listener);
+        if (listeners.size === 0) stopObserving();
+      };
     },
 
     refresh: async (options?: { source?: VacpChangeSource; message?: string }): Promise<VacpStateSnapshot> => {
@@ -389,6 +467,9 @@ function createRuntimeBridge({
     clearOverrides,
 
     dispatch,
+
+    startObserving,
+    stopObserving,
   };
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
