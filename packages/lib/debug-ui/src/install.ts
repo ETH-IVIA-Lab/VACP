@@ -5,10 +5,13 @@ import { shouldEnable } from './enabled';
 import { renderMermaidToHost } from './mermaid';
 import { renderActionsPane } from './panes/actions';
 import { createInitialDataUiState, renderDataPane } from './panes/data';
+import { renderGraphPane, type GraphUiState } from './panes/graph-pane';
 import { mermaidSourceFromRuntime } from './panes/graph';
 import { renderHistoryPane } from './panes/history';
 import { renderJsonPane } from './panes/json';
 import { renderPlaybookPane } from './panes/playbook';
+import { installVacpDebugResizer } from './resize';
+import { installVacpDebugShortcuts } from './shortcuts';
 import { ensureStyles } from './styles';
 import type { DebugTab, VacpDebugUiOptions, VacpWindowBridge } from './types';
 import { createVacpDebugUiDom } from './ui';
@@ -44,12 +47,25 @@ export function installVacpDebugUi(options?: VacpDebugUiOptions): void {
   if (!shouldEnable(enabled)) return;
   if (document.getElementById('vacp-debug-ui-root')) return;
   const globalKey = options?.globalKey ?? '__vacp';
-  const direction = options?.direction ?? 'LR';
-  const includeActions = options?.includeActions ?? true;
-  const includeStatePreview = options?.includeStatePreview ?? true;
+  const initialDirection = options?.direction ?? 'LR';
+  const initialIncludeActions = options?.includeActions ?? true;
+  const initialIncludeStatePreview = options?.includeStatePreview ?? true;
   ensureStyles();
   const dom = createVacpDebugUiDom({ globalKey });
-  const { root, button, panel, titleEl, liveBtn, undoBtn, redoBtn, observeBtn, refreshBtn, copyBtn, closeBtn } = dom;
+  const {
+    root,
+    button,
+    panel,
+    titleEl,
+    layoutBtn,
+    liveBtn,
+    undoBtn,
+    redoBtn,
+    observeBtn,
+    refreshBtn,
+    copyBtn,
+    closeBtn,
+  } = dom;
   const { tabButtons, panes, svgHost } = dom;
   document.body.append(root);
 
@@ -61,11 +77,36 @@ export function installVacpDebugUi(options?: VacpDebugUiOptions): void {
     storageKey: 'vacp:debug:pos',
   });
   dock.attach();
+  installVacpDebugResizer({
+    panel,
+    storageKey: 'vacp:debug:size',
+    onResizeEnd: () => dock.snapToNearest({ animate: false }),
+  });
 
   let currentTab: DebugTab = 'Graph';
   let observeEnabled = true;
   let lastMermaid = '';
   let unsubscribe: (() => void) | null = null;
+
+  type LayoutMode = 'split' | 'inspector' | 'diagram';
+  const LAYOUT_KEY = 'vacp:debug:layout';
+  const readLayout = (): LayoutMode => {
+    try {
+      const raw = localStorage.getItem(LAYOUT_KEY);
+      if (raw === 'inspector' || raw === 'diagram' || raw === 'split') return raw;
+      return 'split';
+    } catch {
+      return 'split';
+    }
+  };
+  const saveLayout = (mode: LayoutMode) => {
+    try {
+      localStorage.setItem(LAYOUT_KEY, mode);
+    } catch {
+      // ignore
+    }
+  };
+  let layout: LayoutMode = readLayout();
 
   let playbooks: VacpPlaybook[] = [];
   let selectedPlaybookId: string | null = null;
@@ -73,6 +114,11 @@ export function installVacpDebugUi(options?: VacpDebugUiOptions): void {
 
   const actionUi = { selectedAction: undefined as string | undefined, paramsText: '{}' };
   const dataUi = createInitialDataUiState();
+  const graphUi: GraphUiState = {
+    direction: initialDirection,
+    includeActions: initialIncludeActions,
+    includeStatePreview: initialIncludeStatePreview,
+  };
   const jsonUi = { text: '{}' };
   let activeBridge: VacpWindowBridge | null = null;
   let pendingRender = false;
@@ -89,6 +135,15 @@ export function installVacpDebugUi(options?: VacpDebugUiOptions): void {
   };
   setTab('Graph');
 
+  const applyLayout = () => {
+    layoutBtn.textContent = `Layout: ${layout}`;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const body = panel.querySelector('.vacp-debug-ui-body') as any as HTMLElement | null;
+    if (body) body.setAttribute('data-layout', layout);
+    dock.positionPanel();
+  };
+  applyLayout();
+
   const updateTitle = (rt: VacpRuntimeSnapshot) => {
     const rid = (rt.runtimeId ?? '').toString().slice(0, 8);
     titleEl.textContent = `VACP Debug (${globalKey}) • mode=${rt.mode} cursor=${rt.cursor} history=${rt.history.length} • runtime=${rid}`;
@@ -99,18 +154,23 @@ export function installVacpDebugUi(options?: VacpDebugUiOptions): void {
     const runtime = await readRuntime(bridge);
     updateTitle(runtime);
 
-    const mermaid = mermaidSourceFromRuntime(runtime, { direction, includeActions, includeStatePreview });
+    const mermaid = mermaidSourceFromRuntime(runtime, {
+      direction: graphUi.direction,
+      includeActions: graphUi.includeActions,
+      includeStatePreview: graphUi.includeStatePreview,
+    });
     lastMermaid = mermaid;
 
     if (currentTab === 'Graph') {
-      panes.Graph.textContent = '';
-      const title = document.createElement('div');
-      title.className = 'vacp-debug-ui-section-title';
-      title.textContent = 'Mermaid';
-      const code = document.createElement('div');
-      code.className = 'vacp-debug-ui-small';
-      code.textContent = mermaid;
-      panes.Graph.append(title, code);
+      renderGraphPane({
+        container: panes.Graph,
+        mermaid,
+        state: graphUi,
+        onChange: (next) => {
+          Object.assign(graphUi, next);
+          requestRender();
+        },
+      });
     }
 
     if (currentTab === 'Data') {
@@ -175,7 +235,16 @@ export function installVacpDebugUi(options?: VacpDebugUiOptions): void {
 
   const connect = async () => {
     const bridge = getBridge(globalKey);
-    if (!bridge) return;
+    if (!bridge) {
+      svgHost.textContent = '';
+      svgHost.append(document.createTextNode('No VACP bridge found on this page.'));
+      panes.Graph.textContent = '';
+      const msg = document.createElement('div');
+      msg.className = 'vacp-debug-ui-small';
+      msg.textContent = `Expected window.${globalKey} with getCapabilities/getState/execute.\n\nTip: enable VACP in the app (provider install) and reload.`;
+      panes.Graph.append(msg);
+      return;
+    }
     activeBridge = bridge;
 
     playbooks = await readPlaybooks(bridge);
@@ -205,6 +274,12 @@ export function installVacpDebugUi(options?: VacpDebugUiOptions): void {
   });
   closeBtn.addEventListener('click', () => setPanelVisible(panel, false));
 
+  layoutBtn.addEventListener('click', () => {
+    layout = layout === 'split' ? 'inspector' : layout === 'inspector' ? 'diagram' : 'split';
+    saveLayout(layout);
+    applyLayout();
+  });
+
   liveBtn.addEventListener('click', () => void withBridge((b) => b.setMode?.('live', dbg('live'))));
   undoBtn.addEventListener('click', () => void withBridge((b) => b.undo?.(dbg('undo'))));
   redoBtn.addEventListener('click', () => void withBridge((b) => b.redo?.(dbg('redo'))));
@@ -220,4 +295,13 @@ export function installVacpDebugUi(options?: VacpDebugUiOptions): void {
 
   refreshBtn.addEventListener('click', () => void withBridge(async (b) => void (await b.refresh?.(dbg('refresh')))));
   copyBtn.addEventListener('click', () => copyText(lastMermaid));
+
+  installVacpDebugShortcuts({
+    isPanelVisible: () => isPanelVisible(panel),
+    setPanelVisible: (v) => setPanelVisible(panel, v),
+    setTab,
+    requestRender,
+    cycleLayout: () => layoutBtn.click(),
+    refresh: () => refreshBtn.click(),
+  });
 }

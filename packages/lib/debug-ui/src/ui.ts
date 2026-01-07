@@ -6,6 +6,7 @@ export type VacpDebugUiDom = {
   panel: HTMLDivElement;
   titleEl: HTMLDivElement;
 
+  layoutBtn: HTMLButtonElement;
   liveBtn: HTMLButtonElement;
   undoBtn: HTMLButtonElement;
   redoBtn: HTMLButtonElement;
@@ -41,7 +42,12 @@ export function createVacpDebugUiDom(args: { globalKey: string }): VacpDebugUiDo
   titleEl.textContent = `VACP Debug (${args.globalKey})`;
 
   const actionsEl = document.createElement('div');
-  actionsEl.className = 'vacp-debug-ui-actions';
+  actionsEl.className = 'vacp-debug-ui-header-actions';
+
+  const layoutBtn = document.createElement('button');
+  layoutBtn.type = 'button';
+  layoutBtn.textContent = 'Layout: split';
+  layoutBtn.title = 'Cycle overlay layout (diagram + inspector / inspector only / diagram only)';
 
   const liveBtn = document.createElement('button');
   liveBtn.type = 'button';
@@ -78,7 +84,7 @@ export function createVacpDebugUiDom(args: { globalKey: string }): VacpDebugUiDo
   closeBtn.textContent = 'Close';
   closeBtn.title = 'Close the overlay (does not remove the VACP runtime)';
 
-  actionsEl.append(liveBtn, undoBtn, redoBtn, observeBtn, refreshBtn, copyBtn, closeBtn);
+  actionsEl.append(layoutBtn, liveBtn, undoBtn, redoBtn, observeBtn, refreshBtn, copyBtn, closeBtn);
   header.append(titleEl, actionsEl);
 
   const body = document.createElement('div');
@@ -145,6 +151,7 @@ export function createVacpDebugUiDom(args: { globalKey: string }): VacpDebugUiDo
     button,
     panel,
     titleEl,
+    layoutBtn,
     liveBtn,
     undoBtn,
     redoBtn,

@@ -11,6 +11,27 @@ function safeParseJson(text: string): { ok: true; value: unknown } | { ok: false
   }
 }
 
+function copyText(text: string): void {
+  const t = text ?? '';
+  if (navigator.clipboard?.writeText) {
+    void navigator.clipboard.writeText(t).catch(() => {});
+    return;
+  }
+  const el = document.createElement('textarea');
+  el.value = t;
+  el.style.position = 'fixed';
+  el.style.left = '-9999px';
+  document.body.append(el);
+  el.select();
+  try {
+    document.execCommand('copy');
+  } catch {
+    // ignore
+  } finally {
+    el.remove();
+  }
+}
+
 export function renderJsonPane(
   container: HTMLElement,
   runtime: VacpRuntimeSnapshot,
@@ -42,6 +63,21 @@ export function renderJsonPane(
   const btnRow = document.createElement('div');
   btnRow.className = 'vacp-debug-ui-actions';
 
+  const loadBtn = document.createElement('button');
+  loadBtn.type = 'button';
+  loadBtn.textContent = 'Load current';
+  loadBtn.title = 'Replace the editor with the current state snapshot (inspect cursor).';
+
+  const formatBtn = document.createElement('button');
+  formatBtn.type = 'button';
+  formatBtn.textContent = 'Format JSON';
+  formatBtn.title = 'Pretty-print the JSON in the editor.';
+
+  const copyBtn = document.createElement('button');
+  copyBtn.type = 'button';
+  copyBtn.textContent = 'Copy JSON';
+  copyBtn.title = 'Copy the current editor JSON.';
+
   const inspectBtn = document.createElement('button');
   inspectBtn.type = 'button';
   inspectBtn.textContent = 'Set override (inspect)';
@@ -60,6 +96,25 @@ export function renderJsonPane(
   const out = document.createElement('div');
   out.className = 'vacp-debug-ui-small';
   out.textContent = '';
+
+  loadBtn.addEventListener('click', () => {
+    textarea.value = JSON.stringify(runtime.currentState.state, null, 2);
+    onChange({ text: textarea.value });
+    out.textContent = 'Loaded current state.';
+  });
+
+  formatBtn.addEventListener('click', () => {
+    const parsed = safeParseJson(textarea.value);
+    if (!parsed.ok) {
+      out.textContent = `Invalid JSON: ${parsed.error}`;
+      return;
+    }
+    textarea.value = JSON.stringify(parsed.value, null, 2);
+    onChange({ text: textarea.value });
+    out.textContent = 'Formatted.';
+  });
+
+  copyBtn.addEventListener('click', () => copyText(textarea.value));
 
   inspectBtn.addEventListener('click', () => {
     const parsed = safeParseJson(textarea.value);
@@ -100,7 +155,7 @@ export function renderJsonPane(
     out.textContent = JSON.stringify(res, null, 2);
   });
 
-  btnRow.append(inspectBtn, clearBtn, applyBtn);
+  btnRow.append(loadBtn, formatBtn, copyBtn, inspectBtn, clearBtn, applyBtn);
 
   const sampleTitle = document.createElement('div');
   sampleTitle.className = 'vacp-debug-ui-section-title';
