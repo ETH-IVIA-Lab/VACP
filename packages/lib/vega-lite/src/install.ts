@@ -3,15 +3,20 @@ import type {
   VacpActionDescriptor,
   VacpCapabilitiesSnapshot,
   VacpChangeSource,
+  VacpRef,
   VacpStateSnapshot,
 } from '@vacp/core';
 import { nowIso, VACP_SCHEMA_VERSION } from '@vacp/core';
 import { applyVacpAttributes, applyVacpInteractionAttributes, embedVacpGraphInSvg } from '@vacp/dom';
+import type { VacpDuckDbClient } from '@vacp/duckdb';
+import { createDuckDbDataSqlHandler, createDuckDbWasmClient } from '@vacp/duckdb';
 import { installVacpRuntimeBridge, registerVacpApplyStateAction, VacpActionRegistry } from '@vacp/gateway';
+import { registerVacpDataSqlAction } from '@vacp/gateway';
 
 import { actionsForSpec } from './actions';
 import { buildGraph } from './graph';
 import { buildParamLookup, executeAction } from './execute';
+import { whereClauseForCurrentSelections } from './duckdb-selection';
 import { makeRef } from './refs';
 import { tryGetSignal } from './signals';
 import type { InstallVacpOnVegaLiteOptions, VegaLiteSpecLike, VegaViewLike } from './types';
@@ -94,7 +99,125 @@ export function installVacpOnVegaLiteView(args: {
   );
   actionDescriptors.push(applyDescriptor);
 
-  const graph = buildGraph({ spec, options, actions: actionDescriptors });
+  const enableDuckDb = options.enableDuckDbDataHandle ?? true;
+  const inlineValues = spec.data && typeof spec.data === 'object' && Array.isArray((spec.data as any).values);
+  const dataRows = inlineValues ? ((spec.data as any).values as unknown[]) : null;
+  const handleRef = enableDuckDb && dataRows ? (makeRef({
+    appId: options.appId,
+    viewId: options.viewId,
+    vizId: options.vizId,
+    suffix: '/data/main',
+  }) as VacpRef) : null;
+  const duckdbPromise: Promise<VacpDuckDbClient> | null = (() => {
+    if (!handleRef) return null;
+    if (options.duckdbClient) return Promise.resolve(options.duckdbClient);
+    const rootAny = globalThis as unknown as Record<string, unknown>;
+    const existing = rootAny.__vacpDuckDbClient;
+    if (existing && typeof (existing as Promise<unknown>).then === 'function') return existing as Promise<VacpDuckDbClient>;
+    const created: Promise<VacpDuckDbClient> = createDuckDbWasmClient({ log: false });
+    rootAny.__vacpDuckDbClient = created;
+    return created;
+  })();
+  // Important: DuckDB is global (shared) in the browser. In the example gallery,
+  // we can re-initialize the same spec multiple times during reactive updates.
+  // Use a per-install unique table name to avoid "already exists" races.
+  const tableName = (() => {
+    if (!handleRef) return null;
+    const base = `vacp_vl_${options.appId}_${options.viewId}_${options.vizId}`.replaceAll(/[^a-zA-Z0-9_]/g, '_');
+    const suffix = typeof crypto.randomUUID === 'function' ? crypto.randomUUID().slice(0, 8) : String(Date.now());
+    const name = `${base}_${suffix}`;
+
+    // Best-effort cleanup: if we previously created a table for this view key,
+    // drop it so the shared in-browser DuckDB doesn't grow unbounded.
+    const viewKey = `${options.appId}/${options.viewId}/${options.vizId}`;
+    const rootAny = globalThis as unknown as { __vacpVegaLiteDuckDbTables?: Record<string, string> };
+    const map = (rootAny.__vacpVegaLiteDuckDbTables ??= {});
+    const prev = map[viewKey];
+    map[viewKey] = name;
+    if (prev && prev !== name && duckdbPromise) {
+      void duckdbPromise.then((db) => db.exec(`DROP TABLE IF EXISTS main.${prev}`)).catch(() => {});
+    }
+
+    return name;
+  })();
+
+  let duckdbLoad: Promise<void> | null = null;
+  const ensureDuckDbData = async (): Promise<void> => {
+    if (!duckdbPromise || !tableName || !dataRows) return;
+    if (!duckdbLoad) {
+      duckdbLoad = (async () => {
+        const db = await duckdbPromise;
+        const rows = dataRows
+          .map((d) => (d && typeof d === 'object' && !Array.isArray(d) ? (d as Record<string, unknown>) : null))
+          .filter((d): d is Record<string, unknown> => !!d);
+        try {
+          await db.exec(`DROP VIEW IF EXISTS main.${tableName}`);
+          await db.exec(`DROP TABLE IF EXISTS main.${tableName}`);
+        } catch {
+          // Best-effort; the table name is unique per install, so existence
+          // here is not required for correctness.
+        }
+
+        try {
+          await db.loadObjectsAsTable(tableName, rows, { create: true });
+          return;
+        } catch (err) {
+          // Some DuckDB-WASM builds can race/lag catalog changes (or reactive
+          // render loops can re-run installs) and CREATE can see "exists" even
+          // after drops. Fall back to a "truncate + insert" approach.
+          try {
+            await db.exec(`DELETE FROM main.${tableName}`);
+          } catch {
+            // ignore
+          }
+          try {
+            await db.loadObjectsAsTable(tableName, rows, { create: false });
+            return;
+          } catch {
+            // Last resort: retry create once more (the original error is likely
+            // transient catalog state); bubble if it still fails.
+            await db.loadObjectsAsTable(tableName, rows, { create: true });
+          }
+          void err;
+        }
+      })();
+    }
+    await duckdbLoad;
+  };
+
+  if (duckdbPromise) void ensureDuckDbData().catch(() => {});
+
+  if (handleRef && duckdbPromise && tableName) {
+    const dataSqlDesc = registerVacpDataSqlAction(
+      actionRegistry,
+      createDuckDbDataSqlHandler({
+        duckdb: {
+          getConnection: () => duckdbPromise.then((d) => d.getConnection()),
+          exec: (sql) => duckdbPromise.then((d) => d.exec(sql)),
+          queryJson: (sql) => duckdbPromise.then((d) => d.queryJson(sql)),
+          queryArrowIpcBase64: (sql) => duckdbPromise.then((d) => d.queryArrowIpcBase64(sql)),
+          loadObjectsAsTable: (t, rows, opts) => duckdbPromise.then((d) => d.loadObjectsAsTable(t, rows, opts)),
+        },
+        resolveHandle: async (ref) => {
+          if (ref !== handleRef) return null;
+          await ensureDuckDbData();
+          const allSql = `SELECT * FROM ${tableName}`;
+          const where = whereClauseForCurrentSelections(spec, view);
+          const selectedSql = where ? `SELECT * FROM ${tableName} WHERE ${where}` : allSql;
+          return { allSql, selectedSql };
+        },
+      }),
+      { targetRef: handleRef, description: 'Query the current Vega-Lite selection using DuckDB SQL.' },
+    );
+    actionDescriptors.push(dataSqlDesc);
+  }
+
+  const graph = buildGraph({
+    spec,
+    options,
+    actions: actionDescriptors,
+    dataHandle: handleRef ? { ref: handleRef, data: { tableName } } : undefined,
+  });
 
   applyVacpAttributes(root, {
     ref: vizRef,
@@ -134,6 +257,14 @@ export function installVacpOnVegaLiteView(args: {
           ? { kind, name: p.name, value: tryGetSignal(view, p.name), select: p.select }
           : { kind, name: p.name, value: tryGetSignal(view, p.name), bind: p.bind };
       });
+      if (handleRef) {
+        state[handleRef] = {
+          kind: 'DataHandle',
+          tableName,
+          selectionWhere: whereClauseForCurrentSelections(spec, view),
+          selectedMeaning: 'rows matching current selection params; falls back to all rows if none',
+        };
+      }
       return { version: VACP_SCHEMA_VERSION, createdAt: nowIso(), state: state as any };
     },
   };

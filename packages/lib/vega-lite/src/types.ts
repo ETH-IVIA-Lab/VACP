@@ -10,6 +10,19 @@ export interface VegaViewLike {
   signal(name: string, value?: any): any;
   runAsync(): Promise<unknown>;
   /**
+   * Vega View API: access a named dataset (by name).
+   *
+   * Used to clear selection stores robustly without clobbering internal signals.
+   */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  data?: (name: string) => any;
+  /**
+   * Vega View API: apply a changeset to a named dataset.
+   * (Typically paired with `vega.changeset()`.)
+   */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  change?: (name: string, changeset: any) => any;
+  /**
    * Optional Vega View API: subscribe to signal changes.
    * Used to keep the VACP runtime timeline in sync with human interactions.
    */
@@ -48,6 +61,20 @@ export interface InstallVacpOnVegaLiteOptions {
   title?: string;
   description?: string;
   globalKey?: string;
+  /**
+   * Optional DuckDB client to back `vacp.data_sql`.
+   *
+   * If omitted, the provider will lazily create an in-browser DuckDB (WASM)
+   * instance when needed.
+   */
+  duckdbClient?: import('@vacp/duckdb').VacpDuckDbClient;
+  /**
+   * Enable the standard `vacp.data_sql` action and a DataHandle node when the
+   * spec uses inline `data.values`.
+   *
+   * Defaults to true.
+   */
+  enableDuckDbDataHandle?: boolean;
   /**
    * If true, include a debugging action that allows setting any signal by name.
    * This is powerful but should be used carefully in production UIs.

@@ -1,4 +1,5 @@
 import type { VacpActionCall } from '@vacp/core';
+import { changeset } from 'vega';
 
 import { signalNamesFromView, tryGetSignal, trySetSignal } from './signals';
 import type { VegaLiteParamLike, VegaLiteSpecLike, VegaViewLike } from './types';
@@ -74,13 +75,33 @@ export async function executeAction(
 
   if (call.name === 'vega_lite.clear_selection') {
     if (found.kind !== 'Selection') throw new Error(`Param "${name}" is not a selection parameter`);
-    // Selection clearing is best-effort: selection signals vary by selection type.
-    const watched = helpers.watchedSignalsByParam.get(name) ?? [name];
+    // Prefer clearing the Vega-Lite selection *store* (a dataset like
+    // `<param>_store`). This avoids mutating internal helper signals such as
+    // `<param>_tuple_fields`, which can break subsequent human interaction.
+    const storeName = `${name}_store`;
     let cleared = 0;
-    watched.forEach((sig) => {
-      if (helpers.allSignals.length && !helpers.allSignals.includes(sig)) return;
-      if (trySetSignal(view, sig, null)) cleared += 1;
-    });
+    if (typeof view.data === 'function' && typeof view.change === 'function') {
+      try {
+        // Accessing `view.data(name)` throws if the dataset is missing.
+        void view.data(storeName);
+        view.change(storeName, changeset().remove(() => true));
+        cleared += 1;
+      } catch {
+        // Fall back below.
+      }
+    }
+
+    if (!cleared) {
+      // Best-effort fallback: clear only the signals that carry tuple/value
+      // information. Never clobber `<name>_tuple_fields` (metadata).
+      const watched = helpers.watchedSignalsByParam.get(name) ?? [name];
+      watched.forEach((sig) => {
+        if (helpers.allSignals.length && !helpers.allSignals.includes(sig)) return;
+        if (sig.endsWith('_tuple_fields')) return;
+        if (sig !== name && !sig.endsWith('_tuple') && !sig.endsWith('_modify')) return;
+        if (trySetSignal(view, sig, null)) cleared += 1;
+      });
+    }
     await view.runAsync();
     return { ok: true, cleared };
   }
