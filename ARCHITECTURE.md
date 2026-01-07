@@ -1,193 +1,233 @@
 # VACP Architecture
 
-This document explains how the `vacp/` monorepo is structured, how the runtime system works end-to-end, and why the design is “Mosaic-first but reusable”.
+VACP makes interactive visualization apps **agent-ready** without pixel automation.
+
+It does this by standardizing a tiny in-page API (`window.__vacp`) that supports:
+
+- **Capabilities**: “what exists and what can I do?”
+- **State**: “what is currently selected / configured?”
+- **Actions**: “perform a semantic interaction with parameters”
+
+This document is intentionally simple, but also contains a formal protocol section suitable as a paper-ready spec.
 
 ---
 
-## Goals
-
-- **Make visual analytics UIs agent-ready** without pixel-based “computer use”.
-- Provide a stable, typed interface for agents:
-  - **Discovery**: “what exists / what can I do?”
-  - **State**: “what is selected / configured right now?”
-  - **Control**: “execute this interaction safely with parameters”
-- Keep the protocol **standalone** and reusable across apps, while supporting **first-class Mosaic/vgplot** integrations.
-
----
-
-## Key Idea: VACP as a Graph + Actions (DOM is an adapter)
-
-VACP’s canonical representation is:
-
-- A **graph** of nodes and edges describing UI structure and semantics.
-- A list of **action descriptors** (callable interactions) with parameter schemas.
-- A **state snapshot** keyed by stable node references.
-
-In practice you also want a small **runtime** in the app:
-
-- records a timeline of snapshots and action results (for debugging and replay),
-- enables “time travel” inspection (without mutating the live app),
-- supports tooling like an in-page debug overlay.
-
-DOM/SVG annotations are used for:
-
-- discoverability and debugging,
-- compatibility with non-cooperative apps (fallback),
-- linking nodes to rendered SVG output.
-
-But the preferred, stable integration path is a **window bridge** (`window.__vacp`) that returns canonical JSON snapshots directly.
-
----
-
-## Monorepo Layout
-
-The monorepo uses:
-
-- **pnpm** for TypeScript packages in `vacp/packages/lib/*` and `vacp/packages/examples/*`
-- **uv** for the Python MCP transport in `vacp/packages/vacp-mcp-server`
-
-### TypeScript packages
-
-- `vacp/packages/lib/core` (`@vacp/core`)
-  - Protocol types and contracts:
-    - graph model (`VacpGraph`, `VacpNode`, `VacpEdge`)
-    - actions (`VacpActionDescriptor`, `VacpActionCall`, `VacpActionResult`)
-    - snapshots (`VacpCapabilitiesSnapshot`, `VacpStateSnapshot`)
-    - in-page bridge contract (`VacpWindowBridge`)
-- `vacp/packages/lib/gateway` (`@vacp/gateway`)
-  - In-page runtime + execution:
-    - `VacpActionRegistry` (register/execute semantic actions)
-    - `installVacpRuntimeBridge` (installs/updates a stable `window.__vacp`)
-    - records history entries for actions and state changes (time travel / undo/redo tooling)
-- `vacp/packages/lib/dom` (`@vacp/dom`)
-  - DOM/SVG adapter:
-    - `applyVacpAttributes` / `applyVacpInteractionAttributes` (`data-vacp-*`, `data-interaction-vacp-*`)
-    - `embedVacpGraphInSvg` via `<metadata type="application/vacp+json">`
-- `vacp/packages/lib/diagrams` (`@vacp/diagrams`)
-  - Debug diagrams:
-    - renders VACP graphs to Mermaid (used by the debug overlay)
-- `vacp/packages/lib/mosaic` (`@vacp/mosaic`)
-  - Mosaic/vgplot-first integration:
-    - `installVacpOnVgplot(plot, svg, options)`:
-      - annotates SVG + mark groups (`[data-index]`)
-      - embeds the canonical graph in SVG metadata
-      - installs `window.__vacp`
-      - registers minimal actions for vgplot interactors (Interval1D/Interval2D)
-- `vacp/packages/lib/vega-lite` (`@vacp/vega-lite`)
-  - Vega-Lite-first integration:
-    - `installVacpOnVegaLiteView({ root, view, spec, options })`
-    - Exposes Vega-Lite `params` as VACP nodes:
-      - variable params → `Param` nodes (ConfigLayer)
-      - selection params → `Selection` nodes (InteractionFeedbackLayer)
-    - Registers actions to set/clear params by name (implemented via Vega View signals)
-    - Installs an in-page bridge (`window.__vacp`) for stable access
-- `vacp/packages/lib/debug-ui` (`@vacp/debug-ui`)
-  - Optional in-app debug overlay:
-    - gated by `?vacpDebug=1` / localStorage `vacp:debug=1`
-    - renders the current graph to SVG using Mermaid (on demand)
-    - lets you dispatch actions and inspect the runtime timeline
-    - provides a demo stepper (provider-supplied scripts)
-    - can apply a state map to the live app via `vacp.apply_state`
-
-### Python packages
-
-- `vacp/packages/vacp-mcp-server` (`vacp-mcp-server`)
-  - Runs Playwright, exposes MCP tools for:
-    - `vacp_capabilities()`
-    - `vacp_state()`
-    - `vacp_execute(name, params, call_id)`
-  - Uses a **Surface** abstraction:
-    - preferred: bridge-based (calls `window.__vacp`)
-    - fallback: DOM scan + SVG metadata extraction
-
----
-
-## Package Dependency Overview
-
-```mermaid
-flowchart TB
-  subgraph TS["TypeScript workspace (pnpm)"]
-    core["@vacp/core"]
-    gw["@vacp/gateway"]
-    dom["@vacp/dom"]
-    diag["@vacp/diagrams"]
-    dbg["@vacp/debug-ui"]
-    mosaic["@vacp/mosaic"]
-    vega["@vacp/vega-lite"]
-
-    gw --> core
-    dom --> core
-    diag --> core
-    dbg --> core
-    dbg --> diag
-    mosaic --> core
-    mosaic --> dom
-    mosaic --> gw
-    vega --> core
-    vega --> dom
-    vega --> gw
-  end
-
-  subgraph PY["Python workspace (uv)"]
-    mcp["vacp-mcp-server"]
-  end
-
-  mcp -. reads/writes JSON .-> core
-```
-
-Why this split works:
-
-- `@vacp/core` is dependency-free and defines the stable contract.
-- Providers (`mosaic`, `vega-lite`, “D3”, …) build on `core` and `gateway` but don’t change protocol semantics.
-- `@vacp/dom` is optional: the bridge is the preferred access path; DOM tags are for compatibility and debugging.
-
----
-
-## Runtime Architecture (End-to-End)
-
-### High-level system diagram
+## System overview
 
 ```mermaid
 flowchart LR
-  Agent["Agent / LLM Client"] -->|MCP tools| MCP["vacp-mcp-server (MCP + Playwright)"]
+  Agent["Agent / LLM client"] -->|MCP tools| MCP["vacp-mcp-server (Playwright + MCP)"]
 
   subgraph Browser["Browser (Playwright-launched or external Chrome via CDP)"]
     App["Visualization app (Mosaic / Vega-Lite / D3 / …)"]
-    Runtime["VACP runtime (action registry + history)"]
     Bridge["window.__vacp (capabilities / state / execute)"]
-    Debug["Optional debug UI overlay"]
+    Runtime["Runtime (history, time travel, demos)"]
     DOM["Optional DOM/SVG annotations + SVG metadata"]
+    Debug["Optional debug overlay"]
 
-    App --> Runtime
-    Runtime --> Bridge
-    Debug --> Bridge
+    App --> Bridge
     App --> DOM
+    Bridge --> Runtime
+    Debug --> Bridge
   end
 
-  MCP -->|Playwright evaluate| Bridge
-  MCP -->|DOM scan fallback| DOM
+  MCP -->|evaluate| Bridge
+  MCP -->|fallback scan| DOM
 ```
 
-Why this is flexible:
-
-- **Bridge-first** avoids brittle DOM scraping and stays stable across rerenders.
-- **DOM fallback** keeps partially-integrated pages usable (and helps debugging).
-- The **runtime** is app-local and transport-agnostic: MCP is only one way to reach it.
+Key idea: **the protocol lives inside the app**. MCP is only one transport.
 
 ---
 
-## Bidirectionality (why this matters)
+## How control works (bidirectionality)
 
-The project value is _interchangeable_ control:
+The goal is “mixed initiative”: human and agent can interleave work seamlessly.
 
-- A human can brush/select/click normally.
-- An agent can dispatch the equivalent semantic action.
-- Both produce the same state updates and show up in the same runtime history.
-
-This is what makes “handoff” and “mixed initiative” realistic: agents are not a separate automation system; they are another client of the same contract.
+- A **human** brushes/clicks/toggles in the UI.
+- The app updates its semantic state (selection, param, etc.).
+- The VACP bridge reports that state via `getState()`.
+- An **agent** can apply the same semantic change by calling a named action (no pixels).
+- Both paths are recorded into one shared runtime history for debugging/time travel.
 
 ---
 
-## More detail
+## Formal protocol (VACP)
 
-For the detailed interaction flows (capabilities/state/execute), design rationale, extension points, and quality gates, see `ARCHITECTURE_DETAILS.md`.
+This repo implements VACP as a small set of JSON messages plus an in-page RPC interface.
+
+### Terms
+
+- **Ref**: a stable identifier for a semantic entity (string; often `vacp://…`).
+- **Graph**: a semantic model of the UI (nodes + edges + actions).
+- **Capabilities snapshot**: a timestamped graph.
+- **State snapshot**: timestamped values keyed by `ref`.
+- **Action**: a named semantic operation with a JSON parameter schema.
+
+### Conformance (paper-ready)
+
+An implementation is “VACP-conformant” if it:
+
+- **MUST** provide `getCapabilities()`, `getState()`, and `execute(call)` via a stable bridge object (typically `window.__vacp`).
+- **MUST** use stable `ref` strings as identifiers (not DOM position).
+- **MUST** return versioned snapshots with ISO timestamps.
+- **SHOULD** ensure actions are safe and validated (reject invalid params; do not rely on pixel events).
+- **MAY** additionally expose runtime/history APIs (`getRuntime`, `undo/redo`, demos, overrides) for debugging and research workflows.
+
+### Data model
+
+The canonical semantic model is a directed labeled graph:
+
+- `G = (V, E)` where `V` are nodes and `E` are edges.
+- Each node has a unique `ref` and a `kind` (e.g. `View`, `Visualization`, `Param`, `Selection`, `InteractionTarget`).
+- Edges describe relationships (e.g. `contains`, `controls`, `depends_on`).
+
+Actions are attached to the graph as descriptors:
+
+```ts
+type VacpActionDescriptor = {
+  name: string; // stable action id, e.g. "mosaic.set_interval_1d"
+  description?: string; // human-readable
+  parameters: object; // JSON-schema-like shape
+  targetRef?: string; // optional: node this action applies to
+};
+```
+
+### Snapshots
+
+Capabilities snapshot (what exists):
+
+```ts
+type VacpCapabilitiesSnapshot = {
+  version: string;
+  createdAt: string; // ISO timestamp
+  graph: { version: string; nodes: VacpNode[]; edges: VacpEdge[]; actions: VacpActionDescriptor[] };
+};
+```
+
+State snapshot (what is currently true):
+
+```ts
+type VacpStateSnapshot = {
+  version: string;
+  createdAt: string; // ISO timestamp
+  state: Record<string /* ref */, unknown /* typed by kind */>;
+};
+```
+
+Design note: **state is keyed by `ref`**, not by DOM position. This is what makes the protocol stable across rerenders.
+
+### Action calls and results
+
+```ts
+type VacpActionCall = { callId: string; name: string; params?: unknown };
+type VacpActionResult = { callId: string; ok: boolean; result?: unknown; error?: { message: string } };
+```
+
+### In-page RPC (the bridge)
+
+Providers install a bridge (usually) at `window.__vacp`:
+
+```ts
+interface VacpWindowBridge {
+  getCapabilities(): Promise<VacpCapabilitiesSnapshot>;
+  getState(): Promise<VacpStateSnapshot>;
+  execute(call: VacpActionCall): Promise<VacpActionResult>;
+}
+```
+
+This repo’s runtime bridge may also provide optional debugging endpoints:
+
+- `getRuntime()` (history, cursor, “inspect” vs “live”)
+- `dispatch(call, options)` (records source/message)
+- `getDemos()` (scripted stepper)
+- `undo/redo`, `setMode`, `setStateOverride`, `setGraphOverride`, `refresh`, `subscribe`
+
+### Invariants and design intent
+
+These invariants are what make the protocol useful for mixed-initiative systems:
+
+- **Stability**: the same `ref` keeps meaning across rerenders and time.
+- **Semantic actions**: actions describe intent (e.g. “set interval selection”), not “click this DOM node”.
+- **Bidirectionality**: human input and agent calls produce compatible state snapshots.
+- **Transport-agnostic**: MCP, WebSocket, or any other wire can carry the same messages.
+
+### Transport mapping (MCP)
+
+The Python `vacp-mcp-server` maps the bridge to MCP tools:
+
+- `vacp_capabilities()` → `window.__vacp.getCapabilities()`
+- `vacp_state()` → `window.__vacp.getState()`
+- `vacp_execute(name, params?, call_id?)` → `window.__vacp.execute({callId, name, params})`
+- `vacp_diagram(...)` → renders the current graph to Mermaid (debugging)
+
+### DOM/SVG as an adapter (optional)
+
+If a page cannot install a bridge, VACP can still be surfaced via:
+
+- `data-vacp-*` and `data-interaction-vacp-*` attributes, and/or
+- embedded SVG metadata: `<metadata type="application/vacp+json">…</metadata>`
+
+In this repo that is used as a **fallback surface** for `vacp-mcp-server`, and as a **debuggable artifact** for exported SVG.
+
+---
+
+## Control and observation flows
+
+```mermaid
+sequenceDiagram
+  participant A as Agent
+  participant S as vacp-mcp-server
+  participant P as Playwright Page
+  participant B as window.__vacp
+
+  A->>S: vacp_capabilities()
+  S->>P: evaluate(getCapabilities)
+  P->>B: getCapabilities()
+  B-->>P: capabilities JSON
+  P-->>S: capabilities JSON
+  S-->>A: capabilities JSON
+```
+
+```mermaid
+sequenceDiagram
+  participant A as Agent
+  participant S as vacp-mcp-server
+  participant P as Playwright Page
+  participant B as window.__vacp
+
+  A->>S: vacp_execute(name, params)
+  S->>P: evaluate(execute)
+  P->>B: execute(call)
+  B-->>P: action result
+  P-->>S: action result
+  S-->>A: action result
+```
+
+---
+
+## Monorepo map (implementation)
+
+TypeScript (pnpm):
+
+- `@vacp/core`: protocol types (the JSON contract).
+- `@vacp/gateway`: runtime bridge + action registry + history/time travel.
+- `@vacp/dom`: DOM/SVG adapter (tags + embedded SVG metadata).
+- `@vacp/diagrams`: Mermaid source generation for graphs.
+- `@vacp/debug-ui`: in-page overlay that inspects `window.__vacp`.
+- `@vacp/mosaic`: provider for Mosaic/vgplot.
+- `@vacp/vega-lite`: provider for Vega-Lite/Vega views.
+
+Python (uv):
+
+- `vacp-mcp-server`: MCP transport that uses Playwright and a `Surface` abstraction (bridge-first, DOM fallback).
+
+---
+
+## Quality gates
+
+From `vacp/`:
+
+- Format: `pnpm format`
+- Lint: `pnpm lint`
+- Typecheck: `pnpm typecheck`
+- Smoke tests (runs all examples): `pnpm test:examples`

@@ -14,9 +14,19 @@ MCP is only a transport. The VACP protocol and runtime live inside the app.
 From `vacp/`:
 
 - `uv sync`
+- (First time only) `uv run playwright install chromium`
 - `uv run vacp-mcp-server --url http://localhost:5173/`
 
 MCP endpoint defaults to `http://localhost:8000/mcp`.
+
+## What tools it exposes (MCP)
+
+- `vacp_capabilities()` → VACP capabilities snapshot (graph + actions)
+- `vacp_state()` → VACP state snapshot (current selections/params)
+- `vacp_execute(name, params?, call_id?)` → run a semantic action via the bridge
+- `vacp_diagram(include_actions?, include_state_preview?, direction?)` → Mermaid text diagram (debugging)
+
+The server tries the bridge first. If the bridge is missing or errors, it falls back to DOM/SVG scanning (unless disabled).
 
 ## Use an external browser (recommended for interactive dev)
 
@@ -42,3 +52,8 @@ uv run vacp-mcp-server \
 ```
 
 If no existing tab matches, the server will open a new page and navigate to `--url`.
+
+## Useful flags
+
+- `--global-key __vacp`: choose the bridge global name (must match the app)
+- `--no-dom-fallback`: disable DOM/SVG scanning (bridge-only)

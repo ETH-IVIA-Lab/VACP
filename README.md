@@ -14,12 +14,23 @@ Agents, humans, and debugging tools all interact with the same contract.
 
 Instead of clicking pixels, an agent calls `window.__vacp.execute({ name, params })` (usually via MCP), and the app runs the _same_ semantic interactions a human would.
 
-## Quick Start
+## What’s in this repo
+
+- **Protocol + runtime (TypeScript)**: the in-app contract and history/time travel support (`packages/lib/*`).
+- **Providers (TypeScript)**: first-class integrations for specific visualization stacks:
+  - Mosaic/vgplot (`@vacp/mosaic`)
+  - Vega-Lite/Vega params (`@vacp/vega-lite`)
+  - a frameworkless D3 example (shows you can build your own provider)
+- **Transport (Python)**: `vacp-mcp-server` (Playwright + MCP), which lets an agent reach `window.__vacp`.
+- **Examples**: runnable demos that double as smoke tests (`pnpm test:examples`).
+
+## Quick Start (5 minutes)
 
 From `vacp/`:
 
 - Install JS deps: `pnpm install`
 - Install Python env: `uv sync`
+- (First time only) Install Playwright browser: `uv run playwright install chromium`
 - Run all example smoke tests: `pnpm test:examples` (spins up each demo and validates bidirectionality)
 
 Run an example app:
@@ -43,6 +54,20 @@ For interactive development, it’s often nicer to attach to an existing Chrome 
 
 - See `vacp/packages/vacp-mcp-server/README.md`
 
+## Suggested exploration path
+
+If you’re new to the repo, this is the fastest way to build a correct mental model:
+
+1. Run `packages/examples/mosaic-gallery` and open the overlay (`?vacpDebug=1`).
+2. Use **both**:
+   - human interaction (brush with the mouse), and
+   - agent-like interaction (overlay **Demo** → **Run all**).
+3. Read `vacp/ARCHITECTURE.md` (system + protocol spec).
+4. Skim the core contract: `packages/lib/core`.
+5. Skim the runtime: `packages/lib/gateway` (history, undo/redo, overrides).
+6. Skim one provider: `packages/lib/mosaic` or `packages/lib/vega-lite`.
+7. Read `packages/vacp-mcp-server/README.md` (agent transport via MCP).
+
 ## How It Works (Plain Version)
 
 VACP has two layers:
@@ -58,8 +83,7 @@ MCP is “just a wire”. The protocol lives in the app.
 
 ## Where To Read Next
 
-- System overview: `vacp/ARCHITECTURE.md`
-- Deep dive (flows, rationale, extension points): `vacp/ARCHITECTURE_DETAILS.md`
+- System + protocol spec: `vacp/ARCHITECTURE.md`
 - Runnable demos: `vacp/packages/examples/README.md`
 - MCP server: `vacp/packages/vacp-mcp-server/README.md`
 

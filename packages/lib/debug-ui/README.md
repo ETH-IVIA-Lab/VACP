@@ -11,7 +11,12 @@ It is provider-agnostic: it only talks to `window.__vacp` (the runtime bridge in
 
 ## What it shows
 
-- current graph rendered as Mermaid → SVG
-- available actions and manual dispatch (with source + message)
-- timeline/history + time travel inspection (live/undo/redo)
-- inspection-only state/graph overrides (do not mutate the live app)
+- **Graph**: current graph rendered as Mermaid → SVG (plus Mermaid source)
+- **Actions**: manual dispatch (no pixel automation)
+- **History**: runtime timeline + time travel (live/undo/redo)
+- **Demo**: provider-supplied scripted stepper (shows “agent-like” sequences)
+- **JSON**: inspection overrides + opt-in apply-to-live
+
+The overlay works best when the bridge supports `getRuntime()` and `getDemos()`, but it still functions with the minimal bridge (`getCapabilities/getState/execute`).
+
+For a runnable reference, see any of the example apps under `packages/examples/*`.
