@@ -163,6 +163,7 @@ function createRuntimeBridge({
   const adapter: Adapter = { snapshots, actions };
 
   const listeners = new Set<(entry: VacpHistoryEntry) => void>();
+  const runtimeId = makeEntryId();
 
   let mode: VacpRuntimeMode = 'live';
   let cursor = -1;
@@ -349,6 +350,7 @@ function createRuntimeBridge({
       const liveSt = liveState as VacpStateSnapshot;
       return {
         version: VACP_SCHEMA_VERSION,
+        runtimeId,
         mode,
         cursor,
         history: [...history],
@@ -392,6 +394,8 @@ function createRuntimeBridge({
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   (bridge as any).__vacpUpdate = (next: { snapshots: VacpSnapshotProvider; actions: VacpActionRegistry }) =>
     updateAdapters(next, { source: 'system' });
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  (bridge as any).__vacpRuntimeId = runtimeId;
 
   return bridge;
 }

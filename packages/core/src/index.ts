@@ -195,6 +195,8 @@ export type VacpRuntimeMode = 'live' | 'inspect';
 
 export interface VacpRuntimeSnapshot {
   version: VacpSchemaVersion;
+  /** Stable identifier for the in-page runtime instance (debugging only). */
+  runtimeId?: string;
   mode: VacpRuntimeMode;
   cursor: number;
   /** Timeline of observed snapshots and action calls/results. */
