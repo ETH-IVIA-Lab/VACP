@@ -1,9 +1,10 @@
 const CSS = `
-  .vacp-debug-ui-button {
+  .vacp-debug-ui-root {
     position: fixed;
-    right: 14px;
-    bottom: 14px;
     z-index: 2147483647;
+    touch-action: none;
+  }
+  .vacp-debug-ui-button {
     background: #0b1020;
     color: #e7e9ee;
     border: 1px solid rgba(231, 233, 238, 0.2);
@@ -15,12 +16,9 @@ const CSS = `
     box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
   }
   .vacp-debug-ui-panel {
-    position: fixed;
-    right: 14px;
-    bottom: 56px;
+    position: absolute;
     width: min(860px, calc(100vw - 28px));
     height: min(680px, calc(100vh - 92px));
-    z-index: 2147483647;
     background: #0b1020;
     color: #e7e9ee;
     border: 1px solid rgba(231, 233, 238, 0.2);
@@ -44,6 +42,8 @@ const CSS = `
     min-width: 220px;
     font: 12px system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
     opacity: 0.9;
+    cursor: move;
+    user-select: none;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -158,6 +158,36 @@ const CSS = `
   }
   .vacp-debug-ui-row[aria-selected="true"] {
     outline: 2px solid rgba(231, 233, 238, 0.25);
+  }
+
+  .vacp-debug-ui-table-wrap {
+    border: 1px solid rgba(231, 233, 238, 0.12);
+    border-radius: 10px;
+    overflow: auto;
+    max-height: 260px;
+    background: rgba(231, 233, 238, 0.04);
+  }
+  .vacp-debug-ui-table {
+    width: 100%;
+    border-collapse: collapse;
+    font: 11px ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
+  }
+  .vacp-debug-ui-table th,
+  .vacp-debug-ui-table td {
+    padding: 6px 8px;
+    border-bottom: 1px solid rgba(231, 233, 238, 0.08);
+    vertical-align: top;
+    text-align: left;
+    max-width: 260px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .vacp-debug-ui-table th {
+    position: sticky;
+    top: 0;
+    background: rgba(11, 16, 32, 0.98);
+    z-index: 1;
   }
 `;
 

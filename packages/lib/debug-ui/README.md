@@ -9,9 +9,12 @@ It is provider-agnostic: it only talks to `window.__vacp` (the runtime bridge in
 - add `?vacpDebug=1` to the URL, or
 - set localStorage `vacp:debug=1`
 
+The overlay can be dragged by the “VACP” pill (closed) or by the title bar (open).
+
 ## What it shows
 
 - **Graph**: current graph rendered as Mermaid → SVG (plus Mermaid source)
+- **Data**: pick a `DataHandle` and run DuckDB SQL via `vacp.data_sql` (includes selection preview)
 - **Actions**: manual dispatch (no pixel automation)
 - **History**: runtime timeline + time travel (live/undo/redo)
 - **Demo**: provider-supplied scripted stepper (shows “agent-like” sequences)

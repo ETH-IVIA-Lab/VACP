@@ -24,7 +24,7 @@ export interface VacpDebugUiOptions {
   includeStatePreview?: boolean;
 }
 
-export type DebugTab = 'Graph' | 'Actions' | 'History' | 'Demo' | 'JSON';
+export type DebugTab = 'Graph' | 'Data' | 'Actions' | 'History' | 'Demo' | 'JSON';
 
 export type VacpWindowBridge = VacpRuntimeBridge & {
   getCapabilities: () => Promise<VacpCapabilitiesSnapshot>;
