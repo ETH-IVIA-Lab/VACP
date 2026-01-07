@@ -1,0 +1,26 @@
+{
+  "name": "@vacp/duckdb",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "dependencies": {
+    "@duckdb/duckdb-wasm": "^1.30.0",
+    "apache-arrow": "^19.0.1",
+    "@vacp/core": "workspace:*"
+  },
+  "scripts": {
+    "build": "tsc -b",
+    "lint": "oxlint src",
+    "typecheck": "tsc -b"
+  }
+}
+
