@@ -21,7 +21,7 @@ flowchart LR
   subgraph Browser["Browser (Playwright-launched or external Chrome via CDP)"]
     App["Visualization app (Mosaic / Vega-Lite / D3 / …)"]
     Bridge["window.__vacp (capabilities / state / execute)"]
-    Runtime["Runtime (history, time travel, demos)"]
+    Runtime["Runtime (history, time travel, playbooks)"]
     DOM["Optional DOM/SVG annotations + SVG metadata"]
     Debug["Optional debug overlay"]
 
@@ -139,7 +139,7 @@ This repo’s runtime bridge may also provide optional debugging endpoints:
 
 - `getRuntime()` (history, cursor, “inspect” vs “live”)
 - `dispatch(call, options)` (records source/message)
-- `getDemos()` (scripted stepper)
+- `getPlaybooks()` (scripted stepper; older name: `getDemos()`)
 - `undo/redo`, `setMode`, `setStateOverride`, `setGraphOverride`, `refresh`, `subscribe`
 
 ### Invariants and design intent

@@ -22,7 +22,7 @@ Instead of clicking pixels, an agent calls `window.__vacp.execute({ name, params
   - Vega-Lite/Vega params (`@vacp/vega-lite`)
   - a small “BYO provider” kit (`@vacp/kit`) used by the frameworkless examples
 - **Transport (Python)**: `vacp-mcp-server` (Playwright + MCP), which lets an agent reach `window.__vacp`.
-- **Examples**: runnable demos that double as smoke tests (`pnpm test:examples`).
+- **Examples**: runnable example apps that double as smoke tests (`pnpm test:examples`).
 
 ## Quick start
 
@@ -46,7 +46,7 @@ Run an example app:
 Enable the in-page overlay:
 
 - Add `?vacpDebug=1` to the URL
-- Click the “VACP” button to inspect the graph, timeline, demos, run DuckDB SQL, and dispatch actions manually
+- Click the “VACP” button to inspect the graph, timeline, playbooks, run DuckDB SQL, and dispatch actions manually
 - Use `JSON → Apply state to live app` (opt-in) to apply edited state maps during development
 
 Run the MCP server:
@@ -65,7 +65,7 @@ If you’re new to the repo, this is the fastest way to build a correct mental m
 1. Run `packages/examples/mosaic-gallery` and open the overlay (`?vacpDebug=1`).
 2. Use **both**:
    - human interaction (brush with the mouse), and
-   - agent-like interaction (overlay **Demo** → **Run all**).
+   - agent-like interaction (overlay **Playbook** → **Run all**).
 3. Read `vacp/ARCHITECTURE.md` (system + protocol spec).
 4. Skim the core contract: `packages/lib/core`.
 5. Skim the runtime: `packages/lib/gateway` (history, undo/redo, overrides).
@@ -89,11 +89,11 @@ MCP is “just a wire”. The protocol lives in the app.
 ## Where To Read Next
 
 - System + protocol spec: `vacp/ARCHITECTURE.md`
-- Runnable demos: `vacp/packages/examples/README.md`
+- Runnable examples: `vacp/packages/examples/README.md`
 - MCP server: `vacp/packages/vacp-mcp-server/README.md`
 
 ## Repository Layout
 
 - `vacp/packages/lib/*`: TypeScript workspace (pnpm)
-- `vacp/packages/examples/*`: runnable demos (also serve as regression tests)
+- `vacp/packages/examples/*`: runnable example apps (also serve as regression tests)
 - `vacp/packages/vacp-mcp-server`: Python MCP transport (uv)

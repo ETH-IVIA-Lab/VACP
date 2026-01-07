@@ -22,7 +22,7 @@ All examples include the optional `@vacp/debug-ui` overlay:
   - **Data** (query `vacp_all` / `vacp_handle` via DuckDB)
   - **Actions** (manual dispatch)
   - **History** (time travel)
-  - **Demo** (scripted stepper)
+  - **Playbook** (scripted stepper)
   - **JSON** (inspection overrides + opt-in apply-to-live)
 
 From `vacp/`:
