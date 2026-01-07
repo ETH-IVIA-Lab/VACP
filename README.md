@@ -10,7 +10,7 @@ It does this by giving the app a small, stable API surface:
 
 Agents, humans, and debugging tools all interact with the same contract.
 
-## The Core Idea (One Sentence)
+## Core idea
 
 Instead of clicking pixels, an agent calls `window.__vacp.execute({ name, params })` (usually via MCP), and the app runs the _same_ semantic interactions a human would.
 
@@ -24,13 +24,13 @@ Instead of clicking pixels, an agent calls `window.__vacp.execute({ name, params
 - **Transport (Python)**: `vacp-mcp-server` (Playwright + MCP), which lets an agent reach `window.__vacp`.
 - **Examples**: runnable demos that double as smoke tests (`pnpm test:examples`).
 
-## Quick Start (5 minutes)
+## Quick start
 
 From `vacp/`:
 
 - Install JS deps: `pnpm install`
 - Install Python env: `uv sync`
-- (First time only) Install Playwright browser: `uv run playwright install chromium`
+- Install Playwright browser: `uv run playwright install chromium`
 - Run all example smoke tests: `pnpm test:examples` (spins up each demo and validates bidirectionality)
 
 Run an example app:
@@ -68,7 +68,7 @@ If you’re new to the repo, this is the fastest way to build a correct mental m
 6. Skim one provider: `packages/lib/mosaic` or `packages/lib/vega-lite`.
 7. Read `packages/vacp-mcp-server/README.md` (agent transport via MCP).
 
-## How It Works (Plain Version)
+## How it works
 
 VACP has two layers:
 

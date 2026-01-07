@@ -24,7 +24,7 @@ installVacpOnVgplot(plot, svg, {
 });
 ```
 
-## Use with a dashboard (multiple plots)
+## Use with a dashboard
 
 If your view renders multiple `.plot` blocks, install once at the view root:
 

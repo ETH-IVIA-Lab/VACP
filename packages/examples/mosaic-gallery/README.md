@@ -1,4 +1,6 @@
-# Mosaic Gallery (VACP + Mosaic/vgplot)
+# Mosaic gallery
+
+VACP + Mosaic/vgplot.
 
 This example turns a Mosaic/vgplot dashboard into an **agent-ready** app by installing a VACP bridge at `window.__vacp`.
 
@@ -20,7 +22,7 @@ Enable the debug overlay:
 
 - add `?vacpDebug=1` to the URL, then click the floating **VACP** button
 
-## What happens (end-to-end)
+## How it works
 
 1. The app loads a YAML spec from `src/specs/*.yaml`.
 2. Mosaic renders it into DOM/SVG (via `@uwdata/mosaic-spec` + `@uwdata/vgplot`).
@@ -34,14 +36,14 @@ The important part: **VACP is not a “UI test script”**. It is a stable, type
 
 ## Things to try
 
-### Human interaction (mouse)
+### Try it: human interaction
 
 - Use a brush/interval selection on the chart.
 - Watch how:
   - `window.__vacp.getState()` changes
   - runtime history grows (debug overlay → **History**)
 
-### Agent-like interaction (semantic actions)
+### Try it: agent-style actions
 
 Use the “demo” controls in the page (right-side panel), or use the overlay:
 
@@ -49,7 +51,7 @@ Use the “demo” controls in the page (right-side panel), or use the overlay:
 
 That dispatches the same semantic actions an agent would call via MCP.
 
-### Manual action dispatch (no pixels)
+### Try it: manual action dispatch
 
 - Debug overlay → **Actions**
 - Pick an action and provide JSON params

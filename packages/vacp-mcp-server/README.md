@@ -14,12 +14,12 @@ MCP is only a transport. The VACP protocol and runtime live inside the app.
 From `vacp/`:
 
 - `uv sync`
-- (First time only) `uv run playwright install chromium`
+- Install Playwright browser: `uv run playwright install chromium`
 - `uv run vacp-mcp-server --url http://localhost:5173/`
 
 MCP endpoint defaults to `http://localhost:8000/mcp`.
 
-## What tools it exposes (MCP)
+## MCP tools
 
 - `vacp_capabilities()` → VACP capabilities snapshot (graph + actions)
 - `vacp_state()` → VACP state snapshot (current selections/params)
@@ -28,7 +28,7 @@ MCP endpoint defaults to `http://localhost:8000/mcp`.
 
 The server tries the bridge first. If the bridge is missing or errors, it falls back to DOM/SVG scanning (unless disabled).
 
-## Use an external browser (recommended for interactive dev)
+## External browser via CDP
 
 You can attach to an already-running Chromium browser via CDP. This is useful if:
 

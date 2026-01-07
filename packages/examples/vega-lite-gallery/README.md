@@ -1,4 +1,6 @@
-# Vega-Lite Gallery (VACP + Vega-Lite params)
+# Vega-Lite gallery
+
+VACP + Vega-Lite params.
 
 This example turns Vega-Lite charts into an **agent-ready** app by exposing Vega-Lite `params` through a VACP bridge at `window.__vacp`.
 
@@ -20,7 +22,7 @@ Enable the debug overlay:
 
 - add `?vacpDebug=1` to the URL, then click the floating **VACP** button
 
-## What happens (end-to-end)
+## How it works
 
 1. The app picks a spec from `src/specs/*.ts`.
 2. `vega-embed` renders it to **SVG** and returns a Vega View.
@@ -38,7 +40,7 @@ The key promise: an agent can manipulate interactive Vega-Lite charts **without*
 
 ## Things to try
 
-### Human interaction (mouse)
+### Try it: human interaction
 
 - Click or brush in the chart (depending on the spec).
 - If a slider is present, move it.
@@ -46,7 +48,7 @@ The key promise: an agent can manipulate interactive Vega-Lite charts **without*
   - `window.__vacp.getState()` updates
   - debug overlay → **History** changes
 
-### Agent-like interaction (semantic actions)
+### Try it: agent-style actions
 
 Use the page buttons:
 

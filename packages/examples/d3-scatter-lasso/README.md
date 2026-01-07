@@ -1,4 +1,6 @@
-# D3 Scatter + Lasso (frameworkless VACP provider)
+# D3 scatter + lasso
+
+Frameworkless VACP provider.
 
 This example is intentionally “boring tech”:
 
@@ -21,7 +23,7 @@ Enable the debug overlay:
 
 - add `?vacpDebug=1` to the URL, then click the floating **VACP** button
 
-## What happens (end-to-end)
+## How it works
 
 1. The app renders a scatter plot in SVG.
 2. Human lasso input is captured in pixel space, then converted to **domain coordinates**.
@@ -37,7 +39,7 @@ Enable the debug overlay:
 
 ## Things to try
 
-### Human interaction (mouse)
+### Try it: human interaction
 
 - Draw a freehand polygon in the plot area.
 - The selected points update immediately.
@@ -45,7 +47,7 @@ Enable the debug overlay:
   - state (selection polygon)
   - history entries (human vs debug vs agent sources)
 
-### Agent-like interaction (semantic actions)
+### Try it: agent-style actions
 
 Use the page buttons or the debug overlay:
 

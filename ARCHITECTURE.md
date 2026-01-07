@@ -8,7 +8,7 @@ It does this by standardizing a tiny in-page API (`window.__vacp`) that supports
 - **State**: “what is currently selected / configured?”
 - **Actions**: “perform a semantic interaction with parameters”
 
-This document is intentionally simple, but also contains a formal protocol section suitable as a paper-ready spec.
+This document describes the system design and the VACP protocol implemented in this repository.
 
 ---
 
@@ -39,7 +39,7 @@ Key idea: **the protocol lives inside the app**. MCP is only one transport.
 
 ---
 
-## How control works (bidirectionality)
+## Bidirectional control
 
 The goal is “mixed initiative”: human and agent can interleave work seamlessly.
 
@@ -51,7 +51,7 @@ The goal is “mixed initiative”: human and agent can interleave work seamless
 
 ---
 
-## Formal protocol (VACP)
+## Protocol
 
 This repo implements VACP as a small set of JSON messages plus an in-page RPC interface.
 
@@ -63,7 +63,7 @@ This repo implements VACP as a small set of JSON messages plus an in-page RPC in
 - **State snapshot**: timestamped values keyed by `ref`.
 - **Action**: a named semantic operation with a JSON parameter schema.
 
-### Conformance (paper-ready)
+### Conformance
 
 An implementation is “VACP-conformant” if it:
 
@@ -123,7 +123,7 @@ type VacpActionCall = { callId: string; name: string; params?: unknown };
 type VacpActionResult = { callId: string; ok: boolean; result?: unknown; error?: { message: string } };
 ```
 
-### In-page RPC (the bridge)
+### In-page bridge
 
 Providers install a bridge (usually) at `window.__vacp`:
 
@@ -151,7 +151,7 @@ These invariants are what make the protocol useful for mixed-initiative systems:
 - **Bidirectionality**: human input and agent calls produce compatible state snapshots.
 - **Transport-agnostic**: MCP, WebSocket, or any other wire can carry the same messages.
 
-### Transport mapping (MCP)
+### MCP mapping
 
 The Python `vacp-mcp-server` maps the bridge to MCP tools:
 
@@ -160,7 +160,7 @@ The Python `vacp-mcp-server` maps the bridge to MCP tools:
 - `vacp_execute(name, params?, call_id?)` → `window.__vacp.execute({callId, name, params})`
 - `vacp_diagram(...)` → renders the current graph to Mermaid (debugging)
 
-### DOM/SVG as an adapter (optional)
+### DOM/SVG adapter
 
 If a page cannot install a bridge, VACP can still be surfaced via:
 
@@ -205,7 +205,7 @@ sequenceDiagram
 
 ---
 
-## Monorepo map (implementation)
+## Implementation map
 
 TypeScript (pnpm):
 
