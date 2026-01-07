@@ -238,6 +238,12 @@ export interface VacpRuntimeBridge extends VacpWindowBridge {
   ) => void;
   setGraphOverride?: (graph: VacpGraph, options?: { source?: VacpChangeSource; message?: string }) => void;
   clearOverrides?: (options?: { source?: VacpChangeSource; message?: string }) => void;
+
+  /**
+   * Dispatch an action with an explicit source label for the local runtime
+   * timeline. `execute()` remains MCP-friendly and defaults to `source="agent"`.
+   */
+  dispatch?: (call: VacpActionCall, options?: { source?: VacpChangeSource; message?: string }) => Promise<VacpActionResult>;
 }
 
 export function isVacpRef(value: unknown): value is VacpRef {
