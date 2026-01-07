@@ -511,18 +511,11 @@ export function installVacpOnVgplot(plot: VgplotPlotLike, svg: SVGElement, optio
    */
   plot.interactors.forEach((it) => {
     const origInit = it.init;
-    it.init = async (svgEl: SVGElement) => {
-      const res = origInit ? await origInit.call(it, svgEl) : undefined;
-      applyAnnotationsToSvg(svgEl);
-      notifyRuntime('interactor.init', { immediate: true });
-      return res;
-    };
-
-    // Human interactions often publish via selection.update(). Wrap it to keep
-    // VACP's runtime timeline in sync with the app state.
-    const anyIt = it as unknown as { selection?: { update?: (...args: unknown[]) => unknown } };
-    const sel = anyIt.selection;
-    if (sel && typeof sel.update === 'function' && !(sel.update as unknown as { __vacpWrapped?: boolean }).__vacpWrapped) {
+    const wrapSelectionUpdate = () => {
+      const anyIt = it as unknown as { selection?: { update?: (...args: unknown[]) => unknown } };
+      const sel = anyIt.selection;
+      if (!sel || typeof sel.update !== 'function') return;
+      if ((sel.update as unknown as { __vacpWrapped?: boolean }).__vacpWrapped) return;
       const orig = sel.update;
       const wrapped = (...args: unknown[]) => {
         const out = orig.apply(sel, args);
@@ -531,7 +524,19 @@ export function installVacpOnVgplot(plot: VgplotPlotLike, svg: SVGElement, optio
       };
       (wrapped as unknown as { __vacpWrapped?: boolean }).__vacpWrapped = true;
       sel.update = wrapped;
-    }
+    };
+
+    it.init = async (svgEl: SVGElement) => {
+      const res = origInit ? await origInit.call(it, svgEl) : undefined;
+      applyAnnotationsToSvg(svgEl);
+      notifyRuntime('interactor.init', { immediate: true });
+      // Some interactors create their selection object lazily in init().
+      wrapSelectionUpdate();
+      return res;
+    };
+
+    // Best-effort eager wrapping (some interactors expose selection immediately).
+    wrapSelectionUpdate();
   });
 
   // Apply annotations to the currently rendered SVG as well.
