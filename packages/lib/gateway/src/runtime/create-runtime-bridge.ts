@@ -24,15 +24,8 @@ import {
   stateFromEntry,
 } from './helpers';
 /**
- * Runtime bridge implementation (concepts).
- *
- * This wraps a snapshot provider + action registry with:
- * - a lightweight history of snapshots/actions
- * - an inspectable "cursor" for time travel
- * - optional state/graph overrides for debugging
- *
- * The live app remains the source of truth; inspection and overrides do not
- * mutate the app unless an action is executed.
+ * Runtime bridge: wraps snapshots + actions with history/cursor time travel and optional overrides.
+ * The live app remains the source of truth; overrides never mutate the app unless an action is executed.
  */
 export function createRuntimeBridge(args: {
   snapshots: VacpSnapshotProvider;
