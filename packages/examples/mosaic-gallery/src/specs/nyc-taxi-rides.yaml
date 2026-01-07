@@ -1,0 +1,87 @@
+meta:
+  title: NYC Taxi Rides
+  description: |
+    Pickup and dropoff points for a small sample of NYC taxi rides.
+    Select a region in one plot to filter the other and the time histogram.
+
+    This example is intentionally lightweight (fast to load) but still exercises:
+    - linked, bidirectional selections (human brushes + agent actions)
+    - DuckDB-backed querying via `vacp.data_sql`
+data:
+  trips: { file: data/nyc-taxi-rides-sample.csv }
+params:
+  filter: { select: crossfilter }
+  scale: { value: symlog }
+vconcat:
+  - hconcat:
+      - input: menu
+        label: Color scale
+        as: $scale
+        options: [symlog, linear, log]
+  - vspace: 6
+  - hconcat:
+      - plot:
+          - mark: raster
+            data: { from: trips, filterBy: $filter }
+            x: px
+            y: py
+            bandwidth: 0
+          - select: intervalXY
+            as: $filter
+          - mark: text
+            data: [{ label: Taxi Pickups }]
+            dx: 10
+            dy: 10
+            text: label
+            fill: black
+            fontSize: 1.2em
+            frameAnchor: top-left
+        width: 335
+        height: 550
+        margin: 0
+        xAxis: null
+        yAxis: null
+        xDomain: [-74.1, -73.7]
+        yDomain: [40.6, 40.92]
+        colorScale: $scale
+        colorScheme: blues
+      - hspace: 10
+      - plot:
+          - mark: raster
+            data: { from: trips, filterBy: $filter }
+            x: dx
+            y: dy
+            bandwidth: 0
+          - select: intervalXY
+            as: $filter
+          - mark: text
+            data: [{ label: Taxi Dropoffs }]
+            dx: 10
+            dy: 10
+            text: label
+            fill: black
+            fontSize: 1.2em
+            frameAnchor: top-left
+        width: 335
+        height: 550
+        margin: 0
+        xAxis: null
+        yAxis: null
+        xDomain: [-74.1, -73.7]
+        yDomain: [40.6, 40.92]
+        colorScale: $scale
+        colorScheme: oranges
+  - vspace: 10
+  - plot:
+      - mark: rectY
+        data: { from: trips }
+        x: { bin: time }
+        y: { count }
+        fill: steelblue
+        inset: 0.5
+      - select: intervalX
+        as: $filter
+    yTickFormat: s
+    xLabel: Pickup Hour →
+    width: 680
+    height: 100

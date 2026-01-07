@@ -6,6 +6,23 @@ import type { GalleryEntry } from './gallery';
 export function buildPlaybooks(entry: GalleryEntry): VacpPlaybook[] {
   const viewBase = `vacp://vacp-examples/mosaic/${entry.id}`;
 
+  // Many gallery specs include at least one Menu input. A first menu is a
+  // reliable, spec-agnostic anchor for agent-driven interactions: it avoids
+  // hard-coding plot/interactor indices and still mutates the same runtime
+  // timeline that human interactions update.
+  const menuPlaybook = (args: { title: string; description: string }) =>
+    playbook({
+      id: `${entry.id}-menu`,
+      title: args.title,
+      description: args.description,
+    })
+      .action('Pick a non-default option in the first menu', {
+        name: 'mosaic.set_input_option_index',
+        params: { ref: `${viewBase}/input/0`, index: 1 },
+      })
+      .action('Clear the menu filter', { name: 'mosaic.clear_input', params: { ref: `${viewBase}/input/0` } })
+      .build();
+
   if (entry.id === 'wnba-shots') {
     return [
       playbook({
@@ -48,6 +65,26 @@ export function buildPlaybooks(entry: GalleryEntry): VacpPlaybook[] {
         .action('Clear toggle', { name: 'mosaic.clear_toggle', params: { plotId: 'plot-1', interactorId: '0' } })
         .action('Clear brush', { name: 'mosaic.clear_interval_1d', params: { plotId: 'plot-0', interactorId: '0' } })
         .build(),
+    ];
+  }
+
+  if (
+    [
+      'athletes',
+      'flights-hexbin',
+      'line-multi-series',
+      'normalize',
+      'pan-zoom',
+      'us-state-map',
+      'nyc-taxi-rides',
+    ].includes(entry.id)
+  ) {
+    return [
+      menuPlaybook({
+        title: 'Bidirectional filtering (menu)',
+        description:
+          'Uses a first-class Mosaic menu input so agent actions and human interactions update the same state graph.',
+      }),
     ];
   }
 

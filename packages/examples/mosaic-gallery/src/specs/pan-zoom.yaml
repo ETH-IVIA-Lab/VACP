@@ -1,0 +1,79 @@
+meta:
+  title: Pan & Zoom
+  description: >
+    Linked panning and zooming across plots: drag to pan, scroll to zoom.
+    A Species menu is added so an agent can reproduce filtering without
+    pixel-level automation.
+data:
+  penguins: { file: data/penguins.parquet }
+params:
+  species: { select: intersect }
+vconcat:
+  - input: menu
+    label: Species
+    as: $species
+    from: penguins
+    column: species
+  - vspace: 10
+  - hconcat:
+      - vconcat:
+          - plot:
+              - mark: frame
+              - {
+                  mark: dot,
+                  data: { from: penguins, filterBy: $species },
+                  x: bill_length,
+                  y: bill_depth,
+                  fill: species,
+                  r: 2,
+                  clip: true,
+                }
+              - { select: panZoom, x: $xs, y: $ys }
+            width: 320
+            height: 240
+          - vspace: 10
+          - plot:
+              - mark: frame
+              - {
+                  mark: dot,
+                  data: { from: penguins, filterBy: $species },
+                  x: bill_length,
+                  y: flipper_length,
+                  fill: species,
+                  r: 2,
+                  clip: true,
+                }
+              - { select: panZoom, x: $xs, y: $zs }
+            width: 320
+            height: 240
+      - hspace: 10
+      - vconcat:
+          - plot:
+              - mark: frame
+              - {
+                  mark: dot,
+                  data: { from: penguins, filterBy: $species },
+                  x: body_mass,
+                  y: bill_depth,
+                  fill: species,
+                  r: 2,
+                  clip: true,
+                }
+              - { select: panZoom, x: $ws, y: $ys }
+            width: 320
+            height: 240
+          - vspace: 10
+          - plot:
+              - mark: frame
+              - {
+                  mark: dot,
+                  data: { from: penguins, filterBy: $species },
+                  x: body_mass,
+                  y: flipper_length,
+                  fill: species,
+                  r: 2,
+                  clip: true,
+                }
+              - { select: panZoom, x: $ws, y: $zs }
+            width: 320
+            height: 240
