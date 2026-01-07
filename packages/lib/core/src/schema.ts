@@ -112,6 +112,53 @@ export type VacpApplyStateParams = {
   state: Record<VacpRef, unknown>;
 };
 
+/**
+ * Standard action: run a DuckDB SQL query over a VACP DataHandle.
+ *
+ * This is the primary "data access" mechanism in this repo:
+ * - the app keeps its data in an in-browser DuckDB (WASM) database
+ * - the VACP graph exposes DataHandle nodes that map to DuckDB relations
+ * - callers run SQL against those handles using this action
+ *
+ * The SQL string can reference two reserved identifiers:
+ * - `vacp_handle`: the handle's *selected* relation
+ * - `vacp_all`: the handle's *unfiltered/base* relation
+ */
+export const VACP_DATA_SQL_ACTION = 'vacp.data_sql' as const;
+
+export type VacpDataSqlParams = {
+  /** Which DataHandle to query (a node ref with `kind: "DataHandle"`). */
+  handleRef: VacpRef;
+  /**
+   * SQL query to run. Use `vacp_handle` and/or `vacp_all` to reference the
+   * selected or unfiltered relation for the handle.
+   */
+  sql: string;
+  /** Output encoding (default: `json`). */
+  format?: 'json' | 'arrow_ipc_base64';
+  /**
+   * Max rows to return when `format="json"` (default: 500).
+   * Set a higher number for larger extracts or use `arrow_ipc_base64`.
+   */
+  maxRows?: number;
+};
+
+export type VacpDataSqlResult =
+  | {
+      format: 'json';
+      /** The SQL after resolving `vacp_handle` / `vacp_all` and applying `maxRows`. */
+      resolvedSql: string;
+      columns: string[];
+      rows: Record<string, unknown>[];
+      truncated: boolean;
+    }
+  | {
+      format: 'arrow_ipc_base64';
+      /** The SQL after resolving `vacp_handle` / `vacp_all`. */
+      resolvedSql: string;
+      arrowIpcBase64: string;
+    };
+
 export interface VacpGraph {
   version: VacpSchemaVersion;
   nodes: VacpNode[];
