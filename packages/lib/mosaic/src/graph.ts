@@ -1,4 +1,4 @@
-import type { VacpActionDescriptor, VacpEdge, VacpGraph, VacpNode } from '@vacp/core';
+import type { VacpActionDescriptor, VacpEdge, VacpGraph, VacpNode, VacpRef } from '@vacp/core';
 import { VACP_SCHEMA_VERSION } from '@vacp/core';
 
 import type { CollectedInput } from './inputs';
@@ -10,6 +10,7 @@ export function buildDashboardGraph(args: {
   inputs: CollectedInput[];
   options: InstallVacpOnVgplotDashboardOptions;
   actions: VacpActionDescriptor[];
+  dataHandles?: Array<{ ref: VacpRef; plotId: string; table?: string }>;
 }): VacpGraph {
   const viewRef = makeViewRef({ appId: args.options.appId, viewId: args.options.viewId, suffix: '' });
   const nodes: VacpNode[] = [
@@ -110,6 +111,20 @@ export function buildDashboardGraph(args: {
         data: { plotId, interactorId: String(i) },
       });
       edges.push({ from: plotRef, to: interactorRef, kind: 'contains' });
+    });
+
+    const handles = (args.dataHandles ?? []).filter((h) => h.plotId === plotId);
+    handles.forEach((h) => {
+      nodes.push({
+        ref: h.ref,
+        kind: 'DataHandle',
+        layer: 'DataLayer',
+        title: 'data (DuckDB handle)',
+        description:
+          'DuckDB-backed handle for the data table behind this plot. `vacp_handle` is the selected subset (or all rows if empty).',
+        data: { table: h.table, plotId },
+      });
+      edges.push({ from: plotRef, to: h.ref, kind: 'contains' });
     });
   }
 

@@ -89,7 +89,43 @@ export async function run(): Promise<void> {
   installVacpDebugUi({ enabled: 'auto', globalKey });
 
   const mc = coordinator();
-  mc.databaseConnector(new DuckDBWASMConnector({ log: false }));
+  const connector = new DuckDBWASMConnector({ log: false });
+  mc.databaseConnector(connector);
+
+  const duckdbClient = {
+    getConnection: async () => await connector.getConnection(),
+    exec: async (sql: string) => {
+      await mc.query(sql, { type: 'json', cache: false });
+    },
+    queryJson: async (sql: string) => {
+      const rows = (await mc.query(sql, { type: 'json', cache: false })) as Record<string, unknown>[];
+      const cols = rows[0] ? Object.keys(rows[0]) : [];
+      return { columns: cols, rows };
+    },
+    queryArrowIpcBase64: async (sql: string) => {
+      const con = await connector.getConnection();
+      const bytes = await new Promise<Uint8Array>((resolve, reject) => {
+        con.useUnsafe(async (bindings, connId) => {
+          try {
+            const buf = await bindings.runQuery(connId, sql);
+            resolve(buf);
+          } catch (err) {
+            reject(err);
+          }
+        });
+      });
+      let binary = '';
+      const chunkSize = 0x8000;
+      for (let i = 0; i < bytes.length; i += chunkSize) {
+        const chunk = bytes.subarray(i, i + chunkSize);
+        binary += String.fromCharCode(...chunk);
+      }
+      return btoa(binary);
+    },
+    loadObjectsAsTable: async () => {
+      throw new Error('loadObjectsAsTable is not supported in this example (data is managed by Mosaic)');
+    },
+  };
 
   const gallery = loadGallery();
   gallery.forEach((entry) => {
@@ -169,6 +205,7 @@ export async function run(): Promise<void> {
         title: entry.meta.title,
         globalKey,
         demos: buildDemos(entry),
+        duckdbClient,
       },
     });
 

@@ -55,4 +55,11 @@ export interface InstallVacpOnVgplotDashboardOptions {
   description?: string;
   globalKey?: string;
   demos?: VacpDemo[];
+  /**
+   * Optional DuckDB client to back the standard `vacp.data_sql` action.
+   *
+   * If omitted, this provider will still expose selections/actions, but callers
+   * won't be able to query selected rows via SQL.
+   */
+  duckdbClient?: import('@vacp/duckdb').VacpDuckDbClient;
 }

@@ -1,11 +1,14 @@
 import type { VacpCapabilitiesSnapshot, VacpChangeSource, VacpRef, VacpStateSnapshot } from '@vacp/core';
 import { nowIso, VACP_SCHEMA_VERSION } from '@vacp/core';
 import { applyVacpAttributes } from '@vacp/dom';
-import { installVacpRuntimeBridge, registerVacpApplyStateAction, VacpActionRegistry } from '@vacp/gateway';
+import { createDuckDbDataSqlHandler } from '@vacp/duckdb';
+import { installVacpRuntimeBridge, registerVacpApplyStateAction, registerVacpDataSqlAction, VacpActionRegistry } from '@vacp/gateway';
 
 import { annotateInput, annotatePlotSvg } from './annotations';
 import { actionDescriptorsForDashboard } from './actions';
 import { makeApplyStateHandler } from './apply-state';
+import { collectMosaicDataHandles, discoverPlotTables } from './data-handles';
+import { quoteTableRef, whereClauseForMosaicDashboardSelection } from './duckdb-selection';
 import { collectInputs, executeInputAction, type CollectedInput } from './inputs';
 import { executeIntervalAction } from './interactors/interval';
 import { executeToggleAction } from './interactors/toggle';
@@ -114,11 +117,48 @@ export function installVacpOnVgplotDashboard(args: {
   });
   actionDescriptors.push(applyDesc);
 
+  const preferredTables = Array.from(
+    new Set(inputs.map((i) => i.meta.from).filter((t): t is string => typeof t === 'string' && t.length > 0)),
+  );
+  const dataHandles = collectMosaicDataHandles({
+    plots: plots.map((p) => ({ plotId: p.plotId, plot: p.plot })),
+    options,
+    preferredTables,
+  });
+  const handleByRef = new Map<VacpRef, { plotId: string; table?: string }>(
+    dataHandles.map((h) => [h.ref, { plotId: h.plotId, table: h.table }]),
+  );
+
+  if (options.duckdbClient && dataHandles.length) {
+    const dataSqlDesc = registerVacpDataSqlAction(
+      actionRegistry,
+      createDuckDbDataSqlHandler({
+        duckdb: options.duckdbClient,
+      resolveHandle: async (ref) => {
+          const meta = handleByRef.get(ref);
+          if (!meta) return null;
+          const plot = plotsById.get(meta.plotId);
+          if (!plot) return null;
+          const tableName = meta.table ?? discoverPlotTables(plot)[0];
+          if (!tableName) return null;
+          const table = quoteTableRef(tableName);
+          const allSql = `SELECT * FROM ${table}`;
+          const where = whereClauseForMosaicDashboardSelection({ plots: plots.map((p) => p.plot), inputs });
+          const selectedSql = where ? `SELECT * FROM ${table} WHERE ${where}` : allSql;
+          return { allSql, selectedSql };
+        },
+      }),
+      { targetRef: viewRef, description: 'Query the current Mosaic selection using DuckDB SQL.' },
+    );
+    actionDescriptors.push(dataSqlDesc);
+  }
+
   const graph = buildDashboardGraph({
     plots: plots.map((p) => ({ plotId: p.plotId, plot: p.plot })),
     inputs,
     options,
     actions: actionDescriptors,
+    dataHandles,
   });
 
   const snapshots = {
@@ -157,6 +197,18 @@ export function installVacpOnVgplotDashboard(args: {
             plotId,
             value: interactor.value,
             selectionValue,
+          };
+        });
+      }
+
+      if (dataHandles.length) {
+        dataHandles.forEach((h) => {
+          const plot = plotsById.get(h.plotId);
+          state[h.ref] = {
+            kind: 'DataHandle',
+            table: h.table ?? (plot ? discoverPlotTables(plot)[0] : undefined),
+            selectionWhere: plot ? whereClauseForMosaicDashboardSelection({ plots: plots.map((p) => p.plot), inputs }) : null,
+            selectedMeaning: 'rows matching current plot selection; falls back to all rows if none',
           };
         });
       }
