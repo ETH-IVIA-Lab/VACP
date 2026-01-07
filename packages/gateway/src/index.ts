@@ -478,6 +478,10 @@ function createRuntimeBridge({
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   (bridge as any).__vacpRuntimeId = runtimeId;
 
+  // Default: observe snapshot changes. This keeps the timeline meaningful even
+  // when a provider cannot emit fine-grained "human interaction" events.
+  startObserving({ source: 'system', message: 'observe' });
+
   return bridge;
 }
 
