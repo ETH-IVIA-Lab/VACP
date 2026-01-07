@@ -15,8 +15,6 @@ export type VacpDebugModuleContext = {
   runtime: VacpRuntimeSnapshot;
   playbooks: VacpPlaybook[];
   requestRender: () => void;
-  /** If provided, modules can report the current diagram source for clipboard/export. */
-  setDiagramMermaid?: (mermaid: string) => void;
 };
 
 export type VacpDebugModule = {

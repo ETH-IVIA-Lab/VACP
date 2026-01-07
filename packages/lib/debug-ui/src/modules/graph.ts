@@ -91,7 +91,6 @@ export function createGraphModule(initial: GraphModuleState): VacpDebugModule {
         previewBtn.setAttribute('aria-pressed', state.includeStatePreview ? 'true' : 'false');
 
         const mermaid = makeMermaid(ctx.runtime);
-        ctx.setDiagramMermaid?.(mermaid);
         status.textContent = 'Rendering…';
         await renderMermaidToHost(host, mermaid);
         status.textContent = '';

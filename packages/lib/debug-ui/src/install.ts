@@ -171,7 +171,6 @@ export function installVacpDebugUi(options?: VacpDebugUiOptions): void {
       runtime,
       playbooks,
       requestRender,
-      setDiagramMermaid: () => {},
     });
   };
 
