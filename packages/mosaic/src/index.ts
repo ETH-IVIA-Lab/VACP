@@ -444,11 +444,37 @@ export function installVacpOnVgplot(plot: VgplotPlotLike, svg: SVGElement, optio
   const bridge = createVacpWindowBridge({ snapshots, actions: actionRegistry });
   installVacpWindowBridge(bridge, { globalKey: options.globalKey });
 
-  const notifyRuntime = (message: string) => {
+  const refreshRuntimeNow = (source: VacpChangeSource, message: string) => {
     if (typeof bridge.refresh !== 'function') return;
-    void bridge.refresh({ source: lastChangeSource, message }).catch(() => {
-      // ignore instrumentation failures
-    });
+    void bridge
+      .refresh({ source, message })
+      .catch(() => {
+        // ignore instrumentation failures
+      })
+      .finally(() => {
+        // keep the in-memory timeline lightweight; do not surface errors here
+      });
+  };
+
+  // Human-driven brushing can emit many incremental updates. Coalesce them into
+  // a low-frequency timeline suitable for time travel and debugging.
+  let pendingRuntimeTimer: number | null = null;
+  let pendingRuntime: { source: VacpChangeSource; message: string } | null = null;
+  const notifyRuntime = (message: string, opts?: { immediate?: boolean }) => {
+    const source = lastChangeSource;
+    if (opts?.immediate) {
+      refreshRuntimeNow(source, message);
+      return;
+    }
+    pendingRuntime = { source, message };
+    if (pendingRuntimeTimer !== null) return;
+    pendingRuntimeTimer = window.setTimeout(() => {
+      pendingRuntimeTimer = null;
+      const next = pendingRuntime;
+      pendingRuntime = null;
+      if (!next) return;
+      refreshRuntimeNow(next.source, next.message);
+    }, 120);
   };
 
   /**
@@ -464,7 +490,7 @@ export function installVacpOnVgplot(plot: VgplotPlotLike, svg: SVGElement, optio
     it.init = async (svgEl: SVGElement) => {
       const res = origInit ? await origInit.call(it, svgEl) : undefined;
       applyAnnotationsToSvg(svgEl);
-      notifyRuntime('interactor.init');
+      notifyRuntime('interactor.init', { immediate: true });
       return res;
     };
 
@@ -476,7 +502,7 @@ export function installVacpOnVgplot(plot: VgplotPlotLike, svg: SVGElement, optio
       const orig = sel.update;
       const wrapped = (...args: unknown[]) => {
         const out = orig.apply(sel, args);
-        queueMicrotask(() => notifyRuntime('selection.update'));
+        notifyRuntime('selection.update');
         return out;
       };
       (wrapped as unknown as { __vacpWrapped?: boolean }).__vacpWrapped = true;
@@ -547,5 +573,5 @@ export function installVacpOnVgplot(plot: VgplotPlotLike, svg: SVGElement, optio
   }
 
   // Capture an initial snapshot so tooling sees the graph immediately.
-  notifyRuntime('installed');
+  notifyRuntime('installed', { immediate: true });
 }
