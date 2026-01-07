@@ -230,4 +230,5 @@ From `vacp/`:
 - Format: `pnpm format`
 - Lint: `pnpm lint`
 - Typecheck: `pnpm typecheck`
-- Smoke tests (runs all examples): `pnpm test:examples`
+- Web smoke tests (runs all examples): `pnpm test:examples`
+- MCP server tests: `pnpm test:server`

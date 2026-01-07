@@ -30,19 +30,23 @@ From `vacp/`:
 
 - Install JS deps: `pnpm install`
 - Install Python env: `uv sync`
-- Install Playwright browser: `uv run playwright install chromium`
-- Run all example smoke tests: `pnpm test:examples` (spins up each demo and validates bidirectionality)
+- Install Playwright browsers:
+  - for web tests: `pnpm exec playwright install chromium`
+  - for `vacp-mcp-server` (Python): `uv run playwright install chromium`
+- Run web example smoke tests: `pnpm test:examples` (starts each demo and validates bidirectionality)
+- Run MCP server tests: `pnpm test:server`
 
 Run an example app:
 
 - `pnpm -C packages/examples/mosaic-gallery dev`
 - `pnpm -C packages/examples/vega-lite-gallery dev`
 - `pnpm -C packages/examples/d3-scatter-lasso dev`
+- `pnpm -C packages/examples/vanilla-minimal dev`
 
 Enable the in-page overlay:
 
 - Add `?vacpDebug=1` to the URL
-- Click the “VACP” button to inspect the graph, timeline, demos, and dispatch actions manually
+- Click the “VACP” button to inspect the graph, timeline, demos, run DuckDB SQL, and dispatch actions manually
 - Use `JSON → Apply state to live app` (opt-in) to apply edited state maps during development
 
 Run the MCP server:
