@@ -1,5 +1,5 @@
 {
-  "name": "vacp-example-mosaic-linear-regression",
+  "name": "vacp-example-vega-lite-gallery",
   "private": true,
   "version": "0.0.0",
   "type": "module",
@@ -14,13 +14,12 @@
     "vite": "^7.2.4"
   },
   "dependencies": {
-    "@uwdata/mosaic-core": "^0.21.1",
-    "@uwdata/mosaic-spec": "^0.21.1",
-    "@uwdata/vgplot": "^0.21.1",
     "@vacp/core": "workspace:*",
     "@vacp/debug-ui": "workspace:*",
     "@vacp/diagrams": "workspace:*",
-    "@vacp/mosaic": "workspace:*",
-    "yaml": "^2.8.2"
+    "@vacp/vega-lite": "workspace:*",
+    "vega": "^6.2.0",
+    "vega-embed": "^7.1.0",
+    "vega-lite": "^6.4.1"
   }
 }

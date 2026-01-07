@@ -2,9 +2,9 @@
 
 Runnable example apps (similar in spirit to `mosaic/packages/examples/*`).
 
-- `mosaic-linear-regression`: Mosaic spec gallery (YAML in `src/specs/`) installed via `@vacp/mosaic`
-- `vega-lite-params`: Vega-Lite spec gallery (modules in `src/specs/`) installed via `@vacp/vega-lite`
-- `d3-lasso-scatter`: Frameworkless D3 scatter with lasso selection (provider assembled directly from `@vacp/*` building blocks)
+- `mosaic-gallery`: Mosaic spec gallery (YAML in `src/specs/`) installed via `@vacp/mosaic`
+- `vega-lite-gallery`: Vega-Lite spec gallery (modules in `src/specs/`) installed via `@vacp/vega-lite`
+- `d3-scatter-lasso`: Frameworkless D3 scatter with lasso selection (provider assembled directly from `@vacp/*` building blocks)
 
 All examples include the optional `@vacp/debug-ui` overlay:
 

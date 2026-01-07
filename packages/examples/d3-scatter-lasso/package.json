@@ -1,5 +1,5 @@
 {
-  "name": "vacp-example-vega-lite-params",
+  "name": "vacp-example-d3-scatter-lasso",
   "private": true,
   "version": "0.0.0",
   "type": "module",
@@ -11,15 +11,15 @@
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "devDependencies": {
+    "@types/d3": "^7.4.3",
     "vite": "^7.2.4"
   },
   "dependencies": {
     "@vacp/core": "workspace:*",
     "@vacp/debug-ui": "workspace:*",
     "@vacp/diagrams": "workspace:*",
-    "@vacp/vega-lite": "workspace:*",
-    "vega": "^6.2.0",
-    "vega-embed": "^7.1.0",
-    "vega-lite": "^6.4.1"
+    "@vacp/dom": "workspace:*",
+    "@vacp/gateway": "workspace:*",
+    "d3": "^7.9.0"
   }
 }
