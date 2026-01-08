@@ -54,7 +54,6 @@ export function installVacpDebugUi(options?: VacpDebugUiOptions): void {
     }
   };
 
-  const clamp = (n: number, min: number, max: number): number => Math.max(min, Math.min(max, n));
   const applySize = (size: { width: number; height: number }) => {
     const maxW = Math.max(360, window.innerWidth - 28);
     const maxH = Math.max(260, window.innerHeight - 92);
