@@ -4,6 +4,8 @@
     "rootDir": "./src",
     "outDir": "./dist",
     "composite": true,
+    "jsx": "react-jsx",
+    "types": ["react", "react-dom"],
     "declaration": true,
     "declarationMap": true,
     "sourceMap": true

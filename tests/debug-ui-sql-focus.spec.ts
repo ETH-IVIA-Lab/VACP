@@ -30,7 +30,7 @@ test('debug-ui: SQL editor keeps focus on run', async ({ page }) => {
     await editor.fill('SELECT 1::INTEGER AS x');
     await expect(editor).toBeFocused();
 
-    const run = page.locator('button', { hasText: 'Run query' });
+    const run = page.locator('button[aria-label="Run query"]');
     await expect(run).toBeVisible();
     await run.click();
 

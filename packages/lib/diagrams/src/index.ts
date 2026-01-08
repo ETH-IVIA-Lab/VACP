@@ -1,4 +1,4 @@
-import type { VacpCapabilitiesSnapshot, VacpGraph, VacpRef, VacpStateSnapshot } from '@vacp/core';
+import type { VacpCapabilitiesSnapshot, VacpGraph, VacpRef } from '@vacp/core';
 
 /**
  * Diagram rendering (project concepts).
@@ -14,30 +14,24 @@ import type { VacpCapabilitiesSnapshot, VacpGraph, VacpRef, VacpStateSnapshot } 
 
 export interface VacpDiagramRenderInput {
   graph: VacpGraph;
-  /** Optional state used only to enrich labels for debugging. */
-  state?: VacpStateSnapshot;
 }
 
 export interface VacpDiagramRenderOptions {
   direction?: 'LR' | 'TB';
   /** Whether to render actions as separate nodes linked to their targetRef. */
   includeActions?: boolean;
-  /** Whether to include a compact state preview in node labels when available. */
-  includeStatePreview?: boolean;
   /** Maximum characters to include for any single label line. */
   maxLabelLength?: number;
 }
 
 export function renderVacpDiagramMermaid({
   capabilities,
-  state,
   options,
 }: {
   capabilities: VacpCapabilitiesSnapshot;
-  state?: VacpStateSnapshot;
   options?: VacpDiagramRenderOptions;
 }): string {
-  return renderVacpGraphMermaid({ graph: capabilities.graph, state }, options);
+  return renderVacpGraphMermaid({ graph: capabilities.graph }, options);
 }
 
 function shortRef(ref: VacpRef): string {
@@ -104,30 +98,6 @@ function escapeMermaidEdgeLabel(s: string): string {
   return s.replaceAll('|', '/').replaceAll('\r', '').replaceAll('\n', ' ');
 }
 
-function toStatePreview(value: unknown, maxLen: number): string | null {
-  if (value === undefined) return null;
-  try {
-    // Mermaid flowcharts don't reliably handle escaped quotes inside quoted
-    // label strings, so render JSON-like text with single quotes.
-    const json = JSON.stringify(value, null, 2).replaceAll('"', "'");
-    const lines = json.split('\n');
-    const maxLines = 6;
-    const shown = lines.slice(0, maxLines);
-    const prettyLines = shown.map((line) => {
-      const clamped = clampLabel(line, maxLen);
-      const m = clamped.match(/^( +)(.*)$/);
-      if (!m) return clamped;
-      // Non-breaking spaces preserve indentation in HTML labels.
-      return `${'\u00A0'.repeat(m[1].length)}${m[2]}`;
-    });
-    const body = prettyLines.join('<br/>') + (lines.length > maxLines ? '<br/>…' : '');
-    return `<code>${body}</code>`;
-  } catch {
-    const s = clampLabel(String(value), maxLen);
-    return `<code>${s.replaceAll('\n', '<br/>')}</code>`;
-  }
-}
-
 /**
  * Mermaid renderer (first-class).
  *
@@ -137,7 +107,6 @@ function toStatePreview(value: unknown, maxLen: number): string | null {
 export function renderVacpGraphMermaid(input: VacpDiagramRenderInput, options?: VacpDiagramRenderOptions): string {
   const direction = options?.direction ?? 'LR';
   const includeActions = options?.includeActions ?? false;
-  const includeStatePreview = options?.includeStatePreview ?? false;
   const maxLabelLength = options?.maxLabelLength ?? 80;
 
   const nodeIndexByRef = new Map<VacpRef, number>();
@@ -176,12 +145,7 @@ export function renderVacpGraphMermaid(input: VacpDiagramRenderInput, options?: 
     const base = [`${iconForKind(n.kind)} <b>${n.kind}</b>`, title ? `<b>${title}</b>` : '', ref ? `🔗 ${ref}` : '']
       .filter(Boolean)
       .join('<br/>');
-    const statePreview =
-      includeStatePreview && input.state
-        ? toStatePreview((input.state.state as Record<string, unknown>)[n.ref], maxLabelLength)
-        : null;
-    const label = statePreview ? `${base}<br/>🧾 <b>state</b><br/>${statePreview}` : base;
-    lines.push(`${id}["${escapeMermaidLabel(label)}"]`);
+    lines.push(`${id}["${escapeMermaidLabel(base)}"]`);
   });
 
   input.graph.edges.forEach((e) => {

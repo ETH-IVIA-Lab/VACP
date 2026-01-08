@@ -37,8 +37,6 @@ export const CSS_EXTRAS = `
   .vacp-debug-ui-list {
     display: grid;
     gap: 8px;
-    max-height: 280px;
-    overflow: auto;
   }
 
   .vacp-debug-ui-row {
@@ -114,7 +112,6 @@ export const CSS_EXTRAS = `
     border: 1px solid var(--vacp-border-weak);
     border-radius: 10px;
     overflow: auto;
-    max-height: 280px;
     background: rgba(231, 233, 238, 0.04);
   }
   .vacp-debug-ui-table {
@@ -148,6 +145,11 @@ export const CSS_EXTRAS = `
     min-height: 0;
     height: 100%;
     display: flex;
+    position: relative;
+  }
+  .vacp-debug-ui-diagram[data-stale='1'] svg {
+    opacity: 0.68;
+    filter: grayscale(0.12);
   }
   .vacp-debug-ui-diagram svg {
     background: white;
@@ -157,6 +159,32 @@ export const CSS_EXTRAS = `
     max-width: none;
     max-height: none;
     flex: 1 1 auto;
+  }
+  .vacp-debug-ui-diagram svg g.node.vacp-selected rect {
+    stroke: rgba(121, 178, 255, 0.85) !important;
+    stroke-width: 3px !important;
+  }
+
+  .vacp-debug-ui-role-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 999px;
+    border: 1px solid rgba(231, 233, 238, 0.18);
+    background: rgba(231, 233, 238, 0.14);
+    box-shadow: 0 0 0 2px rgba(11, 16, 32, 0.85);
+    flex: 0 0 auto;
+  }
+  .vacp-debug-ui-role-dot[data-role='human'] {
+    background: rgba(121, 178, 255, 0.9);
+  }
+  .vacp-debug-ui-role-dot[data-role='agent'] {
+    background: rgba(188, 140, 255, 0.9);
+  }
+  .vacp-debug-ui-role-dot[data-role='system'] {
+    background: rgba(231, 233, 238, 0.6);
+  }
+  .vacp-debug-ui-role-dot[data-role='debug'] {
+    background: rgba(122, 255, 182, 0.9);
   }
 
   .vacp-debug-ui-resizer {

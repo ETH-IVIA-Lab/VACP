@@ -38,6 +38,24 @@ export const CSS_BASE = `
     cursor: grab;
     user-select: none;
     box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
+    display: inline-flex;
+    align-items: center;
+  }
+  .vacp-debug-ui-button::after {
+    content: '';
+    display: inline-block;
+    width: 9px;
+    height: 9px;
+    margin-left: 10px;
+    border-radius: 999px;
+    background: rgba(231, 233, 238, 0.42);
+    box-shadow: 0 0 0 2px rgba(11, 16, 32, 0.8);
+  }
+  .vacp-debug-ui-button[data-bridge='ok']::after {
+    background: rgba(122, 255, 182, 0.95);
+  }
+  .vacp-debug-ui-button[data-bridge='unknown']::after {
+    background: rgba(255, 206, 115, 0.95);
   }
   .vacp-debug-ui-button:active {
     cursor: grabbing;
@@ -165,6 +183,106 @@ export const CSS_BASE = `
     font: 12px system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
     line-height: 1;
     white-space: nowrap;
+  }
+
+  .vacp-debug-ui-icon-button {
+    width: 34px;
+    height: 34px;
+    padding: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 10px;
+    background: var(--vacp-surface-2);
+    color: var(--vacp-fg);
+    border: 1px solid var(--vacp-border);
+    cursor: pointer;
+  }
+  .vacp-debug-ui-icon-button[data-variant='primary'] {
+    border-color: rgba(121, 178, 255, 0.55);
+    box-shadow: 0 0 0 2px rgba(121, 178, 255, 0.16) inset;
+  }
+  .vacp-debug-ui-icon-button[data-variant='danger'] {
+    border-color: rgba(255, 90, 90, 0.45);
+    box-shadow: 0 0 0 2px rgba(255, 90, 90, 0.12) inset;
+  }
+
+  .vacp-debug-ui-page {
+    height: 100%;
+    min-height: 0;
+    display: grid;
+    gap: 12px;
+  }
+  .vacp-debug-ui-grid {
+    min-width: 0;
+    min-height: 0;
+    display: grid;
+    gap: 12px;
+  }
+  .vacp-debug-ui-grid-2 {
+    grid-template-columns: 360px 1fr;
+  }
+  .vacp-debug-ui-grid-1fr-360 {
+    grid-template-columns: 1fr 360px;
+  }
+  @media (max-width: 900px) {
+    .vacp-debug-ui-grid-2 {
+      grid-template-columns: 1fr;
+    }
+    .vacp-debug-ui-grid-1fr-360 {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  .vacp-debug-ui-card {
+    border: 1px solid var(--vacp-border-weak);
+    border-radius: 12px;
+    background: rgba(231, 233, 238, 0.03);
+    padding: 12px;
+    min-width: 0;
+    min-height: 0;
+    overflow: hidden;
+  }
+  .vacp-debug-ui-card-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 10px;
+    margin-bottom: 10px;
+  }
+  .vacp-debug-ui-card-title {
+    font: 12px system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    opacity: 0.78;
+    line-height: 1.2;
+  }
+  .vacp-debug-ui-card-subtitle {
+    font: 11px ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
+    opacity: 0.86;
+    margin-top: 6px;
+    white-space: pre-wrap;
+  }
+  .vacp-debug-ui-toolbar {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+
+  .vacp-debug-ui-scroll {
+    min-height: 0;
+    overflow: auto;
+  }
+
+  .vacp-debug-ui-code {
+    font: 11px ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
+    white-space: pre;
+    overflow: auto;
+    padding: 10px;
+    border: 1px solid rgba(231, 233, 238, 0.1);
+    border-radius: 10px;
+    background: rgba(11, 16, 32, 0.78);
   }
   .vacp-debug-ui-actions button[disabled],
   .vacp-debug-ui-header button[disabled] {

@@ -1,29 +1,6 @@
-import type {
-  VacpCapabilitiesSnapshot,
-  VacpPlaybook,
-  VacpRuntimeBridge,
-  VacpRuntimeSnapshot,
-  VacpStateSnapshot,
-} from '@vacp/core';
+import type { VacpCapabilitiesSnapshot, VacpPlaybook, VacpRuntimeBridge, VacpRuntimeSnapshot, VacpStateSnapshot } from '@vacp/core';
 
 export type VacpDebugUiEnabled = boolean | 'auto';
-
-export type VacpDebugModuleId = string;
-
-export type VacpDebugModuleContext = {
-  bridge: VacpWindowBridge;
-  runtime: VacpRuntimeSnapshot;
-  playbooks: VacpPlaybook[];
-  requestRender: () => void;
-};
-
-export type VacpDebugModule = {
-  id: VacpDebugModuleId;
-  title: string;
-  icon?: string;
-  /** Render the module into the provided container. Should fully replace its contents. */
-  render: (container: HTMLElement, ctx: VacpDebugModuleContext) => void | Promise<void>;
-};
 
 export interface VacpDebugUiOptions {
   /**
@@ -35,13 +12,8 @@ export interface VacpDebugUiOptions {
   enabled?: VacpDebugUiEnabled;
   /** Which global bridge key to read (defaults to `__vacp`). */
   globalKey?: string;
+  /** Whether to show semantic actions as nodes in diagrams (default: true). */
   includeActions?: boolean;
-  includeStatePreview?: boolean;
-  /**
-   * Optional custom modules. When omitted, the built-in modules are installed.
-   * This is the extension point for growing debug features without rewriting the shell UI.
-   */
-  modules?: VacpDebugModule[];
 }
 
 export type VacpWindowBridge = VacpRuntimeBridge & {
