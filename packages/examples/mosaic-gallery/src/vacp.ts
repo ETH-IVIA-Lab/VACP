@@ -7,13 +7,13 @@
 
 import { installVacpOnVgplotDashboard, type VgplotPlotLike } from '@vacp/mosaic';
 import type { VacpDuckDbClient } from '@vacp/duckdb';
+import { buildMosaicPlaybooks } from '@vacp/example-playbooks';
 
-import { buildPlaybooks } from './playbooks';
 import type { GalleryEntry } from './gallery';
 
 export function installVacpLayerForMosaic(args: {
   root: ParentNode;
-  plots: Array<{ plotId: string; plot: VgplotPlotLike; svg: SVGElement }>;
+  plots: Array<{ plotId: string; plot: VgplotPlotLike; element: Element; svg?: SVGElement }>;
   entry: GalleryEntry;
   globalKey: string;
   duckdbClient: VacpDuckDbClient;
@@ -26,7 +26,10 @@ export function installVacpLayerForMosaic(args: {
       viewId: `mosaic/${args.entry.id}`,
       title: args.entry.meta.title,
       globalKey: args.globalKey,
-      demos: buildPlaybooks({ entry: args.entry, plots: args.plots }),
+      demos: buildMosaicPlaybooks({
+        entry: { id: args.entry.id, meta: args.entry.meta, spec: args.entry.spec },
+        plots: args.plots,
+      }),
       duckdbClient: args.duckdbClient,
     },
   });

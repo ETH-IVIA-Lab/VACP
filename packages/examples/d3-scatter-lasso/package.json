@@ -18,6 +18,7 @@
     "@vacp/core": "workspace:*",
     "@vacp/debug-ui": "workspace:*",
     "@vacp/duckdb": "workspace:*",
+    "@vacp/example-playbooks": "workspace:*",
     "@vacp/kit": "workspace:*",
     "d3": "^7.9.0"
   }

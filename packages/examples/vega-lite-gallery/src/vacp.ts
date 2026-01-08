@@ -7,8 +7,8 @@
 
 import { installVacpOnVegaLiteView, type VegaViewLike } from '@vacp/vega-lite';
 import type { VisualizationSpec } from 'vega-embed';
+import { buildVegaLitePlaybooks } from '@vacp/example-playbooks';
 
-import { buildPlaybooks } from './playbooks';
 import type { GalleryEntry } from './gallery';
 
 export function installVacpLayerForVegaLite(args: {
@@ -29,7 +29,7 @@ export function installVacpLayerForVegaLite(args: {
       title: args.entry.meta.title,
       globalKey: args.globalKey,
       includeSetSignalAction: false,
-      demos: buildPlaybooks(args.entry),
+      demos: buildVegaLitePlaybooks({ id: args.entry.id }),
     },
   });
 }

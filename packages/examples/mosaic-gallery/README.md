@@ -97,5 +97,5 @@ Everything under `meta` is ignored by Mosaic and only used by the gallery UI.
 ## Useful entry points
 
 - App wiring: `src/app.ts`
-- Playbook scripts: `src/playbooks.ts`
+- Playbook scripts: `@vacp/example-playbooks` (`vacp/packages/lib/example-playbooks`)
 - Specs + metadata: `src/specs/`

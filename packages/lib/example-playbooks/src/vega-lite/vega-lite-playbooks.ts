@@ -1,17 +1,16 @@
-import type { VacpPlaybook } from '@vacp/core';
+import type { VacpPlaybook, VacpRef } from '@vacp/core';
 import { playbook } from '@vacp/kit';
 
-import type { GalleryEntry } from './gallery';
+export type VegaLitePlaybookEntry = { id: string };
 
-export function buildPlaybooks(entry: GalleryEntry): VacpPlaybook[] {
+export function buildVegaLitePlaybooks(entry: VegaLitePlaybookEntry): VacpPlaybook[] {
   const base = `vacp://vacp-examples/vega-lite/${entry.id}/${entry.id}`;
-  const handleRef = `${base}/data/main`;
+  const handleRef = `${base}/data/main` as VacpRef;
 
   const pb = playbook({
     id: `${entry.id}-params`,
     title: 'Params and selection',
-    description:
-      'Steps through programmatic parameter updates (agent-like) and shows how they appear in state/history.',
+    description: 'Step through programmatic selection updates and confirm they affect both state and DuckDB queries.',
   });
 
   if (entry.id === 'bars-point-select') {
@@ -24,7 +23,7 @@ export function buildPlaybooks(entry: GalleryEntry): VacpPlaybook[] {
         .action(
           'Count selected rows (DuckDB)',
           { name: 'vacp.data_sql', params: { handleRef, sql: 'SELECT COUNT(*)::INTEGER AS n FROM vacp_handle' } },
-          { description: 'Shows that selection changes affect the in-browser DuckDB selection handle.' },
+          { description: 'Shows that selection changes affect the DuckDB selection relation.' },
         )
         .action('Programmatically pick category=F', {
           name: 'vega_lite.set_selection',
@@ -87,3 +86,4 @@ export function buildPlaybooks(entry: GalleryEntry): VacpPlaybook[] {
 
   return [brushPlaybook.build()];
 }
+

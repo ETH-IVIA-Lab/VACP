@@ -15,10 +15,10 @@ import {
   createVacpLayer,
   createVacpRefBuilder,
   makeVacpDuckDbTableName,
-  playbook,
 } from '@vacp/kit';
-import { createDuckDbWasmClient } from '@vacp/duckdb';
+import { createDuckDbWasmClient, getDuckDbTableMetadata } from '@vacp/duckdb';
 import { VACP_SCHEMA_VERSION, type VacpRef } from '@vacp/core';
+import { buildVanillaMinimalPlaybooks } from '@vacp/example-playbooks';
 
 import type { Datum } from './plot';
 
@@ -41,14 +41,26 @@ export async function installVacpForVanillaScatter(args: {
   const selectionRef = vizRefs.ref('/selection/points');
   const handleRef = vizRefs.ref('/data/points');
 
-  // DuckDB is the single, uniform "data access" mechanism in this repo.
-  const duckdb = await createDuckDbWasmClient({ log: false });
   const tableName = makeVacpDuckDbTableName({ prefix: 'vacp_vanilla_points' });
-  await duckdb.loadObjectsAsTable(
-    tableName,
-    args.data.map((d) => ({ id: d.id, x: d.x, y: d.y, group: d.group })),
-    { create: true },
-  );
+  let tableMeta: Awaited<ReturnType<typeof getDuckDbTableMetadata>> | null = null;
+
+  // DuckDB is the single, uniform "data access" mechanism in this repo.
+  // Initialize it lazily so the bridge (`window.__vacp`) becomes available immediately
+  // even if the WASM bundle takes time to load.
+  const duckdb = (async () => {
+    const db = await createDuckDbWasmClient({ log: false });
+    await db.loadObjectsAsTable(
+      tableName,
+      args.data.map((d) => ({ id: d.id, x: d.x, y: d.y, group: d.group })),
+      { create: true },
+    );
+    try {
+      tableMeta = await getDuckDbTableMetadata({ duckdb: db, table: tableName });
+    } catch {
+      // ignore: metadata is best-effort
+    }
+    return db;
+  })();
 
   const actions = createVacpActions();
 
@@ -128,22 +140,7 @@ export async function installVacpForVanillaScatter(args: {
     ],
   };
 
-  const playbooks = [
-    playbook({
-      id: 'vanilla-selection',
-      title: 'Selection + DuckDB',
-      description: 'Step through agent-style actions, then compare with clicking points by hand.',
-    })
-      .action('Clear selection', { name: 'vanilla.clear_selection', params: {} })
-      .action('Select id=1', { name: 'vanilla.toggle_point', params: { id: 1 } })
-      .action('Select id=2', { name: 'vanilla.toggle_point', params: { id: 2 } })
-      .action(
-        'Count selected (vacp.data_sql)',
-        { name: 'vacp.data_sql', params: { handleRef, sql: 'SELECT COUNT(*)::INTEGER AS n FROM vacp_handle' } },
-        { description: 'Uses the standard DuckDB access action; query references `vacp_handle`.' },
-      )
-      .build(),
-  ];
+  const playbooks = buildVanillaMinimalPlaybooks({ handleRef });
 
   const vacp = createVacpLayer({
     globalKey: args.globalKey,
@@ -157,6 +154,7 @@ export async function installVacpForVanillaScatter(args: {
         tableName,
         selectedCount: args.selectedIds.size,
         selectedMeaning: args.selectedIds.size ? 'rows whose id is selected' : 'all rows (empty selection)',
+        duckdb: tableMeta ?? undefined,
       },
     }),
     dom: {
