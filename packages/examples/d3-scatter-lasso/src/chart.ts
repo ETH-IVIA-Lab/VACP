@@ -24,7 +24,7 @@ export function createLassoScatterChart(args: {
   width?: number;
   height?: number;
   data: Point[];
-  onSelectionChanged?: () => void;
+  onSelectionChanged?: (event: { source: 'human' | 'program'; selectedCount: number }) => void;
 }): {
   svg: SVGSVGElement;
   setLassoPolygon: (poly: DomainPoint[] | null) => void;
@@ -98,16 +98,25 @@ export function createLassoScatterChart(args: {
     }
   };
 
-  const clearSelection = () => {
+  const emit = (source: 'human' | 'program') => {
+    args.onSelectionChanged?.({ source, selectedCount: selectedIds.size });
+  };
+
+  const clearSelectionInternal = (source: 'human' | 'program') => {
     lassoPolygonDomain = null;
     selectedIds = new Set<string>();
     render();
+    emit(source);
   };
 
-  const setLassoPolygon = (poly: DomainPoint[] | null) => {
+  const setLassoPolygonInternal = (poly: DomainPoint[] | null, source: 'human' | 'program') => {
     lassoPolygonDomain = poly;
     render();
+    emit(source);
   };
+
+  const clearSelection = () => clearSelectionInternal('program');
+  const setLassoPolygon = (poly: DomainPoint[] | null) => setLassoPolygonInternal(poly, 'program');
 
   // Human interaction: freehand lasso in pixel space, converted to domain on commit.
   svg.on('pointerdown', (event) => {
@@ -128,13 +137,11 @@ export function createLassoScatterChart(args: {
     if (!svgEl.hasPointerCapture((event as PointerEvent).pointerId)) return;
     svgEl.releasePointerCapture((event as PointerEvent).pointerId);
     if (lassoPointsPx.length < 3) {
-      clearSelection();
-      args.onSelectionChanged?.();
+      clearSelectionInternal('human');
       return;
     }
     const polyDomain: DomainPoint[] = lassoPointsPx.map(([px, py]) => ({ x: x.invert(px), y: y.invert(py) }));
-    setLassoPolygon(polyDomain);
-    args.onSelectionChanged?.();
+    setLassoPolygonInternal(polyDomain, 'human');
   });
 
   return {

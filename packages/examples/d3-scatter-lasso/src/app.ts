@@ -18,36 +18,24 @@ export function run(): void {
   if (!plotRoot || !selectedEl || !clearBtn) throw new Error('Missing root elements');
 
   const globalKey = '__vacp';
+  // Dev-only overlay: inspects the VACP bridge and provides time travel + actions + DuckDB SQL.
   installVacpDebugUi({ enabled: 'auto', globalKey });
 
+  // Example data: synthetic points to keep the demo fully self-contained.
   const data = makePoints();
   let notify = (_source: 'human' | 'agent' | 'debug' | 'system', _message: string) => {};
-  let getSelectedCount = () => 0;
-  const syncSelectedLabel = () => {
-    selectedEl.textContent = String(getSelectedCount());
-  };
 
+  // Visualization: plain D3 chart (no VACP knowledge).
   const chart = createLassoScatterChart({
     root: plotRoot,
     data,
-    onSelectionChanged: () => {
-      syncSelectedLabel();
-      notify('human', 'lasso selection');
+    onSelectionChanged: ({ selectedCount, source }) => {
+      selectedEl.textContent = String(selectedCount);
+      if (source === 'human') notify('human', 'lasso selection');
     },
   });
 
-  getSelectedCount = chart.getSelectedCount;
-
-  const setLassoPolygon = (poly: Parameters<typeof chart.setLassoPolygon>[0]) => {
-    chart.setLassoPolygon(poly);
-    syncSelectedLabel();
-  };
-
-  const clearSelection = () => {
-    chart.clearSelection();
-    syncSelectedLabel();
-  };
-
+  // VACP integration: graph + actions + DuckDB queries, layered on top of the chart.
   const vacp = installVacpForD3ScatterLasso({
     root: plotRoot,
     svg: chart.svg,
@@ -55,19 +43,20 @@ export function run(): void {
     title: 'D3 lasso scatter',
     data,
     getLassoPolygon: chart.getLassoPolygon,
-    setLassoPolygon,
+    setLassoPolygon: chart.setLassoPolygon,
     getSelectedIds: chart.getSelectedIds,
     getSelectedCount: chart.getSelectedCount,
-    clearSelection,
+    clearSelection: chart.clearSelection,
   });
   notify = vacp.refresh;
 
+  // UI wiring: the "human" button should be indistinguishable from agent-style actions.
   clearBtn.addEventListener('click', () => {
-    clearSelection();
+    chart.clearSelection();
     notify('human', 'clear lasso');
   });
 
   chart.render();
-  syncSelectedLabel();
+  selectedEl.textContent = '0';
   notify('system', 'init');
 }
