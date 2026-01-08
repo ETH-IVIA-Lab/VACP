@@ -34,73 +34,6 @@ export const CSS_EXTRAS = `
     margin-bottom: 6px;
   }
 
-  .vacp-debug-ui-sql {
-    position: relative;
-    border: 1px solid var(--vacp-border);
-    border-radius: 10px;
-    background: rgba(231, 233, 238, 0.06);
-    overflow: hidden;
-  }
-  .vacp-debug-ui-sql-highlight {
-    position: absolute;
-    inset: 0;
-    margin: 0;
-    padding: 8px;
-    overflow: auto;
-    pointer-events: none;
-    color: rgba(231, 233, 238, 0.92);
-    font: 12px ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
-    line-height: 1.45;
-    white-space: pre;
-  }
-  .vacp-debug-ui-sql-highlight {
-    scrollbar-width: none;
-  }
-  .vacp-debug-ui-sql-highlight::-webkit-scrollbar {
-    display: none;
-  }
-  .vacp-debug-ui-sql-input {
-    width: 100%;
-    background: transparent !important;
-    border: none !important;
-    color: transparent !important;
-    caret-color: var(--vacp-fg);
-    -webkit-text-fill-color: transparent;
-    padding: 8px;
-    font: 12px ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
-    line-height: 1.45;
-    box-sizing: border-box;
-    min-height: 140px;
-    resize: vertical;
-    white-space: pre;
-    overflow: auto;
-    outline: none;
-  }
-  .vacp-debug-ui-sql-input::selection {
-    /* Keep selection visible without obscuring the syntax-highlighted layer. */
-    background-color: rgba(121, 178, 255, 0.22) !important;
-  }
-  .vacp-debug-ui-sql-input::-moz-selection {
-    background-color: rgba(121, 178, 255, 0.22) !important;
-  }
-
-  .vacp-sql-keyword {
-    color: rgba(121, 178, 255, 0.95);
-    font-weight: 600;
-  }
-  .vacp-sql-string {
-    color: rgba(255, 206, 115, 0.95);
-  }
-  .vacp-sql-number {
-    color: rgba(122, 255, 182, 0.92);
-  }
-  .vacp-sql-comment {
-    color: rgba(231, 233, 238, 0.55);
-  }
-  .vacp-sql-ident {
-    color: rgba(231, 233, 238, 0.9);
-  }
-
   .vacp-debug-ui-list {
     display: grid;
     gap: 8px;
@@ -227,6 +160,14 @@ export const CSS_EXTRAS = `
       linear-gradient(135deg, transparent 0 65%, rgba(231, 233, 238, 0.16) 65% 75%, transparent 75% 100%);
     border-bottom-right-radius: 12px;
     opacity: 0.75;
+  }
+  .vacp-debug-ui-resizer-left {
+    right: auto;
+    left: 0;
+    cursor: nesw-resize;
+    border-bottom-right-radius: 0;
+    border-bottom-left-radius: 12px;
+    transform: scaleX(-1);
   }
   .vacp-debug-ui-panel.vacp-debug-ui-resizing {
     user-select: none;

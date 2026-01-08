@@ -44,22 +44,46 @@ export function installVacpDebugResizer(args: { panel: HTMLElement; storageKey: 
   const initial = read();
   if (initial) queueMicrotask(() => apply(initial));
 
-  const handle = document.createElement('div');
-  handle.className = 'vacp-debug-ui-resizer';
-  handle.title = 'Resize overlay panel';
-  panel.append(handle);
+  const handleBR = document.createElement('div');
+  handleBR.className = 'vacp-debug-ui-resizer';
+  handleBR.title = 'Resize overlay panel';
+
+  const handleBL = document.createElement('div');
+  handleBL.className = 'vacp-debug-ui-resizer vacp-debug-ui-resizer-left';
+  handleBL.title = 'Resize overlay panel';
+
+  panel.append(handleBR, handleBL);
 
   let resizing = false;
+  let mode: 'br' | 'bl' = 'br';
   let startX = 0;
   let startY = 0;
   let startW = 0;
   let startH = 0;
+  let startLeft = 0;
 
   const onMove = (ev: PointerEvent) => {
     if (!resizing) return;
     const dx = ev.clientX - startX;
     const dy = ev.clientY - startY;
-    apply({ width: startW + dx, height: startH + dy });
+    if (mode === 'br') {
+      apply({ width: startW + dx, height: startH + dy });
+      return;
+    }
+    // Bottom-left: keep the right edge anchored, adjust `left` with width.
+    const margin = 10;
+    const maxW = Math.max(360, window.innerWidth - 28);
+    const maxH = Math.max(260, window.innerHeight - 92);
+    const w = clamp(startW - dx, 360, maxW);
+    const h = clamp(startH + dy, 260, maxH);
+    const rightEdge = startLeft + startW;
+    let left = rightEdge - w;
+    left = clamp(left, margin, Math.max(margin, window.innerWidth - w - margin));
+    panel.style.left = `${left}px`;
+    panel.style.right = 'auto';
+    panel.style.bottom = 'auto';
+    panel.style.width = `${w}px`;
+    panel.style.height = `${h}px`;
   };
 
   const onUp = () => {
@@ -74,18 +98,23 @@ export function installVacpDebugResizer(args: { panel: HTMLElement; storageKey: 
     onResizeEnd?.();
   };
 
-  handle.addEventListener('pointerdown', (ev) => {
+  const begin = (ev: PointerEvent, nextMode: 'br' | 'bl') => {
     if (ev.button !== 0) return;
     resizing = true;
+    mode = nextMode;
     panel.classList.add('vacp-debug-ui-resizing');
     const rect = panel.getBoundingClientRect();
     startX = ev.clientX;
     startY = ev.clientY;
     startW = rect.width;
     startH = rect.height;
-    handle.setPointerCapture?.(ev.pointerId);
+    startLeft = rect.left;
+    (nextMode === 'br' ? handleBR : handleBL).setPointerCapture?.(ev.pointerId);
     window.addEventListener('pointermove', onMove);
     window.addEventListener('pointerup', onUp);
     window.addEventListener('pointercancel', onUp);
-  });
+  };
+
+  handleBR.addEventListener('pointerdown', (ev) => begin(ev, 'br'));
+  handleBL.addEventListener('pointerdown', (ev) => begin(ev, 'bl'));
 }
