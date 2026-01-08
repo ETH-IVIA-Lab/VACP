@@ -11,7 +11,7 @@ import { buildMosaicPlaybooks } from './playbooks';
 
 import type { GalleryEntry } from './gallery';
 
-export function installVacpLayerForMosaic(args: {
+export function installVacp(args: {
   root: ParentNode;
   plots: Array<{ plotId: string; plot: VgplotPlotLike; element: Element; svg?: SVGElement }>;
   tables: Array<{ tableId: string; table: VgplotTableLike; element: Element }>;

@@ -11,7 +11,7 @@ import { buildVegaLitePlaybooks } from './playbooks';
 
 import type { GalleryEntry } from './gallery';
 
-export function installVacpLayerForVegaLite(args: {
+export function installVacp(args: {
   root: HTMLElement;
   view: VegaViewLike;
   spec: VisualizationSpec;

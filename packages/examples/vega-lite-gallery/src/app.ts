@@ -4,7 +4,7 @@ import embed, { type VisualizationSpec } from 'vega-embed';
 
 import { loadGallery } from './gallery';
 import type { GalleryEntry } from './gallery';
-import { installVacpLayerForVegaLite } from './vacp';
+import { installVacp } from './vacp';
 
 export async function run(): Promise<void> {
   const app = document.querySelector<HTMLDivElement>('#app');
@@ -42,7 +42,7 @@ export async function run(): Promise<void> {
     (globalThis as unknown as { __vegaView?: unknown }).__vegaView = result.view;
 
     // VACP layer: exposes Vega params/selections as nodes/actions at `window.__vacp`.
-    installVacpLayerForVegaLite({
+    installVacp({
       root: app,
       view: result.view as unknown as VegaViewLike,
       spec: spec as unknown as VisualizationSpec,

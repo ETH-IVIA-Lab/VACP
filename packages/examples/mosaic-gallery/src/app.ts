@@ -7,7 +7,7 @@ import { createAPIContext } from '@uwdata/vgplot';
 
 import type { GalleryEntry } from './gallery';
 import { loadGallery } from './gallery';
-import { installVacpLayerForMosaic } from './vacp';
+import { installVacp } from './vacp';
 import { waitForSvgMaybe } from './vgplot-helpers';
 
 function isPlotLike(value: unknown): value is VgplotPlotLike {
@@ -129,7 +129,7 @@ export async function run(): Promise<void> {
     });
 
     // VACP layer: attaches a bridge (`window.__vacp`), actions, state snapshots, and DuckDB access.
-    installVacpLayerForMosaic({ root: element, plots, tables, entry, globalKey, duckdbClient });
+    installVacp({ root: element, plots, tables, entry, globalKey, duckdbClient });
   };
 
   selectEl.addEventListener('change', () => {
