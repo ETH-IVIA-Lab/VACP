@@ -36,6 +36,7 @@ export const CSS_EXTRAS = `
     padding: 8px;
     overflow: auto;
     pointer-events: none;
+    color: rgba(231, 233, 238, 0.92);
     font: 12px ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
     line-height: 1.45;
     white-space: pre;
@@ -61,9 +62,14 @@ export const CSS_EXTRAS = `
     resize: vertical;
     white-space: pre;
     overflow: auto;
+    outline: none;
   }
   .vacp-debug-ui-sql-input::selection {
-    background: rgba(121, 178, 255, 0.22);
+    /* Keep selection visible without obscuring the syntax-highlighted layer. */
+    background-color: rgba(121, 178, 255, 0.22) !important;
+  }
+  .vacp-debug-ui-sql-input::-moz-selection {
+    background-color: rgba(121, 178, 255, 0.22) !important;
   }
 
   .vacp-sql-keyword {
