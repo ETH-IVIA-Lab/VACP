@@ -4,14 +4,6 @@ import { dirname, resolve } from 'node:path';
 
 import { startViteDevServer } from './helpers/devserver';
 
-type VacpBridge = {
-  getCapabilities: () => Promise<any>;
-  getState: () => Promise<any>;
-  getRuntime: () => Promise<any>;
-  getPlaybooks?: () => Promise<any>;
-  execute: (call: { callId: string; name: string; params?: unknown }) => Promise<any>;
-};
-
 async function expectBridge(page: Page): Promise<void> {
   await page.waitForFunction(
     () =>
@@ -19,11 +11,6 @@ async function expectBridge(page: Page): Promise<void> {
       typeof (globalThis as any).__vacp.getCapabilities === 'function' &&
       typeof (globalThis as any).__vacp.getRuntime === 'function',
   );
-}
-
-async function getBridge(page: Page): Promise<VacpBridge> {
-  await expectBridge(page);
-  return await page.evaluate(() => (globalThis as any).__vacp);
 }
 
 async function getCapabilities(page: Page): Promise<any> {
