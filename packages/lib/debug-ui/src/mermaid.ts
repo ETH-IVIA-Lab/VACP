@@ -21,6 +21,13 @@ export async function renderMermaidToHost(host: HTMLElement, mermaidText: string
     if (svg) {
       // Ensure the SVG scales to the available host viewport.
       // Mermaid sometimes emits fixed width/height; prefer a responsive viewBox.
+      //
+      // Mermaid also sets an inline `max-width: <px>` on the root SVG. That
+      // causes the diagram to stop expanding when the debug panel is resized.
+      // Override it so the chart can fully use the available pane size.
+      (svg as SVGSVGElement).style.maxWidth = 'none';
+      (svg as SVGSVGElement).style.maxHeight = 'none';
+
       const widthAttr = svg.getAttribute('width');
       const heightAttr = svg.getAttribute('height');
       const viewBox = svg.getAttribute('viewBox');
