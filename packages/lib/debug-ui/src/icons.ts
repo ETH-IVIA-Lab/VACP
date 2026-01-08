@@ -8,19 +8,21 @@ export function renderLucideIcon(
 ): SVGSVGElement {
   const node = icons[name];
   // `createElement` uses `document`, so this is browser-only by design.
-  const svg = createElement(node, {
+  const attrs: Record<string, string | number> = {
     width: opts?.size ?? 16,
     height: opts?.size ?? 16,
     class: opts?.className ?? 'vacp-debug-ui-icon',
-    'aria-hidden': opts?.title ? undefined : 'true',
-    role: opts?.title ? 'img' : 'presentation',
-  }) as SVGSVGElement;
-
+  };
   if (opts?.title) {
-    svg.setAttribute('aria-label', opts.title);
-    svg.setAttribute('focusable', 'false');
+    attrs.role = 'img';
+    attrs['aria-label'] = opts.title;
+  } else {
+    attrs.role = 'presentation';
+    attrs['aria-hidden'] = 'true';
   }
+
+  const svg = createElement(node, attrs) as SVGSVGElement;
+  svg.setAttribute('focusable', 'false');
 
   return svg;
 }
-
