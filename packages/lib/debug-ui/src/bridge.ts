@@ -27,8 +27,28 @@ export async function readRuntime(bridge: VacpWindowBridge): Promise<VacpRuntime
 }
 
 export async function readPlaybooks(bridge: VacpWindowBridge): Promise<VacpPlaybook[]> {
-  const fn = typeof bridge.getPlaybooks === 'function' ? bridge.getPlaybooks : bridge.getDemos;
-  if (typeof fn !== 'function') return [];
-  const res = await fn.call(bridge);
-  return Array.isArray(res) ? (res as VacpPlaybook[]) : [];
+  const [demosRaw, playbooksRaw] = await Promise.all([
+    typeof bridge.getDemos === 'function' ? bridge.getDemos() : Promise.resolve(null),
+    typeof bridge.getPlaybooks === 'function' ? bridge.getPlaybooks() : Promise.resolve(null),
+  ]);
+
+  const merged: VacpPlaybook[] = [];
+  const seen = new Set<string>();
+
+  const add = (items: unknown) => {
+    if (!Array.isArray(items)) return;
+    for (const item of items) {
+      if (!item || typeof item !== 'object') continue;
+      const pb = item as VacpPlaybook;
+      const key = typeof pb.id === 'string' && pb.id ? pb.id : `${pb.title ?? ''}:${pb.steps?.length ?? 0}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      merged.push(pb);
+    }
+  };
+
+  // Prefer demos first: they are typically the most example-specific, curated sequences.
+  add(demosRaw);
+  add(playbooksRaw);
+  return merged;
 }
