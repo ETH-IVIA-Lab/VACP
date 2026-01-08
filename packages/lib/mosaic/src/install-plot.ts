@@ -1,6 +1,3 @@
-import { applyVacpAttributes } from '@vacp/dom';
-
-import { makePlotRef } from './refs';
 import { installVacpOnVgplotDashboard } from './install-dashboard';
 import type { InstallVacpOnVgplotOptions, VgplotPlotLike } from './types';
 
@@ -17,14 +14,4 @@ export function installVacpOnVgplot(plot: VgplotPlotLike, svg: SVGElement, optio
       playbooks: options.playbooks,
     },
   });
-
-  if (options.annotateHostElement && plot.element) {
-    applyVacpAttributes(plot.element, {
-      ref: makePlotRef({ appId: options.appId, viewId: options.viewId, plotId: options.plotId, suffix: '/host' }),
-      layer: 'ViewLayer',
-      kind: 'InteractionTarget',
-      description: 'Host element containing the vgplot visualization and associated legends.',
-      data: { plotId: options.plotId },
-    });
-  }
 }

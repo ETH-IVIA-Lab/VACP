@@ -64,7 +64,6 @@ export interface InstallVacpOnVgplotOptions {
   plotId: string;
   title?: string;
   description?: string;
-  annotateHostElement?: boolean;
   globalKey?: string;
   playbooks?: VacpPlaybook[];
 }

@@ -157,25 +157,7 @@ export async function installVacpForVanillaScatter(args: {
         duckdb: tableMeta ?? undefined,
       },
     }),
-    dom: {
-      view: {
-        root: args.root,
-        annotation: { ref: viewRef, kind: 'View', layer: 'ViewLayer', title: 'Vanilla minimal' },
-      },
-      viz: {
-        svg: args.svg,
-        annotation: { ref: vizRef, kind: 'Visualization', layer: 'VisualizationLayer', title: 'Scatterplot (SVG)' },
-        interactions: {
-          targetRef: vizRef,
-          layer: 'VisualizationLayer',
-          description: 'Semantic actions + DuckDB queries.',
-        },
-      },
-    },
   });
-
-  // In this example the SVG element stays stable, so one annotation pass is enough.
-  vacp.annotate();
 
   return { ...vacp, refs: { viewRef, vizRef, selectionRef, handleRef } as Record<string, VacpRef> };
 }

@@ -202,12 +202,6 @@ importers:
         specifier: workspace:*
         version: link:../core
 
-  packages/lib/dom:
-    dependencies:
-      '@vacp/core':
-        specifier: workspace:*
-        version: link:../core
-
   packages/lib/duckdb:
     dependencies:
       '@duckdb/duckdb-wasm':
@@ -231,9 +225,6 @@ importers:
       '@vacp/core':
         specifier: workspace:*
         version: link:../core
-      '@vacp/dom':
-        specifier: workspace:*
-        version: link:../dom
       '@vacp/duckdb':
         specifier: workspace:*
         version: link:../duckdb
@@ -252,9 +243,6 @@ importers:
       '@vacp/core':
         specifier: workspace:*
         version: link:../core
-      '@vacp/dom':
-        specifier: workspace:*
-        version: link:../dom
       '@vacp/duckdb':
         specifier: workspace:*
         version: link:../duckdb
@@ -267,9 +255,6 @@ importers:
       '@vacp/core':
         specifier: workspace:*
         version: link:../core
-      '@vacp/dom':
-        specifier: workspace:*
-        version: link:../dom
       '@vacp/duckdb':
         specifier: workspace:*
         version: link:../duckdb

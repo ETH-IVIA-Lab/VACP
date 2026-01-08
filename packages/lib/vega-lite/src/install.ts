@@ -6,7 +6,6 @@ import type {
   VacpStateSnapshot,
 } from '@vacp/core';
 import { nowIso, VACP_SCHEMA_VERSION } from '@vacp/core';
-import { applyVacpAttributes, applyVacpInteractionAttributes, embedVacpGraphInSvg } from '@vacp/dom';
 import { formatDuckDbTableMetadataSummary } from '@vacp/duckdb';
 import { installVacpRuntimeBridge, registerVacpApplyStateAction, VacpActionRegistry } from '@vacp/gateway';
 
@@ -113,24 +112,6 @@ export function installVacpOnVegaLiteView(args: {
     handleRef && tableName
       ? graph.nodes.find((n) => n.kind === 'DataHandle' && n.ref === handleRef)
       : null;
-
-  applyVacpAttributes(root, {
-    ref: vizRef,
-    layer: 'ViewLayer',
-    kind: 'View',
-    title: options.title,
-    description: options.description,
-    data: { vizId: options.vizId, provider: 'vega-lite' },
-  });
-  applyVacpInteractionAttributes(root, {
-    targetRef: vizRef,
-    layer: 'ViewLayer',
-    description: 'Programmatic interactions for this Vega-Lite view.',
-    actions: actionDescriptors,
-  });
-
-  const svg = root.querySelector('svg');
-  if (svg) embedVacpGraphInSvg(svg, graph);
 
   const snapshots = {
     getCapabilities: async (): Promise<VacpCapabilitiesSnapshot> => ({

@@ -187,9 +187,9 @@ export function installVacpOnVgplotDashboard(args: {
     refresh: ({ source, message }) => bridge.refresh?.({ source, message }),
   });
 
-  installMosaicInputObservers({ inputs, graph, notifyRuntime });
-  installMosaicPlotObservers({ plots, graph, appId: options.appId, viewId: options.viewId, notifyRuntime });
-  installMosaicTableObservers({ tables, graph, appId: options.appId, viewId: options.viewId, notifyRuntime });
+  installMosaicInputObservers({ inputs, notifyRuntime });
+  installMosaicPlotObservers({ plots, notifyRuntime });
+  installMosaicTableObservers({ tables, notifyRuntime });
 
   notifyRuntime('installed', { immediate: true });
 }

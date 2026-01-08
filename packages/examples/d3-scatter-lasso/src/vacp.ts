@@ -199,21 +199,7 @@ export function installVacpForD3ScatterLasso(args: {
         duckdb: pointsTableMeta,
       },
     }),
-    dom: {
-      view: { root: args.root, annotation: { ref: viewRef, kind: 'View', layer: 'ViewLayer', title: args.title } },
-      viz: {
-        svg: args.svg,
-        annotation: { ref: vizRef, kind: 'Visualization', layer: 'VisualizationLayer', title: args.title },
-        interactions: {
-          targetRef: vizRef,
-          layer: 'VisualizationLayer',
-          description: 'Semantic lasso actions + DuckDB queries.',
-        },
-      },
-    },
   });
-
-  vacp.annotate();
 
   return { ...vacp, refs: { viewRef, vizRef, lassoRef, handleRef } };
 }

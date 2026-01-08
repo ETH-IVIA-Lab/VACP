@@ -15,7 +15,6 @@
   "dependencies": {
     "@vacp/core": "workspace:*",
     "@vacp/duckdb": "workspace:*",
-    "@vacp/dom": "workspace:*",
     "@vacp/gateway": "workspace:*",
     "@uwdata/mosaic-sql": "^0.21.1"
   },

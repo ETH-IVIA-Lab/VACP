@@ -1,6 +1,3 @@
-import type { VacpGraph } from '@vacp/core';
-
-import { annotateInput, annotatePlotSurface, annotatePlotSvg } from './annotations';
 import type { CollectedInput } from './inputs';
 import type { VgplotPlotLike, VgplotTableLike } from './types';
 import { wrapUpdate } from './runtime';
@@ -12,99 +9,44 @@ import { wrapUpdate } from './runtime';
  * interactions, so we attach lightweight observers:
  * - input widget selection updates
  * - interactor selection updates
- * - SVG replacement (reactive re-render) to keep annotations present
  */
 export function installMosaicInputObservers(args: {
   inputs: CollectedInput[];
-  graph: VacpGraph;
   notifyRuntime: (message: string, opts?: { immediate?: boolean }) => void;
 }) {
-  const { inputs, graph, notifyRuntime } = args;
+  const { inputs, notifyRuntime } = args;
   for (const input of inputs) {
-    annotateInput({ input, graph });
     if (input.input.selection) wrapUpdate(input.input.selection, 'input.selection.update', (m) => notifyRuntime(m));
   }
 }
 
 export function installMosaicPlotObservers(args: {
   plots: Array<{ plotId: string; plot: VgplotPlotLike; element: Element; svg?: SVGElement }>;
-  graph: VacpGraph;
-  appId: string;
-  viewId: string;
   notifyRuntime: (message: string, opts?: { immediate?: boolean }) => void;
 }) {
-  const { plots, graph, appId, viewId, notifyRuntime } = args;
+  const { plots, notifyRuntime } = args;
 
-  for (const { plotId, plot, element, svg } of plots) {
+  for (const { plot } of plots) {
     plot.interactors.forEach((it) => {
       const origInit = it.init;
       it.init = async (svgEl: SVGElement) => {
         const res = origInit ? await origInit.call(it, svgEl) : undefined;
-        annotatePlotSvg({ svg: svgEl, plotId, appId, viewId, graph });
         notifyRuntime('interactor.init', { immediate: true });
         if (it.selection) wrapUpdate(it.selection, 'selection.update', (m) => notifyRuntime(m));
         return res;
       };
       if (it.selection) wrapUpdate(it.selection, 'selection.update', (m) => notifyRuntime(m));
     });
-
-    annotatePlotSurface({ element, svg, plotId, appId, viewId, graph });
-
-    const anyPlot = plot as unknown as { __vacpObserver?: MutationObserver; __vacpSvgObserver?: MutationObserver };
-    anyPlot.__vacpObserver?.disconnect();
-    anyPlot.__vacpSvgObserver?.disconnect();
-
-    const host = (svg ?? element).closest?.('.plot') ?? (svg ?? element).parentElement ?? (plot as any).element ?? null;
-    if (!host) continue;
-
-    const attachSvgObserver = (svgEl: SVGElement) => {
-      anyPlot.__vacpSvgObserver?.disconnect();
-      let inApply = false;
-      const svgObs = new MutationObserver(() => {
-        if (inApply) return;
-        const needs =
-          !svgEl.querySelector('metadata[type="application/vacp+json"]') ||
-          !svgEl.getAttribute('data-vacp-ref') ||
-          !svgEl.getAttribute('data-interaction-vacp-actions');
-        if (!needs) return;
-        inApply = true;
-        try {
-          annotatePlotSvg({ svg: svgEl, plotId, appId, viewId, graph });
-        } finally {
-          inApply = false;
-        }
-      });
-      svgObs.observe(svgEl, { childList: true, attributes: true });
-      anyPlot.__vacpSvgObserver = svgObs;
-    };
-
-    if (!svg) continue;
-    let lastSvg = svg;
-    attachSvgObserver(lastSvg);
-
-    const obs = new MutationObserver(() => {
-      const next = host.querySelector('svg');
-      if (!next || next === lastSvg) return;
-      lastSvg = next;
-      annotatePlotSvg({ svg: next, plotId, appId, viewId, graph });
-      attachSvgObserver(next);
-    });
-    obs.observe(host, { childList: true, subtree: true });
-    anyPlot.__vacpObserver = obs;
   }
 }
 
 export function installMosaicTableObservers(args: {
   tables: Array<{ tableId: string; table: VgplotTableLike; element: Element }>;
-  graph: VacpGraph;
-  appId: string;
-  viewId: string;
   notifyRuntime: (message: string, opts?: { immediate?: boolean }) => void;
 }) {
-  const { tables, graph, appId, viewId, notifyRuntime } = args;
+  const { tables, notifyRuntime } = args;
 
-  for (const { tableId, table, element } of tables) {
-    annotatePlotSurface({ element, plotId: tableId, appId, viewId, graph });
+  for (const { table } of tables) {
     wrapUpdate(table, 'table.update', (m) => notifyRuntime(m));
     if (table.selection) wrapUpdate(table.selection, 'table.selection.update', (m) => notifyRuntime(m));
   }
