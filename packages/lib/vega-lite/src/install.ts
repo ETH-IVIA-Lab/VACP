@@ -33,7 +33,7 @@ export function installVacpOnVegaLiteView(args: {
   spec: VegaLiteSpecLike;
   options: InstallVacpOnVegaLiteOptions;
 }): void {
-  const { root, view, spec, options } = args;
+  const { view, spec, options } = args;
 
   const actionRegistry = new VacpActionRegistry();
   let lastChangeSource: VacpChangeSource = 'human';
