@@ -6,9 +6,10 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import type { VacpDiagramRenderOptions } from '@vacp/diagrams';
 import { renderVacpDiagramMermaid } from '@vacp/diagrams';
 
-import { renderMermaidToHost } from '../../mermaid';
-import { useVacpDebugUiStore } from '../debug-store';
-import { IconButton } from '../icon-button';
+import { renderMermaidToHost } from '@vacp/debug-ui/mermaid-renderer';
+import { useVacpDebugUiStore } from '@vacp/debug-ui/overlay/debug-store';
+import { IconButton } from '@vacp/debug-ui/overlay/icon-button';
+import { Card, CardDescription, CardHeader, CardTitle } from '@vacp/debug-ui/ui/components/ui/card';
 
 import type { VacpDebugModuleProps } from './module-types';
 
@@ -83,7 +84,7 @@ function buildInspectorJson(runtime: VacpRuntimeSnapshot, sel: SelectedGraphItem
 export function GraphModule(props: VacpDebugModuleProps): ReactElement {
   const includeActionsDefault = useVacpDebugUiStore((s) => s.includeActionsDefault);
   const [options, setOptions] = useState<Required<Pick<VacpDiagramRenderOptions, 'direction' | 'includeActions'>>>({
-    direction: 'LR',
+    direction: 'TB',
     includeActions: includeActionsDefault,
   });
   const [selected, setSelected] = useState<SelectedGraphItem>(null);
@@ -175,77 +176,79 @@ export function GraphModule(props: VacpDebugModuleProps): ReactElement {
   };
 
   return (
-    <div className="vacp-debug-ui-page" data-vacp-graph="1">
-      <div className="vacp-debug-ui-grid vacp-debug-ui-grid-1fr-360" style={{ height: '100%' }}>
-        <section className="vacp-debug-ui-card" style={{ display: 'grid', gridTemplateRows: 'auto auto 1fr' }}>
-          <div className="vacp-debug-ui-card-header">
-            <div className="vacp-debug-ui-card-title">Diagram</div>
-            <div className="vacp-debug-ui-toolbar">
-              <IconButton
-                icon={
-                  options.direction === 'LR' ? (
-                    <ArrowLeftRight className="vacp-debug-ui-icon" size={16} />
-                  ) : (
-                    <ArrowUpDown className="vacp-debug-ui-icon" size={16} />
-                  )
-                }
-                label="Toggle direction"
-                title="Toggle diagram direction (left-to-right vs top-to-bottom)."
-                onClick={() => setOptions((o) => ({ ...o, direction: o.direction === 'LR' ? 'TB' : 'LR' }))}
-              />
-              <IconButton
-                icon={<Zap className="vacp-debug-ui-icon" size={16} />}
-                label={options.includeActions ? 'Hide actions' : 'Show actions'}
-                title="Show semantic actions as nodes in the diagram."
-                pressed={options.includeActions}
-                onClick={() => setOptions((o) => ({ ...o, includeActions: !o.includeActions }))}
-              />
-              <IconButton
-                icon={<ClipboardCopy className="vacp-debug-ui-icon" size={16} />}
-                label="Copy Mermaid"
-                title="Copy the Mermaid source for this diagram."
-                onClick={() => void copy(mermaidText)}
-              />
-            </div>
+    <div className="grid h-full min-h-0 gap-3 lg:grid-cols-[1fr_420px]" data-vacp-graph="1">
+      <Card className="flex min-h-0 flex-col">
+        <CardHeader>
+          <div>
+            <CardTitle>Graph</CardTitle>
+            <CardDescription>
+              Click nodes to inspect their state. {renderError ? <span className="text-rose-100/80">({renderError})</span> : null}
+            </CardDescription>
           </div>
-          <div className="vacp-debug-ui-card-subtitle">
-            Click nodes to inspect their state. {renderError ? `(${renderError})` : ''}
+          <div className="flex items-center gap-2">
+            <IconButton
+              icon={options.direction === 'LR' ? <ArrowLeftRight className="h-4 w-4 text-slate-100/90" /> : <ArrowUpDown className="h-4 w-4 text-slate-100/90" />}
+              label="Toggle direction"
+              title="Toggle diagram direction (left-to-right vs top-to-bottom)."
+              onClick={() => setOptions((o) => ({ ...o, direction: o.direction === 'LR' ? 'TB' : 'LR' }))}
+            />
+            <IconButton
+              icon={<Zap className="h-4 w-4 text-slate-100/90" />}
+              label={options.includeActions ? 'Hide actions' : 'Show actions'}
+              title="Show semantic actions as nodes in the diagram."
+              pressed={options.includeActions}
+              onClick={() => setOptions((o) => ({ ...o, includeActions: !o.includeActions }))}
+            />
+            <IconButton
+              icon={<ClipboardCopy className="h-4 w-4 text-slate-100/90" />}
+              label="Copy Mermaid"
+              title="Copy the Mermaid source for this diagram."
+              onClick={() => void copy(mermaidText)}
+            />
           </div>
-          <div ref={diagramHostRef} className="vacp-debug-ui-diagram" data-stale={stale ? '1' : '0'} />
-        </section>
+        </CardHeader>
 
-        <section className="vacp-debug-ui-card" style={{ display: 'grid', gridTemplateRows: 'auto 1fr' }}>
-          <div className="vacp-debug-ui-card-header">
-            <div>
-              <div className="vacp-debug-ui-card-title">Inspect</div>
-              <div className="vacp-debug-ui-card-subtitle">
-                {selected
-                  ? selected.kind === 'action'
-                    ? `Action #${selected.index}`
-                    : `Node #${selected.index}`
-                  : 'Select a node to see its full JSON.'}
-              </div>
-            </div>
-            <div className="vacp-debug-ui-toolbar">
-              <IconButton
-                icon={<XCircle className="vacp-debug-ui-icon" size={16} />}
-                label="Clear selection"
-                title="Clear the selected node/action."
-                onClick={() => setSelected(null)}
-              />
-              <IconButton
-                icon={<ClipboardCopy className="vacp-debug-ui-icon" size={16} />}
-                label="Copy JSON"
-                title="Copy the inspected JSON to clipboard."
-                onClick={() => void copy(inspectorJson)}
-              />
-            </div>
+        <div className="min-h-0 flex-1">
+          <div
+            ref={diagramHostRef}
+            className="vacp-debug-ui-diagram h-full w-full min-h-0 overflow-hidden rounded-lg border border-white/10 bg-black/20"
+            data-stale={stale ? '1' : '0'}
+          />
+        </div>
+      </Card>
+
+      <Card className="flex min-h-0 flex-col">
+        <CardHeader>
+          <div>
+            <CardTitle>Inspect</CardTitle>
+            <CardDescription>
+              {selected
+                ? selected.kind === 'action'
+                  ? `Action #${selected.index}`
+                  : `Node #${selected.index}`
+                : 'Select a node to see its full JSON.'}
+            </CardDescription>
           </div>
-          <pre className="vacp-debug-ui-code" style={{ minHeight: 0, whiteSpace: 'pre-wrap' }}>
-            {selected ? inspectorJson : ''}
-          </pre>
-        </section>
-      </div>
+          <div className="flex items-center gap-2">
+            <IconButton
+              icon={<XCircle className="h-4 w-4 text-slate-100/90" />}
+              label="Clear selection"
+              title="Clear the selected node/action."
+              onClick={() => setSelected(null)}
+            />
+            <IconButton
+              icon={<ClipboardCopy className="h-4 w-4 text-slate-100/90" />}
+              label="Copy JSON"
+              title="Copy the inspected JSON to clipboard."
+              onClick={() => void copy(inspectorJson)}
+            />
+          </div>
+        </CardHeader>
+
+        <pre className="min-h-0 flex-1 overflow-auto rounded-lg border border-white/10 bg-black/20 p-3 text-[12px] leading-5 text-slate-100/85">
+          {selected ? inspectorJson : ''}
+        </pre>
+      </Card>
     </div>
   );
 }

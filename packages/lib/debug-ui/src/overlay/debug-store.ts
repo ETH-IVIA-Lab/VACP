@@ -1,36 +1,30 @@
-import type { VacpPlaybook, VacpRuntimeSnapshot } from '@vacp/core';
 import { create } from 'zustand';
 
-import type { VacpWindowBridge } from '../types';
-
-export type VacpDebugBridgeStatus = 'missing' | 'unknown' | 'ok';
+import type { VacpRef } from '@vacp/core';
 
 export type VacpDebugModuleId = 'graph' | 'data' | 'actions' | 'history' | 'playbook' | 'json';
 
 export type VacpDebugUiState = {
-  globalKey: string;
   includeActionsDefault: boolean;
 
   open: boolean;
   moduleId: VacpDebugModuleId;
-  bridgeStatus: VacpDebugBridgeStatus;
-
-  bridge: VacpWindowBridge | null;
-  runtime: VacpRuntimeSnapshot | null;
-  playbooks: VacpPlaybook[];
-  error: string | null;
-
-  setGlobalKey: (key: string) => void;
   setIncludeActionsDefault: (include: boolean) => void;
 
   setOpen: (open: boolean) => void;
   setModuleId: (id: VacpDebugModuleId) => void;
-  setBridgeStatus: (status: VacpDebugBridgeStatus) => void;
 
-  setBridge: (bridge: VacpWindowBridge | null) => void;
-  setRuntime: (runtime: VacpRuntimeSnapshot | null) => void;
-  setPlaybooks: (playbooks: VacpPlaybook[]) => void;
-  setError: (error: string | null) => void;
+  /** Debug UI state that should survive tab switches within the overlay. */
+  dataGraphSignature: string | null;
+  dataSelectedHandleRef: VacpRef | null;
+  dataSqlByHandleRef: Record<string, string>;
+  dataLastResult: unknown;
+  dataLastError: string | null;
+  setDataGraphSignature: (sig: string) => void;
+  setDataSelectedHandleRef: (ref: VacpRef | null) => void;
+  setDataSqlForHandle: (ref: VacpRef, sql: string) => void;
+  setDataLastResult: (value: { result: unknown; error?: string | null }) => void;
+  resetDataModule: () => void;
 };
 
 const MODULE_KEY = 'vacp:debug:module';
@@ -56,19 +50,10 @@ const saveModule = (id: VacpDebugModuleId) => {
 };
 
 export const useVacpDebugUiStore = create<VacpDebugUiState>((set) => ({
-  globalKey: '__vacp',
   includeActionsDefault: true,
 
   open: false,
   moduleId: readInitialModule(),
-  bridgeStatus: 'missing',
-
-  bridge: null,
-  runtime: null,
-  playbooks: [],
-  error: null,
-
-  setGlobalKey: (key) => set({ globalKey: key }),
   setIncludeActionsDefault: (include) => set({ includeActionsDefault: include }),
 
   setOpen: (open) => set({ open }),
@@ -76,11 +61,15 @@ export const useVacpDebugUiStore = create<VacpDebugUiState>((set) => ({
     saveModule(id);
     set({ moduleId: id });
   },
-  setBridgeStatus: (bridgeStatus) => set({ bridgeStatus }),
 
-  setBridge: (bridge) => set({ bridge }),
-  setRuntime: (runtime) => set({ runtime }),
-  setPlaybooks: (playbooks) => set({ playbooks }),
-  setError: (error) => set({ error }),
+  dataGraphSignature: null,
+  dataSelectedHandleRef: null,
+  dataSqlByHandleRef: {},
+  dataLastResult: null,
+  dataLastError: null,
+  setDataGraphSignature: (sig) => set({ dataGraphSignature: sig }),
+  setDataSelectedHandleRef: (ref) => set({ dataSelectedHandleRef: ref }),
+  setDataSqlForHandle: (ref, sql) => set((s) => ({ dataSqlByHandleRef: { ...s.dataSqlByHandleRef, [ref]: sql } })),
+  setDataLastResult: ({ result, error }) => set({ dataLastResult: result, dataLastError: error ?? null }),
+  resetDataModule: () => set({ dataSelectedHandleRef: null, dataSqlByHandleRef: {}, dataLastResult: null, dataLastError: null }),
 }));
-

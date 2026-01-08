@@ -124,8 +124,8 @@ test('debug-ui: drag snaps to anchors', async ({ page }) => {
     await expectNear(page, 'bottom-right');
     await expectPanelWithinViewport(page);
 
-    // Graph module should show a rendered diagram (no Mermaid code in the UI).
-    await expect(page.locator('.vacp-debug-ui-content')).not.toContainText('flowchart');
+    // Graph module should show a rendered diagram.
+    await expect(page.locator('.vacp-debug-ui-diagram svg')).toBeVisible({ timeout: 15_000 });
   } finally {
     await srv.stop();
   }

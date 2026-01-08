@@ -1,6 +1,10 @@
 {
   "extends": "../../../tsconfig.base.json",
   "compilerOptions": {
+    "baseUrl": "./src",
+    "paths": {
+      "@vacp/debug-ui/*": ["*"]
+    },
     "rootDir": "./src",
     "outDir": "./dist",
     "composite": true,

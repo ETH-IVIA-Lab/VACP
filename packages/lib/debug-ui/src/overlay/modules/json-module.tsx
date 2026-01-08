@@ -5,7 +5,9 @@ import { useMemo, useState } from 'react';
 
 import { VACP_APPLY_STATE_ACTION } from '@vacp/core';
 
-import { IconButton } from '../icon-button';
+import { IconButton } from '@vacp/debug-ui/overlay/icon-button';
+import { Card, CardDescription, CardHeader, CardTitle } from '@vacp/debug-ui/ui/components/ui/card';
+import { Textarea } from '@vacp/debug-ui/ui/components/ui/textarea';
 
 import type { VacpDebugModuleProps } from './module-types';
 
@@ -28,6 +30,7 @@ export function JsonModule(props: VacpDebugModuleProps): ReactElement {
   const [overrideText, setOverrideText] = useState<string>(() => safeJson(props.runtime.currentState.state));
   const [status, setStatus] = useState<string>('');
   const [error, setError] = useState<string | null>(null);
+  const inlineCodeClass = 'rounded-md border border-white/10 bg-black/25 px-1.5 py-0.5 text-[11px] font-medium text-slate-50';
 
   const copy = async (text: string) => {
     const t = text ?? '';
@@ -93,70 +96,79 @@ export function JsonModule(props: VacpDebugModuleProps): ReactElement {
   };
 
   return (
-    <div className="vacp-debug-ui-page">
-      <section className="vacp-debug-ui-card">
-        <div className="vacp-debug-ui-card-header">
+    <div className="grid h-full min-h-0 gap-3 lg:grid-cols-2">
+      <Card className="flex min-h-0 flex-col">
+        <CardHeader>
           <div>
-            <div className="vacp-debug-ui-card-title">State snapshot</div>
-            <div className="vacp-debug-ui-card-subtitle">The current VACP state snapshot from the provider.</div>
+            <CardTitle>State snapshot</CardTitle>
+            <CardDescription>The current VACP state snapshot from the provider.</CardDescription>
           </div>
-          <div className="vacp-debug-ui-toolbar">
+          <div className="flex items-center gap-2">
             <IconButton
-              icon={<ClipboardCopy className="vacp-debug-ui-icon" size={16} />}
+              icon={<ClipboardCopy className="h-4 w-4 text-slate-100/90" />}
               label="Copy snapshot"
               title="Copy the current state snapshot JSON."
               onClick={() => void copy(snapshotText)}
             />
           </div>
-        </div>
-        <pre className="vacp-debug-ui-code" style={{ whiteSpace: 'pre-wrap' }}>
+        </CardHeader>
+        <pre className="mt-3 min-h-0 flex-1 overflow-auto rounded-lg border border-white/10 bg-black/20 p-3 text-[12px] leading-5 text-slate-100/85">
           {snapshotText}
         </pre>
-      </section>
+      </Card>
 
-      <section className="vacp-debug-ui-card">
-        <div className="vacp-debug-ui-card-header">
+      <Card className="flex min-h-0 flex-col">
+        <CardHeader>
           <div>
-            <div className="vacp-debug-ui-card-title">State edit</div>
-            <div className="vacp-debug-ui-card-subtitle">
-              Apply state for inspection (override) or execute <code>vacp.apply_state</code>.
-            </div>
+            <CardTitle>State edit</CardTitle>
+            <CardDescription>
+              Apply state for inspection (override) or execute <code className={inlineCodeClass}>vacp.apply_state</code>.
+            </CardDescription>
           </div>
-          <div className="vacp-debug-ui-toolbar">
+          <div className="flex items-center gap-2">
             <IconButton
-              icon={<Braces className="vacp-debug-ui-icon" size={16} />}
+              icon={<Braces className="h-4 w-4 text-slate-100/90" />}
               label="Reset to current"
               title="Reset the editor to the current state."
               onClick={() => setOverrideText(safeJson(props.runtime.currentState.state))}
             />
             <IconButton
-              icon={<Play className="vacp-debug-ui-icon" size={16} />}
+              icon={<Play className="h-4 w-4 text-slate-100/90" />}
               label="Apply override"
               title="Apply this state as an override for inspection (does not affect the live app)."
               variant="primary"
               onClick={() => applyOverride()}
             />
             <IconButton
-              icon={<Play className="vacp-debug-ui-icon" size={16} />}
+              icon={<Play className="h-4 w-4 text-slate-100/90" />}
               label="Apply to app"
               title="Execute vacp.apply_state against the live app."
               onClick={() => void applyToApp()}
             />
             <IconButton
-              icon={<Eraser className="vacp-debug-ui-icon" size={16} />}
+              icon={<Eraser className="h-4 w-4 text-slate-100/90" />}
               label="Clear overrides"
               title="Clear any inspection overrides."
               onClick={() => clear()}
             />
           </div>
+        </CardHeader>
+
+        <div className="mt-3">
+          <label className="text-[11px] font-medium text-slate-100/70" htmlFor="vacp-state-override">
+            State map (JSON)
+          </label>
+          <Textarea
+            id="vacp-state-override"
+            className="mt-1 min-h-[260px] text-[12px] leading-5"
+            value={overrideText}
+            onChange={(e) => setOverrideText(e.target.value)}
+          />
         </div>
-        <div className="vacp-debug-ui-field" style={{ margin: 0 }}>
-          <label htmlFor="vacp-state-override">State map (JSON)</label>
-          <textarea id="vacp-state-override" value={overrideText} onChange={(e) => setOverrideText(e.target.value)} style={{ minHeight: 200 }} />
-        </div>
-        {status ? <div className="vacp-debug-ui-small">{status}</div> : null}
-        {error ? <div className="vacp-debug-ui-small">{error}</div> : null}
-      </section>
+
+        {status ? <div className="mt-2 text-[11px] text-emerald-100/80">{status}</div> : null}
+        {error ? <div className="mt-2 text-[11px] text-rose-100/80">{error}</div> : null}
+      </Card>
     </div>
   );
 }
