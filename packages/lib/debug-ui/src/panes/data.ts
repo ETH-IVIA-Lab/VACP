@@ -87,7 +87,10 @@ export async function renderDataPane(args: {
   const textarea = document.createElement('textarea');
   textarea.value = state.queryText || 'SELECT COUNT(*)::INTEGER AS n_all FROM vacp_all';
   textarea.title = 'SQL can reference vacp_all and vacp_handle (DuckDB SQL).';
-  textarea.addEventListener('input', () => onChange({ queryText: textarea.value }));
+  textarea.dataset.vacpFocus = 'data-sql';
+  textarea.addEventListener('input', () => {
+    state.queryText = textarea.value;
+  });
   queryField.append(queryLabel, textarea);
 
   const quickRow = document.createElement('div');
@@ -112,7 +115,7 @@ export async function renderDataPane(args: {
           : b === q2
             ? 'SELECT COUNT(*)::INTEGER AS n FROM vacp_handle'
             : 'SELECT * FROM vacp_handle LIMIT 20';
-      onChange({ queryText: textarea.value });
+      state.queryText = textarea.value;
     }),
   );
   quickRow.append(q1, q2, q3);
@@ -191,6 +194,12 @@ export async function renderDataPane(args: {
   };
 
   refreshPreviewBtn.addEventListener('click', () => void refreshPreview().catch(() => {}));
+
+  const keepTextareaFocus = (btn: HTMLButtonElement) => {
+    btn.addEventListener('mousedown', (e) => e.preventDefault());
+    btn.addEventListener('click', () => textarea.focus({ preventScroll: true }));
+  };
+  [refreshPreviewBtn, q1, q2, q3, runBtn, copyBtn].forEach(keepTextareaFocus);
 
   runBtn.addEventListener('click', async () => {
     onChange({ lastErrorText: '' });

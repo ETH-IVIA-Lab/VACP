@@ -9,6 +9,7 @@ import { installVacpDebugShortcuts } from './shortcuts';
 import { ensureStyles } from './styles';
 import type { VacpDebugModule, VacpDebugModuleId, VacpDebugUiOptions, VacpWindowBridge } from './types';
 import { createVacpDebugUiDom } from './ui';
+import { captureFocus, restoreFocus } from './focus';
 
 function setPanelVisible(panel: HTMLElement, visible: boolean): void {
   panel.style.display = visible ? 'grid' : 'none';
@@ -107,6 +108,7 @@ export function installVacpDebugUi(options?: VacpDebugUiOptions): void {
   let activeBridge: VacpWindowBridge | null = null;
   let unsubscribe: (() => void) | null = null;
   let pendingRender = false;
+  let pendingFocus: ReturnType<typeof captureFocus> = null;
 
   const dbg = (message: string) => ({ source: 'debug' as const, message });
 
@@ -177,12 +179,15 @@ export function installVacpDebugUi(options?: VacpDebugUiOptions): void {
   const requestRender = () => {
     if (!activeBridge) return;
     if (!isPanelVisible(panel)) return;
+    pendingFocus = captureFocus(panel);
     if (pendingRender) return;
     pendingRender = true;
     queueMicrotask(() => {
       pendingRender = false;
       if (!activeBridge || !isPanelVisible(panel)) return;
-      void render(activeBridge);
+      const focus = pendingFocus;
+      pendingFocus = null;
+      void render(activeBridge).finally(() => restoreFocus(panel, focus));
     });
   };
 
