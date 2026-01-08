@@ -1,5 +1,6 @@
 import type { VacpDataSqlParams, VacpDataSqlResult, VacpRef } from '@vacp/core';
 import { createDuckDbDataSqlHandler, type VacpDuckDbClient } from '@vacp/duckdb';
+export { makeVacpDuckDbTableName } from '@vacp/duckdb';
 
 export type VacpDuckDbHandleSpec = {
   handleRef: VacpRef;

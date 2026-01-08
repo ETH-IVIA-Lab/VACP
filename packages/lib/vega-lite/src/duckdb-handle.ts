@@ -1,6 +1,6 @@
 import type { VacpActionDescriptor, VacpRef } from '@vacp/core';
 import type { VacpDuckDbClient } from '@vacp/duckdb';
-import { createDuckDbDataSqlHandler, createDuckDbWasmClient } from '@vacp/duckdb';
+import { createDuckDbDataSqlHandler, createDuckDbWasmClient, makeVacpDuckDbTableName } from '@vacp/duckdb';
 import { registerVacpDataSqlAction, type VacpActionRegistry } from '@vacp/gateway';
 
 import { whereClauseForCurrentSelections } from './duckdb-selection';
@@ -51,9 +51,8 @@ export function installVegaLiteDuckDbDataHandle(args: {
   // DuckDB is shared across the page, so we use unique per-install table names
   // and best-effort cleanup for this view key.
   const tableName = (() => {
-    const base = `vacp_vl_${options.appId}_${options.viewId}_${options.vizId}`.replaceAll(/[^a-zA-Z0-9_]/g, '_');
-    const suffix = typeof crypto.randomUUID === 'function' ? crypto.randomUUID().slice(0, 8) : String(Date.now());
-    const name = `${base}_${suffix}`;
+    const base = `vacp_vl_${options.appId}_${options.viewId}_${options.vizId}`;
+    const name = makeVacpDuckDbTableName({ prefix: base });
 
     const viewKey = `${options.appId}/${options.viewId}/${options.vizId}`;
     const rootAny = globalThis as unknown as { __vacpVegaLiteDuckDbTables?: Record<string, string> };

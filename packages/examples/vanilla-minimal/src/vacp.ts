@@ -9,7 +9,14 @@
  */
 
 import type { VacpGraphBase } from '@vacp/kit';
-import { createDuckDbSqlRouter, createVacpActions, createVacpLayer, createVacpRefBuilder, playbook } from '@vacp/kit';
+import {
+  createDuckDbSqlRouter,
+  createVacpActions,
+  createVacpLayer,
+  createVacpRefBuilder,
+  makeVacpDuckDbTableName,
+  playbook,
+} from '@vacp/kit';
 import { createDuckDbWasmClient } from '@vacp/duckdb';
 import { VACP_SCHEMA_VERSION, type VacpRef } from '@vacp/core';
 
@@ -36,7 +43,7 @@ export async function installVacpForVanillaScatter(args: {
 
   // DuckDB is the single, uniform "data access" mechanism in this repo.
   const duckdb = await createDuckDbWasmClient({ log: false });
-  const tableName = `vacp_vanilla_points_${crypto.randomUUID().slice(0, 8)}`;
+  const tableName = makeVacpDuckDbTableName({ prefix: 'vacp_vanilla_points' });
   await duckdb.loadObjectsAsTable(
     tableName,
     args.data.map((d) => ({ id: d.id, x: d.x, y: d.y, group: d.group })),
