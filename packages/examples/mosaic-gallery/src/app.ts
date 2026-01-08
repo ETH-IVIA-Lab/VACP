@@ -23,13 +23,12 @@ export async function run(): Promise<void> {
     throw new Error('Missing root elements');
   }
 
-  const appRoot = app;
-  const metaDiv = metaEl;
-
   const globalKey = '__vacp';
 
+  // Dev-only overlay: inspects the VACP bridge and provides time travel + actions + DuckDB SQL.
   installVacpDebugUi({ enabled: 'auto', globalKey });
 
+  // Mosaic's coordinator owns the shared in-browser DuckDB instance.
   const mc = coordinator();
   const connector = new DuckDBWASMConnector({ log: false });
   mc.databaseConnector(connector);
@@ -73,6 +72,7 @@ export async function run(): Promise<void> {
     },
   };
 
+  // Gallery UI: list all available YAML specs (mirrors Mosaic's own spec gallery idea).
   const gallery = loadGallery();
   gallery.forEach((entry) => {
     const opt = document.createElement('option');
@@ -87,12 +87,13 @@ export async function run(): Promise<void> {
   else selectEl.value = gallery[0]?.id ?? '';
 
   const render = async (entry: GalleryEntry): Promise<void> => {
-    metaDiv.textContent = entry.meta.description ?? '';
+    // Render: translate spec → vgplot DOM, then attach VACP on top of the resulting plots.
+    metaEl.textContent = entry.meta.description ?? '';
 
     const ast = parseSpec(entry.spec);
     const api = createAPIContext({ coordinator: mc });
     const { element } = await astToDOM(ast, { api, baseURL: window.location.href });
-    appRoot.replaceChildren(element);
+    app.replaceChildren(element);
 
     const plotEls = element.classList.contains('plot')
       ? [element as HTMLElement]
@@ -118,7 +119,7 @@ export async function run(): Promise<void> {
     const entry = gallery.find((g) => g.id === id);
     if (entry) {
       void render(entry).catch((err) => {
-        metaDiv.textContent = `Render failed: ${String(err)}`;
+        metaEl.textContent = `Render failed: ${String(err)}`;
       });
     }
   });

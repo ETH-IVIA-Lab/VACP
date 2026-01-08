@@ -14,12 +14,11 @@ export async function run(): Promise<void> {
     throw new Error('Missing root elements');
   }
 
-  const appRoot = app;
-  const metaDiv = metaEl;
-
   const globalKey = '__vacp';
+  // Dev-only overlay: inspects the VACP bridge and provides time travel + actions + DuckDB SQL.
   installVacpDebugUi({ enabled: 'auto', globalKey });
 
+  // Gallery UI: pick between small specs that each exercise a different VACP feature.
   const gallery = loadGallery();
   gallery.forEach((entry) => {
     const opt = document.createElement('option');
@@ -34,16 +33,17 @@ export async function run(): Promise<void> {
   else selectEl.value = gallery[0]?.id ?? '';
 
   const render = async (entry: GalleryEntry): Promise<void> => {
-    metaDiv.textContent = entry.meta.description ?? '';
+    // Render: mount Vega-Lite into the page, then attach VACP on top of the Vega View.
+    metaEl.textContent = entry.meta.description ?? '';
 
-    appRoot.replaceChildren();
+    app.replaceChildren();
     const spec = entry.createSpec();
-    const result = await embed(appRoot, spec as unknown as VisualizationSpec, { actions: false, renderer: 'svg' });
+    const result = await embed(app, spec as unknown as VisualizationSpec, { actions: false, renderer: 'svg' });
     (globalThis as unknown as { __vegaView?: unknown }).__vegaView = result.view;
 
     // VACP layer: exposes Vega params/selections as nodes/actions at `window.__vacp`.
     installVacpLayerForVegaLite({
-      root: appRoot,
+      root: app,
       view: result.view as unknown as VegaViewLike,
       spec: spec as unknown as VisualizationSpec,
       entry,
@@ -57,7 +57,7 @@ export async function run(): Promise<void> {
     const entry = gallery.find((g) => g.id === id);
     if (entry) {
       void render(entry).catch((err) => {
-        metaDiv.textContent = `Render failed: ${String(err)}`;
+        metaEl.textContent = `Render failed: ${String(err)}`;
       });
     }
   });

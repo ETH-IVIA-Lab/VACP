@@ -17,13 +17,16 @@ export async function run(): Promise<void> {
   if (!app || !clearBtn) throw new Error('Missing root elements');
 
   const globalKey = '__vacp';
+  // Dev-only overlay: inspects the VACP bridge and provides time travel + actions + DuckDB SQL.
   installVacpDebugUi({ enabled: 'auto', globalKey });
 
+  // Example data + UI state: selection is local, and VACP reads/writes it via actions/state snapshots.
   const data = randomData();
   const selectedIds = new Set<number>();
 
   let notify = (_source: 'human' | 'agent' | 'debug' | 'system', _message: string) => {};
 
+  // Visualization: plain SVG scatterplot (no VACP knowledge).
   const plot = createScatterPlot({
     root: app,
     data,
@@ -35,6 +38,7 @@ export async function run(): Promise<void> {
     },
   });
 
+  // VACP integration: graph + actions + DuckDB queries, layered on top of the chart.
   const vacp = await installVacpForVanillaScatter({
     root: app,
     svg: plot.svg,
@@ -50,6 +54,7 @@ export async function run(): Promise<void> {
   });
   notify = vacp.refresh;
 
+  // UI wiring: the human button triggers the same selection semantics as agent actions.
   clearBtn.addEventListener('click', () => {
     selectedIds.clear();
     plot.update(selectedIds);

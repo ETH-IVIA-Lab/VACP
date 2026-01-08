@@ -5,7 +5,13 @@ import type { VgplotPlotLike } from '@vacp/mosaic';
 
 import type { GalleryEntry } from './gallery';
 
-type PlaybookBuilder = (entry: GalleryEntry, viewBase: string) => VacpPlaybook[];
+type PlaybookContext = {
+  entry: GalleryEntry;
+  viewBase: string;
+  plots: Array<{ plotId: string; plot: VgplotPlotLike }>;
+};
+
+type PlaybookBuilder = (ctx: PlaybookContext) => VacpPlaybook[];
 
 function anySpecNode(obj: unknown, pred: (node: Record<string, unknown>) => boolean): boolean {
   if (!obj || typeof obj !== 'object') return false;
@@ -23,9 +29,17 @@ function roundNum(value: number): number {
   return Number(value.toFixed(6));
 }
 
+function toDomainNumber(value: unknown): number | null {
+  if (typeof value === 'number' && Number.isFinite(value)) return value;
+  if (value instanceof Date) return value.getTime();
+  return null;
+}
+
 function normalizeDomain(a: unknown, b: unknown): [number, number] | null {
-  if (typeof a !== 'number' || typeof b !== 'number' || !Number.isFinite(a) || !Number.isFinite(b)) return null;
-  return a <= b ? [a, b] : [b, a];
+  const x = toDomainNumber(a);
+  const y = toDomainNumber(b);
+  if (x === null || y === null) return null;
+  return x <= y ? [x, y] : [y, x];
 }
 
 function domainToInterval(domain: [number, number], range: [number, number]): [number, number] {
@@ -155,7 +169,7 @@ function intervalPlaybook(args: {
 }
 
 const perSpec: Record<string, PlaybookBuilder> = {
-  'wnba-shots': (_entry, viewBase) => [
+  'wnba-shots': ({ viewBase }) => [
     playbook({
       id: `wnba-shots-menus`,
       title: 'Bidirectional filtering',
@@ -175,25 +189,61 @@ const perSpec: Record<string, PlaybookBuilder> = {
       .action('Clear team filter', { name: 'mosaic.clear_input', params: { ref: `${viewBase}/input/0` } })
       .build(),
   ],
-  weather: (_entry, _viewBase) => [
-    playbook({
-      id: `weather-linked`,
-      title: 'Linked views (brush + toggle)',
-      description:
-        'Brush the top plot or toggle categories in the bottom plot: both human and agent actions update the same VACP state graph.',
-    })
-      .action('Set brush range', {
-        name: 'mosaic.set_interval_1d',
-        params: { plotId: 'plot-0', interactorId: '0', min: 5, max: 20 },
+  weather: ({ plots }) => {
+    const intervalPlot = plots.find((p) => p.plot.interactors.some((i) => i.constructor?.name === 'Interval1D'));
+    const intervalId = intervalPlot
+      ? intervalPlot.plot.interactors.findIndex((i) => i.constructor?.name === 'Interval1D')
+      : -1;
+
+    const domain = intervalPlot && intervalId >= 0 ? getInterval1dDomain(intervalPlot.plot, intervalId) : null;
+    const [d0, d1] = domain ?? [0, 365];
+
+    const marchToMay = (() => {
+      // Many `dateMonthDay` scales expose "day-of-year like" units (0..365).
+      if (d0 >= 0 && d1 <= 400) return { min: Math.max(d0, 60), max: Math.min(d1, 151) };
+      // If this looks like a timestamp, select March→May in the same year as the domain.
+      if (d1 > 10_000_000_000) {
+        const year = new Date(d0).getFullYear();
+        return { min: new Date(year, 2, 1).getTime(), max: new Date(year, 4, 31, 23, 59, 59, 999).getTime() };
+      }
+      // Fallback: select roughly "spring" (Mar→May ≈ 2/12→5/12).
+      return { min: roundNum(d0 + (d1 - d0) * (2 / 12)), max: roundNum(d0 + (d1 - d0) * (5 / 12)) };
+    })();
+
+    const togglePlot = plots.find((p) => p.plot.interactors.some((i) => i.constructor?.name === 'Toggle'));
+    const toggleId = togglePlot ? togglePlot.plot.interactors.findIndex((i) => i.constructor?.name === 'Toggle') : 0;
+
+    return [
+      playbook({
+        id: `weather-linked`,
+        title: 'Brush (Mar→May) + legend click (fog)',
+        description:
+          'Clear selection, brush March→May on the top plot, then select “fog” (equivalent to clicking the legend).',
       })
-      .action('Toggle “rain” in bars', {
-        name: 'mosaic.set_toggle',
-        params: { plotId: 'plot-1', interactorId: '0', value: 'rain' },
-      })
-      .action('Clear toggle', { name: 'mosaic.clear_toggle', params: { plotId: 'plot-1', interactorId: '0' } })
-      .action('Clear brush', { name: 'mosaic.clear_interval_1d', params: { plotId: 'plot-0', interactorId: '0' } })
-      .build(),
-  ],
+        .action('Clear brush', {
+          name: 'mosaic.clear_interval_1d',
+          params: { plotId: intervalPlot?.plotId ?? 'plot-0', interactorId: String(Math.max(0, intervalId)) },
+        })
+        .action('Clear legend selection', {
+          name: 'mosaic.clear_toggle',
+          params: { plotId: togglePlot?.plotId ?? 'plot-1', interactorId: String(Math.max(0, toggleId)) },
+        })
+        .action('Brush March→May', {
+          name: 'mosaic.set_interval_1d',
+          params: {
+            plotId: intervalPlot?.plotId ?? 'plot-0',
+            interactorId: String(Math.max(0, intervalId)),
+            min: marchToMay.min,
+            max: marchToMay.max,
+          },
+        })
+        .action('Click “fog” on legend', {
+          name: 'mosaic.set_toggle',
+          params: { plotId: togglePlot?.plotId ?? 'plot-1', interactorId: String(Math.max(0, toggleId)), value: 'fog' },
+        })
+        .build(),
+    ];
+  },
 };
 
 function resolveSelectionPlaybook(args: {
@@ -238,7 +288,7 @@ export function buildPlaybooks(args: {
   const viewBase = `vacp://vacp-examples/mosaic/${args.entry.id}`;
   const entry = args.entry;
   const specific = perSpec[entry.id];
-  if (specific) return specific(entry, viewBase);
+  if (specific) return specific({ entry, viewBase, plots: args.plots });
 
   const playbooks: VacpPlaybook[] = [];
   if (specHasInput(entry)) playbooks.push(...menuPlaybook(entry, viewBase));
