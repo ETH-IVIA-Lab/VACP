@@ -26,7 +26,7 @@ export function installVacpLayerForMosaic(args: {
       viewId: `mosaic/${args.entry.id}`,
       title: args.entry.meta.title,
       globalKey: args.globalKey,
-      demos: buildPlaybooks(args.entry),
+      demos: buildPlaybooks({ entry: args.entry, plots: args.plots }),
       duckdbClient: args.duckdbClient,
     },
   });
