@@ -1,12 +1,6 @@
 import type { VacpPlaybook } from '@vacp/core';
 import { playbook } from '@vacp/kit';
 
-/**
- * D3 lasso playbook.
- *
- * This is intentionally minimal: it demonstrates that an "agent" can perform
- * the same semantic selection operations a human can (set polygon / clear).
- */
 export function buildD3ScatterLassoPlaybooks(): VacpPlaybook[] {
   return [
     playbook({

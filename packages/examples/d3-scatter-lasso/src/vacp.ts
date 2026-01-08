@@ -16,7 +16,7 @@ import {
 } from '@vacp/kit';
 import { createDuckDbWasmClient, getDuckDbTableMetadata, type VacpDuckDbTableMetadata } from '@vacp/duckdb';
 import { VACP_SCHEMA_VERSION } from '@vacp/core';
-import { buildD3ScatterLassoPlaybooks } from '@vacp/example-playbooks';
+import { buildD3ScatterLassoPlaybooks } from './playbooks';
 
 import type { DomainPoint, Point } from './chart';
 

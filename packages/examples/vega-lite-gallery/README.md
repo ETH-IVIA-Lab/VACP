@@ -83,6 +83,6 @@ export function createSpec() {
 ## Useful entry points
 
 - App wiring: `src/app.ts`
-- Playbook scripts: `@vacp/example-playbooks` (`vacp/packages/lib/example-playbooks`)
+- Playbook scripts: `src/playbooks.ts`
 - Spec gallery loader: `src/gallery.ts`
 - Specs: `src/specs/`

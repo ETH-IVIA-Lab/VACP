@@ -7,7 +7,7 @@
 
 import { installVacpOnVegaLiteView, type VegaViewLike } from '@vacp/vega-lite';
 import type { VisualizationSpec } from 'vega-embed';
-import { buildVegaLitePlaybooks } from '@vacp/example-playbooks';
+import { buildVegaLitePlaybooks } from './playbooks';
 
 import type { GalleryEntry } from './gallery';
 

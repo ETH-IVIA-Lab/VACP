@@ -18,7 +18,7 @@ import {
 } from '@vacp/kit';
 import { createDuckDbWasmClient, getDuckDbTableMetadata } from '@vacp/duckdb';
 import { VACP_SCHEMA_VERSION, type VacpRef } from '@vacp/core';
-import { buildVanillaMinimalPlaybooks } from '@vacp/example-playbooks';
+import { buildVanillaMinimalPlaybooks } from './playbooks';
 
 import type { Datum } from './plot';
 

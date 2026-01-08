@@ -38,9 +38,6 @@ importers:
       '@vacp/duckdb':
         specifier: workspace:*
         version: link:../../lib/duckdb
-      '@vacp/example-playbooks':
-        specifier: workspace:*
-        version: link:../../lib/example-playbooks
       '@vacp/kit':
         specifier: workspace:*
         version: link:../../lib/kit
@@ -75,9 +72,6 @@ importers:
       '@vacp/duckdb':
         specifier: workspace:*
         version: link:../../lib/duckdb
-      '@vacp/example-playbooks':
-        specifier: workspace:*
-        version: link:../../lib/example-playbooks
       '@vacp/kit':
         specifier: workspace:*
         version: link:../../lib/kit
@@ -103,9 +97,6 @@ importers:
       '@vacp/duckdb':
         specifier: workspace:*
         version: link:../../lib/duckdb
-      '@vacp/example-playbooks':
-        specifier: workspace:*
-        version: link:../../lib/example-playbooks
       '@vacp/kit':
         specifier: workspace:*
         version: link:../../lib/kit
@@ -122,9 +113,6 @@ importers:
       '@vacp/debug-ui':
         specifier: workspace:*
         version: link:../../lib/debug-ui
-      '@vacp/example-playbooks':
-        specifier: workspace:*
-        version: link:../../lib/example-playbooks
       '@vacp/kit':
         specifier: workspace:*
         version: link:../../lib/kit
@@ -231,18 +219,6 @@ importers:
       apache-arrow:
         specifier: ^19.0.1
         version: 19.0.1
-
-  packages/lib/example-playbooks:
-    dependencies:
-      '@vacp/core':
-        specifier: workspace:*
-        version: link:../core
-      '@vacp/kit':
-        specifier: workspace:*
-        version: link:../kit
-      '@vacp/mosaic':
-        specifier: workspace:*
-        version: link:../mosaic
 
   packages/lib/gateway:
     dependencies:

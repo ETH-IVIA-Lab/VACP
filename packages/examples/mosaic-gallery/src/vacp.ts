@@ -5,15 +5,16 @@
  * actions on top, without changing how the visualization is authored.
  */
 
-import { installVacpOnVgplotDashboard, type VgplotPlotLike } from '@vacp/mosaic';
+import { installVacpOnVgplotDashboard, type VgplotPlotLike, type VgplotTableLike } from '@vacp/mosaic';
 import type { VacpDuckDbClient } from '@vacp/duckdb';
-import { buildMosaicPlaybooks } from '@vacp/example-playbooks';
+import { buildMosaicPlaybooks } from './playbooks';
 
 import type { GalleryEntry } from './gallery';
 
 export function installVacpLayerForMosaic(args: {
   root: ParentNode;
   plots: Array<{ plotId: string; plot: VgplotPlotLike; element: Element; svg?: SVGElement }>;
+  tables: Array<{ tableId: string; table: VgplotTableLike; element: Element }>;
   entry: GalleryEntry;
   globalKey: string;
   duckdbClient: VacpDuckDbClient;
@@ -21,6 +22,7 @@ export function installVacpLayerForMosaic(args: {
   installVacpOnVgplotDashboard({
     root: args.root,
     plots: args.plots,
+    tables: args.tables,
     options: {
       appId: 'vacp-examples',
       viewId: `mosaic/${args.entry.id}`,
@@ -29,6 +31,7 @@ export function installVacpLayerForMosaic(args: {
       demos: buildMosaicPlaybooks({
         entry: { id: args.entry.id, meta: args.entry.meta, spec: args.entry.spec },
         plots: args.plots,
+        tables: args.tables,
       }),
       duckdbClient: args.duckdbClient,
     },

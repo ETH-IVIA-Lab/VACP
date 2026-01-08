@@ -2,8 +2,13 @@ import type { VacpPlaybook } from '@vacp/core';
 import { playbook } from '@vacp/kit';
 import type { VgplotPlotLike } from '@vacp/mosaic';
 
-import { domainToInterval, getInterval1dDomain, getInterval2dDomains, getPanZoom2dDomains, roundNum, type DomainValue } from './domains';
-import type { MosaicPlaybookEntry } from './mosaic-playbooks';
+import {
+  domainToInterval,
+  getInterval1dDomain,
+  getInterval2dDomains,
+  getPanZoom2dDomains,
+} from './domains';
+import type { MosaicPlaybookEntry } from '../playbooks';
 
 type PlotRef = { plotId: string; plot: VgplotPlotLike };
 
@@ -31,37 +36,29 @@ function intervalPlaybook(args: {
     const wide = domain ? domainToInterval(domain, [0.2, 0.8]) : ([-25, 70] as const);
     return [
       base
-        .action('Set brush (narrow)', { name: 'mosaic.set_interval_1d', params: { plotId, interactorId, min: narrow[0], max: narrow[1] } })
-        .action('Set brush (wider)', { name: 'mosaic.set_interval_1d', params: { plotId, interactorId, min: wide[0], max: wide[1] } })
+        .action('Set brush (narrow)', {
+          name: 'mosaic.set_interval_1d',
+          params: { plotId, interactorId, min: narrow[0], max: narrow[1] },
+        })
+        .action('Set brush (wider)', {
+          name: 'mosaic.set_interval_1d',
+          params: { plotId, interactorId, min: wide[0], max: wide[1] },
+        })
         .action('Clear brush again', { name: 'mosaic.clear_interval_1d', params: { plotId, interactorId } })
         .build(),
     ];
   }
 
   const domains = getInterval2dDomains(plot, args.interactorId);
-  const x = domains?.x;
-  const y = domains?.y;
-  const smallBox = domains
-    ? {
-        x0: domainToInterval(x!, [0.35, 0.55])[0],
-        x1: domainToInterval(x!, [0.35, 0.55])[1],
-        y0: domainToInterval(y!, [0.35, 0.55])[0],
-        y1: domainToInterval(y!, [0.35, 0.55])[1],
-      }
-    : { x0: 30, x1: 60, y0: 30, y1: 60 };
-  const otherBox = domains
-    ? {
-        x0: domainToInterval(x!, [0.1, 0.3])[0],
-        x1: domainToInterval(x!, [0.1, 0.3])[1],
-        y0: domainToInterval(y!, [0.6, 0.85])[0],
-        y1: domainToInterval(y!, [0.6, 0.85])[1],
-      }
-    : { x0: 10, x1: 40, y0: 50, y1: 90 };
+  const x = domains ? domainToInterval(domains.x, [0.25, 0.55]) : ([0, 1] as const);
+  const y = domains ? domainToInterval(domains.y, [0.25, 0.55]) : ([0, 1] as const);
 
   return [
     base
-      .action('Set brush (small box)', { name: 'mosaic.set_interval_2d', params: { plotId, interactorId, ...smallBox } })
-      .action('Set brush (different box)', { name: 'mosaic.set_interval_2d', params: { plotId, interactorId, ...otherBox } })
+      .action('Set brush (corner)', {
+        name: 'mosaic.set_interval_2d',
+        params: { plotId, interactorId, x0: x[0], x1: x[1], y0: y[0], y1: y[1] },
+      })
       .action('Clear brush again', { name: 'mosaic.clear_interval_2d', params: { plotId, interactorId } })
       .build(),
   ];
@@ -70,41 +67,33 @@ function intervalPlaybook(args: {
 function panZoomPlaybook(entry: MosaicPlaybookEntry, plotId: string, plot: VgplotPlotLike, interactorIdNum: number): VacpPlaybook[] {
   const interactorId = String(interactorIdNum);
   const domains = getPanZoom2dDomains(plot, interactorIdNum);
-
-  const x = domains?.x ?? null;
-  const y = domains?.y ?? null;
-  const paramsFor = (xr: [number, number], yr: [number, number]): Record<string, unknown> => {
-    const out: Record<string, unknown> = { plotId, interactorId };
-    if (x) {
-      const [a, b] = domainToInterval(x, xr);
-      out.x0 = a;
-      out.x1 = b;
-    }
-    if (y) {
-      const [a, b] = domainToInterval(y, yr);
-      out.y0 = a;
-      out.y1 = b;
-    }
-    return out;
-  };
+  const x = domains?.x ? domainToInterval(domains.x, [0.2, 0.8]) : null;
+  const y = domains?.y ? domainToInterval(domains.y, [0.2, 0.8]) : null;
 
   return [
     playbook({
-      id: `${entry.id}-panzoom`,
-      title: 'Pan & zoom (agent-like)',
-      description: 'Set the view domain via actions and compare with manual panning/zooming.',
+      id: `${entry.id}-pan-zoom`,
+      title: 'Pan + zoom',
+      description: 'Change view domains programmatically, then clear.',
     })
       .action('Clear pan/zoom', { name: 'mosaic.clear_pan_zoom', params: { plotId, interactorId } })
-      .action('Zoom into a sub-range', { name: 'mosaic.set_pan_zoom', params: paramsFor([0.25, 0.55], [0.25, 0.55]) })
-      .action('Pan to a different region', { name: 'mosaic.set_pan_zoom', params: paramsFor([0.55, 0.85], [0.1, 0.4]) })
+      .action('Set pan/zoom domain', {
+        name: 'mosaic.set_pan_zoom',
+        params: { plotId, interactorId, x0: x?.[0] ?? null, x1: x?.[1] ?? null, y0: y?.[0] ?? null, y1: y?.[1] ?? null },
+      })
       .action('Clear pan/zoom again', { name: 'mosaic.clear_pan_zoom', params: { plotId, interactorId } })
       .build(),
   ];
 }
 
-function placeholderValue(label: string): DomainValue | string | number {
-  if (label.includes('year') || label.includes('date')) return new Date('2020-01-01T00:00:00Z');
-  return 0;
+function guessToggleValue(plot: VgplotPlotLike, interactorIdNum: number): unknown {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const i = plot.interactors[interactorIdNum] as any;
+  const sel = i?.selection?.value;
+  if (sel !== undefined) return sel;
+  const v = i?.value;
+  if (v !== undefined) return v;
+  return 1;
 }
 
 function toggleLikePlaybook(args: {
@@ -114,12 +103,14 @@ function toggleLikePlaybook(args: {
   plot: VgplotPlotLike;
   interactorIdNum: number;
 }): VacpPlaybook[] {
+  const baseName = args.kind === 'nearest' ? 'Nearest' : args.kind === 'region' ? 'Region' : 'Toggle';
   const interactorId = String(args.interactorIdNum);
-  const baseName = args.kind === 'toggle' ? 'Toggle' : args.kind === 'nearest' ? 'Nearest' : 'Region';
-  const setName = args.kind === 'toggle' ? 'mosaic.set_toggle' : args.kind === 'nearest' ? 'mosaic.set_nearest' : 'mosaic.set_region';
-  const clearName = args.kind === 'toggle' ? 'mosaic.clear_toggle' : args.kind === 'nearest' ? 'mosaic.clear_nearest' : 'mosaic.clear_region';
+  const setName =
+    args.kind === 'nearest' ? 'mosaic.set_nearest' : args.kind === 'region' ? 'mosaic.set_region' : 'mosaic.set_toggle';
+  const clearName =
+    args.kind === 'nearest' ? 'mosaic.clear_nearest' : args.kind === 'region' ? 'mosaic.clear_region' : 'mosaic.clear_toggle';
 
-  const guess = placeholderValue(`${args.entry.id}/${baseName}`) as unknown;
+  const guess = guessToggleValue(args.plot, args.interactorIdNum);
   const actionValue = args.kind === 'nearest' ? [guess] : guess;
 
   return [
@@ -136,7 +127,6 @@ function toggleLikePlaybook(args: {
 }
 
 function legendTogglePlaybook(entry: MosaicPlaybookEntry, plotId: string, plot: VgplotPlotLike): VacpPlaybook[] {
-  // vgplot legend entries are either {legend: ...} wrappers or legend objects.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const raw = (plot as any).legends;
   const legends = Array.isArray(raw)
@@ -170,13 +160,27 @@ export function resolveInteractorPlaybooks(args: { entry: MosaicPlaybookEntry; p
   const interval2d = args.plots.find((p) => p.plot.interactors.some((i) => i.constructor?.name === 'Interval2D'));
   if (interval2d) {
     const interactorId = interval2d.plot.interactors.findIndex((i) => i.constructor?.name === 'Interval2D');
-    if (interactorId >= 0) return intervalPlaybook({ entry: args.entry, kind: '2d', plotId: interval2d.plotId, interactorId, plot: interval2d.plot });
+    if (interactorId >= 0)
+      return intervalPlaybook({
+        entry: args.entry,
+        kind: '2d',
+        plotId: interval2d.plotId,
+        interactorId,
+        plot: interval2d.plot,
+      });
   }
 
   const interval1d = args.plots.find((p) => p.plot.interactors.some((i) => i.constructor?.name === 'Interval1D'));
   if (interval1d) {
     const interactorId = interval1d.plot.interactors.findIndex((i) => i.constructor?.name === 'Interval1D');
-    if (interactorId >= 0) return intervalPlaybook({ entry: args.entry, kind: '1d', plotId: interval1d.plotId, interactorId, plot: interval1d.plot });
+    if (interactorId >= 0)
+      return intervalPlaybook({
+        entry: args.entry,
+        kind: '1d',
+        plotId: interval1d.plotId,
+        interactorId,
+        plot: interval1d.plot,
+      });
   }
 
   const panzoom = args.plots.find((p) => p.plot.interactors.some((i) => i.constructor?.name === 'PanZoom'));
@@ -188,19 +192,40 @@ export function resolveInteractorPlaybooks(args: { entry: MosaicPlaybookEntry; p
   const region = args.plots.find((p) => p.plot.interactors.some((i) => i.constructor?.name === 'Region'));
   if (region) {
     const interactorId = region.plot.interactors.findIndex((i) => i.constructor?.name === 'Region');
-    if (interactorId >= 0) return toggleLikePlaybook({ entry: args.entry, kind: 'region', plotId: region.plotId, plot: region.plot, interactorIdNum: interactorId });
+    if (interactorId >= 0)
+      return toggleLikePlaybook({
+        entry: args.entry,
+        kind: 'region',
+        plotId: region.plotId,
+        plot: region.plot,
+        interactorIdNum: interactorId,
+      });
   }
 
   const nearest = args.plots.find((p) => p.plot.interactors.some((i) => i.constructor?.name === 'Nearest'));
   if (nearest) {
     const interactorId = nearest.plot.interactors.findIndex((i) => i.constructor?.name === 'Nearest');
-    if (interactorId >= 0) return toggleLikePlaybook({ entry: args.entry, kind: 'nearest', plotId: nearest.plotId, plot: nearest.plot, interactorIdNum: interactorId });
+    if (interactorId >= 0)
+      return toggleLikePlaybook({
+        entry: args.entry,
+        kind: 'nearest',
+        plotId: nearest.plotId,
+        plot: nearest.plot,
+        interactorIdNum: interactorId,
+      });
   }
 
   const toggle = args.plots.find((p) => p.plot.interactors.some((i) => i.constructor?.name === 'Toggle'));
   if (toggle) {
     const interactorId = toggle.plot.interactors.findIndex((i) => i.constructor?.name === 'Toggle');
-    if (interactorId >= 0) return toggleLikePlaybook({ entry: args.entry, kind: 'toggle', plotId: toggle.plotId, plot: toggle.plot, interactorIdNum: interactorId });
+    if (interactorId >= 0)
+      return toggleLikePlaybook({
+        entry: args.entry,
+        kind: 'toggle',
+        plotId: toggle.plotId,
+        plot: toggle.plot,
+        interactorIdNum: interactorId,
+      });
   }
 
   const legend = args.plots.find((p) =>
@@ -213,4 +238,3 @@ export function resolveInteractorPlaybooks(args: { entry: MosaicPlaybookEntry; p
 
   return [];
 }
-

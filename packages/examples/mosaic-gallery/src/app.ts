@@ -1,4 +1,4 @@
-import type { VgplotPlotLike } from '@vacp/mosaic';
+import type { VgplotPlotLike, VgplotTableLike } from '@vacp/mosaic';
 import { installVacpDebugUi } from '@vacp/debug-ui';
 import type { VacpDuckDbClient } from '@vacp/duckdb';
 import { coordinator, DuckDBWASMConnector } from '@uwdata/mosaic-core';
@@ -16,10 +16,17 @@ function isPlotLike(value: unknown): value is VgplotPlotLike {
   return Array.isArray(anyV.marks) && Array.isArray(anyV.interactors);
 }
 
-function discoverPlotHosts(root: Element): Element[] {
+function isTableLike(value: unknown): value is VgplotTableLike {
+  if (!value || typeof value !== 'object') return false;
+  const anyV = value as any;
+  return typeof anyV.requestData === 'function' && (typeof anyV.from === 'string' || anyV.from == null);
+}
+
+function discoverMosaicHosts(root: Element): { plotHosts: Element[]; tableHosts: Element[] } {
   const all: Element[] = [root, ...Array.from(root.querySelectorAll('*'))];
-  const found = all.filter((el) => isPlotLike((el as any).value));
-  return Array.from(new Set(found));
+  const plots = all.filter((el) => isPlotLike((el as any).value));
+  const tables = all.filter((el) => !isPlotLike((el as any).value) && isTableLike((el as any).value));
+  return { plotHosts: Array.from(new Set(plots)), tableHosts: Array.from(new Set(tables)) };
 }
 
 function selectOption(selectEl: HTMLSelectElement, id: string): void {
@@ -107,7 +114,7 @@ export async function run(): Promise<void> {
     const { element } = await astToDOM(ast, { api, baseURL: window.location.href });
     app.replaceChildren(element);
 
-    const plotHosts = discoverPlotHosts(element);
+    const { plotHosts, tableHosts } = discoverMosaicHosts(element);
     const plots = await Promise.all(
       plotHosts.map(async (host, idx) => {
         const plot = (host as any).value;
@@ -116,8 +123,13 @@ export async function run(): Promise<void> {
       }),
     );
 
+    const tables = tableHosts.map((host, idx) => {
+      const table = (host as any).value;
+      return { tableId: `table-${idx}`, table, element: host };
+    });
+
     // VACP layer: attaches a bridge (`window.__vacp`), actions, state snapshots, and DuckDB access.
-    installVacpLayerForMosaic({ root: element, plots, entry, globalKey, duckdbClient });
+    installVacpLayerForMosaic({ root: element, plots, tables, entry, globalKey, duckdbClient });
   };
 
   selectEl.addEventListener('change', () => {

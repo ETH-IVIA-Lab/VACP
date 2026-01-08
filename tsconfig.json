@@ -7,7 +7,6 @@
     { "path": "packages/lib/diagrams" },
     { "path": "packages/lib/debug-ui" },
     { "path": "packages/lib/kit" },
-    { "path": "packages/lib/example-playbooks" },
     { "path": "packages/lib/mosaic" },
     { "path": "packages/lib/vega-lite" }
   ]
