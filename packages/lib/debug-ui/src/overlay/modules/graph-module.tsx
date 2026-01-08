@@ -30,8 +30,8 @@ function shortRef(ref: VacpRef): string {
   const s = String(ref);
   const hashIdx = s.indexOf('#');
   const clean = hashIdx >= 0 ? s.slice(0, hashIdx) : s;
-  const parts = clean.split('/').filter(Boolean);
-  return parts.slice(-2).join('/');
+  const parts = clean.split('/').filter(Boolean).filter((p) => p !== 'vacp:');
+  return parts.slice(-3).join('/');
 }
 
 function parseMermaidNodeId(svgNodeId: string | null): { mermaidId: string; index: number; kind: 'node' | 'action' } | null {
@@ -76,6 +76,8 @@ function buildInspectorJson(runtime: VacpRuntimeSnapshot, sel: SelectedGraphItem
     shortRef: shortRef(node.ref),
     nodeKind: node.kind,
     title: node.title ?? null,
+    description: node.description ?? null,
+    data: node.data ?? null,
     state: stateValue ?? null,
     actions: targeting.map((a) => a.name),
   });
@@ -179,13 +181,13 @@ export function GraphModule(props: VacpDebugModuleProps): ReactElement {
     <div className="grid h-full min-h-0 gap-3 lg:grid-cols-[1fr_420px]" data-vacp-graph="1">
       <Card className="flex min-h-0 flex-col">
         <CardHeader>
-          <div>
+          <div className="min-w-0">
             <CardTitle>Graph</CardTitle>
             <CardDescription>
               Click nodes to inspect their state. {renderError ? <span className="text-rose-100/80">({renderError})</span> : null}
             </CardDescription>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex shrink-0 items-center gap-2">
             <IconButton
               icon={options.direction === 'LR' ? <ArrowLeftRight className="h-4 w-4 text-slate-100/90" /> : <ArrowUpDown className="h-4 w-4 text-slate-100/90" />}
               label="Toggle direction"
@@ -219,7 +221,7 @@ export function GraphModule(props: VacpDebugModuleProps): ReactElement {
 
       <Card className="flex min-h-0 flex-col">
         <CardHeader>
-          <div>
+          <div className="min-w-0">
             <CardTitle>Inspect</CardTitle>
             <CardDescription>
               {selected
@@ -229,7 +231,7 @@ export function GraphModule(props: VacpDebugModuleProps): ReactElement {
                 : 'Select a node to see its full JSON.'}
             </CardDescription>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex shrink-0 items-center gap-2">
             <IconButton
               icon={<XCircle className="h-4 w-4 text-slate-100/90" />}
               label="Clear selection"

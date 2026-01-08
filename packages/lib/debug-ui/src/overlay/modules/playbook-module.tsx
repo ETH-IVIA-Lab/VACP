@@ -76,11 +76,11 @@ export function PlaybookModule(props: VacpDebugModuleProps): ReactElement {
     <div className="grid h-full min-h-0 gap-3 lg:grid-cols-[1fr_420px]">
       <Card className="flex min-h-0 flex-col">
         <CardHeader>
-          <div>
+          <div className="min-w-0">
             <CardTitle>Playbook</CardTitle>
             <CardDescription>Step through a guided sequence that demonstrates bidirectional interaction.</CardDescription>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex shrink-0 items-center gap-2">
             <IconButton icon={<StepBack className="h-4 w-4 text-slate-100/90" />} label="Previous step" title="Move to the previous step." onClick={() => stepTo(stepIndex - 1)} />
             <IconButton icon={<StepForward className="h-4 w-4 text-slate-100/90" />} label="Next step" title="Move to the next step." onClick={() => stepTo(stepIndex + 1)} />
             <IconButton icon={<RotateCcw className="h-4 w-4 text-slate-100/90" />} label="Reset" title="Reset back to the first step." onClick={() => stepTo(0)} />

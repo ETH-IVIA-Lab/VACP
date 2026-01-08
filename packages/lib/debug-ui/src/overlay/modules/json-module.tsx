@@ -30,7 +30,8 @@ export function JsonModule(props: VacpDebugModuleProps): ReactElement {
   const [overrideText, setOverrideText] = useState<string>(() => safeJson(props.runtime.currentState.state));
   const [status, setStatus] = useState<string>('');
   const [error, setError] = useState<string | null>(null);
-  const inlineCodeClass = 'rounded-md border border-white/10 bg-black/25 px-1.5 py-0.5 text-[11px] font-medium text-slate-50';
+  const inlineCodeClass =
+    'rounded-md border border-white/10 bg-slate-900/70 px-1.5 py-0.5 text-[11px] font-medium text-slate-100 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.02)]';
 
   const copy = async (text: string) => {
     const t = text ?? '';
@@ -99,11 +100,11 @@ export function JsonModule(props: VacpDebugModuleProps): ReactElement {
     <div className="grid h-full min-h-0 gap-3 lg:grid-cols-2">
       <Card className="flex min-h-0 flex-col">
         <CardHeader>
-          <div>
+          <div className="min-w-0">
             <CardTitle>State snapshot</CardTitle>
             <CardDescription>The current VACP state snapshot from the provider.</CardDescription>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex shrink-0 items-center gap-2">
             <IconButton
               icon={<ClipboardCopy className="h-4 w-4 text-slate-100/90" />}
               label="Copy snapshot"
@@ -119,13 +120,13 @@ export function JsonModule(props: VacpDebugModuleProps): ReactElement {
 
       <Card className="flex min-h-0 flex-col">
         <CardHeader>
-          <div>
+          <div className="min-w-0">
             <CardTitle>State edit</CardTitle>
             <CardDescription>
               Apply state for inspection (override) or execute <code className={inlineCodeClass}>vacp.apply_state</code>.
             </CardDescription>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex shrink-0 items-center gap-2">
             <IconButton
               icon={<Braces className="h-4 w-4 text-slate-100/90" />}
               label="Reset to current"

@@ -44,11 +44,11 @@ export function HistoryModule(props: VacpDebugModuleProps): ReactElement {
     <div className="grid h-full min-h-0 gap-3 lg:grid-cols-[1fr_420px]">
       <Card className="flex min-h-0 flex-col">
         <CardHeader>
-          <div>
+          <div className="min-w-0">
             <CardTitle>History</CardTitle>
             <CardDescription>Inspect snapshots and action results. Switch to inspect mode to time travel.</CardDescription>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex shrink-0 items-center gap-2">
             <IconButton icon={<Eye className="h-4 w-4 text-slate-100/90" />} label="Live" title="Switch to live mode." pressed={props.runtime.mode === 'live'} onClick={() => setMode('live')} />
             <IconButton
               icon={<EyeOff className="h-4 w-4 text-slate-100/90" />}
@@ -103,7 +103,7 @@ export function HistoryModule(props: VacpDebugModuleProps): ReactElement {
 
       <Card className="flex min-h-0 flex-col">
         <CardHeader>
-          <div>
+          <div className="min-w-0">
             <CardTitle>Details</CardTitle>
             <CardDescription>{selected ? `${selected.kind} • ${selected.source}` : 'Select an entry to inspect.'}</CardDescription>
           </div>

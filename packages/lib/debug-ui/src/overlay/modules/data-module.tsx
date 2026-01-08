@@ -41,20 +41,30 @@ function shortRef(ref: VacpRef): string {
   const s = String(ref);
   const hashIdx = s.indexOf('#');
   const clean = hashIdx >= 0 ? s.slice(0, hashIdx) : s;
-  const parts = clean.split('/').filter(Boolean);
-  return parts.slice(-2).join('/');
+  const parts = clean.split('/').filter(Boolean).filter((p) => p !== 'vacp:');
+  // Prefer including the surface id, e.g. `plot-0/data/main` instead of just `data/main`.
+  return parts.slice(-3).join('/');
 }
 
 export function DataModule(props: VacpDebugModuleProps): ReactElement {
-  const inlineCodeClass = 'rounded-md border border-white/10 bg-black/25 px-1.5 py-0.5 text-[11px] font-medium text-slate-50';
+  const inlineCodeClass =
+    'rounded-md border border-white/10 bg-slate-900/70 px-1.5 py-0.5 text-[11px] font-medium text-slate-100 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.02)]';
   const selectClass =
     'mt-1 w-full rounded-lg border border-white/10 bg-white/5 px-2 py-2 text-xs text-slate-100 outline-none focus:ring-2 focus:ring-sky-400/40';
+
+  const handleRefs = useMemo(() => {
+    const nodes = props.runtime.currentCapabilities.graph.nodes as VacpNode[];
+    return nodes.filter((n) => n.kind === 'DataHandle').map((n) => n.ref);
+  }, [props.runtime.currentCapabilities]);
 
   const handles = useMemo(() => {
     const nodes = props.runtime.currentCapabilities.graph.nodes as VacpNode[];
     return nodes
       .filter((n) => n.kind === 'DataHandle')
-      .map((n) => ({ ref: n.ref, title: n.title ?? shortRef(n.ref) }))
+      .map((n) => {
+        const title = n.title ?? shortRef(n.ref);
+        return { ref: n.ref, title, label: `${title} — ${shortRef(n.ref)}` };
+      })
       .sort((a, b) => a.title.localeCompare(b.title));
   }, [props.runtime.currentCapabilities]);
 
@@ -73,7 +83,10 @@ export function DataModule(props: VacpDebugModuleProps): ReactElement {
 
   const editorRef = useRef<HTMLTextAreaElement | null>(null);
 
-  const graphSignature = useMemo(() => handles.map((h) => h.ref).join('|'), [handles]);
+  const graphSignature = useMemo(
+    () => handleRefs.map((r) => String(r)).sort().join('|'),
+    [handleRefs],
+  );
 
   // If the visualization changes (different handles/graph), reset the editor so queries don't drift.
   useEffect(() => {
@@ -92,9 +105,14 @@ export function DataModule(props: VacpDebugModuleProps): ReactElement {
     if (!handles.some((h) => h.ref === selectedHandle)) {
       setSelectedHandle(handles[0]?.ref ?? null);
     }
-  }, [handles, selectedHandle]);
+  }, [handles, selectedHandle, setSelectedHandle]);
 
   const selectedSql = selectedHandle ? (sqlByHandle[selectedHandle] ?? defaultQuery()) : '';
+  const selectedHandleTitle = useMemo(() => {
+    if (!selectedHandle) return null;
+    const found = handles.find((h) => h.ref === selectedHandle);
+    return found?.title ?? null;
+  }, [handles, selectedHandle]);
 
   const setSelectedSql = (sql: string) => {
     if (!selectedHandle) return;
@@ -215,13 +233,13 @@ export function DataModule(props: VacpDebugModuleProps): ReactElement {
     <div className="grid h-full min-h-0 grid-rows-[auto_minmax(0,1fr)] gap-3">
       <Card className="flex flex-col gap-3">
         <CardHeader>
-          <div>
+          <div className="min-w-0">
             <CardTitle>DuckDB SQL</CardTitle>
             <CardDescription>
               Query the currently selected handle with <code className={inlineCodeClass}>vacp.data_sql</code>.
             </CardDescription>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex shrink-0 items-center gap-2">
             <IconButton
               icon={<Play className="h-4 w-4 text-slate-100/90" />}
               label="Run query"
@@ -268,7 +286,7 @@ export function DataModule(props: VacpDebugModuleProps): ReactElement {
             <select id="vacp-handle" className={selectClass} value={selectedHandle ?? ''} onChange={(e) => setSelectedHandle(e.target.value as VacpRef)}>
               {handles.map((h) => (
                 <option key={h.ref} value={h.ref}>
-                  {h.title}
+                  {h.label}
                 </option>
               ))}
             </select>
@@ -283,7 +301,9 @@ export function DataModule(props: VacpDebugModuleProps): ReactElement {
             <CardDescription>
               {selectedHandle ? (
                 <>
-                  Target: <code className={inlineCodeClass}>{shortRef(selectedHandle)}</code>
+                  Target:{' '}
+                  <code className={inlineCodeClass}>{selectedHandleTitle ?? shortRef(selectedHandle)}</code>{' '}
+                  <span className="text-slate-100/60">({shortRef(selectedHandle)})</span>
                 </>
               ) : (
                 'Select a DataHandle to query.'

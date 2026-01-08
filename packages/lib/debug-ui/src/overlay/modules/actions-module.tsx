@@ -109,11 +109,11 @@ export function ActionsModule(props: VacpDebugModuleProps): ReactElement {
     <div className="grid h-full min-h-0 gap-3 lg:grid-cols-2">
       <Card className="flex min-h-0 flex-col">
         <CardHeader>
-          <div>
+          <div className="min-w-0">
             <CardTitle>Actions</CardTitle>
             <CardDescription>Dispatch semantic actions (human/agent parity).</CardDescription>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex shrink-0 items-center gap-2">
             <IconButton
               icon={<RefreshCw className="h-4 w-4 text-slate-100/90" />}
               label="Refresh snapshots"
@@ -157,11 +157,11 @@ export function ActionsModule(props: VacpDebugModuleProps): ReactElement {
 
       <Card className="flex min-h-0 flex-col">
         <CardHeader>
-          <div>
+          <div className="min-w-0">
             <CardTitle>{selected ? selected.name : 'Select an action'}</CardTitle>
             <CardDescription>{selected?.description ?? ''}</CardDescription>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex shrink-0 items-center gap-2">
             <IconButton
               icon={<Play className="h-4 w-4 text-slate-100/90" />}
               label="Run action"
