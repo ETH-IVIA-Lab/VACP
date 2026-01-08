@@ -56,7 +56,9 @@ export function renderResultTable(container: HTMLElement, result: VacpDataSqlRes
     columns.forEach((c) => {
       const td = document.createElement('td');
       const v = (r as any)?.[c];
-      td.textContent = v === null || v === undefined ? '' : typeof v === 'object' ? JSON.stringify(v) : String(v);
+      const text = v === null || v === undefined ? '' : typeof v === 'object' ? JSON.stringify(v) : String(v);
+      td.textContent = text;
+      if (text) td.title = text;
       tr.append(td);
     });
     tbody.append(tr);
