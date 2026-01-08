@@ -16,7 +16,7 @@ import type { VacpSnapshotProvider } from './types';
 export function createVacpWindowBridge(args: {
   snapshots: VacpSnapshotProvider;
   actions: VacpActionRegistry;
-  demos?: VacpPlaybook[];
+  playbooks?: VacpPlaybook[];
 }): VacpRuntimeBridge {
   return createRuntimeBridge(args);
 }

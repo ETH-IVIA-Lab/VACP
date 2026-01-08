@@ -29,7 +29,7 @@ export function installVacpLayerForVegaLite(args: {
       title: args.entry.meta.title,
       globalKey: args.globalKey,
       includeSetSignalAction: false,
-      demos: buildVegaLitePlaybooks({ id: args.entry.id }),
+      playbooks: buildVegaLitePlaybooks({ id: args.entry.id }),
     },
   });
 }

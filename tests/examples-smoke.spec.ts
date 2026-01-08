@@ -9,7 +9,6 @@ type VacpBridge = {
   getState: () => Promise<any>;
   getRuntime: () => Promise<any>;
   getPlaybooks?: () => Promise<any>;
-  getDemos?: () => Promise<any>;
   execute: (call: { callId: string; name: string; params?: unknown }) => Promise<any>;
 };
 
@@ -45,7 +44,6 @@ async function getPlaybooks(page: Page): Promise<any[]> {
     const b = (globalThis as any).__vacp;
     if (!b) return [];
     if (typeof b.getPlaybooks === 'function') return await b.getPlaybooks();
-    if (typeof b.getDemos === 'function') return await b.getDemos();
     return [];
   });
 }

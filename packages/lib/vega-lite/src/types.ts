@@ -81,5 +81,5 @@ export interface InstallVacpOnVegaLiteOptions {
    */
   includeSetSignalAction?: boolean;
   /** Optional playbooks for debug tooling. */
-  demos?: VacpPlaybook[];
+  playbooks?: VacpPlaybook[];
 }

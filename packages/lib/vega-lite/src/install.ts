@@ -176,7 +176,7 @@ export function installVacpOnVegaLiteView(args: {
   const bridge = installVacpRuntimeBridge({
     snapshots,
     actions: actionRegistry,
-    demos: options.demos,
+    playbooks: options.playbooks,
     globalKey: options.globalKey,
   });
 

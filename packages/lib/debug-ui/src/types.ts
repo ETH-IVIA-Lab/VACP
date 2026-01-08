@@ -21,5 +21,4 @@ export type VacpWindowBridge = VacpRuntimeBridge & {
   getState: () => Promise<VacpStateSnapshot>;
   getRuntime?: () => Promise<VacpRuntimeSnapshot>;
   getPlaybooks?: () => Promise<VacpPlaybook[]>;
-  getDemos?: () => Promise<VacpPlaybook[]>;
 };

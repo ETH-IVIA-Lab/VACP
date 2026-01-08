@@ -89,14 +89,6 @@ export type VacpPlaybook = {
 };
 
 /**
- * Backward-compatible aliases.
- *
- * `VacpDemo` is kept for older code, but "playbook" is the preferred term.
- */
-export type VacpDemoStep = VacpPlaybookStep;
-export type VacpDemo = VacpPlaybook;
-
-/**
  * Optional extended in-page bridge contract for debugging and time travel.
  *
  * This is still VACP (protocol + snapshots + actions), but exposes runtime
@@ -106,8 +98,6 @@ export interface VacpRuntimeBridge extends VacpWindowBridge {
   getRuntime?: () => Promise<VacpRuntimeSnapshot> | VacpRuntimeSnapshot;
   /** Optional scripted playbooks provided by the app/provider (examples/dev only). */
   getPlaybooks?: () => Promise<VacpPlaybook[]> | VacpPlaybook[];
-  /** Backward-compatible name for `getPlaybooks()`. */
-  getDemos?: () => Promise<VacpDemo[]> | VacpDemo[];
   /**
    * Subscribe to runtime entries. Returns an unsubscribe function.
    * Listeners are only invoked in-page (not over MCP).

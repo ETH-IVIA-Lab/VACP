@@ -14,7 +14,7 @@ export function installVacpOnVgplot(plot: VgplotPlotLike, svg: SVGElement, optio
       title: options.title,
       description: options.description,
       globalKey: options.globalKey,
-      demos: options.demos,
+      playbooks: options.playbooks,
     },
   });
 
@@ -28,4 +28,3 @@ export function installVacpOnVgplot(plot: VgplotPlotLike, svg: SVGElement, optio
     });
   }
 }
-

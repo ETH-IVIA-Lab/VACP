@@ -66,7 +66,7 @@ export interface InstallVacpOnVgplotOptions {
   description?: string;
   annotateHostElement?: boolean;
   globalKey?: string;
-  demos?: VacpPlaybook[];
+  playbooks?: VacpPlaybook[];
 }
 
 export interface InstallVacpOnVgplotDashboardOptions {
@@ -75,7 +75,7 @@ export interface InstallVacpOnVgplotDashboardOptions {
   title?: string;
   description?: string;
   globalKey?: string;
-  demos?: VacpPlaybook[];
+  playbooks?: VacpPlaybook[];
   /**
    * Optional DuckDB client to back the standard `vacp.data_sql` action.
    *

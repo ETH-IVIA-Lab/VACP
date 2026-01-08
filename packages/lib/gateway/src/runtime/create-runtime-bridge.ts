@@ -30,10 +30,10 @@ import {
 export function createRuntimeBridge(args: {
   snapshots: VacpSnapshotProvider;
   actions: VacpActionRegistry;
-  demos?: VacpPlaybook[];
+  playbooks?: VacpPlaybook[];
 }): VacpRuntimeBridge {
-  type Adapter = { snapshots: VacpSnapshotProvider; actions: VacpActionRegistry; demos?: VacpPlaybook[] };
-  const adapter: Adapter = { ...args, demos: args.demos ?? [] };
+  type Adapter = { snapshots: VacpSnapshotProvider; actions: VacpActionRegistry; playbooks?: VacpPlaybook[] };
+  const adapter: Adapter = { ...args, playbooks: args.playbooks ?? [] };
 
   const listeners = new Set<(entry: VacpHistoryEntry) => void>();
   const runtimeId = makeEntryId();
@@ -194,7 +194,7 @@ export function createRuntimeBridge(args: {
   const updateAdapters = (next: Adapter, options?: { source?: VacpChangeSource; message?: string }): void => {
     adapter.snapshots = next.snapshots;
     adapter.actions = next.actions;
-    adapter.demos = next.demos ?? [];
+    adapter.playbooks = next.playbooks ?? [];
     graphOverride = null;
     stateOverride = null;
     mode = 'live';
@@ -240,8 +240,7 @@ export function createRuntimeBridge(args: {
       };
     },
 
-    getPlaybooks: async () => adapter.demos ?? [],
-    getDemos: async () => adapter.demos ?? [],
+    getPlaybooks: async () => adapter.playbooks ?? [],
 
     subscribe: (listener) => {
       listeners.add(listener);
@@ -283,8 +282,8 @@ export function createRuntimeBridge(args: {
   (bridge as any).__vacpUpdate = (next: {
     snapshots: VacpSnapshotProvider;
     actions: VacpActionRegistry;
-    demos?: VacpPlaybook[];
-  }) => updateAdapters({ ...next, demos: next.demos ?? [] }, { source: 'system' });
+    playbooks?: VacpPlaybook[];
+  }) => updateAdapters({ ...next, playbooks: next.playbooks ?? [] }, { source: 'system' });
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   (bridge as any).__vacpRuntimeId = runtimeId;
 

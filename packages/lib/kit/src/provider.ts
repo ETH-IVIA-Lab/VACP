@@ -103,7 +103,7 @@ export function createVacpLayer(args: {
   const bridge = installVacpRuntimeBridge({
     snapshots,
     actions: args.actions,
-    demos: args.playbooks,
+    playbooks: args.playbooks,
     globalKey: args.globalKey,
   });
 

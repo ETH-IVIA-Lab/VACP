@@ -28,7 +28,7 @@ export function installVacpLayerForMosaic(args: {
       viewId: `mosaic/${args.entry.id}`,
       title: args.entry.meta.title,
       globalKey: args.globalKey,
-      demos: buildMosaicPlaybooks({
+      playbooks: buildMosaicPlaybooks({
         entry: { id: args.entry.id, meta: args.entry.meta, spec: args.entry.spec },
         plots: args.plots,
         tables: args.tables,
