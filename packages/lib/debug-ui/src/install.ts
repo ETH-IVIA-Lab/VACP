@@ -185,6 +185,8 @@ export function installVacpDebugUi(options?: VacpDebugUiOptions): void {
   let unsubscribe: (() => void) | null = null;
   let pendingRender = false;
   let pendingFocus: ReturnType<typeof captureFocus> = null;
+  let bridgeRetryTimer: number | null = null;
+  let bridgeRetryCount = 0;
 
   const dbg = (message: string) => ({ source: 'debug' as const, message });
 
@@ -204,7 +206,7 @@ export function installVacpDebugUi(options?: VacpDebugUiOptions): void {
       b.textContent = '';
       if (m.icon) {
         try {
-          b.append(renderLucideIcon(m.icon as VacpLucideIconName, { size: 16, title: m.title }));
+          b.append(renderLucideIcon(m.icon as VacpLucideIconName, { size: 16 }));
         } catch {
           // ignore unknown icon names
         }
@@ -282,10 +284,22 @@ export function installVacpDebugUi(options?: VacpDebugUiOptions): void {
       content.textContent = '';
       const msg = document.createElement('div');
       msg.className = 'vacp-debug-ui-small';
-      msg.textContent = `No VACP bridge found.\n\nExpected window.${globalKey} with getCapabilities/getState/execute.\n\nTip: enable VACP in the app and reload.`;
+      msg.textContent = `No VACP bridge found.\n\nExpected window.${globalKey} with getCapabilities/getState/execute.\n\nRetrying automatically…`;
       content.append(msg);
+      if (bridgeRetryTimer) window.clearTimeout(bridgeRetryTimer);
+      bridgeRetryTimer = window.setTimeout(() => {
+        bridgeRetryTimer = null;
+        if (!isPanelVisible(panel)) return;
+        bridgeRetryCount += 1;
+        // Back off after ~10 seconds to avoid noisy loops.
+        if (bridgeRetryCount > 25) return;
+        void connect();
+      }, 400);
       return;
     }
+    bridgeRetryCount = 0;
+    if (bridgeRetryTimer) window.clearTimeout(bridgeRetryTimer);
+    bridgeRetryTimer = null;
     activeBridge = bridge;
     playbooks = await readPlaybooks(bridge);
 
