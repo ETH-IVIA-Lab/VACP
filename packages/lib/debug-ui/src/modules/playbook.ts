@@ -11,7 +11,7 @@ export function createPlaybookModule(): VacpDebugModule {
   return {
     id: 'playbook',
     title: 'Playbook',
-    icon: '🧭',
+    icon: 'Route',
     render: (container, ctx) => {
       renderPlaybookPane({
         container,

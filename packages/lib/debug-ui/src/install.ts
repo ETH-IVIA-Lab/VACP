@@ -10,6 +10,7 @@ import { ensureStyles } from './styles';
 import type { VacpDebugModule, VacpDebugModuleId, VacpDebugUiOptions, VacpWindowBridge } from './types';
 import { createVacpDebugUiDom } from './ui';
 import { captureFocus, restoreFocus } from './focus';
+import { renderLucideIcon, type VacpLucideIconName } from './icons';
 
 function setPanelVisible(panel: HTMLElement, visible: boolean): void {
   panel.style.display = visible ? 'grid' : 'none';
@@ -192,17 +193,25 @@ export function installVacpDebugUi(options?: VacpDebugUiOptions): void {
     moduleSelect.textContent = '';
 
     modules.forEach((m) => {
-      const label = m.icon ? `${m.icon} ${m.title}` : m.title;
-
       const opt = document.createElement('option');
       opt.value = m.id;
-      opt.textContent = label;
+      opt.textContent = m.title;
       moduleSelect.append(opt);
 
       const b = document.createElement('button');
       b.type = 'button';
       b.className = 'vacp-debug-ui-module';
-      b.textContent = label;
+      b.textContent = '';
+      if (m.icon) {
+        try {
+          b.append(renderLucideIcon(m.icon as VacpLucideIconName, { size: 16, title: m.title }));
+        } catch {
+          // ignore unknown icon names
+        }
+      }
+      const text = document.createElement('span');
+      text.textContent = m.title;
+      b.append(text);
       b.setAttribute('aria-current', m.id === currentModuleId ? 'true' : 'false');
       b.title = m.title;
       b.addEventListener('click', () => {

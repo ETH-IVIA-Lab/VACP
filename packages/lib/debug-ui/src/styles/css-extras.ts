@@ -1,5 +1,17 @@
 export const CSS_EXTRAS = `
 
+  .vacp-debug-ui-icon {
+    display: inline-block;
+    flex: 0 0 auto;
+    color: rgba(231, 233, 238, 0.88);
+  }
+  .vacp-debug-ui-module .vacp-debug-ui-icon {
+    color: rgba(231, 233, 238, 0.9);
+  }
+  .vacp-debug-ui-module[aria-current="true"] .vacp-debug-ui-icon {
+    color: rgba(121, 178, 255, 0.9);
+  }
+
   .vacp-debug-ui-inline-label {
     font: 12px system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
     opacity: 0.9;
@@ -116,6 +128,25 @@ export const CSS_EXTRAS = `
   .vacp-debug-ui-row[data-vacp-row="playbook-step"][data-status="next"] {
     background: rgba(121, 178, 255, 0.09);
     border-color: rgba(121, 178, 255, 0.22);
+  }
+
+  .vacp-debug-ui-row[data-vacp-row="history-entry"] {
+    border-left-width: 4px;
+  }
+  .vacp-debug-ui-row[data-vacp-row="history-entry"][data-source="human"] {
+    border-left-color: rgba(122, 255, 182, 0.55);
+  }
+  .vacp-debug-ui-row[data-vacp-row="history-entry"][data-source="agent"] {
+    border-left-color: rgba(176, 126, 255, 0.55);
+  }
+  .vacp-debug-ui-row[data-vacp-row="history-entry"][data-source="system"] {
+    border-left-color: rgba(255, 206, 115, 0.55);
+  }
+  .vacp-debug-ui-row[data-vacp-row="history-entry"][data-source="debug"] {
+    border-left-color: rgba(121, 178, 255, 0.55);
+  }
+  .vacp-debug-ui-row[data-vacp-row="history-entry"][data-source="unknown"] {
+    border-left-color: rgba(231, 233, 238, 0.2);
   }
 
   .vacp-debug-ui-playbook-summary {

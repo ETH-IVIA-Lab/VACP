@@ -28,7 +28,7 @@ export function createDataModule(): VacpDebugModule {
   return {
     id: 'data',
     title: 'Data',
-    icon: '🦆',
+    icon: 'Database',
     render: async (container, ctx) => {
       const sig = graphSignature(ctx.runtime.currentCapabilities.graph as any);
       if (sig !== lastGraphSig) {

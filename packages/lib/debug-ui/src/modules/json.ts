@@ -7,7 +7,7 @@ export function createJsonModule(): VacpDebugModule {
   return {
     id: 'json',
     title: 'JSON',
-    icon: '🧾',
+    icon: 'FileJson',
     render: (container, ctx) => {
       renderJsonPane(container, ctx.runtime, ctx.bridge, state, (next) => {
         Object.assign(state, next);

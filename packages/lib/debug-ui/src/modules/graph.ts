@@ -45,7 +45,7 @@ export function createGraphModule(initial: GraphModuleState): VacpDebugModule {
   return {
     id: 'graph',
     title: 'Graph',
-    icon: '🗺️',
+    icon: 'Network',
     render: async (container, ctx) => {
       container.textContent = '';
 

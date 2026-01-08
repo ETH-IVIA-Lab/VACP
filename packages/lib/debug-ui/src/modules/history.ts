@@ -49,7 +49,7 @@ export function createHistoryModule(): VacpDebugModule {
   return {
     id: 'history',
     title: 'History',
-    icon: '⏱️',
+    icon: 'Clock',
     render: (container, ctx) => {
       container.textContent = '';
 
@@ -137,6 +137,8 @@ export function createHistoryModule(): VacpDebugModule {
         const row = document.createElement('div');
         row.className = 'vacp-debug-ui-row';
         row.setAttribute('aria-selected', idx === selectedIdx ? 'true' : 'false');
+        row.dataset.vacpRow = 'history-entry';
+        row.dataset.source = e.source ? String(e.source) : 'unknown';
         row.textContent = labelForEntry(e, idx);
         row.title = 'Click to select. Double-click to apply this entry state to the live app.';
         row.addEventListener('click', () => {

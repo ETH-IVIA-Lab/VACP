@@ -7,7 +7,7 @@ export function createActionsModule(): VacpDebugModule {
   return {
     id: 'actions',
     title: 'Actions',
-    icon: '⚡',
+    icon: 'Zap',
     render: (container, ctx) => {
       renderActionsPane(container, ctx.runtime, ctx.bridge, state, (next) => {
         Object.assign(state, next);
