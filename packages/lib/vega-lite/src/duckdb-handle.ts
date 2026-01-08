@@ -1,13 +1,17 @@
 import type { VacpActionDescriptor, VacpRef } from '@vacp/core';
-import type { VacpDuckDbClient } from '@vacp/duckdb';
-import { createDuckDbDataSqlHandler, createDuckDbWasmClient, makeVacpDuckDbTableName } from '@vacp/duckdb';
+import type { VacpDuckDbClient, VacpDuckDbTableMetadata } from '@vacp/duckdb';
+import { createDuckDbDataSqlHandler, createDuckDbWasmClient, getDuckDbTableMetadata, makeVacpDuckDbTableName } from '@vacp/duckdb';
 import { registerVacpDataSqlAction, type VacpActionRegistry } from '@vacp/gateway';
 
 import { whereClauseForCurrentSelections } from './duckdb-selection';
 import { makeRef } from './refs';
 import type { InstallVacpOnVegaLiteOptions, VegaLiteSpecLike, VegaViewLike } from './types';
 
-export type VegaLiteDuckDbDataHandle = { ref: VacpRef; tableName: string };
+export type VegaLiteDuckDbDataHandle = {
+  ref: VacpRef;
+  tableName: string;
+  ensureMetadata: () => Promise<VacpDuckDbTableMetadata | null>;
+};
 
 /**
  * Optional DuckDB-backed DataHandle for Vega-Lite specs that embed inline data.
@@ -106,6 +110,19 @@ export function installVegaLiteDuckDbDataHandle(args: {
 
   void ensureDuckDbData().catch(() => {});
 
+  let meta: VacpDuckDbTableMetadata | null = null;
+  const ensureMetadata = async (): Promise<VacpDuckDbTableMetadata | null> => {
+    if (meta) return meta;
+    await ensureDuckDbData();
+    const db = await duckdbPromise;
+    try {
+      meta = await getDuckDbTableMetadata({ duckdb: db, table: tableName, sampleRows: 25_000 });
+    } catch {
+      meta = null;
+    }
+    return meta;
+  };
+
   const dataSqlDesc = registerVacpDataSqlAction(
     actionRegistry,
     createDuckDbDataSqlHandler({
@@ -129,5 +146,5 @@ export function installVegaLiteDuckDbDataHandle(args: {
   );
   actionDescriptors.push(dataSqlDesc);
 
-  return { ref: handleRef, tableName };
+  return { ref: handleRef, tableName, ensureMetadata };
 }

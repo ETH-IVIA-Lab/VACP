@@ -1,0 +1,142 @@
+import type { VacpDuckDbClient } from './client';
+
+export type VacpDuckDbColumnInfo = {
+  name: string;
+  type: string;
+  notNull?: boolean;
+  primaryKey?: boolean;
+};
+
+export type VacpDuckDbNumericSummary = {
+  min: number | null;
+  max: number | null;
+  avg: number | null;
+};
+
+export type VacpDuckDbTableMetadata = {
+  table: string;
+  rowCount: number | null;
+  columns: VacpDuckDbColumnInfo[];
+  numeric?: Record<string, VacpDuckDbNumericSummary>;
+  categoricalTopValues?: Record<string, Array<{ value: string; n: number }>>;
+  sampledRows?: number | null;
+};
+
+function quoteIdent(part: string): string {
+  return `"${part.replaceAll('"', '""')}"`;
+}
+
+function quoteTableRef(table: string): string {
+  return table
+    .split('.')
+    .map((p) => quoteIdent(p))
+    .join('.');
+}
+
+function isNumericType(type: string): boolean {
+  const t = type.toUpperCase();
+  return (
+    t.includes('INT') ||
+    t.includes('DOUBLE') ||
+    t.includes('REAL') ||
+    t.includes('FLOAT') ||
+    t.includes('DECIMAL') ||
+    t.includes('HUGEINT')
+  );
+}
+
+function isTextType(type: string): boolean {
+  const t = type.toUpperCase();
+  return t.includes('VARCHAR') || t.includes('TEXT');
+}
+
+function parseNumber(value: unknown): number | null {
+  const n = typeof value === 'number' ? value : typeof value === 'string' ? Number(value) : NaN;
+  return Number.isFinite(n) ? n : null;
+}
+
+/**
+ * Lightweight DuckDB table metadata intended for agent context.
+ *
+ * Defaults are tuned for "fast enough" even on medium datasets:
+ * - schema + row count are always returned
+ * - summaries are computed on a bounded sample (LIMIT) unless `sampleRows=0`
+ */
+export async function getDuckDbTableMetadata(args: {
+  duckdb: VacpDuckDbClient;
+  table: string;
+  sampleRows?: number;
+  maxNumericColumns?: number;
+  maxCategoricalColumns?: number;
+  topK?: number;
+}): Promise<VacpDuckDbTableMetadata> {
+  const sampleRows = args.sampleRows ?? 25_000;
+  const maxNumericColumns = args.maxNumericColumns ?? 8;
+  const maxCategoricalColumns = args.maxCategoricalColumns ?? 4;
+  const topK = args.topK ?? 5;
+
+  const tableSql = quoteTableRef(args.table);
+
+  const colsRaw = await args.duckdb.queryJson(`PRAGMA table_info('${args.table.replaceAll("'", "''")}')`);
+  const columns: VacpDuckDbColumnInfo[] = colsRaw.rows
+    .map((r) => ({
+      name: typeof r.name === 'string' ? r.name : String(r.name ?? ''),
+      type: typeof r.type === 'string' ? r.type : String(r.type ?? ''),
+      notNull: Boolean(r.notnull),
+      primaryKey: Boolean(r.pk),
+    }))
+    .filter((c) => c.name);
+
+  const rowCountRes = await args.duckdb.queryJson(`SELECT COUNT(*)::BIGINT AS n FROM ${tableSql}`);
+  const rowCount = parseNumber(rowCountRes.rows[0]?.n) ?? null;
+
+  const sampleCte = sampleRows > 0 ? `WITH __vacp_sample AS (SELECT * FROM ${tableSql} LIMIT ${Math.floor(sampleRows)})` : '';
+  const sampleFrom = sampleRows > 0 ? '__vacp_sample' : tableSql;
+
+  const numericCols = columns.filter((c) => isNumericType(c.type)).slice(0, maxNumericColumns);
+  const categoricalCols = columns.filter((c) => isTextType(c.type)).slice(0, maxCategoricalColumns);
+
+  const numeric: Record<string, VacpDuckDbNumericSummary> = {};
+  if (numericCols.length) {
+    const exprs = numericCols.flatMap((c) => {
+      const col = quoteIdent(c.name);
+      const base = c.name.replaceAll(/[^a-zA-Z0-9_]+/g, '_');
+      return [
+        `MIN(${col})::DOUBLE AS ${quoteIdent(`${base}_min`)}`,
+        `MAX(${col})::DOUBLE AS ${quoteIdent(`${base}_max`)}`,
+        `AVG(${col})::DOUBLE AS ${quoteIdent(`${base}_avg`)}`,
+      ];
+    });
+    const q = `${sampleCte} SELECT ${exprs.join(', ')} FROM ${sampleFrom}`;
+    const res = await args.duckdb.queryJson(q);
+    const row = res.rows[0] ?? {};
+    for (const c of numericCols) {
+      const base = c.name.replaceAll(/[^a-zA-Z0-9_]+/g, '_');
+      numeric[c.name] = {
+        min: parseNumber((row as any)[`${base}_min`]),
+        max: parseNumber((row as any)[`${base}_max`]),
+        avg: parseNumber((row as any)[`${base}_avg`]),
+      };
+    }
+  }
+
+  const categoricalTopValues: Record<string, Array<{ value: string; n: number }>> = {};
+  for (const c of categoricalCols) {
+    const col = quoteIdent(c.name);
+    const q = `${sampleCte} SELECT ${col}::VARCHAR AS value, COUNT(*)::BIGINT AS n FROM ${sampleFrom} GROUP BY value ORDER BY n DESC LIMIT ${Math.floor(topK)}`;
+    const res = await args.duckdb.queryJson(q);
+    categoricalTopValues[c.name] = res.rows
+      .map((r) => ({ value: String((r as any).value ?? ''), n: parseNumber((r as any).n) ?? 0 }))
+      .filter((r) => r.value);
+  }
+
+  return {
+    table: args.table,
+    rowCount,
+    columns,
+    numeric: Object.keys(numeric).length ? numeric : undefined,
+    categoricalTopValues: Object.keys(categoricalTopValues).length ? categoricalTopValues : undefined,
+    sampledRows: sampleRows > 0 ? sampleRows : null,
+  };
+}
+
