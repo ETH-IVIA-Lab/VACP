@@ -73,14 +73,12 @@ function escapeMermaidLabel(s: string): string {
   const B1 = '__VACP_B1__';
   const CODE0 = '__VACP_CODE0__';
   const CODE1 = '__VACP_CODE1__';
-  const NBSP = '__VACP_NBSP__';
   const withPlaceholders = s
     .replaceAll('<br/>', BR)
     .replaceAll('<b>', B0)
     .replaceAll('</b>', B1)
     .replaceAll('<code>', CODE0)
-    .replaceAll('</code>', CODE1)
-    .replaceAll('&nbsp;', NBSP);
+    .replaceAll('</code>', CODE1);
 
   const escapedHtml = withPlaceholders
     .replaceAll('&', '&amp;')
@@ -96,7 +94,6 @@ function escapeMermaidLabel(s: string): string {
     .replaceAll(B1, '</b>')
     .replaceAll(CODE0, '<code>')
     .replaceAll(CODE1, '</code>')
-    .replaceAll(NBSP, '&nbsp;')
     .replaceAll('\\', '\\\\')
     .replaceAll('"', '\\"');
 }
@@ -110,7 +107,9 @@ function escapeMermaidEdgeLabel(s: string): string {
 function toStatePreview(value: unknown, maxLen: number): string | null {
   if (value === undefined) return null;
   try {
-    const json = JSON.stringify(value, null, 2);
+    // Mermaid flowcharts don't reliably handle escaped quotes inside quoted
+    // label strings, so render JSON-like text with single quotes.
+    const json = JSON.stringify(value, null, 2).replaceAll('"', "'");
     const lines = json.split('\n');
     const maxLines = 6;
     const shown = lines.slice(0, maxLines);
@@ -118,7 +117,8 @@ function toStatePreview(value: unknown, maxLen: number): string | null {
       const clamped = clampLabel(line, maxLen);
       const m = clamped.match(/^( +)(.*)$/);
       if (!m) return clamped;
-      return `${'&nbsp;'.repeat(m[1].length)}${m[2]}`;
+      // Non-breaking spaces preserve indentation in HTML labels.
+      return `${'\u00A0'.repeat(m[1].length)}${m[2]}`;
     });
     const body = prettyLines.join('<br/>') + (lines.length > maxLines ? '<br/>…' : '');
     return `<code>${body}</code>`;
