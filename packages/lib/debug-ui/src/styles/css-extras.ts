@@ -102,6 +102,14 @@ export const CSS_EXTRAS = `
     opacity: 0.82;
   }
 
+  .vacp-debug-ui-pane-fill {
+    height: 100%;
+    min-height: 0;
+    display: grid;
+    grid-template-rows: auto auto auto auto 1fr;
+    gap: 0;
+  }
+
   .vacp-debug-ui-table-wrap {
     border: 1px solid var(--vacp-border-weak);
     border-radius: 10px;
@@ -138,7 +146,7 @@ export const CSS_EXTRAS = `
     padding: 10px;
     background: rgba(231, 233, 238, 0.03);
     overflow: auto;
-    max-height: 520px;
+    min-height: 0;
   }
   .vacp-debug-ui-diagram svg {
     background: white;

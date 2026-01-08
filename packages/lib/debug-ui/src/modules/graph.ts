@@ -49,6 +49,9 @@ export function createGraphModule(initial: GraphModuleState): VacpDebugModule {
     render: async (container, ctx) => {
       container.textContent = '';
 
+      const pane = document.createElement('div');
+      pane.className = 'vacp-debug-ui-pane-fill';
+
       const help = document.createElement('div');
       help.className = 'vacp-debug-ui-small';
       help.textContent =
@@ -119,7 +122,8 @@ export function createGraphModule(initial: GraphModuleState): VacpDebugModule {
       const host = document.createElement('div');
       host.className = 'vacp-debug-ui-diagram';
 
-      container.append(help, optsTitle, row, status, host);
+      pane.append(help, optsTitle, row, status, host);
+      container.append(pane);
       await rerender();
     },
   };
