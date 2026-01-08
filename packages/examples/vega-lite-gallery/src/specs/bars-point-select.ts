@@ -1,13 +1,6 @@
 import type { VegaLiteSpecLike } from '@vacp/vega-lite';
 
-type Datum = { category: string; value: number };
-
-function makeData(): Datum[] {
-  return ['A', 'B', 'C', 'D', 'E', 'F', 'G'].map((category) => ({
-    category,
-    value: Math.round(10 + Math.random() * 90),
-  }));
-}
+import { makeCategoryValues } from '../spec-data';
 
 export const meta = {
   id: 'bars-point-select',
@@ -19,7 +12,7 @@ export const meta = {
 export function createSpec(): VegaLiteSpecLike {
   return {
     $schema: 'https://vega.github.io/schema/vega-lite/v6.json',
-    data: { values: makeData() },
+    data: { values: makeCategoryValues() },
     params: [
       {
         name: 'baseOpacity',

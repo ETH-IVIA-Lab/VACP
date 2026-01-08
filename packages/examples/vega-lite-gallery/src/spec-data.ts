@@ -1,0 +1,74 @@
+/**
+ * Shared synthetic datasets for the Vega-Lite gallery.
+ *
+ * The goal is not statistical rigor; it's to create data that produces
+ * meaningful visual + interactive behavior:
+ * - non-uniform structure (clusters / correlations) so selections are obvious
+ * - jitter so plots don't look like perfect grids
+ * - per-point `size` so point-size params actually show an effect
+ */
+
+export type ClusterDatum = { id: number; x: number; y: number; group: string; size: number };
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.max(min, Math.min(max, value));
+}
+
+// Box–Muller transform.
+function randn(): number {
+  let u = 0;
+  let v = 0;
+  while (u === 0) u = Math.random();
+  while (v === 0) v = Math.random();
+  return Math.sqrt(-2.0 * Math.log(u)) * Math.cos(2.0 * Math.PI * v);
+}
+
+function jittered(value: number, sigma: number): number {
+  return value + randn() * sigma;
+}
+
+function bumpSize(): number {
+  // A stable, bounded multiplier around 1.0 (roughly 0.6..1.7).
+  return clamp(1 + randn() * 0.35, 0.6, 1.7);
+}
+
+export function makeClusteredPoints(args?: { n?: number; groups?: string[] }): ClusterDatum[] {
+  const n = args?.n ?? 520;
+  const groups = args?.groups ?? ['A', 'B', 'C', 'D'];
+
+  // Fixed cluster centers so playbooks can apply predictable brushes.
+  const centers: Array<{ x: number; y: number }> = [
+    { x: 22, y: 28 },
+    { x: 70, y: 22 },
+    { x: 30, y: 78 },
+    { x: 78, y: 72 },
+  ];
+
+  const out: ClusterDatum[] = [];
+  for (let i = 0; i < n; i++) {
+    const g = groups[i % groups.length] ?? 'A';
+    const c = centers[i % centers.length] ?? centers[0]!;
+
+    // Group-dependent shape: make one axis tighter/looser per group so
+    // different brushes "feel" different.
+    const gx = g.charCodeAt(0) % 2 === 0 ? 7 : 10;
+    const gy = g.charCodeAt(0) % 2 === 0 ? 10 : 7;
+
+    const x = clamp(jittered(c.x, gx), 0, 100);
+    const y = clamp(jittered(c.y, gy), 0, 100);
+    out.push({ id: i, x, y, group: g, size: bumpSize() });
+  }
+  return out;
+}
+
+export type CategoryDatum = { category: string; value: number };
+
+export function makeCategoryValues(): CategoryDatum[] {
+  const cats = ['A', 'B', 'C', 'D', 'E', 'F', 'G'];
+  return cats.map((category, i) => {
+    const wave = 55 + 25 * Math.sin((i / (cats.length - 1)) * Math.PI);
+    const noise = randn() * 6;
+    return { category, value: Math.round(clamp(wave + noise, 8, 100)) };
+  });
+}
+

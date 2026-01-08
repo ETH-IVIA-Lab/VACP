@@ -1,15 +1,6 @@
 import type { VegaLiteSpecLike } from '@vacp/vega-lite';
 
-type Datum = { x: number; y: number; group: string };
-
-function makeData(n = 240): Datum[] {
-  const out: Datum[] = [];
-  for (let i = 0; i < n; i++) {
-    const group = i % 3 === 0 ? 'A' : i % 3 === 1 ? 'B' : 'C';
-    out.push({ x: Math.random() * 100, y: Math.random() * 100, group });
-  }
-  return out;
-}
+import { makeClusteredPoints } from '../spec-data';
 
 export const meta = {
   id: 'linked-point-highlight',
@@ -21,12 +12,17 @@ export const meta = {
 export function createSpec(): VegaLiteSpecLike {
   return {
     $schema: 'https://vega.github.io/schema/vega-lite/v6.json',
-    data: { values: makeData() },
+    data: { values: makeClusteredPoints({ n: 420, groups: ['A', 'B', 'C'] }) },
     params: [
       {
         name: 'baseOpacity',
         value: 0.25,
         bind: { input: 'range', min: 0.05, max: 0.9, step: 0.01 },
+      },
+      {
+        name: 'pointSize',
+        value: 80,
+        bind: { input: 'range', min: 20, max: 1200, step: 10 },
       },
       {
         name: 'pick',
@@ -40,6 +36,7 @@ export function createSpec(): VegaLiteSpecLike {
           x: { field: 'x', type: 'quantitative' },
           y: { field: 'y', type: 'quantitative' },
           color: { field: 'group', type: 'nominal' },
+          size: { expr: 'pointSize * datum.size' },
           opacity: { condition: { param: 'pick', value: 0.95 }, expr: 'baseOpacity' },
         },
         width: 720,
