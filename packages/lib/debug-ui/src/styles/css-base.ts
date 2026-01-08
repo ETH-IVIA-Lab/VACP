@@ -81,6 +81,14 @@ export const CSS_BASE = `
     text-overflow: ellipsis;
   }
 
+  .vacp-debug-ui-header-actions {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    padding-left: 10px;
+    margin-left: auto;
+  }
+
   .vacp-debug-ui-shell {
     height: calc(100% - 44px);
     display: grid;

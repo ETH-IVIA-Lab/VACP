@@ -40,6 +40,51 @@ export function installVacpDebugUi(options?: VacpDebugUiOptions): void {
   document.body.append(root);
   document.body.append(panel);
 
+  const SIZE_KEY = 'vacp:debug:size';
+  let maximized = false;
+  let sizeBeforeMax: { width: number; height: number } | null = null;
+
+  const saveSize = (size: { width: number; height: number } | null) => {
+    try {
+      if (!size) localStorage.removeItem(SIZE_KEY);
+      else localStorage.setItem(SIZE_KEY, JSON.stringify(size));
+    } catch {
+      // ignore
+    }
+  };
+
+  const clamp = (n: number, min: number, max: number): number => Math.max(min, Math.min(max, n));
+  const applySize = (size: { width: number; height: number }) => {
+    const maxW = Math.max(360, window.innerWidth - 28);
+    const maxH = Math.max(260, window.innerHeight - 92);
+    panel.style.width = `${clamp(size.width, 360, maxW)}px`;
+    panel.style.height = `${clamp(size.height, 260, maxH)}px`;
+    saveSize({ width: panel.getBoundingClientRect().width, height: panel.getBoundingClientRect().height });
+  };
+
+  const resetSize = () => {
+    maximized = false;
+    sizeBeforeMax = null;
+    panel.style.width = '';
+    panel.style.height = '';
+    saveSize(null);
+    panelPosition();
+  };
+
+  const toggleMaximize = () => {
+    if (!maximized) {
+      const rect = panel.getBoundingClientRect();
+      sizeBeforeMax = { width: rect.width, height: rect.height };
+      maximized = true;
+      applySize({ width: window.innerWidth - 28, height: window.innerHeight - 92 });
+      panelPosition();
+      return;
+    }
+    maximized = false;
+    if (sizeBeforeMax) applySize(sizeBeforeMax);
+    panelPosition();
+  };
+
   const panelPosition = () => {
     if (!isPanelVisible(panel)) return;
     const margin = 10;
@@ -74,9 +119,39 @@ export function installVacpDebugUi(options?: VacpDebugUiOptions): void {
 
   installVacpDebugResizer({
     panel,
-    storageKey: 'vacp:debug:size',
+    storageKey: SIZE_KEY,
     onResizeEnd: () => panelPosition(),
   });
+
+  // Panel sizing controls in the header (quick access in addition to the drag-resizer).
+  const header = panel.querySelector('.vacp-debug-ui-header');
+  if (header) {
+    const maximizeBtn = document.createElement('button');
+    maximizeBtn.type = 'button';
+    maximizeBtn.textContent = 'Maximize';
+    maximizeBtn.title = 'Toggle a near-fullscreen overlay size.';
+
+    const resetSizeBtn = document.createElement('button');
+    resetSizeBtn.type = 'button';
+    resetSizeBtn.textContent = 'Reset size';
+    resetSizeBtn.title = 'Reset overlay size back to its default.';
+
+    maximizeBtn.addEventListener('click', () => {
+      toggleMaximize();
+      maximizeBtn.textContent = maximized ? 'Restore' : 'Maximize';
+    });
+    resetSizeBtn.addEventListener('click', () => {
+      resetSize();
+      maximizeBtn.textContent = 'Maximize';
+    });
+
+    const actionsWrap = document.createElement('div');
+    actionsWrap.className = 'vacp-debug-ui-header-actions';
+    actionsWrap.append(maximizeBtn, resetSizeBtn);
+
+    // Insert before Close.
+    header.insertBefore(actionsWrap, closeBtn);
+  }
 
   const modules: VacpDebugModule[] =
     options?.modules ??
