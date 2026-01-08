@@ -1,6 +1,6 @@
 import type { VacpGraph } from '@vacp/core';
 
-import { annotateInput, annotatePlotSvg } from './annotations';
+import { annotateInput, annotatePlotSurface, annotatePlotSvg } from './annotations';
 import type { CollectedInput } from './inputs';
 import type { VgplotPlotLike } from './types';
 import { wrapUpdate } from './runtime';
@@ -27,7 +27,7 @@ export function installMosaicInputObservers(args: {
 }
 
 export function installMosaicPlotObservers(args: {
-  plots: Array<{ plotId: string; plot: VgplotPlotLike; svg: SVGElement }>;
+  plots: Array<{ plotId: string; plot: VgplotPlotLike; element: Element; svg?: SVGElement }>;
   graph: VacpGraph;
   appId: string;
   viewId: string;
@@ -35,7 +35,7 @@ export function installMosaicPlotObservers(args: {
 }) {
   const { plots, graph, appId, viewId, notifyRuntime } = args;
 
-  for (const { plotId, plot, svg } of plots) {
+  for (const { plotId, plot, element, svg } of plots) {
     plot.interactors.forEach((it) => {
       const origInit = it.init;
       it.init = async (svgEl: SVGElement) => {
@@ -48,13 +48,13 @@ export function installMosaicPlotObservers(args: {
       if (it.selection) wrapUpdate(it.selection, 'selection.update', (m) => notifyRuntime(m));
     });
 
-    annotatePlotSvg({ svg, plotId, appId, viewId, graph });
+    annotatePlotSurface({ element, svg, plotId, appId, viewId, graph });
 
     const anyPlot = plot as unknown as { __vacpObserver?: MutationObserver; __vacpSvgObserver?: MutationObserver };
     anyPlot.__vacpObserver?.disconnect();
     anyPlot.__vacpSvgObserver?.disconnect();
 
-    const host = svg.closest('.plot') ?? svg.parentElement ?? plot.element ?? null;
+    const host = (svg ?? element).closest?.('.plot') ?? (svg ?? element).parentElement ?? (plot as any).element ?? null;
     if (!host) continue;
 
     const attachSvgObserver = (svgEl: SVGElement) => {
@@ -78,6 +78,7 @@ export function installMosaicPlotObservers(args: {
       anyPlot.__vacpSvgObserver = svgObs;
     };
 
+    if (!svg) continue;
     let lastSvg = svg;
     attachSvgObserver(lastSvg);
 

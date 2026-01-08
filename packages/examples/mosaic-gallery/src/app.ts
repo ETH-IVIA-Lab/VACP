@@ -8,7 +8,19 @@ import { createAPIContext } from '@uwdata/vgplot';
 import type { GalleryEntry } from './gallery';
 import { loadGallery } from './gallery';
 import { installVacpLayerForMosaic } from './vacp';
-import { waitForSvg } from './vgplot-helpers';
+import { waitForSvgMaybe } from './vgplot-helpers';
+
+function isPlotLike(value: unknown): value is VgplotPlotLike {
+  if (!value || typeof value !== 'object') return false;
+  const anyV = value as any;
+  return Array.isArray(anyV.marks) && Array.isArray(anyV.interactors);
+}
+
+function discoverPlotHosts(root: Element): Element[] {
+  const all: Element[] = [root, ...Array.from(root.querySelectorAll('*'))];
+  const found = all.filter((el) => isPlotLike((el as any).value));
+  return Array.from(new Set(found));
+}
 
 function selectOption(selectEl: HTMLSelectElement, id: string): void {
   selectEl.value = id;
@@ -95,17 +107,12 @@ export async function run(): Promise<void> {
     const { element } = await astToDOM(ast, { api, baseURL: window.location.href });
     app.replaceChildren(element);
 
-    const plotEls = element.classList.contains('plot')
-      ? [element as HTMLElement]
-      : Array.from(element.querySelectorAll<HTMLElement>('.plot'));
-    if (!plotEls.length) throw new Error('No vgplot element(s) found');
-
+    const plotHosts = discoverPlotHosts(element);
     const plots = await Promise.all(
-      plotEls.map(async (plotEl, idx) => {
-        const plot = (plotEl as unknown as { value?: unknown }).value;
-        if (!plot) throw new Error('vgplot element does not expose plot instance via .value');
-        const svg = await waitForSvg(plotEl);
-        return { plotId: `plot-${idx}`, plot: plot as VgplotPlotLike, svg };
+      plotHosts.map(async (host, idx) => {
+        const plot = (host as any).value;
+        const svg = await waitForSvgMaybe(host);
+        return { plotId: `plot-${idx}`, plot, element: svg ?? host, svg: svg ?? undefined };
       }),
     );
 

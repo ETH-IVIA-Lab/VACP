@@ -29,33 +29,47 @@ export function annotatePlotSvg(args: {
   viewId: string;
   graph: VacpGraph;
 }) {
-  const { svg, plotId, appId, viewId, graph } = args;
+  annotatePlotSurface({ element: args.svg, svg: args.svg, plotId: args.plotId, appId: args.appId, viewId: args.viewId, graph: args.graph });
+}
+
+export function annotatePlotSurface(args: {
+  element: Element;
+  svg?: SVGElement;
+  plotId: string;
+  appId: string;
+  viewId: string;
+  graph: VacpGraph;
+}) {
+  const { element, svg, plotId, appId, viewId, graph } = args;
   const plotRef = makePlotRef({ appId, viewId, plotId, suffix: '' });
-  applyVacpAttributes(svg, {
+  applyVacpAttributes(element, {
     ref: plotRef,
     layer: 'VisualizationLayer',
     kind: 'Visualization',
     title: plotId,
-    description: 'Mosaic/vgplot plot (dashboard)',
+    description: 'Mosaic output surface (plot/table/etc.)',
     data: { plotId },
   });
-  applyVacpInteractionAttributes(svg, {
+  applyVacpInteractionAttributes(element, {
     targetRef: plotRef,
     layer: 'VisualizationLayer',
-    description: 'Programmatic interactions for this Mosaic/vgplot visualization.',
+    description: 'Programmatic interactions for this Mosaic view surface.',
     actions: graph.actions,
   });
-  svg.querySelectorAll('[data-index]').forEach((el) => {
-    const idx = el.getAttribute('data-index') ?? 'unknown';
-    const markRef = makePlotRef({ appId, viewId, plotId, suffix: `/mark/${idx}` });
-    applyVacpAttributes(el, {
-      ref: markRef,
-      layer: 'VisualizationLayer',
-      kind: 'Mark',
-      title: `mark ${idx}`,
-      description: 'vgplot mark output group',
-      data: { plotId, index: idx },
+
+  if (svg) {
+    svg.querySelectorAll('[data-index]').forEach((el) => {
+      const idx = el.getAttribute('data-index') ?? 'unknown';
+      const markRef = makePlotRef({ appId, viewId, plotId, suffix: `/mark/${idx}` });
+      applyVacpAttributes(el, {
+        ref: markRef,
+        layer: 'VisualizationLayer',
+        kind: 'Mark',
+        title: `mark ${idx}`,
+        description: 'vgplot mark output group',
+        data: { plotId, index: idx },
+      });
     });
-  });
-  embedVacpGraphInSvg(svg, graph);
+    embedVacpGraphInSvg(svg, graph);
+  }
 }

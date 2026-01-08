@@ -1,7 +1,7 @@
 import type { VacpCapabilitiesSnapshot, VacpChangeSource, VacpRef, VacpStateSnapshot } from '@vacp/core';
 import { nowIso, VACP_SCHEMA_VERSION } from '@vacp/core';
 import { applyVacpAttributes } from '@vacp/dom';
-import { createDuckDbDataSqlHandler } from '@vacp/duckdb';
+import { createDuckDbDataSqlHandler, getDuckDbTableMetadata, type VacpDuckDbTableMetadata } from '@vacp/duckdb';
 import {
   installVacpRuntimeBridge,
   registerVacpApplyStateAction,
@@ -16,6 +16,9 @@ import { quoteTableRef, whereClauseForMosaicDashboardSelection } from './duckdb-
 import { collectInputs, executeInputAction, type CollectedInput } from './inputs';
 import { executeIntervalAction } from './interactors/interval';
 import { executeLegendToggleAction } from './interactors/legend-toggle';
+import { executeNearestAction } from './interactors/nearest';
+import { executePanZoomAction } from './interactors/pan-zoom';
+import { executeRegionAction } from './interactors/region';
 import { executeToggleAction } from './interactors/toggle';
 import { buildDashboardGraph } from './graph';
 import { installMosaicInputObservers, installMosaicPlotObservers } from './observe';
@@ -25,11 +28,10 @@ import type { InstallVacpOnVgplotDashboardOptions, InstallVacpOnVgplotOptions, V
 
 export function installVacpOnVgplotDashboard(args: {
   root: ParentNode;
-  plots: Array<{ plotId: string; plot: VgplotPlotLike; svg: SVGElement }>;
+  plots: Array<{ plotId: string; plot: VgplotPlotLike; element: Element; svg?: SVGElement }>;
   options: InstallVacpOnVgplotDashboardOptions;
 }): void {
   const { root, plots, options } = args;
-  if (!plots.length) throw new Error('installVacpOnVgplotDashboard requires at least one plot');
 
   const actionRegistry = new VacpActionRegistry();
   let lastChangeSource: VacpChangeSource = 'human';
@@ -38,8 +40,9 @@ export function installVacpOnVgplotDashboard(args: {
   const inputByRef = new Map<VacpRef, CollectedInput>(inputs.map((i) => [i.ref, i]));
 
   const plotsById = new Map<string, VgplotPlotLike>(plots.map((p) => [p.plotId, p.plot]));
-  const defaultPlotId = plots[0].plotId;
+  const defaultPlotId = plots[0]?.plotId ?? '';
   const resolvePlot = (params: Record<string, unknown>): { plotId: string; plot: VgplotPlotLike } => {
+    if (!defaultPlotId) throw new Error('No plots are available for this Mosaic view');
     const pid = typeof params.plotId === 'string' && params.plotId ? params.plotId : defaultPlotId;
     const plot = plotsById.get(pid);
     if (!plot) throw new Error(`Unknown plotId: ${pid}`);
@@ -119,6 +122,36 @@ export function installVacpOnVgplotDashboard(args: {
       params: p,
     });
   });
+  register('mosaic.set_nearest', async (params) => {
+    const p = (params ?? {}) as Record<string, unknown>;
+    const { plot } = resolvePlot(p);
+    return executeNearestAction(plot, { callId: crypto.randomUUID(), name: 'mosaic.set_nearest', params: p });
+  });
+  register('mosaic.clear_nearest', async (params) => {
+    const p = (params ?? {}) as Record<string, unknown>;
+    const { plot } = resolvePlot(p);
+    return executeNearestAction(plot, { callId: crypto.randomUUID(), name: 'mosaic.clear_nearest', params: p });
+  });
+  register('mosaic.set_region', async (params) => {
+    const p = (params ?? {}) as Record<string, unknown>;
+    const { plot } = resolvePlot(p);
+    return executeRegionAction(plot, { callId: crypto.randomUUID(), name: 'mosaic.set_region', params: p });
+  });
+  register('mosaic.clear_region', async (params) => {
+    const p = (params ?? {}) as Record<string, unknown>;
+    const { plot } = resolvePlot(p);
+    return executeRegionAction(plot, { callId: crypto.randomUUID(), name: 'mosaic.clear_region', params: p });
+  });
+  register('mosaic.set_pan_zoom', async (params) => {
+    const p = (params ?? {}) as Record<string, unknown>;
+    const { plot } = resolvePlot(p);
+    return executePanZoomAction(plot, { callId: crypto.randomUUID(), name: 'mosaic.set_pan_zoom', params: p });
+  });
+  register('mosaic.clear_pan_zoom', async (params) => {
+    const p = (params ?? {}) as Record<string, unknown>;
+    const { plot } = resolvePlot(p);
+    return executePanZoomAction(plot, { callId: crypto.randomUUID(), name: 'mosaic.clear_pan_zoom', params: p });
+  });
   register('mosaic.set_input_option_index', async (params) =>
     executeInputAction(resolveInput((params ?? {}) as any), { name: 'mosaic.set_input_option_index', params }),
   );
@@ -160,7 +193,12 @@ export function installVacpOnVgplotDashboard(args: {
           const plot = plotsById.get(meta.plotId);
           if (!plot) return null;
           const tableName = meta.table ?? discoverPlotTables(plot)[0];
-          if (!tableName) return null;
+          if (!tableName) {
+            // Some Mosaic specs are "data-less" (axes demos, gridlines, etc).
+            // Keep the VACP interface uniform by exposing an empty relation.
+            const emptySql = 'SELECT NULL::INTEGER AS __vacp_empty WHERE FALSE';
+            return { allSql: emptySql, selectedSql: emptySql };
+          }
           const table = quoteTableRef(tableName);
           const allSql = `SELECT * FROM ${table}`;
           const where = whereClauseForMosaicDashboardSelection({ plots: plots.map((p) => p.plot), inputs });
@@ -181,11 +219,55 @@ export function installVacpOnVgplotDashboard(args: {
     dataHandles,
   });
 
+  const dataHandleNodesByRef = new Map<VacpRef, unknown>();
+  for (const n of graph.nodes) {
+    if (n.kind !== 'DataHandle') continue;
+    dataHandleNodesByRef.set(n.ref, n);
+  }
+
+  const duckdbMetaByTable = new Map<string, VacpDuckDbTableMetadata>();
+  let duckdbMetaPromise: Promise<void> | null = null;
+  const ensureDuckdbMeta = async () => {
+    if (!options.duckdbClient || !dataHandles.length) return;
+    if (duckdbMetaPromise) return await duckdbMetaPromise;
+    duckdbMetaPromise = (async () => {
+      for (const h of dataHandles) {
+        const plot = plotsById.get(h.plotId);
+        const tableName = h.table ?? (plot ? discoverPlotTables(plot)[0] : undefined);
+        if (!tableName || duckdbMetaByTable.has(tableName)) continue;
+        try {
+          duckdbMetaByTable.set(
+            tableName,
+            await getDuckDbTableMetadata({ duckdb: options.duckdbClient!, table: tableName, sampleRows: 25_000 }),
+          );
+        } catch {
+          // ignore: metadata is best-effort
+        }
+      }
+
+      // Patch DataHandle nodes in-place so capabilities include schema/stats.
+      for (const h of dataHandles) {
+        const plot = plotsById.get(h.plotId);
+        const tableName = h.table ?? (plot ? discoverPlotTables(plot)[0] : undefined);
+        if (!tableName) continue;
+        const meta = duckdbMetaByTable.get(tableName);
+        if (!meta) continue;
+        const node = dataHandleNodesByRef.get(h.ref) as any;
+        if (!node || typeof node !== 'object') continue;
+        node.data = { ...node.data, table: tableName, duckdb: meta };
+      }
+    })();
+    await duckdbMetaPromise;
+  };
+
   const snapshots = {
     getCapabilities: async (): Promise<VacpCapabilitiesSnapshot> => ({
       version: VACP_SCHEMA_VERSION,
       createdAt: nowIso(),
-      graph,
+      graph: await (async () => {
+        await ensureDuckdbMeta();
+        return graph;
+      })(),
     }),
     getState: async (): Promise<VacpStateSnapshot> => {
       const state: Record<VacpRef, unknown> = {};
@@ -211,12 +293,23 @@ export function installVacpOnVgplotDashboard(args: {
             plotId,
             suffix: `/interactor/${i}`,
           });
-          const selectionValue = interactor.selection?.value ?? undefined;
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const anyI = interactor as any;
+          const selectionValue = anyI.selection?.value ?? undefined;
+          const ctorName = interactor.constructor?.name ?? 'Interactor';
           state[interactorRef] = {
-            kind: interactor.constructor?.name ?? 'Interactor',
+            kind: ctorName,
             plotId,
             value: interactor.value,
             selectionValue,
+            ...(ctorName === 'PanZoom'
+              ? {
+                  x: anyI.xsel?.value ?? null,
+                  y: anyI.ysel?.value ?? null,
+                  xField: anyI.xfield ?? null,
+                  yField: anyI.yfield ?? null,
+                }
+              : null),
           };
         });
       }
@@ -259,7 +352,7 @@ export function installVacpOnVgplotDashboard(args: {
 export function installVacpOnVgplot(plot: VgplotPlotLike, svg: SVGElement, options: InstallVacpOnVgplotOptions): void {
   installVacpOnVgplotDashboard({
     root: svg,
-    plots: [{ plotId: options.plotId, plot, svg }],
+    plots: [{ plotId: options.plotId, plot, element: svg, svg }],
     options: {
       appId: options.appId,
       viewId: options.viewId,

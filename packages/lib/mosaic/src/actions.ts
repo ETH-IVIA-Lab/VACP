@@ -12,6 +12,9 @@ export function actionDescriptorsForDashboard(args: {
   const hasInterval1D = args.plots.some((p) => p.plot.interactors.some((i) => i.constructor?.name === 'Interval1D'));
   const hasInterval2D = args.plots.some((p) => p.plot.interactors.some((i) => i.constructor?.name === 'Interval2D'));
   const hasToggle = args.plots.some((p) => p.plot.interactors.some((i) => i.constructor?.name === 'Toggle'));
+  const hasNearest = args.plots.some((p) => p.plot.interactors.some((i) => i.constructor?.name === 'Nearest'));
+  const hasRegion = args.plots.some((p) => p.plot.interactors.some((i) => i.constructor?.name === 'Region'));
+  const hasPanZoom = args.plots.some((p) => p.plot.interactors.some((i) => i.constructor?.name === 'PanZoom'));
   const hasLegendToggle = args.plots.some((p) =>
     (p.plot.legends ?? []).some((raw) => {
       const legend = raw && typeof raw === 'object' && 'legend' in raw ? (raw as any).legend : (raw as any);
@@ -95,6 +98,82 @@ export function actionDescriptorsForDashboard(args: {
     actions.push({
       name: 'mosaic.clear_toggle',
       description: 'Clear a Toggle interactor value.',
+      targetRef: viewRef,
+      parameters: {
+        type: 'object',
+        properties: { plotId: { type: 'string' }, interactorId: { type: 'string' } },
+        required: ['interactorId'],
+      },
+    });
+  }
+
+  if (hasNearest) {
+    actions.push({
+      name: 'mosaic.set_nearest',
+      description: 'Set a Nearest (hover/inspect) interactor value (best-effort).',
+      targetRef: viewRef,
+      parameters: {
+        type: 'object',
+        properties: { plotId: { type: 'string' }, interactorId: { type: 'string' }, value: {} },
+        required: ['interactorId', 'value'],
+      },
+    });
+    actions.push({
+      name: 'mosaic.clear_nearest',
+      description: 'Clear a Nearest (hover/inspect) interactor value.',
+      targetRef: viewRef,
+      parameters: {
+        type: 'object',
+        properties: { plotId: { type: 'string' }, interactorId: { type: 'string' } },
+        required: ['interactorId'],
+      },
+    });
+  }
+
+  if (hasRegion) {
+    actions.push({
+      name: 'mosaic.set_region',
+      description: 'Set a Region (categorical) selection value (best-effort).',
+      targetRef: viewRef,
+      parameters: {
+        type: 'object',
+        properties: { plotId: { type: 'string' }, interactorId: { type: 'string' }, value: {} },
+        required: ['interactorId', 'value'],
+      },
+    });
+    actions.push({
+      name: 'mosaic.clear_region',
+      description: 'Clear a Region selection.',
+      targetRef: viewRef,
+      parameters: {
+        type: 'object',
+        properties: { plotId: { type: 'string' }, interactorId: { type: 'string' } },
+        required: ['interactorId'],
+      },
+    });
+  }
+
+  if (hasPanZoom) {
+    actions.push({
+      name: 'mosaic.set_pan_zoom',
+      description: 'Set a PanZoom view domain (best-effort).',
+      targetRef: viewRef,
+      parameters: {
+        type: 'object',
+        properties: {
+          plotId: { type: 'string' },
+          interactorId: { type: 'string' },
+          x0: { type: 'number' },
+          x1: { type: 'number' },
+          y0: { type: 'number' },
+          y1: { type: 'number' },
+        },
+        required: ['interactorId'],
+      },
+    });
+    actions.push({
+      name: 'mosaic.clear_pan_zoom',
+      description: 'Clear a PanZoom view domain (best-effort).',
       targetRef: viewRef,
       parameters: {
         type: 'object',
