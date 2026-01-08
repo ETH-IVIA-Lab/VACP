@@ -32,6 +32,7 @@ export interface VgplotPlotLike {
   element?: HTMLElement;
   marks: VgplotMarkLike[];
   interactors: VgplotInteractorLike[];
+  legends?: Array<{ legend: unknown; include?: boolean } | unknown>;
   setAttribute?: (name: string, value: unknown, options?: { silent?: boolean }) => boolean;
   update?: (...args: unknown[]) => unknown;
   getAttribute?: (name: string) => unknown;

@@ -12,6 +12,12 @@ export function actionDescriptorsForDashboard(args: {
   const hasInterval1D = args.plots.some((p) => p.plot.interactors.some((i) => i.constructor?.name === 'Interval1D'));
   const hasInterval2D = args.plots.some((p) => p.plot.interactors.some((i) => i.constructor?.name === 'Interval2D'));
   const hasToggle = args.plots.some((p) => p.plot.interactors.some((i) => i.constructor?.name === 'Toggle'));
+  const hasLegendToggle = args.plots.some((p) =>
+    (p.plot.legends ?? []).some((raw) => {
+      const legend = raw && typeof raw === 'object' && 'legend' in raw ? (raw as any).legend : (raw as any);
+      return !!legend?.selection;
+    }),
+  );
   const hasInputs = args.inputs.length > 0;
 
   const viewRef = makeViewRef({ appId: args.options.appId, viewId: args.options.viewId, suffix: '' });
@@ -94,6 +100,28 @@ export function actionDescriptorsForDashboard(args: {
         type: 'object',
         properties: { plotId: { type: 'string' }, interactorId: { type: 'string' } },
         required: ['interactorId'],
+      },
+    });
+  }
+
+  if (hasLegendToggle) {
+    actions.push({
+      name: 'mosaic.set_legend_toggle',
+      description: 'Set an interactive legend (categorical) selection.',
+      targetRef: viewRef,
+      parameters: {
+        type: 'object',
+        properties: { plotId: { type: 'string' }, channel: { type: 'string' }, value: {} },
+        required: ['value'],
+      },
+    });
+    actions.push({
+      name: 'mosaic.clear_legend_toggle',
+      description: 'Clear an interactive legend selection.',
+      targetRef: viewRef,
+      parameters: {
+        type: 'object',
+        properties: { plotId: { type: 'string' }, channel: { type: 'string' } },
       },
     });
   }

@@ -15,6 +15,7 @@ import { collectMosaicDataHandles, discoverPlotTables } from './data-handles';
 import { quoteTableRef, whereClauseForMosaicDashboardSelection } from './duckdb-selection';
 import { collectInputs, executeInputAction, type CollectedInput } from './inputs';
 import { executeIntervalAction } from './interactors/interval';
+import { executeLegendToggleAction } from './interactors/legend-toggle';
 import { executeToggleAction } from './interactors/toggle';
 import { buildDashboardGraph } from './graph';
 import { installMosaicInputObservers, installMosaicPlotObservers } from './observe';
@@ -103,6 +104,20 @@ export function installVacpOnVgplotDashboard(args: {
     const p = (params ?? {}) as Record<string, unknown>;
     const { plot } = resolvePlot(p);
     return executeToggleAction(plot, { callId: crypto.randomUUID(), name: 'mosaic.clear_toggle', params: p });
+  });
+  register('mosaic.set_legend_toggle', async (params) => {
+    const p = (params ?? {}) as Record<string, unknown>;
+    const { plot } = resolvePlot(p);
+    return executeLegendToggleAction(plot, { callId: crypto.randomUUID(), name: 'mosaic.set_legend_toggle', params: p });
+  });
+  register('mosaic.clear_legend_toggle', async (params) => {
+    const p = (params ?? {}) as Record<string, unknown>;
+    const { plot } = resolvePlot(p);
+    return executeLegendToggleAction(plot, {
+      callId: crypto.randomUUID(),
+      name: 'mosaic.clear_legend_toggle',
+      params: p,
+    });
   });
   register('mosaic.set_input_option_index', async (params) =>
     executeInputAction(resolveInput((params ?? {}) as any), { name: 'mosaic.set_input_option_index', params }),
