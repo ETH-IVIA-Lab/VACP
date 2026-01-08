@@ -143,17 +143,20 @@ export const CSS_EXTRAS = `
   .vacp-debug-ui-diagram {
     border: 1px solid var(--vacp-border-weak);
     border-radius: 12px;
-    padding: 10px;
     background: rgba(231, 233, 238, 0.03);
-    overflow: auto;
+    overflow: hidden;
     min-height: 0;
+    height: 100%;
+    display: flex;
   }
   .vacp-debug-ui-diagram svg {
     background: white;
     border-radius: 10px;
-    padding: 10px;
-    max-width: 100%;
-    height: auto;
+    width: 100%;
+    height: 100%;
+    max-width: none;
+    max-height: none;
+    flex: 1 1 auto;
   }
 
   .vacp-debug-ui-resizer {

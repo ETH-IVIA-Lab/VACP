@@ -16,6 +16,28 @@ export async function renderMermaidToHost(host: HTMLElement, mermaidText: string
     const id = `vacp_${Math.random().toString(16).slice(2)}`;
     const res = await mermaid.render(id, normalizeMermaidText(mermaidText));
     host.innerHTML = res.svg;
+
+    const svg = host.querySelector('svg');
+    if (svg) {
+      // Ensure the SVG scales to the available host viewport.
+      // Mermaid sometimes emits fixed width/height; prefer a responsive viewBox.
+      const widthAttr = svg.getAttribute('width');
+      const heightAttr = svg.getAttribute('height');
+      const viewBox = svg.getAttribute('viewBox');
+      if (!viewBox && widthAttr && heightAttr) {
+        const w = Number.parseFloat(widthAttr);
+        const h = Number.parseFloat(heightAttr);
+        if (Number.isFinite(w) && Number.isFinite(h) && w > 0 && h > 0) {
+          svg.setAttribute('viewBox', `0 0 ${w} ${h}`);
+        }
+      }
+      svg.removeAttribute('width');
+      svg.removeAttribute('height');
+      svg.setAttribute('preserveAspectRatio', 'xMidYMid meet');
+      (svg as SVGSVGElement).style.width = '100%';
+      (svg as SVGSVGElement).style.height = '100%';
+      (svg as SVGSVGElement).style.display = 'block';
+    }
   } catch (err) {
     host.textContent = `Mermaid render failed: ${String(err)}`;
   }
