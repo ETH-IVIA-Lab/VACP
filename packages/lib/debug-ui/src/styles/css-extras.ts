@@ -62,6 +62,9 @@ export const CSS_EXTRAS = `
     white-space: pre;
     overflow: auto;
   }
+  .vacp-debug-ui-sql-input::selection {
+    background: rgba(121, 178, 255, 0.22);
+  }
 
   .vacp-sql-keyword {
     color: rgba(121, 178, 255, 0.95);
