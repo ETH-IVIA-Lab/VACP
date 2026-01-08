@@ -34,8 +34,10 @@ import { installVacpOnVgplotDashboard } from '@vacp/mosaic';
 installVacpOnVgplotDashboard({
   root: viewRoot,
   plots: [
-    { plotId: 'plot-0', plot, svg },
-    { plotId: 'plot-1', plot, svg },
+    // Some Mosaic specs render an SVG plot; others render non-SVG outputs (tables, legends-only).
+    // Provide the "surface element" either way, and optionally an SVG if present.
+    { plotId: 'plot-0', plot, element: plotHostEl, svg: plotSvgEl },
+    { plotId: 'plot-1', plot, element: plotHostEl, svg: plotSvgEl },
   ],
   options: { appId: 'vacp-examples', viewId: 'mosaic/crossfilter', title: 'Crossfilter (Flights)' },
 });
