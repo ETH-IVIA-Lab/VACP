@@ -140,9 +140,10 @@ const CSS = `
 
   .vacp-debug-ui-actions {
     display: flex;
-    gap: 8px;
+    gap: 10px;
     align-items: center;
     flex-wrap: wrap;
+    margin: 8px 0;
   }
 
   .vacp-debug-ui-actions button,
