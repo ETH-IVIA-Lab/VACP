@@ -1,65 +1,89 @@
 from __future__ import annotations
 
-import json
+from dataclasses import dataclass
+from typing import Protocol
 
 from playwright.async_api import Page
 
-from vacp_mcp_server.surfaces.base import ActionCall, ActionResult, Surface
+"""
+Bridge client (project concepts).
+
+The VACP runtime is exposed by the web app as an in-page bridge at `window.__vacp`.
+The MCP server is only a transport/proxy: it forwards calls and returns results.
+
+This module is intentionally small:
+- no DOM scanning
+- no diagram rendering
+- no app-specific semantics
+"""
 
 
-class PlaywrightBridgeSurface(Surface):
+@dataclass(frozen=True)
+class ActionCall:
+    call_id: str
+    name: str
+    params: object | None = None
+
+
+@dataclass(frozen=True)
+class ActionResult:
+    call_id: str
+    ok: bool
+    result: object | None = None
+    error: dict[str, object] | None = None
+
+
+class VacpBridgeClient(Protocol):
+    async def get_capabilities(self) -> dict[str, object]: ...
+
+    async def get_state(self) -> dict[str, object]: ...
+
+    async def execute(self, call: ActionCall) -> ActionResult: ...
+
+
+class PlaywrightVacpBridgeClient(VacpBridgeClient):
     """
-    Surface backed by an in-page `window.__vacp` bridge.
-
-    This is the preferred path for Mosaic/vgplot integrations: it avoids DOM scans
-    and returns stable, canonical snapshots.
-
-    Conceptually:
-    - The app owns semantics and publishes a canonical contract (graph/actions/state).
-    - The MCP server is a thin transport/proxy for agents, not a re-implementation
-      of app logic.
+    Bridge client backed by a Playwright Page.
     """
 
     def __init__(self, page: Page, *, global_key: str = '__vacp'):
         self._page = page
         self._global_key = global_key
 
-    async def _has_bridge(self) -> bool:
-        return bool(
+    async def _require_bridge(self) -> None:
+        ok = bool(
             await self._page.evaluate(
                 """
                 (key) => {
                   const b = globalThis?.[key];
-                  const ok = b
+                  return !!(b
                     && typeof b === 'object'
                     && typeof b.getCapabilities === 'function'
-                    && typeof b.execute === 'function';
-                  return !!ok;
+                    && typeof b.getState === 'function'
+                    && typeof b.execute === 'function');
                 }
                 """,
                 self._global_key,
             )
         )
+        if not ok:
+            raise RuntimeError('VACP window bridge not available (expected window.__vacp)')
 
     async def get_capabilities(self) -> dict[str, object]:
-        if not await self._has_bridge():
-            raise RuntimeError('VACP window bridge not available')
+        await self._require_bridge()
         return await self._page.evaluate("""(key) => globalThis[key].getCapabilities()""", self._global_key)
 
     async def get_state(self) -> dict[str, object]:
-        if not await self._has_bridge():
-            raise RuntimeError('VACP window bridge not available')
+        await self._require_bridge()
         return await self._page.evaluate("""(key) => globalThis[key].getState()""", self._global_key)
 
     async def execute(self, call: ActionCall) -> ActionResult:
-        if not await self._has_bridge():
-            raise RuntimeError('VACP window bridge not available')
+        await self._require_bridge()
         payload = {'callId': call.call_id, 'name': call.name, 'params': call.params}
         raw = await self._page.evaluate(
             """({ key, payload }) => globalThis[key].execute(payload)""",
             {'key': self._global_key, 'payload': payload},
         )
-        # Ensure the shape matches ActionResult (best-effort).
         if isinstance(raw, dict) and 'callId' in raw and 'ok' in raw:
             return ActionResult(
                 call_id=str(raw.get('callId')),
@@ -69,9 +93,3 @@ class PlaywrightBridgeSurface(Surface):
             )
         return ActionResult(call_id=call.call_id, ok=False, error={'message': 'Invalid execute() response', 'raw': raw})
 
-
-def safe_json_dumps(value: object) -> str:
-    try:
-        return json.dumps(value)
-    except Exception:
-        return '"<unserializable>"'

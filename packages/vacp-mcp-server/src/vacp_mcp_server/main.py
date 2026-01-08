@@ -8,19 +8,14 @@ import uvicorn
 from fastapi import FastAPI
 
 from vacp_mcp_server.browser import BrowserConfig, BrowserManager
+from vacp_mcp_server.bridge import PlaywrightVacpBridgeClient
 from vacp_mcp_server.server import create_mcp
-from vacp_mcp_server.surfaces.playwright_bridge import PlaywrightBridgeSurface
-from vacp_mcp_server.surfaces.playwright_dom import DomScanOptions, PlaywrightDomSurface
 
 """
 VACP MCP server entrypoint (project concepts).
 
 This process runs a browser (either launched by Playwright or an external
 browser attached via CDP), then exposes VACP through MCP.
-
-Two observation/control strategies:
-- preferred: `window.__vacp` bridge (stable, semantic, fast)
-- fallback: DOM/SVG scan for `data-vacp-*` and embedded SVG metadata
 
 The CLI exists to support both local dev workflows:
 - embedded browser: quick start, hermetic
@@ -33,7 +28,7 @@ def log(msg: str) -> None:
 
 
 def parse_args() -> argparse.Namespace:
-    p = argparse.ArgumentParser(description='VACP MCP Server (bridge-first, DOM fallback)')
+    p = argparse.ArgumentParser(description='VACP MCP Server (bridge-only)')
     p.add_argument('--url', type=str, default='http://localhost:5173/', help='URL to open')
     p.add_argument('--host', type=str, default='0.0.0.0')
     p.add_argument('--port', type=int, default=8000)
@@ -59,7 +54,6 @@ def parse_args() -> argparse.Namespace:
         help='If using --cdp-url, attempt to close the remote browser on exit (usually disconnects only).',
     )
     p.add_argument('--global-key', type=str, default='__vacp', help='Global key for window bridge (default: __vacp)')
-    p.add_argument('--no-dom-fallback', action='store_true', default=False, help='Disable DOM scan fallback')
     return p.parse_args()
 
 
@@ -86,16 +80,8 @@ def main() -> None:
         info = await browser.get_page_info()
         log(f'Browser ready: {info}')
 
-        bridge_surface = PlaywrightBridgeSurface(browser.page, global_key=args.global_key)
-        if not args.no_dom_fallback:
-            surface = CompositeSurface(
-                primary=bridge_surface,
-                fallback=PlaywrightDomSurface(browser.page, options=DomScanOptions()),
-            )
-        else:
-            surface = bridge_surface
-
-        mcp = create_mcp(surface)
+        client = PlaywrightVacpBridgeClient(browser.page, global_key=args.global_key)
+        mcp = create_mcp(client)
         # We mount the resulting ASGI app under /mcp; therefore its internal path is /.
         mcp_app = mcp.http_app(path='/')
 
@@ -116,27 +102,6 @@ def main() -> None:
     app.mount('/mcp', LazyMount(lambda: mcp_app))
 
     uvicorn.run(app, host=args.host, port=args.port, timeout_keep_alive=2, timeout_graceful_shutdown=10)
-
-
-class CompositeSurface:
-    def __init__(self, *, primary, fallback):
-        self._primary = primary
-        self._fallback = fallback
-
-    async def get_capabilities(self) -> dict[str, object]:
-        try:
-            return await self._primary.get_capabilities()
-        except Exception:
-            return await self._fallback.get_capabilities()
-
-    async def get_state(self) -> dict[str, object]:
-        try:
-            return await self._primary.get_state()
-        except Exception:
-            return await self._fallback.get_state()
-
-    async def execute(self, call):
-        return await self._primary.execute(call)
 
 
 class LazyMount:

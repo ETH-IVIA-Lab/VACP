@@ -32,7 +32,6 @@ flowchart LR
   end
 
   MCP -->|evaluate| Bridge
-  MCP -->|fallback scan| DOM
 ```
 
 Key idea: **the protocol lives inside the app**. MCP is only one transport.
@@ -158,16 +157,16 @@ The Python `vacp-mcp-server` maps the bridge to MCP tools:
 - `vacp_capabilities()` → `window.__vacp.getCapabilities()`
 - `vacp_state()` → `window.__vacp.getState()`
 - `vacp_execute(name, params?, call_id?)` → `window.__vacp.execute({callId, name, params})`
-- `vacp_diagram(...)` → renders the current graph to Mermaid (debugging)
 
 ### DOM/SVG adapter
 
-If a page cannot install a bridge, VACP can still be surfaced via:
+VACP is canonically a bridge + graph + state + actions. This repo also includes
+optional DOM/SVG annotations for debugging and inspection:
 
-- `data-vacp-*` and `data-interaction-vacp-*` attributes, and/or
+- `data-vacp-*` and `data-interaction-vacp-*` attributes
 - embedded SVG metadata: `<metadata type="application/vacp+json">…</metadata>`
 
-In this repo that is used as a **fallback surface** for `vacp-mcp-server`, and as a **debuggable artifact** for exported SVG.
+The MCP server is bridge-only; diagrams and inspection live in the in-browser debug UI.
 
 ---
 
@@ -220,7 +219,7 @@ TypeScript (pnpm):
 
 Python (uv):
 
-- `vacp-mcp-server`: MCP transport that uses Playwright and a `Surface` abstraction (bridge-first, DOM fallback).
+- `vacp-mcp-server`: MCP transport that uses Playwright to call the in-page bridge (`window.__vacp`).
 
 ---
 

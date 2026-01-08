@@ -4,8 +4,7 @@ An MCP server that exposes a VACP-enabled web page to an agent via Playwright.
 
 This server is intentionally generic:
 
-- **Preferred path:** call the in-page `window.__vacp` bridge (fast, stable, no DOM scraping).
-- **Fallback path:** scan DOM/SVG annotations (`data-vacp-*`, `data-interaction-vacp-*`, SVG `<metadata type="application/vacp+json">`).
+- Call the in-page `window.__vacp` bridge (fast, stable, no DOM scraping).
 
 MCP is only a transport. The VACP protocol and runtime live inside the app.
 
@@ -24,9 +23,6 @@ MCP endpoint defaults to `http://localhost:8000/mcp`.
 - `vacp_capabilities()` → VACP capabilities snapshot (graph + actions)
 - `vacp_state()` → VACP state snapshot (current selections/params)
 - `vacp_execute(name, params?, call_id?)` → run a semantic action via the bridge
-- `vacp_diagram(include_actions?, include_state_preview?, direction?)` → Mermaid text diagram (debugging)
-
-The server tries the bridge first. If the bridge is missing or errors, it falls back to DOM/SVG scanning (unless disabled).
 
 ## External browser via CDP
 
@@ -56,4 +52,3 @@ If no existing tab matches, the server will open a new page and navigate to `--u
 ## Useful flags
 
 - `--global-key __vacp`: choose the bridge global name (must match the app)
-- `--no-dom-fallback`: disable DOM/SVG scanning (bridge-only)
