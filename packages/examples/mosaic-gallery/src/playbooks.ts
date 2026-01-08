@@ -29,27 +29,38 @@ function roundNum(value: number): number {
   return Number(value.toFixed(6));
 }
 
-function toDomainNumber(value: unknown): number | null {
+type DomainValue = number | Date;
+
+function asDomainValue(value: unknown): DomainValue | null {
   if (typeof value === 'number' && Number.isFinite(value)) return value;
-  if (value instanceof Date) return value.getTime();
+  if (value instanceof Date) return value;
   return null;
 }
 
-function normalizeDomain(a: unknown, b: unknown): [number, number] | null {
-  const x = toDomainNumber(a);
-  const y = toDomainNumber(b);
+function domainValueOf(value: DomainValue): number {
+  return value instanceof Date ? value.getTime() : value;
+}
+
+function normalizeDomain(a: unknown, b: unknown): [DomainValue, DomainValue] | null {
+  const x = asDomainValue(a);
+  const y = asDomainValue(b);
   if (x === null || y === null) return null;
-  return x <= y ? [x, y] : [y, x];
+  return domainValueOf(x) <= domainValueOf(y) ? [x, y] : [y, x];
 }
 
-function domainToInterval(domain: [number, number], range: [number, number]): [number, number] {
+function domainToInterval(domain: [DomainValue, DomainValue], range: [number, number]): [DomainValue, DomainValue] {
   const [d0, d1] = domain;
-  const span = d1 - d0;
   const [r0, r1] = range;
-  return [roundNum(d0 + span * r0), roundNum(d0 + span * r1)];
+  const t0 = domainValueOf(d0);
+  const t1 = domainValueOf(d1);
+  const span = t1 - t0;
+  const v0 = t0 + span * r0;
+  const v1 = t0 + span * r1;
+  if (d0 instanceof Date && d1 instanceof Date) return [new Date(v0), new Date(v1)];
+  return [roundNum(v0), roundNum(v1)];
 }
 
-function getInterval1dDomain(plot: VgplotPlotLike, interactorId: number): [number, number] | null {
+function getInterval1dDomain(plot: VgplotPlotLike, interactorId: number): [DomainValue, DomainValue] | null {
   const i = plot.interactors[interactorId] as any;
   const scale = i?.scale;
   if (!scale) return null;
@@ -61,7 +72,7 @@ function getInterval1dDomain(plot: VgplotPlotLike, interactorId: number): [numbe
 function getInterval2dDomains(
   plot: VgplotPlotLike,
   interactorId: number,
-): { x: [number, number]; y: [number, number] } | null {
+): { x: [DomainValue, DomainValue]; y: [DomainValue, DomainValue] } | null {
   const i = plot.interactors[interactorId] as any;
   const xscale = i?.xscale;
   const yscale = i?.yscale;
@@ -195,23 +206,33 @@ const perSpec: Record<string, PlaybookBuilder> = {
       ? intervalPlot.plot.interactors.findIndex((i) => i.constructor?.name === 'Interval1D')
       : -1;
 
-    const domain = intervalPlot && intervalId >= 0 ? getInterval1dDomain(intervalPlot.plot, intervalId) : null;
-    const [d0, d1] = domain ?? [0, 365];
-
     const marchToMay = (() => {
-      // Many `dateMonthDay` scales expose "day-of-year like" units (0..365).
-      if (d0 >= 0 && d1 <= 400) return { min: Math.max(d0, 60), max: Math.min(d1, 151) };
-      // If this looks like a timestamp, select March→May in the same year as the domain.
-      if (d1 > 10_000_000_000) {
-        const year = new Date(d0).getFullYear();
-        return { min: new Date(year, 2, 1).getTime(), max: new Date(year, 4, 31, 23, 59, 59, 999).getTime() };
+      const domain = intervalPlot && intervalId >= 0 ? getInterval1dDomain(intervalPlot.plot, intervalId) : null;
+      if (domain && domain[0] instanceof Date && domain[1] instanceof Date) {
+        const year = domain[0].getFullYear();
+        const start = new Date(year, 2, 1);
+        const end = new Date(year, 4, 31, 23, 59, 59, 999);
+        const lo = Math.max(domain[0].getTime(), start.getTime());
+        const hi = Math.min(domain[1].getTime(), end.getTime());
+        return { min: new Date(lo), max: new Date(hi) };
       }
+
+      const [d0, d1] = domain ?? ([0, 365] as const);
+      const n0 = domainValueOf(d0 as DomainValue);
+      const n1 = domainValueOf(d1 as DomainValue);
+
+      // Many `dateMonthDay` scales expose "day-of-year like" units (0..365).
+      if (n0 >= 0 && n1 <= 400) return { min: Math.max(n0, 60), max: Math.min(n1, 151) };
       // Fallback: select roughly "spring" (Mar→May ≈ 2/12→5/12).
-      return { min: roundNum(d0 + (d1 - d0) * (2 / 12)), max: roundNum(d0 + (d1 - d0) * (5 / 12)) };
+      return { min: roundNum(n0 + (n1 - n0) * (2 / 12)), max: roundNum(n0 + (n1 - n0) * (5 / 12)) };
     })();
 
-    const togglePlot = plots.find((p) => p.plot.interactors.some((i) => i.constructor?.name === 'Toggle'));
-    const toggleId = togglePlot ? togglePlot.plot.interactors.findIndex((i) => i.constructor?.name === 'Toggle') : 0;
+    const legendPlot = plots.find((p) =>
+      ((p.plot as any).legends ?? []).some((raw: any) => {
+        const legend = raw && typeof raw === 'object' && 'legend' in raw ? raw.legend : raw;
+        return !!legend?.selection;
+      }),
+    );
 
     return [
       playbook({
@@ -225,8 +246,8 @@ const perSpec: Record<string, PlaybookBuilder> = {
           params: { plotId: intervalPlot?.plotId ?? 'plot-0', interactorId: String(Math.max(0, intervalId)) },
         })
         .action('Clear legend selection', {
-          name: 'mosaic.clear_toggle',
-          params: { plotId: togglePlot?.plotId ?? 'plot-1', interactorId: String(Math.max(0, toggleId)) },
+          name: 'mosaic.clear_legend_toggle',
+          params: { plotId: legendPlot?.plotId ?? 'plot-0', channel: 'color' },
         })
         .action('Brush March→May', {
           name: 'mosaic.set_interval_1d',
@@ -238,8 +259,8 @@ const perSpec: Record<string, PlaybookBuilder> = {
           },
         })
         .action('Click “fog” on legend', {
-          name: 'mosaic.set_toggle',
-          params: { plotId: togglePlot?.plotId ?? 'plot-1', interactorId: String(Math.max(0, toggleId)), value: 'fog' },
+          name: 'mosaic.set_legend_toggle',
+          params: { plotId: legendPlot?.plotId ?? 'plot-0', channel: 'color', value: 'fog' },
         })
         .build(),
     ];

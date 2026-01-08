@@ -2,6 +2,23 @@ import type { VacpActionCall } from '@vacp/core';
 
 import type { VgplotPlotLike } from '../types';
 
+type DomainValue = number | Date;
+
+function parseDomainValue(value: unknown): DomainValue {
+  if (value instanceof Date) return value;
+  if (typeof value === 'number' && Number.isFinite(value)) return value;
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    if (/^-?\d+(\.\d+)?$/.test(trimmed)) {
+      const n = Number(trimmed);
+      if (Number.isFinite(n)) return n;
+    }
+    const t = Date.parse(trimmed);
+    if (Number.isFinite(t)) return new Date(t);
+  }
+  throw new Error('Expected a number or a date-like string');
+}
+
 /**
  * Interval interactors are the primary vgplot selection primitives.
  *
@@ -31,12 +48,11 @@ export async function executeIntervalAction(plot: VgplotPlotLike, call: VacpActi
   }
 
   if (call.name === 'mosaic.set_interval_1d' && ctorName === 'Interval1D') {
-    const min = Number(params.min);
-    const max = Number(params.max);
-    if (!Number.isFinite(min) || !Number.isFinite(max)) throw new Error('min/max must be numbers');
+    const min = parseDomainValue(params.min);
+    const max = parseDomainValue(params.max);
     anyI.value = [min, max];
     if (anyI.g && anyI.brush && anyI.scale) {
-      const px = [min, max].map((v: number) => anyI.scale.apply(v));
+      const px = [min, max].map((v: DomainValue) => anyI.scale.apply(v));
       anyI.g.call(anyI.brush.moveSilent, px);
     }
     if (typeof anyI.selection?.update === 'function' && typeof anyI.clause === 'function') {
@@ -46,18 +62,17 @@ export async function executeIntervalAction(plot: VgplotPlotLike, call: VacpActi
   }
 
   if (call.name === 'mosaic.set_interval_2d' && ctorName === 'Interval2D') {
-    const x0 = Number(params.x0);
-    const x1 = Number(params.x1);
-    const y0 = Number(params.y0);
-    const y1 = Number(params.y1);
-    if (![x0, x1, y0, y1].every(Number.isFinite)) throw new Error('x0/x1/y0/y1 must be numbers');
+    const x0 = parseDomainValue(params.x0);
+    const x1 = parseDomainValue(params.x1);
+    const y0 = parseDomainValue(params.y0);
+    const y1 = parseDomainValue(params.y1);
     anyI.value = [
       [x0, x1],
       [y0, y1],
     ];
     if (anyI.g && anyI.brush && anyI.xscale && anyI.yscale) {
-      const px = [x0, x1].map((v: number) => anyI.xscale.apply(v));
-      const py = [y0, y1].map((v: number) => anyI.yscale.apply(v));
+      const px = [x0, x1].map((v: DomainValue) => anyI.xscale.apply(v));
+      const py = [y0, y1].map((v: DomainValue) => anyI.yscale.apply(v));
       anyI.g.call(anyI.brush.moveSilent, [
         [Math.min(...px), Math.min(...py)],
         [Math.max(...px), Math.max(...py)],
