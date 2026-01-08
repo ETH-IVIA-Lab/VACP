@@ -7,6 +7,7 @@ import type {
 } from '@vacp/core';
 import { nowIso, VACP_SCHEMA_VERSION } from '@vacp/core';
 import { applyVacpAttributes, applyVacpInteractionAttributes, embedVacpGraphInSvg } from '@vacp/dom';
+import { formatDuckDbTableMetadataSummary } from '@vacp/duckdb';
 import { installVacpRuntimeBridge, registerVacpApplyStateAction, VacpActionRegistry } from '@vacp/gateway';
 
 import { actionsForSpec } from './actions';
@@ -138,7 +139,10 @@ export function installVacpOnVegaLiteView(args: {
       graph: await (async () => {
         if (dataHandle && dataHandleNode && !handleMeta) {
           handleMeta = await dataHandle.ensureMetadata();
-          if (handleMeta) (dataHandleNode as any).data = { ...(dataHandleNode as any).data, duckdb: handleMeta };
+          if (handleMeta) {
+            (dataHandleNode as any).data = { ...(dataHandleNode as any).data, duckdb: handleMeta };
+            (dataHandleNode as any).description = `DuckDB handle for "${tableName}".\n${formatDuckDbTableMetadataSummary(handleMeta)}`;
+          }
         }
         return graph;
       })(),

@@ -2,10 +2,11 @@ import type { VacpActionDescriptor } from '@vacp/core';
 
 import type { CollectedInput } from './inputs';
 import { makeViewRef } from './refs';
-import type { InstallVacpOnVgplotDashboardOptions, VgplotPlotLike } from './types';
+import type { InstallVacpOnVgplotDashboardOptions, VgplotPlotLike, VgplotTableLike } from './types';
 
 export function actionDescriptorsForDashboard(args: {
   plots: Array<{ plotId: string; plot: VgplotPlotLike }>;
+  tables?: Array<{ tableId: string; table: VgplotTableLike }>;
   inputs: CollectedInput[];
   options: InstallVacpOnVgplotDashboardOptions;
 }): VacpActionDescriptor[] {
@@ -21,6 +22,7 @@ export function actionDescriptorsForDashboard(args: {
       return !!legend?.selection;
     }),
   );
+  const hasTables = (args.tables ?? []).length > 0;
   const hasInputs = args.inputs.length > 0;
 
   const viewRef = makeViewRef({ appId: args.options.appId, viewId: args.options.viewId, suffix: '' });
@@ -227,6 +229,34 @@ export function actionDescriptorsForDashboard(args: {
       description: 'Clear/reset a Mosaic input widget (best-effort).',
       targetRef: viewRef,
       parameters: { type: 'object', properties: { ref: { type: 'string' } }, required: ['ref'] },
+    });
+  }
+
+  if (hasTables) {
+    actions.push({
+      name: 'mosaic.table_set_sort',
+      description: 'Sort a Mosaic table by a column (best-effort).',
+      targetRef: viewRef,
+      parameters: {
+        type: 'object',
+        properties: { tableId: { type: 'string' }, column: { type: 'string' }, desc: { type: 'boolean' } },
+        required: ['column'],
+      },
+    });
+    actions.push({
+      name: 'mosaic.table_clear_sort',
+      description: 'Clear the sort order for a Mosaic table.',
+      targetRef: viewRef,
+      parameters: { type: 'object', properties: { tableId: { type: 'string' } } },
+    });
+    actions.push({
+      name: 'mosaic.table_set_page',
+      description: 'Set Mosaic table pagination (offset/limit).',
+      targetRef: viewRef,
+      parameters: {
+        type: 'object',
+        properties: { tableId: { type: 'string' }, offset: { type: 'number' }, limit: { type: 'number' } },
+      },
     });
   }
 

@@ -7,13 +7,15 @@ import { executeNearestAction } from './interactors/nearest';
 import { executePanZoomAction } from './interactors/pan-zoom';
 import { executeRegionAction } from './interactors/region';
 import { executeToggleAction } from './interactors/toggle';
-import type { VgplotPlotLike } from './types';
+import { executeTableAction } from './table-actions';
+import type { VgplotPlotLike, VgplotTableLike } from './types';
 
 export function makeApplyStateHandler(args: {
   inputByRef: Map<VacpRef, CollectedInput>;
   plotsById: Map<string, VgplotPlotLike>;
+  tablesById?: Map<string, VgplotTableLike>;
 }) {
-  const { inputByRef, plotsById } = args;
+  const { inputByRef, plotsById, tablesById } = args;
 
   return async (state: Record<string, unknown>) => {
     const errors: Array<{ ref: string; message: string }> = [];
@@ -35,6 +37,28 @@ export function makeApplyStateHandler(args: {
             });
           } else {
             await executeInputAction(input, { name: 'mosaic.set_input_value', params: { ref, value: desired } });
+          }
+          applied += 1;
+        } catch (err) {
+          errors.push({ ref, message: err instanceof Error ? err.message : String(err) });
+        }
+        continue;
+      }
+
+      const tail = ref.split('/').pop() ?? '';
+      const table = tablesById?.get(tail);
+      if (table) {
+        const rec = raw && typeof raw === 'object' ? (raw as Record<string, unknown>) : {};
+        try {
+          const sortColumn = rec.sortColumn ?? null;
+          const sortDesc = Boolean(rec.sortDesc);
+          if (typeof sortColumn === 'string' && sortColumn) {
+            await executeTableAction(table, { name: 'mosaic.table_set_sort', params: { column: sortColumn, desc: sortDesc } });
+          } else if (sortColumn === null || sortColumn === undefined) {
+            await executeTableAction(table, { name: 'mosaic.table_clear_sort' });
+          }
+          if (typeof rec.offset === 'number' || typeof rec.limit === 'number') {
+            await executeTableAction(table, { name: 'mosaic.table_set_page', params: { offset: rec.offset, limit: rec.limit } });
           }
           applied += 1;
         } catch (err) {

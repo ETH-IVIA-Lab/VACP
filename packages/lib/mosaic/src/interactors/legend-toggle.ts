@@ -47,6 +47,7 @@ export async function executeLegendToggleAction(plot: VgplotPlotLike, call: Vacp
   if (call.name === 'mosaic.clear_legend_toggle') {
     handler.value = null;
     handler.selection.update(handler.clause(null));
+    await Promise.resolve((plot as any).update?.());
     return { cleared: true, channel: (match as any).channel ?? null };
   }
 
@@ -54,6 +55,7 @@ export async function executeLegendToggleAction(plot: VgplotPlotLike, call: Vacp
     const value = normalizeToggleValue(params.value);
     handler.value = value;
     handler.selection.update(handler.clause(value));
+    await Promise.resolve((plot as any).update?.());
     return { set: true, channel: (match as any).channel ?? null };
   }
 

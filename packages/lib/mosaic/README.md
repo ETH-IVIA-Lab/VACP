@@ -39,6 +39,10 @@ installVacpOnVgplotDashboard({
     { plotId: 'plot-0', plot, element: plotHostEl, svg: plotSvgEl },
     { plotId: 'plot-1', plot, element: plotHostEl, svg: plotSvgEl },
   ],
+  tables: [
+    // Mosaic `input: table` surfaces (sortable / infinite scroll) are modeled as first-class VACP surfaces too.
+    { tableId: 'table-0', table, element: tableHostEl },
+  ],
   options: { appId: 'vacp-examples', viewId: 'mosaic/crossfilter', title: 'Crossfilter (Flights)' },
 });
 ```

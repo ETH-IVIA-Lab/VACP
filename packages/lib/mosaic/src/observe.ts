@@ -2,7 +2,7 @@ import type { VacpGraph } from '@vacp/core';
 
 import { annotateInput, annotatePlotSurface, annotatePlotSvg } from './annotations';
 import type { CollectedInput } from './inputs';
-import type { VgplotPlotLike } from './types';
+import type { VgplotPlotLike, VgplotTableLike } from './types';
 import { wrapUpdate } from './runtime';
 
 /**
@@ -91,5 +91,21 @@ export function installMosaicPlotObservers(args: {
     });
     obs.observe(host, { childList: true, subtree: true });
     anyPlot.__vacpObserver = obs;
+  }
+}
+
+export function installMosaicTableObservers(args: {
+  tables: Array<{ tableId: string; table: VgplotTableLike; element: Element }>;
+  graph: VacpGraph;
+  appId: string;
+  viewId: string;
+  notifyRuntime: (message: string, opts?: { immediate?: boolean }) => void;
+}) {
+  const { tables, graph, appId, viewId, notifyRuntime } = args;
+
+  for (const { tableId, table, element } of tables) {
+    annotatePlotSurface({ element, plotId: tableId, appId, viewId, graph });
+    wrapUpdate(table, 'table.update', (m) => notifyRuntime(m));
+    if (table.selection) wrapUpdate(table.selection, 'table.selection.update', (m) => notifyRuntime(m));
   }
 }

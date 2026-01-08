@@ -38,6 +38,26 @@ export interface VgplotPlotLike {
   getAttribute?: (name: string) => unknown;
 }
 
+/**
+ * Structural type for Mosaic/vgplot `table` surfaces.
+ *
+ * These views are not SVG plots, but they still represent a first-class,
+ * interactive surface over a backing DuckDB table (sort + scroll/pagination).
+ */
+export interface VgplotTableLike {
+  constructor?: { name?: string };
+  element?: HTMLElement;
+  from?: string;
+  columns?: unknown;
+  offset?: number;
+  limit?: number;
+  sortColumn?: string | null;
+  sortDesc?: boolean;
+  selection?: { value?: unknown; update?: (...args: unknown[]) => unknown; predicate?: (...args: unknown[]) => unknown };
+  update?: (...args: unknown[]) => unknown;
+  requestData?: (...args: unknown[]) => unknown | Promise<unknown>;
+}
+
 export interface InstallVacpOnVgplotOptions {
   appId: string;
   viewId: string;

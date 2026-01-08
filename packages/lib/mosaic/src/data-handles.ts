@@ -1,9 +1,14 @@
 import type { VacpRef } from '@vacp/core';
 
 import { makePlotRef } from './refs';
-import type { InstallVacpOnVgplotDashboardOptions, VgplotPlotLike } from './types';
+import type { InstallVacpOnVgplotDashboardOptions, VgplotPlotLike, VgplotTableLike } from './types';
 
-export type MosaicDataHandle = { ref: VacpRef; plotId: string; table?: string };
+export type MosaicDataHandle = {
+  ref: VacpRef;
+  surfaceKind: 'plot' | 'table';
+  surfaceId: string;
+  table?: string;
+};
 
 export function discoverPlotTables(plot: VgplotPlotLike): string[] {
   const tables: string[] = [];
@@ -36,6 +41,7 @@ function slugify(text: string): string {
 
 export function collectMosaicDataHandles(args: {
   plots: Array<{ plotId: string; plot: VgplotPlotLike }>;
+  tables?: Array<{ tableId: string; table: VgplotTableLike }>;
   options: InstallVacpOnVgplotDashboardOptions;
   preferredTables?: string[];
 }): MosaicDataHandle[] {
@@ -50,7 +56,7 @@ export function collectMosaicDataHandles(args: {
       plotId,
       suffix: '/data/main',
     });
-    out.push({ ref: mainRef, plotId, table: mainTable });
+    out.push({ ref: mainRef, surfaceKind: 'plot', surfaceId: plotId, table: mainTable });
 
     unique.slice(1).forEach((table) => {
       const slug = `${slugify(table)}-${djb2Hash(table).slice(0, 8)}`;
@@ -60,8 +66,20 @@ export function collectMosaicDataHandles(args: {
         plotId,
         suffix: `/data/${slug}`,
       });
-      out.push({ ref, plotId, table });
+      out.push({ ref, surfaceKind: 'plot', surfaceId: plotId, table });
     });
   }
+
+  for (const { tableId, table } of args.tables ?? []) {
+    const tableName = typeof table.from === 'string' && table.from ? table.from : undefined;
+    const ref = makePlotRef({
+      appId: args.options.appId,
+      viewId: args.options.viewId,
+      plotId: tableId,
+      suffix: '/data/main',
+    });
+    out.push({ ref, surfaceKind: 'table', surfaceId: tableId, table: tableName });
+  }
+
   return out;
 }

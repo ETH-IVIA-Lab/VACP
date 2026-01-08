@@ -3,14 +3,15 @@ import { VACP_SCHEMA_VERSION } from '@vacp/core';
 
 import type { CollectedInput } from './inputs';
 import { makePlotRef, makeViewRef } from './refs';
-import type { InstallVacpOnVgplotDashboardOptions, VgplotPlotLike } from './types';
+import type { InstallVacpOnVgplotDashboardOptions, VgplotPlotLike, VgplotTableLike } from './types';
 
 export function buildDashboardGraph(args: {
   plots: Array<{ plotId: string; plot: VgplotPlotLike }>;
+  tables?: Array<{ tableId: string; table: VgplotTableLike }>;
   inputs: CollectedInput[];
   options: InstallVacpOnVgplotDashboardOptions;
   actions: VacpActionDescriptor[];
-  dataHandles?: Array<{ ref: VacpRef; plotId: string; table?: string }>;
+  dataHandles?: Array<{ ref: VacpRef; surfaceKind: 'plot' | 'table'; surfaceId: string; table?: string }>;
 }): VacpGraph {
   const viewRef = makeViewRef({ appId: args.options.appId, viewId: args.options.viewId, suffix: '' });
   const nodes: VacpNode[] = [
@@ -113,18 +114,53 @@ export function buildDashboardGraph(args: {
       edges.push({ from: plotRef, to: interactorRef, kind: 'contains' });
     });
 
-    const handles = (args.dataHandles ?? []).filter((h) => h.plotId === plotId);
+    const handles = (args.dataHandles ?? []).filter((h) => h.surfaceKind === 'plot' && h.surfaceId === plotId);
     handles.forEach((h) => {
+      const tableLabel = typeof h.table === 'string' && h.table ? h.table : 'data';
       nodes.push({
         ref: h.ref,
         kind: 'DataHandle',
         layer: 'DataLayer',
-        title: 'data (DuckDB handle)',
+        title: `DuckDB: ${tableLabel} (${plotId})`,
         description:
           'DuckDB-backed handle for the data table behind this plot. `vacp_handle` is the selected subset (or all rows if empty).',
         data: { table: h.table, plotId },
       });
       edges.push({ from: plotRef, to: h.ref, kind: 'contains' });
+    });
+  }
+
+  for (const { tableId, table } of args.tables ?? []) {
+    const tableRef = makePlotRef({ appId: args.options.appId, viewId: args.options.viewId, plotId: tableId, suffix: '' });
+    nodes.push({
+      ref: tableRef,
+      kind: 'Visualization',
+      layer: 'VisualizationLayer',
+      title: tableId,
+      description: 'vgplot table (scroll/sort surface)',
+      data: {
+        tableId,
+        from: typeof table.from === 'string' ? table.from : undefined,
+        columns: Array.isArray(table.columns) ? table.columns : undefined,
+        limit: typeof table.limit === 'number' ? table.limit : undefined,
+      },
+    });
+    edges.push({ from: viewRef, to: tableRef, kind: 'contains' });
+
+    const handles = (args.dataHandles ?? []).filter((h) => h.surfaceKind === 'table' && h.surfaceId === tableId);
+    handles.forEach((h) => {
+      const tableLabel =
+        (typeof h.table === 'string' && h.table) || (typeof table.from === 'string' && table.from) || 'data';
+      nodes.push({
+        ref: h.ref,
+        kind: 'DataHandle',
+        layer: 'DataLayer',
+        title: `DuckDB: ${tableLabel} (${tableId})`,
+        description:
+          'DuckDB-backed handle for the data table behind this view. `vacp_handle` reflects the current view state (filters/sort/pagination).',
+        data: { table: h.table, tableId },
+      });
+      edges.push({ from: tableRef, to: h.ref, kind: 'contains' });
     });
   }
 
