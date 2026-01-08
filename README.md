@@ -38,10 +38,10 @@ From `vacp/`:
 
 Run an example app:
 
-- `pnpm -C packages/examples/mosaic-gallery dev`
-- `pnpm -C packages/examples/vega-lite-gallery dev`
-- `pnpm -C packages/examples/d3-scatter-lasso dev`
-- `pnpm -C packages/examples/vanilla-minimal dev`
+- `pnpm dev:mosaic`
+- `pnpm dev:vega-lite`
+- `pnpm dev:d3-lasso`
+- `pnpm dev:vanilla`
 
 Enable the in-page overlay:
 

@@ -28,4 +28,9 @@ All examples include the optional `@vacp/debug-ui` overlay:
 From `vacp/`:
 
 - Install: `pnpm install`
-- Run: `pnpm -C packages/examples/<example> dev`
+- Run (shortcut):
+  - `pnpm dev:mosaic`
+  - `pnpm dev:vega-lite`
+  - `pnpm dev:d3-lasso`
+  - `pnpm dev:vanilla`
+- Run (direct): `pnpm -C packages/examples/<example> dev` (see folder names above)
