@@ -71,7 +71,16 @@ function escapeMermaidLabel(s: string): string {
   const BR = '__VACP_BR__';
   const B0 = '__VACP_B0__';
   const B1 = '__VACP_B1__';
-  const withPlaceholders = s.replaceAll('<br/>', BR).replaceAll('<b>', B0).replaceAll('</b>', B1);
+  const CODE0 = '__VACP_CODE0__';
+  const CODE1 = '__VACP_CODE1__';
+  const NBSP = '__VACP_NBSP__';
+  const withPlaceholders = s
+    .replaceAll('<br/>', BR)
+    .replaceAll('<b>', B0)
+    .replaceAll('</b>', B1)
+    .replaceAll('<code>', CODE0)
+    .replaceAll('</code>', CODE1)
+    .replaceAll('&nbsp;', NBSP);
 
   const escapedHtml = withPlaceholders
     .replaceAll('&', '&amp;')
@@ -85,6 +94,9 @@ function escapeMermaidLabel(s: string): string {
     .replaceAll(BR, '<br/>')
     .replaceAll(B0, '<b>')
     .replaceAll(B1, '</b>')
+    .replaceAll(CODE0, '<code>')
+    .replaceAll(CODE1, '</code>')
+    .replaceAll(NBSP, '&nbsp;')
     .replaceAll('\\', '\\\\')
     .replaceAll('"', '\\"');
 }
@@ -98,12 +110,21 @@ function escapeMermaidEdgeLabel(s: string): string {
 function toStatePreview(value: unknown, maxLen: number): string | null {
   if (value === undefined) return null;
   try {
-    // Mermaid labels don't reliably support escaped quotes inside quoted label
-    // strings. Keep previews readable but strictly quote-free.
-    const s = JSON.stringify(value).replaceAll('"', "'");
-    return clampLabel(s.replaceAll('\n', ' '), maxLen);
+    const json = JSON.stringify(value, null, 2);
+    const lines = json.split('\n');
+    const maxLines = 6;
+    const shown = lines.slice(0, maxLines);
+    const prettyLines = shown.map((line) => {
+      const clamped = clampLabel(line, maxLen);
+      const m = clamped.match(/^( +)(.*)$/);
+      if (!m) return clamped;
+      return `${'&nbsp;'.repeat(m[1].length)}${m[2]}`;
+    });
+    const body = prettyLines.join('<br/>') + (lines.length > maxLines ? '<br/>…' : '');
+    return `<code>${body}</code>`;
   } catch {
-    return clampLabel(String(value).replaceAll('"', "'").replaceAll('\n', ' '), maxLen);
+    const s = clampLabel(String(value), maxLen);
+    return `<code>${s.replaceAll('\n', '<br/>')}</code>`;
   }
 }
 
@@ -159,7 +180,7 @@ export function renderVacpGraphMermaid(input: VacpDiagramRenderInput, options?: 
       includeStatePreview && input.state
         ? toStatePreview((input.state.state as Record<string, unknown>)[n.ref], maxLabelLength)
         : null;
-    const label = statePreview ? `${base}<br/>🧾 state=${statePreview}` : base;
+    const label = statePreview ? `${base}<br/>🧾 <b>state</b><br/>${statePreview}` : base;
     lines.push(`${id}["${escapeMermaidLabel(label)}"]`);
   });
 
