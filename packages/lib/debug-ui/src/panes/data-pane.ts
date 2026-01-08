@@ -4,7 +4,6 @@ import type { VacpWindowBridge } from '../types';
 import { runDataSql, safeJson } from './data-helpers';
 import { buildSelectionPreview, copyToClipboard } from './data-pane-utils';
 import { createResultSection } from './data-pane-result';
-import { createSqlEditor } from './sql-editor';
 
 export type DataUiState = {
   selectedHandleRef?: string;
@@ -97,15 +96,14 @@ export async function renderDataPane(args: {
   queryField.className = 'vacp-debug-ui-field';
   const queryLabel = document.createElement('label');
   queryLabel.textContent = 'SQL';
-  const editor = createSqlEditor({
-    value: state.queryText || 'SELECT COUNT(*)::INTEGER AS n_all FROM vacp_all',
-    focusId: 'data-sql',
-    title: 'DuckDB SQL. Use vacp_all and vacp_handle as input relations.',
-    onInput: (v) => {
-      state.queryText = v;
-    },
+  const textarea = document.createElement('textarea');
+  textarea.value = state.queryText || 'SELECT COUNT(*)::INTEGER AS n_all FROM vacp_all';
+  textarea.title = 'DuckDB SQL. Use vacp_all and vacp_handle as input relations.';
+  textarea.dataset.vacpFocus = 'data-sql';
+  textarea.addEventListener('input', () => {
+    state.queryText = textarea.value;
   });
-  queryField.append(queryLabel, editor.root);
+  queryField.append(queryLabel, textarea);
 
   const quickRow = document.createElement('div');
   quickRow.className = 'vacp-debug-ui-actions';
@@ -132,7 +130,7 @@ export async function renderDataPane(args: {
 
   [q1, q2, q3, q4, q5].forEach((b) =>
     b.addEventListener('click', () => {
-      editor.setValue(
+      textarea.value =
         b === q1
           ? 'SELECT COUNT(*)::INTEGER AS n FROM vacp_all'
           : b === q2
@@ -141,8 +139,9 @@ export async function renderDataPane(args: {
               ? 'SELECT * FROM vacp_handle LIMIT 20'
               : b === q4
                 ? 'DESCRIBE vacp_all'
-                : 'SELECT * FROM vacp_handle ORDER BY random() LIMIT 20',
-      );
+                : 'SELECT * FROM vacp_handle ORDER BY random() LIMIT 20';
+      state.queryText = textarea.value;
+      textarea.focus({ preventScroll: true });
     }),
   );
   quickRow.append(q1, q2, q3, q4, q5);
@@ -204,15 +203,15 @@ export async function renderDataPane(args: {
   const keepSqlFocus = (el: HTMLElement) => {
     el.addEventListener('pointerdown', (e) => e.preventDefault());
     el.addEventListener('mousedown', (e) => e.preventDefault());
-    el.addEventListener('click', () => editor.textarea.focus({ preventScroll: true }));
+    el.addEventListener('click', () => textarea.focus({ preventScroll: true }));
   };
   [refreshPreviewBtn, q1, q2, q3, q4, q5, runBtn, viewBtn, copyBtn].forEach(keepSqlFocus);
 
   runBtn.addEventListener('click', async () => {
     onChange({ lastErrorText: '' });
     try {
-      editor.textarea.focus({ preventScroll: true });
-      const sql = editor.getValue().trim();
+      textarea.focus({ preventScroll: true });
+      const sql = textarea.value.trim();
       if (!sql) return;
       const res = await runDataSql(bridge, { handleRef: selected, sql, maxRows });
       if (!res.ok) {
