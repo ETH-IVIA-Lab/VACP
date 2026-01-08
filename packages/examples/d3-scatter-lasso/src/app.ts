@@ -22,15 +22,31 @@ export function run(): void {
 
   const data = makePoints();
   let notify = (_source: 'human' | 'agent' | 'debug' | 'system', _message: string) => {};
+  let getSelectedCount = () => 0;
+  const syncSelectedLabel = () => {
+    selectedEl.textContent = String(getSelectedCount());
+  };
 
   const chart = createLassoScatterChart({
     root: plotRoot,
     data,
     onSelectionChanged: () => {
-      selectedEl.textContent = String(chart.getSelectedCount());
+      syncSelectedLabel();
       notify('human', 'lasso selection');
     },
   });
+
+  getSelectedCount = chart.getSelectedCount;
+
+  const setLassoPolygon = (poly: Parameters<typeof chart.setLassoPolygon>[0]) => {
+    chart.setLassoPolygon(poly);
+    syncSelectedLabel();
+  };
+
+  const clearSelection = () => {
+    chart.clearSelection();
+    syncSelectedLabel();
+  };
 
   const vacp = installVacpForD3ScatterLasso({
     root: plotRoot,
@@ -39,20 +55,19 @@ export function run(): void {
     title: 'D3 lasso scatter',
     data,
     getLassoPolygon: chart.getLassoPolygon,
-    setLassoPolygon: chart.setLassoPolygon,
+    setLassoPolygon,
     getSelectedIds: chart.getSelectedIds,
     getSelectedCount: chart.getSelectedCount,
-    clearSelection: chart.clearSelection,
+    clearSelection,
   });
   notify = vacp.refresh;
 
   clearBtn.addEventListener('click', () => {
-    chart.clearSelection();
-    selectedEl.textContent = '0';
+    clearSelection();
     notify('human', 'clear lasso');
   });
 
   chart.render();
-  selectedEl.textContent = '0';
+  syncSelectedLabel();
   notify('system', 'init');
 }
