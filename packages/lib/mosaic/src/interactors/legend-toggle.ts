@@ -10,7 +10,9 @@ function normalizeLegendEntries(plot: VgplotPlotLike): any[] {
 
 function normalizeToggleValue(raw: unknown): unknown[][] | null {
   if (raw === null || raw === undefined) return null;
+  if (Array.isArray(raw) && raw.length === 0) return null;
   if (Array.isArray(raw) && Array.isArray(raw[0])) return raw as unknown[][];
+  if (Array.isArray(raw)) return (raw as unknown[]).map((v) => [v]);
   return [[raw]];
 }
 
@@ -57,4 +59,3 @@ export async function executeLegendToggleAction(plot: VgplotPlotLike, call: Vacp
 
   throw new Error(`Unsupported legend toggle action: ${call.name}`);
 }
-

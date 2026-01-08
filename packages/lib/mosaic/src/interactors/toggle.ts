@@ -25,11 +25,15 @@ export async function executeToggleAction(plot: VgplotPlotLike, call: VacpAction
   if (call.name === 'mosaic.set_toggle') {
     const raw = params.value;
     const points =
-      Array.isArray(raw) && Array.isArray((raw as unknown[])[0])
-        ? (raw as unknown[][])
-        : raw === null || raw === undefined
+      raw === null || raw === undefined
+        ? null
+        : Array.isArray(raw) && raw.length === 0
           ? null
-          : [[raw]];
+          : Array.isArray(raw) && Array.isArray((raw as unknown[])[0])
+            ? (raw as unknown[][])
+            : Array.isArray(raw)
+              ? (raw as unknown[]).map((v) => [v])
+              : [[raw]];
     anyI.value = points;
     if (typeof anyI.selection?.update === 'function' && typeof anyI.clause === 'function') {
       anyI.selection.update(anyI.clause(points));

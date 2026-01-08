@@ -237,9 +237,9 @@ const perSpec: Record<string, PlaybookBuilder> = {
     return [
       playbook({
         id: `weather-linked`,
-        title: 'Brush (Mar→May) + legend click (fog)',
+        title: 'Brush (Mar→May) + legend click (fog + snow)',
         description:
-          'Clear selection, brush March→May on the top plot, then select “fog” (equivalent to clicking the legend).',
+          'Clear selection, brush March→May on the top plot, then select “fog” and add “snow” (equivalent to multi-selecting legend items).',
       })
         .action('Clear brush', {
           name: 'mosaic.clear_interval_1d',
@@ -261,6 +261,10 @@ const perSpec: Record<string, PlaybookBuilder> = {
         .action('Click “fog” on legend', {
           name: 'mosaic.set_legend_toggle',
           params: { plotId: legendPlot?.plotId ?? 'plot-0', channel: 'color', value: 'fog' },
+        })
+        .action('Add “snow” (fog + snow)', {
+          name: 'mosaic.set_legend_toggle',
+          params: { plotId: legendPlot?.plotId ?? 'plot-0', channel: 'color', value: ['fog', 'snow'] },
         })
         .build(),
     ];
