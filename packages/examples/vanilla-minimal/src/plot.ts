@@ -8,11 +8,26 @@
 export type Datum = { id: number; x: number; y: number; group: 'A' | 'B' | 'C' };
 
 export function randomData(n = 80): Datum[] {
+  // Use a loose grid + jitter so points are visually distinct and click targets
+  // don't accidentally overlap (important for human interaction and tests).
   const out: Datum[] = [];
+  const cols = Math.ceil(Math.sqrt(n * (800 / 480)));
+  const rows = Math.ceil(n / cols);
+  const jitter = 0.35;
+
   for (let i = 0; i < n; i++) {
+    const col = i % cols;
+    const row = Math.floor(i / cols);
+
+    const xBase = (col + 0.5) / cols;
+    const yBase = (row + 0.5) / Math.max(1, rows);
+    const x = (xBase + (Math.random() - 0.5) * (1 / cols) * jitter) * 100;
+    const y = (yBase + (Math.random() - 0.5) * (1 / Math.max(1, rows)) * jitter) * 100;
+
     const group = i % 3 === 0 ? 'A' : i % 3 === 1 ? 'B' : 'C';
-    out.push({ id: i + 1, x: Math.random() * 100, y: Math.random() * 100, group });
+    out.push({ id: i + 1, x: Math.max(0, Math.min(100, x)), y: Math.max(0, Math.min(100, y)), group });
   }
+
   return out;
 }
 
@@ -65,6 +80,7 @@ export function createScatterPlot(args: { root: HTMLElement; data: Datum[]; onTo
     const c = document.createElementNS(svgNS, 'circle');
     c.setAttribute('cx', String(xScale(d.x)));
     c.setAttribute('cy', String(yScale(d.y)));
+    c.dataset.id = String(d.id);
     c.style.cursor = 'pointer';
     c.addEventListener('click', () => onToggle(d.id));
     circles.set(d.id, c);
