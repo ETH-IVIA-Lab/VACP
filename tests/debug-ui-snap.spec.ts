@@ -87,6 +87,7 @@ test('debug-ui: drag snaps to anchors', async ({ page }) => {
   const srv = await startViteDevServer({ name: 'vanilla-minimal', cwd: resolve(examplesDir, 'vanilla-minimal') });
   try {
     await page.goto(`${srv.url}?vacpDebug=1`, { waitUntil: 'domcontentloaded' });
+    await page.waitForFunction(() => !!(globalThis as any).__vacp);
 
     const pill = page.locator('button.vacp-debug-ui-button');
     await expect(pill).toBeVisible();
