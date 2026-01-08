@@ -7,8 +7,8 @@
  * - State: what is currently selected/configured?
  * - Control: execute semantic actions (not clicks) with parameters.
  *
- * The canonical shape is: graph + actions + snapshots. DOM/SVG annotations and
- * "computer use" are optional adapters on top.
+ * The canonical shape is: graph + actions + snapshots. Transports and tooling
+ * (debug UI, MCP, etc.) are adapters on top.
  */
 export const VACP_SCHEMA_VERSION = '0.1.0' as const;
 

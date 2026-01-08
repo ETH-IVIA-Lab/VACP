@@ -3,7 +3,7 @@
  *
  * This file composes two layers:
  * 1) the visualization (plain SVG; no VACP)
- * 2) the VACP integration (graph/actions/state + DuckDB + annotations)
+ * 2) the VACP integration (graph/actions/state + DuckDB)
  */
 
 import { installVacpDebugUi } from '@vacp/debug-ui';

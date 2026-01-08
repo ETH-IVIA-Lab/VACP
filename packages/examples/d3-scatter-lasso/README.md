@@ -28,13 +28,12 @@ Enable the debug overlay:
 1. The app renders a scatter plot in SVG.
 2. Human lasso input is captured in pixel space, then converted to **domain coordinates**.
 3. `installVacpForD3ScatterLasso(...)` installs VACP:
-   - builds a small graph (“View” → “Visualization” → “InteractionTarget”)
+   - builds a small semantic graph (view, visualization, selection, data handle)
    - stores the lasso polygon as state (`Selection`-like node)
    - registers semantic actions:
      - `vanilla.set_lasso_polygon` (set polygon in domain coordinates)
      - `vanilla.clear_lasso`
      - `vacp.apply_state` (dev-only “apply this state map” helper)
-   - annotates the SVG and embeds the graph via `<metadata type="application/vacp+json">…</metadata>`
    - installs/updates `window.__vacp` using `@vacp/gateway`
 
 ## Things to try

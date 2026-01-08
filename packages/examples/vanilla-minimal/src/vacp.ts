@@ -5,7 +5,6 @@
  * - capabilities/state snapshots (`window.__vacp`)
  * - semantic actions (toggle/clear/apply_state)
  * - DuckDB access via the standard `vacp.data_sql` action
- * - optional DOM/SVG annotations (for fallback discovery/debugging)
  */
 
 import type { VacpGraphBase } from '@vacp/kit';

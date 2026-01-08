@@ -41,9 +41,8 @@ Enable the debug overlay:
 2. Mosaic renders it into DOM/SVG (via `@uwdata/mosaic-spec` + `@uwdata/vgplot`).
 3. `@vacp/mosaic` installs VACP:
    - **Bridge**: installs/updates `window.__vacp` (capabilities/state/execute)
-   - **SVG annotations**: attaches `data-vacp-*` and `data-interaction-vacp-*` attributes
-   - **Embedded graph**: writes `<metadata type="application/vacp+json">…</metadata>` into the SVG
    - **Actions**: registers semantic operations like `mosaic.set_interval_1d`, `mosaic.clear_interval_2d`, etc.
+   - **DuckDB SQL**: enables `vacp.data_sql` so agents can query the current selection
 
 The important part: **VACP is not a “UI test script”**. It is a stable, typed, app-owned API for discovery + control.
 

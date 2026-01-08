@@ -80,7 +80,6 @@ VACP has two layers:
    - `@vacp/core`: types (graph, state snapshots, actions)
    - `@vacp/gateway`: runtime bridge + action registry + history (undo/time travel support)
    - `@vacp/kit`: tiny helpers for “bring-your-own-provider” integrations
-   - `@vacp/dom`: optional DOM/SVG annotations and embedded SVG metadata
 2. **Transport (optional)** — ways to reach the app from an agent:
    - `vacp-mcp-server`: exposes the protocol over MCP by driving a browser via Playwright
 

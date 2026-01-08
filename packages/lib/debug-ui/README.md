@@ -21,7 +21,7 @@ next to the pill and stays within the viewport.
 - **Playbook**: provider-supplied scripted stepper (shows “agent-like” sequences)
 - **JSON**: inspection overrides + opt-in apply-to-live
 
-The overlay works best when the bridge supports `getRuntime()` and `getPlaybooks()` (or the older `getDemos()`), but it
+The overlay works best when the bridge supports `getRuntime()` and `getPlaybooks()`, but it
 still functions with the minimal bridge (`getCapabilities/getState/execute`).
 
 For a runnable reference, see any of the example apps under `packages/examples/*`.

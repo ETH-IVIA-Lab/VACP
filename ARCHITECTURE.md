@@ -22,11 +22,9 @@ flowchart LR
     App["Visualization app (Mosaic / Vega-Lite / D3 / …)"]
     Bridge["window.__vacp (capabilities / state / execute)"]
     Runtime["Runtime (history, time travel, playbooks)"]
-    DOM["Optional DOM/SVG annotations + SVG metadata"]
     Debug["Optional debug overlay"]
 
     App --> Bridge
-    App --> DOM
     Bridge --> Runtime
     Debug --> Bridge
   end
@@ -70,7 +68,8 @@ An implementation is “VACP-conformant” if it:
 - **MUST** use stable `ref` strings as identifiers (not DOM position).
 - **MUST** return versioned snapshots with ISO timestamps.
 - **SHOULD** ensure actions are safe and validated (reject invalid params; do not rely on pixel events).
-- **MAY** additionally expose runtime/history APIs (`getRuntime`, `undo/redo`, demos, overrides) for debugging and research workflows.
+- **MAY** additionally expose runtime/history APIs (`getRuntime`, `undo/redo`, playbooks, overrides) for debugging and research workflows.
+- **MAY** additionally expose runtime/history APIs (`getRuntime`, `undo/redo`, playbooks, overrides) for debugging and research workflows.
 
 ### Data model
 
@@ -138,7 +137,7 @@ This repo’s runtime bridge may also provide optional debugging endpoints:
 
 - `getRuntime()` (history, cursor, “inspect” vs “live”)
 - `dispatch(call, options)` (records source/message)
-- `getPlaybooks()` (scripted stepper; older name: `getDemos()`)
+- `getPlaybooks()` (scripted stepper)
 - `undo/redo`, `setMode`, `setStateOverride`, `setGraphOverride`, `refresh`, `subscribe`
 
 ### Invariants and design intent
@@ -157,18 +156,6 @@ The Python `vacp-mcp-server` maps the bridge to MCP tools:
 - `vacp_capabilities()` → `window.__vacp.getCapabilities()`
 - `vacp_state()` → `window.__vacp.getState()`
 - `vacp_execute(name, params?, call_id?)` → `window.__vacp.execute({callId, name, params})`
-
-### DOM/SVG adapter
-
-VACP is canonically a bridge + graph + state + actions. This repo also includes
-optional DOM/SVG annotations for debugging and inspection:
-
-- `data-vacp-*` and `data-interaction-vacp-*` attributes
-- embedded SVG metadata: `<metadata type="application/vacp+json">…</metadata>`
-
-The MCP server is bridge-only; diagrams and inspection live in the in-browser debug UI.
-
----
 
 ## Control and observation flows
 
@@ -211,7 +198,6 @@ TypeScript (pnpm):
 - `@vacp/core`: protocol types (the JSON contract).
 - `@vacp/gateway`: runtime bridge + action registry + history/time travel.
 - `@vacp/kit`: small helpers for “bring-your-own-provider” integrations (used by vanilla/D3 examples).
-- `@vacp/dom`: DOM/SVG adapter (tags + embedded SVG metadata).
 - `@vacp/diagrams`: Mermaid source generation for graphs.
 - `@vacp/debug-ui`: in-page overlay that inspects `window.__vacp`.
 - `@vacp/mosaic`: provider for Mosaic/vgplot.
