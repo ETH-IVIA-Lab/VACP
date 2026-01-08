@@ -23,6 +23,40 @@ function signalsForParam(param: VegaLiteParamLike, allSignals: string[]): string
   return Array.from(out);
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return !!value && typeof value === 'object' && !Array.isArray(value);
+}
+
+function bestEffortSelectionTuple(args: {
+  selectionValue: unknown;
+  tupleFields: unknown;
+  unit: unknown;
+}): { unit: unknown; fields: unknown[]; values: unknown[] } | null {
+  const { selectionValue, tupleFields, unit } = args;
+
+  // Advanced escape hatch: allow callers to pass a store tuple directly.
+  if (isRecord(selectionValue) && Array.isArray(selectionValue.fields) && Array.isArray(selectionValue.values)) {
+    return {
+      unit: selectionValue.unit ?? unit,
+      fields: selectionValue.fields,
+      values: selectionValue.values,
+    };
+  }
+
+  if (!isRecord(selectionValue)) return null;
+  const fields = Array.isArray(tupleFields) ? (tupleFields as unknown[]) : null;
+  if (!fields) return null;
+
+  const values: unknown[] = [];
+  for (const f of fields) {
+    const rec = isRecord(f) ? f : null;
+    const key = (typeof rec?.field === 'string' && rec.field) || (typeof rec?.channel === 'string' && rec.channel) || '';
+    values.push(key ? selectionValue[key] : undefined);
+  }
+
+  return { unit, fields, values };
+}
+
 export function buildParamLookup(spec: VegaLiteSpecLike, view: VegaViewLike) {
   const allSignals = signalNamesFromView(view);
   const paramByName = new Map<string, { param: VegaLiteParamLike; kind: 'Param' | 'Selection' }>();
@@ -71,6 +105,47 @@ export async function executeAction(
     if (!ok) throw new Error(`Failed to set param signal: ${name}`);
     await view.runAsync();
     return { ok: true, value: tryGetSignal(view, name) };
+  }
+
+  if (call.name === 'vega_lite.set_selection') {
+    if (found.kind !== 'Selection') throw new Error(`Param "${name}" is not a selection parameter`);
+
+    const selectionValue = params.value;
+    const storeName = `${name}_store`;
+
+    // Prefer updating the selection store (dataset) so the compiled selection
+    // logic (predicates, filters, conditional encodings) sees a coherent state.
+    if (typeof view.data === 'function' && typeof view.change === 'function') {
+      try {
+        const existing = view.data(storeName) as unknown[];
+        const unit = (isRecord(existing?.[0]) ? (existing[0] as Record<string, unknown>).unit : undefined) ??
+          (helpers.allSignals.includes(`${name}_unit`) ? tryGetSignal(view, `${name}_unit`) : undefined);
+        const tupleFields =
+          (helpers.allSignals.includes(`${name}_tuple_fields`) ? tryGetSignal(view, `${name}_tuple_fields`) : undefined) ??
+          (isRecord(existing?.[0]) ? (existing[0] as Record<string, unknown>).fields : undefined);
+
+        const tuple = bestEffortSelectionTuple({ selectionValue, tupleFields, unit });
+        if (!tuple) throw new Error('Could not build a selection tuple from params.value');
+
+        view.change(
+          storeName,
+          changeset()
+            .remove(() => true)
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            .insert([tuple as any]),
+        );
+        await view.runAsync();
+        return { ok: true, method: 'store', value: tryGetSignal(view, name) };
+      } catch {
+        // Fall back to setting signals below.
+      }
+    }
+
+    // Best-effort fallback: set the resolved selection signal directly.
+    const ok = trySetSignal(view, name, selectionValue);
+    if (!ok) throw new Error(`Failed to set selection signal: ${name}`);
+    await view.runAsync();
+    return { ok: true, method: 'signal', value: tryGetSignal(view, name) };
   }
 
   if (call.name === 'vega_lite.clear_selection') {
