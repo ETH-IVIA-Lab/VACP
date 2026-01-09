@@ -75,7 +75,7 @@ importers:
       '@vacp/kit':
         specifier: workspace:*
         version: link:../../lib/kit
-      '@vacp/mosaic':
+      '@vacp/vgplot':
         specifier: workspace:*
         version: link:../../lib/mosaic
       yaml:
