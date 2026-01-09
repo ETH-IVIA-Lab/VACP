@@ -115,12 +115,15 @@ test('examples: mosaic-gallery', async ({ page }) => {
     await page.goto(`${srv.url}?vacpDebug=1`, { waitUntil: 'domcontentloaded' });
     await expectBridge(page);
 
-    const specIds = await page.evaluate(() =>
-      Array.from(document.querySelectorAll<HTMLSelectElement>('#spec option')).map((o) => o.value),
+    const specs = await page.evaluate(() =>
+      Array.from(document.querySelectorAll<HTMLSelectElement>('#spec option')).map((o) => ({
+        id: o.value,
+        title: (o.textContent ?? o.value).trim() || o.value,
+      })),
     );
-    expect(specIds.length).toBeGreaterThanOrEqual(2);
+    expect(specs.length).toBeGreaterThanOrEqual(2);
 
-    for (const specId of specIds) {
+    for (const { id: specId, title: specTitle } of specs) {
       await page.evaluate((id) => {
         const sel = document.querySelector<HTMLSelectElement>('#spec');
         if (!sel) throw new Error('Missing #spec');
@@ -136,6 +139,12 @@ test('examples: mosaic-gallery', async ({ page }) => {
       const actions = graph.actions ?? [];
       const nodes = graph.nodes ?? [];
       const hasDataSql = actions.some((a: any) => a?.name === 'vacp.data_sql');
+
+      const playbooks = await getPlaybooks(page);
+      if (playbooks.length) {
+        expect(playbooks.every((p: any) => typeof p?.id === 'string' && String(p.id).startsWith(`${specId}-`))).toBeTruthy();
+        expect(playbooks.some((p: any) => typeof p?.title === 'string' && String(p.title).includes(specTitle))).toBeTruthy();
+      }
 
       const handle = nodes.find((n: any) => n?.kind === 'DataHandle' && String(n?.ref ?? '').includes(`/mosaic/${specId}/`));
       if (!handle) {
