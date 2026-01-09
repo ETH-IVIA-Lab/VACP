@@ -8,7 +8,7 @@ import {
   getInterval2dDomains,
   getPanZoom2dDomains,
 } from './domains';
-import type { MosaicPlaybookEntry } from '../playbooks';
+import type { MosaicPlaybookEntry } from './types';
 
 type PlotRef = { plotId: string; plot: VgplotPlotLike };
 
