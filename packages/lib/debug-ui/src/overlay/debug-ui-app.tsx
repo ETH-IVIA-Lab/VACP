@@ -312,7 +312,7 @@ export function VacpDebugUiApp(props: { globalKey: string; includeActions: boole
           </button>
         </div>
         <div className="mt-1 text-amber-50/70">
-          Panels show the state at the cursor; the host app remains live. Actions still execute on the live app.
+          Panels show the state at the cursor. If supported, moving the cursor also replays that state into the host app (via <code>vacp.apply_state</code>).
         </div>
       </div>
     );
@@ -323,9 +323,9 @@ export function VacpDebugUiApp(props: { globalKey: string; includeActions: boole
       <div className="font-semibold text-slate-100/90">Live</div>
       <div>Panels follow the latest provider snapshots (what the app is doing now).</div>
       <div className="mt-2 font-semibold text-slate-100/90">Inspect (time travel)</div>
-      <div>Panels show the state at the history cursor. The host app remains live; actions still run on the live app.</div>
+      <div>Panels show the state at the history cursor. If supported, cursor changes also replay state into the host app.</div>
       <div className="mt-2">Use the History module to move the cursor and replay/inspect past snapshots.</div>
-      <div className="mt-2">Tip: if you want to see an action’s effects, switch back to Live.</div>
+      <div className="mt-2">Tip: switch back to Live to resume tracking new snapshots.</div>
     </div>
   );
 
