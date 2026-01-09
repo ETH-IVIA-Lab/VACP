@@ -8,13 +8,19 @@ from vacp_mcp_server.bridge import ActionCall, VacpBridgeClient
 MCP adapter layer (project concepts).
 
 This module maps the in-page VACP bridge (`window.__vacp`) to MCP tools.
-The goal is to give agents a deterministic, typed interface:
+The goal is to give agents a deterministic, typed interface that enables a
+true human↔AI partnership inside a visual analytics (VA) app:
 
 - vacp_capabilities(): discover nodes + actions
 - vacp_state(): read current selections/params
 - vacp_execute(): request a semantic action
 
-The MCP server is intentionally thin: semantics belong to the app/provider.
+Agents should satisfy user queries by *interacting with the app*:
+- execute a series of human-like semantic operations (brush, toggle, filter, zoom, etc),
+- observe how the state graph changes after each operation,
+- iterate until the user’s question is answered, with the user able to watch and steer.
+
+The MCP server is intentionally thin: semantics belong to the app/provider; MCP is transport.
 """
 
 
@@ -27,10 +33,19 @@ VACP bridge-only MCP server.
 This server is a thin adapter over the in-page VACP bridge (typically `window.__vacp`).
 The VACP protocol (graph/state/actions) lives inside the app; MCP is only the transport.
 
-Typical agent workflow:
-1) Call `vacp_capabilities()` to discover the semantic graph and available actions.
-2) Call `vacp_state()` to read current selections/params (keyed by stable `ref` strings).
-3) Call `vacp_execute(name, params?, call_id?)` with an action `name` from capabilities.
+The intended usage is *interactive visual analytics*:
+- do not answer from memory or by dumping raw text when the app can be interacted with,
+- satisfy the user’s query by performing a *sequence of semantic, human-like operations*
+  (brush selections, toggle categories, change parameters, zoom/pan, etc),
+- after each operation, re-read `vacp_state()` and/or `vacp_capabilities()` to confirm the
+  app’s state graph reflects what just happened.
+
+Typical agent loop:
+1) `vacp_capabilities()` → discover the semantic graph + action catalog.
+2) `vacp_state()` → read the current state (what’s selected/filtered/parameterized).
+3) `vacp_execute(...)` → perform one small semantic operation.
+4) `vacp_state()` → verify the expected state change occurred.
+5) Repeat until the user’s question is answered (with the user able to watch and steer).
 """.strip(),
     )
 
@@ -42,7 +57,8 @@ Typical agent workflow:
         """
         Fetch the VACP capabilities snapshot from the page's in-window bridge.
 
-        Use this to discover the semantic graph (nodes/edges) and the action catalog:
+        Use this to discover the semantic graph (nodes/edges) and the action catalog so you
+        can decide which human-like interaction to perform next:
         - `graph.actions[].name`: stable action id to pass to `vacp_execute`
         - `graph.actions[].parameters`: JSON-schema-like parameter shape
         - `graph.actions[].targetRef` (optional): which node the action applies to
@@ -64,6 +80,11 @@ Typical agent workflow:
 
         This is the "what is currently true?" view of the app's semantic state. The snapshot is
         keyed by stable `ref` strings (not DOM positions), for example selections and parameters.
+
+        Use this to:
+        - confirm that your last action actually changed the state graph,
+        - drive the next step (e.g. pick the right `ref`/category/range),
+        - keep the user and agent aligned on what the app currently shows.
 
         Returns a JSON object like:
         `{ version, createdAt, state: { [ref: string]: unknown } }`.
@@ -87,8 +108,10 @@ Typical agent workflow:
         - `call_id` (optional): correlation id echoed back as `callId` in the result
 
         Effect:
-        - Requests a semantic operation inside the app (no pixel/DOM automation). Actions may
-          change the app's state; read the updated state via `vacp_state()` afterwards.
+        - Requests a semantic operation inside the app (no pixel/DOM automation). Treat this as
+          a "human-like interaction primitive" (brush, toggle, pan/zoom, reset, etc).
+        - Actions may change the app's state; always read the updated state via `vacp_state()`
+          afterwards to verify the expected change happened.
 
         Returns:
         `{ callId, ok, result?, error? }` where `ok=false` indicates a handled failure and
