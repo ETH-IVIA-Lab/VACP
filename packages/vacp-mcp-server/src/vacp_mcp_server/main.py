@@ -36,10 +36,41 @@ def parse_args() -> argparse.Namespace:
     p.add_argument('--browser-type', type=str, choices=['chromium', 'firefox', 'webkit'], default='chromium')
     p.add_argument('--browser-path', type=str, default=None)
     p.add_argument(
+        '--window-mode',
+        type=str,
+        choices=['default', 'maximized', 'fullscreen'],
+        default='fullscreen',
+        help='For embedded browsers, best-effort initial window size (chromium only).',
+    )
+    p.add_argument(
+        '--screen-width',
+        type=int,
+        default=None,
+        help='Optional host screen width hint (used to size embedded browser windows).',
+    )
+    p.add_argument(
+        '--screen-height',
+        type=int,
+        default=None,
+        help='Optional host screen height hint (used to size embedded browser windows).',
+    )
+    p.add_argument(
         '--cdp-url',
         type=str,
         default=None,
         help='Connect to an existing Chromium browser via CDP (e.g. http://localhost:9222).',
+    )
+    p.add_argument(
+        '--auto-attach-cdp',
+        action='store_true',
+        default=False,
+        help='If --cdp-url is not set, try to attach to an already-running Chromium CDP endpoint on common ports.',
+    )
+    p.add_argument(
+        '--auto-attach-cdp-ports',
+        type=str,
+        default='9222,9223',
+        help='Comma-separated CDP ports to probe when --auto-attach-cdp is enabled (default: 9222,9223).',
     )
     p.add_argument(
         '--reuse-page-url-contains',
@@ -59,13 +90,19 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> None:
     args = parse_args()
+    ports = tuple(int(p) for p in str(args.auto_attach_cdp_ports).split(',') if p.strip().isdigit())
 
     config = BrowserConfig(
         browser_type=args.browser_type,
         browser_path=args.browser_path,
         headless=args.headless,
         url=args.url,
+        window_mode=args.window_mode,
+        screen_width=args.screen_width,
+        screen_height=args.screen_height,
         cdp_url=args.cdp_url,
+        auto_attach_cdp=args.auto_attach_cdp,
+        auto_attach_cdp_ports=ports if ports else (9222, 9223),
         close_on_exit=args.close_external_on_exit,
         reuse_page_url_contains=args.reuse_page_url_contains,
     )

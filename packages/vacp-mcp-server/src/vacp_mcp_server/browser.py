@@ -27,11 +27,25 @@ class BrowserConfig:
     browser_path: str | None = None
     headless: bool = False
     url: str = 'http://localhost:5173/'
+    # For embedded browsers: attempt to open the window in a large, human-usable size.
+    # - default: Playwright defaults
+    # - maximized: best-effort maximize window
+    # - fullscreen: best-effort fullscreen window (Chromium only)
+    window_mode: str = 'fullscreen'
+    # Optional: hint at host screen size to size the browser window.
+    # If unset, the server will try to infer it (best-effort), otherwise fall back to
+    # browser defaults.
+    screen_width: int | None = None
+    screen_height: int | None = None
     # Optional: connect to an existing Chromium-based browser via CDP.
     # Examples:
     # - http://localhost:9222
     # - ws://127.0.0.1:9222/devtools/browser/<id>
     cdp_url: str | None = None
+    # Optional: automatically attempt to attach to an already-running Chromium instance
+    # via common CDP endpoints before launching an embedded browser.
+    auto_attach_cdp: bool = False
+    auto_attach_cdp_ports: tuple[int, ...] = (9222, 9223)
     # If connecting to external browser: whether to close it on shutdown.
     # For CDP connections, Playwright typically only disconnects, but we keep
     # this flag for explicitness.
@@ -48,12 +62,61 @@ class BrowserManager:
         self._browser: Browser | None = None
         self._page: Page | None = None
         self._launched_browser = False
+        self._connected_cdp_url: str | None = None
 
     @property
     def page(self) -> Page:
         if self._page is None:
             raise RuntimeError('Browser not started')
         return self._page
+
+    def _infer_screen_size(self) -> tuple[int, int] | None:
+        """
+        Best-effort host screen size detection.
+
+        This is intentionally dependency-free and cross-platform, but not perfect:
+        - Use explicit config if provided.
+        - Try tkinter (works on many desktop envs).
+        - On Windows, fallback to GetSystemMetrics.
+        """
+        if self._config.screen_width and self._config.screen_height:
+            return self._config.screen_width, self._config.screen_height
+
+        with suppress(Exception):
+            import tkinter as tk  # noqa: PLC0415
+
+            root = tk.Tk()
+            root.withdraw()
+            w = int(root.winfo_screenwidth())
+            h = int(root.winfo_screenheight())
+            root.destroy()
+            if w > 0 and h > 0:
+                return w, h
+
+        with suppress(Exception):
+            import sys  # noqa: PLC0415
+
+            if sys.platform.startswith('win'):
+                import ctypes  # noqa: PLC0415
+
+                user32 = ctypes.windll.user32
+                w = int(user32.GetSystemMetrics(0))
+                h = int(user32.GetSystemMetrics(1))
+                if w > 0 and h > 0:
+                    return w, h
+
+        return None
+
+    async def _try_connect_over_cdp(self, url: str) -> Browser | None:
+        if self._playwright is None:
+            raise RuntimeError('Playwright not started')
+        if self._config.browser_type != 'chromium':
+            return None
+        with suppress(Exception):
+            b = await self._playwright.chromium.connect_over_cdp(url)
+            self._connected_cdp_url = url
+            return b
+        return None
 
     async def _select_or_create_page(self) -> Page:
         """
@@ -88,8 +151,20 @@ class BrowserManager:
             # External browser instance (Chromium only).
             self._browser = await self._playwright.chromium.connect_over_cdp(self._config.cdp_url)
             self._launched_browser = False
+            self._connected_cdp_url = self._config.cdp_url
             self._page = await self._select_or_create_page()
             return
+
+        if self._config.auto_attach_cdp:
+            for port in self._config.auto_attach_cdp_ports:
+                for host in ('127.0.0.1', 'localhost'):
+                    candidate = f'http://{host}:{port}'
+                    b = await self._try_connect_over_cdp(candidate)
+                    if b is not None:
+                        self._browser = b
+                        self._launched_browser = False
+                        self._page = await self._select_or_create_page()
+                        return
 
         if self._config.browser_type == 'chromium':
             launcher = self._playwright.chromium
@@ -98,9 +173,27 @@ class BrowserManager:
         else:
             launcher = self._playwright.webkit
 
-        self._browser = await launcher.launch(headless=self._config.headless, executable_path=self._config.browser_path)
+        args: list[str] = []
+        window_mode = (self._config.window_mode or 'default').lower()
+        if not self._config.headless and self._config.browser_type == 'chromium':
+            if window_mode == 'fullscreen':
+                args.append('--start-fullscreen')
+            elif window_mode == 'maximized':
+                args.append('--start-maximized')
+
+            screen = self._infer_screen_size()
+            if screen and window_mode in ('fullscreen', 'maximized'):
+                w, h = screen
+                args.extend(['--window-position=0,0', f'--window-size={w},{h}'])
+
+        self._browser = await launcher.launch(
+            headless=self._config.headless,
+            executable_path=self._config.browser_path,
+            args=args or None,
+        )
         self._launched_browser = True
-        self._page = await self._browser.new_page()
+        context = await self._browser.new_context(no_viewport=not self._config.headless)
+        self._page = await context.new_page()
         await self._page.goto(self._config.url)
 
     async def stop(self) -> None:
@@ -122,4 +215,9 @@ class BrowserManager:
         self._launched_browser = False
 
     async def get_page_info(self) -> dict[str, str]:
-        return {'title': await self.page.title(), 'url': self.page.url}
+        return {
+            'title': await self.page.title(),
+            'url': self.page.url,
+            'mode': 'embedded' if self._launched_browser else 'external',
+            'cdp': self._connected_cdp_url or '',
+        }
