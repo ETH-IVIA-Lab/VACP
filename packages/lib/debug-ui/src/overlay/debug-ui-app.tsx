@@ -17,6 +17,8 @@ import { useVacpBridge, useVacpBridgePresence, useVacpPlaybooks, useVacpRuntime 
 import { Tabs, TabsList, TabsTrigger } from '@vacp/debug-ui/ui/components/ui/tabs';
 import { TooltipProvider } from '@vacp/debug-ui/ui/components/ui/tooltip';
 
+import { useElementSize } from './hooks/use-element-size';
+
 type VacpDebugBridgeStatus = 'missing' | 'unknown' | 'ok';
 
 export function VacpDebugUiApp(props: { globalKey: string; includeActions: boolean }): ReactElement {
@@ -42,6 +44,9 @@ export function VacpDebugUiApp(props: { globalKey: string; includeActions: boole
   const bridgeQuery = useVacpBridge(props.globalKey, open);
   const runtimeQuery = useVacpRuntime(props.globalKey, bridgeQuery.data ?? null, open);
   const playbooksQuery = useVacpPlaybooks(props.globalKey, bridgeQuery.data ?? null, open);
+
+  const panelSize = useElementSize(panelRef);
+  const compactPanel = panelSize.width < 720;
 
   const bridgeRef = useRef(bridgeQuery.data ?? null);
   useEffect(() => {
@@ -418,15 +423,27 @@ export function VacpDebugUiApp(props: { globalKey: string; includeActions: boole
           </div>
         </header>
 
-        <div className="grid min-h-0 grid-rows-[auto_minmax(0,1fr)] md:grid-cols-[180px_1fr] md:grid-rows-none">
-          <nav className="min-h-0 max-w-full overflow-x-auto border-b border-white/10 bg-white/5 p-2 md:overflow-y-auto md:border-b-0 md:border-r">
+        <div
+          className={[
+            'grid min-h-0',
+            compactPanel ? 'grid-rows-[auto_minmax(0,1fr)]' : 'grid-cols-[180px_1fr] grid-rows-none',
+          ].join(' ')}
+        >
+          <nav
+            className={[
+              'min-h-0 max-w-full bg-white/5 p-2',
+              compactPanel
+                ? 'overflow-x-auto border-b border-white/10'
+                : 'overflow-y-auto border-b-0 border-r border-white/10',
+            ].join(' ')}
+          >
             <Tabs value={moduleId} onValueChange={(v) => setModuleId(v as VacpDebugModuleId)}>
-              <TabsList className="vacp-debug-ui-nav-list flex-row gap-1 md:flex-col md:gap-1">
+              <TabsList className={['vacp-debug-ui-nav-list gap-1', compactPanel ? 'flex-row' : 'flex-col'].join(' ')}>
                 {modules.map((m) => (
                   <TabsTrigger
                     key={m.id}
                     value={m.id}
-                    className="vacp-debug-ui-module w-auto whitespace-nowrap md:w-full"
+                    className={['vacp-debug-ui-module whitespace-nowrap', compactPanel ? 'w-auto' : 'w-full'].join(' ')}
                     title={m.title}
                   >
                     {m.icon}
