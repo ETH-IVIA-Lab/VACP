@@ -16,6 +16,13 @@ function fmtNum(n: number | null): string {
   return n.toFixed(digits);
 }
 
+function fmtIso(iso: string | null | undefined): string | null {
+  if (!iso) return null;
+  // Prefer YYYY-MM-DD when possible to keep summaries compact.
+  const m = iso.match(/^(\d{4}-\d{2}-\d{2})T/);
+  return m ? m[1]! : iso;
+}
+
 function limitText(text: string, max = 160): string {
   if (text.length <= max) return text;
   return `${text.slice(0, Math.max(0, max - 1))}…`;
@@ -55,10 +62,28 @@ export function formatDuckDbTableMetadataSummary(
     const parts = numericKeys.slice(0, maxNumeric).map((k) => {
       const s = meta.numeric?.[k];
       if (!s) return k;
+      const minIso = fmtIso(s.minIso);
+      const maxIso = fmtIso(s.maxIso);
+      const isoRange = minIso && maxIso ? `${minIso}..${maxIso}` : null;
+      const hint = s.unitHint ? ` (${s.unitHint})` : '';
+      if (isoRange) return `${k}[${isoRange}]${hint}`;
       return `${k}[${fmtNum(s.min)}..${fmtNum(s.max)} avg ${fmtNum(s.avg)}]`;
     });
     const extra = numericKeys.length > maxNumeric ? ` (+${numericKeys.length - maxNumeric} more)` : '';
     lines.push(limitText(`Numeric: ${parts.join(', ')}${extra}`, 220));
+  }
+
+  const temporalKeys = meta.temporal ? Object.keys(meta.temporal) : [];
+  if (temporalKeys.length) {
+    const parts = temporalKeys.slice(0, maxNumeric).map((k) => {
+      const s = meta.temporal?.[k];
+      if (!s) return k;
+      const minIso = fmtIso(s.minIso);
+      const maxIso = fmtIso(s.maxIso);
+      return `${k}[${minIso ?? 'null'}..${maxIso ?? 'null'}]`;
+    });
+    const extra = temporalKeys.length > maxNumeric ? ` (+${temporalKeys.length - maxNumeric} more)` : '';
+    lines.push(limitText(`Temporal: ${parts.join(', ')}${extra}`, 220));
   }
 
   const catKeys = meta.categoricalTopValues ? Object.keys(meta.categoricalTopValues) : [];
