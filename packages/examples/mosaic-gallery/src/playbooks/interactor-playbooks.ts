@@ -1,6 +1,6 @@
 import type { VacpPlaybook } from '@vacp/core';
 import { playbook } from '@vacp/kit';
-import type { VgplotPlotLike } from '@vacp/mosaic';
+import type { VgplotPlotLike } from '@vacp/vgplot';
 
 import {
   domainToInterval,

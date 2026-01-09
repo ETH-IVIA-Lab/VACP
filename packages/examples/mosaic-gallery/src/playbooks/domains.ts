@@ -1,4 +1,4 @@
-import type { VgplotPlotLike } from '@vacp/mosaic';
+import type { VgplotPlotLike } from '@vacp/vgplot';
 
 export type DomainValue = number | Date;
 
@@ -79,4 +79,3 @@ export function getPanZoom2dDomains(
   if (!x && !y) return null;
   return { x, y };
 }
-

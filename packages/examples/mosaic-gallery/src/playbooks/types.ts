@@ -1,4 +1,4 @@
-import type { VgplotPlotLike, VgplotTableLike } from '@vacp/mosaic';
+import type { VgplotPlotLike, VgplotTableLike } from '@vacp/vgplot';
 
 export type MosaicPlaybookEntry = {
   id: string;
@@ -12,4 +12,3 @@ export type MosaicSpecPlaybookContext = {
   plots: Array<{ plotId: string; plot: VgplotPlotLike }>;
   tables: Array<{ tableId: string; table: VgplotTableLike }>;
 };
-

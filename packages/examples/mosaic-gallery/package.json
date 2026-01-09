@@ -21,7 +21,7 @@
     "@vacp/debug-ui": "workspace:*",
     "@vacp/duckdb": "workspace:*",
     "@vacp/kit": "workspace:*",
-    "@vacp/mosaic": "workspace:*",
+    "@vacp/vgplot": "workspace:*",
     "yaml": "^2.8.2"
   }
 }

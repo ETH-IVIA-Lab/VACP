@@ -1,5 +1,5 @@
 import type { VacpPlaybook } from '@vacp/core';
-import type { VgplotPlotLike, VgplotTableLike } from '@vacp/mosaic';
+import type { VgplotPlotLike, VgplotTableLike } from '@vacp/vgplot';
 
 import type { MosaicPlaybookEntry, MosaicSpecPlaybookContext } from './playbooks/types';
 import { buildAthletesPlaybook } from './playbooks/specs/athletes.playbook';

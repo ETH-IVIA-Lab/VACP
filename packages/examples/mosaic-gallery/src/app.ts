@@ -1,4 +1,4 @@
-import type { VgplotPlotLike, VgplotTableLike } from '@vacp/mosaic';
+import type { VgplotPlotLike, VgplotTableLike } from '@vacp/vgplot';
 import { installVacpDebugUi } from '@vacp/debug-ui';
 import type { VacpDuckDbClient } from '@vacp/duckdb';
 import { coordinator, DuckDBWASMConnector } from '@uwdata/mosaic-core';

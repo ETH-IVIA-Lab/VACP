@@ -5,7 +5,7 @@
  * actions on top, without changing how the visualization is authored.
  */
 
-import { installVacpOnVgplotDashboard, type VgplotPlotLike, type VgplotTableLike } from '@vacp/mosaic';
+import { installVacpOnVgplotDashboard, type VgplotPlotLike, type VgplotTableLike } from '@vacp/vgplot';
 import type { VacpDuckDbClient } from '@vacp/duckdb';
 import { buildMosaicPlaybooks } from './playbooks';
 

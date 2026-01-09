@@ -1,4 +1,4 @@
-import type { VgplotPlotLike } from '@vacp/mosaic';
+import type { VgplotPlotLike } from '@vacp/vgplot';
 
 export async function waitForSvg(root: ParentNode, timeoutMs = 10_000): Promise<SVGElement> {
   const start = performance.now();

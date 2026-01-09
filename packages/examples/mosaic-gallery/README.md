@@ -1,6 +1,6 @@
 # Mosaic gallery
 
-VACP + Mosaic/vgplot.
+VACP + vgplot (Mosaic runtime).
 
 This example turns a Mosaic/vgplot dashboard into an **agent-ready** app by installing a VACP bridge at `window.__vacp`.
 
@@ -39,7 +39,7 @@ Enable the debug overlay:
 
 1. The app loads a YAML spec from `src/specs/*.yaml`.
 2. Mosaic renders it into DOM/SVG (via `@uwdata/mosaic-spec` + `@uwdata/vgplot`).
-3. `@vacp/mosaic` installs VACP:
+3. `@vacp/vgplot` installs VACP:
    - **Bridge**: installs/updates `window.__vacp` (capabilities/state/execute)
    - **Actions**: registers semantic operations like `mosaic.set_interval_1d`, `mosaic.clear_interval_2d`, etc.
    - **DuckDB SQL**: enables `vacp.data_sql` so agents can query the current selection
@@ -89,7 +89,7 @@ Everything under `meta` is ignored by Mosaic and only used by the gallery UI.
 ## How bidirectionality is achieved
 
 - **Human** updates the Mosaic interactor state (brush/toggle/menu).
-- `@vacp/mosaic` observes/reads the current selection state and exposes it via `window.__vacp.getState()`.
+- `@vacp/vgplot` observes/reads the current selection state and exposes it via `window.__vacp.getState()`.
 - **Agent** dispatches an equivalent semantic action via `window.__vacp.execute(...)` (or `dispatch(...)` when available).
 - Both paths record into the same runtime history so time travel/debugging works across both.
 
