@@ -1,5 +1,5 @@
 import type { VacpHistoryEntry } from '@vacp/core';
-import { PanelRightClose, PanelRightOpen, Redo2, Undo2 } from 'lucide-react';
+import { Bot, Cpu, PanelRightClose, PanelRightOpen, Redo2, Undo2, User, Wrench } from 'lucide-react';
 import type { ReactElement } from 'react';
 import { useEffect, useMemo, useState } from 'react';
 
@@ -24,11 +24,43 @@ function formatTime(iso: string | undefined): string {
   return d.toLocaleTimeString();
 }
 
-function roleDotClass(source: VacpHistoryEntry['source']): string {
-  if (source === 'human') return 'bg-sky-300';
-  if (source === 'agent') return 'bg-violet-300';
-  if (source === 'debug') return 'bg-amber-300';
-  return 'bg-white/40';
+function roleInfo(source: VacpHistoryEntry['source']): {
+  dotClass: string;
+  label: string;
+  description: string;
+  icon: ReactElement;
+} {
+  if (source === 'human') {
+    return {
+      dotClass: 'bg-sky-300',
+      label: 'Human',
+      description: 'Direct user interaction (mouse/keyboard) in the host app.',
+      icon: <User className="h-3.5 w-3.5 text-sky-100/90" aria-hidden="true" />,
+    };
+  }
+  if (source === 'agent') {
+    return {
+      dotClass: 'bg-violet-300',
+      label: 'Agent',
+      description: 'AI-driven action (playbook step or tool invocation).',
+      icon: <Bot className="h-3.5 w-3.5 text-violet-100/90" aria-hidden="true" />,
+    };
+  }
+  if (source === 'debug') {
+    return {
+      dotClass: 'bg-amber-300',
+      label: 'Debug UI',
+      description: 'Triggered by the debug overlay (History/Actions/JSON/Data modules).',
+      icon: <Wrench className="h-3.5 w-3.5 text-amber-100/90" aria-hidden="true" />,
+    };
+  }
+  // `system` or unknown: runtime/provider/internal events.
+  return {
+    dotClass: 'bg-white/40',
+    label: 'System',
+    description: 'Provider/runtime/internal events (refresh, mode changes, observers).',
+    icon: <Cpu className="h-3.5 w-3.5 text-slate-100/80" aria-hidden="true" />,
+  };
 }
 
 function stateFromEntry(entry: VacpHistoryEntry): unknown {
@@ -96,6 +128,19 @@ export function HistoryModule(props: VacpDebugModuleProps): ReactElement {
             <CardTitle>History</CardTitle>
             <CardDescription>Toggle the Mode button (top bar) to Inspect, then click an entry to move the cursor.</CardDescription>
           </div>
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-slate-100/70">
+            {(['human', 'agent', 'debug', 'system'] as const).map((source) => {
+              const info = roleInfo(source as any);
+              return (
+                <span key={source} className="inline-flex items-center gap-1.5" title={info.description}>
+                  <span className={`h-2 w-2 rounded-full ${info.dotClass}`} aria-hidden="true" />
+                  {info.icon}
+                  <span className="font-medium text-slate-100/75">{info.label}</span>
+                </span>
+              );
+            })}
+            <span className="text-slate-100/55">Hover the labels for details.</span>
+          </div>
           <div className="flex shrink-0 items-center gap-2">
             <IconButton icon={<Undo2 className="h-4 w-4 text-slate-100/90" />} label="Undo" title="Undo." disabled={!canUndo} onClick={() => undo()} />
             <IconButton icon={<Redo2 className="h-4 w-4 text-slate-100/90" />} label="Redo" title="Redo." disabled={!canRedo} onClick={() => redo()} />
@@ -115,6 +160,7 @@ export function HistoryModule(props: VacpDebugModuleProps): ReactElement {
               const active = h.id === selectedId;
               const isCursor = props.runtime.mode === 'inspect' && i === cursorIdx;
               const hasState = Boolean(stateFromEntry(h));
+              const info = roleInfo(h.source);
               return (
                 <div
                   key={h.id}
@@ -137,7 +183,11 @@ export function HistoryModule(props: VacpDebugModuleProps): ReactElement {
                   }}
                 >
                   <div className="flex items-center gap-2">
-                    <span className={`h-2 w-2 rounded-full ${roleDotClass(h.source)}`} aria-hidden="true" title={h.source} />
+                    <span className={`h-2 w-2 rounded-full ${info.dotClass}`} aria-hidden="true" title={info.label} />
+                    <span className="inline-flex items-center gap-1" title={info.description}>
+                      {info.icon}
+                      <span className="sr-only">{info.label}</span>
+                    </span>
                     <div className="font-semibold text-slate-100/90">{h.kind}</div>
                     <div className="text-[11px] text-slate-100/60">{formatTime(h.at)}</div>
                     {isCursor ? (
@@ -165,7 +215,11 @@ export function HistoryModule(props: VacpDebugModuleProps): ReactElement {
           <CardHeader>
             <div className="min-w-0">
               <CardTitle>Details</CardTitle>
-              <CardDescription>{selected ? `${selected.kind} • ${selected.source}` : 'Select an entry to inspect.'}</CardDescription>
+              <CardDescription>
+                {selected
+                  ? `${selected.kind} • ${roleInfo(selected.source).label}`
+                  : 'Select an entry to inspect.'}
+              </CardDescription>
             </div>
           </CardHeader>
           <pre className="min-h-0 flex-1 overflow-auto rounded-lg border border-white/10 bg-black/20 p-3 text-[12px] leading-5 text-slate-100/85">
