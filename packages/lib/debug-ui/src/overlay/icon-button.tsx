@@ -6,7 +6,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@vacp/debug-ui/ui/compo
 export function IconButton(props: {
   icon: ReactNode;
   label: string;
-  title?: string;
+  title?: ReactNode;
   pressed?: boolean;
   disabled?: boolean;
   variant?: 'default' | 'primary' | 'danger';

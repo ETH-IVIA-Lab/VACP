@@ -1,4 +1,4 @@
-import { Braces, Database, Frame, GitGraph, History, ListOrdered, Maximize2, Minimize2, X, Zap } from 'lucide-react';
+import { Braces, Database, Eye, EyeOff, Frame, GitGraph, History, Info, ListOrdered, Maximize2, Minimize2, X, Zap } from 'lucide-react';
 import type { ReactElement } from 'react';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 
@@ -284,6 +284,57 @@ export function VacpDebugUiApp(props: { globalKey: string; includeActions: boole
     return <JsonModule {...ctx} />;
   })();
 
+  const inspectBanner = useMemo(() => {
+    const rt = runtimeQuery.data;
+    const bridge = bridgeQuery.data ?? null;
+    if (!rt || !bridge) return null;
+    if (rt.mode !== 'inspect') return null;
+    const cursor = Number.isFinite(rt.cursor) ? rt.cursor : -1;
+    const entry = cursor >= 0 && cursor < rt.history.length ? rt.history[cursor] : null;
+    const at = entry?.at ? new Date(entry.at).toLocaleTimeString() : '';
+    const msg = entry?.message ?? null;
+    return (
+      <div className="mb-3 rounded-lg border border-amber-300/25 bg-amber-500/10 px-3 py-2 text-[12px] text-amber-50/85">
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="font-semibold text-amber-50/90">Inspect mode (time travel)</div>
+          <div className="text-amber-50/70">
+            cursor {cursor} / {Math.max(0, rt.history.length - 1)}
+            {at ? ` • ${at}` : ''}
+            {msg ? ` • ${msg}` : ''}
+          </div>
+          <div className="flex-1" />
+          <button
+            type="button"
+            className="rounded-md border border-amber-300/25 bg-amber-500/10 px-2 py-1 text-[11px] font-semibold text-amber-50/85 hover:bg-amber-500/15"
+            onClick={() => bridge.setMode?.('live', { source: 'debug', message: 'mode=live' })}
+          >
+            Return to live
+          </button>
+          <button
+            type="button"
+            className="rounded-md border border-amber-300/25 bg-amber-500/10 px-2 py-1 text-[11px] font-semibold text-amber-50/85 hover:bg-amber-500/15"
+            onClick={() => setModuleId('history')}
+          >
+            Open history
+          </button>
+        </div>
+        <div className="mt-1 text-amber-50/70">
+          Panels show the state at the cursor; the host app remains live. Actions still execute on the live app.
+        </div>
+      </div>
+    );
+  }, [bridgeQuery.data, runtimeQuery.data, setModuleId]);
+
+  const modeHelp = (
+    <div className="max-w-[320px] text-[12px] leading-5 text-slate-100/85">
+      <div className="font-semibold text-slate-100/90">Live</div>
+      <div>Panels follow the latest provider snapshots (what the app is doing now).</div>
+      <div className="mt-2 font-semibold text-slate-100/90">Inspect (time travel)</div>
+      <div>Panels show the state at the history cursor. The host app remains live; actions still run on the live app.</div>
+      <div className="mt-2">Use the History module to move the cursor and replay/inspect past snapshots.</div>
+    </div>
+  );
+
   const dotClass =
     bridgeStatus === 'ok'
       ? 'bg-emerald-300'
@@ -325,6 +376,34 @@ export function VacpDebugUiApp(props: { globalKey: string; includeActions: boole
         >
           <div className="vacp-debug-ui-title min-w-0 flex-1 truncate text-xs text-slate-100/90">{title}</div>
           <div className="flex items-center gap-2">
+            {bridgeQuery.data && runtimeQuery.data ? (
+              <>
+                <IconButton
+                  icon={<Eye className="h-4 w-4 text-slate-100/90" />}
+                  label="Live"
+                  title="Live mode: follow latest snapshots."
+                  pressed={runtimeQuery.data.mode === 'live'}
+                  onClick={() => {
+                    bridgeQuery.data?.setMode?.('live', { source: 'debug', message: 'mode=live' });
+                  }}
+                />
+                <IconButton
+                  icon={<EyeOff className="h-4 w-4 text-slate-100/90" />}
+                  label="Inspect"
+                  title="Inspect mode: time travel via the history cursor."
+                  pressed={runtimeQuery.data.mode === 'inspect'}
+                  onClick={() => {
+                    bridgeQuery.data?.setMode?.('inspect', { source: 'debug', message: 'mode=inspect' });
+                  }}
+                />
+                <IconButton
+                  icon={<Info className="h-4 w-4 text-slate-100/90" />}
+                  label="Mode help"
+                  title={modeHelp}
+                  onClick={() => setModuleId('history')}
+                />
+              </>
+            ) : null}
             <IconButton
               icon={
                 maximized ? (
@@ -373,7 +452,10 @@ export function VacpDebugUiApp(props: { globalKey: string; includeActions: boole
           </nav>
 
           <div className="vacp-debug-ui-content min-h-0 min-w-0 overflow-hidden bg-slate-950 p-3">
-            <div className="h-full min-h-0 overflow-auto">{content}</div>
+            <div className="h-full min-h-0 overflow-auto">
+              {inspectBanner}
+              {content}
+            </div>
           </div>
         </div>
       </div>
