@@ -26,6 +26,16 @@ export function buildDashboardGraph(args: {
   ];
   const edges: VacpEdge[] = [];
 
+  const plotHandleUsageByRef = new Map<VacpRef, { table?: string; plotIds: Set<string> }>();
+  for (const h of args.dataHandles ?? []) {
+    if (h.surfaceKind !== 'plot') continue;
+    const entry = plotHandleUsageByRef.get(h.ref) ?? { table: h.table, plotIds: new Set<string>() };
+    if (!entry.table && h.table) entry.table = h.table;
+    entry.plotIds.add(h.surfaceId);
+    plotHandleUsageByRef.set(h.ref, entry);
+  }
+  const dataHandleNodeAdded = new Set<VacpRef>();
+
   for (const input of args.inputs) {
     nodes.push({
       ref: input.ref,
@@ -116,16 +126,25 @@ export function buildDashboardGraph(args: {
 
     const handles = (args.dataHandles ?? []).filter((h) => h.surfaceKind === 'plot' && h.surfaceId === plotId);
     handles.forEach((h) => {
+      const usage = plotHandleUsageByRef.get(h.ref);
+      const plotIds = usage ? Array.from(usage.plotIds).sort() : [plotId];
       const tableLabel = typeof h.table === 'string' && h.table ? h.table : 'data';
-      nodes.push({
-        ref: h.ref,
-        kind: 'DataHandle',
-        layer: 'DataLayer',
-        title: `DuckDB: ${tableLabel} (${plotId})`,
-        description:
-          'DuckDB-backed handle for the data table behind this plot. `vacp_handle` is the selected subset (or all rows if empty).',
-        data: { table: h.table, plotId },
-      });
+
+      if (!dataHandleNodeAdded.has(h.ref)) {
+        dataHandleNodeAdded.add(h.ref);
+        const shared = plotIds.length > 1;
+        const title =
+          tableLabel === 'data' && plotIds.length === 1 ? `DuckDB: data (${plotIds[0]})` : `DuckDB: ${tableLabel}`;
+        const plotHint = shared ? `Used by plots: ${plotIds.join(', ')}.` : `Used by plot: ${plotIds[0]}.`;
+        nodes.push({
+          ref: h.ref,
+          kind: 'DataHandle',
+          layer: 'DataLayer',
+          title,
+          description: `DuckDB-backed handle for this dashboard dataset. ${plotHint} \`vacp_handle\` is the selected subset (or all rows if empty).`,
+          data: { table: usage?.table ?? h.table, plotIds },
+        });
+      }
       edges.push({ from: plotRef, to: h.ref, kind: 'contains' });
     });
   }

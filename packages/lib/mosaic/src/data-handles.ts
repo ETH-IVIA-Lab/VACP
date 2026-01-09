@@ -1,6 +1,6 @@
 import type { VacpRef } from '@vacp/core';
 
-import { makePlotRef } from './refs';
+import { makePlotRef, makeViewRef } from './refs';
 import type { InstallVacpOnVgplotDashboardOptions, VgplotPlotLike, VgplotTableLike } from './types';
 
 export type MosaicDataHandle = {
@@ -46,28 +46,48 @@ export function collectMosaicDataHandles(args: {
   preferredTables?: string[];
 }): MosaicDataHandle[] {
   const out: MosaicDataHandle[] = [];
+
+  const preferred = args.preferredTables ?? [];
+  const plotTables = new Map<string, string[]>();
+  const allPlotTables: string[] = [];
   for (const { plotId, plot } of args.plots) {
     const unique = discoverPlotTables(plot);
-    const preferred = args.preferredTables ?? [];
-    const mainTable = unique.find((t) => preferred.includes(t)) ?? unique[0];
-    const mainRef = makePlotRef({
-      appId: args.options.appId,
-      viewId: args.options.viewId,
-      plotId,
-      suffix: '/data/main',
-    });
-    out.push({ ref: mainRef, surfaceKind: 'plot', surfaceId: plotId, table: mainTable });
+    plotTables.set(plotId, unique);
+    allPlotTables.push(...unique);
+  }
 
-    unique.slice(1).forEach((table) => {
-      const slug = `${slugify(table)}-${djb2Hash(table).slice(0, 8)}`;
-      const ref = makePlotRef({
+  const uniquePlotTables = Array.from(new Set(allPlotTables)).sort();
+  const viewMainTable = uniquePlotTables.find((t) => preferred.includes(t)) ?? uniquePlotTables[0];
+  const viewMainRef =
+    viewMainTable !== undefined
+      ? makeViewRef({ appId: args.options.appId, viewId: args.options.viewId, suffix: '/data/main' })
+      : null;
+  const viewTableRef = (table: string): VacpRef => {
+    if (table === viewMainTable && viewMainRef) return viewMainRef;
+    const slug = `${slugify(table)}-${djb2Hash(table).slice(0, 8)}`;
+    return makeViewRef({ appId: args.options.appId, viewId: args.options.viewId, suffix: `/data/${slug}` });
+  };
+
+  for (const { plotId } of args.plots) {
+    const unique = plotTables.get(plotId) ?? [];
+    const plotMainTable = unique.find((t) => preferred.includes(t)) ?? unique[0];
+
+    // If the plot doesn't expose any table via marks, keep the old per-plot handle behavior.
+    if (!plotMainTable) {
+      const fallbackRef = makePlotRef({
         appId: args.options.appId,
         viewId: args.options.viewId,
         plotId,
-        suffix: `/data/${slug}`,
+        suffix: '/data/main',
       });
-      out.push({ ref, surfaceKind: 'plot', surfaceId: plotId, table });
-    });
+      out.push({ ref: fallbackRef, surfaceKind: 'plot', surfaceId: plotId, table: undefined });
+      continue;
+    }
+
+    const tablesForPlot = [plotMainTable, ...unique.filter((t) => t !== plotMainTable)];
+    for (const table of tablesForPlot) {
+      out.push({ ref: viewTableRef(table), surfaceKind: 'plot', surfaceId: plotId, table });
+    }
   }
 
   for (const { tableId, table } of args.tables ?? []) {
