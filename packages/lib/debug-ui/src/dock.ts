@@ -44,11 +44,12 @@ export function createVacpDebugDock(args: {
     }
   };
 
-  const applyPos = (pos: DockPos) => {
+  const applyPos = (pos: DockPos, opts?: { width?: number; height?: number }) => {
     const margin = 10;
-    const rect = root.getBoundingClientRect();
-    const maxLeft = window.innerWidth - rect.width - margin;
-    const maxTop = window.innerHeight - rect.height - margin;
+    const w = opts?.width ?? root.getBoundingClientRect().width;
+    const h = opts?.height ?? root.getBoundingClientRect().height;
+    const maxLeft = window.innerWidth - w - margin;
+    const maxTop = window.innerHeight - h - margin;
     root.style.left = `${clamp(pos.left, margin, maxLeft)}px`;
     root.style.top = `${clamp(pos.top, margin, maxTop)}px`;
     root.style.right = 'auto';
@@ -121,7 +122,11 @@ export function createVacpDebugDock(args: {
     let startY = 0;
     let startLeft = 0;
     let startTop = 0;
+    let width = 0;
+    let height = 0;
     let lastPointerDownAt = 0;
+    let raf = 0;
+    let pending: { x: number; y: number } | null = null;
 
     const beginDrag = () => {
       if (dragging) return;
@@ -138,7 +143,7 @@ export function createVacpDebugDock(args: {
       // Treat small movements as a click, not a drag, so the button remains usable.
       if (!dragging && dist < DRAG_THRESHOLD) return;
       beginDrag();
-      applyPos({ left: startLeft + dx, top: startTop + dy });
+      applyPos({ left: startLeft + dx, top: startTop + dy }, { width, height });
       onDockMove?.();
     };
 
@@ -151,8 +156,20 @@ export function createVacpDebugDock(args: {
       onDrop?.();
     };
 
-    const onPointerMove = (ev: PointerEvent) => maybeMove(ev.clientX, ev.clientY);
-    const onMouseMove = (ev: MouseEvent) => maybeMove(ev.clientX, ev.clientY);
+    const scheduleMove = (x: number, y: number) => {
+      pending = { x, y };
+      if (raf) return;
+      raf = window.requestAnimationFrame(() => {
+        raf = 0;
+        if (!pending) return;
+        const p = pending;
+        pending = null;
+        maybeMove(p.x, p.y);
+      });
+    };
+
+    const onPointerMove = (ev: PointerEvent) => scheduleMove(ev.clientX, ev.clientY);
+    const onMouseMove = (ev: MouseEvent) => scheduleMove(ev.clientX, ev.clientY);
 
     const cleanupWindowListeners = () => {
       window.removeEventListener('pointermove', onPointerMove);
@@ -160,6 +177,9 @@ export function createVacpDebugDock(args: {
       window.removeEventListener('pointercancel', onPointerUp);
       window.removeEventListener('mousemove', onMouseMove);
       window.removeEventListener('mouseup', onMouseUp);
+      if (raf) window.cancelAnimationFrame(raf);
+      raf = 0;
+      pending = null;
     };
 
     const onPointerUp = () => {
@@ -180,6 +200,8 @@ export function createVacpDebugDock(args: {
       startY = y;
       startLeft = rect.left;
       startTop = rect.top;
+      width = rect.width;
+      height = rect.height;
       window.addEventListener('pointermove', onPointerMove);
       window.addEventListener('pointerup', onPointerUp);
       window.addEventListener('pointercancel', onPointerUp);
