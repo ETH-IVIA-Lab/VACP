@@ -1,10 +1,11 @@
 import type { VacpActionCall, VacpPlaybookStep } from '@vacp/core';
 import { FastForward, PanelRightClose, PanelRightOpen, Play, RotateCcw, StepBack, StepForward } from 'lucide-react';
 import type { ReactElement } from 'react';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { IconButton } from '@vacp/debug-ui/overlay/icon-button';
 import { useVacpDebugUiStore } from '@vacp/debug-ui/overlay/debug-store';
+import { useElementSize } from '@vacp/debug-ui/overlay/hooks/use-element-size';
 import { Card, CardDescription, CardHeader, CardTitle } from '@vacp/debug-ui/ui/components/ui/card';
 
 import type { VacpDebugModuleProps } from './module-types';
@@ -18,6 +19,10 @@ function safeJson(value: unknown): string {
 }
 
 export function PlaybookModule(props: VacpDebugModuleProps): ReactElement {
+  const rootRef = useRef<HTMLDivElement | null>(null);
+  const rootSize = useElementSize(rootRef);
+  const showSideBySide = rootSize.width >= 900;
+  const compactControls = rootSize.width < 640;
   const playbooks = props.playbooks ?? [];
   const [playbookId, setPlaybookId] = useState<string>(playbooks[0]?.id ?? '');
   const [stepIndex, setStepIndex] = useState<number>(0);
@@ -29,7 +34,13 @@ export function PlaybookModule(props: VacpDebugModuleProps): ReactElement {
 
   if (playbooks.length === 0) {
     return (
-      <div className={['grid h-full min-h-0 gap-3', detailsOpen ? 'lg:grid-cols-[1fr_420px]' : ''].join(' ')}>
+      <div
+        ref={rootRef}
+        className={[
+          'h-full min-h-0 gap-3',
+          detailsOpen && showSideBySide ? 'grid grid-cols-[minmax(0,1fr)_minmax(320px,420px)]' : 'flex flex-col',
+        ].join(' ')}
+      >
         <Card className="flex min-h-0 flex-col">
           <CardHeader>
             <div className="min-w-0">
@@ -42,7 +53,7 @@ export function PlaybookModule(props: VacpDebugModuleProps): ReactElement {
           </div>
         </Card>
         {detailsOpen ? (
-          <Card className="flex min-h-0 flex-col">
+          <Card className={['flex min-h-0 flex-col', showSideBySide ? '' : 'max-h-[240px]'].join(' ')}>
             <CardHeader>
               <div>
                 <CardTitle>Step details</CardTitle>
@@ -111,14 +122,20 @@ export function PlaybookModule(props: VacpDebugModuleProps): ReactElement {
   };
 
   return (
-    <div className={['grid h-full min-h-0 gap-3', detailsOpen ? 'lg:grid-cols-[1fr_420px]' : ''].join(' ')}>
+    <div
+      ref={rootRef}
+      className={[
+        'h-full min-h-0 gap-3',
+        detailsOpen && showSideBySide ? 'grid grid-cols-[minmax(0,1fr)_minmax(320px,420px)]' : 'flex flex-col',
+      ].join(' ')}
+    >
       <Card className="flex min-h-0 flex-col">
         <CardHeader>
           <div className="min-w-0">
             <CardTitle>Playbook</CardTitle>
             <CardDescription>Step through a guided sequence that demonstrates bidirectional interaction.</CardDescription>
           </div>
-          <div className="flex shrink-0 items-center gap-2">
+          <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
             <IconButton icon={<StepBack className="h-4 w-4 text-slate-100/90" />} label="Previous step" title="Move to the previous step." onClick={() => stepTo(stepIndex - 1)} />
             <IconButton icon={<StepForward className="h-4 w-4 text-slate-100/90" />} label="Next step" title="Move to the next step." onClick={() => stepTo(stepIndex + 1)} />
             <IconButton icon={<RotateCcw className="h-4 w-4 text-slate-100/90" />} label="Reset" title="Reset back to the first step." onClick={() => stepTo(0)} />
@@ -134,7 +151,7 @@ export function PlaybookModule(props: VacpDebugModuleProps): ReactElement {
           </div>
         </CardHeader>
 
-        <div className="mt-3 grid gap-3 lg:grid-cols-[1fr_260px]">
+        <div className={['mt-3 grid gap-3', compactControls ? '' : 'grid-cols-[1fr_260px]'].join(' ')}>
           <div>
             <label className="text-[11px] font-medium text-slate-100/70" htmlFor="vacp-playbook">
               Playbook
@@ -200,7 +217,7 @@ export function PlaybookModule(props: VacpDebugModuleProps): ReactElement {
       </Card>
 
       {detailsOpen ? (
-        <Card className="flex min-h-0 flex-col">
+        <Card className={['flex min-h-0 flex-col', showSideBySide ? '' : 'max-h-[360px]'].join(' ')}>
           <CardHeader>
             <div>
               <CardTitle>Step details</CardTitle>

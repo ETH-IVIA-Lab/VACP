@@ -9,6 +9,7 @@ import { renderVacpDiagramMermaid } from '@vacp/diagrams';
 import { renderMermaidToHost } from '@vacp/debug-ui/mermaid-renderer';
 import { useVacpDebugUiStore } from '@vacp/debug-ui/overlay/debug-store';
 import { IconButton } from '@vacp/debug-ui/overlay/icon-button';
+import { useElementSize } from '@vacp/debug-ui/overlay/hooks/use-element-size';
 import { Card, CardDescription, CardHeader, CardTitle } from '@vacp/debug-ui/ui/components/ui/card';
 
 import type { VacpDebugModuleProps } from './module-types';
@@ -84,9 +85,12 @@ function buildInspectorJson(runtime: VacpRuntimeSnapshot, sel: SelectedGraphItem
 }
 
 export function GraphModule(props: VacpDebugModuleProps): ReactElement {
+  const rootRef = useRef<HTMLDivElement | null>(null);
+  const rootSize = useElementSize(rootRef);
   const includeActionsDefault = useVacpDebugUiStore((s) => s.includeActionsDefault);
   const inspectOpen = useVacpDebugUiStore((s) => s.graphInspectOpen);
   const setInspectOpen = useVacpDebugUiStore((s) => s.setGraphInspectOpen);
+  const showSideBySide = inspectOpen && rootSize.width >= 900;
   const [options, setOptions] = useState<Required<Pick<VacpDiagramRenderOptions, 'direction' | 'includeActions'>>>({
     direction: 'LR',
     includeActions: includeActionsDefault,
@@ -181,7 +185,11 @@ export function GraphModule(props: VacpDebugModuleProps): ReactElement {
 
   return (
     <div
-      className={['grid h-full min-h-0 gap-3', inspectOpen ? 'lg:grid-cols-[1fr_420px]' : ''].join(' ')}
+      ref={rootRef}
+      className={[
+        'h-full min-h-0 gap-3',
+        showSideBySide ? 'grid grid-cols-[minmax(0,1fr)_minmax(320px,420px)]' : 'flex flex-col',
+      ].join(' ')}
       data-vacp-graph="1"
       data-vacp-direction={options.direction}
     >
@@ -193,7 +201,7 @@ export function GraphModule(props: VacpDebugModuleProps): ReactElement {
               Click nodes to inspect their state. {renderError ? <span className="text-rose-100/80">({renderError})</span> : null}
             </CardDescription>
           </div>
-          <div className="flex shrink-0 items-center gap-2">
+          <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
             <IconButton
               icon={options.direction === 'LR' ? <ArrowLeftRight className="h-4 w-4 text-slate-100/90" /> : <ArrowUpDown className="h-4 w-4 text-slate-100/90" />}
               label="Toggle direction"
@@ -233,7 +241,7 @@ export function GraphModule(props: VacpDebugModuleProps): ReactElement {
       </Card>
 
       {inspectOpen ? (
-        <Card className="flex min-h-0 flex-col">
+        <Card className={['flex min-h-0 flex-col', showSideBySide ? '' : 'max-h-[320px]'].join(' ')}>
           <CardHeader>
             <div className="min-w-0">
               <CardTitle>Inspect</CardTitle>

@@ -1,11 +1,12 @@
 import type { VacpActionCall, VacpRef } from '@vacp/core';
 import { Braces, ClipboardCopy, Eraser, Play } from 'lucide-react';
 import type { ReactElement } from 'react';
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 
 import { VACP_APPLY_STATE_ACTION } from '@vacp/core';
 
 import { IconButton } from '@vacp/debug-ui/overlay/icon-button';
+import { useElementSize } from '@vacp/debug-ui/overlay/hooks/use-element-size';
 import { Card, CardDescription, CardHeader, CardTitle } from '@vacp/debug-ui/ui/components/ui/card';
 import { Textarea } from '@vacp/debug-ui/ui/components/ui/textarea';
 
@@ -26,6 +27,9 @@ function parseJson(text: string): unknown {
 }
 
 export function JsonModule(props: VacpDebugModuleProps): ReactElement {
+  const rootRef = useRef<HTMLDivElement | null>(null);
+  const rootSize = useElementSize(rootRef);
+  const showTwoCols = rootSize.width >= 980;
   const snapshotText = useMemo(() => safeJson(props.runtime.currentState), [props.runtime.currentState]);
   const [overrideText, setOverrideText] = useState<string>(() => safeJson(props.runtime.currentState.state));
   const [status, setStatus] = useState<string>('');
@@ -101,7 +105,7 @@ export function JsonModule(props: VacpDebugModuleProps): ReactElement {
   };
 
   return (
-    <div className="grid h-full min-h-0 gap-3 lg:grid-cols-2">
+    <div ref={rootRef} className={['grid h-full min-h-0 gap-3', showTwoCols ? 'grid-cols-2' : ''].join(' ')}>
       <Card className="flex min-h-0 flex-col">
         <CardHeader>
           <div className="min-w-0">

@@ -1,10 +1,11 @@
 import type { VacpHistoryEntry } from '@vacp/core';
 import { Bot, Cpu, PanelRightClose, PanelRightOpen, Redo2, Undo2, User, Wrench } from 'lucide-react';
 import type { ReactElement } from 'react';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { IconButton } from '@vacp/debug-ui/overlay/icon-button';
 import { useVacpDebugUiStore } from '@vacp/debug-ui/overlay/debug-store';
+import { useElementSize } from '@vacp/debug-ui/overlay/hooks/use-element-size';
 import { Card, CardDescription, CardHeader, CardTitle } from '@vacp/debug-ui/ui/components/ui/card';
 
 import type { VacpDebugModuleProps } from './module-types';
@@ -87,6 +88,10 @@ export function HistoryModule(props: VacpDebugModuleProps): ReactElement {
   const selected = useMemo(() => history.find((h) => h.id === selectedId) ?? null, [history, selectedId]);
   const detailsOpen = useVacpDebugUiStore((s) => s.historyDetailsOpen);
   const setDetailsOpen = useVacpDebugUiStore((s) => s.setHistoryDetailsOpen);
+  const rootRef = useRef<HTMLDivElement | null>(null);
+  const rootSize = useElementSize(rootRef);
+  const showSideBySide = detailsOpen && rootSize.width >= 900;
+  const stackLegend = rootSize.width < 640;
 
   const setCursor = (cursor: number) => props.bridge.setCursor?.(cursor, { source: 'debug', message: `cursor=${cursor}` });
   const undo = () => props.bridge.undo?.({ source: 'debug', message: 'undo' });
@@ -121,31 +126,45 @@ export function HistoryModule(props: VacpDebugModuleProps): ReactElement {
   };
 
   return (
-    <div className={['grid h-full min-h-0 gap-3', detailsOpen ? 'lg:grid-cols-[1fr_420px]' : ''].join(' ')}>
+    <div
+      ref={rootRef}
+      className={[
+        'h-full min-h-0 gap-3',
+        showSideBySide ? 'grid grid-cols-[minmax(0,1fr)_minmax(320px,420px)]' : 'flex flex-col',
+      ].join(' ')}
+    >
       <Card className="flex min-h-0 flex-col">
-        <CardHeader>
-          <div className="min-w-0">
+        <CardHeader className="items-start">
+          <div className="min-w-0 flex-1">
             <CardTitle>History</CardTitle>
             <CardDescription>Toggle the Mode button (top bar) to Inspect, then click an entry to move the cursor.</CardDescription>
-          </div>
-          <div className="mt-2 flex flex-wrap items-center gap-2.5 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-[11px] text-slate-100/80">
-            <span className="inline-flex items-center rounded-md border border-white/10 bg-black/20 px-2 py-1 font-medium text-slate-100/80">
-              Sources
-            </span>
-            {(['human', 'agent', 'debug', 'system'] as const).map((source) => {
-              const info = roleInfo(source as any);
-              return (
-                <span
-                  key={source}
-                  className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-black/20 px-2.5 py-1.5 leading-none"
-                  title={info.description}
-                >
-                  <span className={`h-2 w-2 rounded-full ${info.dotClass}`} aria-hidden="true" />
-                  {info.icon}
-                  <span className="font-medium text-slate-100/80">{info.label}</span>
-                </span>
-              );
-            })}
+            <div
+              className={[
+                'mt-2 gap-2.5 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-[11px] text-slate-100/80',
+                stackLegend ? 'flex flex-col items-stretch' : 'flex flex-wrap items-center',
+              ].join(' ')}
+            >
+              <span className="inline-flex items-center rounded-md border border-white/10 bg-black/20 px-2 py-1 font-medium text-slate-100/80">
+                Sources
+              </span>
+              {(['human', 'agent', 'debug', 'system'] as const).map((source) => {
+                const info = roleInfo(source as any);
+                return (
+                  <span
+                    key={source}
+                    className={[
+                      'inline-flex items-center gap-2 rounded-full border border-white/10 bg-black/20 px-2.5 py-1.5 leading-none',
+                      stackLegend ? 'w-full' : '',
+                    ].join(' ')}
+                    title={info.description}
+                  >
+                    <span className={`h-2 w-2 rounded-full ${info.dotClass}`} aria-hidden="true" />
+                    {info.icon}
+                    <span className="font-medium text-slate-100/80">{info.label}</span>
+                  </span>
+                );
+              })}
+            </div>
           </div>
           <div className="flex shrink-0 items-center gap-2">
             <IconButton icon={<Undo2 className="h-4 w-4 text-slate-100/90" />} label="Undo" title="Undo." disabled={!canUndo} onClick={() => undo()} />
@@ -217,7 +236,7 @@ export function HistoryModule(props: VacpDebugModuleProps): ReactElement {
       </Card>
 
       {detailsOpen ? (
-        <Card className="flex min-h-0 flex-col">
+        <Card className={['flex min-h-0 flex-col', showSideBySide ? '' : 'max-h-[280px]'].join(' ')}>
           <CardHeader>
             <div className="min-w-0">
               <CardTitle>Details</CardTitle>

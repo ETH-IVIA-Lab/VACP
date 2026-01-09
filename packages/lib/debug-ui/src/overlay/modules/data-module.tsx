@@ -7,6 +7,7 @@ import { VACP_DATA_SQL_ACTION } from '@vacp/core';
 
 import { IconButton } from '@vacp/debug-ui/overlay/icon-button';
 import { useVacpDebugUiStore } from '@vacp/debug-ui/overlay/debug-store';
+import { useElementSize } from '@vacp/debug-ui/overlay/hooks/use-element-size';
 import { Card, CardDescription, CardHeader, CardTitle } from '@vacp/debug-ui/ui/components/ui/card';
 import { Textarea } from '@vacp/debug-ui/ui/components/ui/textarea';
 
@@ -47,6 +48,9 @@ function shortRef(ref: VacpRef): string {
 }
 
 export function DataModule(props: VacpDebugModuleProps): ReactElement {
+  const rootRef = useRef<HTMLDivElement | null>(null);
+  const rootSize = useElementSize(rootRef);
+  const showHandleSide = rootSize.width >= 640;
   const inlineCodeClass =
     'rounded-md border border-white/10 bg-slate-900/70 px-1.5 py-0.5 text-[11px] font-medium text-slate-100 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.02)]';
   const selectClass =
@@ -234,7 +238,7 @@ export function DataModule(props: VacpDebugModuleProps): ReactElement {
   })();
 
   return (
-    <div className="grid h-full min-h-0 grid-rows-[auto_minmax(0,1fr)] gap-3">
+    <div ref={rootRef} className="grid h-full min-h-0 grid-rows-[auto_minmax(0,1fr)] gap-3">
       <Card className="flex flex-col gap-3">
         <CardHeader>
           <div className="min-w-0">
@@ -269,7 +273,7 @@ export function DataModule(props: VacpDebugModuleProps): ReactElement {
           </div>
         </CardHeader>
 
-        <div className="grid gap-3 md:grid-cols-[1fr_220px]">
+        <div className={['grid gap-3', showHandleSide ? 'grid-cols-[1fr_220px]' : ''].join(' ')}>
           <div>
             <label className="text-[11px] font-medium text-slate-100/70" htmlFor="vacp-sql">
               SQL

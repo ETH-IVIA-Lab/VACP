@@ -1,9 +1,10 @@
 import type { VacpActionCall, VacpActionDescriptor, VacpActionResult } from '@vacp/core';
 import { ClipboardCopy, Play, RefreshCw } from 'lucide-react';
 import type { ReactElement } from 'react';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { IconButton } from '@vacp/debug-ui/overlay/icon-button';
+import { useElementSize } from '@vacp/debug-ui/overlay/hooks/use-element-size';
 import { Card, CardDescription, CardHeader, CardTitle } from '@vacp/debug-ui/ui/components/ui/card';
 import { Input } from '@vacp/debug-ui/ui/components/ui/input';
 import { Textarea } from '@vacp/debug-ui/ui/components/ui/textarea';
@@ -25,6 +26,9 @@ function parseJson(text: string): unknown {
 }
 
 export function ActionsModule(props: VacpDebugModuleProps): ReactElement {
+  const rootRef = useRef<HTMLDivElement | null>(null);
+  const rootSize = useElementSize(rootRef);
+  const showTwoCols = rootSize.width >= 980;
   const actions = props.runtime.currentCapabilities.graph.actions ?? [];
   const [filter, setFilter] = useState('');
   const filtered = useMemo(() => {
@@ -110,7 +114,7 @@ export function ActionsModule(props: VacpDebugModuleProps): ReactElement {
   };
 
   return (
-    <div className="grid h-full min-h-0 gap-3 lg:grid-cols-2">
+    <div ref={rootRef} className={['grid h-full min-h-0 gap-3', showTwoCols ? 'grid-cols-2' : ''].join(' ')}>
       <Card className="flex min-h-0 flex-col">
         <CardHeader>
           <div className="min-w-0">
