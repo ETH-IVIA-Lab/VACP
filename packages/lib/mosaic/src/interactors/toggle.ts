@@ -1,6 +1,7 @@
 import type { VacpActionCall } from '@vacp/core';
 
 import type { VgplotPlotLike } from '../types';
+import { awaitPlotUpdate } from './plot-update';
 
 export async function executeToggleAction(plot: VgplotPlotLike, call: VacpActionCall): Promise<unknown> {
   const params = (call.params ?? {}) as Record<string, unknown>;
@@ -16,9 +17,11 @@ export async function executeToggleAction(plot: VgplotPlotLike, call: VacpAction
     if (typeof anyI.selection?.update === 'function' && typeof anyI.clause === 'function') {
       anyI.value = null;
       anyI.selection.update(anyI.clause(null));
+      await awaitPlotUpdate(plot);
       return { cleared: true };
     }
     anyI.value = null;
+    await awaitPlotUpdate(plot);
     return { cleared: true, warning: 'toggle selection.update/clause not available' };
   }
 
@@ -37,8 +40,10 @@ export async function executeToggleAction(plot: VgplotPlotLike, call: VacpAction
     anyI.value = points;
     if (typeof anyI.selection?.update === 'function' && typeof anyI.clause === 'function') {
       anyI.selection.update(anyI.clause(points));
+      await awaitPlotUpdate(plot);
       return { set: true };
     }
+    await awaitPlotUpdate(plot);
     return { set: true, warning: 'toggle selection.update/clause not available' };
   }
 

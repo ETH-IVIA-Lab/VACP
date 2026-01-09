@@ -1,6 +1,7 @@
 import type { VacpActionCall } from '@vacp/core';
 
 import type { VgplotPlotLike } from '../types';
+import { awaitPlotUpdate } from './plot-update';
 
 type DomainValue = number | Date;
 
@@ -38,26 +39,34 @@ export async function executeIntervalAction(plot: VgplotPlotLike, call: VacpActi
   if (call.name === 'mosaic.clear_interval_1d' && ctorName === 'Interval1D') {
     if (typeof anyI.publish === 'function') anyI.publish(null);
     else anyI.value = undefined;
+    await awaitPlotUpdate(plot);
     return { cleared: true };
   }
 
   if (call.name === 'mosaic.clear_interval_2d' && ctorName === 'Interval2D') {
     if (typeof anyI.publish === 'function') anyI.publish(null);
     else anyI.value = undefined;
+    await awaitPlotUpdate(plot);
     return { cleared: true };
   }
 
   if (call.name === 'mosaic.set_interval_1d' && ctorName === 'Interval1D') {
     const min = parseDomainValue(params.min);
     const max = parseDomainValue(params.max);
-    anyI.value = [min, max];
-    if (anyI.g && anyI.brush && anyI.scale) {
-      const px = [min, max].map((v: DomainValue) => anyI.scale.apply(v));
-      anyI.g.call(anyI.brush.moveSilent, px);
+    if (typeof anyI.publish === 'function') {
+      anyI.publish([min, max]);
+    } else {
+      anyI.value = [min, max];
+      if (anyI.g && anyI.brush && anyI.scale) {
+        const px = [min, max].map((v: DomainValue) => anyI.scale.apply(v));
+        anyI.g.call(anyI.brush.moveSilent, px);
+      }
+      if (typeof anyI.selection?.update === 'function' && typeof anyI.clause === 'function') {
+        anyI.selection.update(anyI.clause([min, max]));
+      }
     }
-    if (typeof anyI.selection?.update === 'function' && typeof anyI.clause === 'function') {
-      anyI.selection.update(anyI.clause([min, max]));
-    }
+    // Ensure Mosaic cross-filters re-run (matching the effect of human brushing).
+    await awaitPlotUpdate(plot);
     return { set: true };
   }
 
@@ -66,21 +75,27 @@ export async function executeIntervalAction(plot: VgplotPlotLike, call: VacpActi
     const x1 = parseDomainValue(params.x1);
     const y0 = parseDomainValue(params.y0);
     const y1 = parseDomainValue(params.y1);
-    anyI.value = [
+    const value = [
       [x0, x1],
       [y0, y1],
     ];
-    if (anyI.g && anyI.brush && anyI.xscale && anyI.yscale) {
-      const px = [x0, x1].map((v: DomainValue) => anyI.xscale.apply(v));
-      const py = [y0, y1].map((v: DomainValue) => anyI.yscale.apply(v));
-      anyI.g.call(anyI.brush.moveSilent, [
-        [Math.min(...px), Math.min(...py)],
-        [Math.max(...px), Math.max(...py)],
-      ]);
+    if (typeof anyI.publish === 'function') {
+      anyI.publish(value);
+    } else {
+      anyI.value = value;
+      if (anyI.g && anyI.brush && anyI.xscale && anyI.yscale) {
+        const px = [x0, x1].map((v: DomainValue) => anyI.xscale.apply(v));
+        const py = [y0, y1].map((v: DomainValue) => anyI.yscale.apply(v));
+        anyI.g.call(anyI.brush.moveSilent, [
+          [Math.min(...px), Math.min(...py)],
+          [Math.max(...px), Math.max(...py)],
+        ]);
+      }
+      if (typeof anyI.selection?.update === 'function' && typeof anyI.clause === 'function') {
+        anyI.selection.update(anyI.clause(anyI.value));
+      }
     }
-    if (typeof anyI.selection?.update === 'function' && typeof anyI.clause === 'function') {
-      anyI.selection.update(anyI.clause(anyI.value));
-    }
+    await awaitPlotUpdate(plot);
     return { set: true };
   }
 

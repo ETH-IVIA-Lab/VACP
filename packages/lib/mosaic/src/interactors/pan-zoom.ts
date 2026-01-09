@@ -1,6 +1,7 @@
 import type { VacpActionCall } from '@vacp/core';
 
 import type { VgplotPlotLike } from '../types';
+import { awaitPlotUpdate } from './plot-update';
 
 type PanZoomInteractor = {
   constructor?: { name?: string };
@@ -49,6 +50,7 @@ export async function executePanZoomAction(plot: VgplotPlotLike, call: VacpActio
     // Best-effort: clear both domains.
     setAxis('x', null);
     setAxis('y', null);
+    await awaitPlotUpdate(plot);
     return { cleared: true };
   }
 
@@ -69,9 +71,9 @@ export async function executePanZoomAction(plot: VgplotPlotLike, call: VacpActio
       if (!Number.isFinite(a) || !Number.isFinite(b)) throw new Error('Expected numeric y0/y1');
       setAxis('y', [a, b]);
     }
+    await awaitPlotUpdate(plot);
     return { set: true };
   }
 
   throw new Error(`Unsupported pan/zoom action: ${call.name}`);
 }
-

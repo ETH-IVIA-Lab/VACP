@@ -1,6 +1,7 @@
 import type { VacpActionCall } from '@vacp/core';
 
 import type { VgplotPlotLike } from '../types';
+import { awaitPlotUpdate } from './plot-update';
 
 function normalizeNearestValue(raw: unknown): unknown[] | null {
   if (raw === null || raw === undefined) return null;
@@ -33,6 +34,7 @@ export async function executeNearestAction(plot: VgplotPlotLike, call: VacpActio
   if (call.name === 'mosaic.clear_nearest') {
     anyI.value = null;
     anyI.selection.update(anyI.clause(null));
+    await awaitPlotUpdate(plot);
     return { cleared: true };
   }
 
@@ -40,9 +42,9 @@ export async function executeNearestAction(plot: VgplotPlotLike, call: VacpActio
     const value = normalizeNearestValue(params.value);
     anyI.value = value;
     anyI.selection.update(anyI.clause(value));
+    await awaitPlotUpdate(plot);
     return { set: true };
   }
 
   throw new Error(`Unsupported nearest action: ${call.name}`);
 }
-
