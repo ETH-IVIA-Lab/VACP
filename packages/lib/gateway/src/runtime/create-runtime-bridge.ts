@@ -10,7 +10,7 @@ import type {
   VacpRuntimeSnapshot,
   VacpStateSnapshot,
 } from '@vacp/core';
-import { nowIso, VACP_SCHEMA_VERSION } from '@vacp/core';
+import { nowIso, VACP_APPLY_STATE_ACTION, VACP_SCHEMA_VERSION } from '@vacp/core';
 import { VacpActionRegistry } from '../action-registry';
 import { createStateObserver } from './observer';
 import type { VacpSnapshotProvider } from './types';
@@ -48,6 +48,10 @@ export function createRuntimeBridge(args: {
   // Inspection-only overrides (do not affect live app state).
   let graphOverride: VacpCapabilitiesSnapshot | null = null;
   let stateOverride: VacpStateSnapshot | null = null;
+
+  // When replaying time travel onto the host app, suppress observer-driven
+  // snapshot recording so the timeline doesn't get polluted.
+  let suppressObserverRecording = 0;
 
   const emitRuntimeChange = (options?: { source?: VacpChangeSource; message?: string }): void => {
     notify(listeners, {
@@ -92,11 +96,30 @@ export function createRuntimeBridge(args: {
     return entry ? (stateFromEntry(entry) ?? liveState) : liveState;
   };
 
+  const replayCursorToApp = async (): Promise<void> => {
+    if (mode !== 'inspect') return;
+    if (!adapter.actions.list().some((x) => x.name === VACP_APPLY_STATE_ACTION)) return;
+    const idx = cursor >= 0 ? cursor : history.length - 1;
+    const entry = idx >= 0 ? history[idx] : undefined;
+    const st = entry ? stateFromEntry(entry) : undefined;
+    if (!st) return;
+
+    suppressObserverRecording += 1;
+    try {
+      const call: VacpActionCall = { callId: makeEntryId(), name: VACP_APPLY_STATE_ACTION, params: { state: st.state } };
+      await adapter.actions.execute(call);
+      await ensureLive();
+    } finally {
+      suppressObserverRecording = Math.max(0, suppressObserverRecording - 1);
+    }
+  };
+
   const { recordIfStateChanged, startObserving, stopObserving } = createStateObserver({
     getState: () => adapter.snapshots.getState(),
     getLive: () => ({ capabilities: liveCapabilities, state: liveState }),
     ensureLive,
     record,
+    shouldRecord: () => suppressObserverRecording === 0,
   });
 
   const setMode = (next: VacpRuntimeMode, options?: { source?: VacpChangeSource; message?: string }): void => {
@@ -104,12 +127,14 @@ export function createRuntimeBridge(args: {
     if (mode === 'live') cursor = history.length - 1;
     else if (cursor < 0) cursor = history.length - 1;
     emitRuntimeChange(options);
+    if (mode === 'inspect') void replayCursorToApp();
   };
 
   const setCursor = (nextCursor: number, options?: { source?: VacpChangeSource; message?: string }): void => {
     cursor = Math.max(-1, Math.min(nextCursor, history.length - 1));
     mode = 'inspect';
     emitRuntimeChange(options);
+    void replayCursorToApp();
   };
 
   const undo = (options?: { source?: VacpChangeSource; message?: string }): void => {
@@ -118,6 +143,7 @@ export function createRuntimeBridge(args: {
     cursor = prev;
     mode = 'inspect';
     emitRuntimeChange(options);
+    void replayCursorToApp();
   };
 
   const redo = (options?: { source?: VacpChangeSource; message?: string }): void => {
@@ -126,6 +152,7 @@ export function createRuntimeBridge(args: {
     cursor = next;
     mode = 'inspect';
     emitRuntimeChange(options);
+    void replayCursorToApp();
   };
 
   const setStateOverrideMap = (

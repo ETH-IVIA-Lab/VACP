@@ -28,8 +28,10 @@ export function createStateObserver(args: {
   getLive: () => { capabilities: VacpCapabilitiesSnapshot | null; state: VacpStateSnapshot | null };
   ensureLive: () => Promise<void>;
   record: (entry: VacpHistoryEntry) => void;
+  shouldRecord?: () => boolean;
 }) {
   const { getState, getLive, ensureLive, record } = args;
+  const shouldRecord = args.shouldRecord ?? (() => true);
 
   let observeTimer: number | null = null;
   let lastObservedHash: string | null = null;
@@ -51,6 +53,7 @@ export function createStateObserver(args: {
       }
       if (hash === lastRecordedStateHash) return;
       lastRecordedStateHash = hash;
+      if (!shouldRecord()) return;
       record({
         id: makeEntryId(),
         at: nowIso(),
@@ -75,6 +78,7 @@ export function createStateObserver(args: {
       }
       if (hash === lastObservedHash) return;
       lastObservedHash = hash;
+      if (!shouldRecord()) return;
       await ensureLive();
       const { capabilities, state } = getLive();
       record({
