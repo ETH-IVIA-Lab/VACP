@@ -86,7 +86,7 @@ function buildInspectorJson(runtime: VacpRuntimeSnapshot, sel: SelectedGraphItem
 export function GraphModule(props: VacpDebugModuleProps): ReactElement {
   const includeActionsDefault = useVacpDebugUiStore((s) => s.includeActionsDefault);
   const [options, setOptions] = useState<Required<Pick<VacpDiagramRenderOptions, 'direction' | 'includeActions'>>>({
-    direction: 'TB',
+    direction: 'LR',
     includeActions: includeActionsDefault,
   });
   const [selected, setSelected] = useState<SelectedGraphItem>(null);
@@ -178,7 +178,7 @@ export function GraphModule(props: VacpDebugModuleProps): ReactElement {
   };
 
   return (
-    <div className="grid h-full min-h-0 gap-3 lg:grid-cols-[1fr_420px]" data-vacp-graph="1">
+    <div className="grid h-full min-h-0 gap-3 lg:grid-cols-[1fr_420px]" data-vacp-graph="1" data-vacp-direction={options.direction}>
       <Card className="flex min-h-0 flex-col">
         <CardHeader>
           <div className="min-w-0">
