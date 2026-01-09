@@ -1,4 +1,4 @@
-import { Braces, Database, Eye, EyeOff, Frame, GitGraph, History, Info, ListOrdered, Maximize2, Minimize2, X, Zap } from 'lucide-react';
+import { Braces, Database, Eye, EyeOff, Frame, GitGraph, History, ListOrdered, Maximize2, Minimize2, X, Zap } from 'lucide-react';
 import type { ReactElement } from 'react';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 
@@ -306,13 +306,6 @@ export function VacpDebugUiApp(props: { globalKey: string; includeActions: boole
           <button
             type="button"
             className="rounded-md border border-amber-300/25 bg-amber-500/10 px-2 py-1 text-[11px] font-semibold text-amber-50/85 hover:bg-amber-500/15"
-            onClick={() => bridge.setMode?.('live', { source: 'debug', message: 'mode=live' })}
-          >
-            Return to live
-          </button>
-          <button
-            type="button"
-            className="rounded-md border border-amber-300/25 bg-amber-500/10 px-2 py-1 text-[11px] font-semibold text-amber-50/85 hover:bg-amber-500/15"
             onClick={() => setModuleId('history')}
           >
             Open history
@@ -332,8 +325,28 @@ export function VacpDebugUiApp(props: { globalKey: string; includeActions: boole
       <div className="mt-2 font-semibold text-slate-100/90">Inspect (time travel)</div>
       <div>Panels show the state at the history cursor. The host app remains live; actions still run on the live app.</div>
       <div className="mt-2">Use the History module to move the cursor and replay/inspect past snapshots.</div>
+      <div className="mt-2">Tip: if you want to see an action’s effects, switch back to Live.</div>
     </div>
   );
+
+  const modeToggle = useMemo(() => {
+    const rt = runtimeQuery.data;
+    const bridge = bridgeQuery.data ?? null;
+    if (!rt || !bridge) return null;
+    const inspect = rt.mode === 'inspect';
+    return (
+      <IconButton
+        icon={inspect ? <EyeOff className="h-4 w-4 text-slate-100/90" /> : <Eye className="h-4 w-4 text-slate-100/90" />}
+        label="Toggle live/inspect mode"
+        title={modeHelp}
+        pressed={inspect}
+        onClick={() => {
+          const next = inspect ? 'live' : 'inspect';
+          bridge.setMode?.(next, { source: 'debug', message: `mode=${next}` });
+        }}
+      />
+    );
+  }, [bridgeQuery.data, modeHelp, runtimeQuery.data]);
 
   const dotClass =
     bridgeStatus === 'ok'
@@ -376,34 +389,7 @@ export function VacpDebugUiApp(props: { globalKey: string; includeActions: boole
         >
           <div className="vacp-debug-ui-title min-w-0 flex-1 truncate text-xs text-slate-100/90">{title}</div>
           <div className="flex items-center gap-2">
-            {bridgeQuery.data && runtimeQuery.data ? (
-              <>
-                <IconButton
-                  icon={<Eye className="h-4 w-4 text-slate-100/90" />}
-                  label="Live"
-                  title="Live mode: follow latest snapshots."
-                  pressed={runtimeQuery.data.mode === 'live'}
-                  onClick={() => {
-                    bridgeQuery.data?.setMode?.('live', { source: 'debug', message: 'mode=live' });
-                  }}
-                />
-                <IconButton
-                  icon={<EyeOff className="h-4 w-4 text-slate-100/90" />}
-                  label="Inspect"
-                  title="Inspect mode: time travel via the history cursor."
-                  pressed={runtimeQuery.data.mode === 'inspect'}
-                  onClick={() => {
-                    bridgeQuery.data?.setMode?.('inspect', { source: 'debug', message: 'mode=inspect' });
-                  }}
-                />
-                <IconButton
-                  icon={<Info className="h-4 w-4 text-slate-100/90" />}
-                  label="Mode help"
-                  title={modeHelp}
-                  onClick={() => setModuleId('history')}
-                />
-              </>
-            ) : null}
+            {modeToggle}
             <IconButton
               icon={
                 maximized ? (
