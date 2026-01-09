@@ -29,7 +29,7 @@ export function installVacp(args: {
       title: args.entry.meta.title,
       globalKey: args.globalKey,
       includeSetSignalAction: false,
-      playbooks: buildVegaLitePlaybooks({ id: args.entry.id }),
+      playbooks: buildVegaLitePlaybooks({ id: args.entry.id, meta: args.entry.meta }),
     },
   });
 }
