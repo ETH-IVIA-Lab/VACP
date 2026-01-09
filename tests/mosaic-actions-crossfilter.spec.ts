@@ -46,6 +46,16 @@ test('mosaic: set_interval_1d triggers downstream crossfilters (Seattle Weather)
     }, { callId });
     expect(res?.ok).toBeTruthy();
 
+    // Ensure the brush rect renders (visual parity with human brushing).
+    await page.waitForFunction(() => {
+      const app = document.querySelector('#app');
+      const svg = app?.querySelector('svg');
+      const r = svg?.querySelector('rect.selection') as SVGRectElement | null;
+      if (!r) return false;
+      const b = r.getBBox();
+      return b.width > 1 && b.height > 1;
+    });
+
     await page.waitForFunction(
       ({ before }) => {
         const root = document.querySelector('#app');
@@ -67,4 +77,3 @@ test('mosaic: set_interval_1d triggers downstream crossfilters (Seattle Weather)
     await srv.stop();
   }
 });
-
