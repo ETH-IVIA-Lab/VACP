@@ -200,7 +200,7 @@ TypeScript (pnpm):
 - `@vacp/kit`: small helpers for “bring-your-own-provider” integrations (used by vanilla/D3 examples).
 - `@vacp/diagrams`: Mermaid source generation for graphs.
 - `@vacp/debug-ui`: in-page overlay that inspects `window.__vacp`.
-- `@vacp/mosaic`: provider for Mosaic/vgplot.
+- `@vacp/vgplot`: provider for Mosaic/vgplot.
 - `@vacp/vega-lite`: provider for Vega-Lite/Vega views.
 
 Python (uv):

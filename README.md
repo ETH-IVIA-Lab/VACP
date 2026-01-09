@@ -18,7 +18,7 @@ Instead of clicking pixels, an agent calls `window.__vacp.execute({ name, params
 
 - **Protocol + runtime (TypeScript)**: the in-app contract and history/time travel support (`packages/lib/*`).
 - **Providers (TypeScript)**: first-class integrations for specific visualization stacks:
-  - Mosaic/vgplot (`@vacp/mosaic`)
+  - Mosaic/vgplot (`@vacp/vgplot`)
   - Vega-Lite/Vega params (`@vacp/vega-lite`)
   - a small “BYO provider” kit (`@vacp/kit`) used by the frameworkless examples
 - **Transport (Python)**: `vacp-mcp-server` (Playwright + MCP), which lets an agent reach `window.__vacp`.
