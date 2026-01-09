@@ -1,5 +1,5 @@
-import type { VacpHistoryEntry, VacpRuntimeMode } from '@vacp/core';
-import { Eye, EyeOff, PanelRightClose, PanelRightOpen, Redo2, Rewind, Undo2 } from 'lucide-react';
+import type { VacpHistoryEntry } from '@vacp/core';
+import { PanelRightClose, PanelRightOpen, Redo2, Undo2 } from 'lucide-react';
 import type { ReactElement } from 'react';
 import { useEffect, useMemo, useState } from 'react';
 
@@ -56,7 +56,6 @@ export function HistoryModule(props: VacpDebugModuleProps): ReactElement {
   const detailsOpen = useVacpDebugUiStore((s) => s.historyDetailsOpen);
   const setDetailsOpen = useVacpDebugUiStore((s) => s.setHistoryDetailsOpen);
 
-  const setMode = (mode: VacpRuntimeMode) => props.bridge.setMode?.(mode, { source: 'debug', message: `mode=${mode}` });
   const setCursor = (cursor: number) => props.bridge.setCursor?.(cursor, { source: 'debug', message: `cursor=${cursor}` });
   const undo = () => props.bridge.undo?.({ source: 'debug', message: 'undo' });
   const redo = () => props.bridge.redo?.({ source: 'debug', message: 'redo' });
@@ -79,23 +78,25 @@ export function HistoryModule(props: VacpDebugModuleProps): ReactElement {
   const canUndo = findPrevIndexWithState(history, cursorIdx - 1) !== null;
   const canRedo = findNextIndexWithState(history, cursorIdx + 1) !== null;
 
+  const cursorTargetForIndex = (idx: number): number | null => {
+    if (idx < 0 || idx >= history.length) return null;
+    if (stateFromEntry(history[idx])) return idx;
+    const prev = findPrevIndexWithState(history, idx);
+    if (prev !== null) return prev;
+    const next = findNextIndexWithState(history, idx);
+    if (next !== null) return next;
+    return null;
+  };
+
   return (
     <div className={['grid h-full min-h-0 gap-3', detailsOpen ? 'lg:grid-cols-[1fr_420px]' : ''].join(' ')}>
       <Card className="flex min-h-0 flex-col">
         <CardHeader>
           <div className="min-w-0">
             <CardTitle>History</CardTitle>
-            <CardDescription>Inspect snapshots and action results. Switch to inspect mode to time travel.</CardDescription>
+            <CardDescription>Toggle the Mode button (top bar) to Inspect, then click an entry to move the cursor.</CardDescription>
           </div>
           <div className="flex shrink-0 items-center gap-2">
-            <IconButton icon={<Eye className="h-4 w-4 text-slate-100/90" />} label="Live" title="Switch to live mode." pressed={props.runtime.mode === 'live'} onClick={() => setMode('live')} />
-            <IconButton
-              icon={<EyeOff className="h-4 w-4 text-slate-100/90" />}
-              label="Inspect"
-              title="Switch to inspect mode (time travel)."
-              pressed={props.runtime.mode === 'inspect'}
-              onClick={() => setMode('inspect')}
-            />
             <IconButton icon={<Undo2 className="h-4 w-4 text-slate-100/90" />} label="Undo" title="Undo." disabled={!canUndo} onClick={() => undo()} />
             <IconButton icon={<Redo2 className="h-4 w-4 text-slate-100/90" />} label="Redo" title="Redo." disabled={!canRedo} onClick={() => redo()} />
             <IconButton
@@ -113,6 +114,7 @@ export function HistoryModule(props: VacpDebugModuleProps): ReactElement {
             {history.map((h, i) => {
               const active = h.id === selectedId;
               const isCursor = props.runtime.mode === 'inspect' && i === cursorIdx;
+              const hasState = Boolean(stateFromEntry(h));
               return (
                 <div
                   key={h.id}
@@ -123,9 +125,15 @@ export function HistoryModule(props: VacpDebugModuleProps): ReactElement {
                   ].join(' ')}
                   aria-selected={active ? 'true' : 'false'}
                   data-role={h.source}
+                  data-vacp-row="history-entry"
+                  data-index={i}
+                  data-has-state={hasState ? 'true' : 'false'}
                   onClick={() => {
                     setSelectedId(h.id);
-                    setCursor(i);
+                    if (props.runtime.mode !== 'inspect') return;
+                    const target = cursorTargetForIndex(i);
+                    if (target === null) return;
+                    setCursor(target);
                   }}
                 >
                   <div className="flex items-center gap-2">
@@ -137,18 +145,12 @@ export function HistoryModule(props: VacpDebugModuleProps): ReactElement {
                         cursor
                       </span>
                     ) : null}
+                    {!hasState ? (
+                      <span className="rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-[10px] font-semibold text-slate-100/60">
+                        event
+                      </span>
+                    ) : null}
                     <div className="flex-1" />
-                    <IconButton
-                      icon={<Rewind className="h-4 w-4 text-slate-100/90" />}
-                      label="Rewind to here"
-                      title="Set the cursor to this entry (inspect mode)."
-                      onMouseDown={(ev) => ev.preventDefault()}
-                      onClick={() => {
-                        setMode('inspect');
-                        setCursor(i);
-                        setSelectedId(h.id);
-                      }}
-                    />
                   </div>
                   {h.message ? <div className="mt-2 text-[11px] text-slate-100/70">{h.message}</div> : null}
                 </div>
