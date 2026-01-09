@@ -1,8 +1,8 @@
-# @vacp/mosaic
+# @vacp/vgplot
 
-First-class VACP integration for Mosaic/vgplot.
+First-class VACP integration for vgplot (Mosaic runtime).
 
-This package is the “provider” layer for Mosaic:
+This package is the “provider” layer for vgplot:
 
 - it builds a VACP graph from vgplot’s semantic runtime (interactors, linked views),
 - it exposes selection state through `window.__vacp`,
@@ -13,7 +13,7 @@ This package is the “provider” layer for Mosaic:
 After `Plot.plot(...)` (or vgplot) produces an `SVGElement`, install VACP:
 
 ```ts
-import { installVacpOnVgplot } from '@vacp/mosaic';
+import { installVacpOnVgplot } from '@vacp/vgplot';
 
 // plot: vgplot Plot-like instance, svg: SVGElement output
 installVacpOnVgplot(plot, svg, {
@@ -29,7 +29,7 @@ installVacpOnVgplot(plot, svg, {
 If your view renders multiple `.plot` blocks, install once at the view root:
 
 ```ts
-import { installVacpOnVgplotDashboard } from '@vacp/mosaic';
+import { installVacpOnVgplotDashboard } from '@vacp/vgplot';
 
 installVacpOnVgplotDashboard({
   root: viewRoot,

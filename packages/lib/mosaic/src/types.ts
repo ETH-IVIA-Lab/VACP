@@ -12,7 +12,7 @@ import type { VacpPlaybook } from '@vacp/core';
 
 /**
  * Minimal structural types for vgplot Plot/Mark/Interactor objects.
- * This keeps `@vacp/mosaic` usable even if Mosaic types are not installed.
+ * This keeps `@vacp/vgplot` usable even if Mosaic types are not installed.
  */
 export interface VgplotMarkLike {
   type?: string;
