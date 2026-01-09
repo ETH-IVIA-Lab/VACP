@@ -49,6 +49,16 @@ export function createRuntimeBridge(args: {
   let graphOverride: VacpCapabilitiesSnapshot | null = null;
   let stateOverride: VacpStateSnapshot | null = null;
 
+  const emitRuntimeChange = (options?: { source?: VacpChangeSource; message?: string }): void => {
+    notify(listeners, {
+      id: makeEntryId(),
+      at: nowIso(),
+      kind: 'mode',
+      source: entrySource(options?.source),
+      message: entryMessage(options?.message) ?? 'runtime changed',
+    });
+  };
+
   const record = (entry: VacpHistoryEntry): void => {
     history.push(entry);
     notify(listeners, entry);
@@ -93,13 +103,13 @@ export function createRuntimeBridge(args: {
     mode = next;
     if (mode === 'live') cursor = history.length - 1;
     else if (cursor < 0) cursor = history.length - 1;
-    void options;
+    emitRuntimeChange(options);
   };
 
   const setCursor = (nextCursor: number, options?: { source?: VacpChangeSource; message?: string }): void => {
     cursor = Math.max(-1, Math.min(nextCursor, history.length - 1));
     mode = 'inspect';
-    void options;
+    emitRuntimeChange(options);
   };
 
   const undo = (options?: { source?: VacpChangeSource; message?: string }): void => {
@@ -107,7 +117,7 @@ export function createRuntimeBridge(args: {
     if (prev === null) return;
     cursor = prev;
     mode = 'inspect';
-    void options;
+    emitRuntimeChange(options);
   };
 
   const redo = (options?: { source?: VacpChangeSource; message?: string }): void => {
@@ -115,7 +125,7 @@ export function createRuntimeBridge(args: {
     if (next === null) return;
     cursor = next;
     mode = 'inspect';
-    void options;
+    emitRuntimeChange(options);
   };
 
   const setStateOverrideMap = (
@@ -164,7 +174,7 @@ export function createRuntimeBridge(args: {
   const clearOverrides = (options?: { source?: VacpChangeSource; message?: string }): void => {
     graphOverride = null;
     stateOverride = null;
-    void options;
+    emitRuntimeChange(options);
   };
 
   const dispatch = async (
