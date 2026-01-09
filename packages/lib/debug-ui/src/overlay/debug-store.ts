@@ -14,6 +14,14 @@ export type VacpDebugUiState = {
   setOpen: (open: boolean) => void;
   setModuleId: (id: VacpDebugModuleId) => void;
 
+  /** Whether to show secondary (right-hand) detail panes in modules. */
+  graphInspectOpen: boolean;
+  historyDetailsOpen: boolean;
+  playbookDetailsOpen: boolean;
+  setGraphInspectOpen: (open: boolean) => void;
+  setHistoryDetailsOpen: (open: boolean) => void;
+  setPlaybookDetailsOpen: (open: boolean) => void;
+
   /** Debug UI state that should survive tab switches within the overlay. */
   dataGraphSignature: string | null;
   dataSelectedHandleRef: VacpRef | null;
@@ -28,6 +36,30 @@ export type VacpDebugUiState = {
 };
 
 const MODULE_KEY = 'vacp:debug:module';
+const GRAPH_INSPECT_KEY = 'vacp:debug:graphInspectOpen';
+const HISTORY_DETAILS_KEY = 'vacp:debug:historyDetailsOpen';
+const PLAYBOOK_DETAILS_KEY = 'vacp:debug:playbookDetailsOpen';
+
+function readBool(key: string, fallback: boolean): boolean {
+  try {
+    const raw = localStorage.getItem(key);
+    if (raw === null) return fallback;
+    if (raw === 'true') return true;
+    if (raw === 'false') return false;
+    return fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+function saveBool(key: string, value: boolean) {
+  try {
+    localStorage.setItem(key, value ? 'true' : 'false');
+  } catch {
+    // ignore
+  }
+}
+
 const readInitialModule = (): VacpDebugModuleId => {
   try {
     const raw = localStorage.getItem(MODULE_KEY);
@@ -60,6 +92,22 @@ export const useVacpDebugUiStore = create<VacpDebugUiState>((set) => ({
   setModuleId: (id) => {
     saveModule(id);
     set({ moduleId: id });
+  },
+
+  graphInspectOpen: readBool(GRAPH_INSPECT_KEY, true),
+  historyDetailsOpen: readBool(HISTORY_DETAILS_KEY, true),
+  playbookDetailsOpen: readBool(PLAYBOOK_DETAILS_KEY, true),
+  setGraphInspectOpen: (open) => {
+    saveBool(GRAPH_INSPECT_KEY, open);
+    set({ graphInspectOpen: open });
+  },
+  setHistoryDetailsOpen: (open) => {
+    saveBool(HISTORY_DETAILS_KEY, open);
+    set({ historyDetailsOpen: open });
+  },
+  setPlaybookDetailsOpen: (open) => {
+    saveBool(PLAYBOOK_DETAILS_KEY, open);
+    set({ playbookDetailsOpen: open });
   },
 
   dataGraphSignature: null,

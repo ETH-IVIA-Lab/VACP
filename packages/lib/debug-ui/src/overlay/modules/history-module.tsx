@@ -1,9 +1,10 @@
 import type { VacpHistoryEntry, VacpRuntimeMode } from '@vacp/core';
-import { Eye, EyeOff, Redo2, Rewind, Undo2 } from 'lucide-react';
+import { Eye, EyeOff, PanelRightClose, PanelRightOpen, Redo2, Rewind, Undo2 } from 'lucide-react';
 import type { ReactElement } from 'react';
 import { useMemo, useState } from 'react';
 
 import { IconButton } from '@vacp/debug-ui/overlay/icon-button';
+import { useVacpDebugUiStore } from '@vacp/debug-ui/overlay/debug-store';
 import { Card, CardDescription, CardHeader, CardTitle } from '@vacp/debug-ui/ui/components/ui/card';
 
 import type { VacpDebugModuleProps } from './module-types';
@@ -34,6 +35,8 @@ export function HistoryModule(props: VacpDebugModuleProps): ReactElement {
   const history = props.runtime.history ?? [];
   const [selectedId, setSelectedId] = useState<string | null>(history.at(-1)?.id ?? null);
   const selected = useMemo(() => history.find((h) => h.id === selectedId) ?? null, [history, selectedId]);
+  const detailsOpen = useVacpDebugUiStore((s) => s.historyDetailsOpen);
+  const setDetailsOpen = useVacpDebugUiStore((s) => s.setHistoryDetailsOpen);
 
   const setMode = (mode: VacpRuntimeMode) => props.bridge.setMode?.(mode, { source: 'debug', message: `mode=${mode}` });
   const setCursor = (cursor: number) => props.bridge.setCursor?.(cursor, { source: 'debug', message: `cursor=${cursor}` });
@@ -41,7 +44,7 @@ export function HistoryModule(props: VacpDebugModuleProps): ReactElement {
   const redo = () => props.bridge.redo?.({ source: 'debug', message: 'redo' });
 
   return (
-    <div className="grid h-full min-h-0 gap-3 lg:grid-cols-[1fr_420px]">
+    <div className={['grid h-full min-h-0 gap-3', detailsOpen ? 'lg:grid-cols-[1fr_420px]' : ''].join(' ')}>
       <Card className="flex min-h-0 flex-col">
         <CardHeader>
           <div className="min-w-0">
@@ -59,6 +62,13 @@ export function HistoryModule(props: VacpDebugModuleProps): ReactElement {
             />
             <IconButton icon={<Undo2 className="h-4 w-4 text-slate-100/90" />} label="Undo" title="Undo." onClick={() => undo()} />
             <IconButton icon={<Redo2 className="h-4 w-4 text-slate-100/90" />} label="Redo" title="Redo." onClick={() => redo()} />
+            <IconButton
+              icon={detailsOpen ? <PanelRightClose className="h-4 w-4 text-slate-100/90" /> : <PanelRightOpen className="h-4 w-4 text-slate-100/90" />}
+              label={detailsOpen ? 'Hide details pane' : 'Show details pane'}
+              title={detailsOpen ? 'Hide the Details pane to give the history list more space.' : 'Show the Details pane.'}
+              pressed={detailsOpen}
+              onClick={() => setDetailsOpen(!detailsOpen)}
+            />
           </div>
         </CardHeader>
 
@@ -101,17 +111,19 @@ export function HistoryModule(props: VacpDebugModuleProps): ReactElement {
         </div>
       </Card>
 
-      <Card className="flex min-h-0 flex-col">
-        <CardHeader>
-          <div className="min-w-0">
-            <CardTitle>Details</CardTitle>
-            <CardDescription>{selected ? `${selected.kind} • ${selected.source}` : 'Select an entry to inspect.'}</CardDescription>
-          </div>
-        </CardHeader>
-        <pre className="min-h-0 flex-1 overflow-auto rounded-lg border border-white/10 bg-black/20 p-3 text-[12px] leading-5 text-slate-100/85">
-          {safeJson(selected)}
-        </pre>
-      </Card>
+      {detailsOpen ? (
+        <Card className="flex min-h-0 flex-col">
+          <CardHeader>
+            <div className="min-w-0">
+              <CardTitle>Details</CardTitle>
+              <CardDescription>{selected ? `${selected.kind} • ${selected.source}` : 'Select an entry to inspect.'}</CardDescription>
+            </div>
+          </CardHeader>
+          <pre className="min-h-0 flex-1 overflow-auto rounded-lg border border-white/10 bg-black/20 p-3 text-[12px] leading-5 text-slate-100/85">
+            {safeJson(selected)}
+          </pre>
+        </Card>
+      ) : null}
     </div>
   );
 }

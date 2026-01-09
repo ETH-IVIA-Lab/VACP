@@ -1,5 +1,5 @@
 import type { VacpNode, VacpRef, VacpRuntimeSnapshot } from '@vacp/core';
-import { ArrowLeftRight, ArrowUpDown, ClipboardCopy, XCircle, Zap } from 'lucide-react';
+import { ArrowLeftRight, ArrowUpDown, ClipboardCopy, PanelRightClose, PanelRightOpen, XCircle, Zap } from 'lucide-react';
 import type { ReactElement } from 'react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 
@@ -85,6 +85,8 @@ function buildInspectorJson(runtime: VacpRuntimeSnapshot, sel: SelectedGraphItem
 
 export function GraphModule(props: VacpDebugModuleProps): ReactElement {
   const includeActionsDefault = useVacpDebugUiStore((s) => s.includeActionsDefault);
+  const inspectOpen = useVacpDebugUiStore((s) => s.graphInspectOpen);
+  const setInspectOpen = useVacpDebugUiStore((s) => s.setGraphInspectOpen);
   const [options, setOptions] = useState<Required<Pick<VacpDiagramRenderOptions, 'direction' | 'includeActions'>>>({
     direction: 'LR',
     includeActions: includeActionsDefault,
@@ -178,7 +180,11 @@ export function GraphModule(props: VacpDebugModuleProps): ReactElement {
   };
 
   return (
-    <div className="grid h-full min-h-0 gap-3 lg:grid-cols-[1fr_420px]" data-vacp-graph="1" data-vacp-direction={options.direction}>
+    <div
+      className={['grid h-full min-h-0 gap-3', inspectOpen ? 'lg:grid-cols-[1fr_420px]' : ''].join(' ')}
+      data-vacp-graph="1"
+      data-vacp-direction={options.direction}
+    >
       <Card className="flex min-h-0 flex-col">
         <CardHeader>
           <div className="min-w-0">
@@ -207,6 +213,13 @@ export function GraphModule(props: VacpDebugModuleProps): ReactElement {
               title="Copy the Mermaid source for this diagram."
               onClick={() => void copy(mermaidText)}
             />
+            <IconButton
+              icon={inspectOpen ? <PanelRightClose className="h-4 w-4 text-slate-100/90" /> : <PanelRightOpen className="h-4 w-4 text-slate-100/90" />}
+              label={inspectOpen ? 'Hide inspect pane' : 'Show inspect pane'}
+              title={inspectOpen ? 'Hide the Inspect pane to give the diagram more space.' : 'Show the Inspect pane.'}
+              pressed={inspectOpen}
+              onClick={() => setInspectOpen(!inspectOpen)}
+            />
           </div>
         </CardHeader>
 
@@ -219,38 +232,40 @@ export function GraphModule(props: VacpDebugModuleProps): ReactElement {
         </div>
       </Card>
 
-      <Card className="flex min-h-0 flex-col">
-        <CardHeader>
-          <div className="min-w-0">
-            <CardTitle>Inspect</CardTitle>
-            <CardDescription>
-              {selected
-                ? selected.kind === 'action'
-                  ? `Action #${selected.index}`
-                  : `Node #${selected.index}`
-                : 'Select a node to see its full JSON.'}
-            </CardDescription>
-          </div>
-          <div className="flex shrink-0 items-center gap-2">
-            <IconButton
-              icon={<XCircle className="h-4 w-4 text-slate-100/90" />}
-              label="Clear selection"
-              title="Clear the selected node/action."
-              onClick={() => setSelected(null)}
-            />
-            <IconButton
-              icon={<ClipboardCopy className="h-4 w-4 text-slate-100/90" />}
-              label="Copy JSON"
-              title="Copy the inspected JSON to clipboard."
-              onClick={() => void copy(inspectorJson)}
-            />
-          </div>
-        </CardHeader>
+      {inspectOpen ? (
+        <Card className="flex min-h-0 flex-col">
+          <CardHeader>
+            <div className="min-w-0">
+              <CardTitle>Inspect</CardTitle>
+              <CardDescription>
+                {selected
+                  ? selected.kind === 'action'
+                    ? `Action #${selected.index}`
+                    : `Node #${selected.index}`
+                  : 'Select a node to see its full JSON.'}
+              </CardDescription>
+            </div>
+            <div className="flex shrink-0 items-center gap-2">
+              <IconButton
+                icon={<XCircle className="h-4 w-4 text-slate-100/90" />}
+                label="Clear selection"
+                title="Clear the selected node/action."
+                onClick={() => setSelected(null)}
+              />
+              <IconButton
+                icon={<ClipboardCopy className="h-4 w-4 text-slate-100/90" />}
+                label="Copy JSON"
+                title="Copy the inspected JSON to clipboard."
+                onClick={() => void copy(inspectorJson)}
+              />
+            </div>
+          </CardHeader>
 
-        <pre className="min-h-0 flex-1 overflow-auto rounded-lg border border-white/10 bg-black/20 p-3 text-[12px] leading-5 text-slate-100/85">
-          {selected ? inspectorJson : ''}
-        </pre>
-      </Card>
+          <pre className="min-h-0 flex-1 overflow-auto rounded-lg border border-white/10 bg-black/20 p-3 text-[12px] leading-5 text-slate-100/85">
+            {selected ? inspectorJson : ''}
+          </pre>
+        </Card>
+      ) : null}
     </div>
   );
 }
