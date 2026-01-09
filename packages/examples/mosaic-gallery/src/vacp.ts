@@ -30,6 +30,7 @@ export function installVacp(args: {
       globalKey: args.globalKey,
       playbooks: buildMosaicPlaybooks({
         entry: { id: args.entry.id, meta: args.entry.meta, spec: args.entry.spec },
+        root: args.root,
         plots: args.plots,
         tables: args.tables,
       }),

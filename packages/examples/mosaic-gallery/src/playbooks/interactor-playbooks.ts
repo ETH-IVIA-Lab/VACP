@@ -157,75 +157,89 @@ function legendTogglePlaybook(entry: MosaicPlaybookEntry, plotId: string, plot: 
 }
 
 export function resolveInteractorPlaybooks(args: { entry: MosaicPlaybookEntry; plots: PlotRef[] }): VacpPlaybook[] {
+  const out: VacpPlaybook[] = [];
+
   const interval2d = args.plots.find((p) => p.plot.interactors.some((i) => i.constructor?.name === 'Interval2D'));
   if (interval2d) {
     const interactorId = interval2d.plot.interactors.findIndex((i) => i.constructor?.name === 'Interval2D');
     if (interactorId >= 0)
-      return intervalPlaybook({
-        entry: args.entry,
-        kind: '2d',
-        plotId: interval2d.plotId,
-        interactorId,
-        plot: interval2d.plot,
-      });
+      out.push(
+        ...intervalPlaybook({
+          entry: args.entry,
+          kind: '2d',
+          plotId: interval2d.plotId,
+          interactorId,
+          plot: interval2d.plot,
+        }),
+      );
   }
 
-  const interval1d = args.plots.find((p) => p.plot.interactors.some((i) => i.constructor?.name === 'Interval1D'));
-  if (interval1d) {
-    const interactorId = interval1d.plot.interactors.findIndex((i) => i.constructor?.name === 'Interval1D');
-    if (interactorId >= 0)
-      return intervalPlaybook({
-        entry: args.entry,
-        kind: '1d',
-        plotId: interval1d.plotId,
-        interactorId,
-        plot: interval1d.plot,
-      });
+  if (out.length === 0) {
+    const interval1d = args.plots.find((p) => p.plot.interactors.some((i) => i.constructor?.name === 'Interval1D'));
+    if (interval1d) {
+      const interactorId = interval1d.plot.interactors.findIndex((i) => i.constructor?.name === 'Interval1D');
+      if (interactorId >= 0)
+        out.push(
+          ...intervalPlaybook({
+            entry: args.entry,
+            kind: '1d',
+            plotId: interval1d.plotId,
+            interactorId,
+            plot: interval1d.plot,
+          }),
+        );
+    }
   }
 
   const panzoom = args.plots.find((p) => p.plot.interactors.some((i) => i.constructor?.name === 'PanZoom'));
   if (panzoom) {
     const interactorId = panzoom.plot.interactors.findIndex((i) => i.constructor?.name === 'PanZoom');
-    if (interactorId >= 0) return panZoomPlaybook(args.entry, panzoom.plotId, panzoom.plot, interactorId);
+    if (interactorId >= 0) out.push(...panZoomPlaybook(args.entry, panzoom.plotId, panzoom.plot, interactorId));
   }
 
   const region = args.plots.find((p) => p.plot.interactors.some((i) => i.constructor?.name === 'Region'));
   if (region) {
     const interactorId = region.plot.interactors.findIndex((i) => i.constructor?.name === 'Region');
     if (interactorId >= 0)
-      return toggleLikePlaybook({
-        entry: args.entry,
-        kind: 'region',
-        plotId: region.plotId,
-        plot: region.plot,
-        interactorIdNum: interactorId,
-      });
+      out.push(
+        ...toggleLikePlaybook({
+          entry: args.entry,
+          kind: 'region',
+          plotId: region.plotId,
+          plot: region.plot,
+          interactorIdNum: interactorId,
+        }),
+      );
   }
 
   const nearest = args.plots.find((p) => p.plot.interactors.some((i) => i.constructor?.name === 'Nearest'));
   if (nearest) {
     const interactorId = nearest.plot.interactors.findIndex((i) => i.constructor?.name === 'Nearest');
     if (interactorId >= 0)
-      return toggleLikePlaybook({
-        entry: args.entry,
-        kind: 'nearest',
-        plotId: nearest.plotId,
-        plot: nearest.plot,
-        interactorIdNum: interactorId,
-      });
+      out.push(
+        ...toggleLikePlaybook({
+          entry: args.entry,
+          kind: 'nearest',
+          plotId: nearest.plotId,
+          plot: nearest.plot,
+          interactorIdNum: interactorId,
+        }),
+      );
   }
 
   const toggle = args.plots.find((p) => p.plot.interactors.some((i) => i.constructor?.name === 'Toggle'));
   if (toggle) {
     const interactorId = toggle.plot.interactors.findIndex((i) => i.constructor?.name === 'Toggle');
     if (interactorId >= 0)
-      return toggleLikePlaybook({
-        entry: args.entry,
-        kind: 'toggle',
-        plotId: toggle.plotId,
-        plot: toggle.plot,
-        interactorIdNum: interactorId,
-      });
+      out.push(
+        ...toggleLikePlaybook({
+          entry: args.entry,
+          kind: 'toggle',
+          plotId: toggle.plotId,
+          plot: toggle.plot,
+          interactorIdNum: interactorId,
+        }),
+      );
   }
 
   const legend = args.plots.find((p) =>
@@ -234,7 +248,7 @@ export function resolveInteractorPlaybooks(args: { entry: MosaicPlaybookEntry; p
       return !!l?.selection;
     }),
   );
-  if (legend) return legendTogglePlaybook(args.entry, legend.plotId, legend.plot);
+  if (legend) out.push(...legendTogglePlaybook(args.entry, legend.plotId, legend.plot));
 
-  return [];
+  return out;
 }
