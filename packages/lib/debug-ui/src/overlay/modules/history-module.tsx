@@ -128,14 +128,16 @@ export function HistoryModule(props: VacpDebugModuleProps): ReactElement {
             <CardTitle>History</CardTitle>
             <CardDescription>Toggle the Mode button (top bar) to Inspect, then click an entry to move the cursor.</CardDescription>
           </div>
-          <div className="mt-2 flex flex-wrap items-center gap-2 rounded-lg border border-white/10 bg-white/5 px-2 py-1.5 text-[11px] text-slate-100/75">
-            <span className="font-medium text-slate-100/80">Sources</span>
+          <div className="mt-2 flex flex-wrap items-center gap-2.5 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-[11px] text-slate-100/80">
+            <span className="inline-flex items-center rounded-md border border-white/10 bg-black/20 px-2 py-1 font-medium text-slate-100/80">
+              Sources
+            </span>
             {(['human', 'agent', 'debug', 'system'] as const).map((source) => {
               const info = roleInfo(source as any);
               return (
                 <span
                   key={source}
-                  className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-black/20 px-2 py-1"
+                  className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-black/20 px-2.5 py-1.5 leading-none"
                   title={info.description}
                 >
                   <span className={`h-2 w-2 rounded-full ${info.dotClass}`} aria-hidden="true" />
@@ -144,7 +146,6 @@ export function HistoryModule(props: VacpDebugModuleProps): ReactElement {
                 </span>
               );
             })}
-            <span className="text-slate-100/55">Hover for details.</span>
           </div>
           <div className="flex shrink-0 items-center gap-2">
             <IconButton icon={<Undo2 className="h-4 w-4 text-slate-100/90" />} label="Undo" title="Undo." disabled={!canUndo} onClick={() => undo()} />
