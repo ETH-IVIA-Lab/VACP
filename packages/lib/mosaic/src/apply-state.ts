@@ -12,6 +12,10 @@ import type { VgplotPlotLike, VgplotTableLike } from './types';
 
 type DomainValueLike = number | string | Date;
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
+}
+
 function coerceDomainValue(value: unknown): DomainValueLike | null {
   if (value instanceof Date && Number.isFinite(value.getTime())) return value;
   if (typeof value === 'number' && Number.isFinite(value)) return value;
@@ -37,16 +41,16 @@ export function makeApplyStateHandler(args: {
       const key = ref as VacpRef;
       const input = inputByRef.get(key);
       if (input) {
-        const rec = raw && typeof raw === 'object' ? (raw as Record<string, unknown>) : {};
-        const desired = (rec.value ?? raw) as unknown;
+        const rec = isRecord(raw) ? raw : null;
+        const desired = rec ? (Object.hasOwn(rec, 'value') ? rec.value : rec.selectionValue) : raw;
         try {
-          if (desired === null || desired === undefined) {
-            await executeInputAction(input, { name: 'mosaic.clear_input', params: { ref } });
-          } else if (typeof rec.optionIndex === 'number') {
+          if (typeof rec?.optionIndex === 'number') {
             await executeInputAction(input, {
               name: 'mosaic.set_input_option_index',
               params: { ref, index: rec.optionIndex },
             });
+          } else if (desired === null || desired === undefined) {
+            await executeInputAction(input, { name: 'mosaic.clear_input', params: { ref } });
           } else {
             await executeInputAction(input, { name: 'mosaic.set_input_value', params: { ref, value: desired } });
           }
@@ -96,8 +100,14 @@ export function makeApplyStateHandler(args: {
       }
 
       const ctorName = interactor.constructor?.name ?? 'Interactor';
-      const rec = raw && typeof raw === 'object' ? (raw as Record<string, unknown>) : {};
-      const desired = (rec.value ?? rec.selectionValue ?? raw) as unknown;
+      const rec = isRecord(raw) ? raw : null;
+      const desired = rec
+        ? rec.selectionValue !== undefined
+          ? rec.selectionValue
+          : Object.hasOwn(rec, 'value')
+            ? rec.value
+            : undefined
+        : raw;
       const callId = crypto.randomUUID();
 
       try {
@@ -128,9 +138,13 @@ export function makeApplyStateHandler(args: {
         }
 
         if (ctorName === 'Interval1D') {
-          const val = Array.isArray(desired) ? desired : [rec.min, rec.max];
-          const min = coerceDomainValue((val as unknown[])[0]);
-          const max = coerceDomainValue((val as unknown[])[1]);
+          const val = Array.isArray(desired)
+            ? desired
+            : rec && (Object.hasOwn(rec, 'min') || Object.hasOwn(rec, 'max'))
+              ? [rec.min, rec.max]
+              : null;
+          const min = coerceDomainValue((val as unknown[] | null)?.[0]);
+          const max = coerceDomainValue((val as unknown[] | null)?.[1]);
           if (min === null || max === null) throw new Error('Expected [min, max] domain values');
           await executeIntervalAction(plot, {
             callId,
@@ -160,8 +174,8 @@ export function makeApplyStateHandler(args: {
         }
 
         if (ctorName === 'PanZoom') {
-          const x = (rec.x ?? null) as unknown;
-          const y = (rec.y ?? null) as unknown;
+          const x = (rec?.x ?? null) as unknown;
+          const y = (rec?.y ?? null) as unknown;
           const hasX = Array.isArray(x) && x.length >= 2;
           const hasY = Array.isArray(y) && y.length >= 2;
           if (!hasX && !hasY) throw new Error('Expected {x:[x0,x1]} and/or {y:[y0,y1]}');
