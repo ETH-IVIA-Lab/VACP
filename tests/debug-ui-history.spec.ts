@@ -78,18 +78,27 @@ test('debug-ui: history undo/redo updates time travel cursor', async ({ page }) 
       { expectedCursor: before.cursor },
     );
 
-    // Time travel to the first entry via the per-entry rewind control.
-    const rewindButtons = page.locator('button[aria-label="Rewind to here"]');
-    await expect(rewindButtons.first()).toBeVisible();
-    await rewindButtons.first().click();
+    // Time travel by clicking a snapshot entry while in inspect mode.
     await page.waitForFunction(() => {
       const t = document.querySelector('.vacp-debug-ui-title')?.textContent ?? '';
-      const m = t.match(/mode=(\w+)\s+cursor=(-?\d+)/);
-      if (!m) return false;
-      return m[1] === 'inspect' && Number(m[2]) === 0;
+      return /mode=inspect/.test(t);
     });
+    const snapshotEntry = page.locator('[data-vacp-row="history-entry"][data-has-state="true"]').first();
+    await expect(snapshotEntry).toBeVisible();
+    const targetIdxText = await snapshotEntry.getAttribute('data-index');
+    const targetIdx = Number(targetIdxText);
+    expect(Number.isFinite(targetIdx)).toBeTruthy();
+    await snapshotEntry.click();
+    await page.waitForFunction(
+      ({ expectedCursor }) => {
+        const t = document.querySelector('.vacp-debug-ui-title')?.textContent ?? '';
+        const m = t.match(/mode=(\w+)\s+cursor=(-?\d+)/);
+        if (!m) return false;
+        return m[1] === 'inspect' && Number(m[2]) === expectedCursor;
+      },
+      { expectedCursor: targetIdx },
+    );
   } finally {
     await srv.stop();
   }
 });
-

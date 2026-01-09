@@ -26,7 +26,7 @@ test('debug-ui: running playbook while inspecting returns to live mode', async (
       await b.refresh({ source: 'debug', message: 'seed-1' });
     });
 
-    await page.locator('#vacp-debug-ui-panel button[aria-label="Inspect"]').first().click();
+    await page.locator('#vacp-debug-ui-panel button[aria-label="Toggle live/inspect mode"]').click();
     await page.waitForFunction(() => {
       const t = document.querySelector('.vacp-debug-ui-title')?.textContent ?? '';
       return /mode=inspect/.test(t);
@@ -47,4 +47,3 @@ test('debug-ui: running playbook while inspecting returns to live mode', async (
     await srv.stop();
   }
 });
-
