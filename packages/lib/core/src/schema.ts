@@ -220,6 +220,6 @@ export type VacpActionResult =
 export interface VacpWindowBridge {
   version: VacpSchemaVersion;
   getCapabilities(): Promise<VacpCapabilitiesSnapshot> | VacpCapabilitiesSnapshot;
-  getState(): Promise<VacpStateSnapshot> | VacpStateSnapshot;
+  getState(): Promise<VacpStateSnapshot>;
   execute(call: VacpActionCall): Promise<VacpActionResult>;
 }
