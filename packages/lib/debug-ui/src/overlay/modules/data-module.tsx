@@ -121,6 +121,10 @@ export function DataModule(props: VacpDebugModuleProps): ReactElement {
 
   const run = async () => {
     if (!selectedHandle) return;
+    // Queries reflect the provider's live selection; stay in live mode to avoid confusion.
+    if (props.runtime.mode === 'inspect' && typeof props.bridge.setMode === 'function') {
+      props.bridge.setMode('live', { source: 'debug', message: 'auto: back to live for query' });
+    }
     setStatus('running');
     setLastResult({ result: null, error: null });
 

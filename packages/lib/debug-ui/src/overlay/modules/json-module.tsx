@@ -71,6 +71,10 @@ export function JsonModule(props: VacpDebugModuleProps): ReactElement {
   const applyToApp = async () => {
     setError(null);
     setStatus('Applying…');
+    // Applying to the app mutates live state; keep the debug UI in live mode so changes are visible.
+    if (props.runtime.mode === 'inspect' && typeof props.bridge.setMode === 'function') {
+      props.bridge.setMode('live', { source: 'debug', message: 'auto: back to live for apply_state' });
+    }
     let parsed: unknown;
     try {
       parsed = parseJson(overrideText);

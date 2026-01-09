@@ -55,6 +55,10 @@ export function ActionsModule(props: VacpDebugModuleProps): ReactElement {
 
   const run = async () => {
     if (!selected) return;
+    // Executing actions mutates the live app; keep the debug UI in live mode so changes are visible.
+    if (props.runtime.mode === 'inspect' && typeof props.bridge.setMode === 'function') {
+      props.bridge.setMode('live', { source: 'debug', message: 'auto: back to live for action' });
+    }
     setStatus('running');
     setError(null);
     setResult(null);

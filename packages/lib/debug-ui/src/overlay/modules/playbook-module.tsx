@@ -74,6 +74,10 @@ export function PlaybookModule(props: VacpDebugModuleProps): ReactElement {
   const runStep = async (idx: number) => {
     const step = steps[idx];
     if (!step?.call) return;
+    // Playbook steps are meant to demonstrate live bidirectional interaction.
+    if (props.runtime.mode === 'inspect' && typeof props.bridge.setMode === 'function') {
+      props.bridge.setMode('live', { source: 'debug', message: 'auto: back to live for playbook' });
+    }
     setRunning(true);
     setLastError(null);
     setLastResult(null);
