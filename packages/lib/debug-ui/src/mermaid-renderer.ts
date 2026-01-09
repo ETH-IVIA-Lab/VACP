@@ -24,6 +24,9 @@ export async function renderMermaidToHost(host: HTMLElement, mermaidText: string
 
     const svg = host.querySelector('svg');
     if (svg) {
+      svg.setAttribute('role', 'img');
+      svg.setAttribute('aria-label', 'VACP capability graph');
+
       // Ensure the SVG scales to the available host viewport.
       // Mermaid sometimes emits fixed width/height; prefer a responsive viewBox.
       //
@@ -49,6 +52,24 @@ export async function renderMermaidToHost(host: HTMLElement, mermaidText: string
       (svg as SVGSVGElement).style.width = '100%';
       (svg as SVGSVGElement).style.height = '100%';
       (svg as SVGSVGElement).style.display = 'block';
+
+      // Make Mermaid nodes focusable so keyboard users can inspect the graph.
+      //
+      // We rely on GraphModule's event delegation to handle Enter/Space selection.
+      svg.querySelectorAll('g.node').forEach((g) => {
+        try {
+          g.setAttribute('tabindex', '0');
+          g.setAttribute('role', 'button');
+          const label =
+            g.querySelector('title')?.textContent?.trim() ||
+            g.querySelector('text')?.textContent?.trim() ||
+            g.textContent?.trim() ||
+            'node';
+          g.setAttribute('aria-label', label);
+        } catch {
+          // ignore: best-effort accessibility tweaks
+        }
+      });
     }
   } catch (err) {
     host.textContent = `Mermaid render failed: ${String(err)}`;

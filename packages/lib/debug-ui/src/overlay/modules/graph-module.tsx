@@ -158,8 +158,27 @@ export function GraphModule(props: VacpDebugModuleProps): ReactElement {
           : { kind: 'action', mermaidId: parsed.mermaidId, index: parsed.index },
       );
     };
+    const onKeyDown = (ev: KeyboardEvent) => {
+      if (ev.key !== 'Enter' && ev.key !== ' ' && ev.key !== 'Spacebar') return;
+      const target = ev.target;
+      if (!(target instanceof Element)) return;
+      const g = target.closest?.('g.node');
+      if (!g) return;
+      const parsed = parseMermaidNodeId(g.getAttribute('id'));
+      if (!parsed) return;
+      ev.preventDefault();
+      setSelected(
+        parsed.kind === 'node'
+          ? { kind: 'node', mermaidId: parsed.mermaidId, index: parsed.index }
+          : { kind: 'action', mermaidId: parsed.mermaidId, index: parsed.index },
+      );
+    };
     host.addEventListener('click', onClick);
-    return () => host.removeEventListener('click', onClick);
+    host.addEventListener('keydown', onKeyDown);
+    return () => {
+      host.removeEventListener('click', onClick);
+      host.removeEventListener('keydown', onKeyDown);
+    };
   }, []);
 
   const copy = async (text: string) => {
