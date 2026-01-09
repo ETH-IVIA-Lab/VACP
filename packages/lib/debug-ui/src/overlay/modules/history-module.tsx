@@ -7,6 +7,7 @@ import { IconButton } from '@vacp/debug-ui/overlay/icon-button';
 import { useVacpDebugUiStore } from '@vacp/debug-ui/overlay/debug-store';
 import { useElementSize } from '@vacp/debug-ui/overlay/hooks/use-element-size';
 import { Card, CardDescription, CardHeader, CardTitle } from '@vacp/debug-ui/ui/components/ui/card';
+import { RovingFocusGroup, RovingFocusGroupItem } from '@vacp/debug-ui/ui/components/ui/roving-focus';
 
 import type { VacpDebugModuleProps } from './module-types';
 
@@ -180,58 +181,65 @@ export function HistoryModule(props: VacpDebugModuleProps): ReactElement {
         </CardHeader>
 
         <div className="mt-3 min-h-0 flex-1 overflow-auto rounded-lg border border-white/10 bg-black/20">
-          <div className="p-1">
-            {history.map((h, i) => {
-              const active = h.id === selectedId;
-              const isCursor = props.runtime.mode === 'inspect' && i === cursorIdx;
-              const hasState = Boolean(stateFromEntry(h));
-              const info = roleInfo(h.source);
-              return (
-                <div
-                  key={h.id}
-                  className={[
-                    'rounded-lg border px-2 py-2 text-xs',
-                    active ? 'border-sky-300/30 bg-sky-500/10' : 'border-transparent hover:border-white/10 hover:bg-white/5',
-                    isCursor ? 'shadow-[inset_0_0_0_1px_rgba(125,211,252,0.20)]' : '',
-                  ].join(' ')}
-                  aria-selected={active ? 'true' : 'false'}
-                  data-role={h.source}
-                  data-vacp-row="history-entry"
-                  data-index={i}
-                  data-has-state={hasState ? 'true' : 'false'}
-                  onClick={() => {
-                    setSelectedId(h.id);
-                    if (props.runtime.mode !== 'inspect') return;
-                    const target = cursorTargetForIndex(i);
-                    if (target === null) return;
-                    setCursor(target);
-                  }}
-                >
-                  <div className="flex items-center gap-2">
-                    <span className={`h-2 w-2 rounded-full ${info.dotClass}`} aria-hidden="true" title={info.label} />
-                    <span className="inline-flex items-center gap-1" title={info.description}>
-                      {info.icon}
-                      <span className="sr-only">{info.label}</span>
-                    </span>
-                    <div className="font-semibold text-slate-100/90">{h.kind}</div>
-                    <div className="text-[11px] text-slate-100/60">{formatTime(h.at)}</div>
-                    {isCursor ? (
-                      <span className="rounded-full border border-sky-300/30 bg-sky-500/10 px-2 py-0.5 text-[10px] font-semibold text-sky-100/85">
-                        cursor
-                      </span>
-                    ) : null}
-                    {!hasState ? (
-                      <span className="rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-[10px] font-semibold text-slate-100/60">
-                        event
-                      </span>
-                    ) : null}
-                    <div className="flex-1" />
-                  </div>
-                  {h.message ? <div className="mt-2 text-[11px] text-slate-100/70">{h.message}</div> : null}
-                </div>
-              );
-            })}
-          </div>
+          <RovingFocusGroup orientation="vertical" loop asChild>
+            <div className="p-1" role="listbox" aria-label="History entries">
+              {history.map((h, i) => {
+                const active = h.id === selectedId;
+                const isCursor = props.runtime.mode === 'inspect' && i === cursorIdx;
+                const hasState = Boolean(stateFromEntry(h));
+                const info = roleInfo(h.source);
+                return (
+                  <RovingFocusGroupItem key={h.id} asChild>
+                    <button
+                      type="button"
+                      className={[
+                        'w-full rounded-lg border px-2 py-2 text-left text-xs transition-colors',
+                        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/60',
+                        active
+                          ? 'border-sky-300/30 bg-sky-500/10'
+                          : 'border-transparent hover:border-white/10 hover:bg-white/5',
+                        isCursor ? 'shadow-[inset_0_0_0_1px_rgba(125,211,252,0.20)]' : '',
+                      ].join(' ')}
+                      aria-selected={active ? 'true' : 'false'}
+                      data-role={h.source}
+                      data-vacp-row="history-entry"
+                      data-index={i}
+                      data-has-state={hasState ? 'true' : 'false'}
+                      onClick={() => {
+                        setSelectedId(h.id);
+                        if (props.runtime.mode !== 'inspect') return;
+                        const target = cursorTargetForIndex(i);
+                        if (target === null) return;
+                        setCursor(target);
+                      }}
+                    >
+                      <div className="flex items-center gap-2">
+                        <span className={`h-2 w-2 rounded-full ${info.dotClass}`} aria-hidden="true" title={info.label} />
+                        <span className="inline-flex items-center gap-1" title={info.description}>
+                          {info.icon}
+                          <span className="sr-only">{info.label}</span>
+                        </span>
+                        <div className="font-semibold text-slate-100/90">{h.kind}</div>
+                        <div className="text-[11px] text-slate-100/60">{formatTime(h.at)}</div>
+                        {isCursor ? (
+                          <span className="rounded-full border border-sky-300/30 bg-sky-500/10 px-2 py-0.5 text-[10px] font-semibold text-sky-100/85">
+                            cursor
+                          </span>
+                        ) : null}
+                        {!hasState ? (
+                          <span className="rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-[10px] font-semibold text-slate-100/60">
+                            event
+                          </span>
+                        ) : null}
+                        <div className="flex-1" />
+                      </div>
+                      {h.message ? <div className="mt-2 text-[11px] text-slate-100/70">{h.message}</div> : null}
+                    </button>
+                  </RovingFocusGroupItem>
+                );
+              })}
+            </div>
+          </RovingFocusGroup>
         </div>
       </Card>
 
