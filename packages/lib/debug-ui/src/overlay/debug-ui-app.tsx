@@ -41,7 +41,7 @@ export function VacpDebugUiApp(props: { globalKey: string; includeActions: boole
   const bridgePresence = useVacpBridgePresence(props.globalKey);
   const bridgeQuery = useVacpBridge(props.globalKey, open);
   const runtimeQuery = useVacpRuntime(props.globalKey, bridgeQuery.data ?? null, open);
-  const playbooksQuery = useVacpPlaybooks(props.globalKey, bridgeQuery.data ?? null, runtimeQuery.data?.runtimeId ?? null, open);
+  const playbooksQuery = useVacpPlaybooks(props.globalKey, bridgeQuery.data ?? null, open);
 
   const bridgeRef = useRef(bridgeQuery.data ?? null);
   useEffect(() => {
@@ -353,12 +353,17 @@ export function VacpDebugUiApp(props: { globalKey: string; includeActions: boole
           </div>
         </header>
 
-        <div className="grid min-h-0 grid-cols-[180px_1fr]">
-          <nav className="min-h-0 overflow-auto border-r border-white/10 bg-white/5 p-2">
+        <div className="grid min-h-0 grid-rows-[auto_minmax(0,1fr)] md:grid-cols-[180px_1fr] md:grid-rows-none">
+          <nav className="min-h-0 max-w-full overflow-x-auto border-b border-white/10 bg-white/5 p-2 md:overflow-y-auto md:border-b-0 md:border-r">
             <Tabs value={moduleId} onValueChange={(v) => setModuleId(v as VacpDebugModuleId)}>
-              <TabsList className="vacp-debug-ui-nav-list gap-1">
+              <TabsList className="vacp-debug-ui-nav-list flex-row gap-1 md:flex-col md:gap-1">
                 {modules.map((m) => (
-                  <TabsTrigger key={m.id} value={m.id} className="vacp-debug-ui-module w-full" title={m.title}>
+                  <TabsTrigger
+                    key={m.id}
+                    value={m.id}
+                    className="vacp-debug-ui-module w-auto whitespace-nowrap md:w-full"
+                    title={m.title}
+                  >
                     {m.icon}
                     <span>{m.title}</span>
                   </TabsTrigger>

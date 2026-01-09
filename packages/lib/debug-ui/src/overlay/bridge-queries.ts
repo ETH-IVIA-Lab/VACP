@@ -52,6 +52,7 @@ export function useVacpRuntime(globalKey: string, bridge: VacpWindowBridge | nul
       pendingRefetch.current = window.setTimeout(() => {
         pendingRefetch.current = null;
         void qc.invalidateQueries({ queryKey: ['vacp', 'runtime', globalKey] });
+        void qc.invalidateQueries({ queryKey: ['vacp', 'playbooks', globalKey] });
       }, 60);
     });
 
@@ -65,14 +66,9 @@ export function useVacpRuntime(globalKey: string, bridge: VacpWindowBridge | nul
   return q;
 }
 
-export function useVacpPlaybooks(
-  globalKey: string,
-  bridge: VacpWindowBridge | null,
-  runtimeId: string | null | undefined,
-  enabled: boolean,
-) {
+export function useVacpPlaybooks(globalKey: string, bridge: VacpWindowBridge | null, enabled: boolean) {
   return useQuery({
-    queryKey: ['vacp', 'playbooks', globalKey, runtimeId ?? null],
+    queryKey: ['vacp', 'playbooks', globalKey],
     enabled: enabled && Boolean(bridge),
     retry: 25,
     queryFn: async (): Promise<VacpPlaybook[]> => {
