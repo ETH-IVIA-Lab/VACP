@@ -140,7 +140,7 @@ export async function installVacpForVanillaScatter(args: {
     ],
   };
 
-  const playbooks = buildVanillaMinimalPlaybooks({ handleRef });
+  const playbooks = buildVanillaMinimalPlaybooks();
 
   const vacp = createVacpLayer({
     globalKey: args.globalKey,

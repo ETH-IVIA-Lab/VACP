@@ -1,21 +1,19 @@
-import type { VacpPlaybook, VacpRef } from '@vacp/core';
+import type { VacpPlaybook } from '@vacp/core';
 import { playbook } from '@vacp/kit';
 
-export function buildVanillaMinimalPlaybooks(args: { handleRef: VacpRef }): VacpPlaybook[] {
+export function buildVanillaMinimalPlaybooks(): VacpPlaybook[] {
   return [
     playbook({
-      id: 'vanilla-selection',
-      title: 'Selection + DuckDB',
-      description: 'Step through agent-style actions, then compare with clicking points by hand.',
+      id: 'vanilla-minimal-selection',
+      title: 'Playbook: Vanilla minimal (multi-select)',
+      description:
+        'Answer: “How do I build up a small multi-selection?” by toggling a couple point ids, removing one, then clearing.',
     })
       .action('Clear selection', { name: 'vanilla.clear_selection', params: {} })
       .action('Select id=1', { name: 'vanilla.toggle_point', params: { id: 1 } })
       .action('Select id=2', { name: 'vanilla.toggle_point', params: { id: 2 } })
-      .action('Count selected (DuckDB)', {
-        name: 'vacp.data_sql',
-        params: { handleRef: args.handleRef, sql: 'SELECT COUNT(*)::INTEGER AS n FROM vacp_handle' },
-      })
+      .action('Deselect id=1 (toggle again)', { name: 'vanilla.toggle_point', params: { id: 1 } })
+      .action('Clear selection (reset)', { name: 'vanilla.clear_selection', params: {} })
       .build(),
   ];
 }
-
