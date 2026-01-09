@@ -43,6 +43,7 @@ export async function run(): Promise<void> {
   }
 
   const globalKey = '__vacp';
+  let renderToken = 0;
 
   // Dev-only overlay: inspects the VACP bridge and provides time travel + actions + DuckDB SQL.
   installVacpDebugUi({ enabled: 'auto', globalKey });
@@ -106,12 +107,14 @@ export async function run(): Promise<void> {
   else selectEl.value = gallery[0]?.id ?? '';
 
   const render = async (entry: GalleryEntry): Promise<void> => {
+    const token = (renderToken += 1);
     // Render: translate spec → vgplot DOM, then attach VACP on top of the resulting plots.
     metaEl.textContent = entry.meta.description ?? '';
 
     const ast = parseSpec(entry.spec);
     const api = createAPIContext({ coordinator: mc });
     const { element } = await astToDOM(ast, { api, baseURL: window.location.href });
+    if (token !== renderToken) return;
     app.replaceChildren(element);
 
     const { plotHosts, tableHosts } = discoverMosaicHosts(element);
@@ -122,6 +125,7 @@ export async function run(): Promise<void> {
         return { plotId: `plot-${idx}`, plot, element: svg ?? host, svg: svg ?? undefined };
       }),
     );
+    if (token !== renderToken) return;
 
     const tables = tableHosts.map((host, idx) => {
       const table = (host as any).value;
@@ -129,6 +133,7 @@ export async function run(): Promise<void> {
     });
 
     // VACP layer: attaches a bridge (`window.__vacp`), actions, state snapshots, and DuckDB access.
+    if (token !== renderToken) return;
     installVacp({ root: element, plots, tables, entry, globalKey, duckdbClient });
   };
 
