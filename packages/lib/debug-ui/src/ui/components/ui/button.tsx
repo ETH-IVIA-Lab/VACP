@@ -11,6 +11,8 @@ const buttonVariants = cva(
     'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/60',
     'disabled:pointer-events-none disabled:opacity-50',
     '[&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0',
+    // When used as a toggle button (aria-pressed), visually indicate the active state.
+    '[aria-pressed=true]:bg-sky-500/20 [aria-pressed=true]:border-sky-300/40 [aria-pressed=true]:text-sky-100',
   ].join(' '),
   {
     variants: {
@@ -40,4 +42,3 @@ export function Button({ className, variant, size, asChild = false, ...props }: 
   const Comp = asChild ? Slot : 'button';
   return <Comp className={cn(buttonVariants({ variant, size, className }))} {...props} />;
 }
-

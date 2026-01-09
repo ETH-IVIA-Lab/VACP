@@ -8,6 +8,7 @@ export function IconButton(props: {
   label: string;
   title?: string;
   pressed?: boolean;
+  disabled?: boolean;
   variant?: 'default' | 'primary' | 'danger';
   onClick?: () => void;
   onMouseDown?: (ev: ReactMouseEvent<HTMLButtonElement>) => void;
@@ -20,6 +21,7 @@ export function IconButton(props: {
           type="button"
           size="icon"
           variant={variant}
+          disabled={props.disabled}
           aria-label={props.label}
           aria-pressed={typeof props.pressed === 'boolean' ? (props.pressed ? 'true' : 'false') : undefined}
           onMouseDown={props.onMouseDown}
