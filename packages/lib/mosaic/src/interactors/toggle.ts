@@ -3,6 +3,28 @@ import type { VacpActionCall } from '@vacp/core';
 import type { VgplotPlotLike } from '../types';
 import { awaitPlotUpdate } from './plot-update';
 
+function isSqlLiteralLike(value: unknown): boolean {
+  return (
+    value == null ||
+    value instanceof Date ||
+    typeof value === 'string' ||
+    typeof value === 'number' ||
+    typeof value === 'boolean'
+  );
+}
+
+function assertTogglePoints(points: unknown[][] | null): void {
+  if (!points) return;
+  for (const row of points) {
+    if (!Array.isArray(row)) throw new Error('Expected toggle points to be an array of arrays');
+    for (const v of row) {
+      if (!isSqlLiteralLike(v)) {
+        throw new Error(`Unsupported toggle value type: ${Object.prototype.toString.call(v)}`);
+      }
+    }
+  }
+}
+
 export async function executeToggleAction(plot: VgplotPlotLike, call: VacpActionCall): Promise<unknown> {
   const params = (call.params ?? {}) as Record<string, unknown>;
   const interactorId = String(params.interactorId ?? '');
@@ -37,6 +59,7 @@ export async function executeToggleAction(plot: VgplotPlotLike, call: VacpAction
             : Array.isArray(raw)
               ? (raw as unknown[]).map((v) => [v])
               : [[raw]];
+    assertTogglePoints(points);
     anyI.value = points;
     if (typeof anyI.selection?.update === 'function' && typeof anyI.clause === 'function') {
       anyI.selection.update(anyI.clause(points));
