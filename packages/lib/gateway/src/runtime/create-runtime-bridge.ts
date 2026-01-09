@@ -119,7 +119,7 @@ export function createRuntimeBridge(args: {
     getLive: () => ({ capabilities: liveCapabilities, state: liveState }),
     ensureLive,
     record,
-    shouldRecord: () => suppressObserverRecording === 0,
+    shouldRecord: () => mode === 'live' && suppressObserverRecording === 0,
   });
 
   const setMode = (next: VacpRuntimeMode, options?: { source?: VacpChangeSource; message?: string }): void => {
@@ -290,6 +290,7 @@ export function createRuntimeBridge(args: {
 
     refresh: async (options?: { source?: VacpChangeSource; message?: string }): Promise<VacpStateSnapshot> => {
       await ensureLive();
+      if (mode !== 'live') return liveState as VacpStateSnapshot;
       record({
         id: makeEntryId(),
         at: nowIso(),
