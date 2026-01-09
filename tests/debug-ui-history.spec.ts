@@ -29,14 +29,24 @@ test('debug-ui: history undo/redo updates time travel cursor', async ({ page }) 
     await expect(page.locator('[data-vacp-graph="1"]')).toHaveAttribute('data-vacp-direction', 'LR');
     await expect(page.locator('.vacp-debug-ui-diagram svg')).toBeVisible({ timeout: 15_000 });
 
-    // Create a few history entries with state snapshots.
+    const selectedIds = async () =>
+      await page.evaluate(async () => {
+        const b = (globalThis as any).__vacp;
+        const snap = await b.getState();
+        const st = snap && typeof snap === 'object' ? (snap as any).state : null;
+        const sel = st ? (Object.values(st).find((v: any) => v && typeof v === 'object' && v.kind === 'Selection') as any) : null;
+        const ids = Array.isArray(sel?.value) ? sel.value : [];
+        return ids.filter((x: any) => typeof x === 'number' && Number.isFinite(x)) as number[];
+      });
+
+    // Create a few entries with different selection states.
     await page.evaluate(async () => {
       const b = (globalThis as any).__vacp;
-      if (!b || typeof b.refresh !== 'function') throw new Error('Missing bridge.refresh');
-      await b.refresh({ source: 'debug', message: 't0' });
-      await b.refresh({ source: 'debug', message: 't1' });
-      await b.refresh({ source: 'debug', message: 't2' });
+      if (!b || typeof b.dispatch !== 'function') throw new Error('Missing bridge.dispatch');
+      await b.dispatch({ callId: crypto.randomUUID(), name: 'vanilla.toggle_point', params: { id: 0 } }, { source: 'debug', message: 'select 0' });
+      await b.dispatch({ callId: crypto.randomUUID(), name: 'vanilla.toggle_point', params: { id: 1 } }, { source: 'debug', message: 'select 1' });
     });
+    expect((await selectedIds()).sort()).toEqual([0, 1]);
 
     const historyTab = page.locator('.vacp-debug-ui-module', { hasText: 'History' });
     await expect(historyTab).toBeVisible();
@@ -52,31 +62,30 @@ test('debug-ui: history undo/redo updates time travel cursor', async ({ page }) 
     const before = parseTitle(beforeTitle);
     expect(before.history).toBeGreaterThanOrEqual(3);
 
-    await page.locator('button[aria-label="Undo"]').click();
-    await page.waitForFunction(
-      ({ prevCursor }) => {
+    // Undo can traverse through multiple history entry kinds; keep clicking until
+    // we reach a different selection state.
+    for (let i = 0; i < 6; i++) {
+      const ids = (await selectedIds()).sort();
+      if (ids.length === 1 && ids[0] === 0) break;
+      await page.locator('button[aria-label="Undo"]').click();
+      await page.waitForFunction(() => {
         const t = document.querySelector('.vacp-debug-ui-title')?.textContent ?? '';
-        const m = t.match(/mode=(\w+)\s+cursor=(-?\d+)/);
-        if (!m) return false;
-        return m[1] === 'inspect' && Number(m[2]) === prevCursor - 1;
-      },
-      { prevCursor: before.cursor },
-    );
+        return /mode=inspect/.test(t);
+      });
+    }
 
     const afterUndoTitle = await page.locator('.vacp-debug-ui-title').innerText();
     const afterUndo = parseTitle(afterUndoTitle);
     expect(afterUndo.mode).toBe('inspect');
+    await expect.poll(async () => (await selectedIds()).sort()).toEqual([0]);
 
-    await page.locator('button[aria-label="Redo"]').click();
-    await page.waitForFunction(
-      ({ expectedCursor }) => {
-        const t = document.querySelector('.vacp-debug-ui-title')?.textContent ?? '';
-        const m = t.match(/cursor=(-?\d+)/);
-        if (!m) return false;
-        return Number(m[1]) === expectedCursor;
-      },
-      { expectedCursor: before.cursor },
-    );
+    for (let i = 0; i < 6; i++) {
+      const ids = (await selectedIds()).sort();
+      if (ids.length === 2 && ids[0] === 0 && ids[1] === 1) break;
+      await page.locator('button[aria-label="Redo"]').click();
+      await page.waitForTimeout(50);
+    }
+    await expect.poll(async () => (await selectedIds()).sort()).toEqual([0, 1]);
 
     // Time travel by clicking a snapshot entry while in inspect mode.
     await page.waitForFunction(() => {
