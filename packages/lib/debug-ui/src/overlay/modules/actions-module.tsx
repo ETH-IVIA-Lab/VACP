@@ -7,6 +7,7 @@ import { IconButton } from '@vacp/debug-ui/overlay/icon-button';
 import { useElementSize } from '@vacp/debug-ui/overlay/hooks/use-element-size';
 import { Card, CardDescription, CardHeader, CardTitle } from '@vacp/debug-ui/ui/components/ui/card';
 import { Input } from '@vacp/debug-ui/ui/components/ui/input';
+import { RovingFocusGroup, RovingFocusGroupItem } from '@vacp/debug-ui/ui/components/ui/roving-focus';
 import { Textarea } from '@vacp/debug-ui/ui/components/ui/textarea';
 
 import type { VacpDebugModuleProps } from './module-types';
@@ -139,27 +140,31 @@ export function ActionsModule(props: VacpDebugModuleProps): ReactElement {
         </div>
 
         <div className="mt-3 min-h-0 flex-1 overflow-auto rounded-lg border border-white/10 bg-black/20">
-          <div className="p-1">
-            {filtered.map((a) => {
-              const active = a.name === (selected?.name ?? '');
-              return (
-                <button
-                  key={a.name}
-                  type="button"
-                  className={[
-                    'w-full rounded-lg px-2 py-2 text-left text-xs transition-colors',
-                    'hover:bg-white/5',
-                    active ? 'border border-sky-300/30 bg-sky-500/10' : 'border border-transparent',
-                  ].join(' ')}
-                  aria-selected={active ? 'true' : 'false'}
-                  onClick={() => setSelectedName(a.name)}
-                >
-                  <div className="font-semibold text-slate-100/90">{a.name}</div>
-                  {a.description ? <div className="mt-1 text-[11px] text-slate-100/70">{a.description}</div> : null}
-                </button>
-              );
-            })}
-          </div>
+          <RovingFocusGroup orientation="vertical" loop asChild>
+            <div className="p-1" role="listbox" aria-label="Actions">
+              {filtered.map((a) => {
+                const active = a.name === (selected?.name ?? '');
+                return (
+                  <RovingFocusGroupItem key={a.name} asChild>
+                    <button
+                      type="button"
+                      className={[
+                        'w-full rounded-lg px-2 py-2 text-left text-xs transition-colors',
+                        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/60',
+                        'hover:bg-white/5',
+                        active ? 'border border-sky-300/30 bg-sky-500/10' : 'border border-transparent',
+                      ].join(' ')}
+                      aria-selected={active ? 'true' : 'false'}
+                      onClick={() => setSelectedName(a.name)}
+                    >
+                      <div className="font-semibold text-slate-100/90">{a.name}</div>
+                      {a.description ? <div className="mt-1 text-[11px] text-slate-100/70">{a.description}</div> : null}
+                    </button>
+                  </RovingFocusGroupItem>
+                );
+              })}
+            </div>
+          </RovingFocusGroup>
         </div>
       </Card>
 

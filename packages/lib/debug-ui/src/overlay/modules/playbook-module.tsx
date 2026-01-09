@@ -7,6 +7,7 @@ import { IconButton } from '@vacp/debug-ui/overlay/icon-button';
 import { useVacpDebugUiStore } from '@vacp/debug-ui/overlay/debug-store';
 import { useElementSize } from '@vacp/debug-ui/overlay/hooks/use-element-size';
 import { Card, CardDescription, CardHeader, CardTitle } from '@vacp/debug-ui/ui/components/ui/card';
+import { RovingFocusGroup, RovingFocusGroupItem } from '@vacp/debug-ui/ui/components/ui/roving-focus';
 
 import type { VacpDebugModuleProps } from './module-types';
 
@@ -182,37 +183,41 @@ export function PlaybookModule(props: VacpDebugModuleProps): ReactElement {
         {selected?.description ? <div className="mt-2 text-[11px] text-slate-100/80">{selected.description}</div> : null}
 
         <div className="mt-3 min-h-0 flex-1 overflow-auto rounded-lg border border-white/10 bg-black/20">
-          <div className="p-1">
-            {steps.map((s, i) => {
-              const status = i < stepIndex ? 'done' : i === stepIndex ? 'next' : 'todo';
-              const active = i === stepIndex;
-              return (
-                <button
-                  key={`${s.id ?? ''}:${i}`}
-                  type="button"
-                  className={[
-                    'w-full rounded-lg border px-2 py-2 text-left text-xs transition-colors',
-                    active ? 'border-sky-300/30 bg-sky-500/10' : 'border-transparent hover:border-white/10 hover:bg-white/5',
-                  ].join(' ')}
-                  data-vacp-row="playbook-step"
-                  data-status={status}
-                  aria-selected={active ? 'true' : 'false'}
-                  onClick={() => stepTo(i)}
-                >
-                  <div className="flex items-center gap-2">
-                    <div className="font-semibold text-slate-100/90">
-                      {i + 1}. {s.title}
-                    </div>
-                    <div className="flex-1" />
-                    <span className="rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-[10px] text-slate-100/70">
-                      {s.call ? 'action' : 'info'}
-                    </span>
-                  </div>
-                  {s.description ? <div className="mt-1 text-[11px] text-slate-100/70">{s.description}</div> : null}
-                </button>
-              );
-            })}
-          </div>
+          <RovingFocusGroup orientation="vertical" loop asChild>
+            <div className="p-1" role="listbox" aria-label="Playbook steps">
+              {steps.map((s, i) => {
+                const status = i < stepIndex ? 'done' : i === stepIndex ? 'next' : 'todo';
+                const active = i === stepIndex;
+                return (
+                  <RovingFocusGroupItem key={`${s.id ?? ''}:${i}`} asChild>
+                    <button
+                      type="button"
+                      className={[
+                        'w-full rounded-lg border px-2 py-2 text-left text-xs transition-colors',
+                        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/60',
+                        active ? 'border-sky-300/30 bg-sky-500/10' : 'border-transparent hover:border-white/10 hover:bg-white/5',
+                      ].join(' ')}
+                      data-vacp-row="playbook-step"
+                      data-status={status}
+                      aria-selected={active ? 'true' : 'false'}
+                      onClick={() => stepTo(i)}
+                    >
+                      <div className="flex items-center gap-2">
+                        <div className="font-semibold text-slate-100/90">
+                          {i + 1}. {s.title}
+                        </div>
+                        <div className="flex-1" />
+                        <span className="rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-[10px] text-slate-100/70">
+                          {s.call ? 'action' : 'info'}
+                        </span>
+                      </div>
+                      {s.description ? <div className="mt-1 text-[11px] text-slate-100/70">{s.description}</div> : null}
+                    </button>
+                  </RovingFocusGroupItem>
+                );
+              })}
+            </div>
+          </RovingFocusGroup>
         </div>
       </Card>
 
