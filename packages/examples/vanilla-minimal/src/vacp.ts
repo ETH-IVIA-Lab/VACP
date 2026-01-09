@@ -106,7 +106,8 @@ export async function installVacpForVanillaScatter(args: {
   });
   actions.standard.dataSql(sql.handler, {
     targetRef: handleRef,
-    description: 'Query the selected points via DuckDB SQL.',
+    description:
+      'Query the selected points via DuckDB SQL (fallback: prefer semantic interaction actions when possible).',
   });
 
   const graph: VacpGraphBase = {
