@@ -30,9 +30,16 @@ export function formatDuckDbTableMetadataSummary(
   const maxCategorical = options?.maxCategorical ?? 2;
 
   const lines: string[] = [];
-  const rows = typeof meta.rowCount === 'number' ? fmtInt(meta.rowCount) : 'unknown';
+  const rowCount = typeof meta.rowCount === 'number' ? meta.rowCount : null;
+  const rows = rowCount !== null ? fmtInt(rowCount) : 'unknown';
   lines.push(`Rows: ${rows} · Columns: ${meta.columns.length}`);
-  if (meta.sampledRows) lines[0] += ` · Sampled: ${fmtInt(meta.sampledRows)}`;
+  if (typeof meta.sampledRows === 'number' && Number.isFinite(meta.sampledRows)) {
+    const requestedSampledRows = Math.max(0, Math.floor(meta.sampledRows));
+    if (requestedSampledRows > 0) {
+      const effectiveSampledRows = rowCount !== null ? Math.min(requestedSampledRows, rowCount) : requestedSampledRows;
+      lines[0] += ` · Sampled: ${fmtInt(effectiveSampledRows)}`;
+    }
+  }
 
   if (meta.columns.length) {
     const cols = meta.columns
@@ -70,4 +77,3 @@ export function formatDuckDbTableMetadataSummary(
 
   return lines.join('\n');
 }
-
