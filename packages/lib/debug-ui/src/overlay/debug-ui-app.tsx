@@ -1,6 +1,6 @@
 import { Braces, Database, Eye, EyeOff, Frame, GitGraph, History, ListOrdered, Maximize2, Minimize2, X, Zap } from 'lucide-react';
 import type { ReactElement } from 'react';
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react';
 
 import { createVacpDebugDock } from '@vacp/debug-ui/dock';
 import { installVacpDebugPanelDrag } from '@vacp/debug-ui/panel-drag';
@@ -14,7 +14,7 @@ import { HistoryModule } from '@vacp/debug-ui/overlay/modules/history-module';
 import { JsonModule } from '@vacp/debug-ui/overlay/modules/json-module';
 import { PlaybookModule } from '@vacp/debug-ui/overlay/modules/playbook-module';
 import { useVacpBridge, useVacpBridgePresence, useVacpPlaybooks, useVacpRuntime } from '@vacp/debug-ui/overlay/bridge-queries';
-import { Tabs, TabsList, TabsTrigger } from '@vacp/debug-ui/ui/components/ui/tabs';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@vacp/debug-ui/ui/components/ui/tabs';
 import { TooltipProvider } from '@vacp/debug-ui/ui/components/ui/tooltip';
 
 import { useElementSize } from './hooks/use-element-size';
@@ -26,6 +26,7 @@ export function VacpDebugUiApp(props: { globalKey: string; includeActions: boole
   const buttonRef = useRef<HTMLButtonElement | null>(null);
   const panelHeaderRef = useRef<HTMLElement | null>(null);
   const panelRef = useRef<HTMLDivElement | null>(null);
+  const titleId = useId();
 
   const open = useVacpDebugUiStore((s) => s.open);
   const moduleId = useVacpDebugUiStore((s) => s.moduleId);
@@ -242,6 +243,20 @@ export function VacpDebugUiApp(props: { globalKey: string; includeActions: boole
     queueMicrotask(() => panelPosition());
   }, [open]);
 
+  useEffect(() => {
+    const pill = buttonRef.current;
+    const panel = panelRef.current;
+    if (open) {
+      queueMicrotask(() => {
+        const activeTab = panel?.querySelector<HTMLElement>('.vacp-debug-ui-module[data-state="active"]');
+        (activeTab ?? panel)?.focus?.();
+      });
+      return;
+    }
+    // When closing, return focus back to the pill button for smooth keyboard operation.
+    pill?.focus?.();
+  }, [open]);
+
   const title = useMemo(() => {
     const rt = runtimeQuery.data;
     if (!rt) return `VACP Debug (${props.globalKey})`;
@@ -268,11 +283,11 @@ export function VacpDebugUiApp(props: { globalKey: string; includeActions: boole
     [],
   );
 
-  const content = (() => {
-    const bridge = bridgeQuery.data ?? null;
-    const runtime = runtimeQuery.data ?? null;
-    const playbooks = playbooksQuery.data ?? [];
+  const bridge = bridgeQuery.data ?? null;
+  const runtime = runtimeQuery.data ?? null;
+  const playbooks = playbooksQuery.data ?? [];
 
+  const renderModule = (id: VacpDebugModuleId) => {
     if (!bridge || !runtime) {
       if (!open) return null;
       if (bridgeQuery.isFetching || runtimeQuery.isFetching) return <div className="text-[11px] text-slate-100/80">Connecting…</div>;
@@ -280,14 +295,15 @@ export function VacpDebugUiApp(props: { globalKey: string; includeActions: boole
       if (err) return <div className="text-[11px] text-slate-100/80">{String(err.message ?? err)}</div>;
       return <div className="text-[11px] text-slate-100/80">Open the overlay on a VACP-enabled page to inspect the bridge.</div>;
     }
+
     const ctx = { bridge, runtime, playbooks };
-    if (moduleId === 'graph') return <GraphModule {...ctx} />;
-    if (moduleId === 'data') return <DataModule {...ctx} />;
-    if (moduleId === 'actions') return <ActionsModule {...ctx} />;
-    if (moduleId === 'history') return <HistoryModule {...ctx} />;
-    if (moduleId === 'playbook') return <PlaybookModule {...ctx} />;
+    if (id === 'graph') return <GraphModule {...ctx} />;
+    if (id === 'data') return <DataModule {...ctx} />;
+    if (id === 'actions') return <ActionsModule {...ctx} />;
+    if (id === 'history') return <HistoryModule {...ctx} />;
+    if (id === 'playbook') return <PlaybookModule {...ctx} />;
     return <JsonModule {...ctx} />;
-  })();
+  };
 
   const inspectBanner = useMemo(() => {
     const rt = runtimeQuery.data;
@@ -310,7 +326,7 @@ export function VacpDebugUiApp(props: { globalKey: string; includeActions: boole
           <div className="flex-1" />
           <button
             type="button"
-            className="rounded-md border border-amber-300/25 bg-amber-500/10 px-2 py-1 text-[11px] font-semibold text-amber-50/85 hover:bg-amber-500/15"
+            className="rounded-md border border-amber-300/25 bg-amber-500/10 px-2 py-1 text-[11px] font-semibold text-amber-50/85 hover:bg-amber-500/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-300/40"
             onClick={() => setModuleId('history')}
           >
             Open history
@@ -371,7 +387,7 @@ export function VacpDebugUiApp(props: { globalKey: string; includeActions: boole
         <button
           ref={buttonRef}
           type="button"
-          className="vacp-debug-ui-button inline-flex select-none items-center gap-2 rounded-full border border-white/20 bg-slate-950 px-3 py-2 text-xs font-medium text-slate-100 shadow-[0_8px_24px_rgba(0,0,0,0.25)] cursor-grab active:cursor-grabbing"
+          className="vacp-debug-ui-button inline-flex select-none items-center gap-2 rounded-full border border-white/20 bg-slate-950 px-3 py-2 text-xs font-medium text-slate-100 shadow-[0_8px_24px_rgba(0,0,0,0.25)] cursor-grab active:cursor-grabbing focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/60"
           data-bridge={bridgeStatus}
           title={pillTitle}
           onClick={() => setOpen(!open)}
@@ -387,12 +403,18 @@ export function VacpDebugUiApp(props: { globalKey: string; includeActions: boole
         ref={panelRef}
         style={{ display: open ? 'grid' : 'none' }}
         data-vacp-debug-ui="1"
+        role="dialog"
+        aria-modal="false"
+        aria-labelledby={titleId}
+        tabIndex={-1}
       >
         <header
           ref={panelHeaderRef}
           className="flex h-11 items-center gap-3 border-b border-white/10 bg-slate-950 px-3 py-2"
         >
-          <div className="vacp-debug-ui-title min-w-0 flex-1 truncate text-xs text-slate-100/90">{title}</div>
+          <div id={titleId} className="vacp-debug-ui-title min-w-0 flex-1 truncate text-xs text-slate-100/90">
+            {title}
+          </div>
           <div className="flex items-center gap-2">
             {modeToggle}
             <IconButton
@@ -423,7 +445,11 @@ export function VacpDebugUiApp(props: { globalKey: string; includeActions: boole
           </div>
         </header>
 
-        <div
+        <Tabs
+          value={moduleId}
+          onValueChange={(v) => setModuleId(v as VacpDebugModuleId)}
+          orientation={compactPanel ? 'horizontal' : 'vertical'}
+          activationMode="manual"
           className={[
             'grid min-h-0',
             compactPanel ? 'grid-rows-[auto_minmax(0,1fr)]' : 'grid-cols-[180px_1fr] grid-rows-none',
@@ -436,31 +462,34 @@ export function VacpDebugUiApp(props: { globalKey: string; includeActions: boole
                 ? 'overflow-x-auto border-b border-white/10'
                 : 'overflow-y-auto border-b-0 border-r border-white/10',
             ].join(' ')}
+            aria-label="VACP debug modules"
           >
-            <Tabs value={moduleId} onValueChange={(v) => setModuleId(v as VacpDebugModuleId)}>
-              <TabsList className={['vacp-debug-ui-nav-list gap-1', compactPanel ? 'flex-row' : 'flex-col'].join(' ')}>
-                {modules.map((m) => (
-                  <TabsTrigger
-                    key={m.id}
-                    value={m.id}
-                    className={['vacp-debug-ui-module whitespace-nowrap', compactPanel ? 'w-auto' : 'w-full'].join(' ')}
-                    title={m.title}
-                  >
-                    {m.icon}
-                    <span>{m.title}</span>
-                  </TabsTrigger>
-                ))}
-              </TabsList>
-            </Tabs>
+            <TabsList loop className={['vacp-debug-ui-nav-list gap-1', compactPanel ? 'flex-row' : 'flex-col'].join(' ')}>
+              {modules.map((m) => (
+                <TabsTrigger
+                  key={m.id}
+                  value={m.id}
+                  className={['vacp-debug-ui-module whitespace-nowrap', compactPanel ? 'w-auto' : 'w-full'].join(' ')}
+                  title={m.title}
+                >
+                  {m.icon}
+                  <span>{m.title}</span>
+                </TabsTrigger>
+              ))}
+            </TabsList>
           </nav>
 
           <div className="vacp-debug-ui-content min-h-0 min-w-0 overflow-hidden bg-slate-950 p-3">
             <div className="h-full min-h-0 overflow-auto">
               {inspectBanner}
-              {content}
+              {modules.map((m) => (
+                <TabsContent key={m.id} value={m.id} className="min-h-0">
+                  {renderModule(m.id)}
+                </TabsContent>
+              ))}
             </div>
           </div>
-        </div>
+        </Tabs>
       </div>
     </div>
     </TooltipProvider>
