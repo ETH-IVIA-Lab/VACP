@@ -24,6 +24,35 @@ export function PlaybookModule(props: VacpDebugModuleProps): ReactElement {
   const [lastResult, setLastResult] = useState<unknown>(null);
   const [lastError, setLastError] = useState<string | null>(null);
 
+  if (playbooks.length === 0) {
+    return (
+      <div className="grid h-full min-h-0 gap-3 lg:grid-cols-[1fr_420px]">
+        <Card className="flex min-h-0 flex-col">
+          <CardHeader>
+            <div className="min-w-0">
+              <CardTitle>Playbook</CardTitle>
+              <CardDescription>No playbooks were provided for this view/spec.</CardDescription>
+            </div>
+          </CardHeader>
+          <div className="mt-3 rounded-lg border border-white/10 bg-black/20 p-3 text-[12px] leading-5 text-slate-100/80">
+            This is expected for some examples. Try switching specs (in the host app) or use the other modules to explore the bridge.
+          </div>
+        </Card>
+        <Card className="flex min-h-0 flex-col">
+          <CardHeader>
+            <div>
+              <CardTitle>Step details</CardTitle>
+              <CardDescription />
+            </div>
+          </CardHeader>
+          <div className="min-h-0 flex-1 rounded-lg border border-white/10 bg-black/20 p-3 text-[12px] leading-5 text-slate-100/80">
+            No steps to show.
+          </div>
+        </Card>
+      </div>
+    );
+  }
+
   const selected = useMemo(() => playbooks.find((p) => p.id === playbookId) ?? playbooks[0] ?? null, [playbooks, playbookId]);
 
   useEffect(() => {

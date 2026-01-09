@@ -65,9 +65,14 @@ export function useVacpRuntime(globalKey: string, bridge: VacpWindowBridge | nul
   return q;
 }
 
-export function useVacpPlaybooks(globalKey: string, bridge: VacpWindowBridge | null, enabled: boolean) {
+export function useVacpPlaybooks(
+  globalKey: string,
+  bridge: VacpWindowBridge | null,
+  runtimeId: string | null | undefined,
+  enabled: boolean,
+) {
   return useQuery({
-    queryKey: ['vacp', 'playbooks', globalKey],
+    queryKey: ['vacp', 'playbooks', globalKey, runtimeId ?? null],
     enabled: enabled && Boolean(bridge),
     retry: 25,
     queryFn: async (): Promise<VacpPlaybook[]> => {
@@ -76,4 +81,3 @@ export function useVacpPlaybooks(globalKey: string, bridge: VacpWindowBridge | n
     },
   });
 }
-

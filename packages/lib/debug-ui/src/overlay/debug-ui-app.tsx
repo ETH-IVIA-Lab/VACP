@@ -41,7 +41,7 @@ export function VacpDebugUiApp(props: { globalKey: string; includeActions: boole
   const bridgePresence = useVacpBridgePresence(props.globalKey);
   const bridgeQuery = useVacpBridge(props.globalKey, open);
   const runtimeQuery = useVacpRuntime(props.globalKey, bridgeQuery.data ?? null, open);
-  const playbooksQuery = useVacpPlaybooks(props.globalKey, bridgeQuery.data ?? null, open);
+  const playbooksQuery = useVacpPlaybooks(props.globalKey, bridgeQuery.data ?? null, runtimeQuery.data?.runtimeId ?? null, open);
 
   const bridgeRef = useRef(bridgeQuery.data ?? null);
   useEffect(() => {
