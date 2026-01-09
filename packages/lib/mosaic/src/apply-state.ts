@@ -10,6 +10,18 @@ import { executeToggleAction } from './interactors/toggle';
 import { executeTableAction } from './table-actions';
 import type { VgplotPlotLike, VgplotTableLike } from './types';
 
+type DomainValueLike = number | string | Date;
+
+function coerceDomainValue(value: unknown): DomainValueLike | null {
+  if (value instanceof Date && Number.isFinite(value.getTime())) return value;
+  if (typeof value === 'number' && Number.isFinite(value)) return value;
+  if (typeof value === 'string') {
+    const t = value.trim();
+    return t ? t : null;
+  }
+  return null;
+}
+
 export function makeApplyStateHandler(args: {
   inputByRef: Map<VacpRef, CollectedInput>;
   plotsById: Map<string, VgplotPlotLike>;
@@ -117,9 +129,9 @@ export function makeApplyStateHandler(args: {
 
         if (ctorName === 'Interval1D') {
           const val = Array.isArray(desired) ? desired : [rec.min, rec.max];
-          const min = Number((val as unknown[])[0]);
-          const max = Number((val as unknown[])[1]);
-          if (!Number.isFinite(min) || !Number.isFinite(max)) throw new Error('Expected [min, max] numbers');
+          const min = coerceDomainValue((val as unknown[])[0]);
+          const max = coerceDomainValue((val as unknown[])[1]);
+          if (min === null || max === null) throw new Error('Expected [min, max] domain values');
           await executeIntervalAction(plot, {
             callId,
             name: 'mosaic.set_interval_1d',
@@ -133,11 +145,11 @@ export function makeApplyStateHandler(args: {
           const arr = desired as unknown;
           const xPair = Array.isArray(arr) && Array.isArray((arr as unknown[])[0]) ? (arr as unknown[][])[0] : null;
           const yPair = Array.isArray(arr) && Array.isArray((arr as unknown[])[1]) ? (arr as unknown[][])[1] : null;
-          const x0 = Number(xPair?.[0]);
-          const x1 = Number(xPair?.[1]);
-          const y0 = Number(yPair?.[0]);
-          const y1 = Number(yPair?.[1]);
-          if (![x0, x1, y0, y1].every(Number.isFinite)) throw new Error('Expected [[x0,x1],[y0,y1]] numbers');
+          const x0 = coerceDomainValue(xPair?.[0]);
+          const x1 = coerceDomainValue(xPair?.[1]);
+          const y0 = coerceDomainValue(yPair?.[0]);
+          const y1 = coerceDomainValue(yPair?.[1]);
+          if ([x0, x1, y0, y1].some((v) => v === null)) throw new Error('Expected [[x0,x1],[y0,y1]] domain values');
           await executeIntervalAction(plot, {
             callId,
             name: 'mosaic.set_interval_2d',
@@ -153,10 +165,10 @@ export function makeApplyStateHandler(args: {
           const hasX = Array.isArray(x) && x.length >= 2;
           const hasY = Array.isArray(y) && y.length >= 2;
           if (!hasX && !hasY) throw new Error('Expected {x:[x0,x1]} and/or {y:[y0,y1]}');
-          const x0 = hasX ? Number((x as unknown[])[0]) : undefined;
-          const x1 = hasX ? Number((x as unknown[])[1]) : undefined;
-          const y0 = hasY ? Number((y as unknown[])[0]) : undefined;
-          const y1 = hasY ? Number((y as unknown[])[1]) : undefined;
+          const x0 = hasX ? (coerceDomainValue((x as unknown[])[0]) ?? undefined) : undefined;
+          const x1 = hasX ? (coerceDomainValue((x as unknown[])[1]) ?? undefined) : undefined;
+          const y0 = hasY ? (coerceDomainValue((y as unknown[])[0]) ?? undefined) : undefined;
+          const y1 = hasY ? (coerceDomainValue((y as unknown[])[1]) ?? undefined) : undefined;
           await executePanZoomAction(plot, {
             callId,
             name: 'mosaic.set_pan_zoom',
