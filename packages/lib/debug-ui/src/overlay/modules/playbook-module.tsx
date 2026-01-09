@@ -1,9 +1,10 @@
 import type { VacpActionCall, VacpPlaybookStep } from '@vacp/core';
-import { FastForward, Play, RotateCcw, StepBack, StepForward } from 'lucide-react';
+import { FastForward, PanelRightClose, PanelRightOpen, Play, RotateCcw, StepBack, StepForward } from 'lucide-react';
 import type { ReactElement } from 'react';
 import { useEffect, useMemo, useState } from 'react';
 
 import { IconButton } from '@vacp/debug-ui/overlay/icon-button';
+import { useVacpDebugUiStore } from '@vacp/debug-ui/overlay/debug-store';
 import { Card, CardDescription, CardHeader, CardTitle } from '@vacp/debug-ui/ui/components/ui/card';
 
 import type { VacpDebugModuleProps } from './module-types';
@@ -23,10 +24,12 @@ export function PlaybookModule(props: VacpDebugModuleProps): ReactElement {
   const [running, setRunning] = useState(false);
   const [lastResult, setLastResult] = useState<unknown>(null);
   const [lastError, setLastError] = useState<string | null>(null);
+  const detailsOpen = useVacpDebugUiStore((s) => s.playbookDetailsOpen);
+  const setDetailsOpen = useVacpDebugUiStore((s) => s.setPlaybookDetailsOpen);
 
   if (playbooks.length === 0) {
     return (
-      <div className="grid h-full min-h-0 gap-3 lg:grid-cols-[1fr_420px]">
+      <div className={['grid h-full min-h-0 gap-3', detailsOpen ? 'lg:grid-cols-[1fr_420px]' : ''].join(' ')}>
         <Card className="flex min-h-0 flex-col">
           <CardHeader>
             <div className="min-w-0">
@@ -38,17 +41,19 @@ export function PlaybookModule(props: VacpDebugModuleProps): ReactElement {
             This is expected for some examples. Try switching specs (in the host app) or use the other modules to explore the bridge.
           </div>
         </Card>
-        <Card className="flex min-h-0 flex-col">
-          <CardHeader>
-            <div>
-              <CardTitle>Step details</CardTitle>
-              <CardDescription />
+        {detailsOpen ? (
+          <Card className="flex min-h-0 flex-col">
+            <CardHeader>
+              <div>
+                <CardTitle>Step details</CardTitle>
+                <CardDescription />
+              </div>
+            </CardHeader>
+            <div className="min-h-0 flex-1 rounded-lg border border-white/10 bg-black/20 p-3 text-[12px] leading-5 text-slate-100/80">
+              No steps to show.
             </div>
-          </CardHeader>
-          <div className="min-h-0 flex-1 rounded-lg border border-white/10 bg-black/20 p-3 text-[12px] leading-5 text-slate-100/80">
-            No steps to show.
-          </div>
-        </Card>
+          </Card>
+        ) : null}
       </div>
     );
   }
@@ -102,7 +107,7 @@ export function PlaybookModule(props: VacpDebugModuleProps): ReactElement {
   };
 
   return (
-    <div className="grid h-full min-h-0 gap-3 lg:grid-cols-[1fr_420px]">
+    <div className={['grid h-full min-h-0 gap-3', detailsOpen ? 'lg:grid-cols-[1fr_420px]' : ''].join(' ')}>
       <Card className="flex min-h-0 flex-col">
         <CardHeader>
           <div className="min-w-0">
@@ -115,10 +120,17 @@ export function PlaybookModule(props: VacpDebugModuleProps): ReactElement {
             <IconButton icon={<RotateCcw className="h-4 w-4 text-slate-100/90" />} label="Reset" title="Reset back to the first step." onClick={() => stepTo(0)} />
             <IconButton icon={<Play className="h-4 w-4 text-slate-100/90" />} label="Run step" title="Run the current step (if it has an action)." variant="primary" onClick={() => void runNext()} />
             <IconButton icon={<FastForward className="h-4 w-4 text-slate-100/90" />} label="Run all" title="Run the remaining steps." onClick={() => void runAll()} />
+            <IconButton
+              icon={detailsOpen ? <PanelRightClose className="h-4 w-4 text-slate-100/90" /> : <PanelRightOpen className="h-4 w-4 text-slate-100/90" />}
+              label={detailsOpen ? 'Hide step details pane' : 'Show step details pane'}
+              title={detailsOpen ? 'Hide Step details to give the step list more space.' : 'Show Step details.'}
+              pressed={detailsOpen}
+              onClick={() => setDetailsOpen(!detailsOpen)}
+            />
           </div>
         </CardHeader>
 
-        <div className="mt-3 grid gap-3 md:grid-cols-[1fr_260px]">
+        <div className="mt-3 grid gap-3 lg:grid-cols-[1fr_260px]">
           <div>
             <label className="text-[11px] font-medium text-slate-100/70" htmlFor="vacp-playbook">
               Playbook
@@ -183,28 +195,30 @@ export function PlaybookModule(props: VacpDebugModuleProps): ReactElement {
         </div>
       </Card>
 
-      <Card className="flex min-h-0 flex-col">
-        <CardHeader>
-          <div>
-            <CardTitle>Step details</CardTitle>
-            <CardDescription>{running ? 'Running…' : lastError ? lastError : nextStep?.description ?? ''}</CardDescription>
+      {detailsOpen ? (
+        <Card className="flex min-h-0 flex-col">
+          <CardHeader>
+            <div>
+              <CardTitle>Step details</CardTitle>
+              <CardDescription>{running ? 'Running…' : lastError ? lastError : nextStep?.description ?? ''}</CardDescription>
+            </div>
+          </CardHeader>
+          <div className="grid min-h-0 flex-1 gap-3">
+            <div className="min-h-0">
+              <div className="text-[11px] font-medium text-slate-100/70">Call</div>
+              <pre className="mt-1 min-h-0 max-h-[240px] overflow-auto rounded-lg border border-white/10 bg-black/20 p-3 text-[12px] leading-5 text-slate-100/85">
+                {nextStep?.call ? safeJson(nextStep.call) : ''}
+              </pre>
+            </div>
+            <div className="min-h-0">
+              <div className="text-[11px] font-medium text-slate-100/70">Last result</div>
+              <pre className="mt-1 min-h-0 flex-1 overflow-auto rounded-lg border border-white/10 bg-black/20 p-3 text-[12px] leading-5 text-slate-100/85">
+                {safeJson(lastResult)}
+              </pre>
+            </div>
           </div>
-        </CardHeader>
-        <div className="grid min-h-0 flex-1 gap-3">
-          <div className="min-h-0">
-            <div className="text-[11px] font-medium text-slate-100/70">Call</div>
-            <pre className="mt-1 min-h-0 max-h-[240px] overflow-auto rounded-lg border border-white/10 bg-black/20 p-3 text-[12px] leading-5 text-slate-100/85">
-              {nextStep?.call ? safeJson(nextStep.call) : ''}
-            </pre>
-          </div>
-          <div className="min-h-0">
-            <div className="text-[11px] font-medium text-slate-100/70">Last result</div>
-            <pre className="mt-1 min-h-0 flex-1 overflow-auto rounded-lg border border-white/10 bg-black/20 p-3 text-[12px] leading-5 text-slate-100/85">
-              {safeJson(lastResult)}
-            </pre>
-          </div>
-        </div>
-      </Card>
+        </Card>
+      ) : null}
     </div>
   );
 }
