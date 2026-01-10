@@ -11,6 +11,11 @@ export type VacpRuntimeBridgeUpdate = {
   snapshots: VacpSnapshotProvider;
   actions: VacpActionRegistry;
   playbooks?: VacpPlaybook[];
+  /**
+   * Optional session identifier for the current attached visualization/view.
+   * If this changes, tooling may treat it as a new runtime session.
+   */
+  sessionKey?: string;
 };
 
 /**
@@ -20,4 +25,5 @@ export type VacpRuntimeBridgeUpdate = {
 export interface VacpUpdatableRuntimeBridge extends VacpRuntimeBridge {
   __vacpUpdate?: (next: VacpRuntimeBridgeUpdate) => void;
   __vacpRuntimeId?: string;
+  __vacpSessionKey?: string;
 }

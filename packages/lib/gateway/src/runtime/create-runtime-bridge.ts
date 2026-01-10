@@ -30,9 +30,12 @@ export function createRuntimeBridge(args: {
   snapshots: VacpSnapshotProvider;
   actions: VacpActionRegistry;
   playbooks?: VacpPlaybook[];
+  sessionKey?: string;
 }): VacpUpdatableRuntimeBridge {
-  type Adapter = { snapshots: VacpSnapshotProvider; actions: VacpActionRegistry; playbooks?: VacpPlaybook[] };
-  const adapter: Adapter = { ...args, playbooks: args.playbooks ?? [] };
+  type Adapter = { snapshots: VacpSnapshotProvider; actions: VacpActionRegistry; playbooks: VacpPlaybook[] };
+  type AdapterUpdate = Adapter & { sessionKey?: string };
+  const adapter: Adapter = { snapshots: args.snapshots, actions: args.actions, playbooks: args.playbooks ?? [] };
+  let sessionKey = typeof args.sessionKey === 'string' && args.sessionKey.length ? args.sessionKey : null;
 
   const listeners = new Set<(entry: VacpHistoryEntry) => void>();
   const runtimeId = makeEntryId();
@@ -227,16 +230,45 @@ export function createRuntimeBridge(args: {
     return result;
   };
 
-  const updateAdapters = (next: Adapter, options?: { source?: VacpChangeSource; message?: string }): void => {
+  const updateAdapters = (next: AdapterUpdate, options?: { source?: VacpChangeSource; message?: string }): void => {
+    const nextSessionKey = typeof next.sessionKey === 'string' && next.sessionKey.length ? next.sessionKey : null;
+    const prevSessionKey = sessionKey;
+    const sessionChanged = Boolean(nextSessionKey && nextSessionKey !== prevSessionKey);
+
     adapter.snapshots = next.snapshots;
     adapter.actions = next.actions;
     adapter.playbooks = next.playbooks ?? [];
+    sessionKey = nextSessionKey ?? sessionKey;
+    bridge.__vacpSessionKey = sessionKey ?? undefined;
+
     graphOverride = null;
     stateOverride = null;
     mode = 'live';
+    if (!sessionChanged) cursor = history.length - 1;
+
+    if (sessionChanged) {
+      history.length = 0;
+      suppressObserverRecording = 0;
+      mode = 'live';
+      cursor = -1;
+      liveCapabilities = null;
+      liveState = null;
+      if (listeners.size > 0) {
+        stopObserving();
+        startObserving({ source: 'system', message: 'observe' });
+      }
+      record({
+        id: makeEntryId(),
+        at: nowIso(),
+        kind: 'mode',
+        source: 'system',
+        message: `session changed: ${prevSessionKey ?? '(unknown)'} → ${nextSessionKey}`,
+      });
+    }
+
     void bridge.refresh?.({
       source: entrySource(options?.source),
-      message: entryMessage(options?.message) ?? 'bridge updated',
+      message: entryMessage(options?.message) ?? (sessionChanged ? 'session started' : 'bridge updated'),
     });
   };
 
@@ -315,8 +347,13 @@ export function createRuntimeBridge(args: {
     stopObserving,
   };
 
-  bridge.__vacpUpdate = (next) => updateAdapters({ ...next, playbooks: next.playbooks ?? [] }, { source: 'system' });
+  bridge.__vacpUpdate = (next) =>
+    updateAdapters(
+      { ...next, playbooks: next.playbooks ?? [], sessionKey: next.sessionKey },
+      { source: 'system' },
+    );
   bridge.__vacpRuntimeId = runtimeId;
+  bridge.__vacpSessionKey = sessionKey ?? undefined;
 
   return bridge;
 }
