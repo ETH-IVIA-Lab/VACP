@@ -6,5 +6,9 @@
 **/.venv/**
 **/__pycache__/**
 **/*.lock
+pnpm-lock.yaml
 **/.pytest_cache/**
 **/test-results/**
+
+# Example datasets (large / generated-ish)
+packages/examples/**/public/data/**
