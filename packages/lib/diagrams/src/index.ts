@@ -123,6 +123,10 @@ export function renderVacpGraphMermaid(input: VacpDiagramRenderInput, options?: 
         return '📊';
       case 'Mark':
         return '✳️';
+      case 'EncodingChannel':
+        return '🎛️';
+      case 'EncodedField':
+        return '🏷️';
       case 'Selection':
         return '🎯';
       case 'Param':

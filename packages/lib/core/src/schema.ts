@@ -42,6 +42,8 @@ export type VacpNodeKind =
   | 'View'
   | 'Visualization'
   | 'Mark'
+  | 'EncodingChannel'
+  | 'EncodedField'
   | 'Legend'
   | 'Axis'
   | 'Selection'
