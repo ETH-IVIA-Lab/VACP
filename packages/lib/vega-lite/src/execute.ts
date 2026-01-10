@@ -1,14 +1,9 @@
 import type { VacpActionCall } from '@vacp/core';
+import { splitVacpRefAt } from '@vacp/core';
 import { changeset } from 'vega';
 
 import { signalNamesFromView, tryGetSignal, trySetSignal } from './signals';
 import type { VegaLiteParamLike, VegaLiteSpecLike, VegaViewLike } from './types';
-
-function paramNameFromRef(ref: string): string | null {
-  const idx = ref.lastIndexOf('/param/');
-  if (idx < 0) return null;
-  return ref.slice(idx + '/param/'.length);
-}
 
 function signalsForParam(param: VegaLiteParamLike, allSignals: string[]): string[] {
   // Vega-Lite compiles selection parameters into multiple signals. We can't
@@ -126,7 +121,7 @@ export async function executeAction(
 
   const ref = typeof params.ref === 'string' ? params.ref : null;
   if (!ref) throw new Error('Expected params.ref string');
-  const name = paramNameFromRef(ref);
+  const name = splitVacpRefAt(ref, '/param/')?.after ?? null;
   if (!name) throw new Error(`Could not parse param name from ref: ${ref}`);
 
   const found = helpers.paramByName.get(name);

@@ -5,7 +5,7 @@ import type {
   VacpChangeSource,
   VacpStateSnapshot,
 } from '@vacp/core';
-import { nowIso, VACP_SCHEMA_VERSION } from '@vacp/core';
+import { nowIso, splitVacpRefAt, VACP_SCHEMA_VERSION } from '@vacp/core';
 import { formatDuckDbTableMetadataSummary } from '@vacp/duckdb';
 import { installVacpRuntimeBridge, registerVacpApplyStateAction, VacpActionRegistry } from '@vacp/gateway';
 
@@ -64,7 +64,7 @@ export function installVacpOnVegaLiteView(args: {
       let applied = 0;
 
       for (const [ref, raw] of Object.entries(state)) {
-        const name = ref.split('/param/')[1];
+        const name = splitVacpRefAt(ref, '/param/')?.after ?? null;
         if (!name) continue;
         const rec = raw && typeof raw === 'object' ? (raw as Record<string, unknown>) : {};
         const desired = (rec.value ?? raw) as unknown;

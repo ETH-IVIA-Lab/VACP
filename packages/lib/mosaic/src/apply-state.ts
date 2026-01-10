@@ -1,4 +1,5 @@
 import type { VacpRef } from '@vacp/core';
+import { lastPathComponent, splitVacpRefAt } from '@vacp/core';
 
 import type { CollectedInput } from './inputs';
 import { executeInputAction } from './inputs';
@@ -61,7 +62,7 @@ export function makeApplyStateHandler(args: {
         continue;
       }
 
-      const tail = ref.split('/').pop() ?? '';
+      const tail = lastPathComponent(ref) ?? '';
       const table = tablesById?.get(tail);
       if (table) {
         const rec = raw && typeof raw === 'object' ? (raw as Record<string, unknown>) : {};
@@ -83,16 +84,15 @@ export function makeApplyStateHandler(args: {
         continue;
       }
 
-      const idx = ref.lastIndexOf('/interactor/');
-      if (idx < 0) continue;
-      const plotSeg = ref.slice(0, idx);
-      const plotId = plotSeg.split('/').pop() ?? '';
+      const parsed = splitVacpRefAt(ref, '/interactor/');
+      if (!parsed) continue;
+      const plotId = lastPathComponent(parsed.before) ?? '';
       const plot = plotsById.get(plotId);
       if (!plot) {
         errors.push({ ref, message: `Unknown plotId in ref: ${plotId}` });
         continue;
       }
-      const interactorId = ref.slice(idx + '/interactor/'.length);
+      const interactorId = parsed.after;
       const interactor = plot.interactors[Number(interactorId)];
       if (!interactor) {
         errors.push({ ref, message: `Unknown interactorId: ${interactorId}` });
