@@ -23,11 +23,12 @@ test('debug-ui: SQL editor keeps focus on run', async ({ page }) => {
     await expect(dataTab).toBeVisible();
     await dataTab.click();
 
-    const editor = page.locator('textarea[data-vacp-focus="data-sql"]');
+    const editor = page.locator('[data-vacp-focus="data-sql"]');
     await expect(editor).toBeVisible({ timeout: 15_000 });
 
     await editor.click();
-    await editor.fill('SELECT 1::INTEGER AS x');
+    await page.keyboard.press('Control+A');
+    await page.keyboard.type('SELECT 1::INTEGER AS x');
     await expect(editor).toBeFocused();
 
     const run = page.locator('button[aria-label="Run query"]');
@@ -36,7 +37,7 @@ test('debug-ui: SQL editor keeps focus on run', async ({ page }) => {
 
     await page.waitForFunction(() => (document.activeElement as HTMLElement | null)?.dataset?.vacpFocus === 'data-sql');
     await expect(editor).toBeFocused();
-    await expect(editor).toHaveValue('SELECT 1::INTEGER AS x');
+    await expect(editor).toContainText('SELECT 1::INTEGER AS x');
   } finally {
     await srv.stop();
   }
