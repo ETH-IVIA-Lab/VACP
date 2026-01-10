@@ -2,6 +2,30 @@ import type { VacpActionCall, VacpActionDescriptor, VacpActionResult } from '@va
 
 export type VacpActionHandler = (params: unknown) => unknown | Promise<unknown>;
 
+function toSerializableErrorDetails(error: unknown): unknown {
+  if (error instanceof Error) {
+    const cause = (error as { cause?: unknown }).cause;
+    return {
+      name: error.name,
+      message: error.message,
+      stack: typeof error.stack === 'string' ? error.stack : undefined,
+      cause:
+        cause instanceof Error
+          ? { name: cause.name, message: cause.message, stack: typeof cause.stack === 'string' ? cause.stack : undefined }
+          : cause !== undefined
+            ? String(cause)
+            : undefined,
+    };
+  }
+
+  if (!error || typeof error !== 'object') return error;
+  try {
+    return JSON.parse(JSON.stringify(error));
+  } catch {
+    return String(error);
+  }
+}
+
 /**
  * Action registry (concepts).
  *
@@ -45,7 +69,7 @@ export class VacpActionRegistry {
       return { callId: call.callId, ok: true, result };
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      return { callId: call.callId, ok: false, error: { message, details: error } };
+      return { callId: call.callId, ok: false, error: { message, details: toSerializableErrorDetails(error) } };
     }
   }
 }
