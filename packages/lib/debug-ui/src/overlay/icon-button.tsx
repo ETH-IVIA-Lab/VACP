@@ -10,6 +10,7 @@ export function IconButton(props: {
   pressed?: boolean;
   disabled?: boolean;
   variant?: 'default' | 'primary' | 'danger';
+  size?: 'icon' | 'iconSm';
   onClick?: () => void;
   onMouseDown?: (ev: ReactMouseEvent<HTMLButtonElement>) => void;
 }): ReactElement {
@@ -19,7 +20,7 @@ export function IconButton(props: {
       <TooltipTrigger asChild>
         <Button
           type="button"
-          size="icon"
+          size={props.size ?? 'icon'}
           variant={variant}
           disabled={props.disabled}
           aria-label={props.label}

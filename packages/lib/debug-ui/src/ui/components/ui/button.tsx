@@ -5,7 +5,7 @@ import type { ButtonHTMLAttributes } from 'react';
 import { cn } from '@vacp/debug-ui/ui/lib/utils';
 
 const buttonVariants = cva(
-  [
+  cn(
     'inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-xs font-medium',
     'transition-colors',
     'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/60',
@@ -13,7 +13,7 @@ const buttonVariants = cva(
     '[&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0',
     // When used as a toggle button (aria-pressed), visually indicate the active state.
     '[aria-pressed=true]:bg-sky-500/20 [aria-pressed=true]:border-sky-300/40 [aria-pressed=true]:text-sky-100',
-  ].join(' '),
+  ),
   {
     variants: {
       variant: {
@@ -23,7 +23,9 @@ const buttonVariants = cva(
       },
       size: {
         sm: 'h-8 px-2.5',
-        icon: 'h-9 w-9 p-0',
+        // `icon` is used heavily in module toolbars; keep it compact and crisp.
+        icon: 'h-8 w-8 p-0',
+        iconSm: 'h-7 w-7 p-0',
       },
     },
     defaultVariants: {
