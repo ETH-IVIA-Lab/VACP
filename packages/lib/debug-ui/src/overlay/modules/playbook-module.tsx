@@ -35,6 +35,19 @@ export function PlaybookModule(props: VacpDebugModuleProps): ReactElement {
     setDetailsOpen(false);
   }, [dense, detailsOpen, setDetailsOpen]);
 
+  const selected = useMemo(
+    () => playbooks.find((p) => p.id === playbookId) ?? playbooks[0] ?? null,
+    [playbooks, playbookId],
+  );
+
+  useEffect(() => {
+    if (!selected) return;
+    setPlaybookId(selected.id);
+    setStepIndex(0);
+    setLastResult(null);
+    setLastError(null);
+  }, [selected?.id]);
+
   if (playbooks.length === 0) {
     return (
       <div
@@ -72,16 +85,6 @@ export function PlaybookModule(props: VacpDebugModuleProps): ReactElement {
       </div>
     );
   }
-
-  const selected = useMemo(() => playbooks.find((p) => p.id === playbookId) ?? playbooks[0] ?? null, [playbooks, playbookId]);
-
-  useEffect(() => {
-    if (!selected) return;
-    setPlaybookId(selected.id);
-    setStepIndex(0);
-    setLastResult(null);
-    setLastError(null);
-  }, [selected?.id]);
 
   const steps: VacpPlaybookStep[] = selected?.steps ?? [];
   const nextStep = steps[stepIndex] ?? null;
