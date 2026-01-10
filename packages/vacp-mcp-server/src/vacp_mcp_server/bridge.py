@@ -92,4 +92,3 @@ class PlaywrightVacpBridgeClient(VacpBridgeClient):
                 error=raw.get('error') if isinstance(raw.get('error'), dict) else None,
             )
         return ActionResult(call_id=call.call_id, ok=False, error={'message': 'Invalid execute() response', 'raw': raw})
-

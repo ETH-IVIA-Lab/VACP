@@ -7,8 +7,8 @@ from contextlib import asynccontextmanager
 import uvicorn
 from fastapi import FastAPI
 
-from vacp_mcp_server.browser import BrowserConfig, BrowserManager
 from vacp_mcp_server.bridge import PlaywrightVacpBridgeClient
+from vacp_mcp_server.browser import BrowserConfig, BrowserManager
 from vacp_mcp_server.server import create_mcp
 
 """
