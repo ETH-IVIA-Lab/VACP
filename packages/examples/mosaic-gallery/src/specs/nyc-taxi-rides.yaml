@@ -26,69 +26,69 @@ data:
 params:
   filter: { select: crossfilter }
 vconcat:
-- hconcat:
+  - hconcat:
+      - plot:
+          - mark: raster
+            data: { from: trips, filterBy: $filter }
+            x: px
+            y: py
+            bandwidth: 0
+          - select: intervalXY
+            as: $filter
+          - mark: text
+            data: [{ label: Taxi Pickups }]
+            dx: 10
+            dy: 10
+            text: label
+            fill: black
+            fontSize: 1.2em
+            frameAnchor: top-left
+        width: 335
+        height: 550
+        margin: 0
+        xAxis: null
+        yAxis: null
+        xDomain: [9.75e5, 1.005e6]
+        yDomain: [1.9e5, 2.4e5]
+        colorScale: symlog
+        colorScheme: blues
+      - hspace: 10
+      - plot:
+          - mark: raster
+            data: { from: trips, filterBy: $filter }
+            x: dx
+            y: dy
+            bandwidth: 0
+          - select: intervalXY
+            as: $filter
+          - mark: text
+            data: [{ label: Taxi Dropoffs }]
+            dx: 10
+            dy: 10
+            text: label
+            fill: black
+            fontSize: 1.2em
+            frameAnchor: top-left
+        width: 335
+        height: 550
+        margin: 0
+        xAxis: null
+        yAxis: null
+        xDomain: [9.75e5, 1.005e6]
+        yDomain: [1.9e5, 2.4e5]
+        colorScale: symlog
+        colorScheme: oranges
+  - vspace: 10
   - plot:
-    - mark: raster
-      data: { from: trips, filterBy: $filter }
-      x: px
-      y: py
-      bandwidth: 0
-    - select: intervalXY
-      as: $filter
-    - mark: text
-      data: [{ label: Taxi Pickups }]
-      dx: 10
-      dy: 10
-      text: label
-      fill: black
-      fontSize: 1.2em
-      frameAnchor: top-left
-    width: 335
-    height: 550
-    margin: 0
-    xAxis: null
-    yAxis: null
-    xDomain: [9.75e5, 1.005e6]
-    yDomain: [1.9e5, 2.4e5]
-    colorScale: symlog
-    colorScheme: blues
-  - hspace: 10
-  - plot:
-    - mark: raster
-      data: { from: trips, filterBy: $filter }
-      x: dx
-      y: dy
-      bandwidth: 0
-    - select: intervalXY
-      as: $filter
-    - mark: text
-      data: [{ label: Taxi Dropoffs }]
-      dx: 10
-      dy: 10
-      text: label
-      fill: black
-      fontSize: 1.2em
-      frameAnchor: top-left
-    width: 335
-    height: 550
-    margin: 0
-    xAxis: null
-    yAxis: null
-    xDomain: [9.75e5, 1.005e6]
-    yDomain: [1.9e5, 2.4e5]
-    colorScale: symlog
-    colorScheme: oranges
-- vspace: 10
-- plot:
-  - mark: rectY
-    data: { from: trips }
-    x: { bin: time }
-    y: { count: }
-    fill: steelblue
-    inset: 0.5
-  - select: intervalX
-    as: $filter
-  yTickFormat: s
-  xLabel: Pickup Hour →
-  width: 680
-  height: 100
+      - mark: rectY
+        data: { from: trips }
+        x: { bin: time }
+        y: { count }
+        fill: steelblue
+        inset: 0.5
+      - select: intervalX
+        as: $filter
+    yTickFormat: s
+    xLabel: Pickup Hour →
+    width: 680
+    height: 100

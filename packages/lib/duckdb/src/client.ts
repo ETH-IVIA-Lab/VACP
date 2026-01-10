@@ -7,10 +7,7 @@ import { normalizeSingleStatementSql } from './sql';
 export type VacpDuckDbConnection = {
   query: (sql: string) => Promise<unknown>;
   useUnsafe: <T>(fn: (bindings: unknown, connId: number) => Promise<T>) => Promise<T>;
-  insertJSONFromPath?: (
-    path: string,
-    options: { name: string; create?: boolean; schema?: string },
-  ) => Promise<unknown>;
+  insertJSONFromPath?: (path: string, options: { name: string; create?: boolean; schema?: string }) => Promise<unknown>;
 };
 
 export type VacpDuckDbClient = {

@@ -11,7 +11,11 @@ function toSerializableErrorDetails(error: unknown): unknown {
       stack: typeof error.stack === 'string' ? error.stack : undefined,
       cause:
         cause instanceof Error
-          ? { name: cause.name, message: cause.message, stack: typeof cause.stack === 'string' ? cause.stack : undefined }
+          ? {
+              name: cause.name,
+              message: cause.message,
+              stack: typeof cause.stack === 'string' ? cause.stack : undefined,
+            }
           : cause !== undefined
             ? String(cause)
             : undefined,

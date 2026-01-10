@@ -169,7 +169,10 @@ export function SqlResultTable({
   const effectiveViewportHeight = Math.max(0, viewportHeight - headerHeight);
   const overscan = 10;
   const startIndex = Math.max(0, Math.floor(effectiveScrollTop / rowHeight) - overscan);
-  const endIndex = Math.min(totalRows, Math.ceil((effectiveScrollTop + effectiveViewportHeight) / rowHeight) + overscan);
+  const endIndex = Math.min(
+    totalRows,
+    Math.ceil((effectiveScrollTop + effectiveViewportHeight) / rowHeight) + overscan,
+  );
 
   return (
     <div
@@ -200,14 +203,19 @@ export function SqlResultTable({
                   return (
                     <div
                       key={row.id}
-                      className={cn('absolute left-0 right-0 flex border-b border-white/10', absoluteIndex % 2 === 1 && 'bg-white/[0.02]')}
+                      className={cn(
+                        'absolute left-0 right-0 flex border-b border-white/10',
+                        absoluteIndex % 2 === 1 && 'bg-white/[0.02]',
+                      )}
                       style={{ top }}
                     >
                       {row.getVisibleCells().map((cell, index) => {
                         const colIndex = cell.column.getIndex();
                         const isIndex = cell.column.id === '__row';
                         const value = cell.getValue();
-                        const f = isIndex ? { text: String(row.index + 1), alignRight: true, muted: true } : formatCellValue(value);
+                        const f = isIndex
+                          ? { text: String(row.index + 1), alignRight: true, muted: true }
+                          : formatCellValue(value);
                         const text = f.text;
 
                         const cellNode = (

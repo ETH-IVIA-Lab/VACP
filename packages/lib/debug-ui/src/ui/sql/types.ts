@@ -29,4 +29,3 @@ export type SqlResultTableModel = {
   rows: Record<string, unknown>[];
   truncated: boolean;
 };
-

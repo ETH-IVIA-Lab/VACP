@@ -76,8 +76,7 @@ const baseTheme = EditorView.theme({
     backgroundColor: 'rgba(2, 6, 23, 0.55)',
     overflow: 'auto',
     borderRadius: '0.5rem',
-    fontFamily:
-      "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace",
+    fontFamily: "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace",
     fontSize: '12px',
     lineHeight: '20px',
   },

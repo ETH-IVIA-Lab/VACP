@@ -21,7 +21,8 @@ test('vgplot: shared dataset uses a single DataHandle node (Seattle Weather)', a
       const handles = nodes.filter((n: any) => n?.kind === 'DataHandle');
       const weather = handles.filter((n: any) => String(n?.data?.table ?? '') === 'weather');
       const ref = weather[0]?.ref ?? null;
-      const containsEdges = typeof ref === 'string' ? edges.filter((e: any) => e?.kind === 'contains' && e?.to === ref) : [];
+      const containsEdges =
+        typeof ref === 'string' ? edges.filter((e: any) => e?.kind === 'contains' && e?.to === ref) : [];
       return {
         handleCount: weather.length,
         handleRef: ref,
@@ -36,4 +37,3 @@ test('vgplot: shared dataset uses a single DataHandle node (Seattle Weather)', a
     await srv.stop();
   }
 });
-

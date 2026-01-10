@@ -122,4 +122,3 @@ export function useDebugPanelLayout(args: {
 
   return { maximized, panelPosition, minimize, toggleMaximize };
 }
-

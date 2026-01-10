@@ -31,19 +31,22 @@ test('mosaic: set_interval_1d triggers downstream crossfilters (Seattle Weather)
 
     // Programmatic brush (June–Aug) on the scatter plot should change the bottom bar chart.
     const callId = crypto.randomUUID();
-    const res = await page.evaluate(async ({ callId }) => {
-      const vacp = (globalThis as any).__vacp;
-      return await vacp.execute({
-        callId,
-        name: 'mosaic.set_interval_1d',
-        params: {
-          plotId: 'plot-0',
-          interactorId: '0',
-          min: 1338508800000,
-          max: 1346457600000,
-        },
-      });
-    }, { callId });
+    const res = await page.evaluate(
+      async ({ callId }) => {
+        const vacp = (globalThis as any).__vacp;
+        return await vacp.execute({
+          callId,
+          name: 'mosaic.set_interval_1d',
+          params: {
+            plotId: 'plot-0',
+            interactorId: '0',
+            min: 1338508800000,
+            max: 1346457600000,
+          },
+        });
+      },
+      { callId },
+    );
     expect(res?.ok).toBeTruthy();
 
     // Ensure the brush rect renders (visual parity with human brushing).
@@ -80,7 +83,10 @@ test('mosaic: set_interval_1d triggers downstream crossfilters (Seattle Weather)
       const vacp = (globalThis as any).__vacp;
       const snap = await vacp.getState();
       const savedState = typeof structuredClone === 'function' ? structuredClone(snap.state) : snap.state;
-      const sel = document.querySelector('#app')?.querySelector('svg')?.querySelector('rect.selection') as SVGRectElement | null;
+      const sel = document
+        .querySelector('#app')
+        ?.querySelector('svg')
+        ?.querySelector('rect.selection') as SVGRectElement | null;
       const aBox = sel?.getBBox?.() ?? null;
       const a = aBox ? { x: aBox.x, width: aBox.width, height: aBox.height } : null;
 
@@ -90,15 +96,32 @@ test('mosaic: set_interval_1d triggers downstream crossfilters (Seattle Weather)
         name: 'mosaic.set_interval_1d',
         params: { plotId: 'plot-0', interactorId: '0', min: 1349049600000, max: 1351728000000 },
       });
-      const selB = document.querySelector('#app')?.querySelector('svg')?.querySelector('rect.selection') as SVGRectElement | null;
+      const selB = document
+        .querySelector('#app')
+        ?.querySelector('svg')
+        ?.querySelector('rect.selection') as SVGRectElement | null;
       const bBox = selB?.getBBox?.() ?? null;
       const b = bBox ? { x: bBox.x, width: bBox.width, height: bBox.height } : null;
 
-      const res = await vacp.execute({ callId: crypto.randomUUID(), name: 'vacp.apply_state', params: { state: savedState } });
-      const selAfter = document.querySelector('#app')?.querySelector('svg')?.querySelector('rect.selection') as SVGRectElement | null;
+      const res = await vacp.execute({
+        callId: crypto.randomUUID(),
+        name: 'vacp.apply_state',
+        params: { state: savedState },
+      });
+      const selAfter = document
+        .querySelector('#app')
+        ?.querySelector('svg')
+        ?.querySelector('rect.selection') as SVGRectElement | null;
       const afterBox = selAfter?.getBBox?.() ?? null;
       const after = afterBox ? { x: afterBox.x, width: afterBox.width, height: afterBox.height } : null;
-      return { ok: Boolean(res?.ok), a, b, after, applied: res?.result?.applied ?? 0, errors: res?.result?.errors ?? [] };
+      return {
+        ok: Boolean(res?.ok),
+        a,
+        b,
+        after,
+        applied: res?.result?.applied ?? 0,
+        errors: res?.result?.errors ?? [],
+      };
     });
     expect(restoreResult.ok).toBeTruthy();
     expect(restoreResult.applied).toBeGreaterThanOrEqual(1);

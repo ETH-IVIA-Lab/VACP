@@ -81,12 +81,13 @@ export function sqlForMosaicTableView(args: {
   const orderBy = sortCol ? `ORDER BY ${quoteIdent(sortCol)} ${args.sortDesc ? 'DESC' : 'ASC'}` : null;
   if (orderBy) clauses.push(orderBy);
 
-  const limit = typeof args.limit === 'number' && Number.isFinite(args.limit) ? Math.max(1, Math.floor(args.limit)) : null;
-  const offset = typeof args.offset === 'number' && Number.isFinite(args.offset) ? Math.max(0, Math.floor(args.offset)) : null;
+  const limit =
+    typeof args.limit === 'number' && Number.isFinite(args.limit) ? Math.max(1, Math.floor(args.limit)) : null;
+  const offset =
+    typeof args.offset === 'number' && Number.isFinite(args.offset) ? Math.max(0, Math.floor(args.offset)) : null;
   if (limit !== null) clauses.push(`LIMIT ${limit}`);
   if (offset !== null && offset > 0) clauses.push(`OFFSET ${offset}`);
 
   const selectedSql = clauses.length ? `SELECT * FROM ${table} ${clauses.join(' ')}` : allSql;
   return { allSql, selectedSql };
 }
-

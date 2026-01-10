@@ -53,7 +53,11 @@ export interface VgplotTableLike {
   limit?: number;
   sortColumn?: string | null;
   sortDesc?: boolean;
-  selection?: { value?: unknown; update?: (...args: unknown[]) => unknown; predicate?: (...args: unknown[]) => unknown };
+  selection?: {
+    value?: unknown;
+    update?: (...args: unknown[]) => unknown;
+    predicate?: (...args: unknown[]) => unknown;
+  };
   update?: (...args: unknown[]) => unknown;
   requestData?: (...args: unknown[]) => unknown | Promise<unknown>;
 }

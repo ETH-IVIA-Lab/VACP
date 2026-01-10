@@ -70,12 +70,18 @@ export function makeApplyStateHandler(args: {
           const sortColumn = rec.sortColumn ?? null;
           const sortDesc = Boolean(rec.sortDesc);
           if (typeof sortColumn === 'string' && sortColumn) {
-            await executeTableAction(table, { name: 'mosaic.table_set_sort', params: { column: sortColumn, desc: sortDesc } });
+            await executeTableAction(table, {
+              name: 'mosaic.table_set_sort',
+              params: { column: sortColumn, desc: sortDesc },
+            });
           } else if (sortColumn === null || sortColumn === undefined) {
             await executeTableAction(table, { name: 'mosaic.table_clear_sort' });
           }
           if (typeof rec.offset === 'number' || typeof rec.limit === 'number') {
-            await executeTableAction(table, { name: 'mosaic.table_set_page', params: { offset: rec.offset, limit: rec.limit } });
+            await executeTableAction(table, {
+              name: 'mosaic.table_set_page',
+              params: { offset: rec.offset, limit: rec.limit },
+            });
           }
           applied += 1;
         } catch (err) {
@@ -125,9 +131,17 @@ export function makeApplyStateHandler(args: {
               params: { plotId, interactorId },
             });
           else if (ctorName === 'PanZoom')
-            await executePanZoomAction(plot, { callId, name: 'mosaic.clear_pan_zoom', params: { plotId, interactorId } });
+            await executePanZoomAction(plot, {
+              callId,
+              name: 'mosaic.clear_pan_zoom',
+              params: { plotId, interactorId },
+            });
           else if (ctorName === 'Nearest')
-            await executeNearestAction(plot, { callId, name: 'mosaic.clear_nearest', params: { plotId, interactorId } });
+            await executeNearestAction(plot, {
+              callId,
+              name: 'mosaic.clear_nearest',
+              params: { plotId, interactorId },
+            });
           else if (ctorName === 'Toggle')
             await executeToggleAction(plot, { callId, name: 'mosaic.clear_toggle', params: { plotId, interactorId } });
           else if (ctorName === 'Region')

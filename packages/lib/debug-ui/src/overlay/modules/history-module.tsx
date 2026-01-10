@@ -97,7 +97,8 @@ export function HistoryModule(props: VacpDebugModuleProps): ReactElement {
     setDetailsOpen(false);
   }, [dense, detailsOpen, setDetailsOpen]);
 
-  const setCursor = (cursor: number) => props.bridge.setCursor?.(cursor, { source: 'debug', message: `cursor=${cursor}` });
+  const setCursor = (cursor: number) =>
+    props.bridge.setCursor?.(cursor, { source: 'debug', message: `cursor=${cursor}` });
   const undo = () => props.bridge.undo?.({ source: 'debug', message: 'undo' });
   const redo = () => props.bridge.redo?.({ source: 'debug', message: 'redo' });
 
@@ -142,7 +143,9 @@ export function HistoryModule(props: VacpDebugModuleProps): ReactElement {
         <CardHeader className={cn('items-start', compactControls && 'flex-col items-stretch gap-2')}>
           <div className="min-w-0 flex-1">
             <CardTitle>History</CardTitle>
-            <CardDescription>Toggle the Mode button (top bar) to Inspect, then click an entry to move the cursor.</CardDescription>
+            <CardDescription>
+              Toggle the Mode button (top bar) to Inspect, then click an entry to move the cursor.
+            </CardDescription>
             {dense ? (
               <details className="mt-2 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-[11px] text-slate-100/80">
                 <summary className="cursor-pointer select-none font-medium text-slate-100/85">Sources legend</summary>
@@ -201,13 +204,35 @@ export function HistoryModule(props: VacpDebugModuleProps): ReactElement {
                 : 'shrink-0',
             )}
           >
-            <IconButton icon={<Undo2 className="h-4 w-4 text-slate-100/90" />} size={iconButtonSize} label="Undo" title="Undo." disabled={!canUndo} onClick={() => undo()} />
-            <IconButton icon={<Redo2 className="h-4 w-4 text-slate-100/90" />} size={iconButtonSize} label="Redo" title="Redo." disabled={!canRedo} onClick={() => redo()} />
             <IconButton
-              icon={detailsOpen ? <PanelRightClose className="h-4 w-4 text-slate-100/90" /> : <PanelRightOpen className="h-4 w-4 text-slate-100/90" />}
+              icon={<Undo2 className="h-4 w-4 text-slate-100/90" />}
+              size={iconButtonSize}
+              label="Undo"
+              title="Undo."
+              disabled={!canUndo}
+              onClick={() => undo()}
+            />
+            <IconButton
+              icon={<Redo2 className="h-4 w-4 text-slate-100/90" />}
+              size={iconButtonSize}
+              label="Redo"
+              title="Redo."
+              disabled={!canRedo}
+              onClick={() => redo()}
+            />
+            <IconButton
+              icon={
+                detailsOpen ? (
+                  <PanelRightClose className="h-4 w-4 text-slate-100/90" />
+                ) : (
+                  <PanelRightOpen className="h-4 w-4 text-slate-100/90" />
+                )
+              }
               size={iconButtonSize}
               label={detailsOpen ? 'Hide details pane' : 'Show details pane'}
-              title={detailsOpen ? 'Hide the Details pane to give the history list more space.' : 'Show the Details pane.'}
+              title={
+                detailsOpen ? 'Hide the Details pane to give the history list more space.' : 'Show the Details pane.'
+              }
               pressed={effectiveDetailsOpen}
               onClick={() => setDetailsOpen(!detailsOpen)}
             />
@@ -248,7 +273,11 @@ export function HistoryModule(props: VacpDebugModuleProps): ReactElement {
                       }}
                     >
                       <div className="flex items-center gap-2">
-                        <span className={cn('h-2 w-2 rounded-full', info.dotClass)} aria-hidden="true" title={info.label} />
+                        <span
+                          className={cn('h-2 w-2 rounded-full', info.dotClass)}
+                          aria-hidden="true"
+                          title={info.label}
+                        />
                         <span className="inline-flex items-center gap-1" title={info.description}>
                           {info.icon}
                           <span className="sr-only">{info.label}</span>
@@ -283,9 +312,7 @@ export function HistoryModule(props: VacpDebugModuleProps): ReactElement {
             <div className="min-w-0">
               <CardTitle>Details</CardTitle>
               <CardDescription>
-                {selected
-                  ? `${selected.kind} • ${roleInfo(selected.source).label}`
-                  : 'Select an entry to inspect.'}
+                {selected ? `${selected.kind} • ${roleInfo(selected.source).label}` : 'Select an entry to inspect.'}
               </CardDescription>
             </div>
           </CardHeader>

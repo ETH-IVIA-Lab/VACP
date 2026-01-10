@@ -12,8 +12,9 @@ export function buildUsStateMapPlaybook(_ctx: MosaicSpecPlaybookContext): VacpPl
       description: 'Hover over state centroids to inspect tooltips (manual interaction).',
     })
       .step('Hover a state centroid', { description: 'A tooltip should show the state name.' })
-      .step('Compare a few regions', { description: 'Try west coast vs northeast to confirm centroids align with geometry.' })
+      .step('Compare a few regions', {
+        description: 'Try west coast vs northeast to confirm centroids align with geometry.',
+      })
       .build(),
   ];
 }
-

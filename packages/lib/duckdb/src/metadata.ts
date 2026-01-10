@@ -160,7 +160,8 @@ export async function getDuckDbTableMetadata(args: {
   const rowCountRes = await args.duckdb.queryJson(`SELECT COUNT(*)::BIGINT AS n FROM ${tableSql}`);
   const rowCount = parseNumber(rowCountRes.rows[0]?.n) ?? null;
 
-  const sampleCte = sampleRows > 0 ? `WITH __vacp_sample AS (SELECT * FROM ${tableSql} LIMIT ${Math.floor(sampleRows)})` : '';
+  const sampleCte =
+    sampleRows > 0 ? `WITH __vacp_sample AS (SELECT * FROM ${tableSql} LIMIT ${Math.floor(sampleRows)})` : '';
   const sampleFrom = sampleRows > 0 ? '__vacp_sample' : tableSql;
 
   const numericCols = columns.filter((c) => isNumericType(c.type)).slice(0, maxNumericColumns);

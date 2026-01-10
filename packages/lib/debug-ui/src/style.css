@@ -1,6 +1,6 @@
 @config "../tailwind.config.ts";
-@import "tailwindcss";
-@import "react-json-view-lite/dist/index.css";
+@import 'tailwindcss';
+@import 'react-json-view-lite/dist/index.css';
 
 /* Host apps may ship global `button { ... }` rules. Because Tailwind utilities are in cascade layers,
    those unlayered host rules would otherwise win and break the debug UI. `revert-layer` restores the

@@ -18,8 +18,14 @@ test('debug-ui: keyboard navigation (tabs + roving focus)', async ({ page }) => 
     await page.evaluate(async () => {
       const b = (globalThis as any).__vacp;
       if (!b || typeof b.dispatch !== 'function') throw new Error('Missing bridge.dispatch');
-      await b.dispatch({ callId: crypto.randomUUID(), name: 'vanilla.toggle_point', params: { id: 0 } }, { source: 'debug', message: 'select 0' });
-      await b.dispatch({ callId: crypto.randomUUID(), name: 'vanilla.toggle_point', params: { id: 1 } }, { source: 'debug', message: 'select 1' });
+      await b.dispatch(
+        { callId: crypto.randomUUID(), name: 'vanilla.toggle_point', params: { id: 0 } },
+        { source: 'debug', message: 'select 0' },
+      );
+      await b.dispatch(
+        { callId: crypto.randomUUID(), name: 'vanilla.toggle_point', params: { id: 1 } },
+        { source: 'debug', message: 'select 1' },
+      );
     });
 
     const pill = page.locator('button.vacp-debug-ui-button');
@@ -53,4 +59,3 @@ test('debug-ui: keyboard navigation (tabs + roving focus)', async ({ page }) => 
     await srv.stop();
   }
 });
-

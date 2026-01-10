@@ -112,7 +112,8 @@ export function DataModule(props: VacpDebugModuleProps): ReactElement {
 
   const resultView = (() => {
     if (dataSql.status === 'running') return <div className="text-[12px] text-slate-100/80">Running…</div>;
-    if (dataSql.status === 'error') return <div className="text-[12px] text-rose-100/80">{dataSql.error ?? 'Query failed'}</div>;
+    if (dataSql.status === 'error')
+      return <div className="text-[12px] text-rose-100/80">{dataSql.error ?? 'Query failed'}</div>;
     if (!dataSql.result) return <div className="text-[12px] text-slate-100/80">Run a query to see results.</div>;
 
     const { table, rawJsonSafe, resolvedSql } = dataSql.result;
@@ -240,7 +241,8 @@ export function DataModule(props: VacpDebugModuleProps): ReactElement {
               className="mt-1"
             />
             <div className="mt-1 text-[11px] text-slate-100/55">
-              Tip: Shift+click or double-click a cell to copy it{props.runtime.mode === 'inspect' ? ' (autocomplete schema is live-mode only).' : '.'}
+              Tip: Shift+click or double-click a cell to copy it
+              {props.runtime.mode === 'inspect' ? ' (autocomplete schema is live-mode only).' : '.'}
             </div>
           </div>
         </div>
@@ -252,8 +254,7 @@ export function DataModule(props: VacpDebugModuleProps): ReactElement {
             <CardDescription>
               {selectedHandle ? (
                 <>
-                  Target:{' '}
-                  <code className={inlineCodeClass}>{selectedHandleTitle ?? shortRef(selectedHandle)}</code>{' '}
+                  Target: <code className={inlineCodeClass}>{selectedHandleTitle ?? shortRef(selectedHandle)}</code>{' '}
                   <span className="text-slate-100/60">({shortRef(selectedHandle)})</span>
                 </>
               ) : (

@@ -7,4 +7,3 @@ export type VegaLiteSpecPlaybookContext = {
   entry: VegaLitePlaybookEntry;
   viewBase: string;
 };
-

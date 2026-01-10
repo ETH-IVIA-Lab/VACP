@@ -13,7 +13,9 @@ function clampNumber(n: number, lo: number, hi: number): number {
   return Math.max(lo, Math.min(hi, n));
 }
 
-function findInterval1d(ctx: MosaicSpecPlaybookContext): { plotId: string; interactorId: string; plotIdx: number } | null {
+function findInterval1d(
+  ctx: MosaicSpecPlaybookContext,
+): { plotId: string; interactorId: string; plotIdx: number } | null {
   // Seattle weather: brush on the main scatter plot (first plot).
   const plotIdx = ctx.plots.findIndex((p) => p.plot.interactors.some((i) => i.constructor?.name === 'Interval1D'));
   if (plotIdx < 0) return null;
@@ -73,4 +75,3 @@ export function buildWeatherPlaybook(ctx: MosaicSpecPlaybookContext): VacpPlaybo
       .build(),
   ];
 }
-

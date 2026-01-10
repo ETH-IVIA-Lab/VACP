@@ -158,7 +158,9 @@ test('examples: mosaic-gallery', async ({ page }) => {
       else expect(playbooks.length).toBe(0);
 
       if (playbooks.length) {
-        expect(playbooks.every((p: any) => typeof p?.id === 'string' && String(p.id).startsWith(`${specId}-`))).toBeTruthy();
+        expect(
+          playbooks.every((p: any) => typeof p?.id === 'string' && String(p.id).startsWith(`${specId}-`)),
+        ).toBeTruthy();
         expect(
           playbooks.some(
             (p: any) =>
@@ -166,11 +168,16 @@ test('examples: mosaic-gallery', async ({ page }) => {
           ),
         ).toBeTruthy();
 
-        const calls = playbooks.flatMap((p: any) => (Array.isArray(p?.steps) ? p.steps : [])).map((s: any) => s?.call).filter(Boolean);
+        const calls = playbooks
+          .flatMap((p: any) => (Array.isArray(p?.steps) ? p.steps : []))
+          .map((s: any) => s?.call)
+          .filter(Boolean);
         expect(calls.some((c: any) => c?.name === 'vacp.data_sql')).toBeFalsy();
       }
 
-      const handle = nodes.find((n: any) => n?.kind === 'DataHandle' && String(n?.ref ?? '').includes(`/mosaic/${specId}/`));
+      const handle = nodes.find(
+        (n: any) => n?.kind === 'DataHandle' && String(n?.ref ?? '').includes(`/mosaic/${specId}/`),
+      );
       if (!handle) {
         expect(hasDataSql).toBeFalsy();
         continue;
@@ -192,7 +199,11 @@ test('examples: mosaic-gallery', async ({ page }) => {
       const beforeHist = (rtBefore.history ?? []).length;
       const steps = playbooks.flatMap((d: any) => (Array.isArray(d?.steps) ? d.steps : []));
       const hasNonClearPlaybookCall = steps.some(
-        (s: any) => s?.call && typeof s.call?.name === 'string' && !/clear/i.test(String(s.call.name)) && !/clear/i.test(String(s.title ?? '')),
+        (s: any) =>
+          s?.call &&
+          typeof s.call?.name === 'string' &&
+          !/clear/i.test(String(s.call.name)) &&
+          !/clear/i.test(String(s.title ?? '')),
       );
       const ran = await tryRunFirstNonClearDemoStep(page);
       expect(ran).toBe(hasNonClearPlaybookCall);

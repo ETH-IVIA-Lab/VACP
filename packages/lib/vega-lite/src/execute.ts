@@ -78,7 +78,8 @@ function bestEffortSelectionTuple(args: {
   const values: unknown[] = [];
   for (const f of fields) {
     const rec = isRecord(f) ? f : null;
-    const key = (typeof rec?.field === 'string' && rec.field) || (typeof rec?.channel === 'string' && rec.channel) || '';
+    const key =
+      (typeof rec?.field === 'string' && rec.field) || (typeof rec?.channel === 'string' && rec.channel) || '';
     values.push(key ? selectionValue[key] : undefined);
   }
 

@@ -26,4 +26,3 @@ export function useElementSize<T extends HTMLElement>(ref: RefObject<T | null>):
 
   return size;
 }
-

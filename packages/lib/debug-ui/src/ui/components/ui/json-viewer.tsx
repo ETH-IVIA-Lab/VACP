@@ -31,8 +31,11 @@ export function JsonViewer({ value, className, emptyText = '', expandDepth = 2 }
       )}
       data-vacp-json-viewer="1"
     >
-      {value == null ? <div className="text-slate-100/60">{emptyText}</div> : <JsonView data={data} style={style} shouldExpandNode={shouldExpandNode} />}
+      {value == null ? (
+        <div className="text-slate-100/60">{emptyText}</div>
+      ) : (
+        <JsonView data={data} style={style} shouldExpandNode={shouldExpandNode} />
+      )}
     </div>
   );
 }
-

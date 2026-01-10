@@ -48,7 +48,8 @@ export function JsonModule(props: VacpDebugModuleProps): ReactElement {
     try {
       const parsed = parseJson(overrideText);
       if (!parsed || typeof parsed !== 'object') throw new Error('Expected a JSON object keyed by vacp:// refs');
-      if (typeof props.bridge.setStateOverride !== 'function') throw new Error('This provider does not support state overrides.');
+      if (typeof props.bridge.setStateOverride !== 'function')
+        throw new Error('This provider does not support state overrides.');
       props.bridge.setStateOverride(parsed as Record<VacpRef, unknown>, { source: 'debug', message: 'override state' });
       setStatus('Override applied.');
     } catch (err) {
@@ -73,10 +74,17 @@ export function JsonModule(props: VacpDebugModuleProps): ReactElement {
       setError(String(err));
       return;
     }
-    const call: VacpActionCall = { callId: crypto.randomUUID(), name: VACP_APPLY_STATE_ACTION, params: { state: parsed } };
+    const call: VacpActionCall = {
+      callId: crypto.randomUUID(),
+      name: VACP_APPLY_STATE_ACTION,
+      params: { state: parsed },
+    };
     try {
-      const res = typeof props.bridge.dispatch === 'function' ? await props.bridge.dispatch(call, { source: 'debug' }) : await props.bridge.execute(call);
-      setStatus(res.ok ? 'Applied.' : res.error?.message ?? 'Apply failed');
+      const res =
+        typeof props.bridge.dispatch === 'function'
+          ? await props.bridge.dispatch(call, { source: 'debug' })
+          : await props.bridge.execute(call);
+      setStatus(res.ok ? 'Applied.' : (res.error?.message ?? 'Apply failed'));
       if (!res.ok) setError(res.error?.message ?? 'Apply failed');
     } catch (err) {
       setStatus('');
@@ -122,7 +130,8 @@ export function JsonModule(props: VacpDebugModuleProps): ReactElement {
           <div className="min-w-0">
             <CardTitle>State edit</CardTitle>
             <CardDescription>
-              Apply state for inspection (override) or execute <code className={inlineCodeClass}>vacp.apply_state</code>.
+              Apply state for inspection (override) or execute <code className={inlineCodeClass}>vacp.apply_state</code>
+              .
             </CardDescription>
           </div>
           <div

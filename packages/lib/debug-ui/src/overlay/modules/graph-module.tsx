@@ -1,5 +1,13 @@
 import type { VacpNode, VacpRef, VacpRuntimeSnapshot } from '@vacp/core';
-import { ArrowLeftRight, ArrowUpDown, ClipboardCopy, PanelRightClose, PanelRightOpen, XCircle, Zap } from 'lucide-react';
+import {
+  ArrowLeftRight,
+  ArrowUpDown,
+  ClipboardCopy,
+  PanelRightClose,
+  PanelRightOpen,
+  XCircle,
+  Zap,
+} from 'lucide-react';
 import type { ReactElement } from 'react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 
@@ -34,11 +42,16 @@ function shortRef(ref: VacpRef): string {
   const s = String(ref);
   const hashIdx = s.indexOf('#');
   const clean = hashIdx >= 0 ? s.slice(0, hashIdx) : s;
-  const parts = clean.split('/').filter(Boolean).filter((p) => p !== 'vacp:');
+  const parts = clean
+    .split('/')
+    .filter(Boolean)
+    .filter((p) => p !== 'vacp:');
   return parts.slice(-3).join('/');
 }
 
-function parseMermaidNodeId(svgNodeId: string | null): { mermaidId: string; index: number; kind: 'node' | 'action' } | null {
+function parseMermaidNodeId(
+  svgNodeId: string | null,
+): { mermaidId: string; index: number; kind: 'node' | 'action' } | null {
   if (!svgNodeId) return null;
   const m = svgNodeId.match(/flowchart-([na]\d+)-/);
   if (!m) return null;
@@ -55,7 +68,9 @@ function updateSelectedHighlight(host: HTMLElement, sel: SelectedGraphItem) {
   svg.querySelectorAll('g.node.vacp-selected').forEach((g) => g.classList.remove('vacp-selected'));
   if (!sel) return;
   const prefix = `flowchart-${sel.mermaidId}-`;
-  const target = Array.from(svg.querySelectorAll('g.node')).find((g) => (g.getAttribute('id') ?? '').startsWith(prefix));
+  const target = Array.from(svg.querySelectorAll('g.node')).find((g) =>
+    (g.getAttribute('id') ?? '').startsWith(prefix),
+  );
   if (target) target.classList.add('vacp-selected');
 }
 
@@ -64,7 +79,13 @@ function buildInspectorValue(runtime: VacpRuntimeSnapshot, sel: SelectedGraphIte
   if (sel.kind === 'action') {
     const a = runtime.currentCapabilities.graph.actions?.[sel.index];
     return a
-      ? { kind: 'action', name: a.name, description: a.description ?? null, targetRef: a.targetRef ?? null, parameters: a.parameters ?? {} }
+      ? {
+          kind: 'action',
+          name: a.name,
+          description: a.description ?? null,
+          targetRef: a.targetRef ?? null,
+          parameters: a.parameters ?? {},
+        }
       : { error: 'Unknown action index', index: sel.index };
   }
 
@@ -208,7 +229,8 @@ export function GraphModule(props: VacpDebugModuleProps): ReactElement {
           <div className="min-w-0">
             <CardTitle>Graph</CardTitle>
             <CardDescription>
-              Click nodes to inspect their state. {renderError ? <span className="text-rose-100/80">({renderError})</span> : null}
+              Click nodes to inspect their state.{' '}
+              {renderError ? <span className="text-rose-100/80">({renderError})</span> : null}
             </CardDescription>
           </div>
           <div
@@ -220,7 +242,13 @@ export function GraphModule(props: VacpDebugModuleProps): ReactElement {
             )}
           >
             <IconButton
-              icon={options.direction === 'LR' ? <ArrowLeftRight className="h-4 w-4 text-slate-100/90" /> : <ArrowUpDown className="h-4 w-4 text-slate-100/90" />}
+              icon={
+                options.direction === 'LR' ? (
+                  <ArrowLeftRight className="h-4 w-4 text-slate-100/90" />
+                ) : (
+                  <ArrowUpDown className="h-4 w-4 text-slate-100/90" />
+                )
+              }
               label="Toggle direction"
               title="Toggle diagram direction (left-to-right vs top-to-bottom)."
               size={iconButtonSize}
@@ -242,7 +270,13 @@ export function GraphModule(props: VacpDebugModuleProps): ReactElement {
               onClick={() => void copyTextToClipboard(mermaidText)}
             />
             <IconButton
-              icon={inspectOpen ? <PanelRightClose className="h-4 w-4 text-slate-100/90" /> : <PanelRightOpen className="h-4 w-4 text-slate-100/90" />}
+              icon={
+                inspectOpen ? (
+                  <PanelRightClose className="h-4 w-4 text-slate-100/90" />
+                ) : (
+                  <PanelRightOpen className="h-4 w-4 text-slate-100/90" />
+                )
+              }
               label={inspectOpen ? 'Hide inspect pane' : 'Show inspect pane'}
               title={inspectOpen ? 'Hide the Inspect pane to give the diagram more space.' : 'Show the Inspect pane.'}
               pressed={effectiveInspectOpen}

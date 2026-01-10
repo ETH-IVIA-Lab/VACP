@@ -5,7 +5,12 @@ import { VACP_DATA_SQL_ACTION } from '@vacp/core';
 import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
 
 import type { VacpWindowBridge } from '@vacp/debug-ui/types';
-import { decodeArrowIpcBase64ToTable, tableRowsFromArrow, tableSchemaFromArrow, toJsonSafe } from '@vacp/debug-ui/ui/sql/arrow';
+import {
+  decodeArrowIpcBase64ToTable,
+  tableRowsFromArrow,
+  tableSchemaFromArrow,
+  toJsonSafe,
+} from '@vacp/debug-ui/ui/sql/arrow';
 import { normalizeSingleStatementSql } from '@vacp/debug-ui/ui/sql/sql';
 import type { SqlResultTableModel } from '@vacp/debug-ui/ui/sql/types';
 
@@ -21,7 +26,9 @@ export type DataSqlOk = {
 const DEFAULT_PAGE_SIZE = 200;
 const RAW_JSON_PREVIEW_ROWS = 25;
 
-function isArrowResult(value: unknown): value is { format: 'arrow_ipc_base64'; resolvedSql: string; arrowIpcBase64: string } {
+function isArrowResult(
+  value: unknown,
+): value is { format: 'arrow_ipc_base64'; resolvedSql: string; arrowIpcBase64: string } {
   if (!value || typeof value !== 'object') return false;
   const v = value as any;
   return v.format === 'arrow_ipc_base64' && typeof v.arrowIpcBase64 === 'string' && typeof v.resolvedSql === 'string';
@@ -59,7 +66,9 @@ async function fetchDataSqlPage(args: {
   };
 
   const res =
-    typeof bridge.dispatch === 'function' ? await bridge.dispatch(call, { source: 'debug' }) : await bridge.execute(call);
+    typeof bridge.dispatch === 'function'
+      ? await bridge.dispatch(call, { source: 'debug' })
+      : await bridge.execute(call);
   if (!res.ok) throw new Error(res.error?.message ?? 'Query failed');
 
   const raw = res.result as unknown;

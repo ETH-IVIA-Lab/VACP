@@ -71,4 +71,3 @@ export function makeCategoryValues(): CategoryDatum[] {
     return { category, value: Math.round(clamp(wave + noise, 8, 100)) };
   });
 }
-

@@ -170,7 +170,9 @@ export function installVacpDebugResizer(args: {
   };
 
   for (const h of handles) {
-    const cls = Array.from(h.classList).find((c) => c.startsWith('vacp-debug-ui-resize-') && c !== 'vacp-debug-ui-resize-handle');
+    const cls = Array.from(h.classList).find(
+      (c) => c.startsWith('vacp-debug-ui-resize-') && c !== 'vacp-debug-ui-resize-handle',
+    );
     const dir = cls ? cls.replace('vacp-debug-ui-resize-', '') : null;
     if (!dir) continue;
     h.addEventListener('pointerdown', (ev) => begin(ev, dir as any));

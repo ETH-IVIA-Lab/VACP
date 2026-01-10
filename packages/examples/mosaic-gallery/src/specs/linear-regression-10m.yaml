@@ -19,38 +19,38 @@ data:
 params:
   data: flights10m
 vconcat:
-- input: menu
-  label: Sample
-  as: $data
-  options:
-    - { value: flights10m, label: Full Data }
-    - { value: flights10p, label: 10% Sample }
-    - { value: flights5p, label: 5% Sample }
-    - { value: flights1p, label: 1% Sample }
-- vspace: 10
-- plot:
-  - mark: raster
-    data: { from: $data }
-    x: time
-    y: delay
-    pixelSize: 4
-    pad: 0
-    imageRendering: pixelated
-  - mark: regressionY
-    data: { from: $data }
-    x: time
-    y: delay
-    stroke: gray
-  - mark: regressionY
-    data: { from: $data, filterBy: $query }
-    x: time
-    y: delay
-    stroke: firebrick
-  - select: intervalXY
-    as: $query
-    brush: { fillOpacity: 0, stroke: currentColor }
-  xDomain: [0, 24]
-  yDomain: [-60, 180]
-  colorScale: symlog
-  colorScheme: blues
-  colorDomain: Fixed
+  - input: menu
+    label: Sample
+    as: $data
+    options:
+      - { value: flights10m, label: Full Data }
+      - { value: flights10p, label: 10% Sample }
+      - { value: flights5p, label: 5% Sample }
+      - { value: flights1p, label: 1% Sample }
+  - vspace: 10
+  - plot:
+      - mark: raster
+        data: { from: $data }
+        x: time
+        y: delay
+        pixelSize: 4
+        pad: 0
+        imageRendering: pixelated
+      - mark: regressionY
+        data: { from: $data }
+        x: time
+        y: delay
+        stroke: gray
+      - mark: regressionY
+        data: { from: $data, filterBy: $query }
+        x: time
+        y: delay
+        stroke: firebrick
+      - select: intervalXY
+        as: $query
+        brush: { fillOpacity: 0, stroke: currentColor }
+    xDomain: [0, 24]
+    yDomain: [-60, 180]
+    colorScale: symlog
+    colorScheme: blues
+    colorDomain: Fixed

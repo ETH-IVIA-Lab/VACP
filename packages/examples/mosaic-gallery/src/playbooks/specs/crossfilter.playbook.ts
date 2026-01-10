@@ -8,7 +8,10 @@ function findInterval1d(plot: MosaicSpecPlaybookContext['plots'][number]): numbe
   return plot.plot.interactors.findIndex((i) => i.constructor?.name === 'Interval1D');
 }
 
-function intervalFor(plot: MosaicSpecPlaybookContext['plots'][number], range: [number, number]): { min: number; max: number } {
+function intervalFor(
+  plot: MosaicSpecPlaybookContext['plots'][number],
+  range: [number, number],
+): { min: number; max: number } {
   const interactorIdNum = findInterval1d(plot);
   const domain = interactorIdNum >= 0 ? getInterval1dDomain(plot.plot, interactorIdNum) : null;
   if (!domain) return { min: range[0], max: range[1] };
@@ -35,18 +38,35 @@ export function buildCrossfilterPlaybook(ctx: MosaicSpecPlaybookContext): VacpPl
     title: 'Playbook: Crossfilter (chain brushes)',
     description: 'Apply a sequence of interval brushes across histograms to cross-filter the remaining views.',
   })
-    .action('Clear arrival-delay brush', { name: 'mosaic.clear_interval_1d', params: { plotId: delayPlot.plotId, interactorId: delayId } })
-    .action('Clear departure-time brush', { name: 'mosaic.clear_interval_1d', params: { plotId: timePlot.plotId, interactorId: timeId } });
+    .action('Clear arrival-delay brush', {
+      name: 'mosaic.clear_interval_1d',
+      params: { plotId: delayPlot.plotId, interactorId: delayId },
+    })
+    .action('Clear departure-time brush', {
+      name: 'mosaic.clear_interval_1d',
+      params: { plotId: timePlot.plotId, interactorId: timeId },
+    });
 
   if (distPlot && distId) {
-    b.action('Clear distance brush', { name: 'mosaic.clear_interval_1d', params: { plotId: distPlot.plotId, interactorId: distId } });
+    b.action('Clear distance brush', {
+      name: 'mosaic.clear_interval_1d',
+      params: { plotId: distPlot.plotId, interactorId: distId },
+    });
   }
 
-  b.action('Brush arrival delays (moderate)', { name: 'mosaic.set_interval_1d', params: { plotId: delayPlot.plotId, interactorId: delayId, min: delay.min, max: delay.max } })
-    .action('Brush departure time (morning)', { name: 'mosaic.set_interval_1d', params: { plotId: timePlot.plotId, interactorId: timeId, min: time.min, max: time.max } });
+  b.action('Brush arrival delays (moderate)', {
+    name: 'mosaic.set_interval_1d',
+    params: { plotId: delayPlot.plotId, interactorId: delayId, min: delay.min, max: delay.max },
+  }).action('Brush departure time (morning)', {
+    name: 'mosaic.set_interval_1d',
+    params: { plotId: timePlot.plotId, interactorId: timeId, min: time.min, max: time.max },
+  });
 
   if (distPlot && distId && dist) {
-    b.action('Brush distance (short→mid)', { name: 'mosaic.set_interval_1d', params: { plotId: distPlot.plotId, interactorId: distId, min: dist.min, max: dist.max } });
+    b.action('Brush distance (short→mid)', {
+      name: 'mosaic.set_interval_1d',
+      params: { plotId: distPlot.plotId, interactorId: distId, min: dist.min, max: dist.max },
+    });
   }
 
   return [b.build()];

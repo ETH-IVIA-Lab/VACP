@@ -35,7 +35,11 @@ export function getVacpWindowBridge(options?: VacpWindowBridgeOptions): VacpWind
   const value = (globalThis as unknown as Record<string, unknown>)[key];
   if (!value || typeof value !== 'object') return undefined;
   const maybe = value as Partial<VacpWindowBridge>;
-  if (typeof maybe.getCapabilities !== 'function' || typeof maybe.getState !== 'function' || typeof maybe.execute !== 'function') {
+  if (
+    typeof maybe.getCapabilities !== 'function' ||
+    typeof maybe.getState !== 'function' ||
+    typeof maybe.execute !== 'function'
+  ) {
     return undefined;
   }
   if (!options?.allowVersionMismatch && maybe.version !== VACP_SCHEMA_VERSION) return undefined;

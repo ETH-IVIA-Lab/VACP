@@ -11,7 +11,12 @@ import { GraphModule } from '@vacp/debug-ui/overlay/modules/graph-module';
 import { HistoryModule } from '@vacp/debug-ui/overlay/modules/history-module';
 import { JsonModule } from '@vacp/debug-ui/overlay/modules/json-module';
 import { PlaybookModule } from '@vacp/debug-ui/overlay/modules/playbook-module';
-import { useVacpBridge, useVacpBridgePresence, useVacpPlaybooks, useVacpRuntime } from '@vacp/debug-ui/overlay/bridge-queries';
+import {
+  useVacpBridge,
+  useVacpBridgePresence,
+  useVacpPlaybooks,
+  useVacpRuntime,
+} from '@vacp/debug-ui/overlay/bridge-queries';
 import { TooltipProvider } from '@vacp/debug-ui/ui/components/ui/tooltip';
 
 import { DebugUiView, type VacpDebugBridgeStatus } from './debug-ui-view';
@@ -204,10 +209,15 @@ export function VacpDebugUiApp(props: { globalKey: string; includeActions: boole
   const renderModule = (id: VacpDebugModuleId) => {
     if (!bridge || !runtime) {
       if (!open) return null;
-      if (bridgeQuery.isFetching || runtimeQuery.isFetching) return <div className="text-[11px] text-slate-100/80">Connecting…</div>;
+      if (bridgeQuery.isFetching || runtimeQuery.isFetching)
+        return <div className="text-[11px] text-slate-100/80">Connecting…</div>;
       const err = (bridgeQuery.error ?? runtimeQuery.error) as Error | null;
       if (err) return <div className="text-[11px] text-slate-100/80">{String(err.message ?? err)}</div>;
-      return <div className="text-[11px] text-slate-100/80">Open the overlay on a VACP-enabled page to inspect the bridge.</div>;
+      return (
+        <div className="text-[11px] text-slate-100/80">
+          Open the overlay on a VACP-enabled page to inspect the bridge.
+        </div>
+      );
     }
 
     const ctx = { bridge, runtime, playbooks };

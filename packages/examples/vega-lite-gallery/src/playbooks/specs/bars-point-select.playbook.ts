@@ -15,10 +15,22 @@ export function buildBarsPointSelectPlaybook(ctx: VegaLiteSpecPlaybookContext): 
         'Answer: “How do I compare a few categories without losing context?” by selecting a bar and using the opacity slider to fade/unfade non-selected bars.',
     })
       .action('Clear bar selection (clean slate)', { name: 'vega_lite.clear_selection', params: { ref: pickRef } })
-      .action('Fade non-selected bars (opacity slider)', { name: 'vega_lite.set_param', params: { ref: baseOpacityRef, value: 0.15 } })
-      .action('Select category C (click a bar)', { name: 'vega_lite.set_selection', params: { ref: pickRef, value: { category: 'C' } } })
-      .action('Select category F (compare)', { name: 'vega_lite.set_selection', params: { ref: pickRef, value: { category: 'F' } } })
-      .action('Bring context back (opacity slider)', { name: 'vega_lite.set_param', params: { ref: baseOpacityRef, value: 0.6 } })
+      .action('Fade non-selected bars (opacity slider)', {
+        name: 'vega_lite.set_param',
+        params: { ref: baseOpacityRef, value: 0.15 },
+      })
+      .action('Select category C (click a bar)', {
+        name: 'vega_lite.set_selection',
+        params: { ref: pickRef, value: { category: 'C' } },
+      })
+      .action('Select category F (compare)', {
+        name: 'vega_lite.set_selection',
+        params: { ref: pickRef, value: { category: 'F' } },
+      })
+      .action('Bring context back (opacity slider)', {
+        name: 'vega_lite.set_param',
+        params: { ref: baseOpacityRef, value: 0.6 },
+      })
       .build(),
   ];
 }

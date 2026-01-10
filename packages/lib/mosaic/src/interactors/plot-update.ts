@@ -14,4 +14,3 @@ export async function awaitPlotUpdate(plot: VgplotPlotLike, timeoutMs = 750): Pr
     // Best-effort: never fail the action because a render update failed.
   }
 }
-

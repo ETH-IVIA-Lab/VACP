@@ -8,20 +8,20 @@ data:
   driving:
     file: data/driving.parquet
 plot:
-- mark: line
-  data: { from: driving }
-  x: miles
-  y: gas
-  curve: catmull-rom
-  marker: true
-- mark: text
-  data: { from: driving }
-  x: miles
-  y: gas
-  text: { sql: year::VARCHAR } # sidestep Plot's auto-format
-  dy: -6
-  lineAnchor: bottom
-  filter: { sql: year % 5 = 0 }
+  - mark: line
+    data: { from: driving }
+    x: miles
+    y: gas
+    curve: catmull-rom
+    marker: true
+  - mark: text
+    data: { from: driving }
+    x: miles
+    y: gas
+    text: { sql: year::VARCHAR } # sidestep Plot's auto-format
+    dy: -6
+    lineAnchor: bottom
+    filter: { sql: year % 5 = 0 }
 inset: 10
 grid: true
 xLabel: Miles driven (per person-year)

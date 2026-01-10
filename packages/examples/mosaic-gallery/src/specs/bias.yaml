@@ -8,17 +8,17 @@ data:
 params:
   point: 0
 vconcat:
-- input: slider
-  label: Bias
-  as: $point
-  min: 0
-  max: 1000
-  step: 1
-- plot:
-  - mark: areaY
-    data: { from: walk }
-    x: t
-    y: { sql: v + $point }
-    fill: steelblue
-  width: 680
-  height: 200
+  - input: slider
+    label: Bias
+    as: $point
+    min: 0
+    max: 1000
+    step: 1
+  - plot:
+      - mark: areaY
+        data: { from: walk }
+        x: t
+        y: { sql: v + $point }
+        fill: steelblue
+    width: 680
+    height: 200

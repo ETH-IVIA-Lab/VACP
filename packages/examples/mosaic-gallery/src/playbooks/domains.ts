@@ -23,7 +23,10 @@ export function normalizeDomain(a: unknown, b: unknown): [DomainValue, DomainVal
   return domainValueOf(x) <= domainValueOf(y) ? [x, y] : [y, x];
 }
 
-export function domainToInterval(domain: [DomainValue, DomainValue], range: [number, number]): [DomainValue, DomainValue] {
+export function domainToInterval(
+  domain: [DomainValue, DomainValue],
+  range: [number, number],
+): [DomainValue, DomainValue] {
   const [d0, d1] = domain;
   const [r0, r1] = range;
   const t0 = domainValueOf(d0);

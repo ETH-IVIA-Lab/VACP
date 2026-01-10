@@ -9,7 +9,13 @@ import { Tooltip, TooltipContent, TooltipTrigger } from './tooltip';
 
 type Row = Record<string, unknown>;
 
-export function SqlResultTableHeader({ table, columns }: { table: Table<Row>; columns: SqlResultColumn[] }): ReactElement {
+export function SqlResultTableHeader({
+  table,
+  columns,
+}: {
+  table: Table<Row>;
+  columns: SqlResultColumn[];
+}): ReactElement {
   const headers = table.getFlatHeaders();
   const { columnSizingInfo } = table.getState();
 
@@ -20,7 +26,7 @@ export function SqlResultTableHeader({ table, columns }: { table: Table<Row>; co
           const isLast = index === headers.length - 1;
           const headStyles = { width: `calc(var(--header-${header.index}-size) * 1px)` };
           const isIndex = header.id === '__row';
-          const colMeta = !isIndex ? columns.find((c) => c.name === header.id) ?? null : null;
+          const colMeta = !isIndex ? (columns.find((c) => c.name === header.id) ?? null) : null;
 
           const tooltip =
             !isIndex && colMeta ? (
@@ -80,7 +86,9 @@ export function SqlResultTableHeader({ table, columns }: { table: Table<Row>; co
                   onTouchStart={header.getResizeHandler()}
                   style={{
                     transform:
-                      columnSizingInfo.isResizingColumn === header.id ? `translateX(${columnSizingInfo.deltaOffset}px)` : '',
+                      columnSizingInfo.isResizingColumn === header.id
+                        ? `translateX(${columnSizingInfo.deltaOffset}px)`
+                        : '',
                   }}
                 />
               ) : null}
@@ -91,4 +99,3 @@ export function SqlResultTableHeader({ table, columns }: { table: Table<Row>; co
     </div>
   );
 }
-

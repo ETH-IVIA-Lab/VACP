@@ -13,13 +13,7 @@ import type { ReactElement } from 'react';
 
 import type { NormalizedSQLType } from '@vacp/debug-ui/ui/sql/types';
 
-export function ColumnTypeIcon({
-  type,
-  className,
-}: {
-  type: NormalizedSQLType;
-  className?: string;
-}): ReactElement {
+export function ColumnTypeIcon({ type, className }: { type: NormalizedSQLType; className?: string }): ReactElement {
   const props = { size: 14, className };
   switch (type) {
     case 'float':
@@ -54,4 +48,3 @@ export function ColumnTypeIcon({
     }
   }
 }
-

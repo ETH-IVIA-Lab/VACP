@@ -1,6 +1,11 @@
 import type { VacpActionDescriptor, VacpRef } from '@vacp/core';
 import type { VacpDuckDbClient, VacpDuckDbTableMetadata } from '@vacp/duckdb';
-import { createDuckDbDataSqlHandler, createDuckDbWasmClient, getDuckDbTableMetadata, makeVacpDuckDbTableName } from '@vacp/duckdb';
+import {
+  createDuckDbDataSqlHandler,
+  createDuckDbWasmClient,
+  getDuckDbTableMetadata,
+  makeVacpDuckDbTableName,
+} from '@vacp/duckdb';
 import { registerVacpDataSqlAction, type VacpActionRegistry } from '@vacp/gateway';
 
 import { whereClauseForCurrentSelections } from './duckdb-selection';

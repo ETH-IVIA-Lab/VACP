@@ -33,7 +33,8 @@ export async function executeLegendToggleAction(plot: VgplotPlotLike, call: Vacp
   const match = channel
     ? interactive.find((l) => String((l as any).channel ?? '').toLowerCase() === channel.toLowerCase())
     : interactive[0];
-  if (!match) throw new Error(channel ? `No interactive legend found for channel: ${channel}` : 'No interactive legend');
+  if (!match)
+    throw new Error(channel ? `No interactive legend found for channel: ${channel}` : 'No interactive legend');
 
   const handler = (match as any).handler;
   if (!handler) throw new Error('Legend interactor is not initialized yet (handler missing)');

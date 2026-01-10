@@ -17,9 +17,11 @@ export const CLUSTER_CENTERS = {
   topRight: { x: 78, y: 72 },
 } as const;
 
-export function brushAround(point: { x: number; y: number }, span: { x: number; y: number } = { x: 18, y: 18 }): Brush2D {
+export function brushAround(
+  point: { x: number; y: number },
+  span: { x: number; y: number } = { x: 18, y: 18 },
+): Brush2D {
   const x = clampRange([point.x - span.x, point.x + span.x], 0, 100);
   const y = clampRange([point.y - span.y, point.y + span.y], 0, 100);
   return { x, y };
 }
-

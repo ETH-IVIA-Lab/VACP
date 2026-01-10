@@ -17,7 +17,10 @@ export function CardHeader(props: HTMLAttributes<HTMLDivElement>) {
 
 export function CardTitle(props: HTMLAttributes<HTMLDivElement>) {
   return (
-    <div {...props} className={cn('text-xs font-semibold tracking-wider uppercase text-slate-100/70', props.className)} />
+    <div
+      {...props}
+      className={cn('text-xs font-semibold tracking-wider uppercase text-slate-100/70', props.className)}
+    />
   );
 }
 

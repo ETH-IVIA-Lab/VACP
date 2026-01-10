@@ -69,7 +69,10 @@ function safeJsonValue(value: unknown): unknown {
   }
 }
 
-function collectMenuOptions(input: VgplotInputLike, limit = 200): {
+function collectMenuOptions(
+  input: VgplotInputLike,
+  limit = 200,
+): {
   options: Array<{ value: unknown; label?: string }>;
   count: number;
   truncated: boolean;

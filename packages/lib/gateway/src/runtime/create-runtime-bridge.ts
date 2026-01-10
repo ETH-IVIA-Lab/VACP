@@ -108,7 +108,11 @@ export function createRuntimeBridge(args: {
 
     suppressObserverRecording += 1;
     try {
-      const call: VacpActionCall = { callId: makeEntryId(), name: VACP_APPLY_STATE_ACTION, params: { state: st.state } };
+      const call: VacpActionCall = {
+        callId: makeEntryId(),
+        name: VACP_APPLY_STATE_ACTION,
+        params: { state: st.state },
+      };
       await adapter.actions.execute(call);
       await ensureLive();
     } finally {
@@ -348,10 +352,7 @@ export function createRuntimeBridge(args: {
   };
 
   bridge.__vacpUpdate = (next) =>
-    updateAdapters(
-      { ...next, playbooks: next.playbooks ?? [], sessionKey: next.sessionKey },
-      { source: 'system' },
-    );
+    updateAdapters({ ...next, playbooks: next.playbooks ?? [], sessionKey: next.sessionKey }, { source: 'system' });
   bridge.__vacpRuntimeId = runtimeId;
   bridge.__vacpSessionKey = sessionKey ?? undefined;
 

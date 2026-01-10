@@ -14,31 +14,31 @@ params:
   stack: false
   offset: null
 vconcat:
-- hconcat:
-  - input: menu
-    label: Normalize
-    as: $normalize
-    options: [none, sum, max]
-  - input: menu
-    label: Stack
-    as: $stack
-    options: [false, true]
-  - input: menu
-    label: Offset
-    as: $offset
-    options:
-      - { label: none, value: null }
-      - { label: normalize, value: normalize }
-      - { label: center, value: center }
-- plot:
-  - mark: densityY
-    data: { from: penguins }
-    x: bill_depth
-    fill: species
-    fillOpacity: 0.4
-    bandwidth: $bandwidth
-    normalize: $normalize
-    stack: $stack
-    offset: $offset
-  marginLeft: 50
-  height: 200
+  - hconcat:
+      - input: menu
+        label: Normalize
+        as: $normalize
+        options: [none, sum, max]
+      - input: menu
+        label: Stack
+        as: $stack
+        options: [false, true]
+      - input: menu
+        label: Offset
+        as: $offset
+        options:
+          - { label: none, value: null }
+          - { label: normalize, value: normalize }
+          - { label: center, value: center }
+  - plot:
+      - mark: densityY
+        data: { from: penguins }
+        x: bill_depth
+        fill: species
+        fillOpacity: 0.4
+        bandwidth: $bandwidth
+        normalize: $normalize
+        stack: $stack
+        offset: $offset
+    marginLeft: 50
+    height: 200

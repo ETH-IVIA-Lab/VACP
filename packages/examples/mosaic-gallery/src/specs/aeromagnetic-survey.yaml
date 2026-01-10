@@ -16,25 +16,25 @@ params:
   interp: random-walk
   blur: 0
 vconcat:
-- hconcat:
-  - input: menu
-    label: Interpolation Method
-    options: [none, nearest, barycentric, random-walk]
-    as: $interp
-  - hspace: 1em
-  - input: slider
-    label: Blur
-    min: 0
-    max: 100
-    as: $blur
-- vspace: 1em
-- plot:
-  - mark: raster
-    data: { from: ca55 }
-    x: LONGITUDE
-    y: LATITUDE
-    fill: { max: MAG_IGRF90 }
-    interpolate: $interp
-    bandwidth: $blur
-  colorScale: diverging
-  colorDomain: Fixed
+  - hconcat:
+      - input: menu
+        label: Interpolation Method
+        options: [none, nearest, barycentric, random-walk]
+        as: $interp
+      - hspace: 1em
+      - input: slider
+        label: Blur
+        min: 0
+        max: 100
+        as: $blur
+  - vspace: 1em
+  - plot:
+      - mark: raster
+        data: { from: ca55 }
+        x: LONGITUDE
+        y: LATITUDE
+        fill: { max: MAG_IGRF90 }
+        interpolate: $interp
+        bandwidth: $blur
+    colorScale: diverging
+    colorDomain: Fixed

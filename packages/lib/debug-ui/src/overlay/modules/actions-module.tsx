@@ -84,7 +84,10 @@ export function ActionsModule(props: VacpDebugModuleProps): ReactElement {
 
     const call: VacpActionCall = { callId: crypto.randomUUID(), name: selected.name, params };
     try {
-      const res = typeof props.bridge.dispatch === 'function' ? await props.bridge.dispatch(call, { source: 'debug' }) : await props.bridge.execute(call);
+      const res =
+        typeof props.bridge.dispatch === 'function'
+          ? await props.bridge.dispatch(call, { source: 'debug' })
+          : await props.bridge.execute(call);
       setResult(res);
       setStatus(res.ok ? 'idle' : 'error');
       if (!res.ok) setError(res.error?.message ?? 'Action failed');
@@ -129,10 +132,22 @@ export function ActionsModule(props: VacpDebugModuleProps): ReactElement {
           <label className="text-[11px] font-medium text-slate-100/70" htmlFor="vacp-action-filter">
             Filter
           </label>
-          <Input id="vacp-action-filter" className="mt-1" value={filter} onChange={(e) => setFilter(e.target.value)} placeholder="Search…" />
+          <Input
+            id="vacp-action-filter"
+            className="mt-1"
+            value={filter}
+            onChange={(e) => setFilter(e.target.value)}
+            placeholder="Search…"
+          />
         </div>
 
-        <div className={cn(dense ? 'mt-2 min-h-0 flex-1 overflow-auto rounded-lg border border-white/10 bg-black/20' : 'mt-3 min-h-0 flex-1 overflow-auto rounded-lg border border-white/10 bg-black/20')}>
+        <div
+          className={cn(
+            dense
+              ? 'mt-2 min-h-0 flex-1 overflow-auto rounded-lg border border-white/10 bg-black/20'
+              : 'mt-3 min-h-0 flex-1 overflow-auto rounded-lg border border-white/10 bg-black/20',
+          )}
+        >
           <RovingFocusGroup orientation="vertical" loop asChild>
             <div className="p-1" role="listbox" aria-label="Actions">
               {filtered.map((a) => {
@@ -210,7 +225,7 @@ export function ActionsModule(props: VacpDebugModuleProps): ReactElement {
             <label className="text-[11px] font-medium text-slate-100/70">Result</label>
             <JsonViewer
               value={result}
-              emptyText={status === 'running' ? 'Running…' : status === 'error' ? error ?? 'Action failed' : ''}
+              emptyText={status === 'running' ? 'Running…' : status === 'error' ? (error ?? 'Action failed') : ''}
               className="mt-1 min-h-0 max-h-[360px]"
             />
           </div>

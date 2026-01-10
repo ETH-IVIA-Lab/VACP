@@ -281,7 +281,12 @@ export function buildDashboardGraph(args: {
   }
 
   for (const { tableId, table } of args.tables ?? []) {
-    const tableRef = makePlotRef({ appId: args.options.appId, viewId: args.options.viewId, plotId: tableId, suffix: '' });
+    const tableRef = makePlotRef({
+      appId: args.options.appId,
+      viewId: args.options.viewId,
+      plotId: tableId,
+      suffix: '',
+    });
     nodes.push({
       ref: tableRef,
       kind: 'Visualization',

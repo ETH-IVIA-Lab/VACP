@@ -29,14 +29,15 @@ export function actionsForSpec(options: InstallVacpOnVegaLiteOptions, spec: Vega
   if (hasSelection) {
     actions.push({
       name: 'vega_lite.set_selection',
-      description:
-        'Set a Vega-Lite selection parameter (best-effort; updates the selection store when possible).',
+      description: 'Set a Vega-Lite selection parameter (best-effort; updates the selection store when possible).',
       targetRef: vizRef,
       parameters: {
         type: 'object',
         properties: {
           ref: { type: 'string', description: 'VACP ref of the Selection node (vacp://.../param/<name>)' },
-          value: { description: 'Selection value; usually an object like {field: value} or {x:[min,max], y:[min,max]}' },
+          value: {
+            description: 'Selection value; usually an object like {field: value} or {x:[min,max], y:[min,max]}',
+          },
         },
         required: ['ref', 'value'],
       },

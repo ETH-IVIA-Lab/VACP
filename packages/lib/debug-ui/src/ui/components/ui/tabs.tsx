@@ -6,15 +6,16 @@ import { cn } from '@vacp/debug-ui/ui/lib/utils';
 
 export const Tabs = TabsPrimitive.Root;
 
-export const TabsList = forwardRef<ElementRef<typeof TabsPrimitive.List>, ComponentPropsWithoutRef<typeof TabsPrimitive.List>>(
-  ({ className, ...props }, ref) => (
-    <TabsPrimitive.List
-      ref={ref}
-      className={cn('flex flex-col gap-2 rounded-lg bg-transparent p-0 text-slate-100', className)}
-      {...props}
-    />
-  ),
-);
+export const TabsList = forwardRef<
+  ElementRef<typeof TabsPrimitive.List>,
+  ComponentPropsWithoutRef<typeof TabsPrimitive.List>
+>(({ className, ...props }, ref) => (
+  <TabsPrimitive.List
+    ref={ref}
+    className={cn('flex flex-col gap-2 rounded-lg bg-transparent p-0 text-slate-100', className)}
+    {...props}
+  />
+));
 TabsList.displayName = TabsPrimitive.List.displayName;
 
 export const TabsTrigger = forwardRef<

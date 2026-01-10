@@ -64,7 +64,14 @@ const readInitialModule = (): VacpDebugModuleId => {
   try {
     const raw = localStorage.getItem(MODULE_KEY);
     if (!raw) return 'graph';
-    if (raw === 'graph' || raw === 'data' || raw === 'actions' || raw === 'history' || raw === 'playbook' || raw === 'json') {
+    if (
+      raw === 'graph' ||
+      raw === 'data' ||
+      raw === 'actions' ||
+      raw === 'history' ||
+      raw === 'playbook' ||
+      raw === 'json'
+    ) {
       return raw;
     }
     return 'graph';
@@ -119,5 +126,6 @@ export const useVacpDebugUiStore = create<VacpDebugUiState>((set) => ({
   setDataSelectedHandleRef: (ref) => set({ dataSelectedHandleRef: ref }),
   setDataSqlForHandle: (ref, sql) => set((s) => ({ dataSqlByHandleRef: { ...s.dataSqlByHandleRef, [ref]: sql } })),
   setDataLastResult: ({ result, error }) => set({ dataLastResult: result, dataLastError: error ?? null }),
-  resetDataModule: () => set({ dataSelectedHandleRef: null, dataSqlByHandleRef: {}, dataLastResult: null, dataLastError: null }),
+  resetDataModule: () =>
+    set({ dataSelectedHandleRef: null, dataSqlByHandleRef: {}, dataLastResult: null, dataLastError: null }),
 }));

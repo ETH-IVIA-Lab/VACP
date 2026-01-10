@@ -33,4 +33,3 @@ export function normalizeSingleStatementSql(sql: string): string {
   if (hasMultipleStatements(trimmed)) throw new Error('SQL must be a single statement (no unquoted semicolons)');
   return trimmed;
 }
-

@@ -19,10 +19,19 @@ export function buildLinkedBrushDetailPlaybook(ctx: VegaLiteSpecPlaybookContext)
         'Answer: “Does the detail view show only brushed points?” by brushing two regions and watching the right-hand plot update.',
     })
       .action('Clear brush (clean slate)', { name: 'vega_lite.clear_selection', params: { ref: brushRef } })
-      .action('Increase point size (size slider)', { name: 'vega_lite.set_param', params: { ref: pointSizeRef, value: 240 } })
-      .action('Brush a region (top-left cluster)', { name: 'vega_lite.set_selection', params: { ref: brushRef, value: a } })
+      .action('Increase point size (size slider)', {
+        name: 'vega_lite.set_param',
+        params: { ref: pointSizeRef, value: 240 },
+      })
+      .action('Brush a region (top-left cluster)', {
+        name: 'vega_lite.set_selection',
+        params: { ref: brushRef, value: a },
+      })
       .action('Reset size slider (default)', { name: 'vega_lite.set_param', params: { ref: pointSizeRef, value: 36 } })
-      .action('Move brush (bottom-right cluster)', { name: 'vega_lite.set_selection', params: { ref: brushRef, value: b } })
+      .action('Move brush (bottom-right cluster)', {
+        name: 'vega_lite.set_selection',
+        params: { ref: brushRef, value: b },
+      })
       .build(),
   ];
 }

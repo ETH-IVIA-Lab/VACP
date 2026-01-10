@@ -50,9 +50,12 @@ export function buildLineMultiSeriesPlaybook(ctx: MosaicSpecPlaybookContext): Va
       playbook({
         id: 'line-multi-series-hover',
         title: 'Playbook: Line Multi-Series (hover to inspect)',
-        description: 'Hover over the chart to highlight the closest series/point; then compare series by moving along time.',
+        description:
+          'Hover over the chart to highlight the closest series/point; then compare series by moving along time.',
       })
-        .step('Move the pointer over the chart', { description: 'The nearest series should highlight and show annotations.' })
+        .step('Move the pointer over the chart', {
+          description: 'The nearest series should highlight and show annotations.',
+        })
         .step('Hover near an earlier year', { description: 'Compare how series diverge early vs late.' })
         .step('Hover near a later year', { description: 'Observe which metro divisions have higher unemployment.' })
         .build(),
@@ -66,11 +69,21 @@ export function buildLineMultiSeriesPlaybook(ctx: MosaicSpecPlaybookContext): Va
     playbook({
       id: 'line-multi-series-hover',
       title: 'Playbook: Line Multi-Series (hover to inspect)',
-      description: 'Programmatically set the hover/nearest selection to inspect different times and leave the hover active.',
+      description:
+        'Programmatically set the hover/nearest selection to inspect different times and leave the hover active.',
     })
-      .action('Clear hover', { name: 'mosaic.clear_nearest', params: { plotId: plot.plotId, interactorId: String(nearestIdx) } })
-      .action('Hover near an earlier time', { name: 'mosaic.set_nearest', params: { plotId: plot.plotId, interactorId: String(nearestIdx), value: a } })
-      .action('Hover near a later time', { name: 'mosaic.set_nearest', params: { plotId: plot.plotId, interactorId: String(nearestIdx), value: b } })
+      .action('Clear hover', {
+        name: 'mosaic.clear_nearest',
+        params: { plotId: plot.plotId, interactorId: String(nearestIdx) },
+      })
+      .action('Hover near an earlier time', {
+        name: 'mosaic.set_nearest',
+        params: { plotId: plot.plotId, interactorId: String(nearestIdx), value: a },
+      })
+      .action('Hover near a later time', {
+        name: 'mosaic.set_nearest',
+        params: { plotId: plot.plotId, interactorId: String(nearestIdx), value: b },
+      })
       .build(),
   ];
 }

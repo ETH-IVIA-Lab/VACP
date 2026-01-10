@@ -99,7 +99,7 @@ export function installVacpOnVegaLiteView(args: {
   const dataHandle = installVegaLiteDuckDbDataHandle({ spec, view, options, actionRegistry, actionDescriptors });
   const handleRef = dataHandle?.ref ?? null;
   const tableName = dataHandle?.tableName ?? null;
-  let handleMeta: (import('@vacp/duckdb').VacpDuckDbTableMetadata | null) = null;
+  let handleMeta: import('@vacp/duckdb').VacpDuckDbTableMetadata | null = null;
 
   const graph = buildGraph({
     spec,
@@ -109,9 +109,7 @@ export function installVacpOnVegaLiteView(args: {
   });
 
   const dataHandleNode =
-    handleRef && tableName
-      ? graph.nodes.find((n) => n.kind === 'DataHandle' && n.ref === handleRef)
-      : null;
+    handleRef && tableName ? graph.nodes.find((n) => n.kind === 'DataHandle' && n.ref === handleRef) : null;
 
   const snapshots = {
     getCapabilities: async (): Promise<VacpCapabilitiesSnapshot> => ({
@@ -122,7 +120,8 @@ export function installVacpOnVegaLiteView(args: {
           handleMeta = await dataHandle.ensureMetadata();
           if (handleMeta) {
             (dataHandleNode as any).data = { ...(dataHandleNode as any).data, duckdb: handleMeta };
-            (dataHandleNode as any).description = `DuckDB handle for "${tableName}".\n${formatDuckDbTableMetadataSummary(handleMeta)}`;
+            (dataHandleNode as any).description =
+              `DuckDB handle for "${tableName}".\n${formatDuckDbTableMetadataSummary(handleMeta)}`;
           }
         }
         return graph;

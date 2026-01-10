@@ -12,7 +12,10 @@ function findInterval1dIdx(plot: MosaicSpecPlaybookContext['plots'][number]): nu
   return plot.plot.interactors.findIndex((i) => i.constructor?.name === 'Interval1D');
 }
 
-function intervalRange(plot: MosaicSpecPlaybookContext['plots'][number], range: [number, number]): { min: number; max: number } {
+function intervalRange(
+  plot: MosaicSpecPlaybookContext['plots'][number],
+  range: [number, number],
+): { min: number; max: number } {
   const idx = findInterval1dIdx(plot);
   const domain = idx >= 0 ? getInterval1dDomain(plot.plot, idx) : null;
   if (!domain) return { min: 0, max: 1 };
@@ -37,8 +40,14 @@ export function buildFlightsHexbinPlaybook(ctx: MosaicSpecPlaybookContext): Vacp
       title: 'Playbook: Flights Hexbin (filter density)',
       description: 'Filter the hexbin density plot by brushing the marginal histograms and switching the color scale.',
     })
-      .action('Clear time brush', { name: 'mosaic.clear_interval_1d', params: { plotId: timePlot.plotId, interactorId: String(timeIdx) } })
-      .action('Clear delay brush', { name: 'mosaic.clear_interval_1d', params: { plotId: delayPlot.plotId, interactorId: String(delayIdx) } })
+      .action('Clear time brush', {
+        name: 'mosaic.clear_interval_1d',
+        params: { plotId: timePlot.plotId, interactorId: String(timeIdx) },
+      })
+      .action('Clear delay brush', {
+        name: 'mosaic.clear_interval_1d',
+        params: { plotId: delayPlot.plotId, interactorId: String(delayIdx) },
+      })
       .action('Brush departure time (morning)', {
         name: 'mosaic.set_interval_1d',
         params: { plotId: timePlot.plotId, interactorId: String(timeIdx), min: time.min, max: time.max },
@@ -47,8 +56,14 @@ export function buildFlightsHexbinPlaybook(ctx: MosaicSpecPlaybookContext): Vacp
         name: 'mosaic.set_interval_1d',
         params: { plotId: delayPlot.plotId, interactorId: String(delayIdx), min: delay.min, max: delay.max },
       })
-      .action('Set color scale: linear', { name: 'mosaic.set_input_option_index', params: { ref: `${ctx.viewBase}/input/0`, index: 1 } })
-      .action('Set color scale: sqrt', { name: 'mosaic.set_input_option_index', params: { ref: `${ctx.viewBase}/input/0`, index: 2 } })
+      .action('Set color scale: linear', {
+        name: 'mosaic.set_input_option_index',
+        params: { ref: `${ctx.viewBase}/input/0`, index: 1 },
+      })
+      .action('Set color scale: sqrt', {
+        name: 'mosaic.set_input_option_index',
+        params: { ref: `${ctx.viewBase}/input/0`, index: 2 },
+      })
       .build(),
   ];
 }

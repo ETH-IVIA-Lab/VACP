@@ -23,4 +23,3 @@ export async function copyTextToClipboard(text: string): Promise<void> {
     el.remove();
   }
 }
-

@@ -1,4 +1,10 @@
-import type { VacpCapabilitiesSnapshot, VacpPlaybook, VacpRuntimeBridge, VacpRuntimeSnapshot, VacpStateSnapshot } from '@vacp/core';
+import type {
+  VacpCapabilitiesSnapshot,
+  VacpPlaybook,
+  VacpRuntimeBridge,
+  VacpRuntimeSnapshot,
+  VacpStateSnapshot,
+} from '@vacp/core';
 
 export type VacpDebugUiEnabled = boolean | 'auto';
 

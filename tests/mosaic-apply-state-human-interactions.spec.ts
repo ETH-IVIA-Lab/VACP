@@ -50,7 +50,10 @@ test('mosaic: apply_state does not break subsequent human brushing (Seattle Weat
     // First human brush, with *no* legend/toggle selection set.
     await brush(0.15, 0.45);
     await page.waitForFunction(() => {
-      const r = document.querySelector('#app')?.querySelector('svg')?.querySelector('rect.selection') as SVGRectElement | null;
+      const r = document
+        .querySelector('#app')
+        ?.querySelector('svg')
+        ?.querySelector('rect.selection') as SVGRectElement | null;
       if (!r) return false;
       const b = r.getBBox();
       return b.width > 2 && b.height > 2;
@@ -70,7 +73,8 @@ test('mosaic: apply_state does not break subsequent human brushing (Seattle Weat
       const selectionValue = i0?.selection?.value ?? null;
       const vacp = (globalThis as any).__vacp;
       const snap = await vacp.getState();
-      (globalThis as any).__savedState = typeof structuredClone === 'function' ? structuredClone(snap.state) : snap.state;
+      (globalThis as any).__savedState =
+        typeof structuredClone === 'function' ? structuredClone(snap.state) : snap.state;
       return {
         interactorValue,
         selectionValue,

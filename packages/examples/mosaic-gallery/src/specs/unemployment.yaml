@@ -16,17 +16,17 @@ data:
     FROM counties AS a, rates AS b
     WHERE a.id = b.id
 vconcat:
-- legend: color
-  for: county-map
-  label: Unemployment (%)
-- name: county-map
-  plot:
-  - mark: geo
-    data: { from: combined }
-    fill: rate
-    title: { sql: "concat(rate, '%')" }
-  margin: 0
-  colorScale: quantile
-  colorN: 9
-  colorScheme: blues
-  projectionType: albers-usa
+  - legend: color
+    for: county-map
+    label: Unemployment (%)
+  - name: county-map
+    plot:
+      - mark: geo
+        data: { from: combined }
+        fill: rate
+        title: { sql: "concat(rate, '%')" }
+    margin: 0
+    colorScale: quantile
+    colorN: 9
+    colorScheme: blues
+    projectionType: albers-usa

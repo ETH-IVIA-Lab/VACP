@@ -12,9 +12,18 @@ export function buildWnbaShotsPlaybook(ctx: MosaicSpecPlaybookContext): VacpPlay
     })
       .action('Clear team filter', { name: 'mosaic.clear_input', params: { ref: `${ctx.viewBase}/input/0` } })
       .action('Clear athlete filter', { name: 'mosaic.clear_input', params: { ref: `${ctx.viewBase}/input/1` } })
-      .action('Pick a team (first non-default option)', { name: 'mosaic.set_input_option_index', params: { ref: `${ctx.viewBase}/input/0`, index: 1 } })
-      .action('Pick an athlete (first option under current team)', { name: 'mosaic.set_input_option_index', params: { ref: `${ctx.viewBase}/input/1`, index: 1 } })
-      .action('Clear athlete filter (compare team aggregate)', { name: 'mosaic.clear_input', params: { ref: `${ctx.viewBase}/input/1` } })
+      .action('Pick a team (first non-default option)', {
+        name: 'mosaic.set_input_option_index',
+        params: { ref: `${ctx.viewBase}/input/0`, index: 1 },
+      })
+      .action('Pick an athlete (first option under current team)', {
+        name: 'mosaic.set_input_option_index',
+        params: { ref: `${ctx.viewBase}/input/1`, index: 1 },
+      })
+      .action('Clear athlete filter (compare team aggregate)', {
+        name: 'mosaic.clear_input',
+        params: { ref: `${ctx.viewBase}/input/1` },
+      })
       .build(),
   ];
 }

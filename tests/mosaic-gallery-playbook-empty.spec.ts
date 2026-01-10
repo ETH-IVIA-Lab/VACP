@@ -28,4 +28,3 @@ test('mosaic-gallery: playbook empty state for non-interactive spec', async ({ p
     await srv.stop();
   }
 });
-

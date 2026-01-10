@@ -43,7 +43,10 @@ test('mosaic: time travel apply_state does not poison Toggle selection (Seattle 
 
     await brush(0.15, 0.45);
     await page.waitForFunction(() => {
-      const r = document.querySelector('#app')?.querySelector('svg')?.querySelector('rect.selection') as SVGRectElement | null;
+      const r = document
+        .querySelector('#app')
+        ?.querySelector('svg')
+        ?.querySelector('rect.selection') as SVGRectElement | null;
       if (!r) return false;
       const b = r.getBBox();
       return b.width > 2 && b.height > 2;
@@ -65,10 +68,13 @@ test('mosaic: time travel apply_state does not poison Toggle selection (Seattle 
       return findPrevIndexWithState(rt.history, cursor - 1) ?? Math.max(0, cursor - 1);
     });
 
-    await page.evaluate(({ idx }) => {
-      const b = (globalThis as any).__vacp;
-      b.setCursor?.(idx, { source: 'debug', message: `cursor=${idx}` });
-    }, { idx: prevCursor });
+    await page.evaluate(
+      ({ idx }) => {
+        const b = (globalThis as any).__vacp;
+        b.setCursor?.(idx, { source: 'debug', message: `cursor=${idx}` });
+      },
+      { idx: prevCursor },
+    );
 
     await expect
       .poll(async () => {
@@ -82,7 +88,9 @@ test('mosaic: time travel apply_state does not poison Toggle selection (Seattle 
             if (Array.isArray(value)) return value.some((v) => hasPlainObject(v));
             return typeof value === 'object';
           };
-          const entries = Object.entries(st.state ?? {}).filter(([, v]) => v && typeof v === 'object' && 'kind' in (v as any));
+          const entries = Object.entries(st.state ?? {}).filter(
+            ([, v]) => v && typeof v === 'object' && 'kind' in (v as any),
+          );
           const toggle = entries.find(([, v]) => (v as any).kind === 'Toggle')?.[1] as any;
           const bad = hasPlainObject(toggle?.value) || hasPlainObject(toggle?.selectionValue);
           return { mode: rt.mode, cursor: rt.cursor, bad };
@@ -101,7 +109,9 @@ test('mosaic: time travel apply_state does not poison Toggle selection (Seattle 
       .poll(async () => {
         return await page.evaluate(async () => {
           const st = await (globalThis as any).__vacp.getState();
-          const entries = Object.entries(st.state ?? {}).filter(([, v]) => v && typeof v === 'object' && 'kind' in (v as any));
+          const entries = Object.entries(st.state ?? {}).filter(
+            ([, v]) => v && typeof v === 'object' && 'kind' in (v as any),
+          );
           const interval = entries.find(([, v]) => (v as any).kind === 'Interval1D')?.[1] as any;
           const a = interval?.value ?? null;
           const b = interval?.selectionValue ?? null;

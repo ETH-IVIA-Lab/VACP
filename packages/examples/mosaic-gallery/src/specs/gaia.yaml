@@ -32,75 +32,75 @@ params:
   pixelSize: 2
   scaleType: sqrt
 hconcat:
-- vconcat:
+  - vconcat:
+      - plot:
+          - mark: raster
+            data: { from: gaia, filterBy: $brush }
+            x: u
+            y: v
+            fill: density
+            bandwidth: $bandwidth
+            pixelSize: $pixelSize
+          - select: intervalXY
+            pixelSize: 2
+            as: $brush
+        xyDomain: Fixed
+        colorScale: $scaleType
+        colorScheme: viridis
+        width: 440
+        height: 250
+        marginLeft: 25
+        marginTop: 20
+        marginRight: 1
+      - hconcat:
+          - plot:
+              - mark: rectY
+                data: { from: gaia, filterBy: $brush }
+                x: { bin: phot_g_mean_mag }
+                y: { count }
+                fill: steelblue
+                inset: 0.5
+              - select: intervalX
+                as: $brush
+            xDomain: Fixed
+            yScale: $scaleType
+            yGrid: true
+            width: 220
+            height: 120
+            marginLeft: 65
+          - plot:
+              - mark: rectY
+                data: { from: gaia, filterBy: $brush }
+                x: { bin: parallax }
+                y: { count }
+                fill: steelblue
+                inset: 0.5
+              - select: intervalX
+                as: $brush
+            xDomain: Fixed
+            yScale: $scaleType
+            yGrid: true
+            width: 220
+            height: 120
+            marginLeft: 65
+  - hspace: 10
   - plot:
-    - mark: raster
-      data: { from: gaia, filterBy: $brush }
-      x: u
-      y: v
-      fill: density
-      bandwidth: $bandwidth
-      pixelSize: $pixelSize
-    - select: intervalXY
-      pixelSize: 2
-      as: $brush
+      - mark: raster
+        data: { from: gaia, filterBy: $brush }
+        x: bp_rp
+        y: phot_g_mean_mag
+        fill: density
+        bandwidth: $bandwidth
+        pixelSize: $pixelSize
+      - select: intervalXY
+        pixelSize: 2
+        as: $brush
     xyDomain: Fixed
     colorScale: $scaleType
     colorScheme: viridis
-    width: 440
-    height: 250
+    yReverse: true
+    width: 230
+    height: 370
     marginLeft: 25
     marginTop: 20
     marginRight: 1
-  - hconcat:
-    - plot:
-      - mark: rectY
-        data: { from: gaia, filterBy: $brush }
-        x: { bin: phot_g_mean_mag }
-        y: { count: }
-        fill: steelblue
-        inset: 0.5
-      - select: intervalX
-        as: $brush
-      xDomain: Fixed
-      yScale: $scaleType
-      yGrid: true
-      width: 220
-      height: 120
-      marginLeft: 65
-    - plot:
-      - mark: rectY
-        data: { from: gaia, filterBy: $brush }
-        x: { bin: parallax }
-        y: { count: }
-        fill: steelblue
-        inset: 0.5
-      - select: intervalX
-        as: $brush
-      xDomain: Fixed
-      yScale: $scaleType
-      yGrid: true
-      width: 220
-      height: 120
-      marginLeft: 65
-- hspace: 10
-- plot:
-  - mark: raster
-    data: { from: gaia, filterBy: $brush }
-    x: bp_rp
-    y: phot_g_mean_mag
-    fill: density
-    bandwidth: $bandwidth
-    pixelSize: $pixelSize
-  - select: intervalXY
-    pixelSize: 2
-    as: $brush
-  xyDomain: Fixed
-  colorScale: $scaleType
-  colorScheme: viridis
-  yReverse: true
-  width: 230
-  height: 370
-  marginLeft: 25
-  marginTop: 20
-  marginRight: 1

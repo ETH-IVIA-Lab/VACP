@@ -40,7 +40,10 @@ test('debug-ui: time travel does not extend history (Seattle Weather)', async ({
 
     await brush(0.15, 0.45);
     await page.waitForFunction(() => {
-      const r = document.querySelector('#app')?.querySelector('svg')?.querySelector('rect.selection') as SVGRectElement | null;
+      const r = document
+        .querySelector('#app')
+        ?.querySelector('svg')
+        ?.querySelector('rect.selection') as SVGRectElement | null;
       if (!r) return false;
       const b = r.getBBox();
       return b.width > 2 && b.height > 2;

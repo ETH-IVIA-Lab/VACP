@@ -55,7 +55,9 @@ export function PlaybookModule(props: VacpDebugModuleProps): ReactElement {
         className={cn(
           'h-full min-h-0',
           dense ? 'gap-2' : 'gap-3',
-          effectiveDetailsOpen && showSideBySide ? 'grid grid-cols-[minmax(0,1fr)_minmax(320px,420px)]' : 'flex flex-col',
+          effectiveDetailsOpen && showSideBySide
+            ? 'grid grid-cols-[minmax(0,1fr)_minmax(320px,420px)]'
+            : 'flex flex-col',
         )}
       >
         <Card className={cn('flex min-h-0 flex-1 flex-col', dense && 'p-2')}>
@@ -66,7 +68,8 @@ export function PlaybookModule(props: VacpDebugModuleProps): ReactElement {
             </div>
           </CardHeader>
           <div className="mt-3 rounded-lg border border-white/10 bg-black/20 p-3 text-[12px] leading-5 text-slate-100/80">
-            This is expected for some examples. Try switching specs (in the host app) or use the other modules to explore the bridge.
+            This is expected for some examples. Try switching specs (in the host app) or use the other modules to
+            explore the bridge.
           </div>
         </Card>
         {effectiveDetailsOpen ? (
@@ -101,7 +104,10 @@ export function PlaybookModule(props: VacpDebugModuleProps): ReactElement {
     setLastResult(null);
     const call: VacpActionCall = { ...step.call, callId: crypto.randomUUID() };
     try {
-      const res = typeof props.bridge.dispatch === 'function' ? await props.bridge.dispatch(call, { source: 'agent' }) : await props.bridge.execute(call);
+      const res =
+        typeof props.bridge.dispatch === 'function'
+          ? await props.bridge.dispatch(call, { source: 'agent' })
+          : await props.bridge.execute(call);
       setLastResult(res);
       if (!res.ok) setLastError(res.error?.message ?? 'Step failed');
     } catch (err) {
@@ -142,7 +148,9 @@ export function PlaybookModule(props: VacpDebugModuleProps): ReactElement {
         <CardHeader className={cn(compactControls && 'flex-col items-stretch gap-2')}>
           <div className="min-w-0">
             <CardTitle>Playbook</CardTitle>
-            <CardDescription>Step through a guided sequence that demonstrates bidirectional interaction.</CardDescription>
+            <CardDescription>
+              Step through a guided sequence that demonstrates bidirectional interaction.
+            </CardDescription>
           </div>
           <div
             className={cn(
@@ -152,13 +160,50 @@ export function PlaybookModule(props: VacpDebugModuleProps): ReactElement {
                 : 'shrink-0 flex-wrap justify-end',
             )}
           >
-            <IconButton icon={<StepBack className="h-4 w-4 text-slate-100/90" />} size={iconButtonSize} label="Previous step" title="Move to the previous step." onClick={() => stepTo(stepIndex - 1)} />
-            <IconButton icon={<StepForward className="h-4 w-4 text-slate-100/90" />} size={iconButtonSize} label="Next step" title="Move to the next step." onClick={() => stepTo(stepIndex + 1)} />
-            <IconButton icon={<RotateCcw className="h-4 w-4 text-slate-100/90" />} size={iconButtonSize} label="Reset" title="Reset back to the first step." onClick={() => stepTo(0)} />
-            <IconButton icon={<Play className="h-4 w-4 text-slate-100/90" />} size={iconButtonSize} label="Run step" title="Run the current step (if it has an action)." variant="primary" onClick={() => void runNext()} />
-            <IconButton icon={<FastForward className="h-4 w-4 text-slate-100/90" />} size={iconButtonSize} label="Run all" title="Run the remaining steps." onClick={() => void runAll()} />
             <IconButton
-              icon={detailsOpen ? <PanelRightClose className="h-4 w-4 text-slate-100/90" /> : <PanelRightOpen className="h-4 w-4 text-slate-100/90" />}
+              icon={<StepBack className="h-4 w-4 text-slate-100/90" />}
+              size={iconButtonSize}
+              label="Previous step"
+              title="Move to the previous step."
+              onClick={() => stepTo(stepIndex - 1)}
+            />
+            <IconButton
+              icon={<StepForward className="h-4 w-4 text-slate-100/90" />}
+              size={iconButtonSize}
+              label="Next step"
+              title="Move to the next step."
+              onClick={() => stepTo(stepIndex + 1)}
+            />
+            <IconButton
+              icon={<RotateCcw className="h-4 w-4 text-slate-100/90" />}
+              size={iconButtonSize}
+              label="Reset"
+              title="Reset back to the first step."
+              onClick={() => stepTo(0)}
+            />
+            <IconButton
+              icon={<Play className="h-4 w-4 text-slate-100/90" />}
+              size={iconButtonSize}
+              label="Run step"
+              title="Run the current step (if it has an action)."
+              variant="primary"
+              onClick={() => void runNext()}
+            />
+            <IconButton
+              icon={<FastForward className="h-4 w-4 text-slate-100/90" />}
+              size={iconButtonSize}
+              label="Run all"
+              title="Run the remaining steps."
+              onClick={() => void runAll()}
+            />
+            <IconButton
+              icon={
+                detailsOpen ? (
+                  <PanelRightClose className="h-4 w-4 text-slate-100/90" />
+                ) : (
+                  <PanelRightOpen className="h-4 w-4 text-slate-100/90" />
+                )
+              }
               size={iconButtonSize}
               label={detailsOpen ? 'Hide step details pane' : 'Show step details pane'}
               title={detailsOpen ? 'Hide Step details to give the step list more space.' : 'Show Step details.'}
@@ -204,9 +249,17 @@ export function PlaybookModule(props: VacpDebugModuleProps): ReactElement {
           </div>
         </div>
 
-        {selected?.description ? <div className="mt-2 text-[11px] text-slate-100/80">{selected.description}</div> : null}
+        {selected?.description ? (
+          <div className="mt-2 text-[11px] text-slate-100/80">{selected.description}</div>
+        ) : null}
 
-        <div className={cn(dense ? 'mt-2 min-h-0 flex-1 overflow-auto rounded-lg border border-white/10 bg-black/20' : 'mt-3 min-h-0 flex-1 overflow-auto rounded-lg border border-white/10 bg-black/20')}>
+        <div
+          className={cn(
+            dense
+              ? 'mt-2 min-h-0 flex-1 overflow-auto rounded-lg border border-white/10 bg-black/20'
+              : 'mt-3 min-h-0 flex-1 overflow-auto rounded-lg border border-white/10 bg-black/20',
+          )}
+        >
           <RovingFocusGroup orientation="vertical" loop asChild>
             <div className="p-1" role="listbox" aria-label="Playbook steps">
               {steps.map((s, i) => {
@@ -219,7 +272,9 @@ export function PlaybookModule(props: VacpDebugModuleProps): ReactElement {
                       className={cn(
                         'w-full rounded-lg border px-2 py-2 text-left text-xs transition-colors',
                         'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/60',
-                        active ? 'border-sky-300/30 bg-sky-500/10' : 'border-transparent hover:border-white/10 hover:bg-white/5',
+                        active
+                          ? 'border-sky-300/30 bg-sky-500/10'
+                          : 'border-transparent hover:border-white/10 hover:bg-white/5',
                       )}
                       data-vacp-row="playbook-step"
                       data-status={status}
@@ -250,7 +305,9 @@ export function PlaybookModule(props: VacpDebugModuleProps): ReactElement {
           <CardHeader className={cn(compactControls && 'flex-col items-stretch gap-2')}>
             <div>
               <CardTitle>Step details</CardTitle>
-              <CardDescription>{running ? 'Running…' : lastError ? lastError : nextStep?.description ?? ''}</CardDescription>
+              <CardDescription>
+                {running ? 'Running…' : lastError ? lastError : (nextStep?.description ?? '')}
+              </CardDescription>
             </div>
           </CardHeader>
           <div className="grid min-h-0 flex-1 gap-3">

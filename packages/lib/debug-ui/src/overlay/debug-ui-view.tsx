@@ -38,11 +38,7 @@ export function DebugUiView(props: {
   renderModule: (id: VacpDebugModuleId) => ReactElement | null;
 }): ReactElement {
   const dotClass =
-    props.bridgeStatus === 'ok'
-      ? 'bg-emerald-300'
-      : props.bridgeStatus === 'unknown'
-        ? 'bg-amber-300'
-        : 'bg-white/40';
+    props.bridgeStatus === 'ok' ? 'bg-emerald-300' : props.bridgeStatus === 'unknown' ? 'bg-amber-300' : 'bg-white/40';
 
   const modules: { id: VacpDebugModuleId; title: string; icon: ReactElement }[] = useMemo(
     () => [
@@ -61,7 +57,9 @@ export function DebugUiView(props: {
       <div className="font-semibold text-slate-100/90">Live</div>
       <div>Panels follow the latest provider snapshots (what the app is doing now).</div>
       <div className="mt-2 font-semibold text-slate-100/90">Inspect (time travel)</div>
-      <div>Panels show the state at the history cursor. If supported, cursor changes also replay state into the host app.</div>
+      <div>
+        Panels show the state at the history cursor. If supported, cursor changes also replay state into the host app.
+      </div>
       <div className="mt-2">Use the History module to move the cursor and replay/inspect past snapshots.</div>
       <div className="mt-2">Tip: switch back to Live to resume tracking new snapshots.</div>
     </div>
@@ -74,7 +72,9 @@ export function DebugUiView(props: {
     const inspect = rt.mode === 'inspect';
     return (
       <IconButton
-        icon={inspect ? <History className="h-4 w-4 text-slate-100/90" /> : <Clock className="h-4 w-4 text-slate-100/90" />}
+        icon={
+          inspect ? <History className="h-4 w-4 text-slate-100/90" /> : <Clock className="h-4 w-4 text-slate-100/90" />
+        }
         label="Toggle live/inspect mode"
         title={modeHelp}
         pressed={inspect}
@@ -113,8 +113,8 @@ export function DebugUiView(props: {
           </button>
         </div>
         <div className="mt-1 text-amber-50/70">
-          Panels show the state at the cursor. If supported, moving the cursor also replays that state into the host app (via{' '}
-          <code className={inlineCodeClass}>vacp.apply_state</code>).
+          Panels show the state at the cursor. If supported, moving the cursor also replays that state into the host app
+          (via <code className={inlineCodeClass}>vacp.apply_state</code>).
         </div>
       </div>
     );
@@ -122,7 +122,11 @@ export function DebugUiView(props: {
 
   return (
     <div data-vacp-debug-ui="1">
-      <div id="vacp-debug-ui-root" className="vacp-debug-ui-root fixed z-[2147483000] isolate touch-none" ref={props.rootRef}>
+      <div
+        id="vacp-debug-ui-root"
+        className="vacp-debug-ui-root fixed z-[2147483000] isolate touch-none"
+        ref={props.rootRef}
+      >
         <button
           ref={props.buttonRef}
           type="button"
@@ -230,13 +234,18 @@ export function DebugUiView(props: {
           onValueChange={(v) => props.setModuleId(v as VacpDebugModuleId)}
           orientation={props.compactPanel ? 'horizontal' : 'vertical'}
           activationMode="manual"
-          className={cn('grid min-h-0', props.compactPanel ? 'grid-rows-[auto_minmax(0,1fr)]' : 'grid-cols-[180px_1fr] grid-rows-none')}
+          className={cn(
+            'grid min-h-0',
+            props.compactPanel ? 'grid-rows-[auto_minmax(0,1fr)]' : 'grid-cols-[180px_1fr] grid-rows-none',
+          )}
         >
           <nav
             className={cn(
               'min-h-0 max-w-full bg-white/5',
               props.densePanel ? 'p-1.5' : 'p-2',
-              props.compactPanel ? 'overflow-x-auto border-b border-white/10' : 'overflow-y-auto border-b-0 border-r border-white/10',
+              props.compactPanel
+                ? 'overflow-x-auto border-b border-white/10'
+                : 'overflow-y-auto border-b-0 border-r border-white/10',
             )}
             aria-label="VACP debug modules"
           >
@@ -255,7 +264,12 @@ export function DebugUiView(props: {
             </TabsList>
           </nav>
 
-          <div className={cn('vacp-debug-ui-content min-h-0 min-w-0 overflow-hidden bg-slate-950', props.densePanel ? 'p-2' : 'p-3')}>
+          <div
+            className={cn(
+              'vacp-debug-ui-content min-h-0 min-w-0 overflow-hidden bg-slate-950',
+              props.densePanel ? 'p-2' : 'p-3',
+            )}
+          >
             <div className="flex h-full min-h-0 flex-col">
               {inspectBanner}
               <div className="min-h-0 flex-1 overflow-hidden">

@@ -2,12 +2,7 @@ import type { VacpPlaybook } from '@vacp/core';
 import { playbook } from '@vacp/kit';
 import type { VgplotPlotLike } from '@vacp/vgplot';
 
-import {
-  domainToInterval,
-  getInterval1dDomain,
-  getInterval2dDomains,
-  getPanZoom2dDomains,
-} from './domains';
+import { domainToInterval, getInterval1dDomain, getInterval2dDomains, getPanZoom2dDomains } from './domains';
 import type { MosaicPlaybookEntry } from './types';
 
 type PlotRef = { plotId: string; plot: VgplotPlotLike };
@@ -62,7 +57,12 @@ function intervalPlaybook(args: {
   ];
 }
 
-function panZoomPlaybook(entry: MosaicPlaybookEntry, plotId: string, plot: VgplotPlotLike, interactorIdNum: number): VacpPlaybook[] {
+function panZoomPlaybook(
+  entry: MosaicPlaybookEntry,
+  plotId: string,
+  plot: VgplotPlotLike,
+  interactorIdNum: number,
+): VacpPlaybook[] {
   const interactorId = String(interactorIdNum);
   const domains = getPanZoom2dDomains(plot, interactorIdNum);
   const x = domains?.x ? domainToInterval(domains.x, [0.2, 0.8]) : null;
@@ -77,7 +77,14 @@ function panZoomPlaybook(entry: MosaicPlaybookEntry, plotId: string, plot: Vgplo
       .action('Clear pan/zoom', { name: 'mosaic.clear_pan_zoom', params: { plotId, interactorId } })
       .action('Set pan/zoom domain', {
         name: 'mosaic.set_pan_zoom',
-        params: { plotId, interactorId, x0: x?.[0] ?? null, x1: x?.[1] ?? null, y0: y?.[0] ?? null, y1: y?.[1] ?? null },
+        params: {
+          plotId,
+          interactorId,
+          x0: x?.[0] ?? null,
+          x1: x?.[1] ?? null,
+          y0: y?.[0] ?? null,
+          y1: y?.[1] ?? null,
+        },
       })
       .build(),
   ];
@@ -105,7 +112,11 @@ function toggleLikePlaybook(args: {
   const setName =
     args.kind === 'nearest' ? 'mosaic.set_nearest' : args.kind === 'region' ? 'mosaic.set_region' : 'mosaic.set_toggle';
   const clearName =
-    args.kind === 'nearest' ? 'mosaic.clear_nearest' : args.kind === 'region' ? 'mosaic.clear_region' : 'mosaic.clear_toggle';
+    args.kind === 'nearest'
+      ? 'mosaic.clear_nearest'
+      : args.kind === 'region'
+        ? 'mosaic.clear_region'
+        : 'mosaic.clear_toggle';
 
   const guess = guessToggleValue(args.plot, args.interactorIdNum);
   const actionValue = args.kind === 'nearest' ? [guess] : guess;
@@ -117,7 +128,10 @@ function toggleLikePlaybook(args: {
       description: `Drive a ${baseName.toLowerCase()} selection via actions (best-effort).`,
     })
       .action(`Clear ${baseName.toLowerCase()}`, { name: clearName, params: { plotId: args.plotId, interactorId } })
-      .action(`Set ${baseName.toLowerCase()} value`, { name: setName, params: { plotId: args.plotId, interactorId, value: actionValue } })
+      .action(`Set ${baseName.toLowerCase()} value`, {
+        name: setName,
+        params: { plotId: args.plotId, interactorId, value: actionValue },
+      })
       .build(),
   ];
 }
@@ -137,7 +151,8 @@ function legendTogglePlaybook(entry: MosaicPlaybookEntry, plotId: string, plot: 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const anyScale = scale as any;
   const domain = typeof anyScale?.domain === 'function' ? anyScale.domain() : anyScale?.domain;
-  const first = Array.isArray(domain) && domain.length > 0 ? domain[0] : (match.values?.[0] ?? match.entries?.[0]?.value ?? 0);
+  const first =
+    Array.isArray(domain) && domain.length > 0 ? domain[0] : (match.values?.[0] ?? match.entries?.[0]?.value ?? 0);
 
   return [
     playbook({
@@ -146,7 +161,10 @@ function legendTogglePlaybook(entry: MosaicPlaybookEntry, plotId: string, plot: 
       description: 'Select a category via the interactive legend and keep it selected.',
     })
       .action('Clear legend selection', { name: 'mosaic.clear_legend_toggle', params: { plotId, channel } })
-      .action('Select first legend item', { name: 'mosaic.set_legend_toggle', params: { plotId, channel, value: first } })
+      .action('Select first legend item', {
+        name: 'mosaic.set_legend_toggle',
+        params: { plotId, channel, value: first },
+      })
       .build(),
   ];
 }

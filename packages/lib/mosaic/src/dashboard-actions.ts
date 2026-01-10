@@ -54,7 +54,11 @@ export function registerMosaicDashboardActions(args: {
   register('mosaic.set_legend_toggle', async (params) => {
     const p = (params ?? {}) as Record<string, unknown>;
     const { plot } = resolvePlot(p);
-    return executeLegendToggleAction(plot, { callId: crypto.randomUUID(), name: 'mosaic.set_legend_toggle', params: p });
+    return executeLegendToggleAction(plot, {
+      callId: crypto.randomUUID(),
+      name: 'mosaic.set_legend_toggle',
+      params: p,
+    });
   });
   register('mosaic.clear_legend_toggle', async (params) => {
     const p = (params ?? {}) as Record<string, unknown>;
@@ -125,4 +129,3 @@ export function registerMosaicDashboardActions(args: {
     return await executeTableAction(table, { name: 'mosaic.table_set_page', params: p });
   });
 }
-

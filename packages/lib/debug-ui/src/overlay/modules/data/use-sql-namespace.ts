@@ -91,4 +91,3 @@ export function useSqlNamespace(args: {
 
   return useMemo(() => buildSqlSchemaNamespace(schemaColumns), [schemaColumns]);
 }
-

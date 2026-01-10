@@ -13,7 +13,9 @@ export function shortRef(ref: VacpRef): string {
   const s = String(ref);
   const hashIdx = s.indexOf('#');
   const clean = hashIdx >= 0 ? s.slice(0, hashIdx) : s;
-  const parts = clean.split('/').filter(Boolean).filter((p) => p !== 'vacp:');
+  const parts = clean
+    .split('/')
+    .filter(Boolean)
+    .filter((p) => p !== 'vacp:');
   return parts.slice(-3).join('/');
 }
-

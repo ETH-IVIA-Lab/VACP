@@ -20,54 +20,54 @@ params:
   filter: { select: crossfilter }
   binWidth: 18
 vconcat:
-- hconcat:
-  - input: menu
-    from: shots
-    column: team_name
-    as: $filter
-    label: Team
-  - input: menu
-    from: shots
-    column: athlete_name
-    filterBy: $filter
-    as: $filter
-    label: Athlete
-- vspace: 5
-- plot:
-  - mark: frame
-    strokeOpacity: 0.5
-  - mark: hexgrid
-    binWidth: $binWidth
-    strokeOpacity: 0.05
-  - mark: hexbin
-    data: { from: shots, filterBy: $filter }
-    binWidth: $binWidth
-    x: x_position
-    y: y_position
-    fill: { avg: score_value }
-    r: { count: }
-    tip: { format: { x: false, y: false } }
-  - mark: line
-    data: { from: court }
-    strokeLinecap: butt
-    strokeOpacity: 0.5
-    x: x
-    y: y
-    z: z
-  name: shot-chart
-  xAxis: null
-  yAxis: null
-  margin: 5
-  xDomain: [0, 50]
-  yDomain: [0, 40]
-  colorDomain: Fixed
-  colorScheme: YlOrRd
-  colorScale: linear
-  colorLabel: Avg. Shot Value
-  rScale: log
-  rRange: [3, 9]
-  rLabel: Shot Count
-  aspectRatio: 1
-  width: 510
-- legend: color
-  for: shot-chart
+  - hconcat:
+      - input: menu
+        from: shots
+        column: team_name
+        as: $filter
+        label: Team
+      - input: menu
+        from: shots
+        column: athlete_name
+        filterBy: $filter
+        as: $filter
+        label: Athlete
+  - vspace: 5
+  - plot:
+      - mark: frame
+        strokeOpacity: 0.5
+      - mark: hexgrid
+        binWidth: $binWidth
+        strokeOpacity: 0.05
+      - mark: hexbin
+        data: { from: shots, filterBy: $filter }
+        binWidth: $binWidth
+        x: x_position
+        y: y_position
+        fill: { avg: score_value }
+        r: { count }
+        tip: { format: { x: false, y: false } }
+      - mark: line
+        data: { from: court }
+        strokeLinecap: butt
+        strokeOpacity: 0.5
+        x: x
+        y: y
+        z: z
+    name: shot-chart
+    xAxis: null
+    yAxis: null
+    margin: 5
+    xDomain: [0, 50]
+    yDomain: [0, 40]
+    colorDomain: Fixed
+    colorScheme: YlOrRd
+    colorScale: linear
+    colorLabel: Avg. Shot Value
+    rScale: log
+    rRange: [3, 9]
+    rLabel: Shot Count
+    aspectRatio: 1
+    width: 510
+  - legend: color
+    for: shot-chart

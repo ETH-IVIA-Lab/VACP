@@ -9,9 +9,7 @@ function findPanZoom(plot: MosaicSpecPlaybookContext['plots'][number]): number {
 }
 
 export function buildPanZoomPlaybook(ctx: MosaicSpecPlaybookContext): VacpPlaybook[] {
-  const panPlots = ctx.plots
-    .map((p) => ({ ...p, idx: findPanZoom(p) }))
-    .filter((p) => p.idx >= 0);
+  const panPlots = ctx.plots.map((p) => ({ ...p, idx: findPanZoom(p) })).filter((p) => p.idx >= 0);
   if (panPlots.length === 0) return [];
 
   const first = panPlots[0]!;
@@ -27,12 +25,22 @@ export function buildPanZoomPlaybook(ctx: MosaicSpecPlaybookContext): VacpPlaybo
 
   // Clear all pan/zoom domains.
   for (const p of panPlots) {
-    b.action('Clear pan/zoom', { name: 'mosaic.clear_pan_zoom', params: { plotId: p.plotId, interactorId: String(p.idx) } });
+    b.action('Clear pan/zoom', {
+      name: 'mosaic.clear_pan_zoom',
+      params: { plotId: p.plotId, interactorId: String(p.idx) },
+    });
   }
 
   b.action('Zoom into a focused region', {
     name: 'mosaic.set_pan_zoom',
-    params: { plotId: first.plotId, interactorId: String(first.idx), x0: x?.[0] ?? null, x1: x?.[1] ?? null, y0: y?.[0] ?? null, y1: y?.[1] ?? null },
+    params: {
+      plotId: first.plotId,
+      interactorId: String(first.idx),
+      x0: x?.[0] ?? null,
+      x1: x?.[1] ?? null,
+      y0: y?.[0] ?? null,
+      y1: y?.[1] ?? null,
+    },
   });
 
   return [b.build()];
