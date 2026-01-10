@@ -14,6 +14,7 @@ packages/examples/*/dist/
 # Python
 __pycache__/
 *.pyc
+.ruff_cache/
 .venv/
 .python-version
 .pytest_cache/
@@ -25,3 +26,7 @@ test-results/
 # OS / editor
 .DS_Store
 .vscode/
+
+# Local agent working files
+task_plan.md
+notes.md
