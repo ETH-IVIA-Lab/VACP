@@ -49,13 +49,7 @@ export function buildCrossfilterPlaybook(ctx: MosaicSpecPlaybookContext): VacpPl
     b.action('Brush distance (short→mid)', { name: 'mosaic.set_interval_1d', params: { plotId: distPlot.plotId, interactorId: distId, min: dist.min, max: dist.max } });
   }
 
-  b.action('Clear all brushes (reset)', { name: 'mosaic.clear_interval_1d', params: { plotId: delayPlot.plotId, interactorId: delayId } })
-    .action('Clear all brushes (reset)', { name: 'mosaic.clear_interval_1d', params: { plotId: timePlot.plotId, interactorId: timeId } });
-
-  if (distPlot && distId) {
-    b.action('Clear all brushes (reset)', { name: 'mosaic.clear_interval_1d', params: { plotId: distPlot.plotId, interactorId: distId } });
-  }
+  b.note('Done', 'The brushes remain active so the crossfilter result stays visible after “Run all”.');
 
   return [b.build()];
 }
-

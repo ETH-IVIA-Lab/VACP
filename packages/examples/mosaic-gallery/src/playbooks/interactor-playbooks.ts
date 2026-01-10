@@ -44,7 +44,7 @@ function intervalPlaybook(args: {
           name: 'mosaic.set_interval_1d',
           params: { plotId, interactorId, min: wide[0], max: wide[1] },
         })
-        .action('Clear brush again', { name: 'mosaic.clear_interval_1d', params: { plotId, interactorId } })
+        .note('Done', 'The brush remains active so the filtered view stays visible after “Run all”.')
         .build(),
     ];
   }
@@ -59,7 +59,7 @@ function intervalPlaybook(args: {
         name: 'mosaic.set_interval_2d',
         params: { plotId, interactorId, x0: x[0], x1: x[1], y0: y[0], y1: y[1] },
       })
-      .action('Clear brush again', { name: 'mosaic.clear_interval_2d', params: { plotId, interactorId } })
+      .note('Done', 'The brush remains active so the filtered view stays visible after “Run all”.')
       .build(),
   ];
 }
@@ -74,14 +74,14 @@ function panZoomPlaybook(entry: MosaicPlaybookEntry, plotId: string, plot: Vgplo
     playbook({
       id: `${entry.id}-pan-zoom`,
       title: 'Pan + zoom',
-      description: 'Change view domains programmatically, then clear.',
+      description: 'Change view domains programmatically and leave the zoom applied.',
     })
       .action('Clear pan/zoom', { name: 'mosaic.clear_pan_zoom', params: { plotId, interactorId } })
       .action('Set pan/zoom domain', {
         name: 'mosaic.set_pan_zoom',
         params: { plotId, interactorId, x0: x?.[0] ?? null, x1: x?.[1] ?? null, y0: y?.[0] ?? null, y1: y?.[1] ?? null },
       })
-      .action('Clear pan/zoom again', { name: 'mosaic.clear_pan_zoom', params: { plotId, interactorId } })
+      .note('Done', 'The pan/zoom domain remains set so the view stays zoomed after “Run all”.')
       .build(),
   ];
 }
@@ -121,7 +121,7 @@ function toggleLikePlaybook(args: {
     })
       .action(`Clear ${baseName.toLowerCase()}`, { name: clearName, params: { plotId: args.plotId, interactorId } })
       .action(`Set ${baseName.toLowerCase()} value`, { name: setName, params: { plotId: args.plotId, interactorId, value: actionValue } })
-      .action(`Clear ${baseName.toLowerCase()} again`, { name: clearName, params: { plotId: args.plotId, interactorId } })
+      .note('Done', `The ${baseName.toLowerCase()} selection remains active so the result stays visible after “Run all”.`)
       .build(),
   ];
 }
@@ -147,11 +147,11 @@ function legendTogglePlaybook(entry: MosaicPlaybookEntry, plotId: string, plot: 
     playbook({
       id: `${entry.id}-legend`,
       title: 'Legend selection',
-      description: 'Select a category via the interactive legend, then clear.',
+      description: 'Select a category via the interactive legend and keep it selected.',
     })
       .action('Clear legend selection', { name: 'mosaic.clear_legend_toggle', params: { plotId, channel } })
       .action('Select first legend item', { name: 'mosaic.set_legend_toggle', params: { plotId, channel, value: first } })
-      .action('Clear legend again', { name: 'mosaic.clear_legend_toggle', params: { plotId, channel } })
+      .note('Done', 'The legend selection remains active so the filtered view stays visible after “Run all”.')
       .build(),
   ];
 }

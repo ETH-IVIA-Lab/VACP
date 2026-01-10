@@ -49,10 +49,7 @@ export function buildFlightsHexbinPlaybook(ctx: MosaicSpecPlaybookContext): Vacp
       })
       .action('Set color scale: linear', { name: 'mosaic.set_input_option_index', params: { ref: `${ctx.viewBase}/input/0`, index: 1 } })
       .action('Set color scale: sqrt', { name: 'mosaic.set_input_option_index', params: { ref: `${ctx.viewBase}/input/0`, index: 2 } })
-      .action('Reset color scale: log', { name: 'mosaic.set_input_option_index', params: { ref: `${ctx.viewBase}/input/0`, index: 0 } })
-      .action('Clear all brushes (reset)', { name: 'mosaic.clear_interval_1d', params: { plotId: timePlot.plotId, interactorId: String(timeIdx) } })
-      .action('Clear all brushes (reset)', { name: 'mosaic.clear_interval_1d', params: { plotId: delayPlot.plotId, interactorId: String(delayIdx) } })
+      .note('Done', 'Brushes remain active and the color scale stays set so the filtered density remains visible after “Run all”.')
       .build(),
   ];
 }
-

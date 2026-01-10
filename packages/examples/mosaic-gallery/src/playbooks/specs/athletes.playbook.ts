@@ -39,14 +39,10 @@ export function buildAthletesPlaybook(ctx: MosaicSpecPlaybookContext): VacpPlayb
       .action('Brush a central region (weight × height)', {
         name: 'mosaic.set_interval_2d',
         params: { plotId: interval.plotId, interactorId: interval.interactorId, x0: x[0], x1: x[1], y0: y[0], y1: y[1] },
-      })
-      .action('Clear scatter brush (reset)', { name: 'mosaic.clear_interval_2d', params: { plotId: interval.plotId, interactorId: interval.interactorId } });
+      });
   }
 
-  b.action('Clear all filters (reset)', { name: 'mosaic.clear_input', params: { ref: `${ctx.viewBase}/input/2` } })
-    .action('Clear all filters (reset)', { name: 'mosaic.clear_input', params: { ref: `${ctx.viewBase}/input/1` } })
-    .action('Clear all filters (reset)', { name: 'mosaic.clear_input', params: { ref: `${ctx.viewBase}/input/0` } });
+  b.note('Done', 'The menu filters and (if available) scatter brush remain active so the result stays visible after “Run all”.');
 
   return [b.build()];
 }
-

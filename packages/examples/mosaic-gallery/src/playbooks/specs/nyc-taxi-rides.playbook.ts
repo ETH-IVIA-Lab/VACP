@@ -68,9 +68,7 @@ export function buildNycTaxiRidesPlaybook(ctx: MosaicSpecPlaybookContext): VacpP
         name: 'mosaic.set_interval_2d',
         params: { plotId: dropoff.plotId, interactorId: String(dropId), x0: dropX[0], x1: dropX[1], y0: dropY[0], y1: dropY[1] },
       })
-      .action('Reset all filters', { name: 'mosaic.clear_interval_2d', params: { plotId: pickup.plotId, interactorId: String(pickId) } })
-      .action('Reset all filters', { name: 'mosaic.clear_interval_2d', params: { plotId: dropoff.plotId, interactorId: String(dropId) } })
-      .action('Reset all filters', { name: 'mosaic.clear_interval_1d', params: { plotId: timePlot.plotId, interactorId: String(timeId) } })
+      .note('Done', 'The selected regions and time window remain active so the crossfilter result stays visible after “Run all”.')
       .build(),
   ];
 }

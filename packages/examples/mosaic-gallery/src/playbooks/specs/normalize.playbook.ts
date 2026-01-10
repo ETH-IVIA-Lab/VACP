@@ -28,7 +28,7 @@ export function buildNormalizeStocksPlaybook(ctx: MosaicSpecPlaybookContext): Va
     playbook({
       id: 'normalize-stocks-roi',
       title: 'Playbook: Normalized Stock Prices (ROI by day)',
-      description: 'Move the nearest/hover date to compare normalized returns across symbols, then reset.',
+      description: 'Move the nearest/hover date to compare normalized returns across symbols and leave the hover active.',
     })
       .action('Clear hover date', { name: 'mosaic.clear_nearest', params: { plotId: plot.plotId, interactorId: String(nearestIdx) } })
       .action('Set hover date (example: 2013-05-13)', {
@@ -39,7 +39,7 @@ export function buildNormalizeStocksPlaybook(ctx: MosaicSpecPlaybookContext): Va
         name: 'mosaic.set_nearest',
         params: { plotId: plot.plotId, interactorId: String(nearestIdx), value: '2013-11-29' },
       })
-      .action('Clear hover date', { name: 'mosaic.clear_nearest', params: { plotId: plot.plotId, interactorId: String(nearestIdx) } })
+      .note('Done', 'The hover date remains active so the ROI comparison stays visible after “Run all”.')
       .build(),
   ];
 }
