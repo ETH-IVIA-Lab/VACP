@@ -1,4 +1,4 @@
-import { Braces, Database, Eye, EyeOff, Frame, GitGraph, History, ListOrdered, Maximize2, Minimize2, X, Zap } from 'lucide-react';
+import { Braces, Database, Eye, EyeOff, GitGraph, History, ListOrdered, Minus, Plus, X, Zap } from 'lucide-react';
 import type { ReactElement } from 'react';
 import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react';
 
@@ -16,6 +16,7 @@ import { PlaybookModule } from '@vacp/debug-ui/overlay/modules/playbook-module';
 import { useVacpBridge, useVacpBridgePresence, useVacpPlaybooks, useVacpRuntime } from '@vacp/debug-ui/overlay/bridge-queries';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@vacp/debug-ui/ui/components/ui/tabs';
 import { TooltipProvider } from '@vacp/debug-ui/ui/components/ui/tooltip';
+import { cn } from '@vacp/debug-ui/ui/lib/utils';
 
 import { useElementSize } from './hooks/use-element-size';
 
@@ -24,7 +25,7 @@ type VacpDebugBridgeStatus = 'missing' | 'unknown' | 'ok';
 export function VacpDebugUiApp(props: { globalKey: string; includeActions: boolean }): ReactElement {
   const rootRef = useRef<HTMLDivElement | null>(null);
   const buttonRef = useRef<HTMLButtonElement | null>(null);
-  const panelHeaderRef = useRef<HTMLElement | null>(null);
+  const panelHeaderRef = useRef<HTMLDivElement | null>(null);
   const panelRef = useRef<HTMLDivElement | null>(null);
   const titleId = useId();
 
@@ -48,6 +49,7 @@ export function VacpDebugUiApp(props: { globalKey: string; includeActions: boole
 
   const panelSize = useElementSize(panelRef);
   const compactPanel = panelSize.width < 720;
+  const densePanel = panelSize.width < 520 || panelSize.height < 360;
 
   const bridgeRef = useRef(bridgeQuery.data ?? null);
   useEffect(() => {
@@ -126,7 +128,7 @@ export function VacpDebugUiApp(props: { globalKey: string; includeActions: boole
     panel.style.height = `${clamp(size.height, 260, maxH)}px`;
   };
 
-  const resetSize = () => {
+  const minimize = () => {
     setMaximized(false);
     sizeBeforeMaxRef.current = null;
     const panel = panelRef.current;
@@ -135,7 +137,6 @@ export function VacpDebugUiApp(props: { globalKey: string; includeActions: boole
     panel.style.height = '';
     try {
       localStorage.removeItem('vacp:debug:size');
-      localStorage.removeItem(PANEL_POS_KEY);
     } catch {
       // ignore
     }
@@ -257,12 +258,23 @@ export function VacpDebugUiApp(props: { globalKey: string; includeActions: boole
     pill?.focus?.();
   }, [open]);
 
-  const title = useMemo(() => {
+  const title = useMemo(() => `VACP Debug (${props.globalKey})`, [props.globalKey]);
+
+  const meta = useMemo(() => {
     const rt = runtimeQuery.data;
-    if (!rt) return `VACP Debug (${props.globalKey})`;
+    if (!rt) return '';
     const rid = (rt.runtimeId ?? '').toString().slice(0, 8);
-    return `VACP Debug (${props.globalKey}) • mode=${rt.mode} cursor=${rt.cursor} history=${rt.history.length} • runtime=${rid}`;
-  }, [props.globalKey, runtimeQuery.data]);
+    const cursor = Number.isFinite(rt.cursor) ? rt.cursor : -1;
+    return [
+      `v${rt.version}`,
+      `mode=${rt.mode}`,
+      `cursor=${cursor}`,
+      `history=${rt.history.length}`,
+      rid ? `runtime=${rid}` : null,
+    ]
+      .filter(Boolean)
+      .join(' • ');
+  }, [runtimeQuery.data]);
 
   const pillTitle =
     bridgeStatus === 'ok'
@@ -361,6 +373,7 @@ export function VacpDebugUiApp(props: { globalKey: string; includeActions: boole
         label="Toggle live/inspect mode"
         title={modeHelp}
         pressed={inspect}
+        size="iconSm"
         onClick={() => {
           const next = inspect ? 'live' : 'inspect';
           bridge.setMode?.(next, { source: 'debug', message: `mode=${next}` });
@@ -393,13 +406,17 @@ export function VacpDebugUiApp(props: { globalKey: string; includeActions: boole
           onClick={() => setOpen(!open)}
         >
           <span>VACP</span>
-          <span className={`h-2 w-2 rounded-full ring-2 ring-slate-950 ${dotClass}`} aria-hidden="true" />
+          <span className={cn('h-2 w-2 rounded-full ring-2 ring-slate-950', dotClass)} aria-hidden="true" />
         </button>
       </div>
 
       <div
         id="vacp-debug-ui-panel"
-        className="vacp-debug-ui-panel fixed z-[2147483001] grid grid-rows-[auto_minmax(0,1fr)] h-[min(680px,calc(100vh-92px))] w-[min(860px,calc(100vw-28px))] overflow-hidden rounded-xl border border-white/20 bg-slate-950 text-slate-100 shadow-[0_16px_40px_rgba(0,0,0,0.35)]"
+        className={cn(
+          'vacp-debug-ui-panel fixed z-[2147483001] grid h-[min(680px,calc(100vh-92px))] w-[min(860px,calc(100vw-28px))] overflow-hidden rounded-xl border border-white/20 bg-slate-950 text-slate-100 shadow-[0_16px_40px_rgba(0,0,0,0.35)]',
+          'grid-rows-[auto_minmax(0,1fr)]',
+          densePanel && 'vacp-debug-ui-dense',
+        )}
         ref={panelRef}
         style={{ display: open ? 'grid' : 'none' }}
         data-vacp-debug-ui="1"
@@ -408,68 +425,103 @@ export function VacpDebugUiApp(props: { globalKey: string; includeActions: boole
         aria-labelledby={titleId}
         tabIndex={-1}
       >
-        <header
+        <div
           ref={panelHeaderRef}
-          className="flex h-11 items-center gap-3 border-b border-white/10 bg-slate-950 px-3 py-2"
+          className={cn(
+            'vacp-debug-ui-topbar',
+            'flex h-11 items-center gap-3 border-b border-white/10',
+            'bg-gradient-to-b from-slate-950/90 to-slate-950',
+            'px-3 py-2',
+          )}
         >
-          <div id={titleId} className="vacp-debug-ui-title min-w-0 flex-1 truncate text-xs text-slate-100/90">
-            {title}
-          </div>
-          <div className="flex items-center gap-2">
-            {modeToggle}
-            <IconButton
-              icon={
-                maximized ? (
-                  <Minimize2 className="h-4 w-4 text-slate-100/90" />
-                ) : (
-                  <Maximize2 className="h-4 w-4 text-slate-100/90" />
-                )
-              }
-              label={maximized ? 'Restore' : 'Maximize'}
-              title={maximized ? 'Restore the previous overlay size.' : 'Toggle a near-fullscreen overlay size.'}
-              onClick={() => toggleMaximize()}
-            />
-            <IconButton
-              icon={<Frame className="h-4 w-4 text-slate-100/90" />}
-              label="Reset size"
-              title="Reset overlay size back to its default."
-              onClick={() => resetSize()}
-            />
-            <IconButton
-              icon={<X className="h-4 w-4 text-slate-100/90" />}
-              label="Close"
-              title="Close debug tools (Esc)"
-              variant="danger"
+          <div className="group flex items-center gap-2">
+            <button
+              type="button"
+              aria-label="Close"
+              title="Close"
+              className={cn(
+                'relative grid h-3.5 w-3.5 place-items-center rounded-full bg-[#ff5f57]',
+                'shadow-[inset_0_0_0_1px_rgba(0,0,0,0.18)]',
+                'hover:brightness-[0.98] active:brightness-[0.96]',
+                'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/35 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950',
+              )}
               onClick={() => setOpen(false)}
-            />
+            >
+              <X
+                className="h-2.5 w-2.5 text-black/60 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100"
+                aria-hidden="true"
+              />
+            </button>
+            <button
+              type="button"
+              aria-label="Minimize"
+              title="Restore to the default panel size."
+              className={cn(
+                'relative grid h-3.5 w-3.5 place-items-center rounded-full bg-[#febc2e]',
+                'shadow-[inset_0_0_0_1px_rgba(0,0,0,0.18)]',
+                'hover:brightness-[0.98] active:brightness-[0.96]',
+                'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/35 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950',
+              )}
+              onClick={() => minimize()}
+            >
+              <Minus
+                className="h-3 w-3 text-black/60 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100"
+                aria-hidden="true"
+              />
+            </button>
+            <button
+              type="button"
+              aria-label={maximized ? 'Restore size' : 'Maximize'}
+              title={maximized ? 'Restore size' : 'Maximize'}
+              className={cn(
+                'relative grid h-3.5 w-3.5 place-items-center rounded-full bg-[#28c840]',
+                'shadow-[inset_0_0_0_1px_rgba(0,0,0,0.18)]',
+                'hover:brightness-[0.98] active:brightness-[0.96]',
+                'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/35 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950',
+              )}
+              onClick={() => toggleMaximize()}
+            >
+              <Plus
+                className="h-3 w-3 text-black/60 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100"
+                aria-hidden="true"
+              />
+            </button>
           </div>
-        </header>
+
+          <div id={titleId} className="min-w-0 flex-1">
+            <div className="vacp-debug-ui-title truncate text-xs text-slate-100/85">{title}</div>
+            {meta ? (
+              <div className="vacp-debug-ui-meta truncate text-[10px] text-slate-100/55 [font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,'Liberation_Mono','Courier_New',monospace]">
+                {meta}
+              </div>
+            ) : null}
+          </div>
+          <div className="ml-auto flex items-center gap-2">
+            {modeToggle}
+          </div>
+        </div>
 
         <Tabs
           value={moduleId}
           onValueChange={(v) => setModuleId(v as VacpDebugModuleId)}
           orientation={compactPanel ? 'horizontal' : 'vertical'}
           activationMode="manual"
-          className={[
-            'grid min-h-0',
-            compactPanel ? 'grid-rows-[auto_minmax(0,1fr)]' : 'grid-cols-[180px_1fr] grid-rows-none',
-          ].join(' ')}
+          className={cn('grid min-h-0', compactPanel ? 'grid-rows-[auto_minmax(0,1fr)]' : 'grid-cols-[180px_1fr] grid-rows-none')}
         >
           <nav
-            className={[
-              'min-h-0 max-w-full bg-white/5 p-2',
-              compactPanel
-                ? 'overflow-x-auto border-b border-white/10'
-                : 'overflow-y-auto border-b-0 border-r border-white/10',
-            ].join(' ')}
+            className={cn(
+              'min-h-0 max-w-full bg-white/5',
+              densePanel ? 'p-1.5' : 'p-2',
+              compactPanel ? 'overflow-x-auto border-b border-white/10' : 'overflow-y-auto border-b-0 border-r border-white/10',
+            )}
             aria-label="VACP debug modules"
           >
-            <TabsList loop className={['vacp-debug-ui-nav-list gap-1', compactPanel ? 'flex-row' : 'flex-col'].join(' ')}>
+            <TabsList loop className={cn('vacp-debug-ui-nav-list gap-1', compactPanel ? 'flex-row' : 'flex-col')}>
               {modules.map((m) => (
                 <TabsTrigger
                   key={m.id}
                   value={m.id}
-                  className={['vacp-debug-ui-module whitespace-nowrap', compactPanel ? 'w-auto' : 'w-full'].join(' ')}
+                  className={cn('vacp-debug-ui-module whitespace-nowrap', compactPanel ? 'w-auto' : 'w-full')}
                   title={m.title}
                 >
                   {m.icon}
@@ -479,14 +531,16 @@ export function VacpDebugUiApp(props: { globalKey: string; includeActions: boole
             </TabsList>
           </nav>
 
-          <div className="vacp-debug-ui-content min-h-0 min-w-0 overflow-hidden bg-slate-950 p-3">
-            <div className="h-full min-h-0 overflow-auto">
+          <div className={cn('vacp-debug-ui-content min-h-0 min-w-0 overflow-hidden bg-slate-950', densePanel ? 'p-2' : 'p-3')}>
+            <div className="flex h-full min-h-0 flex-col">
               {inspectBanner}
-              {modules.map((m) => (
-                <TabsContent key={m.id} value={m.id} className="min-h-0">
-                  {renderModule(m.id)}
-                </TabsContent>
-              ))}
+              <div className="min-h-0 flex-1 overflow-hidden">
+                {modules.map((m) => (
+                  <TabsContent key={m.id} value={m.id} className="vacp-debug-ui-scroll h-full min-h-0 overflow-auto">
+                    {renderModule(m.id)}
+                  </TabsContent>
+                ))}
+              </div>
             </div>
           </div>
         </Tabs>
