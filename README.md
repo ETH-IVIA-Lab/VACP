@@ -12,7 +12,7 @@ Agents, humans, and debugging tools all interact with the same contract.
 
 ## Core idea
 
-Instead of clicking pixels, an agent calls `window.__vacp.execute({ name, params })` (usually via MCP), and the app runs the _same_ semantic interactions a human would.
+Instead of clicking pixels, an agent calls `window.__vacp.execute({ callId, name, params })` (usually via MCP), and the app runs the _same_ semantic interactions a human would.
 
 ## What’s in this repo
 
@@ -26,7 +26,7 @@ Instead of clicking pixels, an agent calls `window.__vacp.execute({ name, params
 
 ## Quick start
 
-From `vacp/`:
+From the repo root:
 
 - Install JS deps: `pnpm install`
 - Install Python env: `uv sync`
@@ -56,7 +56,12 @@ Run the MCP server:
 
 For interactive development, it’s often nicer to attach to an existing Chrome via CDP:
 
-- See `vacp/packages/vacp-mcp-server/README.md`
+- See `packages/vacp-mcp-server/README.md`
+
+## Troubleshooting
+
+- Playwright browser missing: run `pnpm exec playwright install chromium` (JS tests) and `uv run playwright install chromium` (Python server).
+- Port already in use: start a different example or pass a different `--url` to `vacp-mcp-server`.
 
 ## Suggested exploration path
 
@@ -66,7 +71,7 @@ If you’re new to the repo, this is the fastest way to build a correct mental m
 2. Use **both**:
    - human interaction (brush with the mouse), and
    - agent-like interaction (overlay **Playbook** → **Run all**).
-3. Read `vacp/ARCHITECTURE.md` (system + protocol spec).
+3. Read `ARCHITECTURE.md` (system + protocol spec).
 4. Skim the core contract: `packages/lib/core`.
 5. Skim the runtime: `packages/lib/gateway` (history, undo/redo, overrides).
 6. Skim one provider: `packages/lib/mosaic` or `packages/lib/vega-lite`.
@@ -87,12 +92,13 @@ MCP is “just a wire”. The protocol lives in the app.
 
 ## Where To Read Next
 
-- System + protocol spec: `vacp/ARCHITECTURE.md`
-- Runnable examples: `vacp/packages/examples/README.md`
-- MCP server: `vacp/packages/vacp-mcp-server/README.md`
+- System + protocol spec: `ARCHITECTURE.md`
+- Runnable examples: `packages/examples/README.md`
+- MCP server: `packages/vacp-mcp-server/README.md`
+- Contributing: `CONTRIBUTING.md`
 
 ## Repository Layout
 
-- `vacp/packages/lib/*`: TypeScript workspace (pnpm)
-- `vacp/packages/examples/*`: runnable example apps (also serve as regression tests)
-- `vacp/packages/vacp-mcp-server`: Python MCP transport (uv)
+- `packages/lib/*`: TypeScript workspace (pnpm)
+- `packages/examples/*`: runnable example apps (also serve as regression tests)
+- `packages/vacp-mcp-server`: Python MCP transport (uv)
