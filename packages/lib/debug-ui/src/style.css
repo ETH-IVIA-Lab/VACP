@@ -1,5 +1,13 @@
 @config "../tailwind.config.ts";
 @import "tailwindcss";
+@import "react-json-view-lite/dist/index.css";
+
+/* Host apps may ship global `button { ... }` rules. Because Tailwind utilities are in cascade layers,
+   those unlayered host rules would otherwise win and break the debug UI. `revert-layer` restores the
+   expected Tailwind styles within the debug overlay. */
+[data-vacp-debug-ui] button {
+  all: revert-layer;
+}
 
 /* Overlay animation helpers for the draggable pill. */
 #vacp-debug-ui-root.vacp-debug-ui-snap {
@@ -20,6 +28,20 @@
   display: block;
 }
 
+/* Host apps often set `svg { width: 100%; height: auto; }` (good for charts, bad for icons).
+   We need to neutralize those unlayered host rules without clobbering Tailwind utilities.
+   `revert-layer` falls back to the layered Tailwind value when present (e.g. `w-4 h-4`) or
+   the UA default otherwise. */
+:where(#vacp-debug-ui-panel) svg {
+  width: revert-layer;
+  height: revert-layer;
+}
+
+/* Keep scrollbar presence from shifting panel layout (important for inspectors). */
+#vacp-debug-ui-panel .vacp-debug-ui-scroll {
+  scrollbar-gutter: stable;
+}
+
 /* Ensure inline code pills are readable even if the host app styles `code`. */
 #vacp-debug-ui-panel code {
   background: rgba(15, 23, 42, 0.85) !important;
@@ -30,6 +52,11 @@
   font-size: 11px !important;
   font-weight: 600 !important;
   line-height: 1.35 !important;
+}
+
+/* react-json-view-lite ships themed backgrounds; let the debug UI panel control backgrounds. */
+#vacp-debug-ui-panel .vacp-json-viewer-tree {
+  background: transparent !important;
 }
 
 /* When a diagram is being refreshed, soften the existing one briefly. */

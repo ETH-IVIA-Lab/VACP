@@ -11,6 +11,8 @@ import { useVacpDebugUiStore } from '@vacp/debug-ui/overlay/debug-store';
 import { IconButton } from '@vacp/debug-ui/overlay/icon-button';
 import { useElementSize } from '@vacp/debug-ui/overlay/hooks/use-element-size';
 import { Card, CardDescription, CardHeader, CardTitle } from '@vacp/debug-ui/ui/components/ui/card';
+import { JsonViewer } from '@vacp/debug-ui/ui/components/ui/json-viewer';
+import { cn } from '@vacp/debug-ui/ui/lib/utils';
 
 import type { VacpDebugModuleProps } from './module-types';
 
@@ -56,22 +58,20 @@ function updateSelectedHighlight(host: HTMLElement, sel: SelectedGraphItem) {
   if (target) target.classList.add('vacp-selected');
 }
 
-function buildInspectorJson(runtime: VacpRuntimeSnapshot, sel: SelectedGraphItem): string {
-  if (!sel) return '';
+function buildInspectorValue(runtime: VacpRuntimeSnapshot, sel: SelectedGraphItem): unknown {
+  if (!sel) return null;
   if (sel.kind === 'action') {
     const a = runtime.currentCapabilities.graph.actions?.[sel.index];
-    return safeJson(
-      a
-        ? { kind: 'action', name: a.name, description: a.description ?? null, targetRef: a.targetRef ?? null, parameters: a.parameters ?? {} }
-        : { error: 'Unknown action index', index: sel.index },
-    );
+    return a
+      ? { kind: 'action', name: a.name, description: a.description ?? null, targetRef: a.targetRef ?? null, parameters: a.parameters ?? {} }
+      : { error: 'Unknown action index', index: sel.index };
   }
 
   const node = runtime.currentCapabilities.graph.nodes?.[sel.index] as VacpNode | undefined;
-  if (!node) return safeJson({ error: 'Unknown node index', index: sel.index });
+  if (!node) return { error: 'Unknown node index', index: sel.index };
   const stateValue = (runtime.currentState.state as Record<string, unknown>)[node.ref];
   const targeting = (runtime.currentCapabilities.graph.actions ?? []).filter((a) => a.targetRef === node.ref);
-  return safeJson({
+  return {
     kind: 'node',
     ref: node.ref,
     shortRef: shortRef(node.ref),
@@ -81,16 +81,20 @@ function buildInspectorJson(runtime: VacpRuntimeSnapshot, sel: SelectedGraphItem
     data: node.data ?? null,
     state: stateValue ?? null,
     actions: targeting.map((a) => a.name),
-  });
+  };
 }
 
 export function GraphModule(props: VacpDebugModuleProps): ReactElement {
   const rootRef = useRef<HTMLDivElement | null>(null);
   const rootSize = useElementSize(rootRef);
+  const compactControls = rootSize.width < 520;
+  const dense = rootSize.width < 520 || rootSize.height < 360;
+  const iconButtonSize = 'iconSm';
   const includeActionsDefault = useVacpDebugUiStore((s) => s.includeActionsDefault);
   const inspectOpen = useVacpDebugUiStore((s) => s.graphInspectOpen);
   const setInspectOpen = useVacpDebugUiStore((s) => s.setGraphInspectOpen);
-  const showSideBySide = inspectOpen && rootSize.width >= 900;
+  const effectiveInspectOpen = inspectOpen && !dense;
+  const showSideBySide = effectiveInspectOpen && rootSize.width >= 900;
   const [options, setOptions] = useState<Required<Pick<VacpDiagramRenderOptions, 'direction' | 'includeActions'>>>({
     direction: 'LR',
     includeActions: includeActionsDefault,
@@ -105,7 +109,13 @@ export function GraphModule(props: VacpDebugModuleProps): ReactElement {
     return renderVacpDiagramMermaid({ capabilities: props.runtime.currentCapabilities, options });
   }, [props.runtime.currentCapabilities, options]);
 
-  const inspectorJson = useMemo(() => buildInspectorJson(props.runtime, selected), [props.runtime, selected]);
+  const inspectorValue = useMemo(() => buildInspectorValue(props.runtime, selected), [props.runtime, selected]);
+  const inspectorText = useMemo(() => (selected ? safeJson(inspectorValue) : ''), [inspectorValue, selected]);
+
+  useEffect(() => {
+    if (!dense || !inspectOpen) return;
+    setInspectOpen(false);
+  }, [dense, inspectOpen, setInspectOpen]);
 
   useEffect(() => {
     const host = diagramHostRef.current;
@@ -205,26 +215,35 @@ export function GraphModule(props: VacpDebugModuleProps): ReactElement {
   return (
     <div
       ref={rootRef}
-      className={[
-        'h-full min-h-0 gap-3',
+      className={cn(
+        'h-full min-h-0',
+        dense ? 'gap-2' : 'gap-3',
         showSideBySide ? 'grid grid-cols-[minmax(0,1fr)_minmax(320px,420px)]' : 'flex flex-col',
-      ].join(' ')}
+      )}
       data-vacp-graph="1"
       data-vacp-direction={options.direction}
     >
-      <Card className="flex min-h-0 flex-col">
-        <CardHeader>
+      <Card className={cn('flex min-h-0 flex-1 flex-col', dense && 'p-2')}>
+        <CardHeader className={cn(compactControls && 'flex-col items-stretch gap-2')}>
           <div className="min-w-0">
             <CardTitle>Graph</CardTitle>
             <CardDescription>
               Click nodes to inspect their state. {renderError ? <span className="text-rose-100/80">({renderError})</span> : null}
             </CardDescription>
           </div>
-          <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
+          <div
+            className={cn(
+              'flex items-center gap-2',
+              compactControls
+                ? 'w-full flex-nowrap justify-start overflow-x-auto gap-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden'
+                : 'shrink-0 flex-wrap justify-end',
+            )}
+          >
             <IconButton
               icon={options.direction === 'LR' ? <ArrowLeftRight className="h-4 w-4 text-slate-100/90" /> : <ArrowUpDown className="h-4 w-4 text-slate-100/90" />}
               label="Toggle direction"
               title="Toggle diagram direction (left-to-right vs top-to-bottom)."
+              size={iconButtonSize}
               onClick={() => setOptions((o) => ({ ...o, direction: o.direction === 'LR' ? 'TB' : 'LR' }))}
             />
             <IconButton
@@ -232,25 +251,28 @@ export function GraphModule(props: VacpDebugModuleProps): ReactElement {
               label={options.includeActions ? 'Hide actions' : 'Show actions'}
               title="Show semantic actions as nodes in the diagram."
               pressed={options.includeActions}
+              size={iconButtonSize}
               onClick={() => setOptions((o) => ({ ...o, includeActions: !o.includeActions }))}
             />
             <IconButton
               icon={<ClipboardCopy className="h-4 w-4 text-slate-100/90" />}
               label="Copy Mermaid"
               title="Copy the Mermaid source for this diagram."
+              size={iconButtonSize}
               onClick={() => void copy(mermaidText)}
             />
             <IconButton
               icon={inspectOpen ? <PanelRightClose className="h-4 w-4 text-slate-100/90" /> : <PanelRightOpen className="h-4 w-4 text-slate-100/90" />}
               label={inspectOpen ? 'Hide inspect pane' : 'Show inspect pane'}
               title={inspectOpen ? 'Hide the Inspect pane to give the diagram more space.' : 'Show the Inspect pane.'}
-              pressed={inspectOpen}
+              pressed={effectiveInspectOpen}
+              size={iconButtonSize}
               onClick={() => setInspectOpen(!inspectOpen)}
             />
           </div>
         </CardHeader>
 
-        <div className="min-h-0 flex-1">
+        <div className={cn('min-h-0 flex-1', dense ? 'mt-2' : 'mt-3')}>
           <div
             ref={diagramHostRef}
             className="vacp-debug-ui-diagram h-full w-full min-h-0 overflow-hidden rounded-lg border border-white/10 bg-black/20"
@@ -259,9 +281,9 @@ export function GraphModule(props: VacpDebugModuleProps): ReactElement {
         </div>
       </Card>
 
-      {inspectOpen ? (
-        <Card className={['flex min-h-0 flex-col', showSideBySide ? '' : 'max-h-[320px]'].join(' ')}>
-          <CardHeader>
+      {effectiveInspectOpen ? (
+        <Card className={cn('flex min-h-0 flex-col', !showSideBySide && 'max-h-[45%]', dense && 'p-2')}>
+          <CardHeader className={cn(compactControls && 'flex-col items-stretch gap-2')}>
             <div className="min-w-0">
               <CardTitle>Inspect</CardTitle>
               <CardDescription>
@@ -272,25 +294,32 @@ export function GraphModule(props: VacpDebugModuleProps): ReactElement {
                   : 'Select a node to see its full JSON.'}
               </CardDescription>
             </div>
-            <div className="flex shrink-0 items-center gap-2">
+            <div
+              className={cn(
+                'flex items-center gap-2',
+                compactControls
+                  ? 'w-full flex-nowrap justify-start overflow-x-auto gap-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden'
+                  : 'shrink-0',
+              )}
+            >
               <IconButton
                 icon={<XCircle className="h-4 w-4 text-slate-100/90" />}
                 label="Clear selection"
                 title="Clear the selected node/action."
+                size={iconButtonSize}
                 onClick={() => setSelected(null)}
               />
               <IconButton
                 icon={<ClipboardCopy className="h-4 w-4 text-slate-100/90" />}
                 label="Copy JSON"
                 title="Copy the inspected JSON to clipboard."
-                onClick={() => void copy(inspectorJson)}
+                size={iconButtonSize}
+                onClick={() => void copy(inspectorText)}
               />
             </div>
           </CardHeader>
 
-          <pre className="min-h-0 flex-1 overflow-auto rounded-lg border border-white/10 bg-black/20 p-3 text-[12px] leading-5 text-slate-100/85">
-            {selected ? inspectorJson : ''}
-          </pre>
+          <JsonViewer value={selected ? inspectorValue : null} className={cn('flex-1', dense && 'p-2')} />
         </Card>
       ) : null}
     </div>

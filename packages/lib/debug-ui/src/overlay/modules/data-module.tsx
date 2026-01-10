@@ -9,7 +9,9 @@ import { IconButton } from '@vacp/debug-ui/overlay/icon-button';
 import { useVacpDebugUiStore } from '@vacp/debug-ui/overlay/debug-store';
 import { useElementSize } from '@vacp/debug-ui/overlay/hooks/use-element-size';
 import { Card, CardDescription, CardHeader, CardTitle } from '@vacp/debug-ui/ui/components/ui/card';
+import { JsonViewer } from '@vacp/debug-ui/ui/components/ui/json-viewer';
 import { Textarea } from '@vacp/debug-ui/ui/components/ui/textarea';
+import { cn } from '@vacp/debug-ui/ui/lib/utils';
 
 import type { VacpDebugModuleProps } from './module-types';
 
@@ -19,14 +21,6 @@ function isDataSqlResult(value: unknown): value is VacpDataSqlResult {
   if (v.format === 'json') return Array.isArray(v.columns) && Array.isArray(v.rows);
   if (v.format === 'arrow_ipc_base64') return typeof v.arrowIpcBase64 === 'string';
   return false;
-}
-
-function safeJson(value: unknown): string {
-  try {
-    return JSON.stringify(value, null, 2);
-  } catch {
-    return String(value);
-  }
 }
 
 function defaultQuery(): string {
@@ -51,6 +45,9 @@ export function DataModule(props: VacpDebugModuleProps): ReactElement {
   const rootRef = useRef<HTMLDivElement | null>(null);
   const rootSize = useElementSize(rootRef);
   const showHandleSide = rootSize.width >= 640;
+  const compactControls = rootSize.width < 520;
+  const dense = rootSize.width < 520 || rootSize.height < 360;
+  const iconButtonSize = 'iconSm';
   const inlineCodeClass =
     'rounded-md border border-white/10 bg-slate-900/70 px-1.5 py-0.5 text-[11px] font-medium text-slate-100 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.02)]';
   const selectClass =
@@ -222,37 +219,41 @@ export function DataModule(props: VacpDebugModuleProps): ReactElement {
           </div>
           <details className="mt-3 rounded-lg border border-white/10 bg-black/10 px-3 py-2">
             <summary className="cursor-pointer text-[12px] text-slate-100/80">Raw JSON</summary>
-            <pre className="mt-2 overflow-auto rounded-lg border border-white/10 bg-black/20 p-3 text-[12px] leading-5 text-slate-100/85">
-              {safeJson(lastResult)}
-            </pre>
+            <JsonViewer value={lastResult} className="mt-2 max-h-[320px]" />
           </details>
         </>
       );
     }
 
     return (
-      <pre className="overflow-auto rounded-lg border border-white/10 bg-black/20 p-3 text-[12px] leading-5 text-slate-100/85">
-        {safeJson(lastResult)}
-      </pre>
+      <JsonViewer value={lastResult} className="h-full" />
     );
   })();
 
   return (
-    <div ref={rootRef} className="grid h-full min-h-0 grid-rows-[auto_minmax(0,1fr)] gap-3">
-      <Card className="flex flex-col gap-3">
-        <CardHeader>
+    <div ref={rootRef} className={cn('grid h-full min-h-0 grid-rows-[auto_minmax(0,1fr)]', dense ? 'gap-2' : 'gap-3')}>
+      <Card className={cn('flex flex-col', dense ? 'gap-2 p-2' : 'gap-3')}>
+        <CardHeader className={cn(compactControls && 'flex-col items-stretch gap-2')}>
           <div className="min-w-0">
             <CardTitle>DuckDB SQL</CardTitle>
             <CardDescription>
               Query the currently selected handle with <code className={inlineCodeClass}>vacp.data_sql</code>.
             </CardDescription>
           </div>
-          <div className="flex shrink-0 items-center gap-2">
+          <div
+            className={cn(
+              'flex items-center gap-2',
+              compactControls
+                ? 'w-full flex-nowrap justify-start overflow-x-auto gap-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden'
+                : 'shrink-0',
+            )}
+          >
             <IconButton
               icon={<Play className="h-4 w-4 text-slate-100/90" />}
               label="Run query"
               title="Run the SQL query against this handle."
               variant="primary"
+              size={iconButtonSize}
               onMouseDown={(ev) => ev.preventDefault()}
               onClick={() => void run()}
             />
@@ -260,6 +261,7 @@ export function DataModule(props: VacpDebugModuleProps): ReactElement {
               icon={<RefreshCw className="h-4 w-4 text-slate-100/90" />}
               label="Refresh snapshots"
               title="Ask the provider to refresh its state snapshot."
+              size={iconButtonSize}
               onMouseDown={(ev) => ev.preventDefault()}
               onClick={() => void refresh()}
             />
@@ -267,13 +269,14 @@ export function DataModule(props: VacpDebugModuleProps): ReactElement {
               icon={<ClipboardCopy className="h-4 w-4 text-slate-100/90" />}
               label="Copy SQL"
               title="Copy the current SQL to clipboard."
+              size={iconButtonSize}
               onMouseDown={(ev) => ev.preventDefault()}
               onClick={() => void copy(selectedSql)}
             />
           </div>
         </CardHeader>
 
-        <div className={['grid gap-3', showHandleSide ? 'grid-cols-[1fr_220px]' : ''].join(' ')}>
+        <div className={cn('grid', dense ? 'gap-2' : 'gap-3', showHandleSide && 'grid-cols-[1fr_220px]')}>
           <div>
             <label className="text-[11px] font-medium text-slate-100/70" htmlFor="vacp-sql">
               SQL
@@ -302,7 +305,7 @@ export function DataModule(props: VacpDebugModuleProps): ReactElement {
         </div>
       </Card>
 
-      <Card className="flex min-h-0 flex-col">
+      <Card className={cn('flex min-h-0 flex-col', dense && 'p-2')}>
         <CardHeader>
           <div>
             <CardTitle>Result</CardTitle>
@@ -319,7 +322,7 @@ export function DataModule(props: VacpDebugModuleProps): ReactElement {
             </CardDescription>
           </div>
         </CardHeader>
-        <div className="min-h-0 flex-1 p-3">{resultView}</div>
+        <div className={cn('min-h-0 flex-1', dense ? 'p-2' : 'p-3')}>{resultView}</div>
       </Card>
     </div>
   );

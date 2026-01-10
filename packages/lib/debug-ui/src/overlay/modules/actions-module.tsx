@@ -7,8 +7,10 @@ import { IconButton } from '@vacp/debug-ui/overlay/icon-button';
 import { useElementSize } from '@vacp/debug-ui/overlay/hooks/use-element-size';
 import { Card, CardDescription, CardHeader, CardTitle } from '@vacp/debug-ui/ui/components/ui/card';
 import { Input } from '@vacp/debug-ui/ui/components/ui/input';
+import { JsonViewer } from '@vacp/debug-ui/ui/components/ui/json-viewer';
 import { RovingFocusGroup, RovingFocusGroupItem } from '@vacp/debug-ui/ui/components/ui/roving-focus';
 import { Textarea } from '@vacp/debug-ui/ui/components/ui/textarea';
+import { cn } from '@vacp/debug-ui/ui/lib/utils';
 
 import type { VacpDebugModuleProps } from './module-types';
 
@@ -30,6 +32,9 @@ export function ActionsModule(props: VacpDebugModuleProps): ReactElement {
   const rootRef = useRef<HTMLDivElement | null>(null);
   const rootSize = useElementSize(rootRef);
   const showTwoCols = rootSize.width >= 980;
+  const compactControls = rootSize.width < 520;
+  const dense = rootSize.width < 520 || rootSize.height < 360;
+  const iconButtonSize = 'iconSm';
   const actions = props.runtime.currentCapabilities.graph.actions ?? [];
   const [filter, setFilter] = useState('');
   const filtered = useMemo(() => {
@@ -115,31 +120,39 @@ export function ActionsModule(props: VacpDebugModuleProps): ReactElement {
   };
 
   return (
-    <div ref={rootRef} className={['grid h-full min-h-0 gap-3', showTwoCols ? 'grid-cols-2' : ''].join(' ')}>
-      <Card className="flex min-h-0 flex-col">
-        <CardHeader>
+    <div ref={rootRef} className={cn('grid h-full min-h-0', dense ? 'gap-2' : 'gap-3', showTwoCols && 'grid-cols-2')}>
+      <Card className={cn('flex min-h-0 flex-col', dense && 'p-2')}>
+        <CardHeader className={cn(compactControls && 'flex-col items-stretch gap-2')}>
           <div className="min-w-0">
             <CardTitle>Actions</CardTitle>
             <CardDescription>Dispatch semantic actions (human/agent parity).</CardDescription>
           </div>
-          <div className="flex shrink-0 items-center gap-2">
+          <div
+            className={cn(
+              'flex items-center gap-2',
+              compactControls
+                ? 'w-full flex-nowrap justify-start overflow-x-auto gap-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden'
+                : 'shrink-0',
+            )}
+          >
             <IconButton
               icon={<RefreshCw className="h-4 w-4 text-slate-100/90" />}
               label="Refresh snapshots"
               title="Ask the provider to refresh its state snapshot."
+              size={iconButtonSize}
               onClick={() => void refresh()}
             />
           </div>
         </CardHeader>
 
-        <div className="mt-3">
+        <div className={cn(dense ? 'mt-2' : 'mt-3')}>
           <label className="text-[11px] font-medium text-slate-100/70" htmlFor="vacp-action-filter">
             Filter
           </label>
           <Input id="vacp-action-filter" className="mt-1" value={filter} onChange={(e) => setFilter(e.target.value)} placeholder="Search…" />
         </div>
 
-        <div className="mt-3 min-h-0 flex-1 overflow-auto rounded-lg border border-white/10 bg-black/20">
+        <div className={cn(dense ? 'mt-2 min-h-0 flex-1 overflow-auto rounded-lg border border-white/10 bg-black/20' : 'mt-3 min-h-0 flex-1 overflow-auto rounded-lg border border-white/10 bg-black/20')}>
           <RovingFocusGroup orientation="vertical" loop asChild>
             <div className="p-1" role="listbox" aria-label="Actions">
               {filtered.map((a) => {
@@ -148,12 +161,12 @@ export function ActionsModule(props: VacpDebugModuleProps): ReactElement {
                   <RovingFocusGroupItem key={a.name} asChild>
                     <button
                       type="button"
-                      className={[
+                      className={cn(
                         'w-full rounded-lg px-2 py-2 text-left text-xs transition-colors',
                         'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/60',
                         'hover:bg-white/5',
                         active ? 'border border-sky-300/30 bg-sky-500/10' : 'border border-transparent',
-                      ].join(' ')}
+                      )}
                       aria-selected={active ? 'true' : 'false'}
                       onClick={() => setSelectedName(a.name)}
                     >
@@ -168,24 +181,33 @@ export function ActionsModule(props: VacpDebugModuleProps): ReactElement {
         </div>
       </Card>
 
-      <Card className="flex min-h-0 flex-col">
-        <CardHeader>
+      <Card className={cn('flex min-h-0 flex-col', dense && 'p-2')}>
+        <CardHeader className={cn(compactControls && 'flex-col items-stretch gap-2')}>
           <div className="min-w-0">
             <CardTitle>{selected ? selected.name : 'Select an action'}</CardTitle>
             <CardDescription>{selected?.description ?? ''}</CardDescription>
           </div>
-          <div className="flex shrink-0 items-center gap-2">
+          <div
+            className={cn(
+              'flex items-center gap-2',
+              compactControls
+                ? 'w-full flex-nowrap justify-start overflow-x-auto gap-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden'
+                : 'shrink-0',
+            )}
+          >
             <IconButton
               icon={<Play className="h-4 w-4 text-slate-100/90" />}
               label="Run action"
               title="Execute this action with the current JSON params."
               variant="primary"
+              size={iconButtonSize}
               onClick={() => void run()}
             />
             <IconButton
               icon={<ClipboardCopy className="h-4 w-4 text-slate-100/90" />}
               label="Copy result"
               title="Copy the last result JSON to clipboard."
+              size={iconButtonSize}
               onClick={() => void copy(safeJson(result))}
             />
           </div>
@@ -206,9 +228,11 @@ export function ActionsModule(props: VacpDebugModuleProps): ReactElement {
 
           <div className="min-h-0">
             <label className="text-[11px] font-medium text-slate-100/70">Result</label>
-            <pre className="mt-1 min-h-0 max-h-[360px] overflow-auto rounded-lg border border-white/10 bg-black/20 p-3 text-[12px] leading-5 text-slate-100/85">
-              {status === 'running' ? 'Running…' : status === 'error' ? error ?? 'Action failed' : safeJson(result)}
-            </pre>
+            <JsonViewer
+              value={result}
+              emptyText={status === 'running' ? 'Running…' : status === 'error' ? error ?? 'Action failed' : ''}
+              className="mt-1 min-h-0 max-h-[360px]"
+            />
           </div>
         </div>
       </Card>

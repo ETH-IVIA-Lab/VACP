@@ -8,7 +8,9 @@ import { VACP_APPLY_STATE_ACTION } from '@vacp/core';
 import { IconButton } from '@vacp/debug-ui/overlay/icon-button';
 import { useElementSize } from '@vacp/debug-ui/overlay/hooks/use-element-size';
 import { Card, CardDescription, CardHeader, CardTitle } from '@vacp/debug-ui/ui/components/ui/card';
+import { JsonViewer } from '@vacp/debug-ui/ui/components/ui/json-viewer';
 import { Textarea } from '@vacp/debug-ui/ui/components/ui/textarea';
+import { cn } from '@vacp/debug-ui/ui/lib/utils';
 
 import type { VacpDebugModuleProps } from './module-types';
 
@@ -30,6 +32,9 @@ export function JsonModule(props: VacpDebugModuleProps): ReactElement {
   const rootRef = useRef<HTMLDivElement | null>(null);
   const rootSize = useElementSize(rootRef);
   const showTwoCols = rootSize.width >= 980;
+  const compactControls = rootSize.width < 520;
+  const dense = rootSize.width < 520 || rootSize.height < 360;
+  const iconButtonSize = 'iconSm';
   const snapshotText = useMemo(() => safeJson(props.runtime.currentState), [props.runtime.currentState]);
   const [overrideText, setOverrideText] = useState<string>(() => safeJson(props.runtime.currentState.state));
   const [status, setStatus] = useState<string>('');
@@ -105,40 +110,54 @@ export function JsonModule(props: VacpDebugModuleProps): ReactElement {
   };
 
   return (
-    <div ref={rootRef} className={['grid h-full min-h-0 gap-3', showTwoCols ? 'grid-cols-2' : ''].join(' ')}>
-      <Card className="flex min-h-0 flex-col">
-        <CardHeader>
+    <div ref={rootRef} className={cn('grid h-full min-h-0', dense ? 'gap-2' : 'gap-3', showTwoCols && 'grid-cols-2')}>
+      <Card className={cn('flex min-h-0 flex-col', dense && 'p-2')}>
+        <CardHeader className={cn(compactControls && 'flex-col items-stretch gap-2')}>
           <div className="min-w-0">
             <CardTitle>State snapshot</CardTitle>
             <CardDescription>The current VACP state snapshot from the provider.</CardDescription>
           </div>
-          <div className="flex shrink-0 items-center gap-2">
+          <div
+            className={cn(
+              'flex items-center gap-2',
+              compactControls
+                ? 'w-full flex-nowrap justify-start overflow-x-auto gap-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden'
+                : 'shrink-0',
+            )}
+          >
             <IconButton
               icon={<ClipboardCopy className="h-4 w-4 text-slate-100/90" />}
               label="Copy snapshot"
               title="Copy the current state snapshot JSON."
+              size={iconButtonSize}
               onClick={() => void copy(snapshotText)}
             />
           </div>
         </CardHeader>
-        <pre className="mt-3 min-h-0 flex-1 overflow-auto rounded-lg border border-white/10 bg-black/20 p-3 text-[12px] leading-5 text-slate-100/85">
-          {snapshotText}
-        </pre>
+        <JsonViewer value={props.runtime.currentState} className={cn(dense ? 'mt-2 flex-1 p-2' : 'mt-3 flex-1')} />
       </Card>
 
-      <Card className="flex min-h-0 flex-col">
-        <CardHeader>
+      <Card className={cn('flex min-h-0 flex-col', dense && 'p-2')}>
+        <CardHeader className={cn(compactControls && 'flex-col items-stretch gap-2')}>
           <div className="min-w-0">
             <CardTitle>State edit</CardTitle>
             <CardDescription>
               Apply state for inspection (override) or execute <code className={inlineCodeClass}>vacp.apply_state</code>.
             </CardDescription>
           </div>
-          <div className="flex shrink-0 items-center gap-2">
+          <div
+            className={cn(
+              'flex items-center gap-2',
+              compactControls
+                ? 'w-full flex-nowrap justify-start overflow-x-auto gap-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden'
+                : 'shrink-0 flex-wrap justify-end',
+            )}
+          >
             <IconButton
               icon={<Braces className="h-4 w-4 text-slate-100/90" />}
               label="Reset to current"
               title="Reset the editor to the current state."
+              size={iconButtonSize}
               onClick={() => setOverrideText(safeJson(props.runtime.currentState.state))}
             />
             <IconButton
@@ -146,30 +165,33 @@ export function JsonModule(props: VacpDebugModuleProps): ReactElement {
               label="Apply override"
               title="Apply this state as an override for inspection (does not affect the live app)."
               variant="primary"
+              size={iconButtonSize}
               onClick={() => applyOverride()}
             />
             <IconButton
               icon={<Play className="h-4 w-4 text-slate-100/90" />}
               label="Apply to app"
               title="Execute vacp.apply_state against the live app."
+              size={iconButtonSize}
               onClick={() => void applyToApp()}
             />
             <IconButton
               icon={<Eraser className="h-4 w-4 text-slate-100/90" />}
               label="Clear overrides"
               title="Clear any inspection overrides."
+              size={iconButtonSize}
               onClick={() => clear()}
             />
           </div>
         </CardHeader>
 
-        <div className="mt-3">
+        <div className={cn(dense ? 'mt-2' : 'mt-3')}>
           <label className="text-[11px] font-medium text-slate-100/70" htmlFor="vacp-state-override">
             State map (JSON)
           </label>
           <Textarea
             id="vacp-state-override"
-            className="mt-1 min-h-[260px] text-[12px] leading-5"
+            className={cn('mt-1 text-[12px] leading-5', dense ? 'min-h-[180px]' : 'min-h-[260px]')}
             value={overrideText}
             onChange={(e) => setOverrideText(e.target.value)}
           />
