@@ -1,4 +1,4 @@
-import type { VacpActionDescriptor, VacpApplyStateParams } from '@vacp/core';
+import type { VacpActionDescriptor, VacpApplyStateParams, VacpRef } from '@vacp/core';
 import { VACP_APPLY_STATE_ACTION } from '@vacp/core';
 
 import { VacpActionRegistry } from './action-registry';
@@ -15,13 +15,13 @@ export type VacpApplyStateHandler = (state: Record<string, unknown>) => unknown 
 export function registerVacpApplyStateAction(
   registry: VacpActionRegistry,
   handler: VacpApplyStateHandler,
-  options?: { targetRef?: string; description?: string },
+  options?: { targetRef?: VacpRef; description?: string },
 ): VacpActionDescriptor {
   const descriptor: VacpActionDescriptor = {
     name: VACP_APPLY_STATE_ACTION,
     description:
       options?.description ?? 'Apply a desired VACP state map to the live app (best-effort; provider-defined).',
-    targetRef: options?.targetRef as any,
+    targetRef: options?.targetRef,
     parameters: {
       type: 'object',
       properties: {

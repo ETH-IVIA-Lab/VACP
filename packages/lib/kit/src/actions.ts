@@ -30,8 +30,8 @@ export function createVacpActions(): VacpActions {
     registry,
     action: (name, description) => new VacpActionDefinition(registry, { name, description }),
     standard: {
-      applyState: (handler, options) => registerVacpApplyStateAction(registry, handler, options as any),
-      dataSql: (handler, options) => registerVacpDataSqlAction(registry, handler, options as any),
+      applyState: (handler, options) => registerVacpApplyStateAction(registry, handler, options),
+      dataSql: (handler, options) => registerVacpDataSqlAction(registry, handler, options),
     },
   };
 }

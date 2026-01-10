@@ -1,4 +1,4 @@
-import type { VacpActionDescriptor, VacpDataSqlParams } from '@vacp/core';
+import type { VacpActionDescriptor, VacpDataSqlParams, VacpRef } from '@vacp/core';
 import { isVacpRef, VACP_DATA_SQL_ACTION } from '@vacp/core';
 
 import { VacpActionRegistry } from './action-registry';
@@ -19,14 +19,14 @@ export type VacpDataSqlHandler = (params: VacpDataSqlParams) => unknown | Promis
 export function registerVacpDataSqlAction(
   registry: VacpActionRegistry,
   handler: VacpDataSqlHandler,
-  options?: { targetRef?: string; description?: string },
+  options?: { targetRef?: VacpRef; description?: string },
 ): VacpActionDescriptor {
   const descriptor: VacpActionDescriptor = {
     name: VACP_DATA_SQL_ACTION,
     description:
       options?.description ??
       'Run a DuckDB SQL query over a VACP DataHandle (provider-defined mapping; `vacp_handle`/`vacp_all` are reserved). Prefer semantic, human-like interaction actions first; use SQL only when the app cannot express the needed question via available actions.',
-    targetRef: options?.targetRef as any,
+    targetRef: options?.targetRef,
     parameters: {
       type: 'object',
       properties: {
