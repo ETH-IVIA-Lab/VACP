@@ -3,6 +3,13 @@ import { VACP_SCHEMA_VERSION } from '@vacp/core';
 
 export interface VacpWindowBridgeOptions {
   globalKey?: string;
+  /**
+   * If true, returns a bridge even if `bridge.version` does not match the
+   * current `@vacp/core` schema version.
+   *
+   * Default is strict: version mismatches return `undefined`.
+   */
+  allowVersionMismatch?: boolean;
 }
 
 /**
@@ -27,6 +34,10 @@ export function getVacpWindowBridge(options?: VacpWindowBridgeOptions): VacpWind
   const key = options?.globalKey ?? '__vacp';
   const value = (globalThis as unknown as Record<string, unknown>)[key];
   if (!value || typeof value !== 'object') return undefined;
-  const bridge = value as VacpWindowBridge;
-  return bridge.version === VACP_SCHEMA_VERSION ? bridge : bridge;
+  const maybe = value as Partial<VacpWindowBridge>;
+  if (typeof maybe.getCapabilities !== 'function' || typeof maybe.getState !== 'function' || typeof maybe.execute !== 'function') {
+    return undefined;
+  }
+  if (!options?.allowVersionMismatch && maybe.version !== VACP_SCHEMA_VERSION) return undefined;
+  return maybe as VacpWindowBridge;
 }
