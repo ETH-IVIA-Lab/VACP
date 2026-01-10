@@ -3,7 +3,7 @@ import type { VacpPlaybook, VacpRuntimeBridge } from '@vacp/core';
 import { VacpActionRegistry } from '../action-registry';
 import { createRuntimeBridge } from './create-runtime-bridge';
 import type { VacpSnapshotProvider } from './types';
-import { isRuntimeBridge } from './window-runtime-bridge';
+import { isUpdatableRuntimeBridge } from './window-runtime-bridge';
 
 /**
  * Install-or-update a runtime bridge at a given global key (default `__vacp`).
@@ -22,15 +22,9 @@ export function installVacpRuntimeBridge(args: {
   const key = args.globalKey ?? '__vacp';
   const root = globalThis as unknown as Record<string, unknown>;
   const existing = root[key];
-  if (isRuntimeBridge(existing)) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const upd = (existing as any).__vacpUpdate as
-      | undefined
-      | ((next: { snapshots: VacpSnapshotProvider; actions: VacpActionRegistry; playbooks?: VacpPlaybook[] }) => void);
-    if (typeof upd === 'function') {
-      upd({ snapshots: args.snapshots, actions: args.actions, playbooks: args.playbooks });
-      return existing as VacpRuntimeBridge;
-    }
+  if (isUpdatableRuntimeBridge(existing)) {
+    existing.__vacpUpdate?.({ snapshots: args.snapshots, actions: args.actions, playbooks: args.playbooks });
+    return existing as VacpRuntimeBridge;
   }
   const bridge = createRuntimeBridge({ snapshots: args.snapshots, actions: args.actions, playbooks: args.playbooks });
   root[key] = bridge;

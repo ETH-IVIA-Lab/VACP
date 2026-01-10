@@ -5,7 +5,6 @@ import type {
   VacpChangeSource,
   VacpHistoryEntry,
   VacpPlaybook,
-  VacpRuntimeBridge,
   VacpRuntimeMode,
   VacpRuntimeSnapshot,
   VacpStateSnapshot,
@@ -13,7 +12,7 @@ import type {
 import { nowIso, VACP_APPLY_STATE_ACTION, VACP_SCHEMA_VERSION } from '@vacp/core';
 import { VacpActionRegistry } from '../action-registry';
 import { createStateObserver } from './observer';
-import type { VacpSnapshotProvider } from './types';
+import type { VacpSnapshotProvider, VacpUpdatableRuntimeBridge } from './types';
 import {
   entryMessage,
   entrySource,
@@ -31,7 +30,7 @@ export function createRuntimeBridge(args: {
   snapshots: VacpSnapshotProvider;
   actions: VacpActionRegistry;
   playbooks?: VacpPlaybook[];
-}): VacpRuntimeBridge {
+}): VacpUpdatableRuntimeBridge {
   type Adapter = { snapshots: VacpSnapshotProvider; actions: VacpActionRegistry; playbooks?: VacpPlaybook[] };
   const adapter: Adapter = { ...args, playbooks: args.playbooks ?? [] };
 
@@ -241,7 +240,7 @@ export function createRuntimeBridge(args: {
     });
   };
 
-  const bridge: VacpRuntimeBridge = {
+  const bridge: VacpUpdatableRuntimeBridge = {
     version: VACP_SCHEMA_VERSION,
 
     getCapabilities: async () => {
@@ -316,16 +315,8 @@ export function createRuntimeBridge(args: {
     stopObserving,
   };
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  (bridge as any).__vacpUpdate = (next: {
-    snapshots: VacpSnapshotProvider;
-    actions: VacpActionRegistry;
-    playbooks?: VacpPlaybook[];
-  }) => updateAdapters({ ...next, playbooks: next.playbooks ?? [] }, { source: 'system' });
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  (bridge as any).__vacpRuntimeId = runtimeId;
-
-  startObserving({ source: 'system', message: 'observe' });
+  bridge.__vacpUpdate = (next) => updateAdapters({ ...next, playbooks: next.playbooks ?? [] }, { source: 'system' });
+  bridge.__vacpRuntimeId = runtimeId;
 
   return bridge;
 }

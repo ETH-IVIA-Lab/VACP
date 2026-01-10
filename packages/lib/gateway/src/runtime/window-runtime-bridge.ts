@@ -2,7 +2,7 @@ import type { VacpPlaybook, VacpRuntimeBridge, VacpWindowBridge } from '@vacp/co
 
 import { VacpActionRegistry } from '../action-registry';
 import { createRuntimeBridge } from './create-runtime-bridge';
-import type { VacpSnapshotProvider } from './types';
+import type { VacpSnapshotProvider, VacpUpdatableRuntimeBridge } from './types';
 
 /**
  * Helper to build a window bridge from a snapshot provider + action registry.
@@ -25,4 +25,10 @@ export function isRuntimeBridge(value: unknown): value is VacpRuntimeBridge {
   if (!value || typeof value !== 'object') return false;
   const b = value as Partial<VacpWindowBridge>;
   return typeof b.getCapabilities === 'function' && typeof b.getState === 'function' && typeof b.execute === 'function';
+}
+
+export function isUpdatableRuntimeBridge(value: unknown): value is VacpUpdatableRuntimeBridge {
+  if (!isRuntimeBridge(value)) return false;
+  const b = value as Partial<VacpUpdatableRuntimeBridge>;
+  return typeof b.__vacpUpdate === 'function';
 }
