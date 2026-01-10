@@ -25,8 +25,86 @@ export type CollectedInput = {
   ref: VacpRef;
   element: HTMLElement;
   input: VgplotInputLike;
-  meta: { kind: string; label?: string; from?: string; column?: string; field?: string };
+  meta: {
+    kind: string;
+    label?: string;
+    from?: string;
+    column?: string;
+    field?: string;
+    options?: Array<{ value: unknown; label?: string }>;
+    optionsCount?: number;
+    optionsTruncated?: boolean;
+  };
 };
+
+function stableStringify(value: unknown): string {
+  const seen = new WeakSet<object>();
+  const walk = (v: unknown): unknown => {
+    if (v == null) return v;
+    if (typeof v === 'function' || typeof v === 'symbol') return undefined;
+    if (typeof v !== 'object') return v;
+    const obj = v as object;
+    if (seen.has(obj)) return '[Circular]';
+    seen.add(obj);
+    if (Array.isArray(v)) return v.map(walk);
+    const rec = v as Record<string, unknown>;
+    const out: Record<string, unknown> = {};
+    Object.keys(rec)
+      .sort()
+      .forEach((k) => {
+        out[k] = walk(rec[k]);
+      });
+    return out;
+  };
+  return JSON.stringify(walk(value)) ?? 'null';
+}
+
+function safeJsonValue(value: unknown): unknown {
+  if (value == null) return value;
+  if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') return value;
+  try {
+    return JSON.parse(stableStringify(value));
+  } catch {
+    return String(value);
+  }
+}
+
+function collectMenuOptions(input: VgplotInputLike, limit = 200): {
+  options: Array<{ value: unknown; label?: string }>;
+  count: number;
+  truncated: boolean;
+} | null {
+  const normalized = (value: unknown, label?: string) => ({
+    value: safeJsonValue(value),
+    label: typeof label === 'string' && label.length ? label : undefined,
+  });
+
+  // Prefer the rendered <select> options (includes auto-populated menus).
+  const select = input.select;
+  if (select && typeof select.options?.length === 'number') {
+    const opts = Array.from(select.options);
+    const count = opts.length;
+    const sliced = opts.slice(0, limit);
+    return {
+      options: sliced.map((o) => normalized(o.value, o.label)),
+      count,
+      truncated: count > limit,
+    };
+  }
+
+  // Fallback to Mosaic's `data` array (often present for explicit menu options).
+  if (Array.isArray(input.data)) {
+    const count = input.data.length;
+    const sliced = input.data.slice(0, limit);
+    return {
+      options: sliced.map((o) => normalized(o.value, o.label)),
+      count,
+      truncated: count > limit,
+    };
+  }
+
+  return null;
+}
 
 export function collectInputs(root: ParentNode, options: InstallVacpOnVgplotDashboardOptions): CollectedInput[] {
   /**
@@ -49,6 +127,7 @@ export function collectInputs(root: ParentNode, options: InstallVacpOnVgplotDash
 
     const inputId = String(i);
     const ref = makeViewRef({ appId: options.appId, viewId: options.viewId, suffix: `/input/${inputId}` });
+    const menuOptions = /menu/i.test(kind) ? collectMenuOptions(input) : null;
     out.push({
       inputId,
       ref,
@@ -60,6 +139,9 @@ export function collectInputs(root: ParentNode, options: InstallVacpOnVgplotDash
         from: typeof input.from === 'string' ? input.from : undefined,
         column: typeof input.column === 'string' ? input.column : undefined,
         field: typeof input.field === 'string' ? input.field : undefined,
+        options: menuOptions?.options,
+        optionsCount: menuOptions?.count,
+        optionsTruncated: menuOptions?.truncated,
       },
     });
   }
