@@ -12,7 +12,7 @@ It’s a good starting point if you care about:
 
 ## Run it
 
-From the `vacp/` repo root:
+From the repo root:
 
 ```bash
 pnpm -C packages/examples/vega-lite-gallery dev

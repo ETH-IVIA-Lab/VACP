@@ -25,7 +25,7 @@ All examples include the optional `@vacp/debug-ui` overlay:
   - **Playbook** (scripted stepper)
   - **JSON** (inspection overrides + opt-in apply-to-live)
 
-From `vacp/`:
+From the repo root:
 
 - Install: `pnpm install`
 - Run (shortcut):

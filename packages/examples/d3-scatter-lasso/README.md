@@ -13,7 +13,7 @@ It’s meant to show that VACP is **not tied to Mosaic or Vega-Lite**. If you ca
 
 ## Run it
 
-From the `vacp/` repo root:
+From the repo root:
 
 ```bash
 pnpm -C packages/examples/d3-scatter-lasso dev

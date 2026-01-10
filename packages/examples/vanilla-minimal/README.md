@@ -8,7 +8,7 @@ This is the smallest possible “bring-your-own-provider” VACP setup:
 
 ## Run
 
-From `vacp/`:
+From the repo root:
 
 - `pnpm -C packages/examples/vanilla-minimal dev`
 

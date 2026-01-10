@@ -10,7 +10,9 @@ It’s a good starting point if you care about:
 - Mosaic interactors (brushes, toggles, menus)
 - “human ↔ agent” bidirectionality (the same selection can be done by mouse or by dispatching a semantic action)
 
-The gallery includes a small, curated set of Mosaic specs:
+The gallery loads the YAML specs in `src/specs/` and renders them as a simple gallery.
+
+Highlights include:
 
 - Olympic Athletes
 - Crossfilter (Flights)
@@ -25,7 +27,7 @@ The gallery includes a small, curated set of Mosaic specs:
 
 ## Run it
 
-From the `vacp/` repo root:
+From the repo root:
 
 ```bash
 pnpm -C packages/examples/mosaic-gallery dev
