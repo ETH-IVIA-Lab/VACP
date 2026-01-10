@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import pytest
+from fastmcp.tools.tool import FunctionTool
 
 from vacp_mcp_server.bridge import ActionCall, ActionResult, VacpBridgeClient
 from vacp_mcp_server.server import create_mcp
@@ -33,6 +34,7 @@ async def test_create_mcp_registers_expected_tools() -> None:
 async def test_vacp_execute_tool_calls_surface() -> None:
     mcp = create_mcp(_FakeClient())
     tool = await mcp.get_tool('vacp_execute')
+    assert isinstance(tool, FunctionTool)
     res = await tool.fn(name='vacp.data_sql', params={'handleRef': 'vacp://x', 'sql': 'select 1'}, call_id='c1')
     assert res['callId'] == 'c1'
     assert res['ok'] is True
