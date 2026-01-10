@@ -49,7 +49,6 @@ export function buildFlightsHexbinPlaybook(ctx: MosaicSpecPlaybookContext): Vacp
       })
       .action('Set color scale: linear', { name: 'mosaic.set_input_option_index', params: { ref: `${ctx.viewBase}/input/0`, index: 1 } })
       .action('Set color scale: sqrt', { name: 'mosaic.set_input_option_index', params: { ref: `${ctx.viewBase}/input/0`, index: 2 } })
-      .note('Done', 'Brushes remain active and the color scale stays set so the filtered density remains visible after “Run all”.')
       .build(),
   ];
 }

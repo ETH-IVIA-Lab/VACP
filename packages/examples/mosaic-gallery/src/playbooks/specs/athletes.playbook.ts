@@ -42,7 +42,5 @@ export function buildAthletesPlaybook(ctx: MosaicSpecPlaybookContext): VacpPlayb
       });
   }
 
-  b.note('Done', 'The menu filters and (if available) scatter brush remain active so the result stays visible after “Run all”.');
-
   return [b.build()];
 }

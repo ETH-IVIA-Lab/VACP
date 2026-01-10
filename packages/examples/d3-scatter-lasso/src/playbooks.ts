@@ -37,7 +37,6 @@ export function buildD3ScatterLassoPlaybooks(): VacpPlaybook[] {
           points: circle32(70, 70, 18),
         },
       })
-      .note('Done', 'The circular lasso remains active so the filtered region stays visible after “Run all”.')
       .build(),
   ];
 }

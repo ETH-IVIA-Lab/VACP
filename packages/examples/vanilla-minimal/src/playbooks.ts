@@ -13,7 +13,6 @@ export function buildVanillaMinimalPlaybooks(): VacpPlaybook[] {
       .action('Select id=1', { name: 'vanilla.toggle_point', params: { id: 1 } })
       .action('Select id=2', { name: 'vanilla.toggle_point', params: { id: 2 } })
       .action('Deselect id=1 (toggle again)', { name: 'vanilla.toggle_point', params: { id: 1 } })
-      .note('Done', 'Id=2 remains selected so the result is visible after running “Run all”.')
       .build(),
   ];
 }

@@ -35,7 +35,5 @@ export function buildPanZoomPlaybook(ctx: MosaicSpecPlaybookContext): VacpPlaybo
     params: { plotId: first.plotId, interactorId: String(first.idx), x0: x?.[0] ?? null, x1: x?.[1] ?? null, y0: y?.[0] ?? null, y1: y?.[1] ?? null },
   });
 
-  b.note('Done', 'The zoomed domain remains active so the focused region stays visible after “Run all”.');
-
   return [b.build()];
 }

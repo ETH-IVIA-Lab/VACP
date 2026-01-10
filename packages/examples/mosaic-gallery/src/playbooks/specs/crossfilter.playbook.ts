@@ -49,7 +49,5 @@ export function buildCrossfilterPlaybook(ctx: MosaicSpecPlaybookContext): VacpPl
     b.action('Brush distance (short→mid)', { name: 'mosaic.set_interval_1d', params: { plotId: distPlot.plotId, interactorId: distId, min: dist.min, max: dist.max } });
   }
 
-  b.note('Done', 'The brushes remain active so the crossfilter result stays visible after “Run all”.');
-
   return [b.build()];
 }

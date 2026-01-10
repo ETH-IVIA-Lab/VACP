@@ -39,7 +39,6 @@ export function buildNormalizeStocksPlaybook(ctx: MosaicSpecPlaybookContext): Va
         name: 'mosaic.set_nearest',
         params: { plotId: plot.plotId, interactorId: String(nearestIdx), value: '2013-11-29' },
       })
-      .note('Done', 'The hover date remains active so the ROI comparison stays visible after “Run all”.')
       .build(),
   ];
 }

@@ -44,7 +44,6 @@ function intervalPlaybook(args: {
           name: 'mosaic.set_interval_1d',
           params: { plotId, interactorId, min: wide[0], max: wide[1] },
         })
-        .note('Done', 'The brush remains active so the filtered view stays visible after “Run all”.')
         .build(),
     ];
   }
@@ -59,7 +58,6 @@ function intervalPlaybook(args: {
         name: 'mosaic.set_interval_2d',
         params: { plotId, interactorId, x0: x[0], x1: x[1], y0: y[0], y1: y[1] },
       })
-      .note('Done', 'The brush remains active so the filtered view stays visible after “Run all”.')
       .build(),
   ];
 }
@@ -81,7 +79,6 @@ function panZoomPlaybook(entry: MosaicPlaybookEntry, plotId: string, plot: Vgplo
         name: 'mosaic.set_pan_zoom',
         params: { plotId, interactorId, x0: x?.[0] ?? null, x1: x?.[1] ?? null, y0: y?.[0] ?? null, y1: y?.[1] ?? null },
       })
-      .note('Done', 'The pan/zoom domain remains set so the view stays zoomed after “Run all”.')
       .build(),
   ];
 }
@@ -121,7 +118,6 @@ function toggleLikePlaybook(args: {
     })
       .action(`Clear ${baseName.toLowerCase()}`, { name: clearName, params: { plotId: args.plotId, interactorId } })
       .action(`Set ${baseName.toLowerCase()} value`, { name: setName, params: { plotId: args.plotId, interactorId, value: actionValue } })
-      .note('Done', `The ${baseName.toLowerCase()} selection remains active so the result stays visible after “Run all”.`)
       .build(),
   ];
 }
@@ -151,7 +147,6 @@ function legendTogglePlaybook(entry: MosaicPlaybookEntry, plotId: string, plot: 
     })
       .action('Clear legend selection', { name: 'mosaic.clear_legend_toggle', params: { plotId, channel } })
       .action('Select first legend item', { name: 'mosaic.set_legend_toggle', params: { plotId, channel, value: first } })
-      .note('Done', 'The legend selection remains active so the filtered view stays visible after “Run all”.')
       .build(),
   ];
 }

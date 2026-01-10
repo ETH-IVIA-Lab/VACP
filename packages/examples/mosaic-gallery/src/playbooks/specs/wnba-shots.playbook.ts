@@ -15,7 +15,6 @@ export function buildWnbaShotsPlaybook(ctx: MosaicSpecPlaybookContext): VacpPlay
       .action('Pick a team (first non-default option)', { name: 'mosaic.set_input_option_index', params: { ref: `${ctx.viewBase}/input/0`, index: 1 } })
       .action('Pick an athlete (first option under current team)', { name: 'mosaic.set_input_option_index', params: { ref: `${ctx.viewBase}/input/1`, index: 1 } })
       .action('Clear athlete filter (compare team aggregate)', { name: 'mosaic.clear_input', params: { ref: `${ctx.viewBase}/input/1` } })
-      .note('Done', 'The team filter remains active so the aggregate view stays filtered after “Run all”.')
       .build(),
   ];
 }
