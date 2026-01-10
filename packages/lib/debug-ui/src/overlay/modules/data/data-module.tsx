@@ -253,7 +253,6 @@ export function DataModule(props: VacpDebugModuleProps): ReactElement {
               onRun={() => void run()}
               schema={sqlSchema}
               placeholder="DuckDB SQL (Mod+Enter to run, Ctrl/Cmd+Space to complete)"
-              height={dense ? '180px' : '240px'}
               className="mt-1"
             />
             <div className="mt-1 text-[11px] text-slate-100/55">
