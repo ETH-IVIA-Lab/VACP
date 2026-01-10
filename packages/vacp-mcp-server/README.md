@@ -10,7 +10,7 @@ MCP is only a transport. The VACP protocol and runtime live inside the app.
 
 ## Run
 
-From `vacp/`:
+From the repo root:
 
 - `uv sync`
 - Install Playwright browser: `uv run playwright install chromium`
