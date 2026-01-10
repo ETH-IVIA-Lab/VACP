@@ -16,7 +16,7 @@ export function buildD3ScatterLassoPlaybooks(): VacpPlaybook[] {
       id: 'd3-scatter-lasso-basic',
       title: 'Playbook: D3 scatter lasso (select regions)',
       description:
-        'Answer: “Can I drive the same lasso selection a user would draw?” by setting a couple of lasso polygons (domain coordinates) and clearing between them.',
+        'Answer: “Can I drive the same lasso selection a user would draw?” by setting a couple of lasso polygons (domain coordinates) and leaving the final region selected.',
     })
       .action('Clear lasso', { name: 'vanilla.clear_lasso', params: {} })
       .action('Select lower-left region (square lasso)', {
@@ -37,7 +37,7 @@ export function buildD3ScatterLassoPlaybooks(): VacpPlaybook[] {
           points: circle32(70, 70, 18),
         },
       })
-      .action('Clear lasso again', { name: 'vanilla.clear_lasso', params: {} })
+      .note('Done', 'The circular lasso remains active so the filtered region stays visible after “Run all”.')
       .build(),
   ];
 }
