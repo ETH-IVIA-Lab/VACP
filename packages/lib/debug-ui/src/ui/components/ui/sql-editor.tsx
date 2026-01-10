@@ -38,6 +38,7 @@ const baseTheme = EditorView.theme({
     backgroundColor: 'rgba(2, 6, 23, 0.55)', // slate-950-ish
     borderRadius: '0.5rem',
     border: '1px solid rgba(255,255,255,0.10)',
+    overflow: 'hidden',
     outline: 'none',
     color: 'rgba(226, 232, 240, 0.92)',
     position: 'relative',
