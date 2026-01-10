@@ -109,7 +109,8 @@ export function PlaybookModule(props: VacpDebugModuleProps): ReactElement {
     }
   };
 
-  const stepTo = (idx: number) => setStepIndex(Math.max(0, Math.min(idx, Math.max(0, steps.length - 1))));
+  // stepIndex is the "next step" pointer; allow `steps.length` to represent "(done)".
+  const stepTo = (idx: number) => setStepIndex(Math.max(0, Math.min(idx, steps.length)));
 
   const runNext = async () => {
     if (!nextStep) return;
@@ -121,7 +122,7 @@ export function PlaybookModule(props: VacpDebugModuleProps): ReactElement {
     for (let i = stepIndex; i < steps.length; i += 1) {
       const s = steps[i];
       if (s.call) await runStep(i);
-      setStepIndex(i + 1);
+      stepTo(i + 1);
     }
   };
 
@@ -185,10 +186,18 @@ export function PlaybookModule(props: VacpDebugModuleProps): ReactElement {
           <div className="rounded-lg border border-white/10 bg-black/20 px-3 py-2 text-[11px] text-slate-100/80">
             <div className="font-semibold text-slate-100/90">Current step</div>
             <div className="mt-1">
-              {stepIndex + 1} / {Math.max(1, steps.length)} •{' '}
+              {Math.min(stepIndex + 1, Math.max(1, steps.length))} / {Math.max(1, steps.length)} •{' '}
               <span className="font-medium text-slate-100/90">{nextStep?.title ?? '(done)'}</span>
             </div>
-            {nextStep?.call ? <div className="mt-1 text-slate-100/70">This step will dispatch an action.</div> : <div className="mt-1 text-slate-100/70">This step is informational.</div>}
+            {nextStep ? (
+              nextStep.call ? (
+                <div className="mt-1 text-slate-100/70">This step will dispatch an action.</div>
+              ) : (
+                <div className="mt-1 text-slate-100/70">This step is informational.</div>
+              )
+            ) : (
+              <div className="mt-1 text-slate-100/70">All steps complete.</div>
+            )}
           </div>
         </div>
 
