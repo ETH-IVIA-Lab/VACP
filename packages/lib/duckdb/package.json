@@ -13,9 +13,9 @@
     "dist"
   ],
   "dependencies": {
-    "@duckdb/duckdb-wasm": "^1.30.0",
-    "apache-arrow": "^19.0.1",
-    "@vacp/core": "workspace:*"
+    "@duckdb/duckdb-wasm": "^1.32.0",
+    "@vacp/core": "workspace:*",
+    "apache-arrow": "^19.0.1"
   },
   "scripts": {
     "build": "tsc -b",
