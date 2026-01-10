@@ -8,10 +8,12 @@ const here = dirname(fileURLToPath(import.meta.url));
 const vacpRoot = resolve(here, '..');
 const examplesDir = resolve(vacpRoot, 'packages', 'examples');
 
-function parseTitle(text: string): { mode: string; cursor: number; history: number } {
-  const m = text.match(/mode=(\w+)\s+cursor=(-?\d+)\s+history=(\d+)/);
-  if (!m) throw new Error(`Could not parse debug-ui title: ${text}`);
-  return { mode: m[1]!, cursor: Number(m[2]!), history: Number(m[3]!) };
+function parseMeta(text: string): { mode: string; cursor: number; history: number } {
+  const mode = text.match(/mode=(\w+)/)?.[1];
+  const cursor = text.match(/cursor=(-?\d+)/)?.[1];
+  const history = text.match(/history=(\d+)/)?.[1];
+  if (!mode || !cursor || !history) throw new Error(`Could not parse debug-ui meta: ${text}`);
+  return { mode, cursor: Number(cursor), history: Number(history) };
 }
 
 test('debug-ui: history undo/redo updates time travel cursor', async ({ page }) => {
@@ -53,13 +55,13 @@ test('debug-ui: history undo/redo updates time travel cursor', async ({ page }) 
     await historyTab.click();
 
     await page.waitForFunction(() => {
-      const t = document.querySelector('.vacp-debug-ui-title')?.textContent ?? '';
+      const t = document.querySelector('.vacp-debug-ui-meta')?.textContent ?? '';
       const m = t.match(/history=(\d+)/);
       return m && Number(m[1]) >= 3;
     });
 
-    const beforeTitle = await page.locator('.vacp-debug-ui-title').innerText();
-    const before = parseTitle(beforeTitle);
+    const beforeMeta = await page.locator('.vacp-debug-ui-meta').innerText();
+    const before = parseMeta(beforeMeta);
     expect(before.history).toBeGreaterThanOrEqual(3);
 
     // Undo can traverse through multiple history entry kinds; keep clicking until
@@ -69,13 +71,13 @@ test('debug-ui: history undo/redo updates time travel cursor', async ({ page }) 
       if (ids.length === 1 && ids[0] === 0) break;
       await page.locator('button[aria-label="Undo"]').click();
       await page.waitForFunction(() => {
-        const t = document.querySelector('.vacp-debug-ui-title')?.textContent ?? '';
+        const t = document.querySelector('.vacp-debug-ui-meta')?.textContent ?? '';
         return /mode=inspect/.test(t);
       });
     }
 
-    const afterUndoTitle = await page.locator('.vacp-debug-ui-title').innerText();
-    const afterUndo = parseTitle(afterUndoTitle);
+    const afterUndoMeta = await page.locator('.vacp-debug-ui-meta').innerText();
+    const afterUndo = parseMeta(afterUndoMeta);
     expect(afterUndo.mode).toBe('inspect');
     await expect.poll(async () => (await selectedIds()).sort()).toEqual([0]);
 
@@ -89,7 +91,7 @@ test('debug-ui: history undo/redo updates time travel cursor', async ({ page }) 
 
     // Time travel by clicking a snapshot entry while in inspect mode.
     await page.waitForFunction(() => {
-      const t = document.querySelector('.vacp-debug-ui-title')?.textContent ?? '';
+      const t = document.querySelector('.vacp-debug-ui-meta')?.textContent ?? '';
       return /mode=inspect/.test(t);
     });
     const snapshotEntry = page.locator('[data-vacp-row="history-entry"][data-has-state="true"]').first();
@@ -100,10 +102,10 @@ test('debug-ui: history undo/redo updates time travel cursor', async ({ page }) 
     await snapshotEntry.click();
     await page.waitForFunction(
       ({ expectedCursor }) => {
-        const t = document.querySelector('.vacp-debug-ui-title')?.textContent ?? '';
-        const m = t.match(/mode=(\w+)\s+cursor=(-?\d+)/);
-        if (!m) return false;
-        return m[1] === 'inspect' && Number(m[2]) === expectedCursor;
+        const t = document.querySelector('.vacp-debug-ui-meta')?.textContent ?? '';
+        const mode = t.match(/mode=(\w+)/)?.[1];
+        const cursor = t.match(/cursor=(-?\d+)/)?.[1];
+        return mode === 'inspect' && Number(cursor) === expectedCursor;
       },
       { expectedCursor: targetIdx },
     );

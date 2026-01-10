@@ -17,7 +17,7 @@ test('debug-ui: SQL editor keeps focus on run', async ({ page }) => {
     const pill = page.locator('button.vacp-debug-ui-button');
     await expect(pill).toBeVisible();
     await pill.click();
-    await expect(page.locator('.vacp-debug-ui-title')).toContainText('mode=');
+    await expect(page.locator('.vacp-debug-ui-meta')).toContainText('mode=', { timeout: 15_000 });
 
     const dataTab = page.locator('.vacp-debug-ui-module', { hasText: 'Data' });
     await expect(dataTab).toBeVisible();

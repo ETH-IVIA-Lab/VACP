@@ -28,7 +28,7 @@ test('debug-ui: running playbook while inspecting returns to live mode', async (
 
     await page.locator('#vacp-debug-ui-panel button[aria-label="Toggle live/inspect mode"]').click();
     await page.waitForFunction(() => {
-      const t = document.querySelector('.vacp-debug-ui-title')?.textContent ?? '';
+      const t = document.querySelector('.vacp-debug-ui-meta')?.textContent ?? '';
       return /mode=inspect/.test(t);
     });
 
@@ -40,7 +40,7 @@ test('debug-ui: running playbook while inspecting returns to live mode', async (
 
     await page.locator('button[aria-label="Run step"]').click();
     await page.waitForFunction(() => {
-      const t = document.querySelector('.vacp-debug-ui-title')?.textContent ?? '';
+      const t = document.querySelector('.vacp-debug-ui-meta')?.textContent ?? '';
       return /mode=live/.test(t);
     });
   } finally {

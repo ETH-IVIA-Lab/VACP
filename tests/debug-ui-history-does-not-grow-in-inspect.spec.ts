@@ -8,10 +8,12 @@ const here = dirname(fileURLToPath(import.meta.url));
 const vacpRoot = resolve(here, '..');
 const examplesDir = resolve(vacpRoot, 'packages', 'examples');
 
-function parseTitle(text: string): { mode: string; cursor: number; history: number } {
-  const m = text.match(/mode=(\w+)\s+cursor=(-?\d+)\s+history=(\d+)/);
-  if (!m) throw new Error(`Could not parse debug-ui title: ${text}`);
-  return { mode: m[1]!, cursor: Number(m[2]!), history: Number(m[3]!) };
+function parseMeta(text: string): { mode: string; cursor: number; history: number } {
+  const mode = text.match(/mode=(\w+)/)?.[1];
+  const cursor = text.match(/cursor=(-?\d+)/)?.[1];
+  const history = text.match(/history=(\d+)/)?.[1];
+  if (!mode || !cursor || !history) throw new Error(`Could not parse debug-ui meta: ${text}`);
+  return { mode, cursor: Number(cursor), history: Number(history) };
 }
 
 test('debug-ui: time travel does not extend history (Seattle Weather)', async ({ page }) => {
@@ -61,36 +63,35 @@ test('debug-ui: time travel does not extend history (Seattle Weather)', async ({
 
     await page.locator('button[aria-label="Undo"]').click();
     await page.waitForFunction(() => {
-      const t = document.querySelector('.vacp-debug-ui-title')?.textContent ?? '';
+      const t = document.querySelector('.vacp-debug-ui-meta')?.textContent ?? '';
       return /mode=inspect/.test(t);
     });
 
-    const title = page.locator('.vacp-debug-ui-title');
+    const meta = page.locator('.vacp-debug-ui-meta');
     const entry = page.locator('[data-vacp-row="history-entry"][data-has-state="true"]').first();
     await expect(entry).toBeVisible();
     const idxText = await entry.getAttribute('data-index');
     const idx = Number(idxText);
     expect(Number.isFinite(idx)).toBeTruthy();
 
-    const before = parseTitle(await title.innerText());
+    const before = parseMeta(await meta.innerText());
     await entry.click();
     await page.waitForFunction(
       ({ expectedCursor }) => {
-        const t = document.querySelector('.vacp-debug-ui-title')?.textContent ?? '';
-        const m = t.match(/mode=(\w+)\s+cursor=(-?\d+)/);
-        if (!m) return false;
-        return m[1] === 'inspect' && Number(m[2]) === expectedCursor;
+        const t = document.querySelector('.vacp-debug-ui-meta')?.textContent ?? '';
+        const mode = t.match(/mode=(\w+)/)?.[1];
+        const cursor = t.match(/cursor=(-?\d+)/)?.[1];
+        return mode === 'inspect' && Number(cursor) === expectedCursor;
       },
       { expectedCursor: idx },
     );
 
     await page.waitForTimeout(700);
 
-    const after = parseTitle(await title.innerText());
+    const after = parseMeta(await meta.innerText());
     expect(after.mode).toBe('inspect');
     expect(after.history).toBe(before.history);
   } finally {
     await srv.stop();
   }
 });
-
