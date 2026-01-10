@@ -22,9 +22,8 @@ export function buildLinkedBrushDetailPlaybook(ctx: VegaLiteSpecPlaybookContext)
       .action('Increase point size (size slider)', { name: 'vega_lite.set_param', params: { ref: pointSizeRef, value: 240 } })
       .action('Brush a region (top-left cluster)', { name: 'vega_lite.set_selection', params: { ref: brushRef, value: a } })
       .action('Move brush (bottom-right cluster)', { name: 'vega_lite.set_selection', params: { ref: brushRef, value: b } })
-      .action('Clear brush (reset)', { name: 'vega_lite.clear_selection', params: { ref: brushRef } })
       .action('Reset size slider (default)', { name: 'vega_lite.set_param', params: { ref: pointSizeRef, value: 36 } })
+      .note('Done', 'The brush remains active on the bottom-right cluster so the linked detail view stays filtered after “Run all”.')
       .build(),
   ];
 }
-

@@ -19,9 +19,7 @@ export function buildBarsPointSelectPlaybook(ctx: VegaLiteSpecPlaybookContext): 
       .action('Select category C (click a bar)', { name: 'vega_lite.set_selection', params: { ref: pickRef, value: { category: 'C' } } })
       .action('Select category F (compare)', { name: 'vega_lite.set_selection', params: { ref: pickRef, value: { category: 'F' } } })
       .action('Bring context back (opacity slider)', { name: 'vega_lite.set_param', params: { ref: baseOpacityRef, value: 0.6 } })
-      .action('Clear bar selection (reset)', { name: 'vega_lite.clear_selection', params: { ref: pickRef } })
-      .action('Reset opacity slider (default)', { name: 'vega_lite.set_param', params: { ref: baseOpacityRef, value: 0.35 } })
+      .note('Done', 'Category F remains selected so the result is visible after “Run all”.')
       .build(),
   ];
 }
-
