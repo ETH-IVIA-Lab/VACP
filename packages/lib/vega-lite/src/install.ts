@@ -159,6 +159,7 @@ export function installVacpOnVegaLiteView(args: {
     actions: actionRegistry,
     playbooks: options.playbooks,
     globalKey: options.globalKey,
+    sessionKey: `${options.viewId}/${options.vizId}`,
   });
 
   // Keep the runtime timeline updated on human-driven signal changes.
