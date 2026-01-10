@@ -4,8 +4,17 @@ import { base64FromBytes } from './base64';
 import { arrowTableToJson } from './json';
 import { normalizeSingleStatementSql } from './sql';
 
+export type VacpDuckDbConnection = {
+  query: (sql: string) => Promise<unknown>;
+  useUnsafe: <T>(fn: (bindings: unknown, connId: number) => Promise<T>) => Promise<T>;
+  insertJSONFromPath?: (
+    path: string,
+    options: { name: string; create?: boolean; schema?: string },
+  ) => Promise<unknown>;
+};
+
 export type VacpDuckDbClient = {
-  getConnection(): Promise<duckdb.AsyncDuckDBConnection>;
+  getConnection(): Promise<VacpDuckDbConnection>;
   exec(sql: string): Promise<void>;
   queryJson(sql: string): Promise<{ columns: string[]; rows: Record<string, unknown>[] }>;
   queryArrowIpcBase64(sql: string): Promise<string>;
