@@ -69,7 +69,6 @@ An implementation is “VACP-conformant” if it:
 - **MUST** return versioned snapshots with ISO timestamps.
 - **SHOULD** ensure actions are safe and validated (reject invalid params; do not rely on pixel events).
 - **MAY** additionally expose runtime/history APIs (`getRuntime`, `undo/redo`, playbooks, overrides) for debugging and research workflows.
-- **MAY** additionally expose runtime/history APIs (`getRuntime`, `undo/redo`, playbooks, overrides) for debugging and research workflows.
 
 ### Data model
 
@@ -211,7 +210,7 @@ Python (uv):
 
 ## Quality gates
 
-From `vacp/`:
+From the repo root:
 
 - Format: `pnpm format`
 - Lint: `pnpm lint`
