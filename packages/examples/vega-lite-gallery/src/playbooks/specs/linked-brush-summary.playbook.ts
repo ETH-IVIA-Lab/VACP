@@ -21,8 +21,8 @@ export function buildLinkedBrushSummaryPlaybook(ctx: VegaLiteSpecPlaybookContext
       .action('Clear brush (clean slate)', { name: 'vega_lite.clear_selection', params: { ref: brushRef } })
       .action('Increase point size (size slider)', { name: 'vega_lite.set_param', params: { ref: pointSizeRef, value: 200 } })
       .action('Brush a cluster (bottom-left)', { name: 'vega_lite.set_selection', params: { ref: brushRef, value: a } })
-      .action('Move brush (top-right cluster)', { name: 'vega_lite.set_selection', params: { ref: brushRef, value: b } })
       .action('Reset size slider (default)', { name: 'vega_lite.set_param', params: { ref: pointSizeRef, value: 24 } })
+      .action('Move brush (top-right cluster)', { name: 'vega_lite.set_selection', params: { ref: brushRef, value: b } })
       .note('Done', 'The brush remains active on the top-right cluster so the summary stays filtered after “Run all”.')
       .build(),
   ];

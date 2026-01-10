@@ -21,8 +21,8 @@ export function buildScatterParamsPlaybook(ctx: VegaLiteSpecPlaybookContext): Va
       .action('Clear brush (clean slate)', { name: 'vega_lite.clear_selection', params: { ref: brushRef } })
       .action('Increase point size (size slider)', { name: 'vega_lite.set_param', params: { ref: pointSizeRef, value: 240 } })
       .action('Brush a cluster (bottom-left)', { name: 'vega_lite.set_selection', params: { ref: brushRef, value: a } })
-      .action('Move brush to a different cluster (top-right)', { name: 'vega_lite.set_selection', params: { ref: brushRef, value: b } })
       .action('Reset size slider (default)', { name: 'vega_lite.set_param', params: { ref: pointSizeRef, value: 36 } })
+      .action('Move brush to a different cluster (top-right)', { name: 'vega_lite.set_selection', params: { ref: brushRef, value: b } })
       .note('Done', 'The brush remains active on the top-right cluster so the selection stays visible after “Run all”.')
       .build(),
   ];

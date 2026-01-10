@@ -19,9 +19,9 @@ export function buildLinkedPointHighlightPlaybook(ctx: VegaLiteSpecPlaybookConte
       .action('Dim context (opacity slider)', { name: 'vega_lite.set_param', params: { ref: baseOpacityRef, value: 0.15 } })
       .action('Select group B (click a point)', { name: 'vega_lite.set_selection', params: { ref: pickRef, value: { group: 'B' } } })
       .action('Increase point size (size slider)', { name: 'vega_lite.set_param', params: { ref: pointSizeRef, value: 700 } })
-      .action('Select group C (compare)', { name: 'vega_lite.set_selection', params: { ref: pickRef, value: { group: 'C' } } })
       .action('Reset size slider (default)', { name: 'vega_lite.set_param', params: { ref: pointSizeRef, value: 80 } })
       .action('Reset opacity slider (default)', { name: 'vega_lite.set_param', params: { ref: baseOpacityRef, value: 0.25 } })
+      .action('Select group C (compare)', { name: 'vega_lite.set_selection', params: { ref: pickRef, value: { group: 'C' } } })
       .note('Done', 'Group C remains selected so linked highlights stay visible after “Run all”.')
       .build(),
   ];
