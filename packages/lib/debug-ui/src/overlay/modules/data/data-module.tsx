@@ -10,6 +10,7 @@ import { Card, CardDescription, CardHeader, CardTitle } from '@vacp/debug-ui/ui/
 import { JsonViewer } from '@vacp/debug-ui/ui/components/ui/json-viewer';
 import { SqlEditor } from '@vacp/debug-ui/ui/components/ui/sql-editor';
 import { SqlResultTable } from '@vacp/debug-ui/ui/components/ui/sql-result-table';
+import { copyTextToClipboard } from '@vacp/debug-ui/ui/lib/clipboard';
 import { cn } from '@vacp/debug-ui/ui/lib/utils';
 import type { VacpDebugModuleProps } from '../module-types';
 import { defaultQuery, shortRef } from './data-utils';
@@ -103,27 +104,6 @@ export function DataModule(props: VacpDebugModuleProps): ReactElement {
     setSchemaResetId((x) => x + 1);
   };
 
-  const copy = async (text: string) => {
-    const t = text ?? '';
-    if (navigator.clipboard?.writeText) {
-      await navigator.clipboard.writeText(t).catch(() => {});
-      return;
-    }
-    const el = document.createElement('textarea');
-    el.value = t;
-    el.style.position = 'fixed';
-    el.style.left = '-9999px';
-    document.body.append(el);
-    el.select();
-    try {
-      document.execCommand('copy');
-    } catch {
-      // ignore
-    } finally {
-      el.remove();
-    }
-  };
-
   const run = async () => {
     if (!selectedHandle) return;
     await dataSql.run(selectedHandle, selectedSql);
@@ -149,7 +129,7 @@ export function DataModule(props: VacpDebugModuleProps): ReactElement {
           columns={table.columns}
           rows={table.rows}
           height={tableHeight}
-          onCopy={(t) => void copy(t)}
+          onCopy={(t) => void copyTextToClipboard(t)}
           className="mt-2"
           hasMore={hasMore}
           loadingMore={dataSql.loadingMore}
@@ -220,7 +200,7 @@ export function DataModule(props: VacpDebugModuleProps): ReactElement {
               title="Copy the current SQL to clipboard."
               size={iconButtonSize}
               onMouseDown={(ev) => ev.preventDefault()}
-              onClick={() => void copy(selectedSql)}
+              onClick={() => void copyTextToClipboard(selectedSql)}
             />
           </div>
         </CardHeader>

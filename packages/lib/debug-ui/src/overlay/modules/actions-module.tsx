@@ -10,6 +10,7 @@ import { Input } from '@vacp/debug-ui/ui/components/ui/input';
 import { JsonViewer } from '@vacp/debug-ui/ui/components/ui/json-viewer';
 import { RovingFocusGroup, RovingFocusGroupItem } from '@vacp/debug-ui/ui/components/ui/roving-focus';
 import { Textarea } from '@vacp/debug-ui/ui/components/ui/textarea';
+import { copyTextToClipboard } from '@vacp/debug-ui/ui/lib/clipboard';
 import { cn } from '@vacp/debug-ui/ui/lib/utils';
 
 import type { VacpDebugModuleProps } from './module-types';
@@ -96,27 +97,6 @@ export function ActionsModule(props: VacpDebugModuleProps): ReactElement {
   const refresh = async () => {
     if (typeof props.bridge.refresh !== 'function') return;
     await props.bridge.refresh({ source: 'debug', message: 'refresh' });
-  };
-
-  const copy = async (text: string) => {
-    const t = text ?? '';
-    if (navigator.clipboard?.writeText) {
-      await navigator.clipboard.writeText(t).catch(() => {});
-      return;
-    }
-    const el = document.createElement('textarea');
-    el.value = t;
-    el.style.position = 'fixed';
-    el.style.left = '-9999px';
-    document.body.append(el);
-    el.select();
-    try {
-      document.execCommand('copy');
-    } catch {
-      // ignore
-    } finally {
-      el.remove();
-    }
   };
 
   return (
@@ -208,7 +188,7 @@ export function ActionsModule(props: VacpDebugModuleProps): ReactElement {
               label="Copy result"
               title="Copy the last result JSON to clipboard."
               size={iconButtonSize}
-              onClick={() => void copy(safeJson(result))}
+              onClick={() => void copyTextToClipboard(safeJson(result))}
             />
           </div>
         </CardHeader>

@@ -12,6 +12,7 @@ import { IconButton } from '@vacp/debug-ui/overlay/icon-button';
 import { useElementSize } from '@vacp/debug-ui/overlay/hooks/use-element-size';
 import { Card, CardDescription, CardHeader, CardTitle } from '@vacp/debug-ui/ui/components/ui/card';
 import { JsonViewer } from '@vacp/debug-ui/ui/components/ui/json-viewer';
+import { copyTextToClipboard } from '@vacp/debug-ui/ui/lib/clipboard';
 import { cn } from '@vacp/debug-ui/ui/lib/utils';
 
 import type { VacpDebugModuleProps } from './module-types';
@@ -191,27 +192,6 @@ export function GraphModule(props: VacpDebugModuleProps): ReactElement {
     };
   }, []);
 
-  const copy = async (text: string) => {
-    const t = text ?? '';
-    if (navigator.clipboard?.writeText) {
-      await navigator.clipboard.writeText(t).catch(() => {});
-      return;
-    }
-    const el = document.createElement('textarea');
-    el.value = t;
-    el.style.position = 'fixed';
-    el.style.left = '-9999px';
-    document.body.append(el);
-    el.select();
-    try {
-      document.execCommand('copy');
-    } catch {
-      // ignore
-    } finally {
-      el.remove();
-    }
-  };
-
   return (
     <div
       ref={rootRef}
@@ -259,7 +239,7 @@ export function GraphModule(props: VacpDebugModuleProps): ReactElement {
               label="Copy Mermaid"
               title="Copy the Mermaid source for this diagram."
               size={iconButtonSize}
-              onClick={() => void copy(mermaidText)}
+              onClick={() => void copyTextToClipboard(mermaidText)}
             />
             <IconButton
               icon={inspectOpen ? <PanelRightClose className="h-4 w-4 text-slate-100/90" /> : <PanelRightOpen className="h-4 w-4 text-slate-100/90" />}
@@ -314,7 +294,7 @@ export function GraphModule(props: VacpDebugModuleProps): ReactElement {
                 label="Copy JSON"
                 title="Copy the inspected JSON to clipboard."
                 size={iconButtonSize}
-                onClick={() => void copy(inspectorText)}
+                onClick={() => void copyTextToClipboard(inspectorText)}
               />
             </div>
           </CardHeader>

@@ -10,6 +10,7 @@ import { useElementSize } from '@vacp/debug-ui/overlay/hooks/use-element-size';
 import { Card, CardDescription, CardHeader, CardTitle } from '@vacp/debug-ui/ui/components/ui/card';
 import { JsonViewer } from '@vacp/debug-ui/ui/components/ui/json-viewer';
 import { Textarea } from '@vacp/debug-ui/ui/components/ui/textarea';
+import { copyTextToClipboard } from '@vacp/debug-ui/ui/lib/clipboard';
 import { cn } from '@vacp/debug-ui/ui/lib/utils';
 
 import type { VacpDebugModuleProps } from './module-types';
@@ -41,27 +42,6 @@ export function JsonModule(props: VacpDebugModuleProps): ReactElement {
   const [error, setError] = useState<string | null>(null);
   const inlineCodeClass =
     'rounded-md border border-white/10 bg-slate-900/70 px-1.5 py-0.5 text-[11px] font-medium text-slate-100 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.02)]';
-
-  const copy = async (text: string) => {
-    const t = text ?? '';
-    if (navigator.clipboard?.writeText) {
-      await navigator.clipboard.writeText(t).catch(() => {});
-      return;
-    }
-    const el = document.createElement('textarea');
-    el.value = t;
-    el.style.position = 'fixed';
-    el.style.left = '-9999px';
-    document.body.append(el);
-    el.select();
-    try {
-      document.execCommand('copy');
-    } catch {
-      // ignore
-    } finally {
-      el.remove();
-    }
-  };
 
   const applyOverride = () => {
     setError(null);
@@ -130,7 +110,7 @@ export function JsonModule(props: VacpDebugModuleProps): ReactElement {
               label="Copy snapshot"
               title="Copy the current state snapshot JSON."
               size={iconButtonSize}
-              onClick={() => void copy(snapshotText)}
+              onClick={() => void copyTextToClipboard(snapshotText)}
             />
           </div>
         </CardHeader>
