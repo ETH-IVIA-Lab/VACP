@@ -27,6 +27,39 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return !!value && typeof value === 'object' && !Array.isArray(value);
 }
 
+function tryGetSignalValueFromState(view: VegaViewLike, name: string): unknown {
+  if (typeof view.getState !== 'function') return undefined;
+  try {
+    const st = view.getState() as
+      | {
+          signals?: Record<string, unknown>;
+          subcontext?: Record<string, unknown>;
+        }
+      | undefined;
+    if (!st || typeof st !== 'object') return undefined;
+    if (st.signals && Object.prototype.hasOwnProperty.call(st.signals, name)) return st.signals[name];
+
+    const stack: unknown[] = [];
+    if (st.subcontext && typeof st.subcontext === 'object') {
+      stack.push(...Object.values(st.subcontext));
+    }
+
+    while (stack.length) {
+      const next = stack.pop();
+      if (!next || typeof next !== 'object') continue;
+      const ctx = next as { signals?: Record<string, unknown>; subcontext?: Record<string, unknown> };
+      if (ctx.signals && Object.prototype.hasOwnProperty.call(ctx.signals, name)) return ctx.signals[name];
+      if (ctx.subcontext && typeof ctx.subcontext === 'object') {
+        stack.push(...Object.values(ctx.subcontext));
+      }
+    }
+
+    return undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 function bestEffortSelectionTuple(args: {
   selectionValue: unknown;
   tupleFields: unknown;
@@ -118,14 +151,19 @@ export async function executeAction(
     if (typeof view.data === 'function' && typeof view.change === 'function') {
       try {
         const existing = view.data(storeName) as unknown[];
-        const unit = (isRecord(existing?.[0]) ? (existing[0] as Record<string, unknown>).unit : undefined) ??
-          (helpers.allSignals.includes(`${name}_unit`) ? tryGetSignal(view, `${name}_unit`) : undefined);
+        const unit =
+          (isRecord(existing?.[0]) ? (existing[0] as Record<string, unknown>).unit : undefined) ??
+          tryGetSignalValueFromState(view, `${name}_unit`);
         const tupleFields =
-          (helpers.allSignals.includes(`${name}_tuple_fields`) ? tryGetSignal(view, `${name}_tuple_fields`) : undefined) ??
+          tryGetSignalValueFromState(view, `${name}_tuple_fields`) ??
           (isRecord(existing?.[0]) ? (existing[0] as Record<string, unknown>).fields : undefined);
 
         const tuple = bestEffortSelectionTuple({ selectionValue, tupleFields, unit });
         if (!tuple) throw new Error('Could not build a selection tuple from params.value');
+
+        // Some Vega-Lite builds omit the `unit` property entirely for global
+        // selections (single-view and some multi-view specs).
+        if (tuple.unit === undefined) delete (tuple as { unit?: unknown }).unit;
 
         view.change(
           storeName,
