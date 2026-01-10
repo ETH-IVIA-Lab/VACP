@@ -84,6 +84,7 @@ export function useDataSql(args: {
   run: (handleRef: VacpRef, sql: string) => Promise<void>;
   fetchMore: () => Promise<void>;
   loadingMore: boolean;
+  reset: () => void;
 } {
   const { bridge, runtimeMode, setModeToLive, pageSize = DEFAULT_PAGE_SIZE } = args;
   const queryClient = useQueryClient();
@@ -188,6 +189,12 @@ export function useDataSql(args: {
     await q.fetchNextPage();
   }, [q, result?.table.truncated]);
 
+  const reset = useCallback(() => {
+    setActive(null);
+    setValidationError(null);
+    void queryClient.cancelQueries({ queryKey: ['vacp', 'data_sql'] });
+  }, [queryClient]);
+
   const status: DataSqlStatus = validationError
     ? 'error'
     : q.isError
@@ -199,5 +206,5 @@ export function useDataSql(args: {
   const error = validationError ?? (q.error instanceof Error ? q.error.message : q.error ? String(q.error) : null);
   const loadingMore = q.isFetchingNextPage;
 
-  return { status, error, result, run, fetchMore, loadingMore };
+  return { status, error, result, run, fetchMore, loadingMore, reset };
 }

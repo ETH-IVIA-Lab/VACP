@@ -93,6 +93,10 @@ export function DataModule(props: VacpDebugModuleProps): ReactElement {
 
   const editorRef = useRef<import('@uiw/react-codemirror').ReactCodeMirrorRef | null>(null);
 
+  useEffect(() => {
+    dataSql.reset();
+  }, [dataSql.reset, graphSignature, props.runtime.runtimeId]);
+
   const refresh = async () => {
     if (typeof props.bridge.refresh !== 'function') return;
     await props.bridge.refresh({ source: 'debug', message: 'refresh' });
