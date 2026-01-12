@@ -84,7 +84,7 @@ export function XBrushView({ sortedRows, xKey, brush, onBrushChange }: Props) {
   const yTickSamples = sampleTicks(domainMin, domainMax);
   const maxTickChars = yTickSamples.reduce((m, s) => Math.max(m, s.length), 0);
   const yAxisWidth = Math.max(68, Math.min(120, 22 + maxTickChars * 8));
-  const leftMargin = Math.max(48, yAxisWidth + 18);
+  const leftMargin = Math.max(48, yAxisWidth + 34);
 
   return (
     <ResponsiveContainer width="100%" height={360}>
@@ -106,7 +106,7 @@ export function XBrushView({ sortedRows, xKey, brush, onBrushChange }: Props) {
           width={yAxisWidth}
           tickFormatter={formatNumberShort}
           tickMargin={8}
-          label={{ value: xKey, angle: -90, position: 'insideLeft', dx: -18 }}
+          label={{ value: xKey, angle: -90, position: 'left', offset: 16 }}
         />
         <Tooltip
           formatter={(value) => [value, xKey]}
@@ -126,11 +126,10 @@ export function XBrushView({ sortedRows, xKey, brush, onBrushChange }: Props) {
         <Brush
           dataKey="idx"
           height={44}
-          travellerWidth={24}
+          travellerWidth={30}
           traveller={<BrushTraveller />}
           startIndex={brush?.startIndex}
           endIndex={brush?.endIndex}
-          alwaysShowText
           tickFormatter={(value) => {
             const idx = Number(value);
             const d = Number.isFinite(idx) ? data[idx] : undefined;

@@ -125,7 +125,7 @@ export default function App({ onInteraction }: Props) {
 
   return (
     <div className="min-h-screen bg-muted/30">
-      <div className="mx-auto flex w-full max-w-[1800px] flex-col gap-4 p-4 md:p-6 lg:p-8">
+      <div className="mx-auto flex w-full max-w-[1800px] flex-col gap-4 p-4 pb-24 md:p-6 md:pb-24 lg:p-8 lg:pb-24">
         <header className="flex flex-col gap-1">
           <h1 className="text-xl font-semibold tracking-tight">React dashboard (recharts)</h1>
           <p className="text-sm text-muted-foreground">
@@ -152,11 +152,8 @@ export default function App({ onInteraction }: Props) {
                   </SelectTrigger>
                   <SelectContent>
                     {datasetOptions.map((d) => (
-                      <SelectItem key={d.id} value={d.id} className="py-2">
-                        <div className="flex flex-col">
-                          <div className="font-medium">{d.title}</div>
-                          <div className="text-xs text-muted-foreground">{d.description}</div>
-                        </div>
+                      <SelectItem key={d.id} value={d.id}>
+                        {d.title}
                       </SelectItem>
                     ))}
                   </SelectContent>
