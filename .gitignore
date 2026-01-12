@@ -26,7 +26,3 @@ test-results/
 # OS / editor
 .DS_Store
 .vscode/
-
-# Local agent working files
-task_plan.md
-notes.md
