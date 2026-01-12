@@ -11,6 +11,13 @@ type Props = {
   onBrushChange: (range: BrushRange) => void;
 };
 
+type BrushTravellerProps = Partial<{
+  x: unknown;
+  y: unknown;
+  width: unknown;
+  height: unknown;
+}>;
+
 function formatNumberShort(value: unknown): string {
   const v = typeof value === 'number' ? value : Number(value);
   if (!Number.isFinite(v)) return '';
@@ -28,11 +35,12 @@ function sampleTicks(min: number, max: number): string[] {
   return t.map(formatNumberShort);
 }
 
-function BrushTraveller(props: any) {
-  const x = typeof props?.x === 'number' ? props.x : 0;
-  const y = typeof props?.y === 'number' ? props.y : 0;
-  const width = typeof props?.width === 'number' ? props.width : 0;
-  const height = typeof props?.height === 'number' ? props.height : 0;
+function BrushTraveller(props: unknown) {
+  const p = typeof props === 'object' && props !== null ? (props as BrushTravellerProps) : {};
+  const x = typeof p.x === 'number' ? p.x : 0;
+  const y = typeof p.y === 'number' ? p.y : 0;
+  const width = typeof p.width === 'number' ? p.width : 0;
+  const height = typeof p.height === 'number' ? p.height : 0;
   return (
     <g style={{ cursor: 'ew-resize' }}>
       <rect
@@ -133,13 +141,6 @@ export function XBrushView({ sortedRows, xKey, brush, onBrushChange }: Props) {
             if (!data.length) return onBrushChange(null);
             if (!r || typeof r.startIndex !== 'number' || typeof r.endIndex !== 'number') return;
             onBrushChange({ startIndex: r.startIndex, endIndex: r.endIndex });
-          }}
-          onDragEnd={(r) => {
-            if (!data.length) return onBrushChange(null);
-            const startIndex = typeof (r as any)?.startIndex === 'number' ? (r as any).startIndex : null;
-            const endIndex = typeof (r as any)?.endIndex === 'number' ? (r as any).endIndex : null;
-            if (startIndex === null || endIndex === null) return;
-            onBrushChange({ startIndex, endIndex });
           }}
         />
       </AreaChart>

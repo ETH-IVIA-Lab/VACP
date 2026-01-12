@@ -28,6 +28,19 @@ function labelForChannel(key: string): string {
 
 type Point = { x: number; y: number };
 
+type ScatterShapeProps = {
+  cx?: unknown;
+  cy?: unknown;
+  fill?: unknown;
+  payload?: unknown;
+};
+
+type ScatterPayload = Partial<{
+  id: unknown;
+  x: unknown;
+  y: unknown;
+}>;
+
 function fitLinear(pairs: Array<{ d: number; p: number }>): { a: number; b: number } | null {
   if (pairs.length < 2) return null;
   const meanD = pairs.reduce((acc, x) => acc + x.d, 0) / pairs.length;
@@ -232,16 +245,21 @@ export function ScatterView({
             data={unselectedData}
             isAnimationActive={false}
             animationDuration={0}
-            shape={(p: any) => {
-              const id = String(p?.payload?.id ?? '');
-              const x = typeof p?.payload?.x === 'number' ? p.payload.x : null;
-              const y = typeof p?.payload?.y === 'number' ? p.payload.y : null;
+            shape={(props: ScatterShapeProps) => {
+              const payload =
+                typeof props.payload === 'object' && props.payload !== null ? (props.payload as ScatterPayload) : {};
+              const id = String(payload.id ?? '');
+              const x = typeof payload.x === 'number' ? payload.x : null;
+              const y = typeof payload.y === 'number' ? payload.y : null;
+              const cx = typeof props.cx === 'number' ? props.cx : 0;
+              const cy = typeof props.cy === 'number' ? props.cy : 0;
+              const fill = typeof props.fill === 'string' ? props.fill : 'currentColor';
               return (
                 <circle
-                  cx={p.cx}
-                  cy={p.cy}
+                  cx={cx}
+                  cy={cy}
                   r={4}
-                  fill={p.fill}
+                  fill={fill}
                   stroke="transparent"
                   strokeWidth={0}
                   data-point-id={id}
@@ -258,16 +276,21 @@ export function ScatterView({
             data={restSelected}
             isAnimationActive={false}
             animationDuration={0}
-            shape={(p: any) => {
-              const id = String(p?.payload?.id ?? '');
-              const x = typeof p?.payload?.x === 'number' ? p.payload.x : null;
-              const y = typeof p?.payload?.y === 'number' ? p.payload.y : null;
+            shape={(props: ScatterShapeProps) => {
+              const payload =
+                typeof props.payload === 'object' && props.payload !== null ? (props.payload as ScatterPayload) : {};
+              const id = String(payload.id ?? '');
+              const x = typeof payload.x === 'number' ? payload.x : null;
+              const y = typeof payload.y === 'number' ? payload.y : null;
+              const cx = typeof props.cx === 'number' ? props.cx : 0;
+              const cy = typeof props.cy === 'number' ? props.cy : 0;
+              const fill = typeof props.fill === 'string' ? props.fill : 'currentColor';
               return (
                 <circle
-                  cx={p.cx}
-                  cy={p.cy}
+                  cx={cx}
+                  cy={cy}
                   r={6}
-                  fill={p.fill}
+                  fill={fill}
                   stroke="hsl(var(--foreground))"
                   strokeWidth={1.75}
                   data-point-id={id}
@@ -284,16 +307,21 @@ export function ScatterView({
             data={topSelected}
             isAnimationActive={false}
             animationDuration={0}
-            shape={(p: any) => {
-              const id = String(p?.payload?.id ?? '');
-              const x = typeof p?.payload?.x === 'number' ? p.payload.x : null;
-              const y = typeof p?.payload?.y === 'number' ? p.payload.y : null;
+            shape={(props: ScatterShapeProps) => {
+              const payload =
+                typeof props.payload === 'object' && props.payload !== null ? (props.payload as ScatterPayload) : {};
+              const id = String(payload.id ?? '');
+              const x = typeof payload.x === 'number' ? payload.x : null;
+              const y = typeof payload.y === 'number' ? payload.y : null;
+              const cx = typeof props.cx === 'number' ? props.cx : 0;
+              const cy = typeof props.cy === 'number' ? props.cy : 0;
+              const fill = typeof props.fill === 'string' ? props.fill : 'currentColor';
               return (
                 <circle
-                  cx={p.cx}
-                  cy={p.cy}
+                  cx={cx}
+                  cy={cy}
                   r={7}
-                  fill={p.fill}
+                  fill={fill}
                   stroke="hsl(var(--foreground))"
                   strokeWidth={2}
                   data-point-id={id}

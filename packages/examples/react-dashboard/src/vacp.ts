@@ -45,6 +45,31 @@ export type ReactDashboardModel = {
   clearBrush: () => void;
 };
 
+function asRecord(value: unknown): Record<string, unknown> | null {
+  return typeof value === 'object' && value !== null && !Array.isArray(value) ? (value as Record<string, unknown>) : null;
+}
+
+function getPropString(obj: Record<string, unknown> | null, key: string): string | null {
+  const v = obj ? obj[key] : undefined;
+  return typeof v === 'string' ? v : null;
+}
+
+function getPropNumber(obj: Record<string, unknown> | null, key: string): number | null {
+  const v = obj ? obj[key] : undefined;
+  return typeof v === 'number' && Number.isFinite(v) ? v : null;
+}
+
+function getPropArray(obj: Record<string, unknown> | null, key: string): unknown[] | null {
+  const v = obj ? obj[key] : undefined;
+  return Array.isArray(v) ? v : null;
+}
+
+function unwrapVacpValue(rec: unknown): unknown {
+  const obj = asRecord(rec);
+  if (!obj) return rec;
+  return obj.value !== undefined ? obj.value : rec;
+}
+
 function getEffectiveSelectedIds(model: ReactDashboardModel): { ids: string[]; meaning: string } {
   const dataset = model.getDataset();
   if (!dataset) return { ids: [], meaning: 'no dataset loaded' };
@@ -97,7 +122,7 @@ export function installVacpForReactDashboard(args: { globalKey: string; title?: 
     .target(handleRef)
     .params({ type: 'object', properties: { id: { type: 'string' } }, required: ['id'] })
     .handle(async (params) => {
-      const id = String((params as any)?.id ?? '');
+      const id = getPropString(asRecord(params), 'id') ?? '';
       if (!isDatasetId(id)) throw new Error(`Unknown dataset id: ${id}`);
       await args.model.setDatasetId(id);
       return { datasetId: id };
@@ -116,7 +141,7 @@ export function installVacpForReactDashboard(args: { globalKey: string; title?: 
       required: ['x', 'y'],
     })
     .handle((params) => {
-      const p = (params ?? {}) as Record<string, unknown>;
+      const p = asRecord(params) ?? {};
       const x = typeof p.x === 'string' ? p.x : '';
       const y = typeof p.y === 'string' ? p.y : '';
       const color = p.color === null || typeof p.color === 'string' ? (p.color as string | null) : null;
@@ -130,7 +155,7 @@ export function installVacpForReactDashboard(args: { globalKey: string; title?: 
     .target(selectionRef)
     .params({ type: 'object', properties: { ids: { type: 'array', items: { type: 'string' } } }, required: ['ids'] })
     .handle((params) => {
-      const ids = Array.isArray((params as any)?.ids) ? ((params as any).ids as unknown[]) : [];
+      const ids = getPropArray(asRecord(params), 'ids') ?? [];
       args.model.setSelectedIds(ids.map(String));
       return { selectedCount: args.model.getSelectedIds().length };
     });
@@ -156,10 +181,14 @@ export function installVacpForReactDashboard(args: { globalKey: string; title?: 
       required: ['polygon'],
     })
     .handle(async (params) => {
-      const poly = Array.isArray((params as any)?.polygon) ? ((params as any).polygon as unknown[]) : [];
-      const polygon: LassoPolygon = poly
-        .map((p) => ({ x: Number((p as any)?.x), y: Number((p as any)?.y) }))
-        .filter((p) => Number.isFinite(p.x) && Number.isFinite(p.y));
+      const poly = getPropArray(asRecord(params), 'polygon') ?? [];
+      const polygon: LassoPolygon = poly.flatMap((p): LassoPolygon => {
+        const pt = asRecord(p);
+        const x = getPropNumber(pt, 'x');
+        const y = getPropNumber(pt, 'y');
+        if (x === null || y === null) return [];
+        return [{ x, y }];
+      });
       if (polygon.length < 3) throw new Error('Expected polygon with >= 3 (x,y) points');
 
       await args.model.ensureDataset();
@@ -197,7 +226,7 @@ export function installVacpForReactDashboard(args: { globalKey: string; title?: 
     .target(selectionRef)
     .params({ type: 'object', properties: { id: { type: 'string' } }, required: ['id'] })
     .handle((params) => {
-      const id = String((params as any)?.id ?? '');
+      const id = getPropString(asRecord(params), 'id') ?? '';
       if (!id) throw new Error('Expected params.id');
       args.model.toggleSelectedId(id);
       return { selectedCount: args.model.getSelectedIds().length };
@@ -221,8 +250,9 @@ export function installVacpForReactDashboard(args: { globalKey: string; title?: 
       required: ['startIndex', 'endIndex'],
     })
     .handle((params) => {
-      const startIndex = Number((params as any)?.startIndex);
-      const endIndex = Number((params as any)?.endIndex);
+      const p = asRecord(params);
+      const startIndex = Number(p?.startIndex);
+      const endIndex = Number(p?.endIndex);
       if (!Number.isFinite(startIndex) || !Number.isFinite(endIndex))
         throw new Error('Expected integer startIndex/endIndex');
       args.model.setBrush({ startIndex, endIndex });
@@ -268,7 +298,7 @@ export function installVacpForReactDashboard(args: { globalKey: string; title?: 
       {
         const rec = state[selectionRef as unknown as string];
         if (rec !== undefined) {
-          const v = rec && typeof rec === 'object' ? ((rec as any).value ?? rec) : rec;
+          const v = unwrapVacpValue(rec);
           if (Array.isArray(v)) {
             args.model.setSelectedIds(v.map(String));
             applied += 1;
@@ -283,15 +313,18 @@ export function installVacpForReactDashboard(args: { globalKey: string; title?: 
       {
         const rec = state[lassoRef as unknown as string];
         if (rec !== undefined) {
-          const raw = rec && typeof rec === 'object' ? (rec as Record<string, unknown>) : null;
-          const v = raw && raw.value !== undefined ? raw.value : raw;
+          const v = unwrapVacpValue(rec);
           if (v === null) {
             args.model.clearSelection();
             applied += 1;
           } else if (Array.isArray(v)) {
-            const polygon: LassoPolygon = v
-              .map((p) => ({ x: Number((p as any)?.x), y: Number((p as any)?.y) }))
-              .filter((p) => Number.isFinite(p.x) && Number.isFinite(p.y));
+            const polygon: LassoPolygon = v.flatMap((p): LassoPolygon => {
+              const pt = asRecord(p);
+              const x = getPropNumber(pt, 'x');
+              const y = getPropNumber(pt, 'y');
+              if (x === null || y === null) return [];
+              return [{ x, y }];
+            });
             if (polygon.length >= 3) {
               await args.model.ensureDataset();
               const dataset = args.model.getDataset();
