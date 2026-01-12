@@ -338,3 +338,39 @@ test('examples: vanilla-minimal', async ({ page }) => {
     await srv.stop();
   }
 });
+
+test('examples: react-dashboard', async ({ page }) => {
+  const srv = await startViteDevServer({ name: 'react-dashboard', cwd: resolve(examplesDir, 'react-dashboard') });
+  try {
+    await page.goto(`${srv.url}?vacpDebug=1`, { waitUntil: 'domcontentloaded' });
+    await expectBridge(page);
+
+    const caps = await getCapabilities(page);
+    const graph = caps?.graph ?? {};
+    const nodes = graph.nodes ?? [];
+    const handle = nodes.find((n: any) => n?.kind === 'DataHandle');
+    expect(typeof handle?.ref).toBe('string');
+    const handleRef = handle.ref as string;
+
+    const resAll = await dataSql(page, { handleRef, sql: 'SELECT COUNT(*)::INTEGER AS n FROM vacp_all' });
+    expect(resAll.ok).toBeTruthy();
+    const nAll = countFromResult(resAll);
+    expect(nAll).toBeGreaterThan(0);
+
+    await page.waitForSelector('svg circle[data-point-id]', { timeout: 30_000 });
+
+    const rtBefore = await getRuntime(page);
+    const beforeHist = (rtBefore.history ?? []).length;
+
+    await page.locator('svg circle[data-point-id]').first().click();
+    await waitForHistoryLenAtLeast(page, beforeHist + 1);
+
+    const resSel = await dataSql(page, { handleRef, sql: 'SELECT COUNT(*)::INTEGER AS n FROM vacp_handle' });
+    expect(resSel.ok).toBeTruthy();
+    const nSel = countFromResult(resSel);
+    expect(nSel).toBe(1);
+    expect(nSel).toBeLessThanOrEqual(nAll);
+  } finally {
+    await srv.stop();
+  }
+});

@@ -24,4 +24,3 @@ From the repo root:
 
 - TypeScript: formatted with Prettier; linted with Oxlint.
 - Python: formatted/linted with Ruff (`uv run ruff check .` in `packages/vacp-mcp-server/`).
-

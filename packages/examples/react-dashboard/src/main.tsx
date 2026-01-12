@@ -1,0 +1,59 @@
+import { StrictMode } from 'react';
+import { createRoot } from 'react-dom/client';
+
+import { installVacpDebugUi } from '@vacp/debug-ui';
+
+import './index.css';
+import App from './App';
+import { useDashboardStore } from '@/state/dashboard-store';
+import { installVacpForReactDashboard } from './vacp';
+
+async function ensureDataset(timeoutMs = 30_000): Promise<void> {
+  const start = Date.now();
+  const actions = useDashboardStore.getState().actions;
+  await actions.init();
+  while (true) {
+    const { dataset, error, loading } = useDashboardStore.getState();
+    if (dataset) return;
+    if (error) throw new Error(error);
+    if (!loading && Date.now() - start > timeoutMs) throw new Error('Timed out waiting for dataset to load');
+    await new Promise((r) => setTimeout(r, 50));
+  }
+}
+
+const globalKey = '__vacp';
+installVacpDebugUi({ enabled: 'auto', globalKey });
+
+void useDashboardStore.getState().actions.init();
+
+const vacp = installVacpForReactDashboard({
+  globalKey,
+  title: 'React dashboard',
+  model: {
+    ensureDataset,
+    getDatasetId: () => useDashboardStore.getState().datasetId,
+    getDataset: () => useDashboardStore.getState().dataset,
+    setDatasetId: async (id) => {
+      await useDashboardStore.getState().actions.setDatasetId(id);
+    },
+    getEncoding: () => useDashboardStore.getState().encoding,
+    setEncoding: (patch) => useDashboardStore.getState().actions.setEncoding(patch),
+    getSelectedIds: () => useDashboardStore.getState().selectedIds,
+    setSelectedIds: (ids) => useDashboardStore.getState().actions.setSelectedIds(ids),
+    applyLassoSelection: (polygon, ids) => useDashboardStore.getState().actions.applyLassoSelection(polygon, ids),
+    getLassoPolygon: () => useDashboardStore.getState().lasso,
+    toggleSelectedId: (id) => useDashboardStore.getState().actions.toggleSelectedId(id),
+    clearSelection: () => useDashboardStore.getState().actions.clearSelection(),
+    getBrush: () => useDashboardStore.getState().brush,
+    setBrush: (range) => useDashboardStore.getState().actions.setBrush(range),
+    clearBrush: () => useDashboardStore.getState().actions.clearBrush(),
+  },
+});
+
+createRoot(document.getElementById('root')!).render(
+  <StrictMode>
+    <App onInteraction={(msg) => vacp.refresh('human', msg)} />
+  </StrictMode>,
+);
+
+vacp.refresh('system', 'init');

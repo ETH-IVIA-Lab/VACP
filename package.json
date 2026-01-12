@@ -9,6 +9,7 @@
     "dev:vega-lite": "pnpm --filter vacp-example-vega-lite-gallery dev",
     "dev:d3-lasso": "pnpm --filter vacp-example-d3-scatter-lasso dev",
     "dev:vanilla": "pnpm --filter vacp-example-vanilla-minimal dev",
+    "dev:react-dashboard": "pnpm --filter vacp-example-react-dashboard dev",
     "lint": "pnpm -r lint",
     "typecheck": "pnpm -r typecheck",
     "test:examples": "pnpm -r --filter @vacp/* build && pnpm exec playwright test",
