@@ -2,7 +2,7 @@ import { useMemo, useRef, useState } from 'react';
 import { CartesianGrid, ResponsiveContainer, Scatter, ScatterChart, Tooltip, XAxis, YAxis } from 'recharts';
 
 import type { Dataset, DatasetRow, Encoding } from '@/datasets/registry';
-import { pointInPolygon, toFiniteNumber } from '@/domain/dashboard';
+import { pointInPolygon, toFiniteNumber } from '@/lib/dashboard';
 
 type Props = {
   dataset: Dataset;

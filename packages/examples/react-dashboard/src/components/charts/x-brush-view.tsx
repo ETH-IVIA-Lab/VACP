@@ -2,7 +2,7 @@ import { Area, AreaChart, Brush, CartesianGrid, ResponsiveContainer, Tooltip, XA
 
 import type { DatasetRow } from '@/datasets/registry';
 import type { BrushRange } from '@/state/dashboard-store';
-import { toFiniteNumber } from '@/domain/dashboard';
+import { toFiniteNumber } from '@/lib/dashboard';
 
 type Props = {
   sortedRows: DatasetRow[];

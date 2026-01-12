@@ -24,7 +24,7 @@ import { VACP_SCHEMA_VERSION, type VacpRef } from '@vacp/core';
 
 import type { Dataset, DatasetId, Encoding } from '@/datasets/registry';
 import { isDatasetId } from '@/datasets/registry';
-import { applyBrush, intersectIds, pointInPolygon, sortRowsByNumericKey, toFiniteNumber } from '@/domain/dashboard';
+import { applyBrush, intersectIds, pointInPolygon, sortRowsByNumericKey, toFiniteNumber } from '@/lib/dashboard';
 import type { BrushRange, LassoPolygon } from '@/state/dashboard-store';
 
 export type ReactDashboardModel = {
