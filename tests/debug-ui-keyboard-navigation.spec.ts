@@ -11,7 +11,7 @@ const examplesDir = resolve(vacpRoot, 'packages', 'examples');
 test('debug-ui: keyboard navigation (tabs + roving focus)', async ({ page }) => {
   const srv = await startViteDevServer({ name: 'vanilla-minimal', cwd: resolve(examplesDir, 'vanilla-minimal') });
   try {
-    await page.goto(`${srv.url}?vacpDebug=1`, { waitUntil: 'domcontentloaded' });
+    await page.goto(`${srv.url}?vacp-debug=1`, { waitUntil: 'domcontentloaded' });
     await page.waitForFunction(() => !!(globalThis as any).__vacp);
 
     // Create a few history entries with state.

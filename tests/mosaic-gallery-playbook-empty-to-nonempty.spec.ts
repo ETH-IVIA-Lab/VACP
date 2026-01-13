@@ -24,7 +24,7 @@ test('mosaic-gallery: switching from no-playbook spec to playbook spec does not 
   page.on('pageerror', (err) => maybeCapture(String(err?.message ?? err)));
 
   try {
-    await page.goto(`${srv.url}?vacpDebug=1#axes`, { waitUntil: 'domcontentloaded' });
+    await page.goto(`${srv.url}?vacp-debug=1#axes`, { waitUntil: 'domcontentloaded' });
     await page.waitForFunction(() => !!(globalThis as any).__vacp);
 
     const pill = page.locator('button.vacp-debug-ui-button');

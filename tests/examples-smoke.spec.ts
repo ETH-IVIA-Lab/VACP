@@ -135,7 +135,7 @@ const examplesDir = resolve(vacpRoot, 'packages', 'examples');
 test('examples: mosaic-gallery', async ({ page }) => {
   const srv = await startViteDevServer({ name: 'mosaic-gallery', cwd: resolve(examplesDir, 'mosaic-gallery') });
   try {
-    await page.goto(`${srv.url}?vacpDebug=1`, { waitUntil: 'domcontentloaded' });
+    await page.goto(`${srv.url}?vacp-debug=1`, { waitUntil: 'domcontentloaded' });
     await expectBridge(page);
     await expectDomSnapshotScript(page);
 
@@ -245,7 +245,7 @@ test('examples: mosaic-gallery', async ({ page }) => {
 test('examples: vega-lite-gallery', async ({ page }) => {
   const srv = await startViteDevServer({ name: 'vega-lite-gallery', cwd: resolve(examplesDir, 'vega-lite-gallery') });
   try {
-    await page.goto(`${srv.url}?vacpDebug=1`, { waitUntil: 'domcontentloaded' });
+    await page.goto(`${srv.url}?vacp-debug=1`, { waitUntil: 'domcontentloaded' });
     await expectBridge(page);
 
     const specIds = await page.evaluate(() =>
@@ -305,7 +305,7 @@ test('examples: vega-lite-gallery', async ({ page }) => {
 test('examples: d3-scatter-lasso', async ({ page }) => {
   const srv = await startViteDevServer({ name: 'd3-scatter-lasso', cwd: resolve(examplesDir, 'd3-scatter-lasso') });
   try {
-    await page.goto(`${srv.url}?vacpDebug=1`, { waitUntil: 'domcontentloaded' });
+    await page.goto(`${srv.url}?vacp-debug=1`, { waitUntil: 'domcontentloaded' });
     await expectBridge(page);
     const caps = await getCapabilities(page);
     const graph = caps?.graph ?? {};
@@ -332,7 +332,7 @@ test('examples: d3-scatter-lasso', async ({ page }) => {
 test('examples: vanilla-minimal', async ({ page }) => {
   const srv = await startViteDevServer({ name: 'vanilla-minimal', cwd: resolve(examplesDir, 'vanilla-minimal') });
   try {
-    await page.goto(`${srv.url}?vacpDebug=1`, { waitUntil: 'domcontentloaded' });
+    await page.goto(`${srv.url}?vacp-debug=1`, { waitUntil: 'domcontentloaded' });
     await expectBridge(page);
 
     const caps = await getCapabilities(page);
@@ -366,7 +366,7 @@ test('examples: vanilla-minimal', async ({ page }) => {
 test('examples: react-dashboard', async ({ page }) => {
   const srv = await startViteDevServer({ name: 'react-dashboard', cwd: resolve(examplesDir, 'react-dashboard') });
   try {
-    await page.goto(`${srv.url}?vacpDebug=1`, { waitUntil: 'domcontentloaded' });
+    await page.goto(`${srv.url}?vacp-debug=1`, { waitUntil: 'domcontentloaded' });
     await expectBridge(page);
 
     await executeVacp(page, { name: 'dashboard.set_dataset', params: { id: 'iris' } });

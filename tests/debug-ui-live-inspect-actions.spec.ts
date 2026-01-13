@@ -11,7 +11,7 @@ const examplesDir = resolve(vacpRoot, 'packages', 'examples');
 test('debug-ui: running playbook while inspecting returns to live mode', async ({ page }) => {
   const srv = await startViteDevServer({ name: 'mosaic-gallery', cwd: resolve(examplesDir, 'mosaic-gallery') });
   try {
-    await page.goto(`${srv.url}?vacpDebug=1#weather`, { waitUntil: 'domcontentloaded' });
+    await page.goto(`${srv.url}?vacp-debug=1#weather`, { waitUntil: 'domcontentloaded' });
     await page.waitForFunction(() => !!(globalThis as any).__vacp);
 
     const pill = page.locator('button.vacp-debug-ui-button');

@@ -19,7 +19,7 @@ function parseMeta(text: string): { mode: string; cursor: number; history: numbe
 test('debug-ui: history undo/redo updates time travel cursor', async ({ page }) => {
   const srv = await startViteDevServer({ name: 'vanilla-minimal', cwd: resolve(examplesDir, 'vanilla-minimal') });
   try {
-    await page.goto(`${srv.url}?vacpDebug=1`, { waitUntil: 'domcontentloaded' });
+    await page.goto(`${srv.url}?vacp-debug=1`, { waitUntil: 'domcontentloaded' });
     await page.waitForFunction(() => !!(globalThis as any).__vacp);
 
     const pill = page.locator('button.vacp-debug-ui-button');

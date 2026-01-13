@@ -22,7 +22,7 @@ test('mosaic: time travel apply_state does not poison Toggle selection (Seattle 
   });
 
   try {
-    await page.goto(`${srv.url}?vacpDebug=1#weather`, { waitUntil: 'domcontentloaded' });
+    await page.goto(`${srv.url}?vacp-debug=1#weather`, { waitUntil: 'domcontentloaded' });
     await page.waitForFunction(() => !!(globalThis as any).__vacp);
 
     const overlay = page.locator('#app svg').first().locator('rect.overlay').first();

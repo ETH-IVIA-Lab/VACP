@@ -11,7 +11,7 @@ const examplesDir = resolve(vacpRoot, 'packages', 'examples');
 test('mosaic: menu inputs include options in capability graph (Voronoi Diagram)', async ({ page }) => {
   const srv = await startViteDevServer({ name: 'mosaic-gallery', cwd: resolve(examplesDir, 'mosaic-gallery') });
   try {
-    await page.goto(`${srv.url}?vacpDebug=1#voronoi`, { waitUntil: 'domcontentloaded' });
+    await page.goto(`${srv.url}?vacp-debug=1#voronoi`, { waitUntil: 'domcontentloaded' });
     await page.waitForFunction(() => !!(globalThis as any).__vacp);
 
     const widgets = await page.evaluate(async () => {

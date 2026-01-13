@@ -11,7 +11,7 @@ const examplesDir = resolve(vacpRoot, 'packages', 'examples');
 test('mosaic: set_interval_1d triggers downstream crossfilters (Seattle Weather)', async ({ page }) => {
   const srv = await startViteDevServer({ name: 'mosaic-gallery', cwd: resolve(examplesDir, 'mosaic-gallery') });
   try {
-    await page.goto(`${srv.url}?vacpDebug=1#weather`, { waitUntil: 'domcontentloaded' });
+    await page.goto(`${srv.url}?vacp-debug=1#weather`, { waitUntil: 'domcontentloaded' });
     await page.waitForFunction(() => !!(globalThis as any).__vacp);
 
     // Capture a stable-ish fingerprint of the *second* plot (the bar chart) before the action.
