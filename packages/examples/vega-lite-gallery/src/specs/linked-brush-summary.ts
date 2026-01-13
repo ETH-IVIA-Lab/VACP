@@ -4,9 +4,9 @@ import { makeCarLikeData } from '../spec-data';
 
 export const meta = {
   id: 'linked-brush-summary',
-  title: 'Cars: brush → origin summary',
+  title: 'Cars: click → origin summary',
   description:
-    'Drag a brush in the scatterplot; the bar chart recomputes counts for the brushed subset (grouped by origin). This is a realistic “overview → summary” pattern.',
+    'Click one or more bars to select origins (multi-select is supported). The scatterplot highlights the selected categories — a compact “summary → highlight” pattern.',
 };
 
 export function createSpec(): VegaLiteSpecLike {
@@ -15,8 +15,14 @@ export function createSpec(): VegaLiteSpecLike {
     data: { values: makeCarLikeData({ n: 520 }) },
     params: [
       {
-        name: 'brush',
-        select: { type: 'interval', encodings: ['x', 'y'], clear: 'dblclick' },
+        name: 'originPick',
+        select: {
+          type: 'point',
+          fields: ['origin'],
+          on: "click[event.item && event.item.mark && event.item.mark.marktype === 'rect']",
+          toggle: 'true',
+          clear: 'dblclick',
+        },
       },
     ],
     hconcat: [
@@ -26,8 +32,8 @@ export function createSpec(): VegaLiteSpecLike {
           x: { field: 'horsepower', type: 'quantitative', title: 'Horsepower' },
           y: { field: 'mpg', type: 'quantitative', title: 'MPG' },
           size: { value: 56 },
-          color: { condition: { param: 'brush', field: 'origin', type: 'nominal' }, value: '#cbd5e1' },
-          opacity: { condition: { param: 'brush', value: 0.9 }, value: 0.25 },
+          color: { condition: { param: 'originPick', field: 'origin', type: 'nominal' }, value: '#cbd5e1' },
+          opacity: { condition: { param: 'originPick', value: 0.9 }, value: 0.25 },
           tooltip: [
             { field: 'origin', type: 'nominal', title: 'Origin' },
             { field: 'horsepower', type: 'quantitative', title: 'HP' },
@@ -40,17 +46,17 @@ export function createSpec(): VegaLiteSpecLike {
         height: 360,
       },
       {
-        transform: [{ filter: { param: 'brush' } }],
         mark: { type: 'bar' },
         encoding: {
           y: { field: 'origin', type: 'nominal', title: null },
-          x: { aggregate: 'count', type: 'quantitative', title: 'Count (brushed)' },
+          x: { aggregate: 'count', type: 'quantitative', title: 'Count' },
           color: { field: 'origin', type: 'nominal', legend: null },
+          opacity: { condition: { param: 'originPick', value: 0.95 }, value: 0.25 },
           tooltip: [{ field: 'origin', type: 'nominal', title: 'Origin' }, { aggregate: 'count', title: 'Count' }],
         },
         width: 260,
         height: 360,
-        title: 'Brushed subset (by origin)',
+        title: 'Origin summary (click to select)',
       },
     ],
   };

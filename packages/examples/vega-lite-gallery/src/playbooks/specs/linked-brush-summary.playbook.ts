@@ -1,27 +1,26 @@
 import type { VacpPlaybook } from '@vacp/core';
 import { playbook } from '@vacp/kit';
 
-import { brushAround, CLUSTER_CENTERS } from '../domains';
 import type { VegaLiteSpecPlaybookContext } from './types';
 
 export function buildLinkedBrushSummaryPlaybook(ctx: VegaLiteSpecPlaybookContext): VacpPlaybook[] {
-  const brushRef = `${ctx.viewBase}/param/brush`;
-
-  const a = brushAround(CLUSTER_CENTERS.compact);
-  const b = brushAround(CLUSTER_CENTERS.mid);
+  const originRef = `${ctx.viewBase}/param/originPick`;
 
   return [
     playbook({
       id: `${ctx.entry.id}-overview-to-summary`,
       title: `Playbook: ${ctx.entry.meta.title}`,
       description:
-        'Answer: “How does brushing drive a summary?” by brushing two clusters and watching the bar chart re-compute counts for the brushed subset.',
+        'Answer: “Which origins drive the highlight?” by selecting multiple origin bars and watching the scatterplot update.',
     })
-      .action('Clear brush (clean slate)', { name: 'vega_lite.clear_selection', params: { ref: brushRef } })
-      .action('Brush a cluster (compact)', { name: 'vega_lite.set_selection', params: { ref: brushRef, value: a } })
-      .action('Move brush (mid)', {
+      .action('Clear origin selection (clean slate)', { name: 'vega_lite.clear_selection', params: { ref: originRef } })
+      .action('Select multiple origins (US + EU)', {
         name: 'vega_lite.set_selection',
-        params: { ref: brushRef, value: b },
+        params: { ref: originRef, value: [{ origin: 'US' }, { origin: 'EU' }] },
+      })
+      .action('Switch selection (JP only)', {
+        name: 'vega_lite.set_selection',
+        params: { ref: originRef, value: [{ origin: 'JP' }] },
       })
       .build(),
   ];
