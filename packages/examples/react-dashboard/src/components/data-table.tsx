@@ -281,7 +281,9 @@ export function DataTable({
                           : formatCellValue(value);
                         const text = f.text;
                         const dotColor =
-                          dotColumnKey && !isIndex && cell.column.id === dotColumnKey ? colorAccessor(row.original) : null;
+                          dotColumnKey && !isIndex && cell.column.id === dotColumnKey
+                            ? colorAccessor(row.original)
+                            : null;
 
                         return (
                           <div

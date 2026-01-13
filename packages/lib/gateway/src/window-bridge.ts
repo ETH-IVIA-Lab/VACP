@@ -1,7 +1,11 @@
 import type { VacpWindowBridge } from '@vacp/core';
 import { getVacpHyperParams, VACP_SCHEMA_VERSION } from '@vacp/core';
 
-import { defaultVacpDomSnapshotScriptId, removeVacpDomSnapshotScript, updateVacpDomSnapshotScript } from './dom-snapshot';
+import {
+  defaultVacpDomSnapshotScriptId,
+  removeVacpDomSnapshotScript,
+  updateVacpDomSnapshotScript,
+} from './dom-snapshot';
 
 export interface VacpWindowBridgeOptions {
   globalKey?: string;

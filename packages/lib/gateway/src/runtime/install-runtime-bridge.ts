@@ -112,7 +112,11 @@ export function installVacpRuntimeBridge(args: {
     sessionKey: args.sessionKey,
   });
   root[key] = bridge;
-  installDomSnapshotHooks(bridge, { enabled: domSnapshotEnabled, scriptId: domSnapshotScriptId, source: args.snapshots });
+  installDomSnapshotHooks(bridge, {
+    enabled: domSnapshotEnabled,
+    scriptId: domSnapshotScriptId,
+    source: args.snapshots,
+  });
   if (domSnapshotEnabled) void updateVacpDomSnapshotScript({ source: args.snapshots, scriptId: domSnapshotScriptId });
   return bridge;
 }

@@ -2,6 +2,9 @@
   "name": "@vacp/vega-lite",
   "version": "0.0.0",
   "private": true,
+  "files": [
+    "dist"
+  ],
   "type": "module",
   "exports": {
     ".": {
@@ -9,9 +12,11 @@
       "default": "./dist/index.js"
     }
   },
-  "files": [
-    "dist"
-  ],
+  "scripts": {
+    "build": "tsc -b",
+    "lint": "oxlint src",
+    "typecheck": "tsc -b"
+  },
   "dependencies": {
     "@vacp/core": "workspace:*",
     "@vacp/duckdb": "workspace:*",
@@ -21,10 +26,5 @@
     "vega": "*",
     "vega-embed": "*",
     "vega-lite": "*"
-  },
-  "scripts": {
-    "build": "tsc -b",
-    "lint": "oxlint src",
-    "typecheck": "tsc -b"
   }
 }

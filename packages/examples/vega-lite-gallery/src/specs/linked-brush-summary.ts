@@ -65,7 +65,10 @@ export function createSpec(): VegaLiteSpecLike {
           opacity: { value: 0.95 },
           stroke: { condition: { param: 'originPick', value: '#0f172a' }, value: 'transparent' },
           strokeWidth: { condition: { param: 'originPick', value: 2 }, value: 0 },
-          tooltip: [{ field: 'origin', type: 'nominal', title: 'Origin' }, { aggregate: 'count', title: 'Count' }],
+          tooltip: [
+            { field: 'origin', type: 'nominal', title: 'Origin' },
+            { aggregate: 'count', title: 'Count' },
+          ],
         },
         width: 260,
         height: 360,

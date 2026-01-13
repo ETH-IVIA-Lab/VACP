@@ -66,5 +66,9 @@ export function writeVacpDomSnapshotScript(args: {
 }): void {
   const script = ensureSnapshotScript(args.scriptId);
   if (!script) return;
-  script.textContent = safeJsonForScriptTag({ version: VACP_SCHEMA_VERSION, capabilities: args.capabilities, state: args.state });
+  script.textContent = safeJsonForScriptTag({
+    version: VACP_SCHEMA_VERSION,
+    capabilities: args.capabilities,
+    state: args.state,
+  });
 }

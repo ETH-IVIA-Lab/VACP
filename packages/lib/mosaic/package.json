@@ -2,6 +2,9 @@
   "name": "@vacp/vgplot",
   "version": "0.0.0",
   "private": true,
+  "files": [
+    "dist"
+  ],
   "type": "module",
   "exports": {
     ".": {
@@ -9,21 +12,18 @@
       "default": "./dist/index.js"
     }
   },
-  "files": [
-    "dist"
-  ],
-  "dependencies": {
-    "@vacp/core": "workspace:*",
-    "@vacp/duckdb": "workspace:*",
-    "@vacp/gateway": "workspace:*",
-    "@uwdata/mosaic-sql": "^0.21.1"
-  },
-  "peerDependencies": {
-    "@uwdata/mosaic-core": "*"
-  },
   "scripts": {
     "build": "tsc -b",
     "lint": "oxlint src",
     "typecheck": "tsc -b"
+  },
+  "dependencies": {
+    "@uwdata/mosaic-sql": "^0.21.1",
+    "@vacp/core": "workspace:*",
+    "@vacp/duckdb": "workspace:*",
+    "@vacp/gateway": "workspace:*"
+  },
+  "peerDependencies": {
+    "@uwdata/mosaic-core": "*"
   }
 }

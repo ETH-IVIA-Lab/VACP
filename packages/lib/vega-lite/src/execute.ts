@@ -197,10 +197,7 @@ export async function executeAction(
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           cs.insert(tuples as any);
         }
-        view.change(
-          storeName,
-          cs,
-        );
+        view.change(storeName, cs);
         await view.runAsync();
         return { ok: true, method: 'store', value: tryGetSignal(view, name) };
       } catch {

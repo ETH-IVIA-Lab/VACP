@@ -19,4 +19,3 @@ This package standardizes how examples/providers in this repo expose data access
 
 - Used by the BYO-provider kit (`@vacp/kit`) and the examples under `packages/examples/*`.
 - The debug overlay (`@vacp/debug-ui`) includes a **Data** module that can call `vacp.data_sql`.
-

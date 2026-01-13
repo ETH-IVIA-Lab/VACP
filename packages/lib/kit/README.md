@@ -25,4 +25,3 @@ For runnable references, see:
 - `packages/examples/vanilla-minimal`
 - `packages/examples/d3-scatter-lasso`
 - `packages/examples/react-dashboard`
-

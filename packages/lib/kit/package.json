@@ -2,6 +2,9 @@
   "name": "@vacp/kit",
   "version": "0.0.0",
   "private": true,
+  "files": [
+    "dist"
+  ],
   "type": "module",
   "exports": {
     ".": {
@@ -9,17 +12,14 @@
       "default": "./dist/index.js"
     }
   },
-  "files": [
-    "dist"
-  ],
-  "dependencies": {
-    "@vacp/core": "workspace:*",
-    "@vacp/duckdb": "workspace:*",
-    "@vacp/gateway": "workspace:*"
-  },
   "scripts": {
     "build": "tsc -b",
     "lint": "oxlint src",
     "typecheck": "tsc -b"
+  },
+  "dependencies": {
+    "@vacp/core": "workspace:*",
+    "@vacp/duckdb": "workspace:*",
+    "@vacp/gateway": "workspace:*"
   }
 }

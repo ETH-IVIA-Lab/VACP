@@ -110,7 +110,10 @@ function resolveFromLocalStorage(
   }
 }
 
-function resolveBoolean(spec: BooleanSpec, ctx: { url?: string; env?: Record<string, unknown>; storage?: Storage | null }): BooleanResolution {
+function resolveBoolean(
+  spec: BooleanSpec,
+  ctx: { url?: string; env?: Record<string, unknown>; storage?: Storage | null },
+): BooleanResolution {
   const fromUrl = resolveFromUrl(ctx.url, spec.urlKeys);
   if (fromUrl) {
     if (!fromUrl.raw) return { value: true, source: fromUrl.source };

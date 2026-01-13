@@ -34,4 +34,3 @@ export function createDashboardColorAccessor(args: {
   const map = new Map(unique.map((v, i) => [v, palette[i % palette.length]]));
   return (row: DatasetRow) => map.get(String(row[colorKey])) ?? palette[0];
 }
-
