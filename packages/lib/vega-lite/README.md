@@ -31,7 +31,7 @@ installVacpOnVegaLiteView({
 
 Notes:
 
-- Prefer rendering to **SVG** (`vega-embed` option `renderer: 'svg'`) so the provider can embed metadata and annotate DOM.
+- This provider works with both `renderer: 'svg'` and `renderer: 'canvas'` (the `packages/examples/vega-lite-gallery` example uses canvas).
 - This provider focuses on **Vega-Lite parameters**:
   - variable params → `Param` nodes
   - selection params → `Selection` nodes

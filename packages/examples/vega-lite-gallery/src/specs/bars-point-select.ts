@@ -4,9 +4,9 @@ import { makeCategoryValues } from '../spec-data';
 
 export const meta = {
   id: 'bars-point-select',
-  title: 'Bars + point selection + slider',
+  title: 'KPI bars: pick a category + adjust context',
   description:
-    'A point selection highlights a category; a slider controls the non-selected opacity. This covers both Param and Selection nodes.',
+    'Click a bar to select a category; use the slider to fade the non-selected context in/out. VACP exposes both the scalar param and the selection param.',
 };
 
 export function createSpec(): VegaLiteSpecLike {
@@ -21,7 +21,7 @@ export function createSpec(): VegaLiteSpecLike {
       },
       {
         name: 'pick',
-        select: { type: 'point', encodings: ['x'] },
+        select: { type: 'point', encodings: ['x'], on: 'click', clear: 'dblclick' },
       },
     ],
     mark: { type: 'bar', cornerRadiusTopLeft: 4, cornerRadiusTopRight: 4 },
@@ -30,6 +30,10 @@ export function createSpec(): VegaLiteSpecLike {
       y: { field: 'value', type: 'quantitative' },
       color: { condition: { param: 'pick', value: '#2563eb' }, value: '#cbd5e1' },
       opacity: { condition: { param: 'pick', value: 1 }, expr: 'baseOpacity' },
+      tooltip: [
+        { field: 'category', type: 'nominal', title: 'Category' },
+        { field: 'value', type: 'quantitative', title: 'Value' },
+      ],
     },
     width: 520,
     height: 260,

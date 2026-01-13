@@ -8,8 +8,8 @@ export function buildLinkedBrushSummaryPlaybook(ctx: VegaLiteSpecPlaybookContext
   const pointSizeRef = `${ctx.viewBase}/param/pointSize`;
   const brushRef = `${ctx.viewBase}/param/brush`;
 
-  const a = brushAround(CLUSTER_CENTERS.bottomLeft);
-  const b = brushAround(CLUSTER_CENTERS.topRight);
+  const a = brushAround(CLUSTER_CENTERS.compact);
+  const b = brushAround(CLUSTER_CENTERS.mid);
 
   return [
     playbook({

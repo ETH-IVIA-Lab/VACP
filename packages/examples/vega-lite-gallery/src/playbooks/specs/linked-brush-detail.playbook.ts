@@ -8,8 +8,8 @@ export function buildLinkedBrushDetailPlaybook(ctx: VegaLiteSpecPlaybookContext)
   const pointSizeRef = `${ctx.viewBase}/param/pointSize`;
   const brushRef = `${ctx.viewBase}/param/brush`;
 
-  const a = brushAround(CLUSTER_CENTERS.topLeft);
-  const b = brushAround(CLUSTER_CENTERS.bottomRight);
+  const a = brushAround(CLUSTER_CENTERS.economy);
+  const b = brushAround(CLUSTER_CENTERS.muscle);
 
   return [
     playbook({
@@ -28,7 +28,7 @@ export function buildLinkedBrushDetailPlaybook(ctx: VegaLiteSpecPlaybookContext)
         params: { ref: brushRef, value: a },
       })
       .action('Reset size slider (default)', { name: 'vega_lite.set_param', params: { ref: pointSizeRef, value: 36 } })
-      .action('Move brush (bottom-right cluster)', {
+      .action('Move brush (different cluster)', {
         name: 'vega_lite.set_selection',
         params: { ref: brushRef, value: b },
       })

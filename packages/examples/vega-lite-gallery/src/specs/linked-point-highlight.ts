@@ -1,18 +1,18 @@
 import type { VegaLiteSpecLike } from '@vacp/vega-lite';
 
-import { makeClusteredPoints } from '../spec-data';
+import { makeCarLikeData } from '../spec-data';
 
 export const meta = {
   id: 'linked-point-highlight',
-  title: 'Linked views: click → highlight',
+  title: 'Cars: click → highlight origin',
   description:
-    'Click a point to select its group and highlight it across both views. This demonstrates linked selections without filtering away context.',
+    'Click a point to select its origin and highlight that category across the scatter and the summary bars (no filtering, just emphasis).',
 };
 
 export function createSpec(): VegaLiteSpecLike {
   return {
     $schema: 'https://vega.github.io/schema/vega-lite/v6.json',
-    data: { values: makeClusteredPoints({ n: 420, groups: ['A', 'B', 'C'] }) },
+    data: { values: makeCarLikeData({ n: 460 }) },
     params: [
       {
         name: 'baseOpacity',
@@ -26,18 +26,25 @@ export function createSpec(): VegaLiteSpecLike {
       },
       {
         name: 'pick',
-        select: { type: 'point', fields: ['group'], on: 'click', clear: 'dblclick' },
+        select: { type: 'point', fields: ['origin'], on: 'click', clear: 'dblclick' },
       },
     ],
     vconcat: [
       {
         mark: { type: 'point', filled: true },
         encoding: {
-          x: { field: 'x', type: 'quantitative' },
-          y: { field: 'y', type: 'quantitative' },
-          color: { field: 'group', type: 'nominal' },
+          x: { field: 'horsepower', type: 'quantitative', title: 'Horsepower' },
+          y: { field: 'mpg', type: 'quantitative', title: 'MPG' },
+          color: { field: 'origin', type: 'nominal' },
           size: { expr: 'pointSize * datum.size' },
           opacity: { condition: { param: 'pick', value: 0.95 }, expr: 'baseOpacity' },
+          tooltip: [
+            { field: 'origin', type: 'nominal', title: 'Origin' },
+            { field: 'horsepower', type: 'quantitative', title: 'HP' },
+            { field: 'mpg', type: 'quantitative', title: 'MPG' },
+            { field: 'weight', type: 'quantitative', title: 'Weight (lb)' },
+            { field: 'year', type: 'quantitative', title: 'Year' },
+          ],
         },
         width: 720,
         height: 300,
@@ -47,9 +54,10 @@ export function createSpec(): VegaLiteSpecLike {
         mark: { type: 'bar' },
         encoding: {
           x: { aggregate: 'count', type: 'quantitative', title: 'Count' },
-          y: { field: 'group', type: 'nominal', title: null },
-          color: { field: 'group', type: 'nominal', legend: null },
+          y: { field: 'origin', type: 'nominal', title: null },
+          color: { field: 'origin', type: 'nominal', legend: null },
           opacity: { condition: { param: 'pick', value: 1.0 }, expr: 'baseOpacity' },
+          tooltip: [{ field: 'origin', type: 'nominal', title: 'Origin' }, { aggregate: 'count', title: 'Count' }],
         },
         width: 720,
         height: 160,

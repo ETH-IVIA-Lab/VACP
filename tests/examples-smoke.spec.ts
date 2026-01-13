@@ -261,7 +261,7 @@ test('examples: vega-lite-gallery', async ({ page }) => {
         sel.dispatchEvent(new Event('change', { bubbles: true }));
       }, specId);
 
-      await page.waitForSelector('svg', { timeout: 30_000 });
+      await page.waitForSelector('canvas', { timeout: 30_000 });
       await expectBridge(page);
       await waitForCapabilityRefContains(page, `/vega-lite/${specId}/${specId}`);
 
@@ -283,19 +283,20 @@ test('examples: vega-lite-gallery', async ({ page }) => {
       expect(typeof nAll).toBe('number');
       expect(nAll).toBeGreaterThan(0);
 
-      // Trigger a human selection by clicking a mark path.
-      const mark = page.locator('#app svg g.mark-symbol path').first();
-      if (await mark.count()) {
-        const mb = await mark.boundingBox();
-        if (mb) {
-          await page.mouse.click(mb.x + mb.width * 0.5, mb.y + mb.height * 0.5);
+      // Trigger a best-effort human selection by clicking into the rendered canvas.
+      const canvas = page.locator('#app canvas').first();
+      if (await canvas.count()) {
+        const box = await canvas.boundingBox();
+        if (box) {
+          await page.mouse.click(box.x + box.width * 0.5, box.y + box.height * 0.5);
           await page.waitForTimeout(250);
-          const resSel = await dataSql(page, { handleRef, sql: 'SELECT COUNT(*)::INTEGER AS n FROM vacp_handle' });
-          expect(resSel.ok).toBeTruthy();
-          const nSel = countFromResult(resSel);
-          expect(nSel).toBeLessThanOrEqual(nAll);
         }
       }
+
+      const resSel = await dataSql(page, { handleRef, sql: 'SELECT COUNT(*)::INTEGER AS n FROM vacp_handle' });
+      expect(resSel.ok).toBeTruthy();
+      const nSel = countFromResult(resSel);
+      expect(nSel).toBeLessThanOrEqual(nAll);
     }
   } finally {
     await srv.stop();

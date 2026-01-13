@@ -20,9 +20,9 @@ export function buildLinkedPointHighlightPlaybook(ctx: VegaLiteSpecPlaybookConte
         name: 'vega_lite.set_param',
         params: { ref: baseOpacityRef, value: 0.15 },
       })
-      .action('Select group B (click a point)', {
+      .action('Select origin EU (click a point)', {
         name: 'vega_lite.set_selection',
-        params: { ref: pickRef, value: { group: 'B' } },
+        params: { ref: pickRef, value: { origin: 'EU' } },
       })
       .action('Increase point size (size slider)', {
         name: 'vega_lite.set_param',
@@ -33,9 +33,9 @@ export function buildLinkedPointHighlightPlaybook(ctx: VegaLiteSpecPlaybookConte
         name: 'vega_lite.set_param',
         params: { ref: baseOpacityRef, value: 0.25 },
       })
-      .action('Select group C (compare)', {
+      .action('Select origin JP (compare)', {
         name: 'vega_lite.set_selection',
-        params: { ref: pickRef, value: { group: 'C' } },
+        params: { ref: pickRef, value: { origin: 'JP' } },
       })
       .build(),
   ];
