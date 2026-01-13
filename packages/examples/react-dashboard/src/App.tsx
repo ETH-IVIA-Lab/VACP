@@ -24,12 +24,6 @@ export default function App({ onInteraction }: Props) {
 
   const numericColumns = useMemo(() => (dataset ? getNumericColumns(dataset) : []), [dataset]);
   const allColumns = useMemo(() => (dataset ? getColumns(dataset) : []), [dataset]);
-  const vacpDebugHref = useMemo(() => {
-    if (typeof window === 'undefined') return '/?vacpDebug=1';
-    const url = new URL(window.location.href);
-    url.searchParams.set('vacpDebug', '1');
-    return `${url.pathname}?${url.searchParams.toString()}`;
-  }, []);
 
   useEffect(() => {
     if (!dataset) return;
@@ -277,11 +271,7 @@ export default function App({ onInteraction }: Props) {
           <header className="flex flex-col gap-1 pb-3">
             <h1 className="text-xl font-semibold tracking-tight">React dashboard (recharts)</h1>
             <p className="text-sm text-muted-foreground">
-              Linked views via shared selection (point toggle, PDF bin, 2D brush). Double-click a chart to clear.{' '}
-              <a className="underline underline-offset-4" href={vacpDebugHref}>
-                Enable VACP overlay
-              </a>
-              .
+              Linked views via shared selection (point toggle, PDF bin, 2D brush). Double-click a chart to clear.
             </p>
           </header>
 

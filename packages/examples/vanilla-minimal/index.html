@@ -81,11 +81,10 @@
       <h1>Vanilla VACP (minimal)</h1>
       <p>
         A single SVG scatterplot, built without a charting framework. Click points to select them. Open
-        <code>?vacpDebug=1</code> and use the overlay to run <code>vacp.data_sql</code> against the selection.
+        DevTools to inspect the bridge at <code>window.__vacp</code>.
       </p>
       <div class="row">
         <button id="clear" class="secondary" type="button">Clear selection</button>
-        <span class="hint">Tip: open the VACP overlay (bottom-right) to inspect the graph and query DuckDB.</span>
       </div>
     </header>
     <div id="app" class="card"></div>

@@ -83,28 +83,16 @@
     <h2>VACP Example: Frameworkless D3 scatter + lasso</h2>
     <p class="muted">
       This is a vanilla (no framework) visualization that still exposes a VACP bridge at <code>window.__vacp</code>.
-      Lasso with the mouse; then compare with the programmatic action dispatch. Enable the overlay with
-      <code>?vacpDebug=1</code>.
+      Lasso with the mouse; then compare with the programmatic action dispatch.
     </p>
 
     <div class="card" style="margin-bottom: 16px">
       <div class="muted" style="margin-bottom: 8px">What to try</div>
       <ul class="muted">
-        <li>Open the overlay: add <code>?vacpDebug=1</code>, click the floating <code>VACP</code> button.</li>
-        <li>
-          In the overlay, go to <strong>Playbook</strong> and click <strong>Run all</strong> to replay lasso actions.
-        </li>
         <li>
           Draw a lasso polygon with the mouse (human interaction) and watch <strong>Selected</strong> and state update.
         </li>
-        <li>
-          Use <strong>Actions</strong> to call <code>vanilla.set_lasso_polygon</code> /
-          <code>vanilla.clear_lasso</code>.
-        </li>
-        <li>
-          Use <strong>JSON</strong> → <strong>Apply state to live app</strong> to apply an edited polygon (dev-only,
-          best-effort).
-        </li>
+        <li>Inspect <code>window.__vacp</code> in DevTools to see the current graph, actions, and snapshots.</li>
       </ul>
     </div>
 
