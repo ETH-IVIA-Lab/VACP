@@ -29,7 +29,7 @@ Instead of clicking pixels, an agent calls `window.__vacp.execute({ callId, name
 From the repo root:
 
 - Install JS deps: `pnpm install`
-- Build packages: `pnpm -r build`
+- Build packages: `pnpm build`
 - Install Python env: `uv sync`
 - Install Playwright browsers:
   - for web tests: `pnpm exec playwright install chromium`
