@@ -22,9 +22,9 @@ installVacpOnVegaLiteView({
   spec,
   options: {
     appId: 'vacp-examples',
-    viewId: 'vega-lite/scatter-params',
-    vizId: 'scatter-params',
-    title: 'Scatter + param slider',
+    viewId: 'vega-lite/linked-brush-summary',
+    vizId: 'linked-brush-summary',
+    title: 'Cars: brush → origin summary',
   },
 });
 ```

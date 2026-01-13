@@ -5,7 +5,6 @@ import { brushAround, CLUSTER_CENTERS } from '../domains';
 import type { VegaLiteSpecPlaybookContext } from './types';
 
 export function buildLinkedBrushSummaryPlaybook(ctx: VegaLiteSpecPlaybookContext): VacpPlaybook[] {
-  const pointSizeRef = `${ctx.viewBase}/param/pointSize`;
   const brushRef = `${ctx.viewBase}/param/brush`;
 
   const a = brushAround(CLUSTER_CENTERS.compact);
@@ -19,13 +18,8 @@ export function buildLinkedBrushSummaryPlaybook(ctx: VegaLiteSpecPlaybookContext
         'Answer: “How does brushing drive a summary?” by brushing two clusters and watching the bar chart re-compute counts for the brushed subset.',
     })
       .action('Clear brush (clean slate)', { name: 'vega_lite.clear_selection', params: { ref: brushRef } })
-      .action('Increase point size (size slider)', {
-        name: 'vega_lite.set_param',
-        params: { ref: pointSizeRef, value: 200 },
-      })
-      .action('Brush a cluster (bottom-left)', { name: 'vega_lite.set_selection', params: { ref: brushRef, value: a } })
-      .action('Reset size slider (default)', { name: 'vega_lite.set_param', params: { ref: pointSizeRef, value: 24 } })
-      .action('Move brush (top-right cluster)', {
+      .action('Brush a cluster (compact)', { name: 'vega_lite.set_selection', params: { ref: brushRef, value: a } })
+      .action('Move brush (mid)', {
         name: 'vega_lite.set_selection',
         params: { ref: brushRef, value: b },
       })

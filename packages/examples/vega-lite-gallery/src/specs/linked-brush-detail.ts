@@ -15,11 +15,6 @@ export function createSpec(): VegaLiteSpecLike {
     data: { values: makeCarLikeData({ n: 520 }) },
     params: [
       {
-        name: 'pointSize',
-        value: 36,
-        bind: { input: 'range', min: 10, max: 1200, step: 10 },
-      },
-      {
         name: 'brush',
         select: { type: 'interval', encodings: ['x', 'y'], clear: 'dblclick' },
       },
@@ -30,7 +25,7 @@ export function createSpec(): VegaLiteSpecLike {
         encoding: {
           x: { field: 'horsepower', type: 'quantitative', title: 'Horsepower' },
           y: { field: 'mpg', type: 'quantitative', title: 'MPG' },
-          size: { expr: 'pointSize * datum.size' },
+          size: { value: 64 },
           color: { condition: { param: 'brush', field: 'origin', type: 'nominal' }, value: '#cbd5e1' },
           opacity: { condition: { param: 'brush', value: 0.9 }, value: 0.25 },
           tooltip: [
@@ -50,7 +45,7 @@ export function createSpec(): VegaLiteSpecLike {
         encoding: {
           x: { field: 'weight', type: 'quantitative', title: 'Weight (lb)' },
           y: { field: 'mpg', type: 'quantitative', title: 'MPG' },
-          size: { expr: 'pointSize * datum.size' },
+          size: { value: 64 },
           color: { field: 'origin', type: 'nominal' },
           opacity: { value: 0.9 },
           tooltip: [

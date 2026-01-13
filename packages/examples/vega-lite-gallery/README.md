@@ -42,8 +42,10 @@ The key promise: an agent can manipulate interactive Vega-Lite charts **without*
 
 ### Try it: human interaction
 
-- Click or brush in the chart (depending on the spec).
-- If a slider is present, move it.
+- Drag a brush in the left scatterplot.
+- Watch the right-side view update:
+  - **brush → detail**: changes the projection for the brushed subset
+  - **brush → origin summary**: recomputes counts by origin
 - Watch:
   - `window.__vacp.getState()` updates
   - debug overlay → **History** changes
@@ -65,7 +67,7 @@ Specs live in `src/specs/*.ts`. Each module exports:
 Example shape:
 
 ```ts
-export const meta = { id: 'scatter-params', title: 'Scatter + param slider' };
+export const meta = { id: 'linked-brush-summary', title: 'Cars: brush → origin summary' };
 export function createSpec() {
   return {
     /* Vega-Lite spec */
