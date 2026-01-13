@@ -43,6 +43,7 @@ Run an example app:
 - `pnpm dev:vega-lite`
 - `pnpm dev:d3-lasso`
 - `pnpm dev:vanilla`
+- `pnpm dev:react-dashboard`
 
 Enable the in-page overlay:
 
