@@ -4,7 +4,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "pnpm -w --filter @vacp/debug-ui build && pnpm -w exec concurrently -k -n debug-ui,vite \"pnpm -w --filter @vacp/debug-ui dev:watch\" \"vite\"",
+    "dev": "vite",
+    "dev:full": "pnpm exec concurrently -k -n debug-ui,vite \"pnpm --filter @vacp/debug-ui dev\" \"vite\"",
     "build": "vite build",
     "preview": "vite preview",
     "lint": "oxlint src",

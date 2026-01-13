@@ -21,7 +21,7 @@
     "build": "rm -rf dist tsconfig.tsbuildinfo && tsc -b && tsc-alias -p tsconfig.json && pnpm run build:css",
     "build:css": "pnpm exec tailwindcss -i src/style.css -o dist/style.css",
     "dev": "pnpm run build && pnpm run dev:watch",
-    "dev:watch": "pnpm -w exec concurrently -k -n tsc,alias,css \"pnpm run dev:tsc\" \"pnpm run dev:alias\" \"pnpm run dev:css\"",
+    "dev:watch": "pnpm exec concurrently -k -n tsc,alias,css \"pnpm run dev:tsc\" \"pnpm run dev:alias\" \"pnpm run dev:css\"",
     "dev:tsc": "tsc -b -w --preserveWatchOutput",
     "dev:alias": "tsc-alias -p tsconfig.json -w",
     "dev:css": "pnpm exec tailwindcss -i src/style.css -o dist/style.css --watch",
