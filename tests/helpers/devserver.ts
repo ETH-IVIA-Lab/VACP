@@ -55,7 +55,7 @@ export async function startViteDevServer(args: {
 
   const proc = spawn('pnpm', ['dev', '--host', '127.0.0.1', '--port', String(port), '--strictPort'], {
     cwd: args.cwd,
-    env: { ...process.env, BROWSER: 'none' },
+    env: { ...process.env, BROWSER: 'none', VACP_VITE_CACHE_DIR: `node_modules/.vite-${args.name}-${port}` },
     stdio: ['ignore', 'pipe', 'pipe'],
   });
   proc.stdout?.on('data', (buf) => void writeFile(logPath, buf, { flag: 'a' }));
