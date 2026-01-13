@@ -14,6 +14,7 @@
     "@radix-ui/react-label": "^2.1.7",
     "@radix-ui/react-select": "^2.2.6",
     "@radix-ui/react-slot": "^1.2.4",
+    "@tanstack/react-table": "^8.21.3",
     "@vacp/core": "workspace:*",
     "@vacp/debug-ui": "workspace:*",
     "@vacp/duckdb": "workspace:*",
