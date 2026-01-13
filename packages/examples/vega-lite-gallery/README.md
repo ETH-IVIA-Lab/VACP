@@ -44,7 +44,7 @@ The key promise: an agent can manipulate interactive Vega-Lite charts **without*
 
 - Interact with the charts:
   - **brush → detail**: drag a brush in the scatterplot; the right view updates
-  - **click → origin summary**: click one or more bars to highlight origins (multi-select supported)
+  - **brush → origin summary (click to pin)**: brush the scatterplot to recompute origin counts; click bars to pin/highlight one or more origins
 - Watch:
   - `window.__vacp.getState()` updates
   - debug overlay → **History** changes
@@ -66,7 +66,7 @@ Specs live in `src/specs/*.ts`. Each module exports:
 Example shape:
 
 ```ts
-export const meta = { id: 'linked-brush-summary', title: 'Cars: click → origin summary' };
+export const meta = { id: 'linked-brush-summary', title: 'Cars: brush → origin summary (click to pin)' };
 export function createSpec() {
   return {
     /* Vega-Lite spec */
