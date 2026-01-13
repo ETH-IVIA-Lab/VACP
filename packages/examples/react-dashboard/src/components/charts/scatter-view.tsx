@@ -1,32 +1,27 @@
-import { useMemo, useRef, useState } from 'react';
+import { useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { CartesianGrid, ResponsiveContainer, Scatter, ScatterChart, Tooltip, XAxis, YAxis } from 'recharts';
 
 import type { Dataset, DatasetRow, Encoding } from '@/datasets/registry';
-import { pointInPolygon, toFiniteNumber } from '@/lib/dashboard';
+import { toFiniteNumber } from '@/lib/dashboard';
 
 type Props = {
   dataset: Dataset;
   rows: DatasetRow[];
   encoding: Encoding;
   selectedIds: string[];
+  brush2d: { x0: number; x1: number; y0: number; y1: number } | null;
   onToggleSelectedId: (id: string) => void;
-  onApplyLassoSelection: (args: { polygon: Array<{ x: number; y: number }>; ids: string[] }) => void;
-  onResetSelection: () => void;
+  onSetBrush2d: (brush: { x0: number; x1: number; y0: number; y1: number }) => void;
+  onClearSelection: () => void;
 };
 
-const palette = [
-  'hsl(var(--chart-1))',
-  'hsl(var(--chart-2))',
-  'hsl(var(--chart-3))',
-  'hsl(var(--chart-4))',
-  'hsl(var(--chart-5))',
-];
+// Keep this palette visually distinct from the axis-specific colors used in the PDF charts
+// (see --dim-x/--dim-y in index.css) to avoid cross-chart color confusion.
+const palette = ['#F28E2B', '#E15759', '#59A14F', '#EDC948', '#76B7B2', '#9C755F', '#BAB0AC', '#8CD17D'];
 
 function labelForChannel(key: string): string {
   return key === 'id' ? 'id' : key;
 }
-
-type Point = { x: number; y: number };
 
 type ScatterShapeProps = {
   cx?: unknown;
@@ -39,9 +34,26 @@ type ScatterPayload = Partial<{
   id: unknown;
   x: unknown;
   y: unknown;
+  clickThrough: unknown;
 }>;
 
-function fitLinear(pairs: Array<{ d: number; p: number }>): { a: number; b: number } | null {
+type Point2D = { x: number; y: number };
+
+type Fit = { a: number; b: number };
+type Fits = { rect: DOMRect; x: Fit; y: Fit };
+
+type DragState =
+  | { mode: 'idle' }
+  | {
+      mode: 'pending-new' | 'pending-move' | 'drag-new' | 'drag-move';
+      pointerId: number;
+      startClient: { x: number; y: number };
+      startData: Point2D;
+      baseBrush: { x0: number; x1: number; y0: number; y1: number } | null;
+      fits: Fits;
+    };
+
+function fitLinear(pairs: Array<{ d: number; p: number }>): Fit | null {
   if (pairs.length < 2) return null;
   const meanD = pairs.reduce((acc, x) => acc + x.d, 0) / pairs.length;
   const meanP = pairs.reduce((acc, x) => acc + x.p, 0) / pairs.length;
@@ -55,14 +67,50 @@ function fitLinear(pairs: Array<{ d: number; p: number }>): { a: number; b: numb
   }
   if (!Number.isFinite(varD) || Math.abs(varD) < 1e-9) return null;
   const a = cov / varD;
-  if (!Number.isFinite(a) || Math.abs(a) < 1e-9) return null;
+  if (!Number.isFinite(a) || Math.abs(a) < 1e-12) return null;
   const b = meanP - a * meanD;
   if (!Number.isFinite(b)) return null;
   return { a, b };
 }
 
-function roundPoint(p: Point): Point {
-  return { x: Math.round(p.x * 1000) / 1000, y: Math.round(p.y * 1000) / 1000 };
+function computeFits(root: HTMLElement): Fits | null {
+  const overlayRect = root.getBoundingClientRect();
+  const circles = Array.from(root.querySelectorAll('circle[data-point-id][data-x][data-y]'));
+  const xPairs: Array<{ d: number; p: number }> = [];
+  const yPairs: Array<{ d: number; p: number }> = [];
+  circles.forEach((c) => {
+    const dx = Number(c.getAttribute('data-x'));
+    const dy = Number(c.getAttribute('data-y'));
+    if (!Number.isFinite(dx) || !Number.isFinite(dy)) return;
+    const r = c.getBoundingClientRect();
+    const px = r.left + r.width / 2 - overlayRect.left;
+    const py = r.top + r.height / 2 - overlayRect.top;
+    if (!Number.isFinite(px) || !Number.isFinite(py)) return;
+    xPairs.push({ d: dx, p: px });
+    yPairs.push({ d: dy, p: py });
+  });
+  const xFit = fitLinear(xPairs);
+  const yFit = fitLinear(yPairs);
+  if (!xFit || !yFit) return null;
+  return { rect: overlayRect, x: xFit, y: yFit };
+}
+
+function clientToData(client: { x: number; y: number }, fits: Fits): Point2D {
+  const px = client.x - fits.rect.left;
+  const py = client.y - fits.rect.top;
+  return { x: (px - fits.x.b) / fits.x.a, y: (py - fits.y.b) / fits.y.a };
+}
+
+function brushToRectPx(brush: { x0: number; x1: number; y0: number; y1: number }, fits: Fits) {
+  const x0 = fits.x.a * brush.x0 + fits.x.b;
+  const x1 = fits.x.a * brush.x1 + fits.x.b;
+  const y0 = fits.y.a * brush.y0 + fits.y.b;
+  const y1 = fits.y.a * brush.y1 + fits.y.b;
+  const left = Math.min(x0, x1);
+  const top = Math.min(y0, y1);
+  const width = Math.abs(x1 - x0);
+  const height = Math.abs(y1 - y0);
+  return { left, top, width, height };
 }
 
 export function ScatterView({
@@ -70,9 +118,10 @@ export function ScatterView({
   rows,
   encoding,
   selectedIds,
+  brush2d,
   onToggleSelectedId,
-  onApplyLassoSelection,
-  onResetSelection,
+  onSetBrush2d,
+  onClearSelection,
 }: Props) {
   const selectedSet = useMemo(() => new Set(selectedIds), [selectedIds]);
   const lastSelectedId = useMemo(
@@ -80,8 +129,10 @@ export function ScatterView({
     [selectedIds],
   );
   const containerRef = useRef<HTMLDivElement | null>(null);
-  const lassoPointsRef = useRef<Point[]>([]);
-  const [lasso, setLasso] = useState<{ active: boolean; points: Point[] }>({ active: false, points: [] });
+  const suppressClickRef = useRef(false);
+  const dragRef = useRef<DragState>({ mode: 'idle' });
+  const [previewBrush, setPreviewBrush] = useState<{ x0: number; x1: number; y0: number; y1: number } | null>(null);
+  const [fitsState, setFitsState] = useState<Fits | null>(null);
 
   const colorKey = encoding.color;
   const colorColumn = colorKey ? dataset.columns.find((c) => c.key === colorKey) : null;
@@ -114,14 +165,25 @@ export function ScatterView({
   const data = useMemo(() => {
     const xKey = encoding.x;
     const yKey = encoding.y;
+    const seen = new Set<string>();
     return rows
       .map((row) => {
         const x = toFiniteNumber(row[xKey]);
         const y = toFiniteNumber(row[yKey]);
         if (x === null || y === null) return null;
-        return { id: row.id, x, y, row, fill: colorAccessor(row) };
+        const key = `${x}|${y}`;
+        const clickThrough = seen.has(key);
+        seen.add(key);
+        return { id: row.id, x, y, row, fill: colorAccessor(row), clickThrough };
       })
-      .filter(Boolean) as Array<{ id: string; x: number; y: number; row: DatasetRow; fill: string }>;
+      .filter(Boolean) as Array<{
+      id: string;
+      x: number;
+      y: number;
+      row: DatasetRow;
+      fill: string;
+      clickThrough: boolean;
+    }>;
   }, [colorAccessor, encoding.x, encoding.y, rows]);
 
   const selectedData = useMemo(() => data.filter((d) => selectedSet.has(d.id)), [data, selectedSet]);
@@ -135,85 +197,111 @@ export function ScatterView({
     [lastSelectedId, selectedData],
   );
 
+  useLayoutEffect(() => {
+    const root = containerRef.current;
+    if (!root) return;
+    const raf = window.requestAnimationFrame(() => setFitsState(computeFits(root)));
+    return () => window.cancelAnimationFrame(raf);
+  }, [data.length, encoding.x, encoding.y]);
+
+  const activeBrush = previewBrush ?? brush2d;
+
   return (
     <div
       ref={containerRef}
-      className="relative"
+      className="relative h-full min-h-0 w-full"
       onDoubleClickCapture={(e) => {
         e.preventDefault();
         e.stopPropagation();
-        onResetSelection();
+        onClearSelection();
       }}
       onPointerDownCapture={(e) => {
-        if (!e.shiftKey) return;
         const root = containerRef.current;
         if (!root) return;
-        e.preventDefault();
-        e.stopPropagation();
-        const rect = root.getBoundingClientRect();
-        const x = e.clientX - rect.left;
-        const y = e.clientY - rect.top;
-        root.setPointerCapture(e.pointerId);
-        lassoPointsRef.current = [{ x, y }];
-        setLasso({ active: true, points: lassoPointsRef.current });
+        const fits = computeFits(root);
+        if (!fits) return;
+
+        const startClient = { x: e.clientX, y: e.clientY };
+        const startData = clientToData(startClient, fits);
+
+        const active = brush2d;
+        const px = e.clientX - fits.rect.left;
+        const py = e.clientY - fits.rect.top;
+        const hit =
+          active &&
+          (() => {
+            const r = brushToRectPx(active, fits);
+            return px >= r.left && px <= r.left + r.width && py >= r.top && py <= r.top + r.height;
+          })();
+
+        dragRef.current = {
+          mode: hit ? 'pending-move' : 'pending-new',
+          pointerId: e.pointerId,
+          startClient,
+          startData,
+          baseBrush: hit ? active : null,
+          fits,
+        };
       }}
       onPointerMoveCapture={(e) => {
-        if (!lasso.active) return;
-        const root = containerRef.current;
-        if (!root) return;
-        const rect = root.getBoundingClientRect();
-        const x = e.clientX - rect.left;
-        const y = e.clientY - rect.top;
-        const prev = lassoPointsRef.current.at(-1);
-        if (prev && Math.hypot(prev.x - x, prev.y - y) < 2) return;
-        lassoPointsRef.current = [...lassoPointsRef.current, { x, y }];
-        setLasso({ active: true, points: lassoPointsRef.current });
+        const s = dragRef.current;
+        if (s.mode === 'idle') return;
+        if (e.pointerId !== s.pointerId) return;
+
+        const dx = e.clientX - s.startClient.x;
+        const dy = e.clientY - s.startClient.y;
+        const dist = Math.hypot(dx, dy);
+        const threshold = 4;
+
+        if (s.mode === 'pending-new' || s.mode === 'pending-move') {
+          if (dist < threshold) return;
+          suppressClickRef.current = true;
+          try {
+            containerRef.current?.setPointerCapture(s.pointerId);
+          } catch {
+            // ignore
+          }
+          dragRef.current = { ...s, mode: s.mode === 'pending-move' ? 'drag-move' : 'drag-new' };
+        }
+
+        const next = dragRef.current;
+        if (next.mode !== 'drag-new' && next.mode !== 'drag-move') return;
+
+        const curData = clientToData({ x: e.clientX, y: e.clientY }, next.fits);
+        const brush =
+          next.mode === 'drag-move' && next.baseBrush
+            ? (() => {
+                const ddx = curData.x - next.startData.x;
+                const ddy = curData.y - next.startData.y;
+                return {
+                  x0: next.baseBrush.x0 + ddx,
+                  x1: next.baseBrush.x1 + ddx,
+                  y0: next.baseBrush.y0 + ddy,
+                  y1: next.baseBrush.y1 + ddy,
+                };
+              })()
+            : { x0: next.startData.x, x1: curData.x, y0: next.startData.y, y1: curData.y };
+
+        setPreviewBrush(brush);
+        onSetBrush2d(brush);
       }}
       onPointerUpCapture={(e) => {
-        if (!lasso.active) return;
-        const root = containerRef.current;
-        if (!root) return;
+        const s = dragRef.current;
+        if (s.mode === 'idle') return;
+        if (e.pointerId !== s.pointerId) return;
+        dragRef.current = { mode: 'idle' };
+        setPreviewBrush(null);
         try {
-          root.releasePointerCapture(e.pointerId);
+          containerRef.current?.releasePointerCapture(s.pointerId);
         } catch {
           // ignore
         }
-
-        const polyPx = lassoPointsRef.current;
-        lassoPointsRef.current = [];
-        setLasso({ active: false, points: [] });
-        if (polyPx.length < 3) return;
-
-        const overlayRect = root.getBoundingClientRect();
-        const circles = Array.from(root.querySelectorAll('circle[data-point-id][data-x][data-y]'));
-        const xPairs: Array<{ d: number; p: number }> = [];
-        const yPairs: Array<{ d: number; p: number }> = [];
-        circles.forEach((c) => {
-          const dx = Number(c.getAttribute('data-x'));
-          const dy = Number(c.getAttribute('data-y'));
-          if (!Number.isFinite(dx) || !Number.isFinite(dy)) return;
-          const r = c.getBoundingClientRect();
-          const px = r.left + r.width / 2 - overlayRect.left;
-          const py = r.top + r.height / 2 - overlayRect.top;
-          if (!Number.isFinite(px) || !Number.isFinite(py)) return;
-          xPairs.push({ d: dx, p: px });
-          yPairs.push({ d: dy, p: py });
-        });
-        const xFit = fitLinear(xPairs);
-        const yFit = fitLinear(yPairs);
-        if (!xFit || !yFit) return;
-
-        const polyData = polyPx
-          .map((p) => ({ x: (p.x - xFit.b) / xFit.a, y: (p.y - yFit.b) / yFit.a }))
-          .filter((p) => Number.isFinite(p.x) && Number.isFinite(p.y))
-          .map(roundPoint);
-        if (polyData.length < 3) return;
-
-        const ids = data.filter((d) => pointInPolygon({ x: d.x, y: d.y }, polyData)).map((d) => d.id);
-        onApplyLassoSelection({ polygon: polyData, ids });
+        window.setTimeout(() => {
+          suppressClickRef.current = false;
+        }, 0);
       }}
     >
-      <ResponsiveContainer width="100%" height={460}>
+      <ResponsiveContainer width="100%" height="100%">
         <ScatterChart margin={{ top: 12, right: 16, bottom: 36, left: 44 }}>
           <CartesianGrid strokeDasharray="3 3" />
           <XAxis
@@ -254,6 +342,7 @@ export function ScatterView({
               const cx = typeof props.cx === 'number' ? props.cx : 0;
               const cy = typeof props.cy === 'number' ? props.cy : 0;
               const fill = typeof props.fill === 'string' ? props.fill : 'currentColor';
+              const clickThrough = payload.clickThrough === true;
               return (
                 <circle
                   cx={cx}
@@ -262,12 +351,16 @@ export function ScatterView({
                   fill={fill}
                   stroke="transparent"
                   strokeWidth={0}
+                  pointerEvents={clickThrough ? 'none' : 'auto'}
                   data-point-id={id}
                   data-x={x ?? undefined}
                   data-y={y ?? undefined}
                   data-selected="false"
                   className="cursor-pointer"
-                  onClick={() => id && onToggleSelectedId(id)}
+                  onClick={() => {
+                    if (suppressClickRef.current) return;
+                    if (id) onToggleSelectedId(id);
+                  }}
                 />
               );
             }}
@@ -285,6 +378,7 @@ export function ScatterView({
               const cx = typeof props.cx === 'number' ? props.cx : 0;
               const cy = typeof props.cy === 'number' ? props.cy : 0;
               const fill = typeof props.fill === 'string' ? props.fill : 'currentColor';
+              const clickThrough = payload.clickThrough === true;
               return (
                 <circle
                   cx={cx}
@@ -293,12 +387,16 @@ export function ScatterView({
                   fill={fill}
                   stroke="hsl(var(--foreground))"
                   strokeWidth={1.75}
+                  pointerEvents={clickThrough ? 'none' : 'auto'}
                   data-point-id={id}
                   data-x={x ?? undefined}
                   data-y={y ?? undefined}
                   data-selected="true"
                   className="cursor-pointer"
-                  onClick={() => id && onToggleSelectedId(id)}
+                  onClick={() => {
+                    if (suppressClickRef.current) return;
+                    if (id) onToggleSelectedId(id);
+                  }}
                 />
               );
             }}
@@ -316,6 +414,7 @@ export function ScatterView({
               const cx = typeof props.cx === 'number' ? props.cx : 0;
               const cy = typeof props.cy === 'number' ? props.cy : 0;
               const fill = typeof props.fill === 'string' ? props.fill : 'currentColor';
+              const clickThrough = payload.clickThrough === true;
               return (
                 <circle
                   cx={cx}
@@ -324,12 +423,16 @@ export function ScatterView({
                   fill={fill}
                   stroke="hsl(var(--foreground))"
                   strokeWidth={2}
+                  pointerEvents={clickThrough ? 'none' : 'auto'}
                   data-point-id={id}
                   data-x={x ?? undefined}
                   data-y={y ?? undefined}
                   data-selected="true"
                   className="cursor-pointer"
-                  onClick={() => id && onToggleSelectedId(id)}
+                  onClick={() => {
+                    if (suppressClickRef.current) return;
+                    if (id) onToggleSelectedId(id);
+                  }}
                 />
               );
             }}
@@ -343,14 +446,24 @@ export function ScatterView({
         height="100%"
         preserveAspectRatio="none"
       >
-        {lasso.points.length ? (
-          <path
-            d={`M ${lasso.points.map((p) => `${p.x} ${p.y}`).join(' L ')} Z`}
-            fill="hsl(var(--foreground) / 0.08)"
-            stroke="hsl(var(--foreground) / 0.6)"
-            strokeWidth={1.5}
-          />
-        ) : null}
+        {activeBrush && fitsState
+          ? (() => {
+              const rect = brushToRectPx(activeBrush, fitsState);
+              if (rect.width < 2 || rect.height < 2) return null;
+              return (
+                <rect
+                  x={rect.left}
+                  y={rect.top}
+                  width={rect.width}
+                  height={rect.height}
+                  fill="hsl(var(--foreground) / 0.08)"
+                  stroke="hsl(var(--foreground) / 0.6)"
+                  strokeWidth={1.5}
+                  rx={2}
+                />
+              );
+            })()
+          : null}
       </svg>
     </div>
   );

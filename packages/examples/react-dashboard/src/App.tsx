@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 import { RotateCcw } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
@@ -6,9 +6,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { listDatasets, type DatasetId, type Encoding } from '@/datasets/registry';
 import { ScatterView } from '@/components/charts/scatter-view';
-import { XBrushView } from '@/components/charts/x-brush-view';
-import { applyBrush, getColumns, getNumericColumns, sortRowsByNumericKey, toFiniteNumber } from '@/lib/dashboard';
-import { type BrushRange, useDashboardStore } from '@/state/dashboard-store';
+import { PdfDistributionView } from '@/components/charts/pdf-distribution-view';
+import { DataTable } from '@/components/data-table';
+import { getColumns, getNumericColumns } from '@/lib/dashboard';
+import { useDashboardStore } from '@/state/dashboard-store';
 
 type Props = {
   onInteraction?: (message: string) => void;
@@ -17,7 +18,7 @@ type Props = {
 const datasetOptions = listDatasets();
 
 export default function App({ onInteraction }: Props) {
-  const { datasetId, dataset, encoding, selectedIds, brush, loading, error, actions } = useDashboardStore();
+  const { datasetId, dataset, encoding, selectedIds, brush2d, loading, error, actions } = useDashboardStore();
 
   const numericColumns = useMemo(() => (dataset ? getNumericColumns(dataset) : []), [dataset]);
   const allColumns = useMemo(() => (dataset ? getColumns(dataset) : []), [dataset]);
@@ -38,22 +39,12 @@ export default function App({ onInteraction }: Props) {
     if (Object.keys(patch).length) actions.setEncoding(patch);
   }, [actions, dataset, encoding.x, encoding.y, numericColumns]);
 
-  const sortedRows = useMemo(
-    () => (dataset ? sortRowsByNumericKey(dataset.rows, encoding.x) : []),
-    [dataset, encoding.x],
+  const selectedSet = useMemo(() => new Set(selectedIds), [selectedIds]);
+  const selectedRows = useMemo(
+    () => (dataset ? dataset.rows.filter((r) => selectedSet.has(r.id)) : []),
+    [dataset, selectedSet],
   );
-  const brushedRows = useMemo(() => applyBrush(sortedRows, brush), [brush, sortedRows]);
-  const brushedXRangeLabel = useMemo(() => {
-    if (!brush) return null;
-    const start = sortedRows[brush.startIndex];
-    const end = sortedRows[brush.endIndex];
-    const startX = start ? toFiniteNumber(start[encoding.x]) : null;
-    const endX = end ? toFiniteNumber(end[encoding.x]) : null;
-    if (startX === null || endX === null) return null;
-    const a = Math.round(startX * 100) / 100;
-    const b = Math.round(endX * 100) / 100;
-    return a <= b ? `[${a}, ${b}]` : `[${b}, ${a}]`;
-  }, [brush, encoding.x, sortedRows]);
+  const rowsForDetails = selectedRows.length ? selectedRows : (dataset?.rows ?? []);
 
   const onSetDataset = useCallback(
     (id: DatasetId) => {
@@ -81,10 +72,10 @@ export default function App({ onInteraction }: Props) {
     [actions, onInteraction],
   );
 
-  const onApplyLassoSelection = useCallback(
-    (args: { polygon: Array<{ x: number; y: number }>; ids: string[] }) => {
-      actions.applyLassoSelection(args.polygon, args.ids);
-      onInteraction?.('lasso selection');
+  const onSetBrush2d = useCallback(
+    (brush: { x0: number; x1: number; y0: number; y1: number }) => {
+      actions.setBrush2d(brush);
+      onInteraction?.('brush selection');
     },
     [actions, onInteraction],
   );
@@ -94,56 +85,16 @@ export default function App({ onInteraction }: Props) {
     onInteraction?.('clear selection');
   }, [actions, onInteraction]);
 
-  const onClearBrush = useCallback(() => {
-    actions.clearBrush();
-    onInteraction?.('clear brush');
-  }, [actions, onInteraction]);
-
-  const onResetBrushAndSelection = useCallback(() => {
-    actions.clearBrush();
-    actions.clearSelection();
-    onInteraction?.('reset brush + selection');
-  }, [actions, onInteraction]);
-
-  const brushDebounce = useRef<number | null>(null);
-  useEffect(
-    () => () => {
-      if (brushDebounce.current !== null) window.clearTimeout(brushDebounce.current);
-    },
-    [],
-  );
-
-  const onBrushChange = useCallback(
-    (range: BrushRange) => {
-      actions.setBrush(range);
-      if (!onInteraction) return;
-      if (brushDebounce.current !== null) window.clearTimeout(brushDebounce.current);
-      brushDebounce.current = window.setTimeout(() => onInteraction('brush x'), 150);
-    },
-    [actions, onInteraction],
-  );
-
   return (
-    <div className="min-h-screen bg-muted/30">
-      <div className="mx-auto flex w-full max-w-[1800px] flex-col gap-4 p-4 pb-24 md:p-6 md:pb-24 lg:p-8 lg:pb-24">
-        <header className="flex flex-col gap-1">
-          <h1 className="text-xl font-semibold tracking-tight">React dashboard (recharts)</h1>
-          <p className="text-sm text-muted-foreground">
-            Dataset + encodings + linked views (selection + brush).{' '}
-            <a className="underline underline-offset-4" href={vacpDebugHref}>
-              Enable VACP overlay
-            </a>
-            .
-          </p>
-        </header>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Controls</CardTitle>
-            <CardDescription>Select dataset and bind columns to x/y/color.</CardDescription>
-          </CardHeader>
-          <CardContent className="flex flex-col gap-3">
-            <div className="grid grid-cols-1 gap-3 md:grid-cols-4">
+    <div className="h-screen overflow-hidden bg-muted/30">
+      <div className="mx-auto flex h-full w-full max-w-[1800px] flex-col gap-4 p-4 lg:flex-row lg:gap-6 lg:p-6">
+        <aside className="w-full lg:h-full lg:w-[360px] lg:shrink-0 lg:overflow-auto">
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle>Controls</CardTitle>
+              <CardDescription>Dataset + encodings</CardDescription>
+            </CardHeader>
+            <CardContent className="flex flex-col gap-4">
               <div className="flex flex-col gap-2">
                 <div className="text-xs font-medium text-muted-foreground">Dataset</div>
                 <Select value={datasetId} onValueChange={(v) => onSetDataset(v as DatasetId)}>
@@ -160,165 +111,206 @@ export default function App({ onInteraction }: Props) {
                 </Select>
               </div>
 
-              <div className="flex flex-col gap-2">
-                <div className="text-xs font-medium text-muted-foreground">X</div>
-                <Select
-                  value={encoding.x}
-                  onValueChange={(v) => onSetEncoding({ x: v })}
-                  disabled={!numericColumns.length}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="x" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {numericColumns.map((k) => (
-                      <SelectItem key={k} value={k}>
-                        {k}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="flex flex-col gap-2">
-                <div className="text-xs font-medium text-muted-foreground">Y</div>
-                <Select
-                  value={encoding.y}
-                  onValueChange={(v) => onSetEncoding({ y: v })}
-                  disabled={!numericColumns.length}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="y" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {numericColumns.map((k) => (
-                      <SelectItem key={k} value={k}>
-                        {k}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="flex flex-col gap-2">
-                <div className="text-xs font-medium text-muted-foreground">Color</div>
-                <Select
-                  value={encoding.color ?? '__none__'}
-                  onValueChange={(v) => onSetEncoding({ color: v === '__none__' ? null : v })}
-                  disabled={!allColumns.length}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="color" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="__none__">(none)</SelectItem>
-                    {allColumns
-                      .filter((k) => k !== encoding.x && k !== encoding.y && k.toLowerCase() !== 'id')
-                      .map((k) => (
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-1">
+                <div className="flex flex-col gap-2">
+                  <div className="text-xs font-medium text-muted-foreground">X</div>
+                  <Select
+                    value={encoding.x}
+                    onValueChange={(v) => onSetEncoding({ x: v })}
+                    disabled={!numericColumns.length}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="x" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {numericColumns.map((k) => (
                         <SelectItem key={k} value={k}>
                           {k}
                         </SelectItem>
                       ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
+                    </SelectContent>
+                  </Select>
+                </div>
 
-            <div className="flex flex-wrap items-center gap-2">
-              <div className="ml-auto text-sm text-muted-foreground">
-                {loading && 'Loading…'}
-                {!loading && dataset && (
-                  <>
-                    <span className="font-medium text-foreground">{dataset.title}</span>
-                    <span className="mx-2">·</span>
-                    <span>{dataset.rows.length} rows</span>
-                    <span className="mx-2">·</span>
-                    <span>{brushedRows.length} brushed</span>
-                    <span className="mx-2">·</span>
-                    <span>{selectedIds.length} selected</span>
-                  </>
+                <div className="flex flex-col gap-2">
+                  <div className="text-xs font-medium text-muted-foreground">Y</div>
+                  <Select
+                    value={encoding.y}
+                    onValueChange={(v) => onSetEncoding({ y: v })}
+                    disabled={!numericColumns.length}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="y" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {numericColumns.map((k) => (
+                        <SelectItem key={k} value={k}>
+                          {k}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="flex flex-col gap-2">
+                  <div className="text-xs font-medium text-muted-foreground">Color</div>
+                  <Select
+                    value={encoding.color ?? '__none__'}
+                    onValueChange={(v) => onSetEncoding({ color: v === '__none__' ? null : v })}
+                    disabled={!allColumns.length}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="color" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__none__">(none)</SelectItem>
+                      {allColumns
+                        .filter((k) => k !== encoding.x && k !== encoding.y && k.toLowerCase() !== 'id')
+                        .map((k) => (
+                          <SelectItem key={k} value={k}>
+                            {k}
+                          </SelectItem>
+                        ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              <div className="flex flex-col gap-2">
+                <div className="flex items-center justify-between text-sm text-muted-foreground">
+                  <span>{loading ? 'Loading…' : dataset ? dataset.title : 'No dataset'}</span>
+                  <span>{dataset ? `${dataset.rows.length} rows` : ''}</span>
+                </div>
+                <div className="flex items-center justify-between text-sm text-muted-foreground">
+                  <span>{selectedIds.length ? `${selectedIds.length} selected` : 'No selection'}</span>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={onClearSelection}
+                    disabled={!selectedIds.length}
+                    aria-label="Clear selection"
+                    title="Clear selection"
+                  >
+                    <RotateCcw className="mr-2 h-4 w-4" />
+                    Clear
+                  </Button>
+                </div>
+              </div>
+
+              {dataset && <div className="text-xs text-muted-foreground">{dataset.description}</div>}
+              {error && <div className="text-sm text-destructive">{error}</div>}
+            </CardContent>
+          </Card>
+        </aside>
+
+        <main className="min-w-0 flex-1 flex min-h-0 flex-col">
+          <header className="flex flex-col gap-1 pb-3">
+            <h1 className="text-xl font-semibold tracking-tight">React dashboard (recharts)</h1>
+            <p className="text-sm text-muted-foreground">
+              Linked views via shared selection (point toggle, PDF bin, 2D brush). Double-click a chart to clear.{' '}
+              <a className="underline underline-offset-4" href={vacpDebugHref}>
+                Enable VACP overlay
+              </a>
+              .
+            </p>
+          </header>
+
+          <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+            <Card className="flex flex-col">
+              <CardHeader>
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex flex-col space-y-1.5">
+                    <CardTitle>Scatter</CardTitle>
+                    <CardDescription>
+                      Click points to toggle selection. Drag to brush-select; drag brush to move.
+                    </CardDescription>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent className="flex min-h-0 flex-1 flex-col">
+                {dataset ? (
+                  <div className="h-[340px] min-h-0 md:h-[380px]">
+                    <ScatterView
+                      dataset={dataset}
+                      rows={dataset.rows}
+                      encoding={encoding}
+                      selectedIds={selectedIds}
+                      brush2d={brush2d}
+                      onToggleSelectedId={onToggleSelectedId}
+                      onSetBrush2d={onSetBrush2d}
+                      onClearSelection={onClearSelection}
+                    />
+                  </div>
+                ) : (
+                  <div className="text-sm text-muted-foreground">Pick a dataset to begin.</div>
                 )}
-              </div>
-            </div>
+              </CardContent>
+            </Card>
 
-            {dataset && <div className="text-xs text-muted-foreground">{dataset.description}</div>}
-            {error && <div className="text-sm text-destructive">{error}</div>}
-          </CardContent>
-        </Card>
+            <Card className="flex flex-col">
+              <CardHeader>
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex flex-col space-y-1.5">
+                    <CardTitle>Distribution (PDF)</CardTitle>
+                    <CardDescription>
+                      PDF estimate for {encoding.x} and {encoding.y}.
+                      {selectedIds.length ? ' Uses the selected subset; clear selection to view all.' : ''}
+                    </CardDescription>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent className="flex min-h-0 flex-1 flex-col">
+                {dataset ? (
+                  <div className="h-[340px] min-h-0 md:h-[380px]">
+                    <PdfDistributionView
+                      rows={dataset.rows}
+                      selectedIds={selectedIds}
+                      xKey={encoding.x}
+                      yKey={encoding.y}
+                      onClearSelection={onClearSelection}
+                      onSetSelectedIds={(ids) => {
+                        actions.setSelectedIds(ids);
+                        onInteraction?.('select distribution bin');
+                      }}
+                    />
+                  </div>
+                ) : (
+                  <div className="text-sm text-muted-foreground">Pick a dataset to begin.</div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
 
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-          <Card>
-            <CardHeader>
+          <Card className="mt-4 flex min-h-0 flex-1 flex-col">
+            <CardHeader className="pb-3">
               <div className="flex items-start justify-between gap-3">
                 <div className="flex flex-col space-y-1.5">
-                  <CardTitle>Scatter</CardTitle>
+                  <CardTitle>Data Table</CardTitle>
                   <CardDescription>
-                    Click points to toggle selection. Shift+drag to lasso-select. Double-click to reset selection.
+                    {selectedIds.length
+                      ? `Showing ${rowsForDetails.length} selected rows.`
+                      : dataset
+                        ? `Showing ${rowsForDetails.length} rows. Click points (or distribution bars) to filter.`
+                        : ''}
                   </CardDescription>
                 </div>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={onClearSelection}
-                  disabled={!selectedIds.length}
-                  aria-label="Reset selection"
-                  title="Reset selection"
-                >
-                  <RotateCcw />
-                </Button>
               </div>
             </CardHeader>
-            <CardContent>
+            <CardContent className="flex min-h-0 flex-1 p-4 pt-0">
               {dataset ? (
-                <ScatterView
-                  dataset={dataset}
-                  rows={brushedRows}
-                  encoding={encoding}
+                <DataTable
+                  columns={allColumns}
+                  rows={rowsForDetails}
                   selectedIds={selectedIds}
-                  onToggleSelectedId={onToggleSelectedId}
-                  onApplyLassoSelection={onApplyLassoSelection}
-                  onResetSelection={onClearSelection}
+                  encoding={{ x: encoding.x, y: encoding.y, color: encoding.color ?? null }}
+                  height="100%"
                 />
               ) : (
                 <div className="text-sm text-muted-foreground">Pick a dataset to begin.</div>
               )}
             </CardContent>
           </Card>
-
-          <Card>
-            <CardHeader>
-              <div className="flex items-start justify-between gap-3">
-                <div className="flex flex-col space-y-1.5">
-                  <CardTitle>Brush</CardTitle>
-                  <CardDescription>
-                    Rank plot of the x channel (sorted by {encoding.x}). Brush filters the scatter
-                    {brushedXRangeLabel ? ` (x in ${brushedXRangeLabel}).` : '.'} Double-click to reset brush +
-                    selection.
-                  </CardDescription>
-                </div>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={onClearBrush}
-                  disabled={!brush}
-                  aria-label="Reset brush"
-                  title="Reset brush"
-                >
-                  <RotateCcw />
-                </Button>
-              </div>
-            </CardHeader>
-            <CardContent>
-              {dataset ? (
-                <div onDoubleClick={onResetBrushAndSelection}>
-                  <XBrushView sortedRows={sortedRows} xKey={encoding.x} brush={brush} onBrushChange={onBrushChange} />
-                </div>
-              ) : (
-                <div className="text-sm text-muted-foreground">Pick a dataset to begin.</div>
-              )}
-            </CardContent>
-          </Card>
-        </div>
+        </main>
       </div>
     </div>
   );

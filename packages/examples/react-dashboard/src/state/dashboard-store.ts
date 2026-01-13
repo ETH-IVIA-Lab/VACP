@@ -1,18 +1,14 @@
 import { create } from 'zustand';
 
 import { loadDataset, type Dataset, type DatasetId, type Encoding } from '@/datasets/registry';
-
-export type BrushRange = { startIndex: number; endIndex: number } | null;
-export type LassoPoint = { x: number; y: number };
-export type LassoPolygon = LassoPoint[];
+import { toFiniteNumber } from '@/lib/dashboard';
 
 export type DashboardState = {
   datasetId: DatasetId;
   dataset: Dataset | null;
   encoding: Encoding;
   selectedIds: string[];
-  lasso: LassoPolygon | null;
-  brush: BrushRange;
+  brush2d: { x0: number; x1: number; y0: number; y1: number } | null;
   loading: boolean;
   error: string | null;
   actions: {
@@ -21,11 +17,9 @@ export type DashboardState = {
     setEncoding: (patch: Partial<Encoding>) => void;
     toggleSelectedId: (id: string) => void;
     setSelectedIds: (ids: string[]) => void;
-    applyLassoSelection: (polygon: LassoPolygon, ids: string[]) => void;
     clearSelection: () => void;
-    clearLasso: () => void;
-    setBrush: (range: BrushRange) => void;
-    clearBrush: () => void;
+    setBrush2d: (brush: { x0: number; x1: number; y0: number; y1: number } | null) => void;
+    clearBrush2d: () => void;
   };
 };
 
@@ -39,8 +33,7 @@ export const useDashboardStore = create<DashboardState>((set, get) => ({
   dataset: null,
   encoding: DEFAULT_ENCODING,
   selectedIds: [],
-  lasso: null,
-  brush: null,
+  brush2d: null,
   loading: false,
   error: null,
   actions: {
@@ -51,7 +44,7 @@ export const useDashboardStore = create<DashboardState>((set, get) => ({
     },
     setDatasetId: async (id) => {
       const seq = ++loadSeq;
-      set({ datasetId: id, dataset: null, loading: true, error: null, selectedIds: [], lasso: null, brush: null });
+      set({ datasetId: id, dataset: null, loading: true, error: null, selectedIds: [], brush2d: null });
       try {
         const dataset = await loadDataset(id);
         if (seq !== loadSeq) return;
@@ -62,34 +55,59 @@ export const useDashboardStore = create<DashboardState>((set, get) => ({
       }
     },
     setEncoding: (patch) => {
-      set((s) => {
-        const next: Encoding = { ...s.encoding, ...patch };
-        const xChanged = patch.x !== undefined && patch.x !== s.encoding.x;
-        return { encoding: next, brush: xChanged ? null : s.brush };
-      });
+      set((s) => ({ encoding: { ...s.encoding, ...patch } }));
     },
     toggleSelectedId: (id) => {
       set((s) => {
         const exists = s.selectedIds.includes(id);
-        return { selectedIds: exists ? s.selectedIds.filter((x) => x !== id) : [...s.selectedIds, id], lasso: null };
+        return { selectedIds: exists ? s.selectedIds.filter((x) => x !== id) : [...s.selectedIds, id], brush2d: null };
       });
     },
     setSelectedIds: (ids) => {
       const uniq = Array.from(new Set(ids.map(String)));
-      set({ selectedIds: uniq, lasso: null });
+      set({ selectedIds: uniq, brush2d: null });
     },
-    applyLassoSelection: (polygon, ids) => {
-      const uniq = Array.from(new Set(ids.map(String)));
-      set({ selectedIds: uniq, lasso: polygon.length ? polygon : null });
+    clearSelection: () => set({ selectedIds: [], brush2d: null }),
+    setBrush2d: (brush) => {
+      if (!brush) {
+        set({ brush2d: null, selectedIds: [] });
+        return;
+      }
+
+      const x0 = Number(brush.x0);
+      const x1 = Number(brush.x1);
+      const y0 = Number(brush.y0);
+      const y1 = Number(brush.y1);
+      if (![x0, x1, y0, y1].every((v) => Number.isFinite(v))) {
+        set({ brush2d: null, selectedIds: [] });
+        return;
+      }
+
+      const dataset = get().dataset;
+      const encoding = get().encoding;
+      if (!dataset) {
+        set({ brush2d: { x0, x1, y0, y1 }, selectedIds: [] });
+        return;
+      }
+
+      const minX = Math.min(x0, x1);
+      const maxX = Math.max(x0, x1);
+      const minY = Math.min(y0, y1);
+      const maxY = Math.max(y0, y1);
+
+      const selectedIds = dataset.rows
+        .flatMap((row) => {
+          const x = toFiniteNumber(row[encoding.x]);
+          const y = toFiniteNumber(row[encoding.y]);
+          if (x === null || y === null) return [];
+          if (x < minX || x > maxX) return [];
+          if (y < minY || y > maxY) return [];
+          return [row.id];
+        })
+        .map(String);
+
+      set({ brush2d: { x0, x1, y0, y1 }, selectedIds });
     },
-    clearSelection: () => set({ selectedIds: [], lasso: null }),
-    clearLasso: () => set({ lasso: null }),
-    setBrush: (range) => {
-      if (!range) return set({ brush: null });
-      const startIndex = Math.max(0, Math.floor(range.startIndex));
-      const endIndex = Math.max(startIndex, Math.floor(range.endIndex));
-      set({ brush: { startIndex, endIndex } });
-    },
-    clearBrush: () => set({ brush: null }),
+    clearBrush2d: () => set({ brush2d: null, selectedIds: [] }),
   },
 }));

@@ -3,7 +3,7 @@
  *
  * This module adds an agent-facing contract on top of the React dashboard:
  * - capabilities/state snapshots (`window.__vacp`)
- * - semantic actions (dataset/encoding/selection/brush)
+ * - semantic actions (dataset/encoding/selection)
  * - DuckDB access via the standard `vacp.data_sql` action
  *
  * The dashboard implementation (React + zustand) stays VACP-agnostic; the VACP
@@ -24,8 +24,6 @@ import { VACP_SCHEMA_VERSION, type VacpRef } from '@vacp/core';
 
 import type { Dataset, DatasetId, Encoding } from '@/datasets/registry';
 import { isDatasetId } from '@/datasets/registry';
-import { applyBrush, intersectIds, pointInPolygon, sortRowsByNumericKey, toFiniteNumber } from '@/lib/dashboard';
-import type { BrushRange, LassoPolygon } from '@/state/dashboard-store';
 
 export type ReactDashboardModel = {
   ensureDataset: () => Promise<void>;
@@ -36,27 +34,22 @@ export type ReactDashboardModel = {
   setEncoding: (patch: Partial<Encoding>) => void;
   getSelectedIds: () => string[];
   setSelectedIds: (ids: string[]) => void;
-  applyLassoSelection: (polygon: LassoPolygon, ids: string[]) => void;
-  getLassoPolygon: () => LassoPolygon | null;
   toggleSelectedId: (id: string) => void;
   clearSelection: () => void;
-  getBrush: () => BrushRange;
-  setBrush: (range: BrushRange) => void;
-  clearBrush: () => void;
+  getBrush2d: () => { x0: number; x1: number; y0: number; y1: number } | null;
+  setBrush2d: (brush: { x0: number; x1: number; y0: number; y1: number } | null) => void;
+  clearBrush2d: () => void;
 };
 
 function asRecord(value: unknown): Record<string, unknown> | null {
-  return typeof value === 'object' && value !== null && !Array.isArray(value) ? (value as Record<string, unknown>) : null;
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : null;
 }
 
 function getPropString(obj: Record<string, unknown> | null, key: string): string | null {
   const v = obj ? obj[key] : undefined;
   return typeof v === 'string' ? v : null;
-}
-
-function getPropNumber(obj: Record<string, unknown> | null, key: string): number | null {
-  const v = obj ? obj[key] : undefined;
-  return typeof v === 'number' && Number.isFinite(v) ? v : null;
 }
 
 function getPropArray(obj: Record<string, unknown> | null, key: string): unknown[] | null {
@@ -74,21 +67,10 @@ function getEffectiveSelectedIds(model: ReactDashboardModel): { ids: string[]; m
   const dataset = model.getDataset();
   if (!dataset) return { ids: [], meaning: 'no dataset loaded' };
 
-  const encoding = model.getEncoding();
   const selectedIds = model.getSelectedIds();
-  const brush = model.getBrush();
-
-  const sorted = sortRowsByNumericKey(dataset.rows, encoding.x);
-  const brushed = applyBrush(sorted, brush);
-  const brushedIds = brushed.map((r) => r.id);
-
-  if (selectedIds.length) {
-    if (!brush) return { ids: selectedIds, meaning: 'explicit selection ids' };
-    const ids = intersectIds(selectedIds, brushedIds);
-    return { ids, meaning: 'intersection(selection, brush)' };
-  }
-
-  if (brush) return { ids: brushedIds, meaning: 'brush subset (no explicit selection)' };
+  const brush2d = model.getBrush2d();
+  if (selectedIds.length && brush2d) return { ids: selectedIds, meaning: '2d brush subset' };
+  if (selectedIds.length) return { ids: selectedIds, meaning: 'explicit selection ids' };
   return { ids: [], meaning: 'no selection (fallback: all rows)' };
 }
 
@@ -105,14 +87,18 @@ export function installVacpForReactDashboard(args: { globalKey: string; title?: 
   const vizRef = vizRefs.root;
 
   const scatterVizRef = vizRefs.ref('/viz/scatter');
-  const brushVizRef = vizRefs.ref('/viz/brush');
+  const distributionVizRef = vizRefs.ref('/viz/distribution');
+  const distributionXVizRef = vizRefs.ref('/viz/distribution/x');
+  const distributionYVizRef = vizRefs.ref('/viz/distribution/y');
+  const tableVizRef = vizRefs.ref('/viz/table');
 
   const scatterRef = vizRefs.ref('/viz/scatter/mark/scatter');
-  const rankPlotRef = vizRefs.ref('/viz/brush/mark/rank_plot');
+  const distributionXRef = vizRefs.ref('/viz/distribution/x/mark/pdf');
+  const distributionYRef = vizRefs.ref('/viz/distribution/y/mark/pdf');
+  const tableRef = vizRefs.ref('/viz/table/mark/table');
 
   const selectionRef = vizRefs.ref('/viz/scatter/selection/points');
-  const lassoRef = vizRefs.ref('/viz/scatter/selection/lasso');
-  const brushRef = vizRefs.ref('/viz/brush/selection/brush');
+  const brush2dRef = vizRefs.ref('/viz/scatter/selection/brush2d');
   const handleRef = vizRefs.ref('/data/rows');
 
   const actions = createVacpActions();
@@ -161,63 +147,35 @@ export function installVacpForReactDashboard(args: { globalKey: string; title?: 
     });
 
   actions
-    .action(
-      'dashboard.set_lasso',
-      'Set a lasso polygon in data space (x/y) and replace the selection with matching ids.',
-    )
-    .target(lassoRef)
+    .action('dashboard.set_brush_2d', 'Set a 2D rectangular brush in data space (x/y) and replace the selection.')
+    .target(brush2dRef)
     .params({
       type: 'object',
       properties: {
-        polygon: {
-          type: 'array',
-          items: {
-            type: 'object',
-            properties: { x: { type: 'number' }, y: { type: 'number' } },
-            required: ['x', 'y'],
-          },
-        },
+        x0: { type: 'number' },
+        x1: { type: 'number' },
+        y0: { type: 'number' },
+        y1: { type: 'number' },
       },
-      required: ['polygon'],
+      required: ['x0', 'x1', 'y0', 'y1'],
     })
-    .handle(async (params) => {
-      const poly = getPropArray(asRecord(params), 'polygon') ?? [];
-      const polygon: LassoPolygon = poly.flatMap((p): LassoPolygon => {
-        const pt = asRecord(p);
-        const x = getPropNumber(pt, 'x');
-        const y = getPropNumber(pt, 'y');
-        if (x === null || y === null) return [];
-        return [{ x, y }];
-      });
-      if (polygon.length < 3) throw new Error('Expected polygon with >= 3 (x,y) points');
-
-      await args.model.ensureDataset();
-      const dataset = args.model.getDataset();
-      if (!dataset) throw new Error('No dataset loaded');
-      const encoding = args.model.getEncoding();
-      const brush = args.model.getBrush();
-
-      const sorted = sortRowsByNumericKey(dataset.rows, encoding.x);
-      const brushed = applyBrush(sorted, brush);
-      const ids = brushed
-        .map((row) => {
-          const x = toFiniteNumber(row[encoding.x]);
-          const y = toFiniteNumber(row[encoding.y]);
-          if (x === null || y === null) return null;
-          return pointInPolygon({ x, y }, polygon) ? row.id : null;
-        })
-        .filter((x): x is string => typeof x === 'string');
-
-      args.model.applyLassoSelection(polygon, ids);
-      return { selectedCount: ids.length };
+    .handle((params) => {
+      const p = asRecord(params);
+      const x0 = Number(p?.x0);
+      const x1 = Number(p?.x1);
+      const y0 = Number(p?.y0);
+      const y1 = Number(p?.y1);
+      if (![x0, x1, y0, y1].every((v) => Number.isFinite(v))) throw new Error('Expected numeric x0/x1/y0/y1');
+      args.model.setBrush2d({ x0, x1, y0, y1 });
+      return { brush2d: args.model.getBrush2d(), selectedCount: args.model.getSelectedIds().length };
     });
 
   actions
-    .action('dashboard.clear_lasso', 'Clear the lasso polygon and clear the selection.')
-    .target(lassoRef)
+    .action('dashboard.clear_brush_2d', 'Clear the 2D brush and clear the selection.')
+    .target(brush2dRef)
     .params({ type: 'object', properties: {} })
     .handle(() => {
-      args.model.clearSelection();
+      args.model.clearBrush2d();
       return { ok: true };
     });
 
@@ -238,33 +196,6 @@ export function installVacpForReactDashboard(args: { globalKey: string; title?: 
     .params({ type: 'object', properties: {} })
     .handle(() => {
       args.model.clearSelection();
-      return { ok: true };
-    });
-
-  actions
-    .action('dashboard.set_brush', 'Set the x brush by start/end indices over rows sorted by the x encoding.')
-    .target(brushRef)
-    .params({
-      type: 'object',
-      properties: { startIndex: { type: 'integer' }, endIndex: { type: 'integer' } },
-      required: ['startIndex', 'endIndex'],
-    })
-    .handle((params) => {
-      const p = asRecord(params);
-      const startIndex = Number(p?.startIndex);
-      const endIndex = Number(p?.endIndex);
-      if (!Number.isFinite(startIndex) || !Number.isFinite(endIndex))
-        throw new Error('Expected integer startIndex/endIndex');
-      args.model.setBrush({ startIndex, endIndex });
-      return { brush: args.model.getBrush() };
-    });
-
-  actions
-    .action('dashboard.clear_brush', 'Clear the current brush filter.')
-    .target(brushRef)
-    .params({ type: 'object', properties: {} })
-    .handle(() => {
-      args.model.clearBrush();
       return { ok: true };
     });
 
@@ -309,77 +240,33 @@ export function installVacpForReactDashboard(args: { globalKey: string; title?: 
         }
       }
 
-      // Lasso polygon.
+      // 2D brush selection (applied last so it "wins" over selection ids).
       {
-        const rec = state[lassoRef as unknown as string];
-        if (rec !== undefined) {
-          const v = unwrapVacpValue(rec);
-          if (v === null) {
-            args.model.clearSelection();
-            applied += 1;
-          } else if (Array.isArray(v)) {
-            const polygon: LassoPolygon = v.flatMap((p): LassoPolygon => {
-              const pt = asRecord(p);
-              const x = getPropNumber(pt, 'x');
-              const y = getPropNumber(pt, 'y');
-              if (x === null || y === null) return [];
-              return [{ x, y }];
-            });
-            if (polygon.length >= 3) {
-              await args.model.ensureDataset();
-              const dataset = args.model.getDataset();
-              if (!dataset) return { applied };
-              const encoding = args.model.getEncoding();
-              const brush = args.model.getBrush();
-              const sorted = sortRowsByNumericKey(dataset.rows, encoding.x);
-              const brushed = applyBrush(sorted, brush);
-              const ids = brushed
-                .map((row) => {
-                  const x = toFiniteNumber(row[encoding.x]);
-                  const y = toFiniteNumber(row[encoding.y]);
-                  if (x === null || y === null) return null;
-                  return pointInPolygon({ x, y }, polygon) ? row.id : null;
-                })
-                .filter((x): x is string => typeof x === 'string');
-              args.model.applyLassoSelection(polygon, ids);
-              applied += 1;
-            }
-          }
-        }
-      }
-
-      // Brush range.
-      {
-        const rec = state[brushRef as unknown as string];
+        const rec = state[brush2dRef as unknown as string];
         if (rec !== undefined) {
           const raw = rec && typeof rec === 'object' ? (rec as Record<string, unknown>) : null;
           const obj =
             raw && raw.value && typeof raw.value === 'object' && !Array.isArray(raw.value)
               ? (raw.value as Record<string, unknown>)
               : raw;
-          const startRaw = obj ? obj.startIndex : undefined;
-          const endRaw = obj ? obj.endIndex : undefined;
+          const x0 = obj ? Number(obj.x0) : NaN;
+          const x1 = obj ? Number(obj.x1) : NaN;
+          const y0 = obj ? Number(obj.y0) : NaN;
+          const y1 = obj ? Number(obj.y1) : NaN;
 
-          if (startRaw === null || startRaw === undefined || endRaw === null || endRaw === undefined) {
-            args.model.clearBrush();
+          if (![x0, x1, y0, y1].every((v) => Number.isFinite(v))) {
+            args.model.clearBrush2d();
             applied += 1;
           } else {
-            const startIndex = Number(startRaw);
-            const endIndex = Number(endRaw);
-            if (!Number.isFinite(startIndex) || !Number.isFinite(endIndex)) {
-              args.model.clearBrush();
-              applied += 1;
-            } else {
-              args.model.setBrush({ startIndex, endIndex });
-              applied += 1;
-            }
+            args.model.setBrush2d({ x0, x1, y0, y1 });
+            applied += 1;
           }
         }
       }
 
       return { applied };
     },
-    { targetRef: vizRef, description: 'Apply dashboard state (dataset/encoding/selection/brush).' },
+    { targetRef: vizRef, description: 'Apply dashboard state (dataset/encoding/selection).' },
   );
 
   // DuckDB: one table for the active dataset + a temp table for effective ids.
@@ -451,11 +338,32 @@ export function installVacpForReactDashboard(args: { globalKey: string; title?: 
         description: 'Scatterplot view (recharts).',
       },
       {
-        ref: brushVizRef,
+        ref: distributionVizRef,
         kind: 'Visualization',
         layer: 'VisualizationLayer',
-        title: 'brush view',
-        description: 'Rank plot + brush view (recharts).',
+        title: 'distribution view',
+        description: 'Distribution view (PDF histograms for x/y).',
+      },
+      {
+        ref: distributionXVizRef,
+        kind: 'Visualization',
+        layer: 'VisualizationLayer',
+        title: 'distribution (x)',
+        description: 'PDF histogram for the x encoding.',
+      },
+      {
+        ref: distributionYVizRef,
+        kind: 'Visualization',
+        layer: 'VisualizationLayer',
+        title: 'distribution (y)',
+        description: 'PDF histogram for the y encoding.',
+      },
+      {
+        ref: tableVizRef,
+        kind: 'Visualization',
+        layer: 'VisualizationLayer',
+        title: 'table view',
+        description: 'Tabular view of rows (TanStack Table).',
       },
       {
         ref: scatterRef,
@@ -465,11 +373,25 @@ export function installVacpForReactDashboard(args: { globalKey: string; title?: 
         description: 'recharts scatterplot',
       },
       {
-        ref: rankPlotRef,
+        ref: distributionXRef,
         kind: 'Mark',
         layer: 'VisualizationLayer',
-        title: 'rank plot',
-        description: 'recharts rank plot of x (sorted) + brush.',
+        title: 'pdf (x)',
+        description: 'Estimated PDF for the x encoding.',
+      },
+      {
+        ref: distributionYRef,
+        kind: 'Mark',
+        layer: 'VisualizationLayer',
+        title: 'pdf (y)',
+        description: 'Estimated PDF for the y encoding.',
+      },
+      {
+        ref: tableRef,
+        kind: 'Mark',
+        layer: 'VisualizationLayer',
+        title: 'data table',
+        description: 'Rows rendered in a table.',
       },
       {
         ref: selectionRef,
@@ -479,18 +401,11 @@ export function installVacpForReactDashboard(args: { globalKey: string; title?: 
         description: 'Explicit point selection (by clicking points).',
       },
       {
-        ref: lassoRef,
+        ref: brush2dRef,
         kind: 'Selection',
         layer: 'InteractionFeedbackLayer',
-        title: 'lasso',
-        description: 'Lasso polygon selection (x/y data space).',
-      },
-      {
-        ref: brushRef,
-        kind: 'Selection',
-        layer: 'InteractionFeedbackLayer',
-        title: 'brush',
-        description: 'Index range over rows sorted by the current x encoding.',
+        title: 'brush 2d',
+        description: '2D rectangular brush selection (x/y data space).',
       },
       {
         ref: handleRef,
@@ -504,16 +419,19 @@ export function installVacpForReactDashboard(args: { globalKey: string; title?: 
     edges: [
       { from: viewRef, to: vizRef, kind: 'contains' },
       { from: vizRef, to: scatterVizRef, kind: 'contains' },
-      { from: vizRef, to: brushVizRef, kind: 'contains' },
+      { from: vizRef, to: distributionVizRef, kind: 'contains' },
+      { from: vizRef, to: tableVizRef, kind: 'contains' },
       { from: scatterVizRef, to: scatterRef, kind: 'contains' },
       { from: scatterVizRef, to: selectionRef, kind: 'contains' },
-      { from: scatterVizRef, to: lassoRef, kind: 'contains' },
-      { from: brushVizRef, to: rankPlotRef, kind: 'contains' },
-      { from: brushVizRef, to: brushRef, kind: 'contains' },
+      { from: scatterVizRef, to: brush2dRef, kind: 'contains' },
+      { from: distributionVizRef, to: distributionXVizRef, kind: 'contains' },
+      { from: distributionVizRef, to: distributionYVizRef, kind: 'contains' },
+      { from: distributionXVizRef, to: distributionXRef, kind: 'contains' },
+      { from: distributionYVizRef, to: distributionYRef, kind: 'contains' },
+      { from: tableVizRef, to: tableRef, kind: 'contains' },
       { from: vizRef, to: handleRef, kind: 'contains' },
       { from: selectionRef, to: handleRef, kind: 'controls' },
-      { from: lassoRef, to: handleRef, kind: 'controls' },
-      { from: brushRef, to: handleRef, kind: 'controls' },
+      { from: brush2dRef, to: handleRef, kind: 'controls' },
     ],
   };
 
@@ -526,18 +444,22 @@ export function installVacpForReactDashboard(args: { globalKey: string; title?: 
       const dataset = args.model.getDataset();
       const encoding = args.model.getEncoding();
       const selectedIds = args.model.getSelectedIds();
-      const brush = args.model.getBrush();
       const { ids, meaning } = getEffectiveSelectedIds(args.model);
+      const brush2d = args.model.getBrush2d();
       return {
         [scatterRef]: { kind: 'Mark', datasetId, x: encoding.x, y: encoding.y, color: encoding.color },
-        [rankPlotRef]: { kind: 'Mark', datasetId, x: encoding.x, y: encoding.x },
+        [distributionXRef]: { kind: 'Mark', datasetId, view: 'pdf', axis: 'x', field: encoding.x },
+        [distributionYRef]: { kind: 'Mark', datasetId, view: 'pdf', axis: 'y', field: encoding.y },
+        [tableRef]: { kind: 'Mark', datasetId },
         [selectionRef]: { kind: 'Selection', value: selectedIds },
-        [lassoRef]: { kind: 'Selection', x: encoding.x, y: encoding.y, value: args.model.getLassoPolygon() ?? null },
-        [brushRef]: {
+        [brush2dRef]: {
           kind: 'Selection',
           x: encoding.x,
-          startIndex: brush?.startIndex ?? null,
-          endIndex: brush?.endIndex ?? null,
+          y: encoding.y,
+          x0: brush2d?.x0 ?? null,
+          x1: brush2d?.x1 ?? null,
+          y0: brush2d?.y0 ?? null,
+          y1: brush2d?.y1 ?? null,
         },
         [handleRef]: {
           kind: 'DataHandle',
@@ -558,12 +480,16 @@ export function installVacpForReactDashboard(args: { globalKey: string; title?: 
       viewRef,
       vizRef,
       scatterVizRef,
-      brushVizRef,
+      distributionVizRef,
+      distributionXVizRef,
+      distributionYVizRef,
+      tableVizRef,
       scatterRef,
-      rankPlotRef,
+      distributionXRef,
+      distributionYRef,
+      tableRef,
       selectionRef,
-      lassoRef,
-      brushRef,
+      brush2dRef,
       handleRef,
     } as Record<string, VacpRef>,
   };

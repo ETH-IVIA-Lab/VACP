@@ -40,13 +40,11 @@ const vacp = installVacpForReactDashboard({
     setEncoding: (patch) => useDashboardStore.getState().actions.setEncoding(patch),
     getSelectedIds: () => useDashboardStore.getState().selectedIds,
     setSelectedIds: (ids) => useDashboardStore.getState().actions.setSelectedIds(ids),
-    applyLassoSelection: (polygon, ids) => useDashboardStore.getState().actions.applyLassoSelection(polygon, ids),
-    getLassoPolygon: () => useDashboardStore.getState().lasso,
     toggleSelectedId: (id) => useDashboardStore.getState().actions.toggleSelectedId(id),
     clearSelection: () => useDashboardStore.getState().actions.clearSelection(),
-    getBrush: () => useDashboardStore.getState().brush,
-    setBrush: (range) => useDashboardStore.getState().actions.setBrush(range),
-    clearBrush: () => useDashboardStore.getState().actions.clearBrush(),
+    getBrush2d: () => useDashboardStore.getState().brush2d,
+    setBrush2d: (brush) => useDashboardStore.getState().actions.setBrush2d(brush),
+    clearBrush2d: () => useDashboardStore.getState().actions.clearBrush2d(),
   },
 });
 

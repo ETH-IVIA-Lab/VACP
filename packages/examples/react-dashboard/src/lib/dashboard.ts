@@ -1,5 +1,4 @@
 import type { DatasetRow, Dataset } from '@/datasets/registry';
-import type { BrushRange } from '@/state/dashboard-store';
 
 export function toFiniteNumber(value: unknown): number | null {
   if (typeof value !== 'number') return null;
@@ -23,13 +22,6 @@ export function sortRowsByNumericKey(rows: DatasetRow[], key: string): DatasetRo
   }>;
   pairs.sort((a, b) => (a.v === b.v ? a.i - b.i : a.v - b.v));
   return pairs.map((p) => p.row);
-}
-
-export function applyBrush(sortedRows: DatasetRow[], brush: BrushRange): DatasetRow[] {
-  if (!brush) return sortedRows;
-  const start = Math.max(0, Math.min(sortedRows.length, brush.startIndex));
-  const end = Math.max(start, Math.min(sortedRows.length - 1, brush.endIndex));
-  return sortedRows.slice(start, end + 1);
 }
 
 export function intersectIds(a: string[], b: string[]): string[] {
