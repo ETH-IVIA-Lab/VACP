@@ -1,5 +1,5 @@
 import type { VacpWindowBridge } from '@vacp/core';
-import { VACP_SCHEMA_VERSION } from '@vacp/core';
+import { getVacpHyperParams, VACP_SCHEMA_VERSION } from '@vacp/core';
 
 import { defaultVacpDomSnapshotScriptId, removeVacpDomSnapshotScript, updateVacpDomSnapshotScript } from './dom-snapshot';
 
@@ -36,7 +36,8 @@ export function installVacpWindowBridge(bridge: VacpWindowBridge, options?: Vacp
   (globalThis as unknown as Record<string, unknown>)[key] = bridge;
 
   const scriptId = options?.domSnapshotScriptId ?? defaultVacpDomSnapshotScriptId(key);
-  if (options?.injectDomSnapshot === false) {
+  const domSnapshotEnabled = options?.injectDomSnapshot ?? getVacpHyperParams().domSnapshot;
+  if (!domSnapshotEnabled) {
     removeVacpDomSnapshotScript(scriptId);
   } else {
     void updateVacpDomSnapshotScript({

@@ -1,4 +1,4 @@
-import type { VacpPlaybook, VacpRuntimeBridge } from '@vacp/core';
+import { getVacpHyperParams, type VacpPlaybook, type VacpRuntimeBridge } from '@vacp/core';
 
 import { VacpActionRegistry } from '../action-registry';
 import type { VacpUpdatableRuntimeBridge } from './types';
@@ -85,7 +85,7 @@ export function installVacpRuntimeBridge(args: {
   domSnapshotScriptId?: string;
 }): VacpRuntimeBridge {
   const key = args.globalKey ?? '__vacp';
-  const domSnapshotEnabled = args.injectDomSnapshot !== false;
+  const domSnapshotEnabled = args.injectDomSnapshot ?? getVacpHyperParams().domSnapshot;
   const domSnapshotScriptId = args.domSnapshotScriptId ?? defaultVacpDomSnapshotScriptId(key);
   if (!domSnapshotEnabled) removeVacpDomSnapshotScript(domSnapshotScriptId);
   const root = globalThis as unknown as Record<string, unknown>;
