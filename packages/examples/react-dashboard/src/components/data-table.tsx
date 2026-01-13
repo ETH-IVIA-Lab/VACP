@@ -4,7 +4,8 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { getCoreRowModel, useReactTable, type ColumnDef } from '@tanstack/react-table';
 
 import { cn } from '@/lib/utils';
-import type { DatasetRow } from '@/datasets/registry';
+import type { Dataset, DatasetRow } from '@/datasets/registry';
+import { createDashboardColorAccessor } from '@/lib/color-encoding';
 
 type Row = DatasetRow;
 
@@ -63,6 +64,7 @@ function highlightClassForColumn(
 }
 
 export function DataTable({
+  dataset,
   columns,
   rows,
   selectedIds,
@@ -71,6 +73,7 @@ export function DataTable({
   rowHeight = 30,
   headerHeight = 34,
 }: {
+  dataset: Dataset;
   columns: string[];
   rows: Row[];
   selectedIds: string[];
@@ -83,6 +86,11 @@ export function DataTable({
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const [scrollTop, setScrollTop] = useState(0);
   const [viewportHeight, setViewportHeight] = useState(0);
+
+  const colorAccessor = useMemo(
+    () => createDashboardColorAccessor({ dataset, rows: dataset.rows, colorKey: encoding.color }),
+    [dataset, encoding.color],
+  );
 
   const tableColumns = useMemo<ColumnDef<Row, unknown>[]>(() => {
     const indexSize = 56;
@@ -182,6 +190,7 @@ export function DataTable({
 
   const headers = table.getFlatHeaders();
   const highlightKeys = { xKey: encoding.x, yKey: encoding.y, colorKey: encoding.color };
+  const dotColumnKey = encoding.color;
 
   return (
     <div className={cn('w-full min-w-0 rounded-lg border bg-background overflow-hidden')} style={{ height }}>
@@ -271,6 +280,8 @@ export function DataTable({
                           ? { text: String(row.index + 1), alignRight: true, muted: true }
                           : formatCellValue(value);
                         const text = f.text;
+                        const dotColor =
+                          dotColumnKey && !isIndex && cell.column.id === dotColumnKey ? colorAccessor(row.original) : null;
 
                         return (
                           <div
@@ -287,7 +298,17 @@ export function DataTable({
                             title={text}
                             onDoubleClick={() => void navigator.clipboard?.writeText(text)}
                           >
-                            <div className="truncate">{text}</div>
+                            <div className="flex min-w-0 items-center gap-2">
+                              <div className="min-w-0 truncate">{text}</div>
+                              {dotColor ? (
+                                <span
+                                  data-dashboard-color-dot="1"
+                                  aria-hidden="true"
+                                  className="h-2.5 w-2.5 shrink-0 rounded-full ring-1 ring-foreground/25"
+                                  style={{ backgroundColor: dotColor }}
+                                />
+                              ) : null}
+                            </div>
                           </div>
                         );
                       })}

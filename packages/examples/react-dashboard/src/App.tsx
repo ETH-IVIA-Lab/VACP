@@ -430,6 +430,7 @@ export default function App({ onInteraction }: Props) {
             <CardContent className="flex min-h-0 flex-1 p-4 pt-0">
               {dataset ? (
                 <DataTable
+                  dataset={dataset}
                   columns={allColumns}
                   rows={rowsForDetails}
                   selectedIds={selectedIds}
