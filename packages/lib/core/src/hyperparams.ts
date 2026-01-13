@@ -18,6 +18,15 @@ export type VacpHyperParams = Readonly<{
    * - default: true
    */
   domSnapshot: boolean;
+  /**
+   * Whether example apps should include "heavy" demo assets/specs (defaults to false).
+   *
+   * Sources (highest → lowest priority):
+   * - URL param: `?vacp-examples-heavy=0|1`
+   * - env var: `VACP_EXAMPLES_HEAVY=0|1`
+   * - default: false
+   */
+  examplesHeavy: boolean;
 }>;
 
 type BooleanSource = 'url' | 'env' | 'localStorage' | 'default';
@@ -42,6 +51,11 @@ const BOOL_SPECS: Record<keyof VacpHyperParams, BooleanSpec> = {
     default: true,
     urlKeys: ['vacp-dom-snapshot'],
     envKeys: ['VACP_DOM_SNAPSHOT'],
+  },
+  examplesHeavy: {
+    default: false,
+    urlKeys: ['vacp-examples-heavy'],
+    envKeys: ['VACP_EXAMPLES_HEAVY'],
   },
 };
 
@@ -175,6 +189,11 @@ export function resolveVacpHyperParams(ctx?: {
       storage: ctx?.storage,
     }).value,
     domSnapshot: resolveBoolean(BOOL_SPECS.domSnapshot, {
+      url: ctx?.url,
+      env: ctx?.env,
+      storage: ctx?.storage,
+    }).value,
+    examplesHeavy: resolveBoolean(BOOL_SPECS.examplesHeavy, {
       url: ctx?.url,
       env: ctx?.env,
       storage: ctx?.storage,
