@@ -24,7 +24,7 @@ installVacpOnVegaLiteView({
     appId: 'vacp-examples',
     viewId: 'vega-lite/linked-brush-summary',
     vizId: 'linked-brush-summary',
-    title: 'Cars: click → origin summary',
+    title: 'Cars: brush → origin summary (click to pin)',
   },
 });
 ```
