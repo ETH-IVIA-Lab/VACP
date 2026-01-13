@@ -14,7 +14,7 @@ From the repo root:
 
 - `uv sync`
 - Install Playwright browser: `uv run playwright install chromium`
-- `uv run vacp-mcp-server --url http://localhost:5173/`
+- `uv run vacp-mcp-server --url http://localhost:<vite-port>/`
 
 MCP endpoint defaults to `http://localhost:8000/mcp`.
 
@@ -44,7 +44,7 @@ You can attach to an already-running Chromium browser via CDP. This is useful if
 ```bash
 uv run vacp-mcp-server \
   --cdp-url http://localhost:9222 \
-  --reuse-page-url-contains localhost:5173
+  --reuse-page-url-contains localhost:<vite-port>
 ```
 
 If no existing tab matches, the server will open a new page and navigate to `--url`.
@@ -52,3 +52,4 @@ If no existing tab matches, the server will open a new page and navigate to `--u
 ## Useful flags
 
 - `--global-key __vacp`: choose the bridge global name (must match the app)
+- `--url http://localhost:<vite-port>/`: point at the running app you want to expose

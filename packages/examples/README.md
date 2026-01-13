@@ -30,6 +30,7 @@ All examples include the optional `@vacp/debug-ui` overlay:
 From the repo root:
 
 - Install: `pnpm install`
+- Build libs (examples depend on workspace `dist/`): `pnpm build`
 - Run (shortcut):
   - `pnpm dev:mosaic`
   - `pnpm dev:vega-lite`
@@ -37,3 +38,8 @@ From the repo root:
   - `pnpm dev:vanilla`
   - `pnpm dev:react-dashboard`
 - Run (direct): `pnpm -C packages/examples/<example> dev` (see folder names above)
+
+### Config knobs
+
+- Overlay: `VACP_DEBUG_UI=0|1` or `?vacp-debug=0|1` (also supports localStorage `vacp:debug=1`).
+- DOM snapshot injection: `VACP_DOM_SNAPSHOT=0|1` or `?vacp-dom-snapshot=0|1`.

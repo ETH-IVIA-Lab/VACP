@@ -148,6 +148,27 @@ These invariants are what make the protocol useful for mixed-initiative systems:
 - **Bidirectionality**: human input and agent calls produce compatible state snapshots.
 - **Transport-agnostic**: MCP, WebSocket, or any other wire can carry the same messages.
 
+### Discovery (optional DOM snapshot)
+
+Some agents/tools can only “see” the DOM. For that case, `@vacp/gateway` can also inject a pure-JSON snapshot into the
+page as a `<script type="application/json">` tag:
+
+- `id="__vacp_snapshot"`
+- text content contains `{ capabilities, state }`
+
+This is enabled by default and can be disabled via:
+
+- env: `VACP_DOM_SNAPSHOT=0`
+- URL: `?vacp-dom-snapshot=0`
+
+### Debug overlay (optional)
+
+The in-page overlay (`@vacp/debug-ui`) is intentionally opt-in:
+
+- env: `VACP_DEBUG_UI=1`
+- URL: `?vacp-debug=1`
+- localStorage: `vacp:debug=1`
+
 ### MCP mapping
 
 The Python `vacp-mcp-server` maps the bridge to MCP tools:

@@ -9,6 +9,11 @@ It is provider-agnostic: it only talks to `window.__vacp` (the runtime bridge in
 - set `VACP_DEBUG_UI=1`, or add `?vacp-debug=1` to the URL, or
 - set localStorage `vacp:debug=1`
 
+Notes:
+
+- `enabled: 'auto'` reads the same config sources as above.
+- If you use Vite and want `VACP_*` env vars to be readable in the browser, set `envPrefix: ['VITE_', 'VACP_']` in `vite.config.ts`.
+
 The overlay button (“VACP” pill) is draggable and snaps to nearby anchors (corners/edges/center). The tools panel opens
 next to the pill and stays within the viewport.
 

@@ -51,9 +51,23 @@ Enable the in-page overlay:
 - Click the “VACP” button to inspect the graph, timeline, playbooks, run DuckDB SQL, and dispatch actions manually
 - Use `JSON → Apply state to live app` (opt-in) to apply edited state maps during development
 
+## Configuration
+
+VACP has a few “hyper params” that can be set either via URL params (kebab-case) or env vars.
+
+- Debug overlay:
+  - URL: `?vacp-debug=1`
+  - env: `VACP_DEBUG_UI=1`
+  - localStorage: `vacp:debug=1`
+- DOM snapshot injection (for DOM-only agents): injects a JSON `<script id="__vacp_snapshot" type="application/json">…</script>`
+  - URL: `?vacp-dom-snapshot=0|1`
+  - env: `VACP_DOM_SNAPSHOT=0|1`
+
+Precedence: URL overrides env; env overrides localStorage (where supported); otherwise defaults apply.
+
 Run the MCP server:
 
-- Start an example (above), then in another terminal: `uv run vacp-mcp-server --url http://localhost:5173/`
+- Start an example (above), then in another terminal: `uv run vacp-mcp-server --url http://localhost:<vite-port>/`
 - The MCP endpoint defaults to `http://localhost:8000/mcp`
 
 For interactive development, it’s often nicer to attach to an existing Chrome via CDP:
@@ -87,6 +101,9 @@ VACP has two layers:
    - `@vacp/core`: types (graph, state snapshots, actions)
    - `@vacp/gateway`: runtime bridge + action registry + history (undo/time travel support)
    - `@vacp/kit`: tiny helpers for “bring-your-own-provider” integrations
+   - `@vacp/duckdb`: DuckDB helpers for the `vacp.data_sql` action
+   - `@vacp/diagrams`: graph → Mermaid source generation (used by the overlay)
+   - `@vacp/debug-ui`: optional in-page overlay (inspects `window.__vacp`)
 2. **Transport (optional)** — ways to reach the app from an agent:
    - `vacp-mcp-server`: exposes the protocol over MCP by driving a browser via Playwright
 

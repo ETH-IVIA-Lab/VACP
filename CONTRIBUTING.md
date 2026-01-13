@@ -7,8 +7,9 @@ Thanks for your interest in VACP. This repo is a small pnpm TypeScript workspace
 From the repo root:
 
 1. Install JS deps: `pnpm install`
-2. Install Python env: `uv sync`
-3. Install Playwright browsers:
+2. Build TS packages (workspace libs export `dist/`): `pnpm build`
+3. Install Python env: `uv sync`
+4. Install Playwright browsers:
    - JS tests: `pnpm exec playwright install chromium`
    - Python server: `uv run playwright install chromium`
 

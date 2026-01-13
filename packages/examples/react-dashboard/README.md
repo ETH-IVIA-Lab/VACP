@@ -9,7 +9,7 @@ Features:
 - Linked views:
   - Scatter plot (click to toggle; drag 2D brush to replace selection; drag brush to move)
   - Distribution (PDF) view (x/y side-by-side; click bars to select a bin)
-  - Data table view (TanStack Table; shows selection when present)
+  - Data table view (TanStack Table; shows selection when present; color encoding column includes a matching dot “legend”)
 - VACP bridge:
   - Semantic actions (`dashboard.*`) for dataset/encoding/selection and 2D brush (`dashboard.set_brush_2d`)
   - DuckDB-backed `DataHandle` via `vacp.data_sql` (`vacp_all` / `vacp_handle`)
