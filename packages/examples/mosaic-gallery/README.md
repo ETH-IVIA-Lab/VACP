@@ -35,7 +35,7 @@ pnpm -C packages/examples/mosaic-gallery dev
 
 Enable the debug overlay:
 
-- add `?vacpDebug=1` to the URL, then click the floating **VACP** button
+- set `VACP_DEBUG_UI=1` or add `?vacp-debug=1` to the URL, then click the floating **VACP** button
 
 ## How it works
 

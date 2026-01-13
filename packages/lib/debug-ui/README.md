@@ -6,7 +6,7 @@ It is provider-agnostic: it only talks to `window.__vacp` (the runtime bridge in
 
 ## Enable
 
-- add `?vacpDebug=1` to the URL, or
+- set `VACP_DEBUG_UI=1`, or add `?vacp-debug=1` to the URL, or
 - set localStorage `vacp:debug=1`
 
 The overlay button (“VACP” pill) is draggable and snaps to nearby anchors (corners/edges/center). The tools panel opens

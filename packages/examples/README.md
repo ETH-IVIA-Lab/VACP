@@ -18,7 +18,7 @@ Each example package has its own tutorial README:
 
 All examples include the optional `@vacp/debug-ui` overlay:
 
-- Enable: add `?vacpDebug=1` to the URL (or set localStorage `vacp:debug=1`)
+- Enable: set `VACP_DEBUG_UI=1` or add `?vacp-debug=1` to the URL (or set localStorage `vacp:debug=1`)
 - Click the “VACP” button to inspect:
   - **Graph** (Mermaid → SVG)
   - **Data** (query `vacp_all` / `vacp_handle` via DuckDB)

@@ -15,6 +15,6 @@ From the repo root:
 ## Try
 
 - Click points to toggle selection.
-- Open `?vacpDebug=1`, open the overlay, then go to **Data** (added by this repo) and run SQL like:
+- Enable the overlay (set `VACP_DEBUG_UI=1` or add `?vacp-debug=1`), then go to **Data** and run SQL like:
   - `SELECT COUNT(*) AS n FROM vacp_all`
   - `SELECT COUNT(*) AS n FROM vacp_handle`

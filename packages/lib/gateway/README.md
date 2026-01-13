@@ -23,4 +23,4 @@ The returned `window.__vacp` is what the MCP server and debug UI talk to.
 
 By default, `installVacpRuntimeBridge` also injects a `type="application/json"` `<script>` tag
 (`id="__vacp_snapshot"`) whose text content is pure JSON containing `{ capabilities, state }`.
-Disable via `injectDomSnapshot: false`.
+Disable via `injectDomSnapshot: false` (or set `VACP_DOM_SNAPSHOT=0` / `?vacp-dom-snapshot=0`).

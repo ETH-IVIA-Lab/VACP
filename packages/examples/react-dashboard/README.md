@@ -29,6 +29,6 @@ From the repo root:
 - Double-click a chart to clear selection.
 - Use the Distribution view to inspect PDFs; selection drives the subset.
 - Scroll the Data Table; selection drives the subset.
-- Open `?vacpDebug=1`, open the overlay, then run SQL like:
+- Enable the overlay (set `VACP_DEBUG_UI=1` or add `?vacp-debug=1`), then run SQL like:
   - `SELECT COUNT(*) AS n FROM vacp_all`
   - `SELECT COUNT(*) AS n FROM vacp_handle`

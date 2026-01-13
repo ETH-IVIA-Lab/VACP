@@ -47,7 +47,7 @@ Run an example app:
 
 Enable the in-page overlay:
 
-- Add `?vacpDebug=1` to the URL
+- Set `VACP_DEBUG_UI=1` when starting the dev server, or add `?vacp-debug=1` to the URL
 - Click the “VACP” button to inspect the graph, timeline, playbooks, run DuckDB SQL, and dispatch actions manually
 - Use `JSON → Apply state to live app` (opt-in) to apply edited state maps during development
 
@@ -69,7 +69,7 @@ For interactive development, it’s often nicer to attach to an existing Chrome 
 
 If you’re new to the repo, this is the fastest way to build a correct mental model:
 
-1. Run `packages/examples/mosaic-gallery` and open the overlay (`?vacpDebug=1`).
+1. Run `packages/examples/mosaic-gallery` and open the overlay (`?vacp-debug=1`).
 2. Use **both**:
    - human interaction (brush with the mouse), and
    - agent-like interaction (overlay **Playbook** → **Run all**).
