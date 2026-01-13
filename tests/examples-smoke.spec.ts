@@ -82,6 +82,14 @@ async function dataSql(page: Page, args: { handleRef: string; sql: string; maxRo
   );
 }
 
+async function executeVacp(page: Page, args: { name: string; params?: Record<string, unknown> }): Promise<any> {
+  return await page.evaluate(
+    async ({ name, params }) =>
+      await (globalThis as any).__vacp.execute({ callId: crypto.randomUUID(), name, params: params ?? {} }),
+    args,
+  );
+}
+
 async function waitForCapabilityRefContains(page: Page, needle: string, timeoutMs = 60_000): Promise<void> {
   const start = Date.now();
   while (true) {
@@ -360,6 +368,12 @@ test('examples: react-dashboard', async ({ page }) => {
   try {
     await page.goto(`${srv.url}?vacpDebug=1`, { waitUntil: 'domcontentloaded' });
     await expectBridge(page);
+
+    await executeVacp(page, { name: 'dashboard.set_dataset', params: { id: 'iris' } });
+    await executeVacp(page, {
+      name: 'dashboard.set_encoding',
+      params: { x: 'SepalLengthCm', y: 'PetalLengthCm', color: 'Species' },
+    });
 
     const caps = await getCapabilities(page);
     const graph = caps?.graph ?? {};
