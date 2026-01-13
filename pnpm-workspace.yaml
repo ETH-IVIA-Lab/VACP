@@ -1,3 +1,6 @@
 packages:
-  - 'packages/lib/*'
-  - 'packages/examples/*'
+  - packages/lib/*
+  - packages/examples/*
+
+onlyBuiltDependencies:
+  - '@parcel/watcher'
