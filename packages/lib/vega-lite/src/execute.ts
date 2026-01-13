@@ -78,8 +78,13 @@ function bestEffortSelectionTuple(args: {
   const values: unknown[] = [];
   for (const f of fields) {
     const rec = isRecord(f) ? f : null;
+    const channel = typeof rec?.channel === 'string' ? rec.channel : '';
+    const field = typeof rec?.field === 'string' ? rec.field : '';
     const key =
-      (typeof rec?.field === 'string' && rec.field) || (typeof rec?.channel === 'string' && rec.channel) || '';
+      (channel && Object.prototype.hasOwnProperty.call(selectionValue, channel) && channel) ||
+      (field && Object.prototype.hasOwnProperty.call(selectionValue, field) && field) ||
+      field ||
+      channel;
     values.push(key ? selectionValue[key] : undefined);
   }
 
@@ -90,9 +95,9 @@ function tupleFieldKeys(tupleFields: unknown): string[] {
   if (!Array.isArray(tupleFields)) return [];
   return tupleFields.map((f) => {
     const rec = isRecord(f) ? f : null;
-    const key =
-      (typeof rec?.field === 'string' && rec.field) || (typeof rec?.channel === 'string' && rec.channel) || '';
-    return key;
+    const channel = typeof rec?.channel === 'string' ? rec.channel : '';
+    const field = typeof rec?.field === 'string' ? rec.field : '';
+    return field || channel;
   });
 }
 
