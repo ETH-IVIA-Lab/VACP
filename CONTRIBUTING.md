@@ -7,7 +7,7 @@ Thanks for your interest in VACP. This repo is a small pnpm TypeScript workspace
 From the repo root:
 
 1. Install JS deps: `pnpm install`
-2. Build TS packages (workspace libs export `dist/`): `pnpm build`
+2. Build TS packages (workspace libs export `dist/`): `pnpm build` (also runs automatically on install via `postinstall`)
 3. Install Python env: `uv sync`
 4. Install Playwright browsers:
    - JS tests: `pnpm exec playwright install chromium`
@@ -23,5 +23,5 @@ From the repo root:
 
 ## Code style
 
-- TypeScript: formatted with Prettier; linted with Oxlint.
+- TypeScript: formatted with `oxfmt`; linted with Oxlint.
 - Python: formatted/linted with Ruff (`uv run ruff check .` in `packages/vacp-mcp-server/`).

@@ -1,0 +1,21 @@
+{
+  "$schema": "./node_modules/oxfmt/configuration_schema.json",
+  "semi": true,
+  "singleQuote": true,
+  "printWidth": 120,
+  "trailingComma": "all",
+  "ignorePatterns": [
+    "**/dist/**",
+    "**/build/**",
+    "**/.turbo/**",
+    "**/.vite/**",
+    "**/node_modules/**",
+    "**/.venv/**",
+    "**/__pycache__/**",
+    "**/*.lock",
+    "pnpm-lock.yaml",
+    "**/.pytest_cache/**",
+    "**/test-results/**",
+    "packages/examples/**/public/data/**"
+  ]
+}

@@ -2,9 +2,9 @@
   "name": "vacp",
   "private": true,
   "type": "module",
-  "packageManager": "pnpm@10.15.1",
   "scripts": {
     "build": "pnpm -r build",
+    "postinstall": "pnpm -r --filter @vacp/* build",
     "dev:mosaic": "pnpm --filter vacp-example-mosaic-gallery dev",
     "dev:vega-lite": "pnpm --filter vacp-example-vega-lite-gallery dev",
     "dev:d3-lasso": "pnpm --filter vacp-example-d3-scatter-lasso dev",
@@ -14,15 +14,17 @@
     "typecheck": "pnpm -r typecheck",
     "test:examples": "pnpm -r --filter @vacp/* build && pnpm exec playwright test",
     "test:server": "cd packages/vacp-mcp-server && uv run pytest",
-    "format": "prettier . --write",
-    "format:check": "prettier . --check"
+    "format": "oxfmt --config .oxfmtrc.json .",
+    "format:check": "oxfmt --config .oxfmtrc.json --check ."
   },
   "devDependencies": {
     "@playwright/test": "^1.57.0",
     "@types/node": "^24.10.6",
+    "concurrently": "^9.2.1",
+    "oxfmt": "^0.24.0",
     "oxlint": "^1.38.0",
-    "prettier": "^3.7.4",
     "tsup": "^8.5.1",
     "typescript": "^5.9.3"
-  }
+  },
+  "packageManager": "pnpm@10.15.1"
 }
