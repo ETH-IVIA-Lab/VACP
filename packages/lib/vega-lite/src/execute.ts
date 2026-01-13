@@ -86,6 +86,16 @@ function bestEffortSelectionTuple(args: {
   return { unit, fields, values };
 }
 
+function tupleFieldKeys(tupleFields: unknown): string[] {
+  if (!Array.isArray(tupleFields)) return [];
+  return tupleFields.map((f) => {
+    const rec = isRecord(f) ? f : null;
+    const key =
+      (typeof rec?.field === 'string' && rec.field) || (typeof rec?.channel === 'string' && rec.channel) || '';
+    return key;
+  });
+}
+
 export function buildParamLookup(spec: VegaLiteSpecLike, view: VegaViewLike) {
   const allSignals = signalNamesFromView(view);
   const paramByName = new Map<string, { param: VegaLiteParamLike; kind: 'Param' | 'Selection' }>();
@@ -154,19 +164,37 @@ export async function executeAction(
           tryGetSignalValueFromState(view, `${name}_tuple_fields`) ??
           (isRecord(existing?.[0]) ? (existing[0] as Record<string, unknown>).fields : undefined);
 
-        const tuple = bestEffortSelectionTuple({ selectionValue, tupleFields, unit });
-        if (!tuple) throw new Error('Could not build a selection tuple from params.value');
+        const values = Array.isArray(selectionValue) ? selectionValue : [selectionValue];
+        const keys = tupleFieldKeys(tupleFields);
 
-        // Some Vega-Lite builds omit the `unit` property entirely for global
-        // selections (single-view and some multi-view specs).
-        if (tuple.unit === undefined) delete (tuple as { unit?: unknown }).unit;
+        const tuples = values
+          .map((v) => {
+            if (isRecord(v)) return v;
+            if (keys.length === 1 && keys[0]) return { [keys[0]]: v };
+            return v;
+          })
+          .map((v) => {
+            const tuple = bestEffortSelectionTuple({ selectionValue: v, tupleFields, unit });
+            if (!tuple) return null;
 
+            // Some Vega-Lite builds omit the `unit` property entirely for global
+            // selections (single-view and some multi-view specs).
+            if (tuple.unit === undefined) delete (tuple as { unit?: unknown }).unit;
+
+            return tuple;
+          })
+          .filter((t): t is NonNullable<typeof t> => !!t);
+
+        if (!tuples.length) throw new Error('Could not build a selection tuple from params.value');
+
+        const cs = changeset().remove(() => true);
+        if (tuples.length) {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          cs.insert(tuples as any);
+        }
         view.change(
           storeName,
-          changeset()
-            .remove(() => true)
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            .insert([tuple as any]),
+          cs,
         );
         await view.runAsync();
         return { ok: true, method: 'store', value: tryGetSignal(view, name) };
