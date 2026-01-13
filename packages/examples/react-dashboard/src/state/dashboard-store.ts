@@ -4,7 +4,7 @@ import { loadDataset, type Dataset, type DatasetId, type Encoding } from '@/data
 import { toFiniteNumber } from '@/lib/dashboard';
 
 export type DashboardState = {
-  datasetId: DatasetId;
+  datasetId: DatasetId | null;
   dataset: Dataset | null;
   encoding: Encoding;
   selectedIds: string[];
@@ -13,7 +13,7 @@ export type DashboardState = {
   error: string | null;
   actions: {
     init: () => Promise<void>;
-    setDatasetId: (id: DatasetId) => Promise<void>;
+    setDatasetId: (id: DatasetId | null) => Promise<void>;
     setEncoding: (patch: Partial<Encoding>) => void;
     toggleSelectedId: (id: string) => void;
     setSelectedIds: (ids: string[]) => void;
@@ -23,39 +23,64 @@ export type DashboardState = {
   };
 };
 
-const DEFAULT_DATASET: DatasetId = 'iris';
-const DEFAULT_ENCODING: Encoding = { x: 'SepalLengthCm', y: 'PetalLengthCm', color: 'Species' };
+const EMPTY_ENCODING: Encoding = { x: null, y: null, color: null };
 
 let loadSeq = 0;
 
 export const useDashboardStore = create<DashboardState>((set, get) => ({
-  datasetId: DEFAULT_DATASET,
+  datasetId: null,
   dataset: null,
-  encoding: DEFAULT_ENCODING,
+  encoding: { ...EMPTY_ENCODING },
   selectedIds: [],
   brush2d: null,
   loading: false,
   error: null,
   actions: {
     init: async () => {
-      const { dataset } = get();
+      const { dataset, datasetId } = get();
       if (dataset) return;
-      await get().actions.setDatasetId(get().datasetId);
+      if (!datasetId) return;
+      await get().actions.setDatasetId(datasetId);
     },
     setDatasetId: async (id) => {
       const seq = ++loadSeq;
-      set({ datasetId: id, dataset: null, loading: true, error: null, selectedIds: [], brush2d: null });
+      if (!id) {
+        set({
+          datasetId: null,
+          dataset: null,
+          encoding: { ...EMPTY_ENCODING },
+          loading: false,
+          error: null,
+          selectedIds: [],
+          brush2d: null,
+        });
+        return;
+      }
+
+      set({
+        datasetId: id,
+        dataset: null,
+        encoding: { ...EMPTY_ENCODING },
+        loading: true,
+        error: null,
+        selectedIds: [],
+        brush2d: null,
+      });
       try {
         const dataset = await loadDataset(id);
         if (seq !== loadSeq) return;
-        set({ dataset, encoding: dataset.defaultEncoding, loading: false });
+        set({ dataset, loading: false });
       } catch (err) {
         if (seq !== loadSeq) return;
         set({ loading: false, error: err instanceof Error ? err.message : String(err) });
       }
     },
     setEncoding: (patch) => {
-      set((s) => ({ encoding: { ...s.encoding, ...patch } }));
+      const clearsBrush = patch.x !== undefined || patch.y !== undefined;
+      set((s) => ({
+        encoding: { ...s.encoding, ...patch },
+        ...(clearsBrush ? { brush2d: null } : {}),
+      }));
     },
     toggleSelectedId: (id) => {
       set((s) => {
@@ -89,6 +114,12 @@ export const useDashboardStore = create<DashboardState>((set, get) => ({
         set({ brush2d: { x0, x1, y0, y1 }, selectedIds: [] });
         return;
       }
+      const xKey = encoding.x;
+      const yKey = encoding.y;
+      if (!xKey || !yKey) {
+        set({ brush2d: null, selectedIds: [] });
+        return;
+      }
 
       const minX = Math.min(x0, x1);
       const maxX = Math.max(x0, x1);
@@ -97,8 +128,8 @@ export const useDashboardStore = create<DashboardState>((set, get) => ({
 
       const selectedIds = dataset.rows
         .flatMap((row) => {
-          const x = toFiniteNumber(row[encoding.x]);
-          const y = toFiniteNumber(row[encoding.y]);
+          const x = toFiniteNumber(row[xKey]);
+          const y = toFiniteNumber(row[yKey]);
           if (x === null || y === null) return [];
           if (x < minX || x > maxX) return [];
           if (y < minY || y > maxY) return [];

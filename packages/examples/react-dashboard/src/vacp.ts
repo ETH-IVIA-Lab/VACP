@@ -27,7 +27,7 @@ import { isDatasetId } from '@/datasets/registry';
 
 export type ReactDashboardModel = {
   ensureDataset: () => Promise<void>;
-  getDatasetId: () => DatasetId;
+  getDatasetId: () => DatasetId | null;
   getDataset: () => Dataset | null;
   setDatasetId: (id: DatasetId) => Promise<void>;
   getEncoding: () => Encoding;
@@ -215,8 +215,8 @@ export function installVacpForReactDashboard(args: { globalKey: string; title?: 
           }
 
           const patch: Partial<Encoding> = {};
-          if (typeof obj.x === 'string') patch.x = obj.x;
-          if (typeof obj.y === 'string') patch.y = obj.y;
+          if (obj.x === null || typeof obj.x === 'string') patch.x = obj.x as string | null;
+          if (obj.y === null || typeof obj.y === 'string') patch.y = obj.y as string | null;
           if (obj.color === null || typeof obj.color === 'string') patch.color = obj.color as string | null;
           if (Object.keys(patch).length) {
             args.model.setEncoding(patch);
@@ -279,6 +279,7 @@ export function installVacpForReactDashboard(args: { globalKey: string; title?: 
   const ensureDuckDbLoaded = async (): Promise<void> => {
     await args.model.ensureDataset();
     const datasetId = args.model.getDatasetId();
+    if (!datasetId) throw new Error('No dataset selected');
     const dataset = args.model.getDataset();
     if (!dataset) throw new Error('No dataset loaded');
     if (loadedDatasetId === datasetId) return;

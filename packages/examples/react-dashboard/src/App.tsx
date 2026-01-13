@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo } from 'react';
-import { RotateCcw } from 'lucide-react';
+import { Database, Loader2, RotateCcw, SlidersHorizontal, X } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -8,6 +8,7 @@ import { listDatasets, type DatasetId, type Encoding } from '@/datasets/registry
 import { ScatterView } from '@/components/charts/scatter-view';
 import { PdfDistributionView } from '@/components/charts/pdf-distribution-view';
 import { DataTable } from '@/components/data-table';
+import { PlaceholderPanel } from '@/components/placeholder-panel';
 import { getColumns, getNumericColumns } from '@/lib/dashboard';
 import { useDashboardStore } from '@/state/dashboard-store';
 
@@ -16,6 +17,7 @@ type Props = {
 };
 
 const datasetOptions = listDatasets();
+const chartPanelHeight = 'h-[340px] min-h-0 md:h-[380px]';
 
 export default function App({ onInteraction }: Props) {
   const { datasetId, dataset, encoding, selectedIds, brush2d, loading, error, actions } = useDashboardStore();
@@ -31,13 +33,13 @@ export default function App({ onInteraction }: Props) {
 
   useEffect(() => {
     if (!dataset) return;
-    if (!numericColumns.length) return;
 
     const patch: Partial<Encoding> = {};
-    if (!numericColumns.includes(encoding.x)) patch.x = numericColumns[0]!;
-    if (!numericColumns.includes(encoding.y)) patch.y = numericColumns[1] ?? numericColumns[0]!;
+    if (encoding.x && !numericColumns.includes(encoding.x)) patch.x = null;
+    if (encoding.y && !numericColumns.includes(encoding.y)) patch.y = null;
+    if (encoding.color && !allColumns.includes(encoding.color)) patch.color = null;
     if (Object.keys(patch).length) actions.setEncoding(patch);
-  }, [actions, dataset, encoding.x, encoding.y, numericColumns]);
+  }, [actions, allColumns, dataset, encoding.color, encoding.x, encoding.y, numericColumns]);
 
   const selectedSet = useMemo(() => new Set(selectedIds), [selectedIds]);
   const selectedRows = useMemo(
@@ -85,6 +87,15 @@ export default function App({ onInteraction }: Props) {
     onInteraction?.('clear selection');
   }, [actions, onInteraction]);
 
+  const isLoadingDataset = Boolean(datasetId && loading && !dataset);
+  const isMissingDataset = !dataset && !isLoadingDataset;
+
+  const onUseRecommendedEncoding = useCallback(() => {
+    if (!dataset) return;
+    actions.setEncoding(dataset.defaultEncoding);
+    onInteraction?.('set encoding: recommended defaults');
+  }, [actions, dataset, onInteraction]);
+
   return (
     <div className="h-screen overflow-hidden bg-muted/30">
       <div className="mx-auto flex h-full w-full max-w-[1800px] flex-col gap-4 p-4 lg:flex-row lg:gap-6 lg:p-6">
@@ -96,9 +107,26 @@ export default function App({ onInteraction }: Props) {
             </CardHeader>
             <CardContent className="flex flex-col gap-4">
               <div className="flex flex-col gap-2">
-                <div className="text-xs font-medium text-muted-foreground">Dataset</div>
-                <Select value={datasetId} onValueChange={(v) => onSetDataset(v as DatasetId)}>
-                  <SelectTrigger>
+                <div className="flex items-center justify-between gap-2">
+                  <div className="text-xs font-medium text-muted-foreground">Dataset</div>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7"
+                    onClick={() => {
+                      void actions.setDatasetId(null);
+                      onInteraction?.('clear dataset');
+                    }}
+                    disabled={!datasetId}
+                    aria-label="Clear dataset"
+                    title="Clear dataset"
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+                <Select value={datasetId ?? undefined} onValueChange={(v) => onSetDataset(v as DatasetId)}>
+                  <SelectTrigger className={!datasetId ? 'border-primary/40 ring-1 ring-primary/20' : undefined}>
                     <SelectValue placeholder="Select dataset" />
                   </SelectTrigger>
                   <SelectContent>
@@ -113,14 +141,35 @@ export default function App({ onInteraction }: Props) {
 
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-1">
                 <div className="flex flex-col gap-2">
-                  <div className="text-xs font-medium text-muted-foreground">X</div>
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="text-xs font-medium text-muted-foreground">X</div>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7"
+                      onClick={() => {
+                        actions.setEncoding({ x: null });
+                        onInteraction?.('clear x encoding');
+                      }}
+                      disabled={!encoding.x}
+                      aria-label="Clear x encoding"
+                      title="Clear x encoding"
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
                   <Select
-                    value={encoding.x}
+                    value={encoding.x ?? undefined}
                     onValueChange={(v) => onSetEncoding({ x: v })}
                     disabled={!numericColumns.length}
                   >
-                    <SelectTrigger>
-                      <SelectValue placeholder="x" />
+                    <SelectTrigger
+                      className={
+                        dataset && !loading && !encoding.x ? 'border-primary/40 ring-1 ring-primary/20' : undefined
+                      }
+                    >
+                      <SelectValue placeholder="Select x field" />
                     </SelectTrigger>
                     <SelectContent>
                       {numericColumns.map((k) => (
@@ -133,14 +182,35 @@ export default function App({ onInteraction }: Props) {
                 </div>
 
                 <div className="flex flex-col gap-2">
-                  <div className="text-xs font-medium text-muted-foreground">Y</div>
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="text-xs font-medium text-muted-foreground">Y</div>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7"
+                      onClick={() => {
+                        actions.setEncoding({ y: null });
+                        onInteraction?.('clear y encoding');
+                      }}
+                      disabled={!encoding.y}
+                      aria-label="Clear y encoding"
+                      title="Clear y encoding"
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
                   <Select
-                    value={encoding.y}
+                    value={encoding.y ?? undefined}
                     onValueChange={(v) => onSetEncoding({ y: v })}
                     disabled={!numericColumns.length}
                   >
-                    <SelectTrigger>
-                      <SelectValue placeholder="y" />
+                    <SelectTrigger
+                      className={
+                        dataset && !loading && !encoding.y ? 'border-primary/40 ring-1 ring-primary/20' : undefined
+                      }
+                    >
+                      <SelectValue placeholder="Select y field" />
                     </SelectTrigger>
                     <SelectContent>
                       {numericColumns.map((k) => (
@@ -228,12 +298,12 @@ export default function App({ onInteraction }: Props) {
                 </div>
               </CardHeader>
               <CardContent className="flex min-h-0 flex-1 flex-col">
-                {dataset ? (
-                  <div className="h-[340px] min-h-0 md:h-[380px]">
+                {dataset && encoding.x && encoding.y ? (
+                  <div className={chartPanelHeight}>
                     <ScatterView
                       dataset={dataset}
                       rows={dataset.rows}
-                      encoding={encoding}
+                      encoding={{ x: encoding.x, y: encoding.y, color: encoding.color }}
                       selectedIds={selectedIds}
                       brush2d={brush2d}
                       onToggleSelectedId={onToggleSelectedId}
@@ -242,7 +312,45 @@ export default function App({ onInteraction }: Props) {
                     />
                   </div>
                 ) : (
-                  <div className="text-sm text-muted-foreground">Pick a dataset to begin.</div>
+                  <div className={chartPanelHeight}>
+                    {isLoadingDataset ? (
+                      <PlaceholderPanel
+                        icon={<Loader2 className="h-5 w-5 animate-spin" />}
+                        title="Loading dataset…"
+                        description="Preparing rows and columns for the dashboard."
+                      />
+                    ) : isMissingDataset ? (
+                      <PlaceholderPanel
+                        icon={<Database className="h-5 w-5" />}
+                        title="Pick a dataset to begin"
+                        description="Choose a dataset in Controls to populate the charts and table."
+                        actions={datasetOptions.map((d) => (
+                          <Button
+                            key={d.id}
+                            type="button"
+                            variant="secondary"
+                            size="sm"
+                            onClick={() => onSetDataset(d.id)}
+                          >
+                            {d.title}
+                          </Button>
+                        ))}
+                      />
+                    ) : (
+                      <PlaceholderPanel
+                        icon={<SlidersHorizontal className="h-5 w-5" />}
+                        title="Pick X and Y fields"
+                        description="Select numeric fields in Controls to render the charts. Then click points to select, drag to brush-select, and double-click a chart to clear."
+                        actions={
+                          dataset ? (
+                            <Button type="button" variant="secondary" size="sm" onClick={onUseRecommendedEncoding}>
+                              Use recommended fields
+                            </Button>
+                          ) : null
+                        }
+                      />
+                    )}
+                  </div>
                 )}
               </CardContent>
             </Card>
@@ -253,15 +361,21 @@ export default function App({ onInteraction }: Props) {
                   <div className="flex flex-col space-y-1.5">
                     <CardTitle>Distribution (PDF)</CardTitle>
                     <CardDescription>
-                      PDF estimate for {encoding.x} and {encoding.y}.
-                      {selectedIds.length ? ' Uses the selected subset; clear selection to view all.' : ''}
+                      {encoding.x && encoding.y ? (
+                        <>
+                          PDF estimate for {encoding.x} and {encoding.y}.
+                          {selectedIds.length ? ' Uses the selected subset; clear selection to view all.' : ''}
+                        </>
+                      ) : (
+                        <>Pick X and Y fields to view distributions.</>
+                      )}
                     </CardDescription>
                   </div>
                 </div>
               </CardHeader>
               <CardContent className="flex min-h-0 flex-1 flex-col">
-                {dataset ? (
-                  <div className="h-[340px] min-h-0 md:h-[380px]">
+                {dataset && encoding.x && encoding.y ? (
+                  <div className={chartPanelHeight}>
                     <PdfDistributionView
                       rows={dataset.rows}
                       selectedIds={selectedIds}
@@ -275,7 +389,34 @@ export default function App({ onInteraction }: Props) {
                     />
                   </div>
                 ) : (
-                  <div className="text-sm text-muted-foreground">Pick a dataset to begin.</div>
+                  <div className={chartPanelHeight}>
+                    {isLoadingDataset ? (
+                      <PlaceholderPanel
+                        icon={<Loader2 className="h-5 w-5 animate-spin" />}
+                        title="Loading dataset…"
+                        description="Preparing rows and columns for the dashboard."
+                      />
+                    ) : isMissingDataset ? (
+                      <PlaceholderPanel
+                        icon={<Database className="h-5 w-5" />}
+                        title="Pick a dataset to begin"
+                        description="Choose a dataset in Controls to populate the charts and table."
+                      />
+                    ) : (
+                      <PlaceholderPanel
+                        icon={<SlidersHorizontal className="h-5 w-5" />}
+                        title="Pick X and Y fields"
+                        description="Select numeric fields in Controls to render the distributions. Click bars to filter; double-click a chart to clear."
+                        actions={
+                          dataset ? (
+                            <Button type="button" variant="secondary" size="sm" onClick={onUseRecommendedEncoding}>
+                              Use recommended fields
+                            </Button>
+                          ) : null
+                        }
+                      />
+                    )}
+                  </div>
                 )}
               </CardContent>
             </Card>
@@ -306,7 +447,12 @@ export default function App({ onInteraction }: Props) {
                   height="100%"
                 />
               ) : (
-                <div className="text-sm text-muted-foreground">Pick a dataset to begin.</div>
+                <PlaceholderPanel
+                  icon={<Database className="h-5 w-5" />}
+                  title="Pick a dataset to begin"
+                  description="Choose a dataset in Controls to explore rows in the table."
+                  className="h-full"
+                />
               )}
             </CardContent>
           </Card>

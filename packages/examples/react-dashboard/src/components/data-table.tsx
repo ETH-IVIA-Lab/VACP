@@ -47,13 +47,13 @@ function estimateValuePx(columnName: string, rows: Row[], sampleSize = 25): numb
 
 function highlightClassForColumn(
   col: string,
-  keys: { xKey: string; yKey: string; colorKey: string | null },
+  keys: { xKey: string | null; yKey: string | null; colorKey: string | null },
   isHeader: boolean,
 ): string {
   const { xKey, yKey, colorKey } = keys;
-  if (col === xKey)
+  if (xKey && col === xKey)
     return isHeader ? 'bg-[hsl(var(--dim-x)/0.18)] text-[hsl(var(--dim-x))]' : 'bg-[hsl(var(--dim-x)/0.08)]';
-  if (col === yKey)
+  if (yKey && col === yKey)
     return isHeader ? 'bg-[hsl(var(--dim-y)/0.18)] text-[hsl(var(--dim-y))]' : 'bg-[hsl(var(--dim-y)/0.08)]';
   if (colorKey && col === colorKey)
     return isHeader
@@ -74,7 +74,7 @@ export function DataTable({
   columns: string[];
   rows: Row[];
   selectedIds: string[];
-  encoding: { x: string; y: string; color: string | null };
+  encoding: { x: string | null; y: string | null; color: string | null };
   height?: string;
   rowHeight?: number;
   headerHeight?: number;

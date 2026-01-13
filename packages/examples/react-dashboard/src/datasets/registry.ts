@@ -11,8 +11,8 @@ export type DatasetColumn = {
 };
 
 export type Encoding = {
-  x: string;
-  y: string;
+  x: string | null;
+  y: string | null;
   color: string | null;
 };
 

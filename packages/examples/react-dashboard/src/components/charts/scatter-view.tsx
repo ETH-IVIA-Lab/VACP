@@ -1,13 +1,15 @@
 import { useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { CartesianGrid, ResponsiveContainer, Scatter, ScatterChart, Tooltip, XAxis, YAxis } from 'recharts';
 
-import type { Dataset, DatasetRow, Encoding } from '@/datasets/registry';
+import type { Dataset, DatasetRow } from '@/datasets/registry';
 import { toFiniteNumber } from '@/lib/dashboard';
+
+type ScatterEncoding = { x: string; y: string; color: string | null };
 
 type Props = {
   dataset: Dataset;
   rows: DatasetRow[];
-  encoding: Encoding;
+  encoding: ScatterEncoding;
   selectedIds: string[];
   brush2d: { x0: number; x1: number; y0: number; y1: number } | null;
   onToggleSelectedId: (id: string) => void;

@@ -13,8 +13,9 @@ async function ensureDataset(timeoutMs = 30_000): Promise<void> {
   const actions = useDashboardStore.getState().actions;
   await actions.init();
   while (true) {
-    const { dataset, error, loading } = useDashboardStore.getState();
+    const { dataset, datasetId, error, loading } = useDashboardStore.getState();
     if (dataset) return;
+    if (!datasetId) throw new Error('No dataset selected');
     if (error) throw new Error(error);
     if (!loading && Date.now() - start > timeoutMs) throw new Error('Timed out waiting for dataset to load');
     await new Promise((r) => setTimeout(r, 50));
