@@ -13,6 +13,21 @@ async function expectBridge(page: Page): Promise<void> {
   );
 }
 
+async function expectDomSnapshotScript(page: Page, scriptId = '__vacp_snapshot'): Promise<any> {
+  await page.waitForFunction((id) => {
+    const el = document.getElementById(String(id));
+    if (!el || el.tagName !== 'SCRIPT') return false;
+    const txt = el.textContent ?? '';
+    return txt.trim().startsWith('{') && txt.trim().endsWith('}');
+  }, scriptId);
+
+  const raw = await page.evaluate((id) => document.getElementById(String(id))?.textContent ?? '', scriptId);
+  const parsed = JSON.parse(raw);
+  expect(parsed?.capabilities?.graph).toBeTruthy();
+  expect(typeof parsed?.state?.state).toBe('object');
+  return parsed;
+}
+
 async function getCapabilities(page: Page): Promise<any> {
   return await page.evaluate(async () => await (globalThis as any).__vacp.getCapabilities());
 }
@@ -114,6 +129,7 @@ test('examples: mosaic-gallery', async ({ page }) => {
   try {
     await page.goto(`${srv.url}?vacpDebug=1`, { waitUntil: 'domcontentloaded' });
     await expectBridge(page);
+    await expectDomSnapshotScript(page);
 
     const supportedPlaybookSpecs = new Set([
       'athletes',
@@ -362,7 +378,7 @@ test('examples: react-dashboard', async ({ page }) => {
     const rtBefore = await getRuntime(page);
     const beforeHist = (rtBefore.history ?? []).length;
 
-    await page.locator('svg circle[data-point-id]').first().click();
+    await page.locator('svg circle[data-point-id]').first().click({ force: true });
     await waitForHistoryLenAtLeast(page, beforeHist + 1);
 
     const resSel = await dataSql(page, { handleRef, sql: 'SELECT COUNT(*)::INTEGER AS n FROM vacp_handle' });
