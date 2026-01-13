@@ -10,6 +10,9 @@ export const meta = {
 };
 
 export function createSpec(): VegaLiteSpecLike {
+  const pinnedOrNoPins =
+    '!originPick.origin || length(originPick.origin) === 0 || indexof(originPick.origin, datum.origin) >= 0';
+
   return {
     $schema: 'https://vega.github.io/schema/vega-lite/v6.json',
     data: { values: makeCarLikeData({ n: 520 }) },
@@ -41,8 +44,7 @@ export function createSpec(): VegaLiteSpecLike {
           size: { value: 56 },
           color: { condition: { param: 'brush', field: 'origin', type: 'nominal' }, value: '#cbd5e1' },
           opacity: { condition: { param: 'brush', value: 0.9 }, value: 0.25 },
-          stroke: { condition: { param: 'originPick', value: '#0f172a' }, value: 'transparent' },
-          strokeWidth: { condition: { param: 'originPick', value: 1.5 }, value: 0 },
+          fillOpacity: { condition: { test: pinnedOrNoPins, value: 1 }, value: 0.18 },
           tooltip: [
             { field: 'origin', type: 'nominal', title: 'Origin' },
             { field: 'horsepower', type: 'quantitative', title: 'HP' },
@@ -62,9 +64,7 @@ export function createSpec(): VegaLiteSpecLike {
           y: { field: 'origin', type: 'nominal', title: null },
           x: { aggregate: 'count', type: 'quantitative', title: 'Count (brushed)' },
           color: { field: 'origin', type: 'nominal', legend: null },
-          opacity: { value: 0.95 },
-          stroke: { condition: { param: 'originPick', value: '#0f172a' }, value: 'transparent' },
-          strokeWidth: { condition: { param: 'originPick', value: 2 }, value: 0 },
+          opacity: { condition: { test: pinnedOrNoPins, value: 0.95 }, value: 0.25 },
           tooltip: [
             { field: 'origin', type: 'nominal', title: 'Origin' },
             { aggregate: 'count', title: 'Count' },
