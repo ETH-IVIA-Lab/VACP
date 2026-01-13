@@ -1,18 +1,14 @@
 {
   "name": "vacp-example-d3-scatter-lasso",
-  "private": true,
   "version": "0.0.0",
+  "private": true,
   "type": "module",
   "scripts": {
-    "dev": "vite",
+    "dev": "pnpm -w --filter @vacp/debug-ui build && pnpm -w exec concurrently -k -n debug-ui,vite \"pnpm -w --filter @vacp/debug-ui dev:watch\" \"vite\"",
     "build": "vite build",
     "preview": "vite preview",
     "lint": "oxlint src",
     "typecheck": "tsc -p tsconfig.json --noEmit"
-  },
-  "devDependencies": {
-    "@types/d3": "^7.4.3",
-    "vite": "^7.3.1"
   },
   "dependencies": {
     "@vacp/core": "workspace:*",
@@ -20,5 +16,9 @@
     "@vacp/duckdb": "workspace:*",
     "@vacp/kit": "workspace:*",
     "d3": "^7.9.0"
+  },
+  "devDependencies": {
+    "@types/d3": "^7.4.3",
+    "vite": "^7.3.1"
   }
 }

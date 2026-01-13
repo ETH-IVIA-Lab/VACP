@@ -2,6 +2,9 @@
   "name": "@vacp/debug-ui",
   "version": "0.0.0",
   "private": true,
+  "files": [
+    "dist"
+  ],
   "type": "module",
   "exports": {
     ".": {
@@ -14,9 +17,17 @@
     },
     "./style.css": "./dist/style.css"
   },
-  "files": [
-    "dist"
-  ],
+  "scripts": {
+    "build": "rm -rf dist tsconfig.tsbuildinfo && tsc -b && tsc-alias -p tsconfig.json && pnpm run build:css",
+    "build:css": "pnpm exec tailwindcss -i src/style.css -o dist/style.css",
+    "dev": "pnpm run build && pnpm run dev:watch",
+    "dev:watch": "pnpm -w exec concurrently -k -n tsc,alias,css \"pnpm run dev:tsc\" \"pnpm run dev:alias\" \"pnpm run dev:css\"",
+    "dev:tsc": "tsc -b -w --preserveWatchOutput",
+    "dev:alias": "tsc-alias -p tsconfig.json -w",
+    "dev:css": "pnpm exec tailwindcss -i src/style.css -o dist/style.css --watch",
+    "lint": "oxlint src",
+    "typecheck": "tsc -b"
+  },
   "dependencies": {
     "@codemirror/autocomplete": "^6.20.0",
     "@codemirror/commands": "^6.10.1",
@@ -51,11 +62,5 @@
     "@types/react-dom": "^19.2.3",
     "tailwindcss": "^4.1.18",
     "tsc-alias": "^1.8.16"
-  },
-  "scripts": {
-    "build": "rm -rf dist tsconfig.tsbuildinfo && tsc -b && tsc-alias -p tsconfig.json && pnpm run build:css",
-    "build:css": "pnpm exec tailwindcss -i src/style.css -o dist/style.css",
-    "lint": "oxlint src",
-    "typecheck": "tsc -b"
   }
 }

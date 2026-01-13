@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
+const workspaceRoot = resolve(__dirname, '../../..');
 
 // https://vite.dev/config/
 export default defineConfig({
@@ -13,9 +14,11 @@ export default defineConfig({
   // multiple Vite dev servers run concurrently in Playwright.
   cacheDir: process.env.VACP_VITE_CACHE_DIR ?? 'node_modules/.vite-react-dashboard',
   plugins: [react(), tailwind()],
+  server: { fs: { allow: [workspaceRoot] } },
   resolve: {
     alias: {
       '@': resolve(__dirname, './src'),
     },
+    preserveSymlinks: true,
   },
 });

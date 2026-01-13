@@ -1,10 +1,10 @@
 {
   "name": "vacp-example-react-dashboard",
-  "private": true,
   "version": "0.0.0",
+  "private": true,
   "type": "module",
   "scripts": {
-    "dev": "vite",
+    "dev": "pnpm -w --filter @vacp/debug-ui build && pnpm -w exec concurrently -k -n debug-ui,vite \"pnpm -w --filter @vacp/debug-ui dev:watch\" \"vite\"",
     "build": "vite build",
     "preview": "vite preview",
     "lint": "oxlint src",
