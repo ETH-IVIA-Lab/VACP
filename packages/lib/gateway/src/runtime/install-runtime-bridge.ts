@@ -1,9 +1,61 @@
 import type { VacpPlaybook, VacpRuntimeBridge } from '@vacp/core';
 
 import { VacpActionRegistry } from '../action-registry';
+import type { VacpUpdatableRuntimeBridge } from './types';
 import { createRuntimeBridge } from './create-runtime-bridge';
 import type { VacpSnapshotProvider } from './types';
 import { isUpdatableRuntimeBridge } from './window-runtime-bridge';
+import {
+  defaultVacpDomSnapshotScriptId,
+  removeVacpDomSnapshotScript,
+  updateVacpDomSnapshotScript,
+  writeVacpDomSnapshotScript,
+  type VacpDomSnapshotSource,
+} from '../dom-snapshot';
+
+type DomSnapshotState = {
+  enabled: boolean;
+  scriptId: string;
+  source: VacpDomSnapshotSource;
+};
+
+function installDomSnapshotHooks(bridge: VacpRuntimeBridge, state: DomSnapshotState): void {
+  const b = bridge as VacpUpdatableRuntimeBridge & {
+    __vacpDomSnapshot?: DomSnapshotState;
+    __vacpDomSnapshotPatched?: boolean;
+  };
+
+  b.__vacpDomSnapshot = state;
+  if (b.__vacpDomSnapshotPatched) return;
+  b.__vacpDomSnapshotPatched = true;
+
+  const originalRefresh = b.refresh?.bind(b);
+  if (originalRefresh) {
+    b.refresh = async (options) => {
+      const st = await originalRefresh(options);
+      const s = b.__vacpDomSnapshot;
+      if (s?.enabled) {
+        try {
+          const cap = await s.source.getCapabilities();
+          writeVacpDomSnapshotScript({ scriptId: s.scriptId, capabilities: cap, state: st });
+        } catch {
+          // ignore
+        }
+      }
+      return st;
+    };
+  }
+
+  const originalExecute = b.execute?.bind(b);
+  if (originalExecute) {
+    b.execute = async (call) => {
+      const res = await originalExecute(call);
+      const s = b.__vacpDomSnapshot;
+      if (s?.enabled) void updateVacpDomSnapshotScript({ source: s.source, scriptId: s.scriptId });
+      return res;
+    };
+  }
+}
 
 /**
  * Install-or-update a runtime bridge at a given global key (default `__vacp`).
@@ -22,8 +74,20 @@ export function installVacpRuntimeBridge(args: {
   playbooks?: VacpPlaybook[];
   globalKey?: string;
   sessionKey?: string;
+  /**
+   * If true (default), inject a `type="application/json"` `<script>` tag whose
+   * contents are pure JSON containing `{ capabilities, state }`.
+   *
+   * This makes VACP discoverable to agents that only parse the DOM.
+   */
+  injectDomSnapshot?: boolean;
+  /** Optional override for the injected `<script>` element id. */
+  domSnapshotScriptId?: string;
 }): VacpRuntimeBridge {
   const key = args.globalKey ?? '__vacp';
+  const domSnapshotEnabled = args.injectDomSnapshot !== false;
+  const domSnapshotScriptId = args.domSnapshotScriptId ?? defaultVacpDomSnapshotScriptId(key);
+  if (!domSnapshotEnabled) removeVacpDomSnapshotScript(domSnapshotScriptId);
   const root = globalThis as unknown as Record<string, unknown>;
   const existing = root[key];
   if (isUpdatableRuntimeBridge(existing)) {
@@ -33,6 +97,12 @@ export function installVacpRuntimeBridge(args: {
       playbooks: args.playbooks,
       sessionKey: args.sessionKey,
     });
+    installDomSnapshotHooks(existing as VacpRuntimeBridge, {
+      enabled: domSnapshotEnabled,
+      scriptId: domSnapshotScriptId,
+      source: args.snapshots,
+    });
+    if (domSnapshotEnabled) void updateVacpDomSnapshotScript({ source: args.snapshots, scriptId: domSnapshotScriptId });
     return existing as VacpRuntimeBridge;
   }
   const bridge = createRuntimeBridge({
@@ -42,5 +112,7 @@ export function installVacpRuntimeBridge(args: {
     sessionKey: args.sessionKey,
   });
   root[key] = bridge;
+  installDomSnapshotHooks(bridge, { enabled: domSnapshotEnabled, scriptId: domSnapshotScriptId, source: args.snapshots });
+  if (domSnapshotEnabled) void updateVacpDomSnapshotScript({ source: args.snapshots, scriptId: domSnapshotScriptId });
   return bridge;
 }

@@ -1,6 +1,8 @@
 import type { VacpWindowBridge } from '@vacp/core';
 import { VACP_SCHEMA_VERSION } from '@vacp/core';
 
+import { defaultVacpDomSnapshotScriptId, removeVacpDomSnapshotScript, updateVacpDomSnapshotScript } from './dom-snapshot';
+
 export interface VacpWindowBridgeOptions {
   globalKey?: string;
   /**
@@ -10,6 +12,16 @@ export interface VacpWindowBridgeOptions {
    * Default is strict: version mismatches return `undefined`.
    */
   allowVersionMismatch?: boolean;
+
+  /**
+   * If true (default), inject a `type="application/json"` `<script>` tag whose
+   * contents are pure JSON containing `{ capabilities, state }`.
+   *
+   * This makes VACP discoverable to agents that only parse the DOM.
+   */
+  injectDomSnapshot?: boolean;
+  /** Optional override for the injected `<script>` element id. */
+  domSnapshotScriptId?: string;
 }
 
 /**
@@ -22,6 +34,16 @@ export interface VacpWindowBridgeOptions {
 export function installVacpWindowBridge(bridge: VacpWindowBridge, options?: VacpWindowBridgeOptions): void {
   const key = options?.globalKey ?? '__vacp';
   (globalThis as unknown as Record<string, unknown>)[key] = bridge;
+
+  const scriptId = options?.domSnapshotScriptId ?? defaultVacpDomSnapshotScriptId(key);
+  if (options?.injectDomSnapshot === false) {
+    removeVacpDomSnapshotScript(scriptId);
+  } else {
+    void updateVacpDomSnapshotScript({
+      source: bridge,
+      scriptId,
+    });
+  }
 }
 
 /**
