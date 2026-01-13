@@ -54,6 +54,12 @@ export function createVacpLayer(args: {
   getState: () => Record<VacpRef, unknown> | Promise<Record<VacpRef, unknown>>;
   getSummary?: () => Record<VacpRef, unknown> | Promise<Record<VacpRef, unknown> | undefined>;
   playbooks?: VacpPlaybook[];
+  /**
+   * If true (default), inject a `type="application/json"` `<script>` tag whose
+   * contents are pure JSON containing `{ capabilities, state }`.
+   */
+  injectDomSnapshot?: boolean;
+  domSnapshotScriptId?: string;
 }): {
   bridge: VacpRuntimeBridge;
   snapshots: VacpSnapshotProvider & { getGraph: () => VacpGraph };
@@ -71,6 +77,8 @@ export function createVacpLayer(args: {
     actions: args.actions,
     playbooks: args.playbooks,
     globalKey: args.globalKey,
+    injectDomSnapshot: args.injectDomSnapshot,
+    domSnapshotScriptId: args.domSnapshotScriptId,
   });
 
   const refresh = (source: 'human' | 'agent' | 'debug' | 'system', message: string) => {
