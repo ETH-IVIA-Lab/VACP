@@ -34,6 +34,13 @@ The upstream project is licensed under Apache-2.0. A copy of the upstream licens
 - `VERTEXAI_LOCATION`: GCP region/location (Vertex AI only).
 - `BROWSERBASE_API_KEY`: Browserbase API key (required for `--env browserbase`).
 - `BROWSERBASE_PROJECT_ID`: Browserbase project ID (required for `--env browserbase`).
+- `GEMINI_COMPUTER_USE_AUTO_CONFIRM`: If `true`/`1`, never prompt for safety confirmations.
+- `GEMINI_COMPUTER_USE_MAX_STEPS`: If set to a positive integer, stops after that many model steps (unset = unlimited).
+
+## Execution limits / full-auto mode
+
+- Full-auto (no safety prompt): pass `--auto_confirm` (or set `GEMINI_COMPUTER_USE_AUTO_CONFIRM=1`).
+- Step limit: pass `--max_steps 50` (or set `GEMINI_COMPUTER_USE_MAX_STEPS=50`); use `--max_steps 0` for unlimited.
 
 ## Known issues
 

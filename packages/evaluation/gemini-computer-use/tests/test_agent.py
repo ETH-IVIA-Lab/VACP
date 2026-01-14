@@ -19,6 +19,7 @@ def agent(monkeypatch: pytest.MonkeyPatch) -> BrowserAgent:
         query='test query',
         model_name='test_model',
         verbose=False,
+        auto_confirm_safety=False,
     )
     # Avoid any accidental network calls in tests.
     agent._client = MagicMock()
@@ -111,3 +112,66 @@ def test_run_one_iteration_with_function_call(agent: BrowserAgent) -> None:
     assert result == 'CONTINUE'
     mock_handle_action.assert_called_once_with(function_call)
     assert len(agent._contents) == 3
+
+
+def test_run_one_iteration_safety_auto_confirm(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv('GEMINI_API_KEY', 'test_api_key')
+
+    mock_browser_computer = MagicMock()
+    mock_browser_computer.screen_size.return_value = (1000, 1000)
+    agent = BrowserAgent(
+        browser_computer=mock_browser_computer,
+        query='test query',
+        model_name='test_model',
+        verbose=False,
+        auto_confirm_safety=True,
+    )
+    agent._client = MagicMock()
+
+    mock_response = MagicMock()
+    mock_candidate = MagicMock()
+    function_call = types.FunctionCall(
+        name='navigate',
+        args={
+            'url': 'https://example.com',
+            'safety_decision': {'decision': 'require_confirmation', 'explanation': 'test'},
+        },
+    )
+    mock_candidate.content.parts = [types.Part(function_call=function_call)]
+    mock_response.candidates = [mock_candidate]
+
+    mock_env_state = EnvState(screenshot=b'screenshot', url='https://example.com')
+
+    def fail_input(_: str) -> str:
+        raise AssertionError('input() should not be called when auto_confirm_safety=True')
+
+    monkeypatch.setattr('builtins.input', fail_input)
+
+    with (
+        patch.object(agent, 'get_model_response', return_value=mock_response),
+        patch.object(agent, 'handle_action', return_value=mock_env_state) as mock_handle_action,
+    ):
+        result = agent.run_one_iteration()
+
+    assert result == 'CONTINUE'
+    mock_handle_action.assert_called_once()
+
+
+def test_agent_loop_respects_max_steps(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv('GEMINI_API_KEY', 'test_api_key')
+
+    mock_browser_computer = MagicMock()
+    mock_browser_computer.screen_size.return_value = (1000, 1000)
+    agent = BrowserAgent(
+        browser_computer=mock_browser_computer,
+        query='test query',
+        model_name='test_model',
+        verbose=False,
+    )
+    agent._client = MagicMock()
+
+    with patch.object(agent, 'run_one_iteration', return_value='CONTINUE') as mock_run:
+        agent.agent_loop(max_steps=2)
+
+    assert mock_run.call_count == 2
+    assert agent.final_reasoning == 'Stopped after reaching max_steps=2.'

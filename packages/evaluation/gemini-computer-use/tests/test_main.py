@@ -39,7 +39,7 @@ def test_main_playwright(monkeypatch) -> None:
         highlight_mouse=True,
     )
     mock_browser_agent.assert_called_once()
-    mock_browser_agent.return_value.agent_loop.assert_called_once()
+    mock_browser_agent.return_value.agent_loop.assert_called_once_with(max_steps=None)
 
 
 def test_main_browserbase(monkeypatch) -> None:
@@ -74,7 +74,7 @@ def test_main_browserbase(monkeypatch) -> None:
         initial_url='test_url',
     )
     mock_browser_agent.assert_called_once()
-    mock_browser_agent.return_value.agent_loop.assert_called_once()
+    mock_browser_agent.return_value.agent_loop.assert_called_once_with(max_steps=None)
 
 
 def test_dotenv_only_gemini_api_key(monkeypatch, tmp_path) -> None:
