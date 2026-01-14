@@ -14,6 +14,7 @@
 
 from __future__ import annotations
 
+import logging
 import os
 import time
 from typing import Any, Literal
@@ -45,6 +46,7 @@ PREDEFINED_COMPUTER_USE_FUNCTIONS = [
 ]
 
 console = Console()
+logger = logging.getLogger(__name__)
 
 # Built-in Computer Use tools will return `EnvState`.
 # Custom provided functions will return `dict`.
@@ -64,11 +66,13 @@ class BrowserAgent:
         query: str,
         model_name: str,
         verbose: bool = True,
+        auto_confirm_safety: bool = False,
     ):
         self._browser_computer = browser_computer
         self._query = query
         self._model_name = model_name
         self._verbose = verbose
+        self._auto_confirm_safety = auto_confirm_safety
         self.final_reasoning: str | None = None
 
         self._client = genai.Client(
@@ -378,6 +382,22 @@ class BrowserAgent:
     def _get_safety_confirmation(self, safety: dict[str, Any]) -> Literal['CONTINUE', 'TERMINATE']:
         if safety['decision'] != 'require_confirmation':
             raise ValueError("Unknown safety decision: safety['decision']")
+
+        if self._auto_confirm_safety:
+            message = (
+                'Safety service requested confirmation, but auto-confirm is enabled; proceeding without prompting.'
+            )
+            logger.warning(message)
+            termcolor.cprint(
+                message,
+                color='yellow',
+                attrs=['bold'],
+            )
+            explanation = safety.get('explanation')
+            if explanation:
+                print(explanation)
+            return 'CONTINUE'
+
         termcolor.cprint(
             'Safety service requires explicit confirmation!',
             color='yellow',
@@ -391,10 +411,26 @@ class BrowserAgent:
             return 'TERMINATE'
         return 'CONTINUE'
 
-    def agent_loop(self) -> None:
+    def agent_loop(self, *, max_steps: int | None = None) -> None:
+        """Run the agent until completion or a step limit is hit.
+
+        `max_steps=None` means run indefinitely.
+        """
+
+        if max_steps is not None and max_steps < 1:
+            raise ValueError('max_steps must be >= 1, or None for unlimited')
+
         status: Literal['COMPLETE', 'CONTINUE'] = 'CONTINUE'
+        steps = 0
         while status == 'CONTINUE':
+            if max_steps is not None and steps >= max_steps:
+                message = f'Max steps reached ({max_steps}); stopping agent loop.'
+                logger.warning(message)
+                termcolor.cprint(message, color='yellow', attrs=['bold'])
+                self.final_reasoning = f'Stopped after reaching max_steps={max_steps}.'
+                return
             status = self.run_one_iteration()
+            steps += 1
 
     def denormalize_x(self, x: int) -> int:
         return int(x / 1000 * self._browser_computer.screen_size()[0])

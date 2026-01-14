@@ -96,6 +96,18 @@ def main() -> int:
         default='gemini-2.5-computer-use-preview-10-2025',
         help='Set which main model to use.',
     )
+    parser.add_argument(
+        '--auto_confirm',
+        action='store_true',
+        default=False,
+        help='If set, never prompt for safety confirmations; proceed automatically.',
+    )
+    parser.add_argument(
+        '--max_steps',
+        type=int,
+        default=None,
+        help='Maximum number of model steps before stopping. Set to 0 or negative to run indefinitely.',
+    )
     args = parser.parse_args()
 
     if args.env == 'playwright':
@@ -125,6 +137,21 @@ def main() -> int:
             browser_computer=browser_computer,
             query=args.query,
             model_name=args.model,
+            auto_confirm_safety=args.auto_confirm
+            or os.environ.get('GEMINI_COMPUTER_USE_AUTO_CONFIRM', '').lower() in ('true', '1'),
         )
-        agent.agent_loop()
+        max_steps = args.max_steps
+        if max_steps is not None and max_steps <= 0:
+            max_steps = None
+        elif max_steps is None:
+            env_max_steps = os.environ.get('GEMINI_COMPUTER_USE_MAX_STEPS')
+            if env_max_steps:
+                try:
+                    parsed = int(env_max_steps)
+                except ValueError:
+                    parser.error('Invalid GEMINI_COMPUTER_USE_MAX_STEPS: must be an integer.')
+                if parsed > 0:
+                    max_steps = parsed
+
+        agent.agent_loop(max_steps=max_steps)
     return 0
