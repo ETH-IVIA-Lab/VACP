@@ -45,6 +45,12 @@ From the repo root:
   - `http://127.0.0.1:5173/react-dashboard/`
 - Run (direct): `pnpm -C packages/examples/<example> dev` (see folder names above)
 
+### Why the “hub” exists
+
+The hub is intentionally “a bit more complex” than running a single Vite app, for one reason:
+
+- It provides a **stable, hostable URL namespace** for *all* examples (e.g. `/mosaic/`, `/vega-lite/`, …), which makes it easy to run automated **evaluation** against multiple demos via one base URL.
+
 ### Config knobs
 
 - Overlay: `VACP_DEBUG_UI=0|1` or `?vacp-debug=0|1` (also supports localStorage `vacp:debug=1`).

@@ -44,6 +44,7 @@ Run an example app:
 - `pnpm dev:d3-lasso`
 - `pnpm dev:vanilla`
 - `pnpm dev:react-dashboard`
+- `pnpm dev:examples` (examples hub: one base URL for hosting + evaluation routing)
 
 Enable the in-page overlay:
 
