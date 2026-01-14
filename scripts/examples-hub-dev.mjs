@@ -60,6 +60,57 @@ const examples = [
 
 const children = [];
 
+function ansi(style) {
+  if (!process.stdout.isTTY) return '';
+  const map = {
+    reset: '\x1b[0m',
+    bold: '\x1b[1m',
+    dim: '\x1b[2m',
+    underline: '\x1b[4m',
+    gray: '\x1b[90m',
+    blue: '\x1b[34m',
+    cyan: '\x1b[36m',
+  };
+  return map[style] ?? '';
+}
+
+function padRight(s, n) {
+  const str = String(s);
+  if (str.length >= n) return str;
+  return str + ' '.repeat(n - str.length);
+}
+
+function printBanner() {
+  const title = `${ansi('bold')}VACP Examples Hub${ansi('reset')}`;
+  const url = `${ansi('underline')}${ansi('cyan')}http://${host}:${hubPort}/${ansi('reset')}`;
+  const hint = `${ansi('dim')}Open this URL in your browser.${ansi('reset')}`;
+  const stop = `${ansi('dim')}Stop: Ctrl+C${ansi('reset')}`;
+
+  const lines = [
+    `${title}`,
+    '',
+    `Visit: ${url}`,
+    `${hint}`,
+    '',
+    `${ansi('bold')}Routes${ansi('reset')}:`,
+    ...examples.map((x) => `  ${ansi('blue')}/${x.route}/${ansi('reset')}  ${ansi('gray')}(port ${x.port})${ansi('reset')}`),
+    '',
+    `${stop}`,
+  ];
+
+  const contentWidth = Math.max(...lines.map((l) => l.replace(/\x1b\[[0-9;]*m/g, '').length));
+  const top = `╭${'─'.repeat(contentWidth + 2)}╮`;
+  const bot = `╰${'─'.repeat(contentWidth + 2)}╯`;
+  const body = lines
+    .map((l) => {
+      const visibleLen = l.replace(/\x1b\[[0-9;]*m/g, '').length;
+      return `│ ${l}${' '.repeat(contentWidth - visibleLen)} │`;
+    })
+    .join('\n');
+
+  process.stdout.write(`\n${top}\n${body}\n${bot}\n\n`);
+}
+
 function shutdown(code = 0) {
   for (const c of children) {
     if (!c || c.exitCode !== null) continue;
@@ -122,4 +173,4 @@ for (const c of children) {
   });
 }
 
-process.stdout.write(`\n[examples-hub] open: http://${host}:${hubPort}/\n\n`);
+printBanner();

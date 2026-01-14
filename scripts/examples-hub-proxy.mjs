@@ -50,7 +50,15 @@ function indexHtml() {
   const rows = examples
     .map((x) => {
       const href = `/${x.route}/`;
-      return `<li><a href="${href}">${x.route}</a> <span style="color:#666">(${x.title})</span></li>`;
+      return `
+        <a class="card" href="${href}">
+          <div class="card-left">
+            <div class="route">/${x.route}/</div>
+            <div class="subtitle">${x.title}</div>
+          </div>
+          <div class="pill">open</div>
+        </a>
+      `;
     })
     .join('\n');
   return `<!doctype html>
@@ -60,19 +68,132 @@ function indexHtml() {
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>VACP Examples Hub</title>
     <style>
-      body { font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial; margin: 24px; }
-      code { background: #f4f4f5; padding: 0 6px; border-radius: 6px; }
-      a { color: #2563eb; text-decoration: none; }
-      a:hover { text-decoration: underline; }
+      :root {
+        --bg: #f5f5f7;
+        --card: rgba(255, 255, 255, 0.76);
+        --border: rgba(0, 0, 0, 0.08);
+        --text: rgba(0, 0, 0, 0.92);
+        --muted: rgba(0, 0, 0, 0.56);
+        --shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+      }
+
+      html, body { height: 100%; }
+      body {
+        margin: 0;
+        color: var(--text);
+        background: radial-gradient(1200px 600px at 20% -10%, rgba(0, 122, 255, 0.12), transparent 55%),
+          radial-gradient(1200px 600px at 80% 0%, rgba(88, 86, 214, 0.10), transparent 55%),
+          var(--bg);
+        font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+      }
+
+      .wrap { max-width: 860px; margin: 0 auto; padding: 44px 22px 64px; }
+
+      .header { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; }
+      .title { margin: 0; font-weight: 650; letter-spacing: -0.02em; font-size: 28px; }
+      .sub { margin: 10px 0 0; color: var(--muted); line-height: 1.45; }
+
+      .meta {
+        text-align: right;
+        color: var(--muted);
+        font-size: 13px;
+        margin-top: 6px;
+        line-height: 1.4;
+      }
+      code {
+        background: rgba(0, 0, 0, 0.045);
+        padding: 2px 8px;
+        border-radius: 999px;
+        font-size: 12.5px;
+      }
+
+      .grid {
+        margin-top: 22px;
+        padding: 18px;
+        border: 1px solid var(--border);
+        border-radius: 18px;
+        background: var(--card);
+        box-shadow: var(--shadow);
+        backdrop-filter: blur(14px);
+        -webkit-backdrop-filter: blur(14px);
+      }
+
+      .cards { display: grid; grid-template-columns: 1fr; gap: 12px; }
+      @media (min-width: 720px) { .cards { grid-template-columns: 1fr 1fr; } }
+
+      .card {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 14px;
+        padding: 14px 14px 14px 16px;
+        border: 1px solid rgba(0,0,0,0.07);
+        border-radius: 14px;
+        background: rgba(255, 255, 255, 0.82);
+        text-decoration: none;
+        transition: transform 160ms ease, box-shadow 160ms ease, border-color 160ms ease;
+      }
+      .card:hover {
+        transform: translateY(-1px);
+        border-color: rgba(0,0,0,0.11);
+        box-shadow: 0 8px 22px rgba(0, 0, 0, 0.10);
+      }
+      .card:active { transform: translateY(0); }
+      .card:focus-visible { outline: 3px solid rgba(0, 122, 255, 0.35); outline-offset: 2px; }
+
+      .route { font-weight: 640; letter-spacing: -0.01em; color: var(--text); }
+      .subtitle { margin-top: 4px; font-size: 13px; color: var(--muted); }
+      .pill {
+        flex: 0 0 auto;
+        font-size: 12px;
+        color: rgba(0, 0, 0, 0.66);
+        background: rgba(0, 0, 0, 0.05);
+        border: 1px solid rgba(0,0,0,0.06);
+        padding: 6px 10px;
+        border-radius: 999px;
+      }
+
+      .footer {
+        margin-top: 16px;
+        color: var(--muted);
+        font-size: 13px;
+        display: flex;
+        justify-content: space-between;
+        gap: 10px;
+        flex-wrap: wrap;
+      }
+      .footer a { color: rgba(0, 0, 0, 0.74); text-decoration: none; border-bottom: 1px solid rgba(0,0,0,0.14); }
+      .footer a:hover { border-bottom-color: rgba(0,0,0,0.28); }
     </style>
   </head>
   <body>
-    <h1>VACP Examples Hub</h1>
-    <p>Routes (query params preserved):</p>
-    <ul>
-      ${rows}
-    </ul>
-    <p>Example dev ports start at <code>${basePort}</code>. Hub runs at <code>${hubPort}</code>.</p>
+    <div class="wrap">
+      <div class="header">
+        <div>
+          <h1 class="title">VACP Examples Hub</h1>
+          <p class="sub">
+            One base URL for all example apps. Routes preserve query params (e.g. <code>?vacp-debug=1</code>).
+          </p>
+        </div>
+        <div class="meta">
+          <div>Hub: <code>${host}:${hubPort}</code></div>
+          <div>Examples: <code>${host}:${basePort}+i</code></div>
+        </div>
+      </div>
+
+      <div class="grid">
+        <div class="cards">
+          ${rows}
+        </div>
+
+        <div class="footer">
+          <div>Tip: append <code>?vacp-debug=1</code> to enable the overlay.</div>
+          <div>Unknown route returns <code>404</code>.</div>
+        </div>
+      </div>
+    </div>
   </body>
 </html>`;
 }
