@@ -27,6 +27,7 @@ def test_main_playwright(monkeypatch) -> None:
 
     with (
         patch('gemini_computer_use.main._maybe_load_dotenv'),
+        patch('gemini_computer_use.main.init_tracing'),
         patch('gemini_computer_use.main.PlaywrightComputer', return_value=env) as mock_playwright_computer,
         patch('gemini_computer_use.main.BrowserAgent') as mock_browser_agent,
     ):
@@ -62,6 +63,7 @@ def test_main_browserbase(monkeypatch) -> None:
 
     with (
         patch('gemini_computer_use.main._maybe_load_dotenv'),
+        patch('gemini_computer_use.main.init_tracing'),
         patch('gemini_computer_use.main.BrowserbaseComputer', return_value=env) as mock_browserbase_computer,
         patch('gemini_computer_use.main.BrowserAgent') as mock_browser_agent,
     ):

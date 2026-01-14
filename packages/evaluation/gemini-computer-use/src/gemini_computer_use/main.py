@@ -20,6 +20,7 @@ from pathlib import Path
 
 from .agent import BrowserAgent
 from .computers import BrowserbaseComputer, PlaywrightComputer
+from .tracing import init_tracing
 
 PLAYWRIGHT_SCREEN_SIZE: tuple[int, int] = (1440, 900)
 
@@ -61,6 +62,7 @@ def _maybe_load_dotenv() -> None:
 
 def main() -> int:
     _maybe_load_dotenv()
+    init_tracing()
 
     parser = argparse.ArgumentParser(description='Run the browser agent with a query.')
     parser.add_argument(
