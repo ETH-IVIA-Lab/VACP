@@ -39,8 +39,8 @@ The upstream project is licensed under Apache-2.0. A copy of the upstream licens
 
 ## Execution limits / full-auto mode
 
-- Full-auto (no safety prompt): pass `--auto_confirm` (or set `GEMINI_COMPUTER_USE_AUTO_CONFIRM=1`).
-- Step limit: pass `--max_steps 50` (or set `GEMINI_COMPUTER_USE_MAX_STEPS=50`); use `--max_steps 0` for unlimited.
+- Full-auto (no safety prompt): pass `--auto-confirm` (or set `GEMINI_COMPUTER_USE_AUTO_CONFIRM=1`).
+- Step limit: pass `--max-steps 50` (or set `GEMINI_COMPUTER_USE_MAX_STEPS=50`); use `--max-steps 0` for unlimited.
 
 ## Known issues
 

@@ -80,12 +80,14 @@ def main() -> int:
         help='The computer use environment to use.',
     )
     parser.add_argument(
+        '--initial-url',
         '--initial_url',
         type=str,
         default='https://www.google.com',
         help='The inital URL loaded for the computer.',
     )
     parser.add_argument(
+        '--highlight-mouse',
         '--highlight_mouse',
         action='store_true',
         default=False,
@@ -97,12 +99,14 @@ def main() -> int:
         help='Set which main model to use.',
     )
     parser.add_argument(
+        '--auto-confirm',
         '--auto_confirm',
         action='store_true',
         default=False,
         help='If set, never prompt for safety confirmations; proceed automatically.',
     )
     parser.add_argument(
+        '--max-steps',
         '--max_steps',
         type=int,
         default=None,

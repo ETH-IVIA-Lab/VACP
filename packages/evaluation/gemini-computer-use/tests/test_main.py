@@ -16,8 +16,8 @@ def test_main_playwright(monkeypatch) -> None:
             'gemini-computer-use',
             '--query=test_query',
             '--env=playwright',
-            '--initial_url=test_url',
-            '--highlight_mouse',
+            '--initial-url=test_url',
+            '--highlight-mouse',
             '--model=test_model',
         ],
     )
@@ -53,7 +53,7 @@ def test_main_browserbase(monkeypatch) -> None:
             'gemini-computer-use',
             '--query=test_query',
             '--env=browserbase',
-            '--initial_url=test_url',
+            '--initial-url=test_url',
             '--model=test_model',
         ],
     )
