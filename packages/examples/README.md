@@ -37,6 +37,12 @@ From the repo root:
   - `pnpm dev:d3-lasso`
   - `pnpm dev:vanilla`
   - `pnpm dev:react-dashboard`
+- Run all (hub, one port): `pnpm dev:examples`
+  - `http://127.0.0.1:5173/mosaic/`
+  - `http://127.0.0.1:5173/vega-lite/`
+  - `http://127.0.0.1:5173/d3-lasso/`
+  - `http://127.0.0.1:5173/vanilla/`
+  - `http://127.0.0.1:5173/react-dashboard/`
 - Run (direct): `pnpm -C packages/examples/<example> dev` (see folder names above)
 
 ### Config knobs
