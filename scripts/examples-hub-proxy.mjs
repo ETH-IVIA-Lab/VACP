@@ -35,17 +35,14 @@ const proxy = httpProxy.createProxyServer({
 
 proxy.on('error', (err, _req, resOrSocket) => {
   if (!resOrSocket) return;
-  // HTTP response
   if (typeof resOrSocket.writeHead === 'function') {
     resOrSocket.writeHead(502, { 'content-type': 'text/plain; charset=utf-8' });
     resOrSocket.end(`examples-hub proxy error: ${err?.message ?? String(err)}\n`);
     return;
   }
-  // WebSocket socket
   try {
     resOrSocket.destroy();
   } catch {
-    // ignore
   }
 });
 
@@ -104,7 +101,6 @@ const server = http.createServer((req, res) => {
     return;
   }
 
-  // Enforce trailing slash for the route root so Vite base paths behave.
   if (pathname === `/${route}`) {
     url.pathname = `/${route}/`;
     res.writeHead(302, { location: url.toString() });

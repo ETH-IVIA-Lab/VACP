@@ -66,7 +66,6 @@ function shutdown(code = 0) {
     try {
       c.kill('SIGTERM');
     } catch {
-      // ignore
     }
   }
   setTimeout(() => {
@@ -75,7 +74,6 @@ function shutdown(code = 0) {
       try {
         c.kill('SIGKILL');
       } catch {
-        // ignore
       }
     }
     process.exit(code);
@@ -125,4 +123,3 @@ for (const c of children) {
 }
 
 process.stdout.write(`\n[examples-hub] open: http://${host}:${hubPort}/\n\n`);
-
