@@ -88,7 +88,7 @@ const config: ArenaConfig = {
   timeouts: { promptMs: 10 * 60_000 },
 
   // Rendered right before prompting, so it can include run folder etc.
-  // Available in `run`: `outDir`, `slug`, and (after session creation) `sessionID`.
+  // Available in `run`: `outDir`, `slug`. Available in `opencode`: `projectID`, `sessionID`.
   promptTemplate: ({ scenario, run }) =>
     [`URL: ${scenario.url}`, `Artifacts directory: ${run.outDir}`, ``, `Task: ${scenario.task}`].join('\\n'),
 

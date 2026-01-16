@@ -5,7 +5,10 @@ import { execSync } from 'node:child_process';
 const AGENT_BROWSER_HELP = execSync('npx -y agent-browser --help', { encoding: 'utf-8' }).trimStart().trimEnd();
 
 const EXAMPLES_HUB_BASE_URL = 'http://127.0.0.1:5173';
-const MODELS = [{ providerID: 'openai', modelID: 'gpt-5.2' }];
+const MODELS = [
+  { providerID: 'openai', modelID: 'gpt-5.2' },
+  { providerID: 'github-copilot', modelID: 'claude-sonnet-4.5' },
+];
 const SCENARIO_BASES = [
   {
     id: 'weather-jacket',
@@ -48,7 +51,7 @@ function buildBaselineJobs() {
             AGENT_BROWSER_HELP,
             '```',
             '',
-            `Start by executing \`agent-browser --session ${ctx.run.sessionID} open ${ctx.scenario.url}\` to open the application, and proceed from there.`,
+            `Start by executing \`agent-browser --session ${ctx.opencode.sessionID} open ${ctx.scenario.url}\` to open the application, and proceed from there.`,
           ].join('\n'),
       });
     }
