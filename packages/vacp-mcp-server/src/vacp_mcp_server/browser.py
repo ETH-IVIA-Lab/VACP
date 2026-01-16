@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from contextlib import suppress
 from dataclasses import dataclass
+from typing import Any
 
 from playwright.async_api import Browser, Page, Playwright, async_playwright
 
@@ -113,7 +114,7 @@ class BrowserManager:
 
         return None
 
-    def _context_kwargs(self) -> dict[str, object]:
+    def _context_kwargs(self) -> dict[str, Any]:
         """
         Compute Playwright `browser.new_context(...)` kwargs.
 

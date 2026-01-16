@@ -16,4 +16,3 @@ def test_context_kwargs_headless_uses_playwright_defaults_by_default() -> None:
 def test_context_kwargs_headless_uses_screen_hint_as_viewport() -> None:
     mgr = BrowserManager(BrowserConfig(headless=True, screen_width=1600, screen_height=900))
     assert mgr._context_kwargs() == {'viewport': {'width': 1600, 'height': 900}}
-
