@@ -23,6 +23,9 @@ __pycache__/
 .artifacts/
 test-results/
 
+# agent-arena runs
+.agent-arena/
+
 # OS / editor
 .DS_Store
 .vscode/
