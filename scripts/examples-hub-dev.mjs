@@ -3,6 +3,17 @@ import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
 
+function waitForExit(child, name) {
+  return new Promise((resolvePromise, reject) => {
+    child.on('error', reject);
+    child.on('exit', (code, signal) => {
+      if (code === 0) return resolvePromise();
+      const suffix = signal ? ` (signal ${signal})` : '';
+      reject(new Error(`${name} exited with code ${code ?? 'null'}${suffix}`));
+    });
+  });
+}
+
 function parsePort(value, fallback) {
   const n = Number.parseInt(String(value ?? ''), 10);
   return Number.isFinite(n) ? n : fallback;
@@ -134,11 +145,28 @@ function shutdown(code = 0) {
 process.on('SIGINT', () => shutdown(0));
 process.on('SIGTERM', () => shutdown(0));
 
+// Ensure @vacp/debug-ui has a complete dist/ (JS + CSS) before any example
+// tries to import it. Otherwise Vite can fail while dist/ is being rebuilt.
+{
+  const build = spawnNamed('debug-ui:build', 'pnpm', ['--filter', '@vacp/debug-ui', 'build'], {
+    cwd: repoRoot,
+    env: { ...process.env, BROWSER: 'none' },
+  });
+  children.push(build);
+  try {
+    await waitForExit(build, 'debug-ui:build');
+  } catch (err) {
+    process.stderr.write(`[hub] Failed to build @vacp/debug-ui: ${err instanceof Error ? err.message : String(err)}\n`);
+    process.exit(1);
+  }
+}
+
 children.push(
   spawnNamed('hub', 'node', [resolve(repoRoot, 'scripts', 'examples-hub-proxy.mjs')], {
     cwd: repoRoot,
     env: {
       ...process.env,
+      NODE_OPTIONS: `${process.env.NODE_OPTIONS ?? ''} --no-deprecation`.trim(),
       VACP_EXAMPLES_HOST: host,
       VACP_EXAMPLES_HUB_PORT: String(hubPort),
       VACP_EXAMPLES_BASE_PORT: String(basePort),
@@ -147,7 +175,7 @@ children.push(
 );
 
 children.push(
-  spawnNamed('debug-ui', 'pnpm', ['--filter', '@vacp/debug-ui', 'dev'], {
+  spawnNamed('debug-ui', 'pnpm', ['--filter', '@vacp/debug-ui', 'dev:watch'], {
     cwd: repoRoot,
     env: { ...process.env, BROWSER: 'none' },
   }),
