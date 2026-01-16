@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import asyncio
 import sys
 from contextlib import asynccontextmanager
 
@@ -27,8 +28,34 @@ def log(msg: str) -> None:
     print(msg, file=sys.stderr)
 
 
-def parse_args() -> argparse.Namespace:
+def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     p = argparse.ArgumentParser(description='VACP MCP Server (bridge-only)')
+    p.add_argument(
+        '--transport',
+        type=str,
+        choices=['http', 'stdio'],
+        default='http',
+        help='MCP transport mode: http (ASGI at /mcp) or stdio (stdin/stdout).',
+    )
+    p.add_argument(
+        '--stdio',
+        action='store_const',
+        dest='transport',
+        const='stdio',
+        help='Alias for --transport stdio.',
+    )
+    p.add_argument(
+        '--show-banner',
+        action='store_true',
+        default=False,
+        help='Show the FastMCP banner (stderr). Useful for debugging.',
+    )
+    p.add_argument(
+        '--mcp-log-level',
+        type=str,
+        default=None,
+        help='Optional log level override for FastMCP (stdio mode).',
+    )
     p.add_argument('--url', type=str, default='http://localhost:5173/', help='URL to open')
     p.add_argument('--host', type=str, default='0.0.0.0')
     p.add_argument('--port', type=int, default=8000)
@@ -85,7 +112,20 @@ def parse_args() -> argparse.Namespace:
         help='If using --cdp-url, attempt to close the remote browser on exit (usually disconnects only).',
     )
     p.add_argument('--global-key', type=str, default='__vacp', help='Global key for window bridge (default: __vacp)')
-    return p.parse_args()
+    return p.parse_args(argv)
+
+
+async def _run_stdio(*, browser: BrowserManager, global_key: str, show_banner: bool, mcp_log_level: str | None) -> None:
+    await browser.start()
+    info = await browser.get_page_info()
+    log(f'Browser ready: {info}')
+
+    client = PlaywrightVacpBridgeClient(browser.page, global_key=global_key)
+    mcp = create_mcp(client)
+    try:
+        await mcp.run_stdio_async(show_banner=show_banner, log_level=mcp_log_level)
+    finally:
+        await browser.stop()
 
 
 def main() -> None:
@@ -107,6 +147,17 @@ def main() -> None:
         reuse_page_url_contains=args.reuse_page_url_contains,
     )
     browser = BrowserManager(config)
+
+    if args.transport == 'stdio':
+        asyncio.run(
+            _run_stdio(
+                browser=browser,
+                global_key=args.global_key,
+                show_banner=bool(args.show_banner),
+                mcp_log_level=args.mcp_log_level,
+            )
+        )
+        return
 
     mcp_app = None
 
