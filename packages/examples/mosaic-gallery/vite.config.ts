@@ -23,5 +23,12 @@ export default defineConfig({
   // Isolate optimize-deps cache per example to avoid cross-test interference when
   // multiple Vite dev servers run concurrently in Playwright.
   cacheDir: process.env.VACP_VITE_CACHE_DIR ?? 'node_modules/.vite-mosaic-gallery',
-  server: { fs: { allow: [workspaceRoot] }, ...(hmr ? { hmr } : {}) },
+  server: {
+    fs: { allow: [workspaceRoot] },
+    headers: {
+      'Cross-Origin-Opener-Policy': 'same-origin',
+      'Cross-Origin-Embedder-Policy': 'require-corp',
+    },
+    ...(hmr ? { hmr } : {}),
+  },
 });

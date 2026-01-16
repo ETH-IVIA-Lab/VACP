@@ -49,7 +49,7 @@ From the repo root:
 
 The hub is intentionally “a bit more complex” than running a single Vite app, for one reason:
 
-- It provides a **stable, hostable URL namespace** for *all* examples (e.g. `/mosaic/`, `/vega-lite/`, …), which makes it easy to run automated **evaluation** against multiple demos via one base URL.
+- It provides a **stable, hostable URL namespace** for _all_ examples (e.g. `/mosaic/`, `/vega-lite/`, …), which makes it easy to run automated **evaluation** against multiple demos via one base URL.
 
 ### Config knobs
 

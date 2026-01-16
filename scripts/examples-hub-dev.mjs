@@ -93,7 +93,9 @@ function printBanner() {
     `${hint}`,
     '',
     `${ansi('bold')}Routes${ansi('reset')}:`,
-    ...examples.map((x) => `  ${ansi('blue')}/${x.route}/${ansi('reset')}  ${ansi('gray')}(port ${x.port})${ansi('reset')}`),
+    ...examples.map(
+      (x) => `  ${ansi('blue')}/${x.route}/${ansi('reset')}  ${ansi('gray')}(port ${x.port})${ansi('reset')}`,
+    ),
     '',
     `${stop}`,
   ];
@@ -116,16 +118,14 @@ function shutdown(code = 0) {
     if (!c || c.exitCode !== null) continue;
     try {
       c.kill('SIGTERM');
-    } catch {
-    }
+    } catch {}
   }
   setTimeout(() => {
     for (const c of children) {
       if (!c || c.exitCode !== null) continue;
       try {
         c.kill('SIGKILL');
-      } catch {
-      }
+      } catch {}
     }
     process.exit(code);
   }, 7_000).unref();
@@ -135,33 +135,36 @@ process.on('SIGINT', () => shutdown(0));
 process.on('SIGTERM', () => shutdown(0));
 
 children.push(
-  spawnNamed(
-    'hub',
-    'node',
-    [resolve(repoRoot, 'scripts', 'examples-hub-proxy.mjs')],
-    { cwd: repoRoot, env: { ...process.env, VACP_EXAMPLES_HOST: host, VACP_EXAMPLES_HUB_PORT: String(hubPort), VACP_EXAMPLES_BASE_PORT: String(basePort) } },
-  ),
+  spawnNamed('hub', 'node', [resolve(repoRoot, 'scripts', 'examples-hub-proxy.mjs')], {
+    cwd: repoRoot,
+    env: {
+      ...process.env,
+      VACP_EXAMPLES_HOST: host,
+      VACP_EXAMPLES_HUB_PORT: String(hubPort),
+      VACP_EXAMPLES_BASE_PORT: String(basePort),
+    },
+  }),
 );
 
-children.push(spawnNamed('debug-ui', 'pnpm', ['--filter', '@vacp/debug-ui', 'dev'], { cwd: repoRoot, env: { ...process.env, BROWSER: 'none' } }));
+children.push(
+  spawnNamed('debug-ui', 'pnpm', ['--filter', '@vacp/debug-ui', 'dev'], {
+    cwd: repoRoot,
+    env: { ...process.env, BROWSER: 'none' },
+  }),
+);
 
 for (const ex of examples) {
   const base = normalizeBasePath(`/${ex.route}/`);
   children.push(
-    spawnNamed(
-      ex.route,
-      'pnpm',
-      ['dev', '--host', host, '--port', String(ex.port), '--strictPort'],
-      {
-        cwd: ex.dir,
-        env: {
-          ...process.env,
-          BROWSER: 'none',
-          VACP_BASE_PATH: base,
-          VACP_VITE_CACHE_DIR: `node_modules/.vite-hub-${ex.route}-${ex.port}`,
-        },
+    spawnNamed(ex.route, 'pnpm', ['dev', '--host', host, '--port', String(ex.port), '--strictPort'], {
+      cwd: ex.dir,
+      env: {
+        ...process.env,
+        BROWSER: 'none',
+        VACP_BASE_PATH: base,
+        VACP_VITE_CACHE_DIR: `node_modules/.vite-hub-${ex.route}-${ex.port}`,
       },
-    ),
+    }),
   );
 }
 

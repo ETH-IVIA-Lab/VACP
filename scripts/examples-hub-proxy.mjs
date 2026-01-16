@@ -42,8 +42,7 @@ proxy.on('error', (err, _req, resOrSocket) => {
   }
   try {
     resOrSocket.destroy();
-  } catch {
-  }
+  } catch {}
 });
 
 function indexHtml() {
