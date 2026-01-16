@@ -14,9 +14,22 @@ From the repo root:
 
 - `uv sync`
 - Install Playwright browser: `uv run playwright install chromium`
-- `uv run vacp-mcp-server --url http://localhost:<vite-port>/`
+- HTTP mode (default): `uv run vacp-mcp-server --url http://localhost:<vite-port>/`
 
 MCP endpoint defaults to `http://localhost:8000/mcp`.
+
+### Stdio MCP mode
+
+Some MCP hosts (e.g. desktop apps) expect MCP servers to speak over stdin/stdout.
+
+Run:
+
+- `uv run vacp-mcp-server --transport stdio --url http://localhost:<vite-port>/`
+
+Notes:
+
+- In stdio mode, `--host/--port` are ignored (there is no HTTP server).
+- Keep stdout clean; all logs go to stderr.
 
 ## MCP tools
 
