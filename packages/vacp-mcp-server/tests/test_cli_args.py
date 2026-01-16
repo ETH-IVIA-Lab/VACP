@@ -26,3 +26,7 @@ def test_parse_args_stdio_banner_and_log_level() -> None:
     assert args.show_banner is True
     assert args.mcp_log_level == 'debug'
 
+
+def test_parse_args_headless() -> None:
+    args = parse_args(['--headless'])
+    assert args.headless is True
