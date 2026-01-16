@@ -19,7 +19,7 @@ actions.register({ name: 'app.ping', description: 'Ping', parameters: {} }, asyn
 installVacpRuntimeBridge({ snapshots: { getCapabilities, getState }, actions });
 ```
 
-The returned `window.__vacp` is what the MCP server and debug UI talk to.
+By default this exposes a bridge at `window.__vacp` (disable via `VACP_EXPOSE_BRIDGE=0` / `?expose-bridge=0`).
 
 By default, `installVacpRuntimeBridge` also injects a `type="application/json"` `<script>` tag
 (`id="__vacp_snapshot"`) whose text content is pure JSON containing `{ capabilities, state }`.

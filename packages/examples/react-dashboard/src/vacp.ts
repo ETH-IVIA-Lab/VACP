@@ -2,7 +2,7 @@
  * VACP integration layer.
  *
  * This module adds an agent-facing contract on top of the React dashboard:
- * - capabilities/state snapshots (`window.__vacp`)
+ * - capabilities/state snapshots (`window.__vacp`, unless `?expose-bridge=0`)
  * - semantic actions (dataset/encoding/selection)
  * - DuckDB access via the standard `vacp.data_sql` action
  *

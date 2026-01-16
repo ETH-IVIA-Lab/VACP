@@ -31,6 +31,7 @@ The resolver lives in this package:
 Currently supported:
 
 - `debugUi`: show/hide the in-page overlay (`VACP_DEBUG_UI`, `vacp-debug`, localStorage `vacp:debug`)
+- `exposeBridge`: expose/remove the JS bridge at `window.__vacp` (`VACP_EXPOSE_BRIDGE`, `expose-bridge`)
 - `domSnapshot`: inject/remove the JSON DOM snapshot `<script>` (`VACP_DOM_SNAPSHOT`, `vacp-dom-snapshot`)
 
 ### Bundler note

@@ -60,6 +60,9 @@ VACP has a few “hyper params” that can be set either via URL params (kebab-c
   - URL: `?vacp-debug=1`
   - env: `VACP_DEBUG_UI=1`
   - localStorage: `vacp:debug=1`
+- JS bridge exposure (controls whether `window.__vacp` exists at all):
+  - URL: `?expose-bridge=0|1`
+  - env: `VACP_EXPOSE_BRIDGE=0|1`
 - DOM snapshot injection (for DOM-only agents): injects a JSON `<script id="__vacp_snapshot" type="application/json">…</script>`
   - URL: `?vacp-dom-snapshot=0|1`
   - env: `VACP_DOM_SNAPSHOT=0|1`

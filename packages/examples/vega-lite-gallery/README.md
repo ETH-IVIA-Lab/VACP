@@ -2,7 +2,8 @@
 
 VACP + Vega-Lite params.
 
-This example turns Vega-Lite charts into an **agent-ready** app by exposing Vega-Lite `params` through a VACP bridge at `window.__vacp`.
+This example turns Vega-Lite charts into an **agent-ready** app by exposing Vega-Lite `params` through a VACP bridge at
+`window.__vacp` (unless `?expose-bridge=0`).
 
 It’s a good starting point if you care about:
 
@@ -27,7 +28,7 @@ Enable the debug overlay:
 1. The app picks a spec from `src/specs/*.ts`.
 2. `vega-embed` renders it to **canvas** and returns a Vega View.
 3. `@vacp/vega-lite` installs VACP:
-   - **Bridge**: installs/updates `window.__vacp` (capabilities/state/execute)
+   - **Bridge**: installs/updates `window.__vacp` (capabilities/state/execute, unless `?expose-bridge=0`)
    - **Graph**: creates nodes for:
      - `Param` (a named Vega-Lite parameter)
      - `Selection` (selection-valued parameters)

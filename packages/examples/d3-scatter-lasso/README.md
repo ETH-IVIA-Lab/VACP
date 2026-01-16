@@ -7,7 +7,7 @@ This example is intentionally “boring tech”:
 - no framework (just TypeScript + Vite)
 - plain D3 rendering
 
-…and still fully agent-ready via a VACP bridge at `window.__vacp`.
+…and still fully agent-ready via a VACP bridge at `window.__vacp` (unless `?expose-bridge=0`).
 
 It’s meant to show that VACP is **not tied to Mosaic or Vega-Lite**. If you can describe your UI as a graph + actions + state, you can make it controllable.
 
@@ -34,7 +34,7 @@ Enable the debug overlay:
      - `vanilla.set_lasso_polygon` (set polygon in domain coordinates)
      - `vanilla.clear_lasso`
      - `vacp.apply_state` (dev-only “apply this state map” helper)
-   - installs/updates `window.__vacp` using `@vacp/gateway`
+   - installs/updates `window.__vacp` using `@vacp/gateway` (unless `?expose-bridge=0`)
 
 ## Things to try
 

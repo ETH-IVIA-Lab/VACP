@@ -2,7 +2,8 @@
 
 VACP + vgplot (Mosaic runtime).
 
-This example turns a Mosaic/vgplot dashboard into an **agent-ready** app by installing a VACP bridge at `window.__vacp`.
+This example turns a Mosaic/vgplot dashboard into an **agent-ready** app by installing a VACP bridge at `window.__vacp`
+(unless `?expose-bridge=0`).
 
 It’s a good starting point if you care about:
 
@@ -42,7 +43,7 @@ Enable the debug overlay:
 1. The app loads a YAML spec from `src/specs/*.yaml`.
 2. Mosaic renders it into DOM/SVG (via `@uwdata/mosaic-spec` + `@uwdata/vgplot`).
 3. `@vacp/vgplot` installs VACP:
-   - **Bridge**: installs/updates `window.__vacp` (capabilities/state/execute)
+   - **Bridge**: installs/updates `window.__vacp` (capabilities/state/execute, unless `?expose-bridge=0`)
    - **Actions**: registers semantic operations like `mosaic.set_interval_1d`, `mosaic.clear_interval_2d`, etc.
    - **DuckDB SQL**: enables `vacp.data_sql` so agents can query the current selection
 

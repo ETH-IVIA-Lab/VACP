@@ -2,7 +2,7 @@
  * VACP integration layer.
  *
  * This file adds an agent-facing contract on top of the vanilla scatterplot:
- * - capabilities/state snapshots (`window.__vacp`)
+ * - capabilities/state snapshots (`window.__vacp`, unless `?expose-bridge=0`)
  * - semantic actions (toggle/clear/apply_state)
  * - DuckDB access via the standard `vacp.data_sql` action
  */
@@ -44,7 +44,7 @@ export async function installVacpForVanillaScatter(args: {
   let tableMeta: Awaited<ReturnType<typeof getDuckDbTableMetadata>> | null = null;
 
   // DuckDB is the single, uniform "data access" mechanism in this repo.
-  // Initialize it lazily so the bridge (`window.__vacp`) becomes available immediately
+  // Initialize it lazily so the bridge (`window.__vacp`) becomes available immediately (unless `?expose-bridge=0`)
   // even if the WASM bundle takes time to load.
   const duckdb = (async () => {
     const db = await createDuckDbWasmClient({ log: false });

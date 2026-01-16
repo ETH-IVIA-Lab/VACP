@@ -54,4 +54,5 @@ The hub is intentionally “a bit more complex” than running a single Vite app
 ### Config knobs
 
 - Overlay: `VACP_DEBUG_UI=0|1` or `?vacp-debug=0|1` (also supports localStorage `vacp:debug=1`).
+- Bridge exposure (controls whether `window.__vacp` exists at all): `VACP_EXPOSE_BRIDGE=0|1` or `?expose-bridge=0|1`.
 - DOM snapshot injection: `VACP_DOM_SNAPSHOT=0|1` or `?vacp-dom-snapshot=0|1`.
