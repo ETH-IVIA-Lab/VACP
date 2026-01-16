@@ -66,3 +66,5 @@ If no existing tab matches, the server will open a new page and navigate to `--u
 
 - `--global-key __vacp`: choose the bridge global name (must match the app)
 - `--url http://localhost:<vite-port>/`: point at the running app you want to expose
+- `--headless`: run the embedded browser in headless mode (useful for CI/servers)
+- `--screen-width/--screen-height`: in headless mode, also sets the Playwright viewport
