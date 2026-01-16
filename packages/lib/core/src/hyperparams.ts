@@ -10,6 +10,18 @@ export type VacpHyperParams = Readonly<{
    */
   debugUi: boolean;
   /**
+   * Whether to expose the in-page JS bridge on `window` (defaults to true).
+   *
+   * When disabled, VACP integrations should avoid installing `window.__vacp`
+   * entirely (and remove it if already present).
+   *
+   * Sources (highest → lowest priority):
+   * - URL param: `?expose-bridge=0|1` (also accepts `?exposeBridge=0|1`)
+   * - env var: `VACP_EXPOSE_BRIDGE=0|1`
+   * - default: true
+   */
+  exposeBridge: boolean;
+  /**
    * Whether to inject a JSON DOM snapshot `<script>` tag (defaults to true).
    *
    * Sources (highest → lowest priority):
@@ -46,6 +58,11 @@ const BOOL_SPECS: Record<keyof VacpHyperParams, BooleanSpec> = {
     urlKeys: ['vacp-debug'],
     envKeys: ['VACP_DEBUG_UI'],
     localStorageKey: 'vacp:debug',
+  },
+  exposeBridge: {
+    default: true,
+    urlKeys: ['expose-bridge', 'vacp-expose-bridge'],
+    envKeys: ['VACP_EXPOSE_BRIDGE'],
   },
   domSnapshot: {
     default: true,
@@ -184,6 +201,11 @@ export function resolveVacpHyperParams(ctx?: {
 }): VacpHyperParams {
   const resolved = {
     debugUi: resolveBoolean(BOOL_SPECS.debugUi, {
+      url: ctx?.url,
+      env: ctx?.env,
+      storage: ctx?.storage,
+    }).value,
+    exposeBridge: resolveBoolean(BOOL_SPECS.exposeBridge, {
       url: ctx?.url,
       env: ctx?.env,
       storage: ctx?.storage,
