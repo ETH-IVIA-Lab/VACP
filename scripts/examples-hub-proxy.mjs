@@ -231,6 +231,17 @@ const server = http.createServer((req, res) => {
   proxy.web(req, res, { target: target.targetOrigin });
 });
 
+// Defensive: avoid crashing the hub on aborted connections / broken pipes.
+server.on('clientError', (_err, socket) => {
+  try {
+    socket.destroy();
+  } catch {}
+});
+
+server.on('connection', (socket) => {
+  socket.on('error', () => {});
+});
+
 server.on('upgrade', (req, socket, head) => {
   try {
     const url = new URL(req.url ?? '/', `http://${req.headers.host ?? `${host}:${hubPort}`}`);
