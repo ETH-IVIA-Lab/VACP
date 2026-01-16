@@ -46,11 +46,6 @@ export type PromptContext = {
      * Useful for artifact naming and analysis joins.
      */
     slug: string;
-
-    /**
-     * OpenCode session ID created for this run (available after session creation).
-     */
-    sessionID?: string;
   };
 
   /**
@@ -66,6 +61,11 @@ export type PromptContext = {
      * Current OpenCode project ID, if available.
      */
     projectID?: string;
+
+    /**
+     * OpenCode session ID created for this run (available after session creation).
+     */
+    sessionID?: string;
   };
 
   /**

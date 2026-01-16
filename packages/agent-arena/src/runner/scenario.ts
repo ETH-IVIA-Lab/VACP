@@ -44,7 +44,7 @@ export async function runScenario(args: {
 
     const ctxWithSession = {
       ...baseCtx,
-      run: { ...baseCtx.run, sessionID: created.id },
+      opencode: { ...baseCtx.opencode, sessionID: created.id },
     } as const;
 
     // If a title template wants to incorporate runtime values (like the session ID),
@@ -79,6 +79,9 @@ export async function runScenario(args: {
       run: {
         outDir: promptOutDir,
         slug,
+      },
+      opencode: {
+        projectID: args.projectID,
         sessionID: created.id,
       },
       title,
