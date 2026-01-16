@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta http-equiv="X-UA-Compatible" content="IE=edge" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>VACP Example - D3 Lasso Scatter</title>
+    <title>Scatterplot with lasso selection</title>
     <style>
       * {
         font-family:
@@ -80,19 +80,14 @@
     </style>
   </head>
   <body>
-    <h2>VACP Example: Frameworkless D3 scatter + lasso</h2>
-    <p class="muted">
-      This is a vanilla (no framework) visualization that still exposes a VACP bridge at <code>window.__vacp</code>.
-      Lasso with the mouse; then compare with the programmatic action dispatch.
-    </p>
+    <h2>Scatterplot with lasso selection</h2>
+    <p class="muted">Draw a freeform lasso to select points, then use “Clear lasso” to start over.</p>
 
     <div class="card" style="margin-bottom: 16px">
       <div class="muted" style="margin-bottom: 8px">What to try</div>
       <ul class="muted">
-        <li>
-          Draw a lasso polygon with the mouse (human interaction) and watch <strong>Selected</strong> and state update.
-        </li>
-        <li>Inspect <code>window.__vacp</code> in DevTools to see the current graph, actions, and snapshots.</li>
+        <li>Draw a lasso polygon with the mouse and watch the selection count update.</li>
+        <li>Try selecting different clusters and clearing in between.</li>
       </ul>
     </div>
 

@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta http-equiv="X-UA-Compatible" content="IE=edge" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>VACP Example - Mosaic Spec Gallery</title>
+    <title>Interactive chart gallery</title>
     <style>
       * {
         font-family:
@@ -53,22 +53,20 @@
     </style>
   </head>
   <body>
-    <h2>VACP Example: Mosaic spec gallery + <code>@vacp/vgplot</code></h2>
-    <p class="muted">
-      Pick a spec and VACP will attach to the generated plot, exposing a bridge at <code>window.__vacp</code>.
-    </p>
+    <h2>Interactive chart gallery</h2>
+    <p class="muted">Pick an example, then explore it by interacting directly with the chart.</p>
 
     <div class="card" style="margin-bottom: 16px">
       <div class="muted" style="margin-bottom: 8px">What to try</div>
       <ul class="muted">
-        <li>Brush on charts with the mouse and compare different specs.</li>
-        <li>Inspect <code>window.__vacp</code> in DevTools to see the current graph, actions, and snapshots.</li>
+        <li>Brush, pan, or zoom (when available) and compare different examples.</li>
+        <li>Switch examples to see different interaction patterns.</li>
       </ul>
     </div>
 
     <div class="card">
       <div style="display: flex; gap: 10px; align-items: center; margin-bottom: 10px">
-        <div class="muted" style="min-width: 80px">Spec</div>
+        <div class="muted" style="min-width: 80px">Example</div>
         <select id="spec" style="flex: 1; padding: 6px 8px; border-radius: 8px; border: 1px solid #e5e7eb"></select>
       </div>
       <div id="spec-meta" class="muted" style="margin-bottom: 10px"></div>
