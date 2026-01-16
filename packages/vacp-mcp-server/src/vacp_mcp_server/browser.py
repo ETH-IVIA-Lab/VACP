@@ -26,6 +26,12 @@ class BrowserConfig:
     browser_type: str = 'chromium'
     browser_path: str | None = None
     headless: bool = False
+    # Optional: explicit Playwright viewport size (useful in headless mode).
+    # If unset:
+    # - headed mode uses `no_viewport=True` to match the OS window size,
+    # - headless mode uses Playwright defaults unless `screen_width/height` are provided.
+    viewport_width: int | None = None
+    viewport_height: int | None = None
     url: str = 'http://localhost:5173/'
     # For embedded browsers: attempt to open the window in a large, human-usable size.
     # - default: Playwright defaults
@@ -106,6 +112,25 @@ class BrowserManager:
                     return w, h
 
         return None
+
+    def _context_kwargs(self) -> dict[str, object]:
+        """
+        Compute Playwright `browser.new_context(...)` kwargs.
+
+        We keep headed mode using OS window sizing (via `no_viewport=True`) unless the
+        user explicitly requests a viewport. In headless mode, an explicit viewport is
+        often necessary to avoid responsive layouts collapsing to a small default.
+        """
+        if self._config.viewport_width and self._config.viewport_height:
+            return {'viewport': {'width': self._config.viewport_width, 'height': self._config.viewport_height}}
+
+        if self._config.headless and self._config.screen_width and self._config.screen_height:
+            return {'viewport': {'width': self._config.screen_width, 'height': self._config.screen_height}}
+
+        if not self._config.headless:
+            return {'no_viewport': True}
+
+        return {}
 
     async def _try_connect_over_cdp(self, url: str) -> Browser | None:
         if self._playwright is None:
@@ -192,7 +217,7 @@ class BrowserManager:
             args=args or None,
         )
         self._launched_browser = True
-        context = await self._browser.new_context(no_viewport=not self._config.headless)
+        context = await self._browser.new_context(**self._context_kwargs())
         self._page = await context.new_page()
         await self._page.goto(self._config.url)
 
