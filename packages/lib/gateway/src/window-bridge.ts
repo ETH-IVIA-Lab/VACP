@@ -37,7 +37,17 @@ export interface VacpWindowBridgeOptions {
  */
 export function installVacpWindowBridge(bridge: VacpWindowBridge, options?: VacpWindowBridgeOptions): void {
   const key = options?.globalKey ?? '__vacp';
-  (globalThis as unknown as Record<string, unknown>)[key] = bridge;
+  const root = globalThis as unknown as Record<string, unknown>;
+  const exposeBridge = getVacpHyperParams().exposeBridge;
+  if (exposeBridge) {
+    root[key] = bridge;
+  } else {
+    try {
+      delete root[key];
+    } catch {
+      root[key] = undefined;
+    }
+  }
 
   const scriptId = options?.domSnapshotScriptId ?? defaultVacpDomSnapshotScriptId(key);
   const domSnapshotEnabled = options?.injectDomSnapshot ?? getVacpHyperParams().domSnapshot;
@@ -58,6 +68,7 @@ export function installVacpWindowBridge(bridge: VacpWindowBridge, options?: Vacp
  * not install it themselves.
  */
 export function getVacpWindowBridge(options?: VacpWindowBridgeOptions): VacpWindowBridge | undefined {
+  if (!getVacpHyperParams().exposeBridge) return undefined;
   const key = options?.globalKey ?? '__vacp';
   const value = (globalThis as unknown as Record<string, unknown>)[key];
   if (!value || typeof value !== 'object') return undefined;

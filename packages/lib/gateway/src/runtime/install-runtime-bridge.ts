@@ -13,6 +13,8 @@ import {
   type VacpDomSnapshotSource,
 } from '../dom-snapshot';
 
+const HIDDEN_RUNTIME_BRIDGES = new Map<string, VacpUpdatableRuntimeBridge>();
+
 type DomSnapshotState = {
   enabled: boolean;
   scriptId: string;
@@ -85,12 +87,31 @@ export function installVacpRuntimeBridge(args: {
   domSnapshotScriptId?: string;
 }): VacpRuntimeBridge {
   const key = args.globalKey ?? '__vacp';
+  const exposeBridge = getVacpHyperParams().exposeBridge;
   const domSnapshotEnabled = args.injectDomSnapshot ?? getVacpHyperParams().domSnapshot;
   const domSnapshotScriptId = args.domSnapshotScriptId ?? defaultVacpDomSnapshotScriptId(key);
   if (!domSnapshotEnabled) removeVacpDomSnapshotScript(domSnapshotScriptId);
+
   const root = globalThis as unknown as Record<string, unknown>;
-  const existing = root[key];
+  if (!exposeBridge) {
+    try {
+      delete root[key];
+    } catch {
+      root[key] = undefined;
+    }
+  }
+
+  const existingFromWindow = root[key];
+  const existingFromHidden = HIDDEN_RUNTIME_BRIDGES.get(key);
+  const existing = (exposeBridge ? existingFromWindow : existingFromHidden) ?? existingFromHidden ?? existingFromWindow;
+
   if (isUpdatableRuntimeBridge(existing)) {
+    if (exposeBridge) {
+      root[key] = existing;
+      HIDDEN_RUNTIME_BRIDGES.delete(key);
+    } else {
+      HIDDEN_RUNTIME_BRIDGES.set(key, existing);
+    }
     existing.__vacpUpdate?.({
       snapshots: args.snapshots,
       actions: args.actions,
@@ -111,7 +132,12 @@ export function installVacpRuntimeBridge(args: {
     playbooks: args.playbooks,
     sessionKey: args.sessionKey,
   });
-  root[key] = bridge;
+  if (exposeBridge) {
+    root[key] = bridge;
+    HIDDEN_RUNTIME_BRIDGES.delete(key);
+  } else {
+    HIDDEN_RUNTIME_BRIDGES.set(key, bridge);
+  }
   installDomSnapshotHooks(bridge, {
     enabled: domSnapshotEnabled,
     scriptId: domSnapshotScriptId,
