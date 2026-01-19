@@ -1,0 +1,71 @@
+{
+  "$schema": "https://vega.github.io/schema/vega-lite/v6.json",
+  "description": "An interactive visualization of connections among major U.S. airports in 2008. Based on a U.S. airports example by Mike Bostock.",
+  "layer": [
+    {
+      "mark": { "type": "geoshape", "fill": "#ddd", "stroke": "#fff", "strokeWidth": 1 },
+      "data": { "url": "data/us-10m.json", "format": { "type": "topojson", "feature": "states" } }
+    },
+    {
+      "mark": { "type": "rule", "color": "#000", "opacity": 0.35, "strokeCap": "round" },
+      "data": { "url": "data/flights-airport.csv" },
+      "transform": [
+        { "filter": { "param": "org", "empty": false } },
+        {
+          "lookup": "origin",
+          "from": { "data": { "url": "data/airports.csv" }, "key": "iata", "fields": ["latitude", "longitude"] }
+        },
+        {
+          "lookup": "destination",
+          "from": { "data": { "url": "data/airports.csv" }, "key": "iata", "fields": ["latitude", "longitude"] },
+          "as": ["lat2", "lon2"]
+        }
+      ],
+      "encoding": {
+        "latitude": { "field": "latitude" },
+        "longitude": { "field": "longitude" },
+        "latitude2": { "field": "lat2" },
+        "longitude2": { "field": "lon2" },
+        "size": { "field": "count", "type": "quantitative", "scale": { "range": [0, 5], "domain": [0, 1000] }, "legend": null },
+        "tooltip": [
+          { "field": "origin", "type": "nominal", "title": "Origin" },
+          { "field": "destination", "type": "nominal", "title": "Destination" },
+          { "field": "count", "type": "quantitative", "title": "Number of Flights" }
+        ]
+      }
+    },
+    {
+      "mark": { "type": "circle" },
+      "data": { "url": "data/flights-airport.csv" },
+      "transform": [
+        { "aggregate": [{ "op": "count", "as": "routes" }], "groupby": ["origin"] },
+        {
+          "lookup": "origin",
+          "from": {
+            "data": { "url": "data/airports.csv" },
+            "key": "iata",
+            "fields": ["name", "state", "latitude", "longitude"]
+          },
+          "as": ["airport_name", "airport_state", "lat", "lon"]
+        },
+        { "filter": "datum.airport_state !== 'PR' && datum.airport_state !== 'VI'" }
+      ],
+      "params": [{ "name": "org", "select": { "type": "point", "on": "click", "fields": ["origin"] } }],
+      "encoding": {
+        "latitude": { "field": "lat" },
+        "longitude": { "field": "lon" },
+        "size": { "field": "routes", "type": "quantitative", "scale": { "rangeMax": 1000 }, "legend": null },
+        "order": { "field": "routes", "sort": "descending" },
+        "tooltip": [
+          { "field": "airport_name", "type": "nominal", "title": "Airport" },
+          { "field": "airport_state", "type": "nominal", "title": "State" },
+          { "field": "origin", "type": "nominal", "title": "IATA Code" }
+        ]
+      }
+    }
+  ],
+  "resolve": { "scale": { "size": "independent" } },
+  "projection": { "type": "albersUsa" },
+  "width": 900,
+  "height": 500
+}

@@ -1,0 +1,63 @@
+{
+  "$schema": "https://vega.github.io/schema/vega-lite/v6.json",
+  "title": "Global Development (1955-2005)",
+  "width": 600,
+  "height": 400,
+  "data": { "url": "data/gapminder.json" },
+  "params": [
+    {
+      "name": "current_year",
+      "value": 1990,
+      "bind": {
+        "input": "range",
+        "min": 1955,
+        "max": 2005,
+        "step": 5,
+        "name": "Select Year: "
+      }
+    },
+    { "name": "view", "select": "interval", "bind": "scales" }
+  ],
+  "transform": [
+    { "filter": "datum.year == current_year" },
+    {
+      "calculate": "datum.cluster == 0 ? 'South Asia' : datum.cluster == 1 ? 'Europe & Central Asia' : datum.cluster == 2 ? 'Sub-Saharan Africa' : datum.cluster == 3 ? 'America' : datum.cluster == 4 ? 'East Asia & Pacific' : 'Middle East & North Africa'",
+      "as": "region_name"
+    }
+  ],
+  "mark": { "type": "circle", "opacity": 0.8, "stroke": "black", "strokeWidth": 1 },
+  "encoding": {
+    "x": {
+      "field": "fertility",
+      "type": "quantitative",
+      "title": "Fertility (Children per Woman)",
+      "scale": { "domain": [0, 9] }
+    },
+    "y": {
+      "field": "life_expect",
+      "type": "quantitative",
+      "title": "Life Expectancy (Years)",
+      "scale": { "domain": [20, 90] }
+    },
+    "size": {
+      "field": "pop",
+      "type": "quantitative",
+      "title": "Population",
+      "scale": { "range": [10, 1000] }
+    },
+    "color": {
+      "field": "region_name",
+      "type": "nominal",
+      "title": "Region",
+      "legend": { "orient": "bottom-right" }
+    },
+    "tooltip": [
+      { "field": "country", "title": "Country" },
+      { "field": "region_name", "title": "Region" },
+      { "field": "year", "title": "Year" },
+      { "field": "life_expect", "title": "Life Expectancy", "format": ".1f" },
+      { "field": "fertility", "title": "Fertility", "format": ".2f" },
+      { "field": "pop", "title": "Population", "format": "," }
+    ]
+  }
+}

@@ -25,7 +25,7 @@ Enable the debug overlay:
 
 ## How it works
 
-1. The app picks a spec from `src/specs/*.ts`.
+1. The app picks a spec from `src/specs/*.vl.json`.
 2. `vega-embed` renders it to **canvas** and returns a Vega View.
 3. `@vacp/vega-lite` installs VACP:
    - **Bridge**: installs/updates `window.__vacp` (capabilities/state/execute, unless `?expose-bridge=0`)
@@ -59,21 +59,10 @@ Use the overlay:
 
 ## How to add or edit specs
 
-Specs live in `src/specs/*.ts`. Each module exports:
+Specs live in `src/specs/*.vl.json` and are loaded as JSON.
 
-- `meta`: `{ id, title, description }`
-- `createSpec()`: returns a Vega-Lite spec object
-
-Example shape:
-
-```ts
-export const meta = { id: 'linked-brush-summary', title: 'Cars: brush → origin summary (click to pin)' };
-export function createSpec() {
-  return {
-    /* Vega-Lite spec */
-  };
-}
-```
+Datasets should be placed under `public/data/` so Vega-Lite `data.url: "data/..."` resolves as `/data/...` when the app
+is running.
 
 ## How bidirectionality is achieved
 
