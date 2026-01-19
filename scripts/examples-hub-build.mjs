@@ -58,6 +58,7 @@ const examples = [
   { route: 'd3-lasso', name: 'vacp-example-d3-scatter-lasso', dir: resolve(examplesDir, 'd3-scatter-lasso') },
   { route: 'vanilla', name: 'vacp-example-vanilla-minimal', dir: resolve(examplesDir, 'vanilla-minimal') },
   { route: 'react-dashboard', name: 'vacp-example-react-dashboard', dir: resolve(examplesDir, 'react-dashboard') },
+  { route: 'cars-parcoords', name: 'vacp-example-cars-parallel-coords', dir: resolve(examplesDir, 'cars-parallel-coords') },
 ];
 
 // Build workspace libs required by examples (exports -> dist/) before building apps.
@@ -79,4 +80,3 @@ for (const ex of examples) {
     ex.route,
   );
 }
-

@@ -17,6 +17,7 @@ const examples = [
   { route: 'd3-lasso', title: 'd3-scatter-lasso', port: basePort + 2 },
   { route: 'vanilla', title: 'vanilla-minimal', port: basePort + 3 },
   { route: 'react-dashboard', title: 'react-dashboard', port: basePort + 4 },
+  { route: 'cars-parcoords', title: 'cars-parallel-coords', port: basePort + 5 },
 ];
 
 const routeToTarget = new Map(

@@ -43,6 +43,7 @@ Run an example app:
 - `pnpm dev:vega-lite`
 - `pnpm dev:d3-lasso`
 - `pnpm dev:vanilla`
+- `pnpm dev:cars`
 - `pnpm dev:react-dashboard`
 - `pnpm dev:examples` (examples hub: one base URL for hosting + evaluation routing)
 

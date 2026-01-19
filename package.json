@@ -10,6 +10,7 @@
     "dev:vega-lite": "pnpm --filter vacp-example-vega-lite-gallery dev:full",
     "dev:d3-lasso": "pnpm --filter vacp-example-d3-scatter-lasso dev:full",
     "dev:vanilla": "pnpm --filter vacp-example-vanilla-minimal dev:full",
+    "dev:cars": "pnpm --filter vacp-example-cars-parallel-coords dev:full",
     "dev:react-dashboard": "pnpm --filter vacp-example-react-dashboard dev:full",
     "dev:examples": "node scripts/examples-hub-dev.mjs",
     "start:examples": "pnpm build:examples-hub && node scripts/examples-hub-start.mjs",

@@ -104,6 +104,7 @@ const examples = [
   { route: 'd3-lasso', dir: resolve(examplesDir, 'd3-scatter-lasso'), port: basePort + 2 },
   { route: 'vanilla', dir: resolve(examplesDir, 'vanilla-minimal'), port: basePort + 3 },
   { route: 'react-dashboard', dir: resolve(examplesDir, 'react-dashboard'), port: basePort + 4 },
+  { route: 'cars-parcoords', dir: resolve(examplesDir, 'cars-parallel-coords'), port: basePort + 5 },
 ];
 
 // This script assumes everything has been built already for the hub
