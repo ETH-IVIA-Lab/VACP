@@ -11,8 +11,8 @@ import type { VacpGraphBase } from '@vacp/kit';
 import {
   createDuckDbSqlRouter,
   createVacpActions,
-  createVacpLayer,
   createVacpRefBuilder,
+  installVacp,
   makeVacpDuckDbTableName,
 } from '@vacp/kit';
 import { createDuckDbWasmClient, getDuckDbTableMetadata } from '@vacp/duckdb';
@@ -24,7 +24,7 @@ import type { Datum } from './plot';
 export async function installVacpForVanillaScatter(args: {
   root: HTMLElement;
   svg: SVGSVGElement;
-  globalKey: string;
+  globalKey?: string;
   data: Datum[];
   selectedIds: Set<number>;
   onSetSelectedIds: (ids: number[]) => void;
@@ -142,7 +142,7 @@ export async function installVacpForVanillaScatter(args: {
 
   const playbooks = buildVanillaMinimalPlaybooks();
 
-  const vacp = createVacpLayer({
+  const vacp = installVacp({
     globalKey: args.globalKey,
     graph,
     actions: actions.registry,

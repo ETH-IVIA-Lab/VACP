@@ -2,19 +2,16 @@ import type { VacpGraphBase } from '@vacp/kit';
 import {
   createDuckDbSqlRouter,
   createVacpActions,
-  createVacpLayer,
   createVacpRefBuilder,
+  installVacp,
   makeVacpDuckDbTableName,
+  sqlIdentifier,
 } from '@vacp/kit';
 import { createDuckDbWasmClient, getDuckDbTableMetadata, type VacpDuckDbTableMetadata } from '@vacp/duckdb';
 import { VACP_SCHEMA_VERSION, type VacpRef } from '@vacp/core';
 
 import type { BrushRange, CarDatum, ParallelCoordsSource } from './chart';
 import type { ParallelCoordsState } from './chart';
-
-function sqlIdentifier(name: string): string {
-  return `"${name.replaceAll('"', '""')}"`;
-}
 
 function numberExtent(data: CarDatum[], dim: string): BrushRange {
   let lo = Number.POSITIVE_INFINITY;
@@ -35,7 +32,7 @@ function nearlyEqual(a: number, b: number): boolean {
 
 export function installVacpForCarsParallelCoords(args: {
   root: HTMLElement;
-  globalKey: string;
+  globalKey?: string;
   title: string;
   data: CarDatum[];
   dimensions: string[];
@@ -248,7 +245,7 @@ export function installVacpForCarsParallelCoords(args: {
     ],
   };
 
-  const vacp = createVacpLayer({
+  const vacp = installVacp({
     globalKey: args.globalKey,
     graph,
     actions: actions.registry,
@@ -275,4 +272,3 @@ export function installVacpForCarsParallelCoords(args: {
 
   return { ...vacp, refs: { viewRef, vizRef, brushRef, orderRef, handleRef } };
 }
-

@@ -6,7 +6,7 @@
  * - an optional VACP layer (`vacp.ts`)
  */
 
-import { installVacpDebugUi } from '@vacp/debug-ui';
+import { installVacpDebugUI } from '@vacp/kit';
 
 import { createLassoScatterChart, makePoints } from './chart';
 import { installVacpForD3ScatterLasso } from './vacp';
@@ -17,9 +17,8 @@ export function run(): void {
   const clearBtn = document.querySelector<HTMLButtonElement>('#clear');
   if (!plotRoot || !selectedEl || !clearBtn) throw new Error('Missing root elements');
 
-  const globalKey = '__vacp';
   // Dev-only overlay: inspects the VACP bridge and provides time travel + actions + DuckDB SQL.
-  installVacpDebugUi({ enabled: 'auto', globalKey });
+  void installVacpDebugUI();
 
   // Example data: synthetic points to keep the demo fully self-contained.
   const data = makePoints();
@@ -39,7 +38,6 @@ export function run(): void {
   const vacp = installVacpForD3ScatterLasso({
     root: plotRoot,
     svg: chart.svg,
-    globalKey,
     title: 'D3 lasso scatter',
     data,
     getLassoPolygon: chart.getLassoPolygon,

@@ -15,9 +15,10 @@ import type { VacpGraphBase } from '@vacp/kit';
 import {
   createDuckDbSqlRouter,
   createVacpActions,
-  createVacpLayer,
   createVacpRefBuilder,
+  installVacp,
   makeVacpDuckDbTableName,
+  sqlStringLiteral,
 } from '@vacp/kit';
 import { createDuckDbWasmClient, getDuckDbTableMetadata, type VacpDuckDbTableMetadata } from '@vacp/duckdb';
 import { VACP_SCHEMA_VERSION, type VacpRef } from '@vacp/core';
@@ -74,7 +75,7 @@ function getEffectiveSelectedIds(model: ReactDashboardModel): { ids: string[]; m
   return { ids: [], meaning: 'no selection (fallback: all rows)' };
 }
 
-export function installVacpForReactDashboard(args: { globalKey: string; title?: string; model: ReactDashboardModel }) {
+export function installVacpForReactDashboard(args: { globalKey?: string; title?: string; model: ReactDashboardModel }) {
   const appId = 'vacp-examples';
   const viewId = 'react/dashboard';
   const vizId = 'recharts';
@@ -294,7 +295,6 @@ export function installVacpForReactDashboard(args: { globalKey: string; title?: 
     loadedDatasetId = datasetId;
   };
 
-  const sqlStringLiteral = (value: string): string => `'${value.replaceAll("'", "''")}'`;
   const syncSelectedIds = async (ids: string[]): Promise<void> => {
     const db = await duckdb;
     await ensureDuckDbLoaded();
@@ -436,7 +436,7 @@ export function installVacpForReactDashboard(args: { globalKey: string; title?: 
     ],
   };
 
-  const vacp = createVacpLayer({
+  const vacp = installVacp({
     globalKey: args.globalKey,
     graph,
     actions: actions.registry,

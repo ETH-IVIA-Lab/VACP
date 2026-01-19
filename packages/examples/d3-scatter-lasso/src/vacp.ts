@@ -10,9 +10,10 @@ import type { VacpGraphBase } from '@vacp/kit';
 import {
   createDuckDbSqlRouter,
   createVacpActions,
-  createVacpLayer,
   createVacpRefBuilder,
+  installVacp,
   makeVacpDuckDbTableName,
+  sqlStringLiteral,
 } from '@vacp/kit';
 import { createDuckDbWasmClient, getDuckDbTableMetadata, type VacpDuckDbTableMetadata } from '@vacp/duckdb';
 import { VACP_SCHEMA_VERSION } from '@vacp/core';
@@ -23,7 +24,7 @@ import type { DomainPoint, Point } from './chart';
 export function installVacpForD3ScatterLasso(args: {
   root: HTMLElement;
   svg: SVGSVGElement;
-  globalKey: string;
+  globalKey?: string;
   title: string;
   data: Point[];
   getLassoPolygon: () => DomainPoint[] | null;
@@ -114,8 +115,6 @@ export function installVacpForD3ScatterLasso(args: {
     pointsTableMeta = await getDuckDbTableMetadata({ duckdb: db, table: pointsTable });
     loaded = true;
   };
-
-  const sqlStringLiteral = (value: string): string => `'${value.replaceAll("'", "''")}'`;
   const syncSelectedIds = async (): Promise<void> => {
     const db = await duckdb;
     await ensureDuckDbLoaded();
@@ -179,7 +178,7 @@ export function installVacpForD3ScatterLasso(args: {
 
   const playbooks = buildD3ScatterLassoPlaybooks();
 
-  const vacp = createVacpLayer({
+  const vacp = installVacp({
     globalKey: args.globalKey,
     graph,
     actions: actions.registry,

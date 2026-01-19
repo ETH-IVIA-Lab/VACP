@@ -9,25 +9,7 @@
 import { createParallelCoordsChart } from './chart';
 import { loadCarsDataset } from './data';
 import { installVacpForCarsParallelCoords } from './vacp';
-
-function shouldEnableDebugUi(): boolean {
-  try {
-    const url = new URL(window.location.href);
-    const qp = url.searchParams.get('vacp-debug');
-    if (qp === '1') return true;
-    if (qp === '0') return false;
-  } catch {
-    // ignore
-  }
-  try {
-    const v = window.localStorage.getItem('vacp:debug');
-    if (v === '1') return true;
-    if (v === '0') return false;
-  } catch {
-    // ignore
-  }
-  return String(import.meta.env.VACP_DEBUG_UI ?? '') === '1';
-}
+import { installVacpDebugUI } from '@vacp/kit';
 
 export async function run(): Promise<void> {
   const chartRoot = document.querySelector<HTMLDivElement>('#chart');
@@ -38,12 +20,7 @@ export async function run(): Promise<void> {
     throw new Error('Missing root elements');
   }
 
-  const globalKey = '__vacp';
-  if (shouldEnableDebugUi()) {
-    const { installVacpDebugUi } = await import('@vacp/debug-ui');
-    // Dev-only overlay: inspects the VACP bridge and provides time travel + actions + DuckDB SQL.
-    installVacpDebugUi({ enabled: 'auto', globalKey });
-  }
+  void installVacpDebugUI();
 
   const { data, dimensions } = await loadCarsDataset('data/cars.csv');
   if (!data.length || !dimensions.length) throw new Error('Cars dataset is empty');
@@ -63,7 +40,6 @@ export async function run(): Promise<void> {
 
   const vacp = installVacpForCarsParallelCoords({
     root: chartRoot,
-    globalKey,
     title: 'Cars parallel coordinates',
     data,
     dimensions,

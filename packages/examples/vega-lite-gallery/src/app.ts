@@ -1,4 +1,4 @@
-import { installVacpDebugUi } from '@vacp/debug-ui';
+import { installVacpDebugUI } from '@vacp/kit';
 import { type VegaViewLike } from '@vacp/vega-lite';
 import embed, { type VisualizationSpec } from 'vega-embed';
 
@@ -14,9 +14,8 @@ export async function run(): Promise<void> {
     throw new Error('Missing root elements');
   }
 
-  const globalKey = '__vacp';
   // Dev-only overlay: inspects the VACP bridge and provides time travel + actions + DuckDB SQL.
-  installVacpDebugUi({ enabled: 'auto', globalKey });
+  void installVacpDebugUI();
 
   // Gallery UI: pick between small specs that each exercise a different VACP feature.
   const gallery = loadGallery();
@@ -47,7 +46,6 @@ export async function run(): Promise<void> {
       view: result.view as unknown as VegaViewLike,
       spec: spec as unknown as VisualizationSpec,
       entry,
-      globalKey,
     });
   };
 

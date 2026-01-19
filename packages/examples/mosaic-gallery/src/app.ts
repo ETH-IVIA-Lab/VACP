@@ -1,6 +1,6 @@
 import type { VgplotPlotLike, VgplotTableLike } from '@vacp/vgplot';
 import { getVacpHyperParams } from '@vacp/core';
-import { installVacpDebugUi } from '@vacp/debug-ui';
+import { installVacpDebugUI } from '@vacp/kit';
 import type { VacpDuckDbClient } from '@vacp/duckdb';
 import { coordinator, DuckDBWASMConnector } from '@uwdata/mosaic-core';
 import { astToDOM, parseSpec } from '@uwdata/mosaic-spec';
@@ -43,11 +43,10 @@ export async function run(): Promise<void> {
     throw new Error('Missing root elements');
   }
 
-  const globalKey = '__vacp';
   let renderToken = 0;
 
   // Dev-only overlay: inspects the VACP bridge and provides time travel + actions + DuckDB SQL.
-  installVacpDebugUi({ enabled: 'auto', globalKey });
+  void installVacpDebugUI();
 
   // Mosaic's coordinator owns the shared in-browser DuckDB instance.
   const mc = coordinator();
@@ -135,7 +134,7 @@ export async function run(): Promise<void> {
 
     // VACP layer: attaches a bridge (`window.__vacp`), actions, state snapshots, and DuckDB access.
     if (token !== renderToken) return;
-    installVacp({ root: element, plots, tables, entry, globalKey, duckdbClient });
+    installVacp({ root: element, plots, tables, entry, duckdbClient });
   };
 
   selectEl.addEventListener('change', () => {

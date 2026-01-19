@@ -16,7 +16,7 @@ export function installVacp(args: {
   plots: Array<{ plotId: string; plot: VgplotPlotLike; element: Element; svg?: SVGElement }>;
   tables: Array<{ tableId: string; table: VgplotTableLike; element: Element }>;
   entry: GalleryEntry;
-  globalKey: string;
+  globalKey?: string;
   duckdbClient: VacpDuckDbClient;
 }): void {
   installVacpOnVgplotDashboard({

@@ -1,7 +1,7 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 
-import { installVacpDebugUi } from '@vacp/debug-ui';
+import { installVacpDebugUI } from '@vacp/kit';
 
 import './index.css';
 import App from './App';
@@ -22,13 +22,11 @@ async function ensureDataset(timeoutMs = 30_000): Promise<void> {
   }
 }
 
-const globalKey = '__vacp';
-installVacpDebugUi({ enabled: 'auto', globalKey });
+void installVacpDebugUI();
 
 void useDashboardStore.getState().actions.init();
 
 const vacp = installVacpForReactDashboard({
-  globalKey,
   title: 'React dashboard',
   model: {
     ensureDataset,

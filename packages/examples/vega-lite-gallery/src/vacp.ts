@@ -16,7 +16,7 @@ export function installVacp(args: {
   view: VegaViewLike;
   spec: VisualizationSpec;
   entry: GalleryEntry;
-  globalKey: string;
+  globalKey?: string;
 }): void {
   installVacpOnVegaLiteView({
     root: args.root,

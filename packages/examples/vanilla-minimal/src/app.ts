@@ -6,7 +6,7 @@
  * 2) the VACP integration (graph/actions/state + DuckDB)
  */
 
-import { installVacpDebugUi } from '@vacp/debug-ui';
+import { installVacpDebugUI } from '@vacp/kit';
 
 import { createScatterPlot, randomData } from './plot';
 import { installVacpForVanillaScatter } from './vacp';
@@ -16,9 +16,8 @@ export async function run(): Promise<void> {
   const clearBtn = document.querySelector<HTMLButtonElement>('#clear');
   if (!app || !clearBtn) throw new Error('Missing root elements');
 
-  const globalKey = '__vacp';
   // Dev-only overlay: inspects the VACP bridge and provides time travel + actions + DuckDB SQL.
-  installVacpDebugUi({ enabled: 'auto', globalKey });
+  void installVacpDebugUI();
 
   // Example data + UI state: selection is local, and VACP reads/writes it via actions/state snapshots.
   const data = randomData();
@@ -42,7 +41,6 @@ export async function run(): Promise<void> {
   const vacp = await installVacpForVanillaScatter({
     root: app,
     svg: plot.svg,
-    globalKey,
     data,
     selectedIds,
     onSetSelectedIds: (ids) => {
