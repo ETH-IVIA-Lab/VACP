@@ -390,6 +390,10 @@ importers:
       '@vacp/gateway':
         specifier: workspace:*
         version: link:../gateway
+    devDependencies:
+      '@vacp/debug-ui':
+        specifier: workspace:*
+        version: link:../debug-ui
 
   packages/lib/mosaic:
     dependencies:

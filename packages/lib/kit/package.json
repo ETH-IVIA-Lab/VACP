@@ -21,5 +21,16 @@
     "@vacp/core": "workspace:*",
     "@vacp/duckdb": "workspace:*",
     "@vacp/gateway": "workspace:*"
+  },
+  "peerDependencies": {
+    "@vacp/debug-ui": "workspace:*"
+  },
+  "peerDependenciesMeta": {
+    "@vacp/debug-ui": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@vacp/debug-ui": "workspace:*"
   }
 }

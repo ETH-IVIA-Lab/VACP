@@ -9,8 +9,11 @@ and want to layer VACP on top without committing to a first-class provider like 
 
 - `createVacpRefBuilder`: generate stable `vacp://...` refs for a view/viz namespace.
 - `createVacpActions`: ergonomics for defining/registering actions (incl. standard `vacp.apply_state` and `vacp.data_sql`).
-- `createVacpLayer`: “one place” installer that creates snapshots and installs the stable runtime bridge (`window.__vacp`).
+- `installVacp` / `createVacpLayer`: “one place” installer that creates snapshots and installs the stable runtime bridge (`window.__vacp`).
 - DuckDB helpers: `createDuckDbSqlRouter`, `makeVacpDuckDbTableName`.
+- Devtools helpers:
+  - `installVacpDebugUI` (lazy-load `@vacp/debug-ui` when `?vacp-debug=1` / `VACP_DEBUG_UI=1`)
+- SQL helpers (re-exported from `@vacp/duckdb`): `sqlIdentifier`, `sqlStringLiteral`.
 
 ## Minimal pattern
 
@@ -18,7 +21,7 @@ and want to layer VACP on top without committing to a first-class provider like 
 2. Define a `VacpGraphBase` (nodes/edges).
 3. Register actions using `createVacpActions()`.
 4. Provide `getState()` (and optional `getSummary()`).
-5. Install via `createVacpLayer({ graph, actions: actions.registry, getState })`.
+5. Install via `installVacp({ graph, actions: actions.registry, getState })`.
 
 For runnable references, see:
 

@@ -9,6 +9,8 @@ import type {
 import { nowIso, VACP_SCHEMA_VERSION } from '@vacp/core';
 import { installVacpRuntimeBridge, type VacpSnapshotProvider, VacpActionRegistry } from '@vacp/gateway';
 
+import { VACP_DEFAULT_GLOBAL_KEY } from './devtools';
+
 export type VacpGraphBase = Omit<VacpGraph, 'actions'>;
 
 /**
@@ -72,11 +74,12 @@ export function createVacpLayer(args: {
     getSummary: args.getSummary,
   });
 
+  const globalKey = args.globalKey ?? VACP_DEFAULT_GLOBAL_KEY;
   const bridge = installVacpRuntimeBridge({
     snapshots,
     actions: args.actions,
     playbooks: args.playbooks,
-    globalKey: args.globalKey,
+    globalKey,
     injectDomSnapshot: args.injectDomSnapshot,
     domSnapshotScriptId: args.domSnapshotScriptId,
   });
@@ -87,3 +90,8 @@ export function createVacpLayer(args: {
 
   return { bridge, snapshots, refresh };
 }
+
+/**
+ * Alias for `createVacpLayer` (installs the runtime bridge at `window.__vacp` by default).
+ */
+export const installVacp = createVacpLayer;
