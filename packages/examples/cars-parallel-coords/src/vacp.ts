@@ -1,0 +1,278 @@
+import type { VacpGraphBase } from '@vacp/kit';
+import {
+  createDuckDbSqlRouter,
+  createVacpActions,
+  createVacpLayer,
+  createVacpRefBuilder,
+  makeVacpDuckDbTableName,
+} from '@vacp/kit';
+import { createDuckDbWasmClient, getDuckDbTableMetadata, type VacpDuckDbTableMetadata } from '@vacp/duckdb';
+import { VACP_SCHEMA_VERSION, type VacpRef } from '@vacp/core';
+
+import type { BrushRange, CarDatum, ParallelCoordsSource } from './chart';
+import type { ParallelCoordsState } from './chart';
+
+function sqlIdentifier(name: string): string {
+  return `"${name.replaceAll('"', '""')}"`;
+}
+
+function numberExtent(data: CarDatum[], dim: string): BrushRange {
+  let lo = Number.POSITIVE_INFINITY;
+  let hi = Number.NEGATIVE_INFINITY;
+  for (const d of data) {
+    const n = Number(d[dim]);
+    if (!Number.isFinite(n)) continue;
+    lo = Math.min(lo, n);
+    hi = Math.max(hi, n);
+  }
+  if (!Number.isFinite(lo) || !Number.isFinite(hi)) return [0, 0];
+  return lo <= hi ? [lo, hi] : [hi, lo];
+}
+
+function nearlyEqual(a: number, b: number): boolean {
+  return Math.abs(a - b) <= 1e-9;
+}
+
+export function installVacpForCarsParallelCoords(args: {
+  root: HTMLElement;
+  globalKey: string;
+  title: string;
+  data: CarDatum[];
+  dimensions: string[];
+  getState: () => ParallelCoordsState;
+  setBrushRanges: (ranges: Partial<Record<string, BrushRange | null>>, source: ParallelCoordsSource) => void;
+  resetBrushes: (source: ParallelCoordsSource) => void;
+  setDimensionOrder: (order: string[], source: ParallelCoordsSource) => void;
+  resetDimensionOrder: (source: ParallelCoordsSource) => void;
+}) {
+  const appId = 'vacp-examples';
+  const viewId = 'vanilla/cars-parallel-coords';
+  const vizId = 'parallel-coords';
+
+  const viewRefs = createVacpRefBuilder({ appId, viewId });
+  const vizRefs = createVacpRefBuilder({ appId, viewId, vizId });
+  const viewRef = viewRefs.root;
+  const vizRef = vizRefs.root;
+  const brushRef = vizRefs.ref('/selection/brushes');
+  const orderRef = vizRefs.ref('/param/dimension_order');
+  const handleRef = vizRefs.ref('/data/cars');
+
+  const extents = Object.fromEntries(args.dimensions.map((d) => [d, numberExtent(args.data, d)]));
+
+  const tableName = makeVacpDuckDbTableName({ prefix: 'vacp_cars_parallel_coords' });
+  let tableMeta: VacpDuckDbTableMetadata | null = null;
+
+  const duckdb = (async () => {
+    const db = await createDuckDbWasmClient({ log: false });
+    await db.loadObjectsAsTable(tableName, args.data, { create: true });
+    try {
+      tableMeta = await getDuckDbTableMetadata({ duckdb: db, table: tableName });
+    } catch {
+      tableMeta = null;
+    }
+    return db;
+  })();
+
+  const actions = createVacpActions();
+
+  const parseRange = (value: unknown): BrushRange | null => {
+    if (value === null) return null;
+    if (!Array.isArray(value) || value.length !== 2) return null;
+    const a = Number(value[0]);
+    const b = Number(value[1]);
+    if (!Number.isFinite(a) || !Number.isFinite(b)) return null;
+    return a <= b ? [a, b] : [b, a];
+  };
+
+  actions
+    .action('parallel_coords.set_brush_ranges', 'Set one or more per-axis brush ranges (data units). Use null to clear.')
+    .target(brushRef)
+    .params({
+      type: 'object',
+      properties: {
+        ranges: {
+          type: 'object',
+          additionalProperties: {
+            anyOf: [
+              { type: 'null' },
+              { type: 'array', items: { type: 'number' }, minItems: 2, maxItems: 2 },
+            ],
+          },
+        },
+      },
+      required: ['ranges'],
+    })
+    .handle((params) => {
+      const rec = (params ?? {}) as { ranges?: unknown };
+      const rangesRaw = rec.ranges;
+      if (!rangesRaw || typeof rangesRaw !== 'object') throw new Error('Expected params.ranges object');
+
+      const patch: Partial<Record<string, BrushRange | null>> = {};
+      for (const [dim, raw] of Object.entries(rangesRaw as Record<string, unknown>)) {
+        if (!args.dimensions.includes(dim)) throw new Error(`Unknown dimension: ${dim}`);
+        const range = parseRange(raw);
+        if (raw !== null && !range) throw new Error(`Invalid range for "${dim}": expected [min,max]`);
+        patch[dim] = range;
+      }
+
+      args.setBrushRanges(patch, 'agent');
+      return { selectedCount: args.getState().selectedCount };
+    });
+
+  actions
+    .action('parallel_coords.reset_brushes', 'Reset all brushes to the full data extents.')
+    .target(brushRef)
+    .params({ type: 'object', properties: {} })
+    .handle(() => {
+      args.resetBrushes('agent');
+      return { ok: true, selectedCount: args.getState().selectedCount };
+    });
+
+  actions
+    .action('parallel_coords.set_dimension_order', 'Set the axis order as an array of dimension names.')
+    .target(orderRef)
+    .params({ type: 'object', properties: { order: { type: 'array', items: { type: 'string' } } }, required: ['order'] })
+    .handle((params) => {
+      const rec = (params ?? {}) as { order?: unknown };
+      if (!Array.isArray(rec.order)) throw new Error('Expected params.order array');
+      const order = rec.order.map(String);
+      args.setDimensionOrder(order, 'agent');
+      return { ok: true };
+    });
+
+  actions
+    .action('parallel_coords.reset_dimension_order', 'Reset axis order back to the dataset default.')
+    .target(orderRef)
+    .params({ type: 'object', properties: {} })
+    .handle(() => {
+      args.resetDimensionOrder('agent');
+      return { ok: true };
+    });
+
+  actions.standard.applyState(
+    (state) => {
+      let applied = 0;
+
+      const order = state[orderRef as unknown as string];
+      if (order) {
+        const rec = order && typeof order === 'object' ? (order as Record<string, unknown>) : {};
+        const v = (rec.value ?? rec.order ?? order) as unknown;
+        if (Array.isArray(v)) {
+          args.setDimensionOrder(v.map(String), 'agent');
+          applied += 1;
+        }
+      }
+
+      const sel = state[brushRef as unknown as string];
+      if (sel) {
+        const rec = sel && typeof sel === 'object' ? (sel as Record<string, unknown>) : {};
+        const v = (rec.ranges ?? rec.brushRanges ?? rec.value ?? sel) as unknown;
+        if (v === null) {
+          args.resetBrushes('agent');
+          applied += 1;
+        } else if (v && typeof v === 'object') {
+          const patch: Partial<Record<string, BrushRange | null>> = {};
+          for (const [dim, raw] of Object.entries(v as Record<string, unknown>)) {
+            if (!args.dimensions.includes(dim)) continue;
+            patch[dim] = parseRange(raw);
+          }
+          args.setBrushRanges(patch, 'agent');
+          applied += 1;
+        }
+      }
+
+      return { applied };
+    },
+    { targetRef: vizRef, description: 'Apply brush ranges + dimension order (best-effort).' },
+  );
+
+  const sql = createDuckDbSqlRouter({ duckdb });
+  sql.addHandle({
+    handleRef,
+    getAllSql: () => `SELECT * FROM ${tableName}`,
+    getSelectedSql: () => {
+      const st = args.getState();
+      const preds: string[] = [];
+      for (const dim of st.dimensions) {
+        const range = st.brushRanges[dim];
+        const full = extents[dim];
+        if (!range || !full) continue;
+        if (nearlyEqual(range[0], full[0]) && nearlyEqual(range[1], full[1])) continue;
+        preds.push(`(${sqlIdentifier(dim)} >= ${range[0]} AND ${sqlIdentifier(dim)} <= ${range[1]})`);
+      }
+      const where = preds.length ? preds.join(' AND ') : null;
+      return where ? `SELECT * FROM ${tableName} WHERE ${where}` : `SELECT * FROM ${tableName}`;
+    },
+  });
+  actions.standard.dataSql(sql.handler, {
+    targetRef: handleRef,
+    description: 'Query the current selection via DuckDB SQL. `vacp_handle` is brush-filtered (or all rows if empty).',
+  });
+
+  const graph: VacpGraphBase = {
+    version: VACP_SCHEMA_VERSION,
+    nodes: [
+      { ref: viewRef, kind: 'View', layer: 'ViewLayer', title: args.title },
+      { ref: vizRef, kind: 'Visualization', layer: 'VisualizationLayer', title: 'Parallel coordinates (SVG)' },
+      {
+        ref: brushRef,
+        kind: 'Selection',
+        layer: 'InteractionFeedbackLayer',
+        title: 'Brush ranges',
+        description: 'Per-axis brush ranges in data units.',
+        data: { type: 'intervals', dimensions: args.dimensions },
+      },
+      {
+        ref: orderRef,
+        kind: 'Param',
+        layer: 'ConfigLayer',
+        title: 'dimension_order',
+        description: 'Axis order (left → right).',
+        data: { type: 'string[]' },
+      },
+      {
+        ref: handleRef,
+        kind: 'DataHandle',
+        layer: 'DataLayer',
+        title: 'cars (DuckDB handle)',
+        description: 'Query `vacp_all` and `vacp_handle` via `vacp.data_sql`.',
+        data: { tableName },
+      },
+    ],
+    edges: [
+      { from: viewRef, to: vizRef, kind: 'contains' },
+      { from: vizRef, to: brushRef, kind: 'contains' },
+      { from: vizRef, to: orderRef, kind: 'contains' },
+      { from: vizRef, to: handleRef, kind: 'contains' },
+      { from: brushRef, to: handleRef, kind: 'controls' },
+    ],
+  };
+
+  const vacp = createVacpLayer({
+    globalKey: args.globalKey,
+    graph,
+    actions: actions.registry,
+    getState: () => {
+      const st = args.getState();
+      return {
+        [brushRef]: {
+          kind: 'Selection',
+          ranges: st.brushRanges,
+          selectedCount: st.selectedCount,
+          totalCount: st.totalCount,
+        },
+        [orderRef]: { kind: 'Param', value: st.dimensionOrder },
+        [handleRef]: {
+          kind: 'DataHandle',
+          tableName,
+          selectedCount: st.selectedCount,
+          selectedMeaning: st.selectedCount === st.totalCount ? 'all rows (no active brush)' : 'rows matching brush ranges',
+          duckdb: (tableMeta ?? undefined) as VacpDuckDbTableMetadata | undefined,
+        },
+      } satisfies Record<VacpRef, unknown>;
+    },
+  });
+
+  return { ...vacp, refs: { viewRef, vizRef, brushRef, orderRef, handleRef } };
+}
+
