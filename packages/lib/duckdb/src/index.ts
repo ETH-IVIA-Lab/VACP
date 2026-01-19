@@ -5,3 +5,4 @@ export type { VacpDuckDbTableMetadata, VacpDuckDbColumnInfo } from './metadata';
 export { getDuckDbTableMetadata } from './metadata';
 export { formatDuckDbTableMetadataSummary } from './summary';
 export { makeVacpDuckDbTableName } from './table-name';
+export { normalizeSingleStatementSql, sqlIdentifier, sqlStringLiteral } from './sql';

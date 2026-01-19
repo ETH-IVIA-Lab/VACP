@@ -36,3 +36,17 @@ export function normalizeSingleStatementSql(sql: string): string {
   if (hasMultipleStatements(trimmed)) throw new Error('SQL must be a single statement (no unquoted semicolons)');
   return trimmed;
 }
+
+/** Escape a string for use as a SQL single-quoted literal. */
+export function sqlStringLiteral(value: string): string {
+  return `'${value.replaceAll("'", "''")}'`;
+}
+
+/**
+ * Escape an identifier for use in SQL (double-quoted).
+ *
+ * This handles reserved words (e.g. `"group"`) and special characters.
+ */
+export function sqlIdentifier(name: string): string {
+  return `"${name.replaceAll('"', '""')}"`;
+}
