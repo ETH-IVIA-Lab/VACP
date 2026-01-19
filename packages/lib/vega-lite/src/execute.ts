@@ -2,6 +2,7 @@ import type { VacpActionCall } from '@vacp/core';
 import { splitVacpRefAt } from '@vacp/core';
 import { changeset } from 'vega';
 
+import { collectVegaLiteParams } from './params';
 import { signalNamesFromView, tryGetSignal, trySetSignal } from './signals';
 import type { VegaLiteParamLike, VegaLiteSpecLike, VegaViewLike } from './types';
 
@@ -106,7 +107,7 @@ export function buildParamLookup(spec: VegaLiteSpecLike, view: VegaViewLike) {
   const paramByName = new Map<string, { param: VegaLiteParamLike; kind: 'Param' | 'Selection' }>();
   const watchedSignalsByParam = new Map<string, string[]>();
 
-  (spec.params ?? []).forEach((p) => {
+  collectVegaLiteParams(spec).forEach((p) => {
     const kind = p.select ? 'Selection' : 'Param';
     paramByName.set(p.name, { param: p, kind });
     watchedSignalsByParam.set(p.name, signalsForParam(p, allSignals));

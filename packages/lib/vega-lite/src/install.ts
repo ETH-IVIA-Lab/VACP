@@ -14,6 +14,7 @@ import { buildGraph } from './graph';
 import { buildParamLookup, executeAction } from './execute';
 import { installVegaLiteDuckDbDataHandle } from './duckdb-handle';
 import { whereClauseForCurrentSelections } from './duckdb-selection';
+import { collectVegaLiteParams } from './params';
 import { makeRef } from './refs';
 import { tryGetSignal } from './signals';
 import type { InstallVacpOnVegaLiteOptions, VegaLiteSpecLike, VegaViewLike } from './types';
@@ -129,7 +130,7 @@ export function installVacpOnVegaLiteView(args: {
     }),
     getState: async (): Promise<VacpStateSnapshot> => {
       const state: Record<string, unknown> = {};
-      (spec.params ?? []).forEach((p) => {
+      collectVegaLiteParams(spec).forEach((p) => {
         const pref = makeRef({
           appId: options.appId,
           viewId: options.viewId,
@@ -175,7 +176,7 @@ export function installVacpOnVegaLiteView(args: {
     };
 
     const watched = new Set<string>();
-    (spec.params ?? []).forEach((p) => {
+    collectVegaLiteParams(spec).forEach((p) => {
       (helpers.watchedSignalsByParam.get(p.name) ?? [p.name]).forEach((s) => watched.add(s));
     });
     watched.forEach((s) => view.addSignalListener?.(s, onSignal));

@@ -1,4 +1,5 @@
 import type { VegaLiteSpecLike, VegaViewLike } from './types';
+import { collectVegaLiteParams } from './params';
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return !!value && typeof value === 'object' && !Array.isArray(value);
@@ -132,7 +133,7 @@ function pointPredicatesFromSelection(
 
 export function whereClauseForCurrentSelections(spec: VegaLiteSpecLike, view: VegaViewLike): string | null {
   const preds: string[] = [];
-  (spec.params ?? []).forEach((p) => {
+  collectVegaLiteParams(spec).forEach((p) => {
     if (!p.select || typeof p.name !== 'string') return;
     const select = isRecord(p.select) ? p.select : null;
     if (!select) return;

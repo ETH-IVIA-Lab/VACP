@@ -1,6 +1,7 @@
 import type { VacpActionDescriptor, VacpEdge, VacpGraph, VacpNode, VacpRef } from '@vacp/core';
 import { VACP_SCHEMA_VERSION } from '@vacp/core';
 
+import { collectVegaLiteParams } from './params';
 import { makeRef } from './refs';
 import type { InstallVacpOnVegaLiteOptions, VegaLiteParamLike, VegaLiteSpecLike } from './types';
 
@@ -36,7 +37,7 @@ export function buildGraph(args: {
 
   const edges: VacpEdge[] = [];
 
-  (args.spec.params ?? []).forEach((p) => {
+  collectVegaLiteParams(args.spec).forEach((p) => {
     const { kind, details } = classifyParam(p);
     const pref = makeRef({
       appId: args.options.appId,

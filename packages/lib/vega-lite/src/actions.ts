@@ -1,5 +1,6 @@
 import type { VacpActionDescriptor } from '@vacp/core';
 
+import { collectVegaLiteParams } from './params';
 import { makeRef } from './refs';
 import type { InstallVacpOnVegaLiteOptions, VegaLiteSpecLike } from './types';
 
@@ -7,8 +8,9 @@ export function actionsForSpec(options: InstallVacpOnVegaLiteOptions, spec: Vega
   const vizRef = makeRef({ appId: options.appId, viewId: options.viewId, vizId: options.vizId, suffix: '' });
   const actions: VacpActionDescriptor[] = [];
 
-  const hasParam = (spec.params ?? []).some((p) => !p.select);
-  const hasSelection = (spec.params ?? []).some((p) => !!p.select);
+  const params = collectVegaLiteParams(spec);
+  const hasParam = params.some((p) => !p.select);
+  const hasSelection = params.some((p) => !!p.select);
 
   if (hasParam) {
     actions.push({
