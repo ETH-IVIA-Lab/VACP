@@ -1,17 +1,9 @@
+import { sqlIdentifier, sqlStringLiteral } from '@vacp/duckdb';
 import type { VegaLiteSpecLike, VegaViewLike } from './types';
 import { collectVegaLiteParams } from './params';
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return !!value && typeof value === 'object' && !Array.isArray(value);
-}
-
-function sqlStringLiteral(value: string): string {
-  return `'${value.replaceAll("'", "''")}'`;
-}
-
-function sqlIdentifier(name: string): string {
-  // Quote identifiers to handle reserved words (e.g. "group") and special chars.
-  return `"${name.replaceAll('"', '""')}"`;
 }
 
 function sqlLiteral(value: unknown): string | null {

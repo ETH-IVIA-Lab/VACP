@@ -35,7 +35,7 @@ export interface VegaViewLike {
    * (Not guaranteed; provider will degrade gracefully.)
    */
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  getState?: () => any;
+  getState?: (options?: any) => any;
 }
 
 export type VegaLiteParamLike = {
