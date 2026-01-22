@@ -73,6 +73,11 @@ function sanitizeDuckDbValue(value: unknown): unknown {
   if (value === null) return null;
   if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') return value;
   if (typeof value === 'bigint') return value.toString();
+  if (value instanceof Date) {
+    const t = value.getTime();
+    if (Number.isFinite(t)) return value.toISOString();
+    return null;
+  }
 
   if (Array.isArray(value)) {
     try {
@@ -274,6 +279,12 @@ export function installVegaLiteDuckDbDataHandle(args: {
           return hasAny ? out : null;
         })
         .filter((d): d is Record<string, unknown> => !!d);
+
+      const fieldSet = new Set<string>();
+      for (const row of rows.slice(0, 250)) {
+        Object.keys(row).forEach((k) => fieldSet.add(k));
+      }
+      (view as unknown as { __vacpVegaLiteDuckDbFields?: string[] }).__vacpVegaLiteDuckDbFields = Array.from(fieldSet);
 
       try {
         await db.exec(`DROP VIEW IF EXISTS main.${tableName}`);
