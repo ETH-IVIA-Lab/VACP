@@ -36,6 +36,13 @@ export interface VegaViewLike {
    */
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   getState?: (options?: any) => any;
+  /**
+   * Vega View API: get or set the tooltip handler.
+   * - tooltip() -> current handler (or null)
+   * - tooltip(handler) -> sets handler (may trigger renderer reset)
+   */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  tooltip?: (handler?: any) => any;
 }
 
 export type VegaLiteParamLike = {
