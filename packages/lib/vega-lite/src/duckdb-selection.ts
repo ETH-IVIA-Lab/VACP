@@ -7,11 +7,57 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 function sqlLiteral(value: unknown): string | null {
-  if (value === null) return 'NULL';
+  if (value === null || value === undefined) return null;
   if (typeof value === 'number' && Number.isFinite(value)) return String(value);
   if (typeof value === 'boolean') return value ? 'true' : 'false';
   if (typeof value === 'string') return sqlStringLiteral(value);
+  if (typeof value === 'bigint') return sqlStringLiteral(value.toString());
+  if (value instanceof Date) {
+    const t = value.getTime();
+    if (!Number.isFinite(t)) return null;
+    return sqlStringLiteral(value.toISOString());
+  }
+  if (Array.isArray(value) || isRecord(value)) {
+    try {
+      return sqlStringLiteral(JSON.stringify(value));
+    } catch {
+      return sqlStringLiteral(String(value));
+    }
+  }
   return null;
+}
+
+function allowedFieldsFromView(view: VegaViewLike): Set<string> | null {
+  const rec = view as unknown as { __vacpVegaLiteDuckDbFields?: unknown };
+  const raw = rec.__vacpVegaLiteDuckDbFields;
+  if (!Array.isArray(raw)) return null;
+  const fields = raw.filter((x): x is string => typeof x === 'string' && x.trim().length > 0);
+  return fields.length ? new Set(fields) : null;
+}
+
+function hoverPredicatesFromView(view: VegaViewLike, allowed: Set<string> | null): string[] {
+  const rec = view as unknown as { __vacpVegaLiteTooltipHover?: unknown };
+  const hover = rec.__vacpVegaLiteTooltipHover;
+  if (!hover || !isRecord(hover)) return [];
+  const fields = hover.fields;
+  if (!isRecord(fields)) return [];
+
+  const preds: string[] = [];
+  for (const [field, value] of Object.entries(fields)) {
+    if (!field) continue;
+    if (allowed && !allowed.has(field)) continue;
+    const ident = sqlIdentifier(field);
+    if (Array.isArray(value)) {
+      const lits = value.map(sqlLiteral).filter((x): x is string => x !== null);
+      if (!lits.length) continue;
+      preds.push(`(${ident} IN (${lits.join(', ')}))`);
+      continue;
+    }
+    const lit = sqlLiteral(value);
+    if (!lit) continue;
+    preds.push(`(${ident} = ${lit})`);
+  }
+  return preds;
 }
 
 function findEncodingField(spec: VegaLiteSpecLike, channel: string): string | null {
@@ -47,6 +93,7 @@ function intervalPredicatesFromSelection(
   paramName: string,
   view: VegaViewLike,
   select: Record<string, unknown>,
+  allowed: Set<string> | null,
 ): string[] {
   const raw = view.signal(paramName);
   if (!isRecord(raw)) return [];
@@ -68,6 +115,7 @@ function intervalPredicatesFromSelection(
   for (const t of terms) {
     const field = t.field ?? (t.channel ? (findEncodingField(spec, t.channel) ?? undefined) : undefined);
     if (!field) continue;
+    if (allowed && !allowed.has(field)) continue;
     const ident = sqlIdentifier(field);
 
     const byField = raw[field];
@@ -85,6 +133,7 @@ function pointPredicatesFromSelection(
   paramName: string,
   view: VegaViewLike,
   select: Record<string, unknown>,
+  allowed: Set<string> | null,
 ): string[] {
   const raw = view.signal(paramName);
   if (!isRecord(raw)) return [];
@@ -106,6 +155,7 @@ function pointPredicatesFromSelection(
   for (const t of terms) {
     const field = t.field ?? (t.channel ? (findEncodingField(spec, t.channel) ?? undefined) : undefined);
     if (!field) continue;
+    if (allowed && !allowed.has(field)) continue;
     const ident = sqlIdentifier(field);
 
     const v = raw[field] ?? (t.channel ? raw[t.channel] : undefined);
@@ -124,14 +174,21 @@ function pointPredicatesFromSelection(
 }
 
 export function whereClauseForCurrentSelections(spec: VegaLiteSpecLike, view: VegaViewLike): string | null {
+  const allowed = allowedFieldsFromView(view);
+
+  const hoverPreds = hoverPredicatesFromView(view, allowed);
+  if (hoverPreds.length) {
+    return hoverPreds.map((p) => `(${p})`).join(' AND ');
+  }
+
   const preds: string[] = [];
   collectVegaLiteParams(spec).forEach((p) => {
     if (!p.select || typeof p.name !== 'string') return;
     const select = isRecord(p.select) ? p.select : null;
     if (!select) return;
     const type = typeof select.type === 'string' ? select.type : '';
-    if (type === 'interval') preds.push(...intervalPredicatesFromSelection(spec, p.name, view, select));
-    else preds.push(...pointPredicatesFromSelection(spec, p.name, view, select));
+    if (type === 'interval') preds.push(...intervalPredicatesFromSelection(spec, p.name, view, select, allowed));
+    else preds.push(...pointPredicatesFromSelection(spec, p.name, view, select, allowed));
   });
   if (!preds.length) return null;
   return preds.map((p) => `(${p})`).join(' AND ');
