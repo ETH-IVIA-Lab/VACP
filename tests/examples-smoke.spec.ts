@@ -115,6 +115,71 @@ async function waitForHistoryLenAtLeast(page: Page, n: number, timeoutMs = 15_00
   }
 }
 
+async function waitForHistoryAction(
+  page: Page,
+  args: { name: string; source?: string; minHistoryLen?: number },
+  timeoutMs = 15_000,
+): Promise<void> {
+  const start = Date.now();
+  while (true) {
+    const rt = await getRuntime(page);
+    const hist = Array.isArray(rt?.history) ? rt.history : [];
+    const minLen = args.minHistoryLen ?? 0;
+    const okLen = hist.length >= minLen;
+    const okEntry = hist.some(
+      (h: any) =>
+        h?.kind === 'action' &&
+        h?.call?.name === args.name &&
+        (args.source ? h?.source === args.source : true),
+    );
+    if (okLen && okEntry) return;
+    if (Date.now() - start > timeoutMs) {
+      throw new Error(`Timed out waiting for history action: ${args.name} (source=${args.source ?? '*'})`);
+    }
+    await page.waitForTimeout(120);
+  }
+}
+
+async function findFirstTooltipCenter(page: Page, timeoutMs = 15_000): Promise<{ x: number; y: number } | null> {
+  const start = Date.now();
+  while (true) {
+    const point = await page.evaluate(() => {
+      const view = (globalThis as any).__vegaView;
+      const handler = view?._handler;
+      if (!view || !handler || typeof handler.getItemBoundingClientRect !== 'function') return null;
+
+      const root = view.scenegraph?.().root ?? null;
+      if (!root) return null;
+
+      const stack: any[] = [root];
+      const visited = new Set<any>();
+
+      while (stack.length) {
+        const node = stack.pop();
+        if (!node || typeof node !== 'object') continue;
+        if (visited.has(node)) continue;
+        visited.add(node);
+
+        if (node.tooltip != null && node.bounds) {
+          const rect = handler.getItemBoundingClientRect(node);
+          if (rect && Number.isFinite(rect.x) && Number.isFinite(rect.y) && rect.width > 0 && rect.height > 0) {
+            return { x: rect.x + rect.width * 0.5, y: rect.y + rect.height * 0.5 };
+          }
+        }
+
+        const items = node.items;
+        if (Array.isArray(items)) for (const child of items) stack.push(child);
+      }
+
+      return null;
+    });
+
+    if (point && Number.isFinite(point.x) && Number.isFinite(point.y)) return point;
+    if (Date.now() - start > timeoutMs) return null;
+    await page.waitForTimeout(150);
+  }
+}
+
 function stableJson(value: unknown): string {
   try {
     return JSON.stringify(value);
@@ -282,6 +347,75 @@ test('examples: vega-lite-gallery', async ({ page }) => {
       const nAll = countFromResult(resAll);
       expect(typeof nAll).toBe('number');
       expect(nAll).toBeGreaterThan(0);
+
+      const resBase = await dataSql(page, { handleRef, sql: 'SELECT COUNT(*)::INTEGER AS n FROM vacp_handle' });
+      expect(resBase.ok).toBeTruthy();
+      const nBase = countFromResult(resBase);
+      expect(typeof nBase).toBe('number');
+      expect(nBase).toBeGreaterThan(0);
+      expect(nBase).toBeLessThanOrEqual(nAll);
+
+      // Hover a mark with tooltip and expect a corresponding human action entry.
+      const rtBeforeHover = await getRuntime(page);
+      const beforeHoverHist = Array.isArray(rtBeforeHover?.history) ? rtBeforeHover.history.length : 0;
+      const tooltipPoint = await findFirstTooltipCenter(page);
+      expect(tooltipPoint).toBeTruthy();
+      if (tooltipPoint) {
+        await page.mouse.move(tooltipPoint.x, tooltipPoint.y);
+        await waitForHistoryAction(page, {
+          name: 'vega_lite.hover_tooltip',
+          source: 'human',
+          minHistoryLen: beforeHoverHist + 1,
+        });
+      }
+
+      const resHover = await dataSql(page, { handleRef, sql: 'SELECT COUNT(*)::INTEGER AS n FROM vacp_handle' });
+      expect(resHover.ok).toBeTruthy();
+      const nHover = countFromResult(resHover);
+      expect(typeof nHover).toBe('number');
+      expect(nHover).toBeGreaterThan(0);
+      expect(nHover).toBeLessThanOrEqual(nAll);
+      expect(nHover).toBeLessThan(nAll);
+
+      // Agent-driven hover should record source="agent" and reproduce the same selection.
+      const rtAfterHover = await getRuntime(page);
+      const lastHumanHover = [...(rtAfterHover.history ?? [])].reverse().find(
+        (h: any) => h?.kind === 'action' && h?.call?.name === 'vega_lite.hover_tooltip' && h?.source === 'human',
+      );
+      expect(lastHumanHover?.call?.params).toBeTruthy();
+      const hoverParams = lastHumanHover?.call?.params ?? {};
+
+      const rtBeforeClear = await getRuntime(page);
+      const beforeClearHist = Array.isArray(rtBeforeClear?.history) ? rtBeforeClear.history.length : 0;
+      await executeVacp(page, { name: 'vega_lite.hover_tooltip', params: { clear: true } });
+      await waitForHistoryAction(page, {
+        name: 'vega_lite.hover_tooltip',
+        source: 'agent',
+        minHistoryLen: beforeClearHist + 1,
+      });
+
+      const resCleared = await dataSql(page, { handleRef, sql: 'SELECT COUNT(*)::INTEGER AS n FROM vacp_handle' });
+      expect(resCleared.ok).toBeTruthy();
+      const nCleared = countFromResult(resCleared);
+      expect(typeof nCleared).toBe('number');
+      expect(nCleared).toBe(nBase);
+
+      const rtBeforeAgentHover = await getRuntime(page);
+      const beforeAgentHoverHist = Array.isArray(rtBeforeAgentHover?.history)
+        ? rtBeforeAgentHover.history.length
+        : 0;
+      await executeVacp(page, { name: 'vega_lite.hover_tooltip', params: hoverParams });
+      await waitForHistoryAction(page, {
+        name: 'vega_lite.hover_tooltip',
+        source: 'agent',
+        minHistoryLen: beforeAgentHoverHist + 1,
+      });
+
+      const resAgentHover = await dataSql(page, { handleRef, sql: 'SELECT COUNT(*)::INTEGER AS n FROM vacp_handle' });
+      expect(resAgentHover.ok).toBeTruthy();
+      const nAgentHover = countFromResult(resAgentHover);
+      expect(typeof nAgentHover).toBe('number');
+      expect(nAgentHover).toBe(nHover);
 
       // Trigger a best-effort human selection by clicking into the rendered canvas.
       const canvas = page.locator('#app canvas').first();
