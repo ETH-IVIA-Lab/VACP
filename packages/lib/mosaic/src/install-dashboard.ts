@@ -1,9 +1,11 @@
 import type { VacpChangeSource, VacpRef } from '@vacp/core';
-import { createDuckDbDataSqlHandler } from '@vacp/duckdb';
+import { createDuckDbDataSqlHandler, getDuckDbTableMetadata } from '@vacp/duckdb';
 import {
   installVacpRuntimeBridge,
   registerVacpApplyStateAction,
+  registerVacpDataSchemaAction,
   registerVacpDataSqlAction,
+  registerVacpWidgetOptionsAction,
   VacpActionRegistry,
 } from '@vacp/gateway';
 
@@ -90,6 +92,67 @@ export function installVacpOnVgplotDashboard(args: {
 
   const viewRef = makeViewRef({ appId: options.appId, viewId: options.viewId, suffix: '' });
 
+  if (inputs.length) {
+    const widgetOptionsDesc = registerVacpWidgetOptionsAction(
+      actionRegistry,
+      async (params) => {
+        const ref = params.ref;
+        const input = inputByRef.get(ref);
+        if (!input) throw new Error(`Unknown input ref: ${ref}`);
+
+        const offset = params.offset ?? 0;
+        const limit = params.limit ?? 200;
+        const q = typeof params.query === 'string' ? params.query.trim().toLowerCase() : '';
+
+        const safe = (value: unknown): unknown => {
+          if (value == null) return value;
+          if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') return value;
+          try {
+            return JSON.parse(JSON.stringify(value));
+          } catch {
+            return String(value);
+          }
+        };
+
+        const rawOptions: Array<{ value: unknown; label?: string }> = (() => {
+          const inst = input.input;
+          const select = inst.select;
+          if (select && typeof select.options?.length === 'number') {
+            return Array.from(select.options).map((o) => ({
+              value: o.value,
+              label: (typeof o.label === 'string' && o.label) || o.textContent?.trim() || undefined,
+            }));
+          }
+          if (Array.isArray(inst.data)) {
+            return inst.data.map((o) => ({ value: safe(o.value), label: typeof o.label === 'string' ? o.label : undefined }));
+          }
+          return [];
+        })();
+
+        const filtered = q
+          ? rawOptions.filter((o) => {
+              const label = (o.label ?? '').toLowerCase();
+              const value = String(o.value ?? '').toLowerCase();
+              return label.includes(q) || value.includes(q);
+            })
+          : rawOptions;
+
+        const count = filtered.length;
+        const slice = filtered.slice(offset, offset + limit);
+        return {
+          ref,
+          offset,
+          limit,
+          count,
+          truncated: offset + limit < count,
+          options: slice.map((o) => ({ value: safe(o.value), label: o.label })),
+        };
+      },
+      { targetRef: viewRef },
+    );
+    actionDescriptors.push(widgetOptionsDesc);
+  }
+
   const applyDesc = registerVacpApplyStateAction(
     actionRegistry,
     makeApplyStateHandler({ inputByRef, plotsById, tablesById }),
@@ -114,6 +177,22 @@ export function installVacpOnVgplotDashboard(args: {
   );
 
   if (options.duckdbClient && dataHandles.length) {
+    const duckdbClient = options.duckdbClient;
+    const schemaCache = new Map<string, Awaited<ReturnType<typeof getDuckDbTableMetadata>>>();
+
+    const resolveHandleTableName = (ref: VacpRef): string | null => {
+      const meta = handleByRef.get(ref);
+      if (!meta) return null;
+      const plot = meta.surfaceKind === 'plot' ? plotsById.get(meta.surfaceId) : null;
+      const tableObj = meta.surfaceKind === 'table' ? tablesById.get(meta.surfaceId) : null;
+      return (
+        meta.table ??
+        (plot ? discoverPlotTables(plot)[0] : null) ??
+        (tableObj && typeof tableObj.from === 'string' ? tableObj.from : null) ??
+        null
+      );
+    };
+
     const dataSqlDesc = registerVacpDataSqlAction(
       actionRegistry,
       createDuckDbDataSqlHandler({
@@ -154,6 +233,45 @@ export function installVacpOnVgplotDashboard(args: {
       { targetRef: viewRef, description: 'Query the current Mosaic selection using DuckDB SQL.' },
     );
     actionDescriptors.push(dataSqlDesc);
+
+    const dataSchemaDesc = registerVacpDataSchemaAction(
+      actionRegistry,
+      async (params) => {
+        const tableName = resolveHandleTableName(params.handleRef);
+        if (!tableName) {
+          return {
+            handleRef: params.handleRef,
+            detail: params.detail ?? 'columns',
+            table: null,
+            rowCount: null,
+            columns: [],
+          };
+        }
+
+        const detail = params.detail ?? 'columns';
+        const sampleRows = params.sampleRows;
+        const cacheKey =
+          detail === 'full'
+            ? `${tableName}|full|${typeof sampleRows === 'number' ? sampleRows : 'default'}`
+            : `${tableName}|columns`;
+
+        const cached = schemaCache.get(cacheKey);
+        if (cached) return { handleRef: params.handleRef, detail, ...cached };
+
+        const meta = await getDuckDbTableMetadata({
+          duckdb: duckdbClient,
+          table: tableName,
+          sampleRows: detail === 'full' ? (sampleRows ?? 25_000) : 0,
+          maxNumericColumns: detail === 'full' ? undefined : 0,
+          maxTemporalColumns: detail === 'full' ? undefined : 0,
+          maxCategoricalColumns: detail === 'full' ? undefined : 0,
+        });
+        schemaCache.set(cacheKey, meta);
+        return { handleRef: params.handleRef, detail, ...meta };
+      },
+      { targetRef: viewRef },
+    );
+    actionDescriptors.push(dataSchemaDesc);
   }
 
   const graph = buildDashboardGraph({

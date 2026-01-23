@@ -57,7 +57,14 @@ export function createMosaicDashboardSnapshots(args: {
         try {
           duckdbMetaByTable.set(
             tableName,
-            await getDuckDbTableMetadata({ duckdb: options.duckdbClient!, table: tableName, sampleRows: 25_000 }),
+            await getDuckDbTableMetadata({
+              duckdb: options.duckdbClient!,
+              table: tableName,
+              sampleRows: 0,
+              maxNumericColumns: 0,
+              maxTemporalColumns: 0,
+              maxCategoricalColumns: 0,
+            }),
           );
         } catch {
           // ignore: metadata is best-effort
