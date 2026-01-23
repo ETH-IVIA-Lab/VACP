@@ -82,6 +82,21 @@ async function dataSql(page: Page, args: { handleRef: string; sql: string; maxRo
   );
 }
 
+async function dataSchema(
+  page: Page,
+  args: { handleRef: string; detail?: 'columns' | 'full'; sampleRows?: number },
+): Promise<any> {
+  return await page.evaluate(
+    async ({ handleRef, detail, sampleRows }) =>
+      await (globalThis as any).__vacp.execute({
+        callId: crypto.randomUUID(),
+        name: 'vacp.data_schema',
+        params: { handleRef, detail, sampleRows },
+      }),
+    args,
+  );
+}
+
 async function executeVacp(page: Page, args: { name: string; params?: Record<string, unknown> }): Promise<any> {
   return await page.evaluate(
     async ({ name, params }) =>
@@ -193,6 +208,31 @@ function countFromResult(res: any): number {
   return rows?.[0]?.n;
 }
 
+async function expectDataSchemaWorks(page: Page, handleRef?: string): Promise<void> {
+  const cap = await getCapabilities(page);
+  const graph = cap?.graph ?? {};
+  const nodes = graph.nodes ?? [];
+  const actions = graph.actions ?? [];
+
+  const handles = nodes.filter((n: any) => n?.kind === 'DataHandle' && typeof n?.ref === 'string');
+  const target = handleRef ?? (handles[0]?.ref as string | undefined);
+  if (!target) return;
+
+  expect(actions.some((a: any) => a?.name === 'vacp.data_schema')).toBeTruthy();
+
+  let last: any = null;
+  for (let i = 0; i < 20; i += 1) {
+    // Some providers need a moment to hydrate data before schema queries succeed.
+    last = await dataSchema(page, { handleRef: target, detail: 'columns' });
+    if (last?.ok) break;
+    await page.waitForTimeout(150);
+  }
+
+  expect(last?.ok).toBeTruthy();
+  expect(Array.isArray(last?.result?.columns)).toBeTruthy();
+  expect(last?.result?.columns?.length).toBeGreaterThan(0);
+}
+
 const here = dirname(fileURLToPath(import.meta.url));
 const vacpRoot = resolve(here, '..');
 const examplesDir = resolve(vacpRoot, 'packages', 'examples');
@@ -283,6 +323,10 @@ test('examples: mosaic-gallery', async ({ page }) => {
       expect(typeof nAll).toBe('number');
       if (typeof handleTable === 'string' && handleTable) expect(nAll).toBeGreaterThan(0);
 
+      if (typeof handleTable === 'string' && handleTable) {
+        await expectDataSchemaWorks(page, handleRef);
+      }
+
       const before = await getState(page);
       const rtBefore = await getRuntime(page);
       const beforeHist = (rtBefore.history ?? []).length;
@@ -347,6 +391,8 @@ test('examples: vega-lite-gallery', async ({ page }) => {
       const nAll = countFromResult(resAll);
       expect(typeof nAll).toBe('number');
       expect(nAll).toBeGreaterThan(0);
+
+      await expectDataSchemaWorks(page, handleRef);
 
       const resBase = await dataSql(page, { handleRef, sql: 'SELECT COUNT(*)::INTEGER AS n FROM vacp_handle' });
       expect(resBase.ok).toBeTruthy();
@@ -454,6 +500,8 @@ test('examples: d3-scatter-lasso', async ({ page }) => {
     const nAll = countFromResult(resAll);
     expect(nAll).toBeGreaterThan(0);
 
+    await expectDataSchemaWorks(page, handleRef);
+
     const rtBefore = await getRuntime(page);
     const beforeHist = (rtBefore.history ?? []).length;
     const ran = await tryRunFirstNonClearDemoStep(page);
@@ -481,6 +529,8 @@ test('examples: vanilla-minimal', async ({ page }) => {
     expect(resAll.ok).toBeTruthy();
     const nAll = countFromResult(resAll);
     expect(nAll).toBeGreaterThan(0);
+
+    await expectDataSchemaWorks(page, handleRef);
 
     const rtBefore = await getRuntime(page);
     const beforeHist = (rtBefore.history ?? []).length;
@@ -521,6 +571,8 @@ test('examples: react-dashboard', async ({ page }) => {
     expect(resAll.ok).toBeTruthy();
     const nAll = countFromResult(resAll);
     expect(nAll).toBeGreaterThan(0);
+
+    await expectDataSchemaWorks(page, handleRef);
 
     await page.waitForSelector('svg circle[data-point-id]', { timeout: 30_000 });
 

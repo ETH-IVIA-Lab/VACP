@@ -29,7 +29,7 @@ test('mosaic: set_interval_1d triggers downstream crossfilters (Seattle Weather)
     });
     expect(before).toBeTruthy();
 
-    // Programmatic brush (June–Aug) on the scatter plot should change the bottom bar chart.
+    // Programmatic brush (June-Aug) on the scatter plot should change the bottom bar chart.
     const callId = crypto.randomUUID();
     const res = await page.evaluate(
       async ({ callId }) => {
@@ -90,7 +90,7 @@ test('mosaic: set_interval_1d triggers downstream crossfilters (Seattle Weather)
       const aBox = sel?.getBBox?.() ?? null;
       const a = aBox ? { x: aBox.x, width: aBox.width, height: aBox.height } : null;
 
-      // Change to a different interval (Oct–Nov) so we can confirm restore.
+      // Change to a different interval (Oct-Nov) so we can confirm restore.
       await vacp.execute({
         callId: crypto.randomUUID(),
         name: 'mosaic.set_interval_1d',
