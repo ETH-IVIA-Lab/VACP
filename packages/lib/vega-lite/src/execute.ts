@@ -56,39 +56,6 @@ function tryGetSignalValueFromState(view: VegaViewLike, name: string): unknown {
   }
 }
 
-function tryGetSignalContextKeyFromState(view: VegaViewLike, name: string): string | null {
-  if (typeof view.getState !== 'function') return null;
-  try {
-    const st = view.getState() as
-      | {
-          signals?: Record<string, unknown>;
-          subcontext?: Record<string, unknown>;
-        }
-      | undefined;
-    if (!st || typeof st !== 'object') return null;
-    if (st.signals && Object.prototype.hasOwnProperty.call(st.signals, name)) return null;
-
-    const stack: Array<{ key: string; ctx: unknown }> = [];
-    if (st.subcontext && typeof st.subcontext === 'object') {
-      for (const [key, ctx] of Object.entries(st.subcontext)) stack.push({ key, ctx });
-    }
-
-    while (stack.length) {
-      const { key, ctx: next } = stack.pop()!;
-      if (!next || typeof next !== 'object') continue;
-      const ctx = next as { signals?: Record<string, unknown>; subcontext?: Record<string, unknown> };
-      if (ctx.signals && Object.prototype.hasOwnProperty.call(ctx.signals, name)) return key;
-      if (ctx.subcontext && typeof ctx.subcontext === 'object') {
-        for (const [childKey, childCtx] of Object.entries(ctx.subcontext)) stack.push({ key: childKey, ctx: childCtx });
-      }
-    }
-
-    return null;
-  } catch {
-    return null;
-  }
-}
-
 function bestEffortSelectionTuple(args: {
   selectionValue: unknown;
   tupleFields: unknown;
@@ -143,6 +110,92 @@ function tupleFieldKeys(tupleFields: unknown): string[] {
     const field = typeof rec?.field === 'string' ? rec.field : '';
     return field || channel;
   });
+}
+
+type VegaStateSnapshot =
+  | {
+      signals?: Record<string, unknown>;
+      data?: Record<string, unknown>;
+      subcontext?: Record<string, unknown>;
+    }
+  | undefined;
+
+function signalContextKeyFromSnapshot(snapshot: VegaStateSnapshot, name: string): string | null | undefined {
+  if (!snapshot || typeof snapshot !== 'object') return undefined;
+  const rootSignals = snapshot.signals;
+  if (rootSignals && Object.prototype.hasOwnProperty.call(rootSignals, name)) return null;
+
+  const stack: Array<{ key: string; ctx: unknown }> = [];
+  const sub = snapshot.subcontext;
+  if (sub && typeof sub === 'object') {
+    for (const [key, ctx] of Object.entries(sub)) stack.push({ key, ctx });
+  }
+
+  while (stack.length) {
+    const { key, ctx } = stack.pop()!;
+    if (!ctx || typeof ctx !== 'object') continue;
+    const rec = ctx as { signals?: Record<string, unknown>; subcontext?: Record<string, unknown> };
+    if (rec.signals && Object.prototype.hasOwnProperty.call(rec.signals, name)) return key;
+    if (rec.subcontext && typeof rec.subcontext === 'object') {
+      for (const [childKey, childCtx] of Object.entries(rec.subcontext)) stack.push({ key: childKey, ctx: childCtx });
+    }
+  }
+
+  return undefined;
+}
+
+function tryInferUnitIdFromRuntimeSubcontext(view: VegaViewLike, contextKey: string): string | undefined {
+  // Vega's `view.getState()` exposes a tree of subcontexts keyed by strings like
+  // "0", "1", ... but interval selection tuples encode a Vega-Lite *unit id*
+  // (e.g. "concat_0", "layer_2") that matches the subcontext's group mark name
+  // without the "_group" suffix.
+  //
+  // This is intentionally best-effort and guarded: `_runtime` is not part of the
+  // public View API, but it's present in Vega's View implementation and is the
+  // only reliable way to map subcontext keys → unit ids when the selection is
+  // currently empty (tuple signal is null and store is empty).
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const rt = (view as any)?._runtime as any;
+    const markName = rt?.subcontext?.[contextKey]?.group?.mark?.name;
+    if (typeof markName !== 'string' || !markName) return undefined;
+    return markName.endsWith('_group') ? markName.slice(0, -'_group'.length) : markName;
+  } catch {
+    return undefined;
+  }
+}
+
+function tryGetScaleFn(view: VegaViewLike, name: string): ((v: unknown) => number) | null {
+  try {
+    const s = view.scale?.(name);
+    return typeof s === 'function' ? (s as (v: unknown) => number) : null;
+  } catch {
+    return null;
+  }
+}
+
+function isFiniteNumber(value: unknown): value is number {
+  return typeof value === 'number' && Number.isFinite(value);
+}
+
+async function applyViewState(view: VegaViewLike, state: unknown): Promise<void> {
+  // Prefer an awaited, single-pass `runAsync` to avoid racing `view.setState()`'s
+  // internal async run (which does not return a promise).
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const v = view as any;
+  if (typeof v.runAsync === 'function' && typeof v?._runtime?.setState === 'function') {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await v.runAsync(null, (vv: any) => {
+      vv._trigger = false;
+      vv._runtime.setState(state);
+    }, (vv: any) => {
+      vv._trigger = true;
+    });
+    return;
+  }
+
+  if (typeof view.setState === 'function') view.setState(state);
+  await view.runAsync();
 }
 
 export function buildParamLookup(spec: VegaLiteSpecLike, view: VegaViewLike) {
@@ -200,6 +253,9 @@ export async function executeAction(
 
     const selectionValue = params.value;
     const storeName = `${name}_store`;
+    const snapshotBefore = (typeof view.getState === 'function' ? (view.getState() as VegaStateSnapshot) : undefined) as
+      | VegaStateSnapshot
+      | undefined;
 
     // Prefer updating the selection store (dataset) so the compiled selection
     // logic (predicates, filters, conditional encodings) sees a coherent state.
@@ -207,12 +263,15 @@ export async function executeAction(
       try {
         const existing = view.data(storeName) as unknown[];
         const tupleFromState = tryGetSignalValueFromState(view, `${name}_tuple`);
-        const unit =
+        const ctxKey =
+          signalContextKeyFromSnapshot(snapshotBefore, `${name}_tuple_fields`) ??
+          signalContextKeyFromSnapshot(snapshotBefore, `${name}_tuple`);
+        const unitCandidate =
           (isRecord(existing?.[0]) ? (existing[0] as Record<string, unknown>).unit : undefined) ??
           (isRecord(tupleFromState) ? (tupleFromState as Record<string, unknown>).unit : undefined) ??
           tryGetSignalValueFromState(view, `${name}_unit`) ??
-          tryGetSignalContextKeyFromState(view, `${name}_tuple_fields`) ??
-          tryGetSignalContextKeyFromState(view, `${name}_tuple`);
+          (typeof ctxKey === 'string' ? tryInferUnitIdFromRuntimeSubcontext(view, ctxKey) : undefined);
+        const unit = typeof unitCandidate === 'string' ? unitCandidate : undefined;
         const tupleFields =
           tryGetSignalValueFromState(view, `${name}_tuple_fields`) ??
           (isRecord(existing?.[0]) ? (existing[0] as Record<string, unknown>).fields : undefined);
@@ -247,6 +306,59 @@ export async function executeAction(
         }
         view.change(storeName, cs);
         await view.runAsync();
+
+        // Interval selections draw a brush rectangle using helper signals such
+        // as `<name>_x` / `<name>_y` (pixel extents). When we update the store
+        // programmatically, those signals don't change, so the rectangle stays
+        // invisible even though the selection predicates work. For interval
+        // selections that have these helper signals, set them via `setState`.
+        const selectDef = found.param.select;
+        const isInterval = isRecord(selectDef) && selectDef.type === 'interval';
+        if (isInterval && typeof view.getState === 'function') {
+          const snapshotAfter = view.getState() as VegaStateSnapshot;
+          const next = snapshotAfter;
+          const tuple = tuples[0];
+          if (next && tuple && Array.isArray(tuple.fields) && Array.isArray(tuple.values)) {
+            let touched = 0;
+            for (let i = 0; i < tuple.fields.length; i += 1) {
+              const f = isRecord(tuple.fields[i]) ? (tuple.fields[i] as Record<string, unknown>) : null;
+              const channel = typeof f?.channel === 'string' ? f.channel : null;
+              if (channel !== 'x' && channel !== 'y') continue;
+
+              const v = tuple.values[i];
+              if (!Array.isArray(v) || v.length !== 2) continue;
+              const a = v[0];
+              const b = v[1];
+
+              const scale =
+                (unit ? tryGetScaleFn(view, `${unit}_${channel}`) : null) ?? tryGetScaleFn(view, channel) ?? null;
+              if (!scale) continue;
+              const p0 = scale(a);
+              const p1 = scale(b);
+              if (!isFiniteNumber(p0) || !isFiniteNumber(p1)) continue;
+
+              const signalName = `${name}_${channel}`;
+              const loc = signalContextKeyFromSnapshot(next, signalName);
+              if (loc === undefined) continue;
+              const extent: [number, number] = p0 <= p1 ? [p0, p1] : [p1, p0];
+
+              if (loc === null) {
+                if (next.signals && typeof next.signals === 'object') next.signals[signalName] = extent;
+                touched += 1;
+              } else {
+                const ctx = next.subcontext?.[loc];
+                const ctxRec = ctx && typeof ctx === 'object' ? (ctx as { signals?: Record<string, unknown> }) : null;
+                if (ctxRec?.signals && typeof ctxRec.signals === 'object') {
+                  ctxRec.signals[signalName] = extent;
+                  touched += 1;
+                }
+              }
+            }
+
+            if (touched) await applyViewState(view, next);
+          }
+        }
+
         return { ok: true, method: 'store', value: tryGetSignal(view, name) };
       } catch {
         // Fall back to setting signals below.

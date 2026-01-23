@@ -37,6 +37,21 @@ export interface VegaViewLike {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   getState?: (options?: any) => any;
   /**
+   * Optional Vega View API: restore a view state snapshot (signals + data).
+   *
+   * Used to set interval selection "pixel extent" helper signals (e.g. `brush_x`)
+   * so the brush rectangle renders after programmatic actions.
+   */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  setState?: (state: any) => any;
+  /**
+   * Optional Vega View API: access a named scale function.
+   *
+   * Used to map selection data extents → pixel extents for interval brushes.
+   */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  scale?: (name: string) => any;
+  /**
    * Vega View API: get or set the tooltip handler.
    * - tooltip() -> current handler (or null)
    * - tooltip(handler) -> sets handler (may trigger renderer reset)
