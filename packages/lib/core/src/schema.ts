@@ -161,6 +161,98 @@ export type VacpDataSqlResult =
       arrowIpcBase64: string;
     };
 
+/**
+ * Standard action: return schema (and optional lightweight summaries) for a DataHandle.
+ *
+ * This is meant to reduce SQL trial-and-error:
+ * agents can ask "what columns exist and what types are they?" before writing queries.
+ */
+export const VACP_DATA_SCHEMA_ACTION = 'vacp.data_schema' as const;
+
+export type VacpDataSchemaDetail = 'columns' | 'full';
+
+export type VacpDataSchemaParams = {
+  /** Which DataHandle to describe (a node ref with `kind: "DataHandle"`). */
+  handleRef: VacpRef;
+  /**
+   * Level of detail:
+   * - `columns` (default): columns + types + row count (fast)
+   * - `full`: include bounded summaries (numeric/temporal/top categories), tuned for agent context
+   */
+  detail?: VacpDataSchemaDetail;
+  /**
+   * When `detail="full"`, bound the amount of data scanned for summaries.
+   * Providers may ignore this when unsupported.
+   */
+  sampleRows?: number;
+};
+
+export type VacpDataSchemaColumn = {
+  name: string;
+  type: string;
+  notNull?: boolean;
+  primaryKey?: boolean;
+};
+
+export type VacpDataSchemaNumericSummary = {
+  min: number | null;
+  max: number | null;
+  avg: number | null;
+  unitHint?: 'epoch_ms' | 'epoch_s' | null;
+  minIso?: string | null;
+  maxIso?: string | null;
+};
+
+export type VacpDataSchemaTemporalSummary = {
+  minIso: string | null;
+  maxIso: string | null;
+  minEpochMs: number | null;
+  maxEpochMs: number | null;
+};
+
+export type VacpDataSchemaResult = {
+  handleRef: VacpRef;
+  detail: VacpDataSchemaDetail;
+  /** Underlying provider table/view name when available. */
+  table: string | null;
+  rowCount: number | null;
+  columns: VacpDataSchemaColumn[];
+  numeric?: Record<string, VacpDataSchemaNumericSummary>;
+  temporal?: Record<string, VacpDataSchemaTemporalSummary>;
+  categoricalTopValues?: Record<string, Array<{ value: string; n: number }>>;
+  sampledRows?: number | null;
+};
+
+/**
+ * Standard action: list options for a Widget ref (e.g., Menu inputs).
+ *
+ * This lets agents map from human-readable labels to stable values/indices
+ * before calling provider-specific input actions.
+ */
+export const VACP_WIDGET_OPTIONS_ACTION = 'vacp.widget_options' as const;
+
+export type VacpWidgetOptionsParams = {
+  /** Widget vacp:// ref (kind: "Widget"). */
+  ref: VacpRef;
+  /** Pagination offset (default: 0). */
+  offset?: number;
+  /** Max options to return (default: 200). */
+  limit?: number;
+  /** Optional substring filter applied to label/value. */
+  query?: string;
+};
+
+export type VacpWidgetOption = { value: unknown; label?: string };
+
+export type VacpWidgetOptionsResult = {
+  ref: VacpRef;
+  offset: number;
+  limit: number;
+  count: number;
+  truncated: boolean;
+  options: VacpWidgetOption[];
+};
+
 export interface VacpGraph {
   version: VacpSchemaVersion;
   nodes: VacpNode[];
