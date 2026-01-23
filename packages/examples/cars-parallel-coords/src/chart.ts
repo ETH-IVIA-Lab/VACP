@@ -11,6 +11,7 @@ export type ParallelCoordsState = {
   brushRanges: BrushRanges;
   selectedCount: number;
   totalCount: number;
+  hoveredId: number | null;
 };
 
 export type CarDatum = Record<string, number | string> & {
@@ -57,6 +58,7 @@ export function createParallelCoordsChart(args: {
   const extents: BrushRanges = Object.fromEntries(args.dimensions.map((d) => [d, fullExtent(args.data, d)]));
   const brushRanges: BrushRanges = Object.fromEntries(args.dimensions.map((d) => [d, extents[d]!]));
   const selectedIds = new Set<number>(args.data.map((d) => d.id));
+  let hoveredId: number | null = null;
 
   const getOrderedDimensions = (): string[] => (dimensionOrder.length ? [...dimensionOrder] : [...args.dimensions]);
 
@@ -66,6 +68,7 @@ export function createParallelCoordsChart(args: {
     brushRanges: structuredClone(brushRanges),
     selectedCount: selectedIds.size,
     totalCount: args.data.length,
+    hoveredId,
   });
 
   const emit = (source: ParallelCoordsSource, message: string) => {
@@ -92,6 +95,7 @@ export function createParallelCoordsChart(args: {
   };
 
   const showTooltip = (event: MouseEvent, d: CarDatum): void => {
+    hoveredId = d.id;
     const ordered = getOrderedDimensions();
     let html = `<strong>${String(d.Car || 'Unknown')}</strong><br>`;
     if (d.Origin) html += `Origin: ${String(d.Origin)}<br><br>`;
@@ -106,17 +110,38 @@ export function createParallelCoordsChart(args: {
     args.tooltip.style.top = `${event.pageY - 10}px`;
   };
 
+  const showTooltipAt = (pageX: number, pageY: number, d: CarDatum): void => {
+    const ordered = getOrderedDimensions();
+    let html = `<strong>${String(d.Car || 'Unknown')}</strong><br>`;
+    if (d.Origin) html += `Origin: ${String(d.Origin)}<br><br>`;
+    for (const dim of ordered) {
+      const v = d[dim];
+      if (v === undefined || v === null) continue;
+      html += `${dim}: ${typeof v === 'number' ? v.toFixed(2) : String(v)}<br>`;
+    }
+    args.tooltip.innerHTML = html;
+    args.tooltip.style.display = 'block';
+    args.tooltip.style.left = `${pageX + 10}px`;
+    args.tooltip.style.top = `${pageY - 10}px`;
+  };
+
   const moveTooltip = (event: MouseEvent): void => {
     args.tooltip.style.left = `${event.pageX + 10}px`;
     args.tooltip.style.top = `${event.pageY - 10}px`;
   };
 
   const hideTooltip = (): void => {
+    hoveredId = null;
     args.tooltip.style.display = 'none';
   };
 
   const render = (): void => {
     d3.select(args.root).selectAll('*').remove();
+
+    if (hoveredId !== null && !selectedIds.has(hoveredId)) {
+      hoveredId = null;
+      hideTooltip();
+    }
 
     const containerWidth = args.root.getBoundingClientRect().width || 1200;
     const ordered = getOrderedDimensions();
@@ -150,19 +175,29 @@ export function createParallelCoordsChart(args: {
       .attr('class', (d) => (selectedIds.has(d.id) ? 'line selected' : 'line'))
       .attr('d', (d) => line(ordered.map((dim) => toNumber(d[dim]))))
       .style('opacity', (d) => (selectedIds.has(d.id) ? 0.9 : 0))
-      .style('stroke', (d) => (selectedIds.has(d.id) ? '#a8d5e2' : '#d4c5e8'))
-      .style('stroke-width', (d) => (selectedIds.has(d.id) ? 2 : 1))
+      .style('stroke', (d) => {
+        if (!selectedIds.has(d.id)) return '#d4c5e8';
+        return d.id === hoveredId ? '#ffb000' : '#a8d5e2';
+      })
+      .style('stroke-width', (d) => {
+        if (!selectedIds.has(d.id)) return 1;
+        return d.id === hoveredId ? 3 : 2;
+      })
       .style('pointer-events', (d) => (selectedIds.has(d.id) ? 'all' : 'none'))
       .on('mouseover', (event, d) => {
         if (!selectedIds.has(d.id)) return;
         showTooltip(event, d);
+        emit('human', 'hover line');
       })
       .on('mousemove', (event, d) => {
         if (!selectedIds.has(d.id)) return;
         moveTooltip(event);
         void d;
       })
-      .on('mouseout', hideTooltip);
+      .on('mouseout', () => {
+        hideTooltip();
+        emit('human', 'clear hover');
+      });
 
     const axisGroups = g
       .selectAll<SVGGElement, string>('.axis-group')
@@ -350,6 +385,7 @@ export function createParallelCoordsChart(args: {
       brushRanges[dim] = clampRange(next, lo, hi);
     }
     computeSelection();
+    if (hoveredId !== null && !selectedIds.has(hoveredId)) hideTooltip();
     render();
     emit(source, 'set brush ranges');
   };
@@ -359,6 +395,7 @@ export function createParallelCoordsChart(args: {
       brushRanges[dim] = extents[dim]!;
     }
     computeSelection();
+    if (hoveredId !== null && !selectedIds.has(hoveredId)) hideTooltip();
     render();
     emit(source, 'reset brushes');
   };
@@ -384,6 +421,34 @@ export function createParallelCoordsChart(args: {
     emit(source, 'reset dimension order');
   };
 
+  const setHoveredId = (id: number | null, source: ParallelCoordsSource): void => {
+    if (id === hoveredId) return;
+    hoveredId = id;
+
+    if (hoveredId === null) {
+      hideTooltip();
+      render();
+      emit(source, 'clear hover');
+      return;
+    }
+
+    const d = args.data.find((x) => x.id === hoveredId) ?? null;
+    if (!d || !selectedIds.has(d.id)) {
+      hoveredId = null;
+      hideTooltip();
+      render();
+      emit(source, 'clear hover');
+      return;
+    }
+
+    const rect = args.root.getBoundingClientRect();
+    const pageX = rect.left + window.scrollX + rect.width * 0.5;
+    const pageY = rect.top + window.scrollY + rect.height * 0.25;
+    showTooltipAt(pageX, pageY, d);
+    render();
+    emit(source, 'set hover');
+  };
+
   const destroy = (): void => {
     hideTooltip();
     d3.select(args.root).selectAll('*').remove();
@@ -402,5 +467,6 @@ export function createParallelCoordsChart(args: {
     resetBrushes,
     setDimensionOrder,
     resetDimensionOrder,
+    setHoveredId,
   };
 }

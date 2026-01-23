@@ -9,6 +9,8 @@ import {
 } from '@vacp/kit';
 import { createDuckDbWasmClient, getDuckDbTableMetadata, type VacpDuckDbTableMetadata } from '@vacp/duckdb';
 import { VACP_SCHEMA_VERSION, type VacpRef } from '@vacp/core';
+import type { VacpPlaybook } from '@vacp/core';
+import { playbook } from '@vacp/kit';
 
 import type { BrushRange, CarDatum, ParallelCoordsSource } from './chart';
 import type { ParallelCoordsState } from './chart';
@@ -37,10 +39,12 @@ export function installVacpForCarsParallelCoords(args: {
   data: CarDatum[];
   dimensions: string[];
   getState: () => ParallelCoordsState;
+  getSelectedIds: () => number[];
   setBrushRanges: (ranges: Partial<Record<string, BrushRange | null>>, source: ParallelCoordsSource) => void;
   resetBrushes: (source: ParallelCoordsSource) => void;
   setDimensionOrder: (order: string[], source: ParallelCoordsSource) => void;
   resetDimensionOrder: (source: ParallelCoordsSource) => void;
+  setHoveredId: (id: number | null, source: ParallelCoordsSource) => void;
 }) {
   const appId = 'vacp-examples';
   const viewId = 'vanilla/cars-parallel-coords';
@@ -52,6 +56,7 @@ export function installVacpForCarsParallelCoords(args: {
   const vizRef = vizRefs.root;
   const brushRef = vizRefs.ref('/selection/brushes');
   const orderRef = vizRefs.ref('/param/dimension_order');
+  const hoverRef = vizRefs.ref('/selection/hover');
   const handleRef = vizRefs.ref('/data/cars');
 
   const extents = Object.fromEntries(args.dimensions.map((d) => [d, numberExtent(args.data, d)]));
@@ -63,7 +68,14 @@ export function installVacpForCarsParallelCoords(args: {
     const db = await createDuckDbWasmClient({ log: false });
     await db.loadObjectsAsTable(tableName, args.data, { create: true });
     try {
-      tableMeta = await getDuckDbTableMetadata({ duckdb: db, table: tableName });
+      tableMeta = await getDuckDbTableMetadata({
+        duckdb: db,
+        table: tableName,
+        sampleRows: 0,
+        maxNumericColumns: 0,
+        maxTemporalColumns: 0,
+        maxCategoricalColumns: 0,
+      });
     } catch {
       tableMeta = null;
     }
@@ -146,6 +158,82 @@ export function installVacpForCarsParallelCoords(args: {
       return { ok: true };
     });
 
+  const normalizeText = (value: string): string => value.trim().toLowerCase();
+  const isFiniteNumber = (value: unknown): value is number => typeof value === 'number' && Number.isFinite(value);
+
+  actions
+    .action('parallel_coords.set_hover', 'Set the currently hovered line (shows tooltip; best-effort).')
+    .target(hoverRef)
+    .params({
+      type: 'object',
+      properties: {
+        clear: { type: 'boolean', description: 'If true, clear the current hover.' },
+        id: { type: 'number', description: 'Row id (internal numeric id used by this demo).' },
+        car: { type: 'string', description: 'Car name to hover (best-effort match within current selection).' },
+        prefer: {
+          type: 'string',
+          enum: ['first', 'min_horsepower_nonzero', 'max_horsepower'],
+          description: 'When multiple matches exist, how to pick a single row.',
+        },
+      },
+    })
+    .handle((params) => {
+      const rec = (params ?? {}) as { clear?: unknown; id?: unknown; car?: unknown; prefer?: unknown };
+      if (rec.clear === true) {
+        args.setHoveredId(null, 'agent');
+        return { ok: true, hoveredId: null };
+      }
+
+      const id = isFiniteNumber(rec.id) ? Math.floor(rec.id) : null;
+      const car = typeof rec.car === 'string' && rec.car.trim() ? rec.car.trim() : null;
+      const prefer = typeof rec.prefer === 'string' ? rec.prefer : 'first';
+
+      const selected = new Set(args.getSelectedIds());
+      const candidates = args.data.filter((d) => selected.has(d.id));
+
+      const pickById = (targetId: number) => {
+        const found = candidates.find((d) => d.id === targetId) ?? null;
+        if (!found) throw new Error(`No selected row with id=${targetId}`);
+        args.setHoveredId(found.id, 'agent');
+        return { ok: true, hoveredId: found.id, car: found.Car };
+      };
+
+      if (id !== null) return pickById(id);
+
+      if (!car) throw new Error('Expected params.id or params.car (or params.clear=true)');
+
+      const needle = normalizeText(car);
+      const matches = candidates.filter((d) => normalizeText(String(d.Car ?? '')).includes(needle));
+      if (!matches.length) throw new Error(`No selected row matches car="${car}"`);
+
+      const hp = (d: CarDatum): number => {
+        const raw = d.Horsepower;
+        const n = typeof raw === 'number' ? raw : Number(raw);
+        return Number.isFinite(n) ? n : 0;
+      };
+
+      let chosen = matches[0]!;
+      if (prefer === 'min_horsepower_nonzero') {
+        const nonzero = matches.filter((d) => hp(d) > 0);
+        const pool = nonzero.length ? nonzero : matches;
+        chosen = pool.reduce((a, b) => (hp(b) < hp(a) ? b : a));
+      } else if (prefer === 'max_horsepower') {
+        chosen = matches.reduce((a, b) => (hp(b) > hp(a) ? b : a));
+      }
+
+      args.setHoveredId(chosen.id, 'agent');
+      return { ok: true, hoveredId: chosen.id, car: chosen.Car };
+    });
+
+  actions
+    .action('parallel_coords.clear_hover', 'Clear the currently hovered line (hides tooltip).')
+    .target(hoverRef)
+    .params({ type: 'object', properties: {} })
+    .handle(() => {
+      args.setHoveredId(null, 'agent');
+      return { ok: true, hoveredId: null };
+    });
+
   actions.standard.applyState(
     (state) => {
       let applied = 0;
@@ -178,6 +266,19 @@ export function installVacpForCarsParallelCoords(args: {
         }
       }
 
+      const hover = state[hoverRef as unknown as string];
+      if (hover) {
+        const rec = hover && typeof hover === 'object' ? (hover as Record<string, unknown>) : {};
+        const v = (rec.hoveredId ?? rec.id ?? rec.value ?? hover) as unknown;
+        if (v === null) {
+          args.setHoveredId(null, 'agent');
+          applied += 1;
+        } else if (typeof v === 'number' && Number.isFinite(v)) {
+          args.setHoveredId(Math.floor(v), 'agent');
+          applied += 1;
+        }
+      }
+
       return { applied };
     },
     { targetRef: vizRef, description: 'Apply brush ranges + dimension order (best-effort).' },
@@ -206,6 +307,28 @@ export function installVacpForCarsParallelCoords(args: {
     description: 'Query the current selection via DuckDB SQL. `vacp_handle` is brush-filtered (or all rows if empty).',
   });
 
+  actions.standard.dataSchema(
+    async (params) => {
+      if (params.handleRef !== handleRef) throw new Error(`Unknown DataHandle: ${params.handleRef}`);
+      const db = await duckdb;
+      const detail = params.detail ?? 'columns';
+      const sampleRows = params.sampleRows;
+      const meta = await getDuckDbTableMetadata({
+        duckdb: db,
+        table: tableName,
+        sampleRows: detail === 'full' ? (sampleRows ?? 25_000) : 0,
+        maxNumericColumns: detail === 'full' ? undefined : 0,
+        maxTemporalColumns: detail === 'full' ? undefined : 0,
+        maxCategoricalColumns: detail === 'full' ? undefined : 0,
+      });
+      return { handleRef, detail, ...meta };
+    },
+    {
+      targetRef: handleRef,
+      description: 'Return schema/metadata for the cars DataHandle (columns, types, row count, optional summaries).',
+    },
+  );
+
   const graph: VacpGraphBase = {
     version: VACP_SCHEMA_VERSION,
     nodes: [
@@ -228,6 +351,14 @@ export function installVacpForCarsParallelCoords(args: {
         data: { type: 'string[]' },
       },
       {
+        ref: hoverRef,
+        kind: 'Selection',
+        layer: 'InteractionFeedbackLayer',
+        title: 'Hover focus',
+        description: 'Currently hovered line (tooltip focus).',
+        data: { type: 'point', key: 'id' },
+      },
+      {
         ref: handleRef,
         kind: 'DataHandle',
         layer: 'DataLayer',
@@ -240,9 +371,73 @@ export function installVacpForCarsParallelCoords(args: {
       { from: viewRef, to: vizRef, kind: 'contains' },
       { from: vizRef, to: brushRef, kind: 'contains' },
       { from: vizRef, to: orderRef, kind: 'contains' },
+      { from: vizRef, to: hoverRef, kind: 'contains' },
       { from: vizRef, to: handleRef, kind: 'contains' },
       { from: brushRef, to: handleRef, kind: 'controls' },
     ],
+  };
+
+  const buildPlaybooks = (): VacpPlaybook[] => {
+    const dims = [...args.dimensions];
+    const preferOrder = (a: string, b: string): string[] => {
+      const out: string[] = [];
+      [a, b].forEach((d) => {
+        if (dims.includes(d) && !out.includes(d)) out.push(d);
+      });
+      dims.forEach((d) => {
+        if (!out.includes(d)) out.push(d);
+      });
+      return out;
+    };
+
+    return [
+      playbook({
+        id: 'cars-parcoords-cyl-4-weight-range',
+        title: 'Playbook: Cars (4 cylinders → weight range)',
+        description: 'Brush Cylinders = 4 and inspect the Weight axis range for the selected subset.',
+      })
+        .action('Reset brushes (clean slate)', { name: 'parallel_coords.reset_brushes', params: {} })
+        .action('Brush: Cylinders = 4', {
+          name: 'parallel_coords.set_brush_ranges',
+          params: { ranges: { Cylinders: [4, 4] } },
+        })
+        .build(),
+
+      playbook({
+        id: 'cars-parcoords-dim-correlation-displacement-weight',
+        title: 'Playbook: Cars (largest positive correlation)',
+        description:
+          'Reorder axes to place the strongest positively correlated dimensions adjacent (excluding discrete Cylinders).',
+      })
+        .action('Reset dimension order (clean slate)', { name: 'parallel_coords.reset_dimension_order', params: {} })
+        .action('Place Displacement next to Weight', {
+          name: 'parallel_coords.set_dimension_order',
+          params: { order: preferOrder('Displacement', 'Weight') },
+        })
+        .build(),
+
+      playbook({
+        id: 'cars-parcoords-6cyl-horsepower-outliers',
+        title: 'Playbook: Cars (6 cylinders → horsepower outliers)',
+        description:
+          'Brush Cylinders = 6 and inspect horsepower outliers; use hover (tooltip) to identify the outlier cars.',
+      })
+        .action('Reset brushes (clean slate)', { name: 'parallel_coords.reset_brushes', params: {} })
+        .action('Clear hover (clean slate)', { name: 'parallel_coords.clear_hover', params: {} })
+        .action('Brush: Cylinders = 6', {
+          name: 'parallel_coords.set_brush_ranges',
+          params: { ranges: { Cylinders: [6, 6] } },
+        })
+        .action('Hover: Ford Grenada ghia', {
+          name: 'parallel_coords.set_hover',
+          params: { car: 'Ford Grenada ghia', prefer: 'first' },
+        })
+        .action('Hover: Ford Maverick (lowest non-zero horsepower match)', {
+          name: 'parallel_coords.set_hover',
+          params: { car: 'Ford Maverick', prefer: 'min_horsepower_nonzero' },
+        })
+        .build(),
+    ];
   };
 
   const vacp = installVacp({
@@ -259,6 +454,11 @@ export function installVacpForCarsParallelCoords(args: {
           totalCount: st.totalCount,
         },
         [orderRef]: { kind: 'Param', value: st.dimensionOrder },
+        [hoverRef]: {
+          kind: 'Selection',
+          hoveredId: st.hoveredId,
+          hoveredCar: st.hoveredId === null ? null : (args.data.find((d) => d.id === st.hoveredId)?.Car ?? null),
+        },
         [handleRef]: {
           kind: 'DataHandle',
           tableName,
@@ -268,7 +468,8 @@ export function installVacpForCarsParallelCoords(args: {
         },
       } satisfies Record<VacpRef, unknown>;
     },
+    playbooks: buildPlaybooks(),
   });
 
-  return { ...vacp, refs: { viewRef, vizRef, brushRef, orderRef, handleRef } };
+  return { ...vacp, refs: { viewRef, vizRef, brushRef, orderRef, hoverRef, handleRef } };
 }

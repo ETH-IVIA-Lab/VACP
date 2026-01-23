@@ -44,10 +44,12 @@ export async function run(): Promise<void> {
     data,
     dimensions,
     getState: chart.getState,
+    getSelectedIds: chart.getSelectedIds,
     setBrushRanges: chart.setBrushRanges,
     resetBrushes: chart.resetBrushes,
     setDimensionOrder: chart.setDimensionOrder,
     resetDimensionOrder: chart.resetDimensionOrder,
+    setHoveredId: chart.setHoveredId,
   });
   notify = vacp.refresh;
 
