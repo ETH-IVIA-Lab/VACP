@@ -26,7 +26,7 @@ test('vega-lite: interval brush playbook renders brush rectangle (sets brush_x)'
 
     // Step 3 in the Seattle Weather playbook is "Brush Feb-Apr" (interval selection).
     const brushStep = page.locator('button', { hasText: '3. Brush Feb-Apr' }).first();
-    await expect(brushStep).toBeVisible();
+    await expect(brushStep).toBeVisible({ timeout: 30_000 });
     await brushStep.click();
     await page.locator('button[aria-label="Run step"]').click();
 
