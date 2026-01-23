@@ -112,7 +112,14 @@ export function installVacpForD3ScatterLasso(args: {
     // Use DuckDB inference from the JSON rows (no manual schema).
     await db.exec(`DROP TABLE IF EXISTS ${pointsTable}`);
     await db.loadObjectsAsTable(pointsTable, args.data, { create: true });
-    pointsTableMeta = await getDuckDbTableMetadata({ duckdb: db, table: pointsTable });
+    pointsTableMeta = await getDuckDbTableMetadata({
+      duckdb: db,
+      table: pointsTable,
+      sampleRows: 0,
+      maxNumericColumns: 0,
+      maxTemporalColumns: 0,
+      maxCategoricalColumns: 0,
+    });
     loaded = true;
   };
   const syncSelectedIds = async (): Promise<void> => {
@@ -145,6 +152,29 @@ export function installVacpForD3ScatterLasso(args: {
     targetRef: handleRef,
     description: 'Query the current selection via DuckDB SQL.',
   });
+
+  actions.standard.dataSchema(
+    async (params) => {
+      if (params.handleRef !== handleRef) throw new Error(`Unknown DataHandle: ${params.handleRef}`);
+      await ensureDuckDbLoaded();
+      const db = await duckdb;
+      const detail = params.detail ?? 'columns';
+      const sampleRows = params.sampleRows;
+      const meta = await getDuckDbTableMetadata({
+        duckdb: db,
+        table: pointsTable,
+        sampleRows: detail === 'full' ? (sampleRows ?? 25_000) : 0,
+        maxNumericColumns: detail === 'full' ? undefined : 0,
+        maxTemporalColumns: detail === 'full' ? undefined : 0,
+        maxCategoricalColumns: detail === 'full' ? undefined : 0,
+      });
+      return { handleRef, detail, ...meta };
+    },
+    {
+      targetRef: handleRef,
+      description: 'Return schema/metadata for the points DataHandle (columns, types, row count, optional summaries).',
+    },
+  );
 
   const graph: VacpGraphBase = {
     version: VACP_SCHEMA_VERSION,

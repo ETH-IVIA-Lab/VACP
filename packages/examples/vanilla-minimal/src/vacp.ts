@@ -54,7 +54,14 @@ export async function installVacpForVanillaScatter(args: {
       { create: true },
     );
     try {
-      tableMeta = await getDuckDbTableMetadata({ duckdb: db, table: tableName });
+      tableMeta = await getDuckDbTableMetadata({
+        duckdb: db,
+        table: tableName,
+        sampleRows: 0,
+        maxNumericColumns: 0,
+        maxTemporalColumns: 0,
+        maxCategoricalColumns: 0,
+      });
     } catch {
       // ignore: metadata is best-effort
     }
@@ -109,6 +116,28 @@ export async function installVacpForVanillaScatter(args: {
     description:
       'Query the selected points via DuckDB SQL (fallback: prefer semantic interaction actions when possible).',
   });
+
+  actions.standard.dataSchema(
+    async (params) => {
+      if (params.handleRef !== handleRef) throw new Error(`Unknown DataHandle: ${params.handleRef}`);
+      const db = await duckdb;
+      const detail = params.detail ?? 'columns';
+      const sampleRows = params.sampleRows;
+      const meta = await getDuckDbTableMetadata({
+        duckdb: db,
+        table: tableName,
+        sampleRows: detail === 'full' ? (sampleRows ?? 25_000) : 0,
+        maxNumericColumns: detail === 'full' ? undefined : 0,
+        maxTemporalColumns: detail === 'full' ? undefined : 0,
+        maxCategoricalColumns: detail === 'full' ? undefined : 0,
+      });
+      return { handleRef, detail, ...meta };
+    },
+    {
+      targetRef: handleRef,
+      description: 'Return schema/metadata for the points DataHandle (columns, types, row count, optional summaries).',
+    },
+  );
 
   const graph: VacpGraphBase = {
     version: VACP_SCHEMA_VERSION,

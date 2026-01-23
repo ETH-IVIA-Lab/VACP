@@ -288,7 +288,14 @@ export function installVacpForReactDashboard(args: { globalKey?: string; title?:
     await db.exec(`DROP TABLE IF EXISTS ${tableName}`);
     await db.loadObjectsAsTable(tableName, dataset.rows, { create: true });
     try {
-      tableMeta = await getDuckDbTableMetadata({ duckdb: db, table: tableName });
+      tableMeta = await getDuckDbTableMetadata({
+        duckdb: db,
+        table: tableName,
+        sampleRows: 0,
+        maxNumericColumns: 0,
+        maxTemporalColumns: 0,
+        maxCategoricalColumns: 0,
+      });
     } catch {
       tableMeta = null;
     }
@@ -325,6 +332,29 @@ export function installVacpForReactDashboard(args: { globalKey?: string; title?:
     targetRef: handleRef,
     description: 'Query the current dataset via DuckDB SQL.',
   });
+
+  actions.standard.dataSchema(
+    async (params) => {
+      if (params.handleRef !== handleRef) throw new Error(`Unknown DataHandle: ${params.handleRef}`);
+      await ensureDuckDbLoaded();
+      const db = await duckdb;
+      const detail = params.detail ?? 'columns';
+      const sampleRows = params.sampleRows;
+      const meta = await getDuckDbTableMetadata({
+        duckdb: db,
+        table: tableName,
+        sampleRows: detail === 'full' ? (sampleRows ?? 25_000) : 0,
+        maxNumericColumns: detail === 'full' ? undefined : 0,
+        maxTemporalColumns: detail === 'full' ? undefined : 0,
+        maxCategoricalColumns: detail === 'full' ? undefined : 0,
+      });
+      return { handleRef, detail, ...meta };
+    },
+    {
+      targetRef: handleRef,
+      description: 'Return schema/metadata for the current dataset (columns, types, row count, optional summaries).',
+    },
+  );
 
   const graph: VacpGraphBase = {
     version: VACP_SCHEMA_VERSION,
