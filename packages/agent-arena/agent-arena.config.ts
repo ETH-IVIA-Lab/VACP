@@ -11,16 +11,100 @@ const MODELS = [
 ];
 const SCENARIO_BASES = [
   {
-    id: 'weather-jacket',
-    path: '/mosaic/#weather',
-    task: 'In summer, how many days would I probably need a jacket (rain/drizzle/snow)?',
+    id: 'vl-global-development-t1-lifeexp-max-2000',
+    route: '/vega-lite/',
+    hash: 'global-development',
+    task: 'Which country had the highest life expectancy in 2000?',
   },
   {
-    id: 'athletes-tallest-men',
-    path: '/mosaic/#athletes',
-    task: 'Show me the tallest male track-and-field athletes. Who comes out on top, and what are their height and weight?',
+    id: 'vl-global-development-t2-fertility-1p5-2-2000',
+    route: '/vega-lite/',
+    hash: 'global-development',
+    task: 'Which countries in year 2000 have the fertility (children per woman) between 1.5-2?',
+  },
+  {
+    id: 'vl-global-development-t3-largest-lowest-lifeexp-2000',
+    route: '/vega-lite/',
+    hash: 'global-development',
+    task: 'Which of the largest countries in the world had the lowest life expectancy in 2000?',
+  },
+  {
+    id: 'vl-seattle-weather-t1-sun-vs-rain-feb-apr-aug-oct',
+    route: '/vega-lite/',
+    hash: 'seattle-weather',
+    task: 'Please compare the amount of rainy and sunny days in the range of Februry-April and August-October. Which range has more sunny days, which has more rainy days?',
+  },
+  {
+    id: 'vl-seattle-weather-t2-extreme-temp-by-weather',
+    route: '/vega-lite/',
+    hash: 'seattle-weather',
+    task: 'Determine the extreme temp_max values associated with rain, sun, snow.',
+  },
+  {
+    id: 'vl-seattle-weather-t3-snow-season-temp-range',
+    route: '/vega-lite/',
+    hash: 'seattle-weather',
+    task: 'Examine when snow occurs in the year and the corresponding temperature ranges.',
+  },
+  {
+    id: 'mosaic-athletes-t1-regression-football-vs-cycling',
+    route: '/mosaic/',
+    hash: 'athletes',
+    task: 'Compare the male athletes of football and cycling. For which sport is the regression line steeper?',
+  },
+  {
+    id: 'mosaic-athletes-t2-top3-tallest-female',
+    route: '/mosaic/',
+    hash: 'athletes',
+    task: 'Name three tallest female athletes and their height.',
+  },
+  {
+    id: 'mosaic-athletes-t3-female-judo-100-120kg-count',
+    route: '/mosaic/',
+    hash: 'athletes',
+    task: 'How many female judo practitioners are between 100 and 120 kg?',
+  },
+  {
+    id: 'vl-airports-t1-nd-most-outgoing-top-destination',
+    route: '/vega-lite/',
+    hash: 'airports',
+    task: 'Find in state ND (North Dakota) the airport with the most outgoing flight connections. Which airport are the most flights to?',
+  },
+  {
+    id: 'vl-airports-t2-bangor-to-denver',
+    route: '/vega-lite/',
+    hash: 'airports',
+    task: 'Is it possible to fly from airport Bangor International (State ME, Maine) to airport Denver Intl (CO, Colorado)?',
+  },
+  {
+    id: 'vl-airports-t3-nm-airports-smallest-outgoing-flights',
+    route: '/vega-lite/',
+    hash: 'airports',
+    task: 'How many airports are there in state New Mexico (NM)? How many outgoing flights does the smalles airport of these have?',
+  },
+  {
+    id: 'cars-parcoords-t1-cylinders-4-weight-range',
+    route: '/cars-parcoords/',
+    task: 'Select cylinders 4, what is the range of the weight of the cars',
+  },
+  {
+    id: 'cars-parcoords-t2-largest-positive-correlation',
+    route: '/cars-parcoords/',
+    task: 'Which dimensions do have the largest positiv correlation',
+  },
+  {
+    id: 'cars-parcoords-t3-cylinders-6-horsepower-outliers',
+    route: '/cars-parcoords/',
+    task: 'Given the cars with 6 zylinders identifies outliers with respect to the horse power dimension',
   },
 ];
+
+function buildScenarioUrl(args: { route: string; hash?: string; query?: Record<string, string> }): string {
+  const u = new URL(args.route, EXAMPLES_HUB_BASE_URL);
+  for (const [k, v] of Object.entries(args.query ?? {})) u.searchParams.set(k, v);
+  if (args.hash) u.hash = args.hash.startsWith('#') ? args.hash : `#${args.hash}`;
+  return u.toString();
+}
 
 function buildBaselineJobs() {
   const jobs: ArenaJob[] = [];
@@ -31,7 +115,7 @@ function buildBaselineJobs() {
         model,
         scenario: {
           id: scenarioBase.id,
-          url: `${EXAMPLES_HUB_BASE_URL}${scenarioBase.path}?expose-bridge=0`,
+          url: buildScenarioUrl({ route: scenarioBase.route, hash: scenarioBase.hash, query: { 'expose-bridge': '0' } }),
           task: scenarioBase.task,
         },
         toolPolicy: {
@@ -68,7 +152,11 @@ function buildSnapshotInjectedJobs() {
         model,
         scenario: {
           id: scenarioBase.id,
-          url: `${EXAMPLES_HUB_BASE_URL}${scenarioBase.path}?expose-bridge=0&vacp-dom-snapshot=1`,
+          url: buildScenarioUrl({
+            route: scenarioBase.route,
+            hash: scenarioBase.hash,
+            query: { 'expose-bridge': '0', 'vacp-dom-snapshot': '1' },
+          }),
           task: scenarioBase.task,
         },
         toolPolicy: {
