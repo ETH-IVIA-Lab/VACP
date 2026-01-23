@@ -56,6 +56,39 @@ function tryGetSignalValueFromState(view: VegaViewLike, name: string): unknown {
   }
 }
 
+function tryGetSignalContextKeyFromState(view: VegaViewLike, name: string): string | null {
+  if (typeof view.getState !== 'function') return null;
+  try {
+    const st = view.getState() as
+      | {
+          signals?: Record<string, unknown>;
+          subcontext?: Record<string, unknown>;
+        }
+      | undefined;
+    if (!st || typeof st !== 'object') return null;
+    if (st.signals && Object.prototype.hasOwnProperty.call(st.signals, name)) return null;
+
+    const stack: Array<{ key: string; ctx: unknown }> = [];
+    if (st.subcontext && typeof st.subcontext === 'object') {
+      for (const [key, ctx] of Object.entries(st.subcontext)) stack.push({ key, ctx });
+    }
+
+    while (stack.length) {
+      const { key, ctx: next } = stack.pop()!;
+      if (!next || typeof next !== 'object') continue;
+      const ctx = next as { signals?: Record<string, unknown>; subcontext?: Record<string, unknown> };
+      if (ctx.signals && Object.prototype.hasOwnProperty.call(ctx.signals, name)) return key;
+      if (ctx.subcontext && typeof ctx.subcontext === 'object') {
+        for (const [childKey, childCtx] of Object.entries(ctx.subcontext)) stack.push({ key: childKey, ctx: childCtx });
+      }
+    }
+
+    return null;
+  } catch {
+    return null;
+  }
+}
+
 function bestEffortSelectionTuple(args: {
   selectionValue: unknown;
   tupleFields: unknown;
@@ -81,12 +114,22 @@ function bestEffortSelectionTuple(args: {
     const rec = isRecord(f) ? f : null;
     const channel = typeof rec?.channel === 'string' ? rec.channel : '';
     const field = typeof rec?.field === 'string' ? rec.field : '';
+    const type = typeof rec?.type === 'string' ? rec.type : '';
     const key =
       (channel && Object.prototype.hasOwnProperty.call(selectionValue, channel) && channel) ||
       (field && Object.prototype.hasOwnProperty.call(selectionValue, field) && field) ||
       field ||
       channel;
-    values.push(key ? selectionValue[key] : undefined);
+    let value: unknown = key ? selectionValue[key] : undefined;
+    if (type === 'R' && Array.isArray(value) && value.length === 2) {
+      const coerce = (v: unknown) => (v instanceof Date ? v.valueOf() : v);
+      const a = coerce(value[0]);
+      const b = coerce(value[1]);
+      value = [a, b];
+    } else if (value instanceof Date) {
+      value = value.valueOf();
+    }
+    values.push(value);
   }
 
   return { unit, fields, values };
@@ -163,9 +206,13 @@ export async function executeAction(
     if (typeof view.data === 'function' && typeof view.change === 'function') {
       try {
         const existing = view.data(storeName) as unknown[];
+        const tupleFromState = tryGetSignalValueFromState(view, `${name}_tuple`);
         const unit =
           (isRecord(existing?.[0]) ? (existing[0] as Record<string, unknown>).unit : undefined) ??
-          tryGetSignalValueFromState(view, `${name}_unit`);
+          (isRecord(tupleFromState) ? (tupleFromState as Record<string, unknown>).unit : undefined) ??
+          tryGetSignalValueFromState(view, `${name}_unit`) ??
+          tryGetSignalContextKeyFromState(view, `${name}_tuple_fields`) ??
+          tryGetSignalContextKeyFromState(view, `${name}_tuple`);
         const tupleFields =
           tryGetSignalValueFromState(view, `${name}_tuple_fields`) ??
           (isRecord(existing?.[0]) ? (existing[0] as Record<string, unknown>).fields : undefined);

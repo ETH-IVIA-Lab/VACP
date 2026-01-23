@@ -6,6 +6,12 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return !!value && typeof value === 'object' && !Array.isArray(value);
 }
 
+function normalizeSelect(select: unknown): Record<string, unknown> | null {
+  if (typeof select === 'string') return { type: select };
+  if (isRecord(select)) return select;
+  return null;
+}
+
 function sqlLiteral(value: unknown): string | null {
   if (value === null || value === undefined) return null;
   if (typeof value === 'number' && Number.isFinite(value)) return String(value);
@@ -15,7 +21,7 @@ function sqlLiteral(value: unknown): string | null {
   if (value instanceof Date) {
     const t = value.getTime();
     if (!Number.isFinite(t)) return null;
-    return sqlStringLiteral(value.toISOString());
+    return String(t);
   }
   if (Array.isArray(value) || isRecord(value)) {
     try {
@@ -63,7 +69,16 @@ function hoverPredicatesFromView(view: VegaViewLike, allowed: Set<string> | null
 function findEncodingField(spec: VegaLiteSpecLike, channel: string): string | null {
   const enc = spec.encoding;
   const field = enc && isRecord(enc) ? (enc[channel] as unknown) : null;
-  if (field && isRecord(field) && typeof field.field === 'string') return field.field;
+  if (field && isRecord(field)) {
+    if (typeof field.field === 'string') return field.field;
+    const cond = field.condition;
+    if (isRecord(cond) && typeof cond.field === 'string') return cond.field;
+    if (Array.isArray(cond)) {
+      for (const c of cond) {
+        if (isRecord(c) && typeof c.field === 'string') return c.field;
+      }
+    }
+  }
 
   const children: unknown[] = [];
   if (Array.isArray(spec.layer)) children.push(...spec.layer);
@@ -111,17 +126,44 @@ function intervalPredicatesFromSelection(
     terms.push({ field: f });
   });
 
+  // Vega-Lite shorthand selections (e.g. `"select": "interval"`) omit encodings/fields.
+  // Default to an x/y interval, which matches pan/zoom ("bind": "scales") expectations.
+  if (!terms.length) {
+    terms.push({ channel: 'x' }, { channel: 'y' });
+  }
+
   const preds: string[] = [];
   for (const t of terms) {
     const field = t.field ?? (t.channel ? (findEncodingField(spec, t.channel) ?? undefined) : undefined);
     if (!field) continue;
-    if (allowed && !allowed.has(field)) continue;
-    const ident = sqlIdentifier(field);
 
-    const byField = raw[field];
-    const byChannel = t.channel ? raw[t.channel] : undefined;
-    const extent = extractIntervalExtent(byField) ?? extractIntervalExtent(byChannel);
+    let columnKey = field;
+    let extent: [number, number] | null = null;
+
+    // Most commonly, Vega-Lite interval signals are stored under the field name.
+    extent = extractIntervalExtent(raw[field]);
+
+    // Some specs (e.g. pan/zoom bind=scales) store extents under channel keys (`x`, `y`).
+    // In that case, keep filtering by the field column but read extent from the channel key.
+    if (!extent && t.channel) extent = extractIntervalExtent(raw[t.channel]);
+
+    // Some transforms (e.g. timeUnit) use derived field keys in the signal object
+    // (e.g. `monthdate_date`). If we don't find a match above, try `*_<field>`.
+    if (!extent) {
+      const suffix = `_${field}`;
+      for (const k of Object.keys(raw)) {
+        if (!k.endsWith(suffix)) continue;
+        const e = extractIntervalExtent(raw[k]);
+        if (!e) continue;
+        columnKey = k;
+        extent = e;
+        break;
+      }
+    }
+
     if (!extent) continue;
+    if (allowed && !allowed.has(columnKey)) continue;
+    const ident = sqlIdentifier(columnKey);
     preds.push(`(${ident} >= ${extent[0]} AND ${ident} <= ${extent[1]})`);
   }
 
@@ -155,11 +197,30 @@ function pointPredicatesFromSelection(
   for (const t of terms) {
     const field = t.field ?? (t.channel ? (findEncodingField(spec, t.channel) ?? undefined) : undefined);
     if (!field) continue;
-    if (allowed && !allowed.has(field)) continue;
-    const ident = sqlIdentifier(field);
 
-    const v = raw[field] ?? (t.channel ? raw[t.channel] : undefined);
+    let columnKey = field;
+    let v: unknown = raw[field];
+
+    // Some specs store point selections under channel keys (`x`, `y`).
+    if ((v === undefined || v === null) && t.channel) v = raw[t.channel];
+
+    // Some transforms store selection values under derived field keys (e.g. `monthdate_date`).
+    if (v === undefined || v === null) {
+      const suffix = `_${field}`;
+      for (const k of Object.keys(raw)) {
+        if (!k.endsWith(suffix)) continue;
+        const candidate = raw[k];
+        if (candidate === undefined || candidate === null) continue;
+        columnKey = k;
+        v = candidate;
+        break;
+      }
+    }
+
     if (v === undefined || v === null) continue;
+    if (allowed && !allowed.has(columnKey)) continue;
+    const ident = sqlIdentifier(columnKey);
+
     if (Array.isArray(v)) {
       const lits = v.map(sqlLiteral).filter((x): x is string => x !== null);
       if (!lits.length) continue;
@@ -173,8 +234,12 @@ function pointPredicatesFromSelection(
   return preds;
 }
 
-export function whereClauseForCurrentSelections(spec: VegaLiteSpecLike, view: VegaViewLike): string | null {
-  const allowed = allowedFieldsFromView(view);
+export function whereClauseForCurrentSelections(
+  spec: VegaLiteSpecLike,
+  view: VegaViewLike,
+  allowedOverride?: Set<string> | null,
+): string | null {
+  const allowed = allowedOverride ?? allowedFieldsFromView(view);
 
   const hoverPreds = hoverPredicatesFromView(view, allowed);
   if (hoverPreds.length) {
@@ -184,7 +249,7 @@ export function whereClauseForCurrentSelections(spec: VegaLiteSpecLike, view: Ve
   const preds: string[] = [];
   collectVegaLiteParams(spec).forEach((p) => {
     if (!p.select || typeof p.name !== 'string') return;
-    const select = isRecord(p.select) ? p.select : null;
+    const select = normalizeSelect(p.select);
     if (!select) return;
     const type = typeof select.type === 'string' ? select.type : '';
     if (type === 'interval') preds.push(...intervalPredicatesFromSelection(spec, p.name, view, select, allowed));

@@ -16,7 +16,7 @@ export function buildGraph(args: {
   spec: VegaLiteSpecLike;
   options: InstallVacpOnVegaLiteOptions;
   actions: VacpActionDescriptor[];
-  dataHandle?: { ref: VacpRef; title?: string; description?: string; data?: Record<string, unknown> };
+  dataHandles?: Array<{ ref: VacpRef; title?: string; description?: string; data?: Record<string, unknown> }>;
 }): VacpGraph {
   const vizRef = makeRef({
     appId: args.options.appId,
@@ -56,19 +56,19 @@ export function buildGraph(args: {
     edges.push({ from: vizRef, to: pref, kind: 'contains' });
   });
 
-  if (args.dataHandle) {
+  (args.dataHandles ?? []).forEach((h) => {
     nodes.push({
-      ref: args.dataHandle.ref,
+      ref: h.ref,
       kind: 'DataHandle',
       layer: 'DataLayer',
-      title: args.dataHandle.title ?? 'data (DuckDB handle)',
+      title: h.title ?? 'data (DuckDB handle)',
       description:
-        args.dataHandle.description ??
+        h.description ??
         'DuckDB-backed DataHandle for this Vega-Lite view. `vacp_handle` is the selected subset (or all rows if empty).',
-      data: args.dataHandle.data,
+      data: h.data,
     });
-    edges.push({ from: vizRef, to: args.dataHandle.ref, kind: 'contains' });
-  }
+    edges.push({ from: vizRef, to: h.ref, kind: 'contains' });
+  });
 
   return { version: VACP_SCHEMA_VERSION, nodes, edges, actions: args.actions };
 }

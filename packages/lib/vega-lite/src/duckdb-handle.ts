@@ -6,7 +6,7 @@ import {
   getDuckDbTableMetadata,
   makeVacpDuckDbTableName,
 } from '@vacp/duckdb';
-import { registerVacpDataSqlAction, type VacpActionRegistry } from '@vacp/gateway';
+import { registerVacpDataSchemaAction, registerVacpDataSqlAction, type VacpActionRegistry } from '@vacp/gateway';
 
 import { whereClauseForCurrentSelections } from './duckdb-selection';
 import { collectVegaLiteParams } from './params';
@@ -16,6 +16,8 @@ import type { InstallVacpOnVegaLiteOptions, VegaLiteSpecLike, VegaViewLike } fro
 export type VegaLiteDuckDbDataHandle = {
   ref: VacpRef;
   tableName: string;
+  title: string;
+  sourceId: string;
   ensureMetadata: () => Promise<VacpDuckDbTableMetadata | null>;
 };
 
@@ -30,7 +32,16 @@ function sleep(ms: number): Promise<void> {
 function findEncodingField(spec: VegaLiteSpecLike, channel: string): string | null {
   const enc = spec.encoding;
   const field = enc && isRecord(enc) ? (enc[channel] as unknown) : null;
-  if (field && isRecord(field) && typeof field.field === 'string') return field.field;
+  if (field && isRecord(field)) {
+    if (typeof field.field === 'string') return field.field;
+    const cond = field.condition;
+    if (isRecord(cond) && typeof cond.field === 'string') return cond.field;
+    if (Array.isArray(cond)) {
+      for (const c of cond) {
+        if (isRecord(c) && typeof c.field === 'string') return c.field;
+      }
+    }
+  }
 
   const children: unknown[] = [];
   if (Array.isArray(spec.layer)) children.push(...spec.layer);
@@ -68,6 +79,82 @@ function collectSelectionFields(spec: VegaLiteSpecLike): string[] {
   return Array.from(fields);
 }
 
+function parseDateMs(value: unknown): number | null {
+  if (value === null || value === undefined) return null;
+  if (typeof value === 'number' && Number.isFinite(value)) return value;
+  if (value instanceof Date) {
+    const t = value.getTime();
+    return Number.isFinite(t) ? t : null;
+  }
+  if (typeof value === 'string') {
+    const s = value.trim();
+    if (!s) return null;
+    const n = Number(s);
+    if (Number.isFinite(n)) return n;
+    const t = Date.parse(s);
+    return Number.isFinite(t) ? t : null;
+  }
+  return null;
+}
+
+function deriveMonthdateMs(ms: number): number | null {
+  if (!Number.isFinite(ms)) return null;
+  const d = new Date(ms);
+  if (!Number.isFinite(d.getTime())) return null;
+  const derived = new Date(2012, d.getMonth(), d.getDate(), 0, 0, 0, 0);
+  const t = derived.getTime();
+  return Number.isFinite(t) ? t : null;
+}
+
+function collectMonthdateDerivedFields(spec: VegaLiteSpecLike): Array<{ sourceField: string; derivedField: string }> {
+  const out: Array<{ sourceField: string; derivedField: string }> = [];
+  const seen = new Set<string>();
+
+  const add = (field: string) => {
+    const sourceField = field;
+    const derivedField = `monthdate_${field}`;
+    const key = `${sourceField}=>${derivedField}`;
+    if (seen.has(key)) return;
+    seen.add(key);
+    out.push({ sourceField, derivedField });
+  };
+
+  const walk = (s: VegaLiteSpecLike) => {
+    const enc = s.encoding;
+    if (enc && isRecord(enc)) {
+      for (const v of Object.values(enc)) {
+        if (!isRecord(v)) continue;
+        if (typeof v.field === 'string' && typeof v.timeUnit === 'string' && v.timeUnit === 'monthdate') add(v.field);
+        const cond = v.condition;
+        if (isRecord(cond)) {
+          if (typeof (cond as Record<string, unknown>).field === 'string' && (cond as any).timeUnit === 'monthdate')
+            add((cond as any).field);
+        } else if (Array.isArray(cond)) {
+          for (const c of cond) {
+            if (!isRecord(c)) continue;
+            if (typeof (c as any).field === 'string' && (c as any).timeUnit === 'monthdate') add((c as any).field);
+          }
+        }
+      }
+    }
+
+    const children: unknown[] = [];
+    if (Array.isArray(s.layer)) children.push(...s.layer);
+    if (Array.isArray(s.hconcat)) children.push(...s.hconcat);
+    if (Array.isArray(s.vconcat)) children.push(...s.vconcat);
+    if (Array.isArray(s.concat)) children.push(...s.concat);
+    if (s.spec) children.push(s.spec);
+
+    for (const child of children) {
+      if (!child || typeof child !== 'object') continue;
+      walk(child as VegaLiteSpecLike);
+    }
+  };
+
+  walk(spec);
+  return out;
+}
+
 function sanitizeDuckDbValue(value: unknown): unknown {
   if (value === undefined) return null;
   if (value === null) return null;
@@ -75,8 +162,7 @@ function sanitizeDuckDbValue(value: unknown): unknown {
   if (typeof value === 'bigint') return value.toString();
   if (value instanceof Date) {
     const t = value.getTime();
-    if (Number.isFinite(t)) return value.toISOString();
-    return null;
+    return Number.isFinite(t) ? t : null;
   }
 
   if (Array.isArray(value)) {
@@ -99,6 +185,126 @@ function sanitizeDuckDbValue(value: unknown): unknown {
   }
 
   return String(value);
+}
+
+type SpecDataSource = {
+  key: string;
+  id: string;
+  title: string;
+  url?: string;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  format?: any;
+  values?: unknown[];
+};
+
+function sanitizeDataSourceId(value: string): string {
+  const cleaned = value
+    .replaceAll(/[/\\]+/g, '_')
+    .replaceAll(/[^a-zA-Z0-9_-]+/g, '_')
+    .replaceAll(/_+/g, '_')
+    .replaceAll(/^_+|_+$/g, '');
+  return cleaned || 'data';
+}
+
+function dataSourceFromDataObject(data: unknown): { key: string; id: string; title: string; url?: string; format?: unknown; values?: unknown[] } | null {
+  if (!data || typeof data !== 'object') return null;
+  const rec = data as Record<string, unknown>;
+
+  const url = typeof rec.url === 'string' ? rec.url : null;
+  const values = Array.isArray(rec.values) ? (rec.values as unknown[]) : null;
+  const format = rec.format;
+
+  if (url) {
+    const urlKey = url.trim();
+    const fmt = isRecord(format) ? format : null;
+    const fmtType = fmt && typeof fmt.type === 'string' ? fmt.type : '';
+    const feature = fmt && typeof fmt.feature === 'string' ? fmt.feature : '';
+    const key = `url:${urlKey}|type:${fmtType}|feature:${feature}`;
+
+    const file = urlKey.split('?')[0]?.split('#')[0]?.split('/').filter(Boolean).pop() ?? urlKey;
+    const stem = file.replaceAll(/\.[^.]+$/g, '') || file;
+    const suffix = fmtType === 'topojson' && feature ? `_${feature}` : '';
+    const id = sanitizeDataSourceId(`${stem}${suffix}`);
+    const title = `${file}${suffix ? ` (${feature})` : ''}`;
+    return { key, id, title, url: urlKey, format };
+  }
+
+  if (values) {
+    const key = `values:${values.length}`;
+    const id = sanitizeDataSourceId(`inline_${values.length}`);
+    const title = `inline values (${values.length} rows)`;
+    return { key, id, title, values };
+  }
+
+  return null;
+}
+
+function collectSpecDataSources(spec: VegaLiteSpecLike): SpecDataSource[] {
+  const out: SpecDataSource[] = [];
+  const seen = new Set<string>();
+
+  const add = (data: unknown) => {
+    const ds = dataSourceFromDataObject(data);
+    if (!ds) return;
+    if (seen.has(ds.key)) return;
+    seen.add(ds.key);
+    out.push(ds as SpecDataSource);
+  };
+
+  const walk = (s: VegaLiteSpecLike) => {
+    add(s.data);
+
+    const transforms = Array.isArray(s.transform) ? (s.transform as unknown[]) : [];
+    for (const t of transforms) {
+      if (!t || typeof t !== 'object') continue;
+      const rec = t as Record<string, unknown>;
+      const from = rec.from;
+      const fromRec = isRecord(from) ? from : null;
+      if (fromRec && 'data' in fromRec) add(fromRec.data);
+    }
+
+    const children: unknown[] = [];
+    if (Array.isArray(s.layer)) children.push(...s.layer);
+    if (Array.isArray(s.hconcat)) children.push(...s.hconcat);
+    if (Array.isArray(s.vconcat)) children.push(...s.vconcat);
+    if (Array.isArray(s.concat)) children.push(...s.concat);
+    if (s.spec) children.push(s.spec);
+
+    for (const child of children) {
+      if (!child || typeof child !== 'object') continue;
+      walk(child as VegaLiteSpecLike);
+    }
+  };
+
+  walk(spec);
+  return out;
+}
+
+function resolveDatasetNameByIndex(view: VegaViewLike, index: number): string | null {
+  if (typeof view.data !== 'function') return null;
+  // Prefer `source_*` for stable mapping from a spec's data sources to Vega datasets.
+  // (`data_*` numbering can diverge due to per-layer/per-transform intermediate datasets.)
+  const prefixes = ['source_', 'data_'];
+  for (const prefix of prefixes) {
+    const name = `${prefix}${index}`;
+    try {
+      const rows = view.data(name);
+      if (Array.isArray(rows)) return name;
+    } catch {
+      // ignore
+    }
+  }
+  return null;
+}
+
+function allowedFieldsForHandleFromView(view: VegaViewLike, handleRef: VacpRef): Set<string> | null {
+  const anyView = view as unknown as { __vacpVegaLiteDuckDbFieldsByHandle?: unknown };
+  const raw = anyView.__vacpVegaLiteDuckDbFieldsByHandle;
+  if (!raw || typeof raw !== 'object') return null;
+  const list = (raw as Record<string, unknown>)[handleRef];
+  if (!Array.isArray(list)) return null;
+  const fields = list.filter((x): x is string => typeof x === 'string' && x.trim().length > 0);
+  return fields.length ? new Set(fields) : null;
 }
 
 function selectRowsFromView(spec: VegaLiteSpecLike, view: VegaViewLike): unknown[] | null {
@@ -198,30 +404,23 @@ function selectRowsFromView(spec: VegaLiteSpecLike, view: VegaViewLike): unknown
 }
 
 /**
- * Optional DuckDB-backed DataHandle for Vega-Lite specs that embed inline data.
+ * Optional DuckDB-backed DataHandles for Vega-Lite specs.
  *
  * This keeps DuckDB "first class" without requiring any additional data APIs:
  * - providers expose one semantic action: `vacp.data_sql`
  * - debug tools and transports can query selection state with SQL only
  */
-export function installVegaLiteDuckDbDataHandle(args: {
+export function installVegaLiteDuckDbDataHandles(args: {
   spec: VegaLiteSpecLike;
   view: VegaViewLike;
   options: InstallVacpOnVegaLiteOptions;
   actionRegistry: VacpActionRegistry;
   actionDescriptors: VacpActionDescriptor[];
-}): VegaLiteDuckDbDataHandle | null {
+}): VegaLiteDuckDbDataHandle[] {
   const { spec, view, options, actionRegistry, actionDescriptors } = args;
 
   const enableDuckDb = options.enableDuckDbDataHandle ?? true;
-  if (!enableDuckDb) return null;
-
-  const handleRef = makeRef({
-    appId: options.appId,
-    viewId: options.viewId,
-    vizId: options.vizId,
-    suffix: '/data/main',
-  }) as VacpRef;
+  if (!enableDuckDb) return [];
 
   const duckdbPromise: Promise<VacpDuckDbClient> = (() => {
     if (options.duckdbClient) return Promise.resolve(options.duckdbClient);
@@ -234,112 +433,296 @@ export function installVegaLiteDuckDbDataHandle(args: {
     return created;
   })();
 
-  // DuckDB is shared across the page, so we use unique per-install table names
-  // and best-effort cleanup for this view key.
-  const tableName = (() => {
-    const base = `vacp_vl_${options.appId}_${options.viewId}_${options.vizId}`;
-    const name = makeVacpDuckDbTableName({ prefix: base });
+  const base = `vacp_vl_${options.appId}_${options.viewId}_${options.vizId}`;
+  const viewKey = `${options.appId}/${options.viewId}/${options.vizId}`;
 
-    const viewKey = `${options.appId}/${options.viewId}/${options.vizId}`;
-    const rootAny = globalThis as unknown as { __vacpVegaLiteDuckDbTables?: Record<string, string> };
-    const map = (rootAny.__vacpVegaLiteDuckDbTables ??= {});
-    const prev = map[viewKey];
-    map[viewKey] = name;
-    if (prev && prev !== name) {
-      void duckdbPromise.then((db) => db.exec(`DROP TABLE IF EXISTS main.${prev}`)).catch(() => {});
+  const sources = collectSpecDataSources(spec);
+  const fallback = sources.length === 0;
+  const monthdateDerivations = collectMonthdateDerivedFields(spec);
+
+  const sourcesWithDatasets: Array<SpecDataSource & { datasetIndex: number; datasetName: string | null }> = (fallback
+    ? [{ key: 'fallback', id: 'main', title: 'data', datasetIndex: 0, datasetName: null } satisfies SpecDataSource & {
+        datasetIndex: number;
+        datasetName: string | null;
+      }]
+    : sources.map((s, i) => ({ ...s, datasetIndex: i, datasetName: resolveDatasetNameByIndex(view, i) }))) as Array<
+    SpecDataSource & { datasetIndex: number; datasetName: string | null }
+  >;
+
+  // Pick a "primary" source to keep `/data/main` consistent across Vega-Lite views.
+  const requiredFields = collectSelectionFields(spec);
+  const pickBest = (rows: unknown[]): Record<string, unknown> | null =>
+    rows.find((r) => isRecord(r)) as Record<string, unknown> | null;
+  const scoreRows = (rows: unknown[] | null): number => {
+    if (!rows || !rows.length) return -1;
+    const sample = pickBest(rows);
+    if (!sample) return -1;
+    let fieldMatches = 0;
+    for (const f of requiredFields) if (f && Object.prototype.hasOwnProperty.call(sample, f)) fieldMatches += 1;
+    let primitiveFields = 0;
+    let nestedFields = 0;
+    for (const v of Object.values(sample)) {
+      if (v === null || v === undefined) continue;
+      if (typeof v === 'string' || typeof v === 'number' || typeof v === 'boolean') primitiveFields += 1;
+      else nestedFields += 1;
     }
+    const looksGeoJson = sample.type === 'Feature' && isRecord(sample.geometry);
+    const hasGeometry = Object.prototype.hasOwnProperty.call(sample, 'geometry');
+    const sizeScore = Math.log10(Math.max(1, rows.length));
+    let score = 0;
+    score += fieldMatches * 1000;
+    score += primitiveFields * 10;
+    score -= nestedFields * 50;
+    score += sizeScore;
+    if (looksGeoJson || hasGeometry) score -= 250;
+    return score;
+  };
 
-    return name;
+  const primaryIndex = (() => {
+    let best = 0;
+    let bestScore = -Infinity;
+    sourcesWithDatasets.forEach((s, i) => {
+      if (!s.datasetName || typeof view.data !== 'function') return;
+      let rows: unknown[] | null = null;
+      try {
+        const r = view.data(s.datasetName);
+        if (Array.isArray(r)) rows = r;
+      } catch {
+        rows = null;
+      }
+      const score = scoreRows(rows);
+      if (score > bestScore) {
+        best = i;
+        bestScore = score;
+      }
+    });
+    return best;
   })();
 
-  let duckdbLoad: Promise<void> | null = null;
-  const ensureDuckDbData = async (): Promise<void> => {
-    if (duckdbLoad) return await duckdbLoad;
+  const handlesInternal: Array<
+    VegaLiteDuckDbDataHandle & {
+      datasetName: string | null;
+      ensureDuckDbData: () => Promise<void>;
+    }
+  > = [];
 
-    duckdbLoad = (async () => {
+  sourcesWithDatasets.forEach((s, idx) => {
+    const suffix = idx === primaryIndex ? '/data/main' : `/data/src/${s.id}`;
+    const handleRef = makeRef({
+      appId: options.appId,
+      viewId: options.viewId,
+      vizId: options.vizId,
+      suffix,
+    }) as VacpRef;
+
+    // DuckDB is shared across the page, so we use unique per-install table names and best-effort cleanup.
+    const tableName = (() => {
+      const name = makeVacpDuckDbTableName({ prefix: base, parts: [s.id] });
+
+      const rootAny = globalThis as unknown as {
+        __vacpVegaLiteDuckDbTables?: Record<string, string | Record<string, string>>;
+      };
+      const map = (rootAny.__vacpVegaLiteDuckDbTables ??= {});
+      const prevValue = map[viewKey];
+      const viewMap: Record<string, string> =
+        typeof prevValue === 'object' && prevValue !== null ? (prevValue as Record<string, string>) : {};
+
+      const prev = viewMap[suffix];
+      viewMap[suffix] = name;
+      map[viewKey] = viewMap;
+
+      if (typeof prevValue === 'string' && prevValue) {
+        void duckdbPromise.then((db) => db.exec(`DROP TABLE IF EXISTS main.${prevValue}`)).catch(() => {});
+      }
+      if (prev && prev !== name) {
+        void duckdbPromise.then((db) => db.exec(`DROP TABLE IF EXISTS main.${prev}`)).catch(() => {});
+      }
+      return name;
+    })();
+
+    let duckdbLoad: Promise<void> | null = null;
+    let duckdbFingerprint: string | null = null;
+
+    const variableParamNames = collectVegaLiteParams(spec)
+      .filter((p) => !p.select && typeof p.name === 'string' && p.name)
+      .map((p) => p.name);
+
+    const readCurrentDataRows = async (): Promise<unknown[] | null> => {
       let dataRows: unknown[] | null = null;
       for (let i = 0; i < 40; i += 1) {
-        dataRows = selectRowsFromView(spec, view);
+        if (s.values) {
+          dataRows = s.values;
+        } else if (s.datasetName && typeof view.data === 'function') {
+          try {
+            const rows = view.data(s.datasetName);
+            dataRows = Array.isArray(rows) ? rows : null;
+          } catch {
+            dataRows = null;
+          }
+        } else if (fallback) {
+          dataRows = selectRowsFromView(spec, view);
+        }
+
         if (Array.isArray(dataRows) && dataRows.length) break;
         await sleep(250);
       }
-      if (!dataRows || !dataRows.length) throw new Error('No Vega-Lite rows available to load into DuckDB');
+      return dataRows;
+    };
 
-      const db = await duckdbPromise;
-      const rows = dataRows
-        .map((d) => (d && typeof d === 'object' && !Array.isArray(d) ? (d as Record<string, unknown>) : null))
-        .map((d) => {
-          if (!d) return null;
-          const out: Record<string, unknown> = {};
-          let hasAny = false;
-          for (const [k, v] of Object.entries(d)) {
-            out[k] = sanitizeDuckDbValue(v);
-            hasAny = true;
-          }
-          return hasAny ? out : null;
-        })
-        .filter((d): d is Record<string, unknown> => !!d);
+    const fingerprintForRows = (dataRows: unknown[]): string => {
+      const sample = dataRows.slice(0, 5).map((row) => {
+        if (!isRecord(row)) return sanitizeDuckDbValue(row);
+        const keys = Object.keys(row).sort().slice(0, 12);
+        const out: Record<string, unknown> = {};
+        for (const k of keys) out[k] = sanitizeDuckDbValue(row[k]);
+        return out;
+      });
 
-      const fieldSet = new Set<string>();
-      for (const row of rows.slice(0, 250)) {
-        Object.keys(row).forEach((k) => fieldSet.add(k));
-      }
-      (view as unknown as { __vacpVegaLiteDuckDbFields?: string[] }).__vacpVegaLiteDuckDbFields = Array.from(fieldSet);
-
-      try {
-        await db.exec(`DROP VIEW IF EXISTS main.${tableName}`);
-        await db.exec(`DROP TABLE IF EXISTS main.${tableName}`);
-      } catch {
-        // best-effort
-      }
-
-      try {
-        await db.loadObjectsAsTable(tableName, rows, { create: true });
-        return;
-      } catch (err) {
-        // Fall back to a "truncate + insert" approach.
+      const params: Record<string, unknown> = {};
+      for (const name of variableParamNames) {
         try {
-          await db.exec(`DELETE FROM main.${tableName}`);
+          params[name] = sanitizeDuckDbValue(view.signal(name));
         } catch {
-          // ignore
+          params[name] = null;
         }
+      }
+
+      return JSON.stringify({ n: dataRows.length, sample, params });
+    };
+
+    const ensureDuckDbData = async (): Promise<void> => {
+      const dataRows = await readCurrentDataRows();
+      if (!dataRows || !dataRows.length) throw new Error(`No Vega-Lite rows available to load into DuckDB (${s.title})`);
+
+      const nextFingerprint = fingerprintForRows(dataRows);
+      if (duckdbLoad && duckdbFingerprint === nextFingerprint) return await duckdbLoad;
+
+      duckdbFingerprint = nextFingerprint;
+      duckdbLoad = (async () => {
+        const db = await duckdbPromise;
+        const rows = dataRows
+          .map((d) => (d && typeof d === 'object' && !Array.isArray(d) ? (d as Record<string, unknown>) : null))
+          .map((d) => {
+            if (!d) return null;
+            const out: Record<string, unknown> = {};
+            let hasAny = false;
+            for (const [k, v] of Object.entries(d)) {
+              out[k] = sanitizeDuckDbValue(v);
+              hasAny = true;
+            }
+            // Add derived `monthdate_*` fields for specs that use `timeUnit: "monthdate"`.
+            // This keeps `vacp.data_sql` selection filtering working even when we load `source_*`
+            // datasets (which typically do not include Vega-Lite's derived timeUnit fields).
+            for (const deriv of monthdateDerivations) {
+              if (Object.prototype.hasOwnProperty.call(out, deriv.derivedField)) continue;
+              if (!Object.prototype.hasOwnProperty.call(d, deriv.sourceField)) continue;
+              const ms = parseDateMs(d[deriv.sourceField]);
+              if (ms === null) continue;
+              const derivedMs = deriveMonthdateMs(ms);
+              if (derivedMs === null) continue;
+              out[deriv.derivedField] = derivedMs;
+              hasAny = true;
+            }
+            return hasAny ? out : null;
+          })
+          .filter((d): d is Record<string, unknown> => !!d);
+
+        const fieldSet = new Set<string>();
+        for (const row of rows.slice(0, 250)) {
+          Object.keys(row).forEach((k) => fieldSet.add(k));
+        }
+
+        const viewAny = view as unknown as {
+          __vacpVegaLiteDuckDbFields?: string[];
+          __vacpVegaLiteDuckDbFieldsByHandle?: Record<string, string[]>;
+        };
+        (viewAny.__vacpVegaLiteDuckDbFieldsByHandle ??= {})[handleRef] = Array.from(fieldSet);
+        if (suffix === '/data/main') viewAny.__vacpVegaLiteDuckDbFields = Array.from(fieldSet);
+
         try {
-          await db.loadObjectsAsTable(tableName, rows, { create: false });
-          return;
+          await db.exec(`DROP VIEW IF EXISTS main.${tableName}`);
+          await db.exec(`DROP TABLE IF EXISTS main.${tableName}`);
         } catch {
+          // best-effort
+        }
+
+        try {
           await db.loadObjectsAsTable(tableName, rows, { create: true });
+          return;
+        } catch (err) {
+          // Fall back to a "truncate + insert" approach.
+          try {
+            await db.exec(`DELETE FROM main.${tableName}`);
+          } catch {
+            // ignore
+          }
+          try {
+            await db.loadObjectsAsTable(tableName, rows, { create: false });
+            return;
+          } catch {
+            await db.loadObjectsAsTable(tableName, rows, { create: true });
+          }
+          void err;
         }
-        void err;
+      })();
+
+      try {
+        await duckdbLoad;
+      } catch (err) {
+        duckdbLoad = null;
+        throw err;
       }
-    })();
+    };
 
-    try {
-      await duckdbLoad;
-    } catch (err) {
-      duckdbLoad = null;
-      throw err;
-    }
-  };
+    void ensureDuckDbData().catch(() => {});
 
-  void ensureDuckDbData().catch(() => {});
-
-  let meta: VacpDuckDbTableMetadata | null = null;
-  const ensureMetadata = async (): Promise<VacpDuckDbTableMetadata | null> => {
-    if (meta) return meta;
-    try {
-      await ensureDuckDbData();
-    } catch {
-      meta = null;
+    let meta: VacpDuckDbTableMetadata | null = null;
+    const ensureMetadata = async (): Promise<VacpDuckDbTableMetadata | null> => {
+      if (meta) return meta;
+      try {
+        await ensureDuckDbData();
+      } catch {
+        meta = null;
+        return meta;
+      }
+      const db = await duckdbPromise;
+      try {
+        meta = await getDuckDbTableMetadata({
+          duckdb: db,
+          table: tableName,
+          sampleRows: 0,
+          maxNumericColumns: 0,
+          maxTemporalColumns: 0,
+          maxCategoricalColumns: 0,
+        });
+      } catch {
+        meta = null;
+      }
       return meta;
-    }
-    const db = await duckdbPromise;
-    try {
-      meta = await getDuckDbTableMetadata({ duckdb: db, table: tableName, sampleRows: 25_000 });
-    } catch {
-      meta = null;
-    }
-    return meta;
-  };
+    };
+
+    handlesInternal.push({
+      ref: handleRef,
+      tableName,
+      title: s.title,
+      sourceId: s.id,
+      datasetName: s.datasetName,
+      ensureDuckDbData,
+      ensureMetadata,
+    });
+  });
+
+  // Put the primary `/data/main` handle first so tools (and tests) that pick the
+  // "first DataHandle" consistently get the intended main dataset.
+  handlesInternal.sort((a, b) => {
+    const aMain = a.ref.endsWith('/data/main');
+    const bMain = b.ref.endsWith('/data/main');
+    if (aMain !== bMain) return aMain ? -1 : 1;
+    return a.ref.localeCompare(b.ref);
+  });
+
+  const handlesByRef = new Map(handlesInternal.map((h) => [h.ref, h] as const));
+  const schemaCache = new Map<string, VacpDuckDbTableMetadata>();
 
   const dataSqlDesc = registerVacpDataSqlAction(
     actionRegistry,
@@ -352,17 +735,58 @@ export function installVegaLiteDuckDbDataHandle(args: {
         loadObjectsAsTable: (t, rows, opts) => duckdbPromise.then((d) => d.loadObjectsAsTable(t, rows, opts)),
       },
       resolveHandle: async (ref) => {
-        if (ref !== handleRef) return null;
-        await ensureDuckDbData();
-        const allSql = `SELECT * FROM ${tableName}`;
-        const where = whereClauseForCurrentSelections(spec, view);
-        const selectedSql = where ? `SELECT * FROM ${tableName} WHERE ${where}` : allSql;
+        const handle = handlesByRef.get(ref);
+        if (!handle) return null;
+        await handle.ensureDuckDbData();
+        const allSql = `SELECT * FROM ${handle.tableName}`;
+        const where = whereClauseForCurrentSelections(spec, view, allowedFieldsForHandleFromView(view, handle.ref));
+        const selectedSql = where ? `SELECT * FROM ${handle.tableName} WHERE ${where}` : allSql;
         return { allSql, selectedSql };
       },
     }),
-    { targetRef: handleRef, description: 'Query the current Vega-Lite selection using DuckDB SQL.' },
+    {
+      targetRef: handlesInternal.find((h) => h.ref.endsWith('/data/main'))?.ref,
+      description: 'Query the current Vega-Lite selection using DuckDB SQL.',
+    },
   );
   actionDescriptors.push(dataSqlDesc);
 
-  return { ref: handleRef, tableName, ensureMetadata };
+  const dataSchemaDesc = registerVacpDataSchemaAction(
+    actionRegistry,
+    async (params) => {
+      const handle = handlesByRef.get(params.handleRef);
+      if (!handle) throw new Error(`Unknown DataHandle: ${params.handleRef}`);
+
+      await handle.ensureDuckDbData();
+      const db = await duckdbPromise;
+
+      const detail = params.detail ?? 'columns';
+      const sampleRows = params.sampleRows;
+      const cacheKey =
+        detail === 'full'
+          ? `${handle.tableName}|full|${typeof sampleRows === 'number' ? sampleRows : 'default'}`
+          : `${handle.tableName}|columns`;
+
+      const cached = schemaCache.get(cacheKey);
+      if (cached) return { handleRef: params.handleRef, detail, ...cached };
+
+      const meta = await getDuckDbTableMetadata({
+        duckdb: db,
+        table: handle.tableName,
+        sampleRows: detail === 'full' ? (sampleRows ?? 25_000) : 0,
+        maxNumericColumns: detail === 'full' ? undefined : 0,
+        maxTemporalColumns: detail === 'full' ? undefined : 0,
+        maxCategoricalColumns: detail === 'full' ? undefined : 0,
+      });
+      schemaCache.set(cacheKey, meta);
+      return { handleRef: params.handleRef, detail, ...meta };
+    },
+    {
+      targetRef: handlesInternal.find((h) => h.ref.endsWith('/data/main'))?.ref,
+      description: 'Return DuckDB schema/metadata for a Vega-Lite DataHandle (columns, types, and optional summaries).',
+    },
+  );
+  actionDescriptors.push(dataSchemaDesc);
+
+  return handlesInternal;
 }

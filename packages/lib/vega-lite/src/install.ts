@@ -12,7 +12,7 @@ import { installVacpRuntimeBridge, registerVacpApplyStateAction, VacpActionRegis
 import { actionsForSpec } from './actions';
 import { buildGraph } from './graph';
 import { buildParamLookup, executeAction } from './execute';
-import { installVegaLiteDuckDbDataHandle } from './duckdb-handle';
+import { installVegaLiteDuckDbDataHandles } from './duckdb-handle';
 import { whereClauseForCurrentSelections } from './duckdb-selection';
 import { collectVegaLiteParams } from './params';
 import { makeRef } from './refs';
@@ -103,6 +103,46 @@ function stableJson(value: unknown): string {
   }
 }
 
+function parseFiniteNumber(value: unknown): number | null {
+  if (typeof value === 'number') return Number.isFinite(value) ? value : null;
+  if (typeof value !== 'string') return null;
+  const n = Number(value);
+  return Number.isFinite(n) ? n : null;
+}
+
+function parseDateMs(value: unknown): number | null {
+  if (typeof value === 'number') return Number.isFinite(value) ? value : null;
+  if (value instanceof Date) {
+    const t = value.getTime();
+    return Number.isFinite(t) ? t : null;
+  }
+  if (typeof value !== 'string') return null;
+  const s = value.trim();
+  // Avoid Date.parse() treating numeric strings (e.g. "11.1") as dates.
+  const looksLikeDate = /[a-z]/i.test(s) || s.includes('-') || s.includes('T') || s.includes(':') || s.includes('/');
+  if (!looksLikeDate) return null;
+  const t = Date.parse(s);
+  return Number.isFinite(t) ? t : null;
+}
+
+function valuesMatch(a: unknown, b: unknown): boolean {
+  if (a === b) return true;
+
+  const aDate = parseDateMs(a);
+  const bDate = parseDateMs(b);
+  if (aDate !== null && bDate !== null) return aDate === bDate;
+
+  const aNum = parseFiniteNumber(a);
+  const bNum = parseFiniteNumber(b);
+  if (aNum !== null && bNum !== null) return aNum === bNum;
+
+  if (typeof a === 'string' && typeof b === 'string') return a.trim() === b.trim();
+  if (typeof a === 'string' && typeof b === 'number') return a.trim() === String(b);
+  if (typeof a === 'number' && typeof b === 'string') return String(a) === b.trim();
+
+  return false;
+}
+
 function sanitizeHoverValue(value: unknown): unknown {
   if (value === undefined) return null;
   if (value === null) return null;
@@ -110,8 +150,7 @@ function sanitizeHoverValue(value: unknown): unknown {
   if (typeof value === 'bigint') return value.toString();
   if (value instanceof Date) {
     const t = value.getTime();
-    if (Number.isFinite(t)) return value.toISOString();
-    return null;
+    return Number.isFinite(t) ? t : null;
   }
   if (Array.isArray(value)) {
     try {
@@ -131,11 +170,23 @@ function sanitizeHoverValue(value: unknown): unknown {
   return String(value);
 }
 
-function allowedFieldsFromView(view: VegaViewLike): Set<string> | null {
-  const rec = view as unknown as { __vacpVegaLiteDuckDbFields?: unknown };
-  const raw = rec.__vacpVegaLiteDuckDbFields;
-  if (!Array.isArray(raw)) return null;
-  const fields = raw.filter((x): x is string => typeof x === 'string' && x.trim().length > 0);
+function ensureVegaTooltipDoesNotCapturePointerEvents(): void {
+  if (typeof document === 'undefined') return;
+  const id = '__vacp_vg_tooltip_style';
+  if (document.getElementById(id)) return;
+  const style = document.createElement('style');
+  style.id = id;
+  style.textContent = '.vg-tooltip{pointer-events:none !important;}';
+  document.head.appendChild(style);
+}
+
+function allowedFieldsForHandle(view: VegaViewLike, handleRef: string): Set<string> | null {
+  const rec = view as unknown as { __vacpVegaLiteDuckDbFieldsByHandle?: unknown };
+  const raw = rec.__vacpVegaLiteDuckDbFieldsByHandle;
+  if (!raw || typeof raw !== 'object') return null;
+  const list = (raw as Record<string, unknown>)[handleRef];
+  if (!Array.isArray(list)) return null;
+  const fields = list.filter((x): x is string => typeof x === 'string' && x.trim().length > 0);
   return fields.length ? new Set(fields) : null;
 }
 
@@ -263,6 +314,7 @@ export function installVacpOnVegaLiteView(args: {
 
   const hasTooltip = specHasTooltip(spec);
   if (hasTooltip) {
+    ensureVegaTooltipDoesNotCapturePointerEvents();
     const tooltipInfo = collectTooltipFieldInfo(spec);
     const hoverDescriptor: VacpActionDescriptor = {
       name: VEGA_LITE_TOOLTIP_HOVER_ACTION,
@@ -289,13 +341,27 @@ export function installVacpOnVegaLiteView(args: {
       const valueParam = p.value;
       const markName = typeof p.markName === 'string' ? p.markName : '';
 
-      const viewAny = view as unknown as { __vacpVegaLiteTooltipHover?: unknown };
+      const viewAny = view as unknown as { __vacpVegaLiteTooltipHover?: unknown; tooltip?: (handler?: any) => any };
       if (clear) {
         viewAny.__vacpVegaLiteTooltipHover = null;
+        // Best-effort: explicitly hide the tooltip via Vega's tooltip handler.
+        try {
+          if (typeof viewAny.tooltip === 'function') {
+            const handler = viewAny.tooltip();
+            if (typeof handler === 'function') {
+              (view as unknown as { __vacpSuppressTooltipDispatch?: boolean }).__vacpSuppressTooltipDispatch = true;
+              handler(null, new MouseEvent('mousemove', { bubbles: true, cancelable: true, clientX: 0, clientY: 0 }), null, null);
+            }
+          }
+        } catch {
+          // ignore
+        } finally {
+          queueMicrotask(() => {
+            (view as unknown as { __vacpSuppressTooltipDispatch?: boolean }).__vacpSuppressTooltipDispatch = false;
+          });
+        }
         return { cleared: true };
       }
-
-      const allowed = allowedFieldsFromView(view);
 
       const fields: Record<string, unknown> = (() => {
         if (isRecord(fieldsParam)) {
@@ -319,59 +385,123 @@ export function installVacpOnVegaLiteView(args: {
             out[field] = sanitized;
           }
 
-          // If we still have no overlap with the DuckDB table, try a last-resort
-          // heuristic: keep any fields that match a known column name.
-          if (allowed) {
-            const filtered = Object.fromEntries(Object.entries(out).filter(([k]) => allowed.has(k)));
-            if (Object.keys(filtered).length) return filtered;
-          }
-
           return out;
         }
         return {};
       })();
 
-      const effectiveFields =
-        allowed && Object.keys(fields).length ? Object.fromEntries(Object.entries(fields).filter(([k]) => allowed.has(k))) : fields;
-
       viewAny.__vacpVegaLiteTooltipHover = {
-        fields: effectiveFields,
+        fields,
         markName,
         value: valueParam ?? null,
       };
 
-      return { fields: effectiveFields, markName, value: valueParam ?? null };
+      // Best-effort: programmatically show the tooltip for a matching mark.
+      // This makes playbook-driven "hover" steps visible and stable in the UI.
+      let tooltipShown = false;
+      try {
+        if (typeof viewAny.tooltip !== 'function') return { fields, markName, value: valueParam ?? null, tooltipShown };
+        const tooltipHandler = viewAny.tooltip();
+        if (typeof tooltipHandler !== 'function') return { fields, markName, value: valueParam ?? null, tooltipShown };
+
+        const target = args.root.querySelector('canvas,svg') as HTMLElement | null;
+        const scene = (view as any).scenegraph?.();
+        const root = scene?.root;
+        if (target && root && Object.keys(fields).length) {
+          const matchesDatum = (datum: unknown): boolean => {
+            if (!datum || typeof datum !== 'object') return false;
+            const d = datum as Record<string, unknown>;
+            return Object.entries(fields).every(([k, v]) => Object.prototype.hasOwnProperty.call(d, k) && valuesMatch(d[k], v));
+          };
+
+          const seen = new WeakSet<object>();
+          let match: any = null;
+          const visit = (node: any) => {
+            if (!node || typeof node !== 'object') return;
+            if (seen.has(node)) return;
+            seen.add(node);
+            if (match) return;
+
+            const items = node.items;
+            if (Array.isArray(items)) {
+              for (const it of items) {
+                if (match) break;
+                if (!it || typeof it !== 'object') continue;
+                const datum = (it as any).datum;
+                const itMarkName = typeof (it as any)?.mark?.name === 'string' ? ((it as any).mark.name as string) : '';
+                const okMark = !markName || itMarkName === markName;
+                if (okMark && matchesDatum(datum)) {
+                  match = it;
+                  break;
+                }
+                visit(it);
+              }
+            }
+            if (node.group) visit(node.group);
+          };
+          visit(root);
+
+          const bounds = match?.bounds;
+          const x1 = Number(bounds?.x1);
+          const y1 = Number(bounds?.y1);
+          const x2 = Number(bounds?.x2);
+          const y2 = Number(bounds?.y2);
+          if (Number.isFinite(x1) && Number.isFinite(y1) && Number.isFinite(x2) && Number.isFinite(y2)) {
+            const rect = target.getBoundingClientRect();
+            const clientX = rect.left + (x1 + x2) / 2;
+            const clientY = rect.top + (y1 + y2) / 2;
+            (view as unknown as { __vacpSuppressTooltipDispatch?: boolean }).__vacpSuppressTooltipDispatch = true;
+            const tooltipValue = (match as any).tooltip ?? valueParam ?? (Object.keys(fields).length ? fields : null);
+            tooltipHandler(
+              null,
+              new MouseEvent('mousemove', { bubbles: true, cancelable: true, clientX, clientY }),
+              match,
+              tooltipValue,
+            );
+            tooltipShown = tooltipValue != null;
+          }
+        }
+      } catch {
+        // ignore
+      } finally {
+        queueMicrotask(() => {
+          (view as unknown as { __vacpSuppressTooltipDispatch?: boolean }).__vacpSuppressTooltipDispatch = false;
+        });
+      }
+
+      return { fields, markName, value: valueParam ?? null, tooltipShown };
     });
     actionDescriptors.push(hoverDescriptor);
   }
 
-  const dataHandle = installVegaLiteDuckDbDataHandle({ spec, view, options, actionRegistry, actionDescriptors });
-  const handleRef = dataHandle?.ref ?? null;
-  const tableName = dataHandle?.tableName ?? null;
-  let handleMeta: import('@vacp/duckdb').VacpDuckDbTableMetadata | null = null;
+  const dataHandles = installVegaLiteDuckDbDataHandles({ spec, view, options, actionRegistry, actionDescriptors });
+  const handleMetaByRef = new Map<string, import('@vacp/duckdb').VacpDuckDbTableMetadata | null>();
 
   const graph = buildGraph({
     spec,
     options,
     actions: actionDescriptors,
-    dataHandle: handleRef && tableName ? { ref: handleRef, data: { tableName } } : undefined,
+    dataHandles: dataHandles.map((h) => ({
+      ref: h.ref,
+      title: h.title,
+      description: `DuckDB table for ${h.title}.`,
+      data: { tableName: h.tableName, sourceId: h.sourceId },
+    })),
   });
-
-  const dataHandleNode =
-    handleRef && tableName ? graph.nodes.find((n) => n.kind === 'DataHandle' && n.ref === handleRef) : null;
 
   const snapshots = {
     getCapabilities: async (): Promise<VacpCapabilitiesSnapshot> => ({
       version: VACP_SCHEMA_VERSION,
       createdAt: nowIso(),
       graph: await (async () => {
-        if (dataHandle && dataHandleNode && !handleMeta) {
-          handleMeta = await dataHandle.ensureMetadata();
-          if (handleMeta) {
-            (dataHandleNode as any).data = { ...(dataHandleNode as any).data, duckdb: handleMeta };
-            (dataHandleNode as any).description =
-              `DuckDB handle for "${tableName}".\n${formatDuckDbTableMetadataSummary(handleMeta)}`;
-          }
+        for (const h of dataHandles) {
+          const node = graph.nodes.find((n) => n.kind === 'DataHandle' && n.ref === h.ref) ?? null;
+          if (!node) continue;
+          if (!handleMetaByRef.has(h.ref)) handleMetaByRef.set(h.ref, await h.ensureMetadata());
+          const meta = handleMetaByRef.get(h.ref) ?? null;
+          if (!meta) continue;
+          (node as any).data = { ...(node as any).data, duckdb: meta };
+          (node as any).description = `DuckDB handle for "${h.tableName}".\n${formatDuckDbTableMetadataSummary(meta)}`;
         }
         return graph;
       })(),
@@ -390,14 +520,14 @@ export function installVacpOnVegaLiteView(args: {
           ? { kind, name: p.name, value: tryGetSignal(view, p.name), select: p.select }
           : { kind, name: p.name, value: tryGetSignal(view, p.name), bind: p.bind };
       });
-      if (handleRef) {
-        state[handleRef] = {
+      dataHandles.forEach((h) => {
+        state[h.ref] = {
           kind: 'DataHandle',
-          tableName,
-          selectionWhere: whereClauseForCurrentSelections(spec, view),
+          tableName: h.tableName,
+          selectionWhere: whereClauseForCurrentSelections(spec, view, allowedFieldsForHandle(view, h.ref)),
           selectedMeaning: 'rows matching current selection params; falls back to all rows if none',
         };
-      }
+      });
       return { version: VACP_SCHEMA_VERSION, createdAt: nowIso(), state: state as any };
     },
   };
@@ -422,6 +552,8 @@ export function installVacpOnVegaLiteView(args: {
         let dispatchChain: Promise<unknown> = Promise.resolve();
 
         const wrapped = (handler: any, event: MouseEvent, item: any, value: any) => {
+          const suppress = (view as unknown as { __vacpSuppressTooltipDispatch?: boolean }).__vacpSuppressTooltipDispatch;
+          if (suppress) return original(handler, event, item, value);
           try {
             if (value == null || value === '') {
               lastKey = null;
@@ -432,8 +564,7 @@ export function installVacpOnVegaLiteView(args: {
               if (key !== lastKey) {
                 lastKey = key;
                 if (typeof bridge.dispatch === 'function') {
-                  const allowed = allowedFieldsFromView(view);
-                  const fields = computeHoverFields({ tooltipInfo, allowed, item, value });
+                  const fields = computeHoverFields({ tooltipInfo, allowed: null, item, value });
                   const call: VacpActionCall = {
                     callId: crypto.randomUUID(),
                     name: VEGA_LITE_TOOLTIP_HOVER_ACTION,
