@@ -54,7 +54,7 @@ export function buildWeatherPlaybook(ctx: MosaicSpecPlaybookContext): VacpPlaybo
       id: 'weather-jacket-days',
       title: 'Playbook: Seattle Weather (summer jacket days)',
       description:
-        'Answer: “How many days in the summer where I need a jacket?” by filtering to summer (Jun–Aug) and selecting rain/drizzle/snow.',
+        'Answer: “How many days in the summer where I need a jacket?” by filtering to summer (Jun-Aug) and selecting rain/drizzle/snow.',
     })
       .action('Clear brush selection (clean slate)', {
         name: 'mosaic.clear_interval_1d',
@@ -64,7 +64,7 @@ export function buildWeatherPlaybook(ctx: MosaicSpecPlaybookContext): VacpPlaybo
         name: 'mosaic.clear_legend_toggle',
         params: { plotId: interval.plotId, channel: 'color' },
       })
-      .action('Select summer months (Jun–Aug)', {
+      .action('Select summer months (Jun-Aug)', {
         name: 'mosaic.set_interval_1d',
         params: { plotId: interval.plotId, interactorId: interval.interactorId, min: range.min, max: range.max },
       })
