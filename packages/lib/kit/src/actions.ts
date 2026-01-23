@@ -2,8 +2,12 @@ import type { VacpActionDescriptor, VacpRef } from '@vacp/core';
 import {
   registerVacpApplyStateAction,
   type VacpApplyStateHandler,
+  registerVacpDataSchemaAction,
+  type VacpDataSchemaHandler,
   registerVacpDataSqlAction,
   type VacpDataSqlHandler,
+  registerVacpWidgetOptionsAction,
+  type VacpWidgetOptionsHandler,
   VacpActionRegistry,
 } from '@vacp/gateway';
 
@@ -17,8 +21,16 @@ export type VacpActions = {
       handler: VacpApplyStateHandler,
       options?: { targetRef?: VacpRef; description?: string },
     ) => VacpActionDescriptor;
+    dataSchema: (
+      handler: VacpDataSchemaHandler,
+      options?: { targetRef?: VacpRef; description?: string },
+    ) => VacpActionDescriptor;
     dataSql: (
       handler: VacpDataSqlHandler,
+      options?: { targetRef?: VacpRef; description?: string },
+    ) => VacpActionDescriptor;
+    widgetOptions: (
+      handler: VacpWidgetOptionsHandler,
       options?: { targetRef?: VacpRef; description?: string },
     ) => VacpActionDescriptor;
   };
@@ -31,7 +43,9 @@ export function createVacpActions(): VacpActions {
     action: (name, description) => new VacpActionDefinition(registry, { name, description }),
     standard: {
       applyState: (handler, options) => registerVacpApplyStateAction(registry, handler, options),
+      dataSchema: (handler, options) => registerVacpDataSchemaAction(registry, handler, options),
       dataSql: (handler, options) => registerVacpDataSqlAction(registry, handler, options),
+      widgetOptions: (handler, options) => registerVacpWidgetOptionsAction(registry, handler, options),
     },
   };
 }
