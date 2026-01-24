@@ -112,16 +112,29 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         help='If using --cdp-url, attempt to close the remote browser on exit (usually disconnects only).',
     )
     p.add_argument('--global-key', type=str, default='__vacp', help='Global key for window bridge (default: __vacp)')
+    p.add_argument(
+        '--enable-browser-tools',
+        action='store_true',
+        default=False,
+        help='Expose additional browser-control MCP tools (screenshot/eval/etc). Off by default.',
+    )
     return p.parse_args(argv)
 
 
-async def _run_stdio(*, browser: BrowserManager, global_key: str, show_banner: bool, mcp_log_level: str | None) -> None:
+async def _run_stdio(
+    *,
+    browser: BrowserManager,
+    global_key: str,
+    show_banner: bool,
+    mcp_log_level: str | None,
+    enable_browser_tools: bool,
+) -> None:
     await browser.start()
     info = await browser.get_page_info()
     log(f'Browser ready: {info}')
 
     client = PlaywrightVacpBridgeClient(browser.page, global_key=global_key)
-    mcp = create_mcp(client)
+    mcp = create_mcp(client, page=browser.page, enable_browser_tools=enable_browser_tools)
     try:
         await mcp.run_stdio_async(show_banner=show_banner, log_level=mcp_log_level)
     finally:
@@ -155,6 +168,7 @@ def main() -> None:
                 global_key=args.global_key,
                 show_banner=bool(args.show_banner),
                 mcp_log_level=args.mcp_log_level,
+                enable_browser_tools=bool(args.enable_browser_tools),
             )
         )
         return
@@ -169,7 +183,7 @@ def main() -> None:
         log(f'Browser ready: {info}')
 
         client = PlaywrightVacpBridgeClient(browser.page, global_key=args.global_key)
-        mcp = create_mcp(client)
+        mcp = create_mcp(client, page=browser.page, enable_browser_tools=bool(args.enable_browser_tools))
         # We mount the resulting ASGI app under /mcp; therefore its internal path is /.
         mcp_app = mcp.http_app(path='/')
 

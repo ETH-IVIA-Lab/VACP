@@ -1,5 +1,10 @@
 from __future__ import annotations
 
+import asyncio
+import time
+from pathlib import Path
+from typing import Any, Protocol
+
 from fastmcp import FastMCP
 
 from vacp_mcp_server.bridge import ActionCall, VacpBridgeClient
@@ -28,8 +33,66 @@ for the app to expose the missing capability rather than fabricating data access
 The MCP server is intentionally thin: semantics belong to the app/provider; MCP is transport.
 """
 
+_DEFAULT_READY_TIMEOUT_MS = 60_000
 
-def create_mcp(client: VacpBridgeClient) -> FastMCP:
+
+class BrowserPage(Protocol):
+    """
+    Minimal Playwright Page surface needed by our MCP tools.
+
+    We intentionally depend on a Protocol instead of Playwright's concrete type to:
+    - keep the adapter layer testable without launching a real browser,
+    - avoid hard-coupling the MCP layer to Playwright imports.
+    """
+
+    url: str
+
+    async def goto(self, url: str, *, wait_until: str | None = None) -> Any: ...
+
+    async def title(self) -> str: ...
+
+    async def evaluate(self, expression: str, arg: Any | None = None) -> Any: ...
+
+    async def screenshot(self, *, path: str, full_page: bool = True) -> bytes: ...
+
+    async def wait_for_timeout(self, timeout: float) -> Any: ...
+
+    async def wait_for_selector(self, selector: str, *, timeout: float | None = None, state: str | None = None) -> Any: ...
+
+    async def click(self, selector: str) -> Any: ...
+
+    async def fill(self, selector: str, value: str) -> Any: ...
+
+    async def press(self, selector: str, key: str) -> Any: ...
+
+
+async def _wait_for_bridge_ready(client: VacpBridgeClient, timeout_ms: int) -> None:
+    """
+    Wait until the in-page VACP bridge is available.
+    """
+    deadline = time.monotonic() + max(0, timeout_ms) / 1000
+    last_error: Exception | None = None
+
+    while True:
+        try:
+            await client.get_capabilities()
+            return
+        except Exception as e:  # noqa: BLE001
+            last_error = e
+
+        if time.monotonic() >= deadline:
+            msg = 'Timed out waiting for VACP bridge after {}ms'.format(timeout_ms)
+            raise RuntimeError(msg) from last_error
+
+        await asyncio.sleep(0.1)
+
+
+def create_mcp(
+    client: VacpBridgeClient,
+    *,
+    page: BrowserPage | None = None,
+    enable_browser_tools: bool = False,
+) -> FastMCP:
     mcp = FastMCP(
         'VACP MCP Server',
         instructions="""
@@ -143,5 +206,153 @@ Typical agent loop:
         call = ActionCall(call_id=call_id or 'call', name=name, params=params)
         res = await client.execute(call)
         return {'callId': res.call_id, 'ok': res.ok, 'result': res.result, 'error': res.error}
+
+    if page is not None:
+
+        @mcp.tool(
+            title='VACP Open URL',
+        )
+        async def vacp_open_url(
+            url: str,
+            wait_for_bridge: bool = True,
+            timeout_ms: int = _DEFAULT_READY_TIMEOUT_MS,
+        ) -> dict[str, object]:
+            """
+            Navigate the VACP browser page to a URL.
+
+            Use this at the start of a run to open the scenario URL before calling
+            `vacp_capabilities()` / `vacp_state()` / `vacp_execute()`.
+
+            If `wait_for_bridge` is true, the tool waits until the in-page VACP bridge is ready.
+            """
+            if not isinstance(url, str) or not url.strip():
+                raise ValueError('Expected url to be a non-empty string')
+            if not isinstance(timeout_ms, int) or timeout_ms < 0 or timeout_ms > 5 * 60_000:
+                raise ValueError('Expected timeout_ms to be an int between 0 and 300000')
+
+            await page.goto(url, wait_until='domcontentloaded')
+            if wait_for_bridge:
+                await _wait_for_bridge_ready(client, timeout_ms)
+
+            return {'url': page.url, 'title': await page.title()}
+
+        @mcp.tool(
+            title='VACP Page Info',
+            annotations={'readOnlyHint': True},
+        )
+        async def vacp_page_info() -> dict[str, object]:
+            """
+            Return basic page metadata for the VACP browser instance.
+            """
+            return {'url': page.url, 'title': await page.title()}
+
+    if enable_browser_tools and page is not None:
+
+        @mcp.tool(
+            title='Browser Screenshot',
+        )
+        async def browser_screenshot(path: str, full_page: bool = True) -> dict[str, object]:
+            """
+            Capture a screenshot of the current page.
+
+            The parent directory is created if it doesn't exist.
+            """
+            if not isinstance(path, str) or not path.strip():
+                raise ValueError('Expected path to be a non-empty string')
+
+            out_path = Path(path).expanduser()
+            out_path.parent.mkdir(parents=True, exist_ok=True)
+            await page.screenshot(path=str(out_path), full_page=bool(full_page))
+            return {'ok': True, 'path': str(out_path)}
+
+        @mcp.tool(
+            title='Browser Evaluate',
+            annotations={'readOnlyHint': True},
+        )
+        async def browser_eval(expression: str, arg: object | None = None) -> object:
+            """
+            Evaluate a JavaScript expression in the page context.
+
+            Notes:
+            - `expression` can be a JS expression string or an arrow function string.
+            - `arg` (optional) is passed as the argument to the evaluated function.
+            """
+            if not isinstance(expression, str) or not expression.strip():
+                raise ValueError('Expected expression to be a non-empty string')
+            if len(expression) > 20_000:
+                raise ValueError('Expected expression length <= 20000 characters')
+
+            if arg is None:
+                return await page.evaluate(expression)
+            return await page.evaluate(expression, arg)
+
+        @mcp.tool(
+            title='Browser Wait For Selector',
+        )
+        async def browser_wait_for_selector(selector: str, timeout_ms: int = 15_000, state: str | None = None) -> dict[str, object]:
+            """
+            Wait until a selector is present in the DOM (or matches an optional state).
+            """
+            if not isinstance(selector, str) or not selector.strip():
+                raise ValueError('Expected selector to be a non-empty string')
+            if not isinstance(timeout_ms, int) or timeout_ms < 0 or timeout_ms > 120_000:
+                raise ValueError('Expected timeout_ms to be an int between 0 and 120000')
+            if state is not None and state not in ('attached', 'detached', 'visible', 'hidden'):
+                raise ValueError('Expected state to be one of: attached, detached, visible, hidden')
+
+            await page.wait_for_selector(selector, timeout=timeout_ms, state=state)
+            return {'ok': True}
+
+        @mcp.tool(
+            title='Browser Click',
+        )
+        async def browser_click(selector: str) -> dict[str, object]:
+            """
+            Click an element matching a selector.
+            """
+            if not isinstance(selector, str) or not selector.strip():
+                raise ValueError('Expected selector to be a non-empty string')
+            await page.click(selector)
+            return {'ok': True}
+
+        @mcp.tool(
+            title='Browser Fill',
+        )
+        async def browser_fill(selector: str, value: str) -> dict[str, object]:
+            """
+            Fill an input/textarea matching a selector with the given value.
+            """
+            if not isinstance(selector, str) or not selector.strip():
+                raise ValueError('Expected selector to be a non-empty string')
+            if not isinstance(value, str):
+                raise ValueError('Expected value to be a string')
+            await page.fill(selector, value)
+            return {'ok': True}
+
+        @mcp.tool(
+            title='Browser Press',
+        )
+        async def browser_press(selector: str, key: str) -> dict[str, object]:
+            """
+            Press a key on an element matching a selector.
+            """
+            if not isinstance(selector, str) or not selector.strip():
+                raise ValueError('Expected selector to be a non-empty string')
+            if not isinstance(key, str) or not key.strip():
+                raise ValueError('Expected key to be a non-empty string')
+            await page.press(selector, key)
+            return {'ok': True}
+
+        @mcp.tool(
+            title='Browser Sleep',
+        )
+        async def browser_sleep(ms: int) -> dict[str, object]:
+            """
+            Sleep for the given duration (milliseconds).
+            """
+            if not isinstance(ms, int) or ms < 0 or ms > 120_000:
+                raise ValueError('Expected ms to be an int between 0 and 120000')
+            await page.wait_for_timeout(ms)
+            return {'ok': True}
 
     return mcp
