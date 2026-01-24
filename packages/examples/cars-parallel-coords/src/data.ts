@@ -43,4 +43,3 @@ export async function loadCarsDataset(url: string): Promise<CarsDataset> {
 
   return { data, dimensions };
 }
-

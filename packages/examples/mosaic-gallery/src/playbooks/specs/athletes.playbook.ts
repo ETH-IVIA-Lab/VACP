@@ -48,7 +48,10 @@ export function buildAthletesPlaybook(ctx: MosaicSpecPlaybookContext): VacpPlayb
     clearInputs(b);
     clearBrush(b);
 
-    b.action('Set Sex = male', { name: 'mosaic.set_input_value', params: { ref: `${ctx.viewBase}/input/1`, value: 'male' } })
+    b.action('Set Sex = male', {
+      name: 'mosaic.set_input_value',
+      params: { ref: `${ctx.viewBase}/input/1`, value: 'male' },
+    })
       .action('Set Sport = football', {
         name: 'mosaic.set_input_value',
         params: { ref: `${ctx.viewBase}/input/0`, value: 'football' },
@@ -56,8 +59,7 @@ export function buildAthletesPlaybook(ctx: MosaicSpecPlaybookContext): VacpPlayb
       .action('Set Sport = cycling', {
         name: 'mosaic.set_input_value',
         params: { ref: `${ctx.viewBase}/input/0`, value: 'cycling' },
-      })
-      ;
+      });
 
     return b.build();
   })();
@@ -98,7 +100,10 @@ export function buildAthletesPlaybook(ctx: MosaicSpecPlaybookContext): VacpPlayb
     b.action('Set Sex = female', {
       name: 'mosaic.set_input_value',
       params: { ref: `${ctx.viewBase}/input/1`, value: 'female' },
-    }).action('Set Sport = judo', { name: 'mosaic.set_input_value', params: { ref: `${ctx.viewBase}/input/0`, value: 'judo' } });
+    }).action('Set Sport = judo', {
+      name: 'mosaic.set_input_value',
+      params: { ref: `${ctx.viewBase}/input/0`, value: 'judo' },
+    });
 
     if (interval && domains?.x) {
       const lo = typeof domains.x[0] === 'number' ? domains.x[0] : 0;
@@ -119,7 +124,9 @@ export function buildAthletesPlaybook(ctx: MosaicSpecPlaybookContext): VacpPlayb
         },
       });
     } else {
-      b.step('Brush weight 100-120 kg', { description: 'Use the scatterplot brush to select weight between 100 and 120.' });
+      b.step('Brush weight 100-120 kg', {
+        description: 'Use the scatterplot brush to select weight between 100 and 120.',
+      });
     }
 
     return b.build();

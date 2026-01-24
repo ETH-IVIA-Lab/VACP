@@ -32,21 +32,23 @@ test('vega-lite: interval brush playbook renders brush rectangle (sets brush_x)'
 
     // Regression target: ensure the interval brush pixel extents are set so the
     // brush rectangle becomes visible (Vega-Lite uses `brush_x`/`brush_y` signals).
-    await expect.poll(async () => {
-      return await page.evaluate(async () => {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const view = (globalThis as any).__vegaView;
-        if (!view || typeof view.getState !== 'function') return null;
-        const st = view.getState();
-        const ctx0 = st?.subcontext?.['0'];
-        const brushX = ctx0?.signals?.brush_x;
-        if (!Array.isArray(brushX) || brushX.length !== 2) return null;
-        if (!brushX.every((v: any) => typeof v === 'number' && Number.isFinite(v))) return null;
-        const store = typeof view.data === 'function' ? view.data('brush_store') : null;
-        const unit = Array.isArray(store) && store[0] && typeof store[0] === 'object' ? (store[0] as any).unit : null;
-        return { brushX, unit };
-      });
-    }).toEqual({ brushX: [expect.any(Number), expect.any(Number)], unit: 'concat_0' });
+    await expect
+      .poll(async () => {
+        return await page.evaluate(async () => {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const view = (globalThis as any).__vegaView;
+          if (!view || typeof view.getState !== 'function') return null;
+          const st = view.getState();
+          const ctx0 = st?.subcontext?.['0'];
+          const brushX = ctx0?.signals?.brush_x;
+          if (!Array.isArray(brushX) || brushX.length !== 2) return null;
+          if (!brushX.every((v: any) => typeof v === 'number' && Number.isFinite(v))) return null;
+          const store = typeof view.data === 'function' ? view.data('brush_store') : null;
+          const unit = Array.isArray(store) && store[0] && typeof store[0] === 'object' ? (store[0] as any).unit : null;
+          return { brushX, unit };
+        });
+      })
+      .toEqual({ brushX: [expect.any(Number), expect.any(Number)], unit: 'concat_0' });
   } finally {
     await srv.stop();
   }

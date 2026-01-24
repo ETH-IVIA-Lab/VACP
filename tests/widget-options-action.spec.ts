@@ -41,7 +41,8 @@ async function waitForWidgetRef(page: Page, titleNeedle: string, timeoutMs = 30_
       (n: any) => n?.kind === 'Widget' && typeof n?.ref === 'string' && String(n?.title ?? '').includes(titleNeedle),
     );
     if (found?.ref) return String(found.ref);
-    if (Date.now() - start > timeoutMs) throw new Error(`Timed out waiting for widget title containing: ${titleNeedle}`);
+    if (Date.now() - start > timeoutMs)
+      throw new Error(`Timed out waiting for widget title containing: ${titleNeedle}`);
     await page.waitForTimeout(150);
   }
 }
@@ -76,7 +77,12 @@ test('action: vacp.widget_options (mosaic athletes Sport menu)', async ({ page }
     expect(
       last?.result?.options?.some(
         (o: any) =>
-          String(o?.label ?? '').toLowerCase().includes('judo') || String(o?.value ?? '').toLowerCase().includes('judo'),
+          String(o?.label ?? '')
+            .toLowerCase()
+            .includes('judo') ||
+          String(o?.value ?? '')
+            .toLowerCase()
+            .includes('judo'),
       ),
     ).toBeTruthy();
   } finally {

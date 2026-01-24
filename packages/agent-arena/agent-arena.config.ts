@@ -115,7 +115,11 @@ function buildBaselineJobs() {
         model,
         scenario: {
           id: scenarioBase.id,
-          url: buildScenarioUrl({ route: scenarioBase.route, hash: scenarioBase.hash, query: { 'expose-bridge': '0' } }),
+          url: buildScenarioUrl({
+            route: scenarioBase.route,
+            hash: scenarioBase.hash,
+            query: { 'expose-bridge': '0' },
+          }),
           task: scenarioBase.task,
         },
         toolPolicy: {

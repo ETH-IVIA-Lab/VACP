@@ -124,7 +124,10 @@ export function installVacpOnVgplotDashboard(args: {
             }));
           }
           if (Array.isArray(inst.data)) {
-            return inst.data.map((o) => ({ value: safe(o.value), label: typeof o.label === 'string' ? o.label : undefined }));
+            return inst.data.map((o) => ({
+              value: safe(o.value),
+              label: typeof o.label === 'string' ? o.label : undefined,
+            }));
           }
           return [];
         })();

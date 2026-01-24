@@ -3,7 +3,9 @@ import { isVacpRef, VACP_DATA_SCHEMA_ACTION } from '@vacp/core';
 
 import { VacpActionRegistry } from './action-registry';
 
-export type VacpDataSchemaHandler = (params: VacpDataSchemaParams) => VacpDataSchemaResult | Promise<VacpDataSchemaResult>;
+export type VacpDataSchemaHandler = (
+  params: VacpDataSchemaParams,
+) => VacpDataSchemaResult | Promise<VacpDataSchemaResult>;
 
 /**
  * Register the standard action `vacp.data_schema`.
@@ -30,7 +32,8 @@ export function registerVacpDataSchemaAction(
         detail: { type: 'string', enum: ['columns', 'full'], description: 'Detail level (default: columns).' },
         sampleRows: {
           type: 'number',
-          description: 'When detail=full: bound rows scanned for summaries (provider-defined; default tuned for speed).',
+          description:
+            'When detail=full: bound rows scanned for summaries (provider-defined; default tuned for speed).',
         },
       },
       required: ['handleRef'],
@@ -62,4 +65,3 @@ export function registerVacpDataSchemaAction(
 
   return descriptor;
 }
-

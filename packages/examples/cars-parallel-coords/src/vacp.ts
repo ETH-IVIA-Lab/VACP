@@ -94,7 +94,10 @@ export function installVacpForCarsParallelCoords(args: {
   };
 
   actions
-    .action('parallel_coords.set_brush_ranges', 'Set one or more per-axis brush ranges (data units). Use null to clear.')
+    .action(
+      'parallel_coords.set_brush_ranges',
+      'Set one or more per-axis brush ranges (data units). Use null to clear.',
+    )
     .target(brushRef)
     .params({
       type: 'object',
@@ -102,10 +105,7 @@ export function installVacpForCarsParallelCoords(args: {
         ranges: {
           type: 'object',
           additionalProperties: {
-            anyOf: [
-              { type: 'null' },
-              { type: 'array', items: { type: 'number' }, minItems: 2, maxItems: 2 },
-            ],
+            anyOf: [{ type: 'null' }, { type: 'array', items: { type: 'number' }, minItems: 2, maxItems: 2 }],
           },
         },
       },
@@ -140,7 +140,11 @@ export function installVacpForCarsParallelCoords(args: {
   actions
     .action('parallel_coords.set_dimension_order', 'Set the axis order as an array of dimension names.')
     .target(orderRef)
-    .params({ type: 'object', properties: { order: { type: 'array', items: { type: 'string' } } }, required: ['order'] })
+    .params({
+      type: 'object',
+      properties: { order: { type: 'array', items: { type: 'string' } } },
+      required: ['order'],
+    })
     .handle((params) => {
       const rec = (params ?? {}) as { order?: unknown };
       if (!Array.isArray(rec.order)) throw new Error('Expected params.order array');
@@ -463,7 +467,8 @@ export function installVacpForCarsParallelCoords(args: {
           kind: 'DataHandle',
           tableName,
           selectedCount: st.selectedCount,
-          selectedMeaning: st.selectedCount === st.totalCount ? 'all rows (no active brush)' : 'rows matching brush ranges',
+          selectedMeaning:
+            st.selectedCount === st.totalCount ? 'all rows (no active brush)' : 'rows matching brush ranges',
           duckdb: (tableMeta ?? undefined) as VacpDuckDbTableMetadata | undefined,
         },
       } satisfies Record<VacpRef, unknown>;

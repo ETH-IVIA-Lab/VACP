@@ -201,7 +201,8 @@ function computeHoverFields(args: {
   const out: Record<string, unknown> = {};
 
   args.tooltipInfo.fields.forEach((field) => {
-    const raw = (datum && Object.prototype.hasOwnProperty.call(datum, field) ? datum[field] : undefined) ??
+    const raw =
+      (datum && Object.prototype.hasOwnProperty.call(datum, field) ? datum[field] : undefined) ??
       (tooltipValue && Object.prototype.hasOwnProperty.call(tooltipValue, field) ? tooltipValue[field] : undefined);
     const sanitized = sanitizeHoverValue(raw);
     if (sanitized === null || sanitized === undefined) return;
@@ -350,7 +351,12 @@ export function installVacpOnVegaLiteView(args: {
             const handler = viewAny.tooltip();
             if (typeof handler === 'function') {
               (view as unknown as { __vacpSuppressTooltipDispatch?: boolean }).__vacpSuppressTooltipDispatch = true;
-              handler(null, new MouseEvent('mousemove', { bubbles: true, cancelable: true, clientX: 0, clientY: 0 }), null, null);
+              handler(
+                null,
+                new MouseEvent('mousemove', { bubbles: true, cancelable: true, clientX: 0, clientY: 0 }),
+                null,
+                null,
+              );
             }
           }
         } catch {
@@ -411,7 +417,9 @@ export function installVacpOnVegaLiteView(args: {
           const matchesDatum = (datum: unknown): boolean => {
             if (!datum || typeof datum !== 'object') return false;
             const d = datum as Record<string, unknown>;
-            return Object.entries(fields).every(([k, v]) => Object.prototype.hasOwnProperty.call(d, k) && valuesMatch(d[k], v));
+            return Object.entries(fields).every(
+              ([k, v]) => Object.prototype.hasOwnProperty.call(d, k) && valuesMatch(d[k], v),
+            );
           };
 
           const seen = new WeakSet<object>();
@@ -552,7 +560,8 @@ export function installVacpOnVegaLiteView(args: {
         let dispatchChain: Promise<unknown> = Promise.resolve();
 
         const wrapped = (handler: any, event: MouseEvent, item: any, value: any) => {
-          const suppress = (view as unknown as { __vacpSuppressTooltipDispatch?: boolean }).__vacpSuppressTooltipDispatch;
+          const suppress = (view as unknown as { __vacpSuppressTooltipDispatch?: boolean })
+            .__vacpSuppressTooltipDispatch;
           if (suppress) return original(handler, event, item, value);
           try {
             if (value == null || value === '') {

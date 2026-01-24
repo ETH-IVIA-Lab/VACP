@@ -48,4 +48,3 @@ export function collectVegaLiteParams(spec: VegaLiteSpecLike): VegaLiteParamLike
 
   return Array.from(byName.values());
 }
-

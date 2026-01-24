@@ -305,11 +305,7 @@ export function createParallelCoordsChart(args: {
       .text((d) => d)
       .call(d3.drag<SVGTextElement, string>().on('start', dragStarted).on('drag', dragged).on('end', dragEnded));
 
-    const brushed = (
-      event: d3.D3BrushEvent<CarDatum>,
-      dim: string,
-      scale: d3.ScaleLinear<number, number>,
-    ): void => {
+    const brushed = (event: d3.D3BrushEvent<CarDatum>, dim: string, scale: d3.ScaleLinear<number, number>): void => {
       if (!event.selection) return;
       if (!(event.sourceEvent instanceof Event)) return;
 
@@ -406,7 +402,8 @@ export function createParallelCoordsChart(args: {
     }
     const seen = new Set<string>();
     order.forEach((d) => seen.add(d));
-    if (seen.size !== args.dimensions.length) throw new Error('dimension order must include every dimension exactly once');
+    if (seen.size !== args.dimensions.length)
+      throw new Error('dimension order must include every dimension exactly once');
     for (const d of args.dimensions) {
       if (!seen.has(d)) throw new Error('dimension order must include every dimension exactly once');
     }

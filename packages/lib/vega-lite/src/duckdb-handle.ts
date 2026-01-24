@@ -206,7 +206,9 @@ function sanitizeDataSourceId(value: string): string {
   return cleaned || 'data';
 }
 
-function dataSourceFromDataObject(data: unknown): { key: string; id: string; title: string; url?: string; format?: unknown; values?: unknown[] } | null {
+function dataSourceFromDataObject(
+  data: unknown,
+): { key: string; id: string; title: string; url?: string; format?: unknown; values?: unknown[] } | null {
   if (!data || typeof data !== 'object') return null;
   const rec = data as Record<string, unknown>;
 
@@ -440,14 +442,22 @@ export function installVegaLiteDuckDbDataHandles(args: {
   const fallback = sources.length === 0;
   const monthdateDerivations = collectMonthdateDerivedFields(spec);
 
-  const sourcesWithDatasets: Array<SpecDataSource & { datasetIndex: number; datasetName: string | null }> = (fallback
-    ? [{ key: 'fallback', id: 'main', title: 'data', datasetIndex: 0, datasetName: null } satisfies SpecDataSource & {
-        datasetIndex: number;
-        datasetName: string | null;
-      }]
-    : sources.map((s, i) => ({ ...s, datasetIndex: i, datasetName: resolveDatasetNameByIndex(view, i) }))) as Array<
-    SpecDataSource & { datasetIndex: number; datasetName: string | null }
-  >;
+  const sourcesWithDatasets: Array<SpecDataSource & { datasetIndex: number; datasetName: string | null }> = (
+    fallback
+      ? [
+          {
+            key: 'fallback',
+            id: 'main',
+            title: 'data',
+            datasetIndex: 0,
+            datasetName: null,
+          } satisfies SpecDataSource & {
+            datasetIndex: number;
+            datasetName: string | null;
+          },
+        ]
+      : sources.map((s, i) => ({ ...s, datasetIndex: i, datasetName: resolveDatasetNameByIndex(view, i) }))
+  ) as Array<SpecDataSource & { datasetIndex: number; datasetName: string | null }>;
 
   // Pick a "primary" source to keep `/data/main` consistent across Vega-Lite views.
   const requiredFields = collectSelectionFields(spec);
@@ -592,7 +602,8 @@ export function installVegaLiteDuckDbDataHandles(args: {
 
     const ensureDuckDbData = async (): Promise<void> => {
       const dataRows = await readCurrentDataRows();
-      if (!dataRows || !dataRows.length) throw new Error(`No Vega-Lite rows available to load into DuckDB (${s.title})`);
+      if (!dataRows || !dataRows.length)
+        throw new Error(`No Vega-Lite rows available to load into DuckDB (${s.title})`);
 
       const nextFingerprint = fingerprintForRows(dataRows);
       if (duckdbLoad && duckdbFingerprint === nextFingerprint) return await duckdbLoad;

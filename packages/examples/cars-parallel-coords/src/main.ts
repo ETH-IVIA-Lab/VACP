@@ -5,4 +5,3 @@ run().catch((err) => {
   console.error(err);
   document.body.textContent = String(err);
 });
-

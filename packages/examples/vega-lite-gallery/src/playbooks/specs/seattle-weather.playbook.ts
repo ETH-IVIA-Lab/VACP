@@ -17,8 +17,7 @@ export function buildSeattleWeatherPlaybooks(ctx: VegaLiteSpecPlaybookContext): 
     playbook({
       id: `${ctx.entry.id}-sun-vs-rain-feb-apr-vs-aug-oct`,
       title: 'Playbook: Seattle Weather (sun vs rain by season slice)',
-      description:
-        'Brush Feb-Apr and Aug-Oct and compare bar lengths for “sun” vs “rain” in each brushed interval.',
+      description: 'Brush Feb-Apr and Aug-Oct and compare bar lengths for “sun” vs “rain” in each brushed interval.',
     })
       .action('Clear point selection (clean slate)', { name: 'vega_lite.clear_selection', params: { ref: clickRef } })
       .action('Clear brush selection (clean slate)', { name: 'vega_lite.clear_selection', params: { ref: brushRef } })
@@ -67,7 +66,8 @@ export function buildSeattleWeatherPlaybooks(ctx: VegaLiteSpecPlaybookContext): 
     playbook({
       id: `${ctx.entry.id}-snow-season-temp-ranges`,
       title: 'Playbook: Seattle Weather (when snow happens + temp ranges)',
-      description: 'Filter to snow and brush different month ranges to inspect where snow occurs and its temperature range.',
+      description:
+        'Filter to snow and brush different month ranges to inspect where snow occurs and its temperature range.',
     })
       .action('Clear brush selection (clean slate)', { name: 'vega_lite.clear_selection', params: { ref: brushRef } })
       .action('Filter: snow', {

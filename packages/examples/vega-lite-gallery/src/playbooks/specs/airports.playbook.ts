@@ -47,7 +47,10 @@ export function buildAirportsPlaybooks(ctx: VegaLiteSpecPlaybookContext): VacpPl
     })
       .action('Clear origin selection (clean slate)', { name: 'vega_lite.clear_selection', params: { ref: orgRef } })
       .action('Clear hover focus (clean slate)', { name: 'vega_lite.hover_tooltip', params: { clear: true } })
-      .action('Hover: ABQ (Albuquerque, NM)', { name: 'vega_lite.hover_tooltip', params: { fields: { origin: 'ABQ' } } })
+      .action('Hover: ABQ (Albuquerque, NM)', {
+        name: 'vega_lite.hover_tooltip',
+        params: { fields: { origin: 'ABQ' } },
+      })
       .action('Hover: ROW (Roswell, NM)', { name: 'vega_lite.hover_tooltip', params: { fields: { origin: 'ROW' } } })
       .action('Click/select: ROW (Roswell, NM)', {
         name: 'vega_lite.set_selection',

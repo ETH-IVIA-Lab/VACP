@@ -30,7 +30,8 @@ export async function run(): Promise<void> {
   const initialId = url.hash ? url.hash.slice(1) : '';
   const normalizedInitialId = initialId.replace(/^\d+-/, '');
   if (initialId && gallery.some((g) => g.id === initialId)) selectEl.value = initialId;
-  else if (normalizedInitialId && gallery.some((g) => g.id === normalizedInitialId)) selectEl.value = normalizedInitialId;
+  else if (normalizedInitialId && gallery.some((g) => g.id === normalizedInitialId))
+    selectEl.value = normalizedInitialId;
   else selectEl.value = gallery[0]?.id ?? '';
 
   const render = async (entry: GalleryEntry): Promise<void> => {

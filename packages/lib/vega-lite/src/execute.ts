@@ -185,12 +185,16 @@ async function applyViewState(view: VegaViewLike, state: unknown): Promise<void>
   const v = view as any;
   if (typeof v.runAsync === 'function' && typeof v?._runtime?.setState === 'function') {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await v.runAsync(null, (vv: any) => {
-      vv._trigger = false;
-      vv._runtime.setState(state);
-    }, (vv: any) => {
-      vv._trigger = true;
-    });
+    await v.runAsync(
+      null,
+      (vv: any) => {
+        vv._trigger = false;
+        vv._runtime.setState(state);
+      },
+      (vv: any) => {
+        vv._trigger = true;
+      },
+    );
     return;
   }
 

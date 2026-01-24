@@ -5,7 +5,10 @@ export type GalleryEntry = { id: string; meta: GalleryMeta; createSpec: () => Ve
 
 function fileIdFromPath(path: string): string {
   const name = path.split('/').pop() ?? path;
-  return name.replace(/\.vl\.json$/i, '').replace(/\.json$/i, '').replace(/\.tsx?$/i, '');
+  return name
+    .replace(/\.vl\.json$/i, '')
+    .replace(/\.json$/i, '')
+    .replace(/\.tsx?$/i, '');
 }
 
 function titleFromId(id: string): string {

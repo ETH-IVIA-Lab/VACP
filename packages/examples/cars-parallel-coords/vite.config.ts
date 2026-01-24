@@ -25,4 +25,3 @@ export default defineConfig({
   cacheDir: process.env.VACP_VITE_CACHE_DIR ?? 'node_modules/.vite-cars-parallel-coords',
   server: { fs: { allow: [workspaceRoot] }, ...(hmr ? { hmr } : {}) },
 });
-

@@ -26,7 +26,12 @@
         "longitude": { "field": "longitude" },
         "latitude2": { "field": "lat2" },
         "longitude2": { "field": "lon2" },
-        "size": { "field": "count", "type": "quantitative", "scale": { "range": [0, 5], "domain": [0, 1000] }, "legend": null },
+        "size": {
+          "field": "count",
+          "type": "quantitative",
+          "scale": { "range": [0, 5], "domain": [0, 1000] },
+          "legend": null
+        },
         "tooltip": [
           { "field": "origin", "type": "nominal", "title": "Origin" },
           { "field": "destination", "type": "nominal", "title": "Destination" },
