@@ -1,20 +1,16 @@
 # Examples
 
-Runnable example apps (similar in spirit to `mosaic/packages/examples/*`).
+Runnable example apps used for development and Playwright smoke tests (`pnpm test:examples`).
 
 - `mosaic-gallery`: Mosaic spec gallery (YAML in `src/specs/`) installed via `@vacp/vgplot`
 - `vega-lite-gallery`: Vega-Lite spec gallery (`*.vl.json` in `src/specs/`) installed via `@vacp/vega-lite`
-- `d3-scatter-lasso`: Frameworkless D3 scatter with lasso selection (a “bring-your-own-provider” integration using `@vacp/kit`)
-- `vanilla-minimal`: The smallest possible “bring-your-own-provider” example (plain SVG + click selection + `vacp.data_sql`)
-- `cars-parallel-coords`: D3 parallel coordinates (brush + reorder) with a “bring-your-own-provider” integration using `@vacp/kit`
-- `react-dashboard`: React + Zustand + shadcn UI + recharts dashboard (a “bring-your-own-provider” integration using `@vacp/kit`)
+- `cars-parallel-coords`: D3 parallel coordinates demo (brush + reorder) using `@vacp/kit`
+- `react-dashboard`: React dashboard demo using `@vacp/kit`
 
 Each example package has its own tutorial README:
 
 - `packages/examples/mosaic-gallery/README.md`
 - `packages/examples/vega-lite-gallery/README.md`
-- `packages/examples/d3-scatter-lasso/README.md`
-- `packages/examples/vanilla-minimal/README.md`
 - `packages/examples/cars-parallel-coords/README.md`
 - `packages/examples/react-dashboard/README.md`
 
@@ -36,24 +32,20 @@ From the repo root:
 - Run (shortcut):
   - `pnpm dev:mosaic`
   - `pnpm dev:vega-lite`
-  - `pnpm dev:d3-lasso`
-  - `pnpm dev:vanilla`
   - `pnpm dev:cars`
   - `pnpm dev:react-dashboard`
 - Run all (hub, one port): `pnpm dev:examples`
   - `http://127.0.0.1:5173/mosaic/`
   - `http://127.0.0.1:5173/vega-lite/`
-  - `http://127.0.0.1:5173/d3-lasso/`
-  - `http://127.0.0.1:5173/vanilla/`
-  - `http://127.0.0.1:5173/cars-parcoords/`
   - `http://127.0.0.1:5173/react-dashboard/`
+  - `http://127.0.0.1:5173/cars-parcoords/`
 - Run (direct): `pnpm -C packages/examples/<example> dev` (see folder names above)
 
-### Why the “hub” exists
+### Why the hub exists
 
-The hub is intentionally “a bit more complex” than running a single Vite app, for one reason:
+`pnpm dev:examples` serves all examples under one base URL (`http://127.0.0.1:5173/`) with stable routes.
 
-- It provides a **stable, hostable URL namespace** for _all_ examples (e.g. `/mosaic/`, `/vega-lite/`, …), which makes it easy to run automated **evaluation** against multiple demos via one base URL.
+This makes it easier to run automated evaluation across multiple demos without managing per-example ports.
 
 ### Config knobs
 

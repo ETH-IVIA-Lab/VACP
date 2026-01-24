@@ -1,6 +1,6 @@
 # @vacp/agent-arena
 
-Lean, config-driven CLI for running OpenCode sessions via `@opencode-ai/sdk`.
+Config-driven CLI for running OpenCode sessions via `@opencode-ai/sdk`.
 
 ## Install
 

@@ -20,7 +20,7 @@ Instead of clicking pixels, an agent calls `window.__vacp.execute({ callId, name
 - **Providers (TypeScript)**: first-class integrations for specific visualization stacks:
   - Mosaic/vgplot (`@vacp/vgplot`)
   - Vega-Lite/Vega params (`@vacp/vega-lite`)
-  - a small “BYO provider” kit (`@vacp/kit`) used by the frameworkless examples
+  - a “BYO provider” kit (`@vacp/kit`) used by the example apps
 - **Transport (Python)**: `vacp-mcp-server` (Playwright + MCP), which lets an agent reach `window.__vacp`.
 - **Examples**: runnable example apps that double as smoke tests (`pnpm test:examples`).
 
@@ -41,8 +41,6 @@ Run an example app:
 
 - `pnpm dev:mosaic`
 - `pnpm dev:vega-lite`
-- `pnpm dev:d3-lasso`
-- `pnpm dev:vanilla`
 - `pnpm dev:cars`
 - `pnpm dev:react-dashboard`
 - `pnpm dev:examples` (examples hub: one base URL for hosting + evaluation routing)

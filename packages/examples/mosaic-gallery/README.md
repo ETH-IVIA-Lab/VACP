@@ -2,14 +2,14 @@
 
 VACP + vgplot (Mosaic runtime).
 
-This example turns a Mosaic/vgplot dashboard into an **agent-ready** app by installing a VACP bridge at `window.__vacp`
-(unless `?expose-bridge=0`).
+This example exposes a Mosaic/vgplot dashboard through VACP by installing a bridge at `window.__vacp` (unless
+`?expose-bridge=0`).
 
-It’s a good starting point if you care about:
+Use this example to see:
 
 - linked views (crossfilter)
 - Mosaic interactors (brushes, toggles, menus)
-- “human ↔ agent” bidirectionality (the same selection can be done by mouse or by dispatching a semantic action)
+- human/agent bidirectional control (mouse interactions and semantic actions produce compatible state)
 
 The gallery loads the YAML specs in `src/specs/` and renders them as a simple gallery.
 
@@ -47,7 +47,8 @@ Enable the debug overlay:
    - **Actions**: registers semantic operations like `mosaic.set_interval_1d`, `mosaic.clear_interval_2d`, etc.
    - **DuckDB SQL**: enables `vacp.data_sql` so agents can query the current selection
 
-The important part: **VACP is not a “UI test script”**. It is a stable, typed, app-owned API for discovery + control.
+VACP exposes a stable, typed, app-owned API for discovery and control. It does not depend on DOM scraping or pixel-level
+automation.
 
 ## Things to try
 

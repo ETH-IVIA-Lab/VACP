@@ -1,6 +1,6 @@
 # Contributing
 
-Thanks for your interest in VACP. This repo is a small pnpm TypeScript workspace plus a Python MCP server.
+This repo is a pnpm TypeScript workspace plus a Python MCP server.
 
 ## Getting set up
 

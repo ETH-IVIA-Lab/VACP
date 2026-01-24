@@ -2,9 +2,7 @@
 
 An MCP server that exposes a VACP-enabled web page to an agent via Playwright.
 
-This server is intentionally generic:
-
-- Call the in-page `window.__vacp` bridge (fast, stable, no DOM scraping).
+This server calls the in-page `window.__vacp` bridge (fast, stable, no DOM scraping).
 
 MCP is only a transport. The VACP protocol and runtime live inside the app.
 

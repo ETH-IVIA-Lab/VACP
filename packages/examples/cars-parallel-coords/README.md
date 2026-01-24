@@ -1,12 +1,12 @@
 # Cars parallel coordinates
 
-VACP + D3 parallel coordinates with per-axis brushing and dimension reordering.
+Example D3 parallel coordinates app with per-axis brushing and dimension reordering, exposed through VACP.
 
-This example is “boring tech”:
+Implementation:
 
-- no framework (TypeScript + Vite)
-- D3 rendering in SVG
-- a VACP bridge at `window.__vacp` (unless `?expose-bridge=0`)
+- TypeScript + Vite (no framework)
+- D3 + SVG rendering
+- VACP bridge at `window.__vacp` (unless `?expose-bridge=0`)
 
 ## Run it
 
@@ -28,11 +28,14 @@ Enable the debug overlay:
 
 ## VACP
 
-- Selection state: per-dimension brush ranges + selected count.
+- State:
+  - per-dimension brush ranges + selected count
+  - hovered row (tooltip focus)
 - Actions:
   - `parallel_coords.set_brush_ranges`
   - `parallel_coords.reset_brushes`
   - `parallel_coords.set_dimension_order`
   - `parallel_coords.reset_dimension_order`
-  - `vacp.data_sql` over a DuckDB-backed table (`vacp_all` / `vacp_handle`)
-
+  - `parallel_coords.set_hover`
+  - `parallel_coords.clear_hover`
+  - `vacp.data_sql` and `vacp.data_schema` over a DuckDB-backed table (`vacp_all` / `vacp_handle`)

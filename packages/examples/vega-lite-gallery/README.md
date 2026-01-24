@@ -2,10 +2,10 @@
 
 VACP + Vega-Lite params.
 
-This example turns Vega-Lite charts into an **agent-ready** app by exposing Vega-Lite `params` through a VACP bridge at
-`window.__vacp` (unless `?expose-bridge=0`).
+This example exposes Vega-Lite charts through VACP by mapping Vega-Lite `params` to a bridge at `window.__vacp` (unless
+`?expose-bridge=0`).
 
-It’s a good starting point if you care about:
+Use this example to see:
 
 - parameter-driven charts (sliders, toggles, etc.)
 - selection parameters (brushes, point selections)
@@ -37,7 +37,7 @@ Enable the debug overlay:
      - `vega_lite.clear_selection` (clear a selection param, when present)
      - `vacp.apply_state` (dev-only “apply this state map” helper)
 
-The key promise: an agent can manipulate interactive Vega-Lite charts **without** DOM scraping or pixel dragging.
+Agents can set params and clear selections through semantic actions, without DOM scraping or pixel automation.
 
 ## Things to try
 
