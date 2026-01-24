@@ -8,7 +8,7 @@ const DEFAULT_MCP_TIMEOUT_MS = 120_000;
 const AGENT_BROWSER_VERSION = '0.7.6';
 const AGENT_BROWSER = `npx -y agent-browser@${AGENT_BROWSER_VERSION}`;
 const CHART_READY_SELECTOR = '#app canvas, #app svg, #chart canvas, #chart svg';
-const CHART_READY_SCREENSHOT_NAME = 'chart-ready.png';
+const CHART_READY_SCREENSHOT_NAME = '00-chart-ready.png';
 
 const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 
@@ -166,15 +166,21 @@ function buildBaselineJobs() {
             '',
             'Rules:',
             '- Do not start solving until a chart is visibly rendered (not a blank/loading screen).',
+            '- Do NOT reload/refresh/re-open the page during the chart-ready wait; that can cause an infinite loop.',
             '- You MUST verify the initial render by taking a screenshot and then reading that image file.',
+            '- Do not perform any interaction step until you have visually verified a rendered chart in the screenshot.',
+            '- If at any point the UI becomes blank/loading, stop and redo the wait + overwrite 00-chart-ready.png + read loop before continuing.',
             '- After each interaction, take a full-page screenshot to the run directory.',
             '',
             'Start:',
             `- Open: \`${AGENT_BROWSER} --session ${ctx.opencode.sessionID} open '${ctx.scenario.url}'\``,
+            `- Wait (minimum 5s): \`${AGENT_BROWSER} --session ${ctx.opencode.sessionID} wait 5000\``,
             `- Wait for chart render: \`${AGENT_BROWSER} --session ${ctx.opencode.sessionID} wait "${CHART_READY_SELECTOR}"\``,
             `- Screenshot (chart-ready): \`${AGENT_BROWSER} --session ${ctx.opencode.sessionID} screenshot --full "${ctx.run.outDir}/${CHART_READY_SCREENSHOT_NAME}"\``,
             `- Verify (read screenshot): use the \`read\` tool on "${ctx.run.outDir}/${CHART_READY_SCREENSHOT_NAME}" and confirm the chart is visible.`,
             `  - If the chart is not visible yet, repeat the wait + screenshot + read loop until it is.`,
+            `  - Always wait at least 5s between retries: \`${AGENT_BROWSER} --session ${ctx.opencode.sessionID} wait 5000\``,
+            `  - Always overwrite "${ctx.run.outDir}/${CHART_READY_SCREENSHOT_NAME}" while waiting; do not create step-*.png until the chart is visible.`,
             `- Screenshot (after each interaction): \`${AGENT_BROWSER} --session ${ctx.opencode.sessionID} screenshot --full "${ctx.run.outDir}/step-{n}.png"\``,
           ].join('\n'),
       });
@@ -210,14 +216,20 @@ function buildSnapshotInjectedJobs() {
             '',
             'Rules:',
             '- Do not start solving until a chart is visibly rendered (not a blank/loading screen).',
+            '- Do NOT reload/refresh/re-open the page during the chart-ready wait; that can cause an infinite loop.',
             '- You MUST verify the initial render by taking a screenshot and then reading that image file.',
+            '- Do not perform any interaction step until you have visually verified a rendered chart in the screenshot.',
+            '- If at any point the UI becomes blank/loading, stop and redo the wait + overwrite 00-chart-ready.png + read loop before continuing.',
             '',
             'Start:',
             `- Open: \`${AGENT_BROWSER} --session ${ctx.opencode.sessionID} open '${ctx.scenario.url}'\``,
+            `- Wait (minimum 5s): \`${AGENT_BROWSER} --session ${ctx.opencode.sessionID} wait 5000\``,
             `- Wait for chart render: \`${AGENT_BROWSER} --session ${ctx.opencode.sessionID} wait "${CHART_READY_SELECTOR}"\``,
             `- Screenshot (chart-ready): \`${AGENT_BROWSER} --session ${ctx.opencode.sessionID} screenshot --full "${ctx.run.outDir}/${CHART_READY_SCREENSHOT_NAME}"\``,
             `- Verify (read screenshot): use the \`read\` tool on "${ctx.run.outDir}/${CHART_READY_SCREENSHOT_NAME}" and confirm the chart is visible.`,
             `  - If the chart is not visible yet, repeat the wait + screenshot + read loop until it is.`,
+            `  - Always wait at least 5s between retries: \`${AGENT_BROWSER} --session ${ctx.opencode.sessionID} wait 5000\``,
+            `  - Always overwrite "${ctx.run.outDir}/${CHART_READY_SCREENSHOT_NAME}" while waiting; do not create step-*.png until the chart is visible.`,
             `- Screenshot (after each interaction): \`${AGENT_BROWSER} --session ${ctx.opencode.sessionID} screenshot --full "${ctx.run.outDir}/step-{n}.png"\``,
           ].join('\n'),
       });
@@ -255,7 +267,8 @@ function buildPureVACPJobs() {
             '',
             'Important:',
             '- Do not start solving until the app is ready. In this run, you cannot take screenshots.',
-            '- Verify readiness by successfully calling `vacp_open_url` (wait_for_bridge=true) and then reading both `vacp_capabilities` and `vacp_state` before any actions.',
+            '- Do NOT spam/retry `vacp_open_url` in a loop (that reloads). Call it once with `wait_for_bridge=true` and a sufficiently large `timeout_ms`.',
+            '- Verify readiness by successfully calling `vacp_open_url` and then reading both `vacp_capabilities` and `vacp_state` before any actions.',
             '',
             `Start by calling \`${tools.openUrl}\` with: ${ctx.scenario.url}`,
             '',
@@ -317,10 +330,14 @@ function buildFullToolkitJobs() {
             `Start by calling \`${tools.openUrl}\` with: ${ctx.scenario.url}`,
             '',
             'Before solving (must do):',
+            `- Sleep (minimum 5s): call \`${tools.sleep}\` with ms=5000.`,
             `- Wait for chart render: call \`${tools.waitForSelector}\` with selector "${CHART_READY_SELECTOR}" (increase timeout if needed).`,
             `- Screenshot (chart-ready): call \`${tools.screenshot}\` with path "${ctx.run.outDir}/${CHART_READY_SCREENSHOT_NAME}".`,
             `- Verify (read screenshot): use the \`read\` tool on "${ctx.run.outDir}/${CHART_READY_SCREENSHOT_NAME}" and confirm the chart is visible.`,
             `  - If the chart is not visible yet, repeat wait + screenshot + read until it is.`,
+            `  - Always sleep at least 5s between retries (call \`${tools.sleep}\` with ms=5000).`,
+            `  - Do NOT reload/refresh/re-open the page while waiting; keep waiting and keep overwriting "${ctx.run.outDir}/${CHART_READY_SCREENSHOT_NAME}" until it is visible.`,
+            `- Do not proceed with any interaction step until the screenshot verification shows an actually rendered chart.`,
             '',
             'Preferred interaction:',
             `- Use \`${tools.capabilities}\`, \`${tools.state}\`, \`${tools.execute}\` for semantic operations whenever possible.`,
@@ -356,7 +373,7 @@ const runs: ArenaJob[] = [
 export const config: ArenaConfig = {
   worktreeRoot: true,
   autoApprove: 'always',
-  concurrency: { runs: 4 },
+  concurrency: { runs: 8 },
   server: { mode: 'connect' },
   runs,
 };
