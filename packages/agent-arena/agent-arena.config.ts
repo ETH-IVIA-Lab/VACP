@@ -1,13 +1,27 @@
 import type { ArenaConfig, ArenaJob } from './src/types';
 import { execSync } from 'node:child_process';
+import path from 'node:path';
 
 // output of agent-browser --help to include in prompts and prevent models spending turns asking for it
 const AGENT_BROWSER_HELP = execSync('npx -y agent-browser --help', { encoding: 'utf-8' }).trimStart().trimEnd();
 
 const EXAMPLES_HUB_BASE_URL = 'http://127.0.0.1:5173';
+const REPO_ROOT = execSync('git rev-parse --show-toplevel', { encoding: 'utf-8' }).trim();
+
+const VACP_MCP_PROJECT_DIR = path.join(REPO_ROOT, 'packages/vacp-mcp-server');
+const VACP_MCP_BASE_COMMAND = [
+  'uv',
+  'run',
+  '--project',
+  VACP_MCP_PROJECT_DIR,
+  'vacp-mcp-server',
+  '--stdio',
+  '--headless',
+  '--url',
+  `${EXAMPLES_HUB_BASE_URL}/`,
+];
 const MODELS = [
   { providerID: 'openai', modelID: 'gpt-5.2' },
-  { providerID: 'openai', modelID: 'gpt-5.2-codex' },
 ];
 const SCENARIO_BASES = [
   {
@@ -189,7 +203,118 @@ function buildSnapshotInjectedJobs() {
   return jobs;
 }
 
-const runs: ArenaJob[] = [...buildBaselineJobs(), ...buildSnapshotInjectedJobs()];
+function buildPureVACPJobs() {
+  const jobs: ArenaJob[] = [];
+
+  for (const model of MODELS) {
+    for (const scenarioBase of SCENARIO_BASES) {
+      jobs.push({
+        experiment: 'pure-vacp',
+        model,
+        scenario: {
+          id: scenarioBase.id,
+          url: buildScenarioUrl({
+            route: scenarioBase.route,
+            hash: scenarioBase.hash,
+            query: { 'expose-bridge': '1' },
+          }),
+          task: scenarioBase.task,
+        },
+        toolPolicy: {
+          mode: 'allow',
+          ids: [],
+        },
+        mcp: {
+          servers: {
+            vacp: {
+              type: 'local',
+              command: [...VACP_MCP_BASE_COMMAND],
+            },
+          },
+          allow: ['vacp'],
+        },
+        promptTemplate: (ctx) =>
+          [
+            'Use the VACP MCP tools only (no shell, no webfetch).',
+            '',
+            `Task: ${ctx.scenario.task}`,
+            '',
+            `Start by calling \`vacp_open_url\` with: ${ctx.scenario.url}`,
+            '',
+            'Then:',
+            '- Call `vacp_capabilities()` and use it as the source of truth for actions and schemas.',
+            '- Call `vacp_state()` to understand the current semantic state.',
+            '- Call `vacp_execute(name, params)` to perform one semantic operation at a time.',
+            '- After each action, call `vacp_state()` again to verify the effect.',
+            '',
+            'If the required interaction is not available via VACP actions, state what capability is missing.',
+          ].join('\n'),
+      });
+    }
+  }
+
+  return jobs;
+}
+
+function buildFullToolkitJobs() {
+  const jobs: ArenaJob[] = [];
+
+  for (const model of MODELS) {
+    for (const scenarioBase of SCENARIO_BASES) {
+      jobs.push({
+        experiment: 'full-toolkit',
+        model,
+        scenario: {
+          id: scenarioBase.id,
+          url: buildScenarioUrl({
+            route: scenarioBase.route,
+            hash: scenarioBase.hash,
+            query: { 'expose-bridge': '1', 'vacp-dom-snapshot': '1', 'vacp-debug': '1' },
+          }),
+          task: scenarioBase.task,
+        },
+        toolPolicy: {
+          mode: 'allow',
+          ids: [],
+        },
+        mcp: {
+          servers: {
+            vacp_toolkit: {
+              type: 'local',
+              command: [...VACP_MCP_BASE_COMMAND, '--enable-browser-tools'],
+            },
+          },
+          allow: ['vacp_toolkit'],
+        },
+        promptTemplate: (ctx) =>
+          [
+            'Use VACP semantic tools plus browser-control tools (Playwright-backed).',
+            '',
+            `Task: ${ctx.scenario.task}`,
+            '',
+            `Start by calling \`vacp_open_url\` with: ${ctx.scenario.url}`,
+            '',
+            'Preferred interaction:',
+            '- Use `vacp_capabilities`, `vacp_state`, `vacp_execute` for semantic operations whenever possible.',
+            '- Use browser tools (`browser_click`, `browser_fill`, `browser_press`, `browser_eval`) only when needed.',
+            '',
+            'Evidence:',
+            `- After each meaningful interaction, call \`browser_screenshot\` to write "${ctx.run.outDir}/step-{n}.png"`,
+            `- The directory "${ctx.run.outDir}" already exists.`,
+          ].join('\n'),
+      });
+    }
+  }
+
+  return jobs;
+}
+
+const runs: ArenaJob[] = [
+  ...buildBaselineJobs(),
+  ...buildSnapshotInjectedJobs(),
+  ...buildPureVACPJobs(),
+  ...buildFullToolkitJobs(),
+];
 
 export const config: ArenaConfig = {
   worktreeRoot: true,
