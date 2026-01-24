@@ -143,7 +143,10 @@ async function findFiles(root: string, fileName: string) {
   return out;
 }
 
-async function walk(root: string, onEntry: (fullPath: string, ent: { name: string; isFile(): boolean; isDirectory(): boolean }) => Promise<void>) {
+async function walk(
+  root: string,
+  onEntry: (fullPath: string, ent: { name: string; isFile(): boolean; isDirectory(): boolean }) => Promise<void>,
+) {
   let entries: Array<{ name: string; isFile(): boolean; isDirectory(): boolean }> = [];
   try {
     entries = await fs.readdir(root, { withFileTypes: true });
@@ -220,7 +223,9 @@ async function writeCsv(filePath: string, rows: AggregatedRunRow[]) {
         typeof r.toolDurationMs === 'number' ? String(r.toolDurationMs) : '',
         r.toolsJson ? JSON.stringify(r.toolsJson) : '',
         r.logDir,
-      ].map(csvCell).join(','),
+      ]
+        .map(csvCell)
+        .join(','),
     );
   }
 

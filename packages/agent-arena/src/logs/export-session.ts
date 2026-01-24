@@ -69,12 +69,12 @@ export async function exportSessionLogs(args: {
   const toolCallsPath = path.join(args.outDir, 'tool_calls.jsonl');
   await writeJsonl(toolCallsPath, toolCalls);
 
-	  const metrics = computeSessionMetrics({
-	    sessionID: args.sessionID,
-	    uiUrl: args.uiUrl,
-	    messages,
-	    toolCalls,
-	  });
+  const metrics = computeSessionMetrics({
+    sessionID: args.sessionID,
+    uiUrl: args.uiUrl,
+    messages,
+    toolCalls,
+  });
   const metricsPath = path.join(args.outDir, 'metrics.json');
   await writeJson(metricsPath, metrics);
 
