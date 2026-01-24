@@ -13,7 +13,7 @@ test('vega-lite: interval brush playbook renders brush rectangle (sets brush_x)'
   try {
     await page.goto(`${srv.url}?vacp-debug=1#seattle-weather`, { waitUntil: 'domcontentloaded' });
     await page.waitForFunction(() => !!(globalThis as any).__vacp);
-    await page.waitForSelector('#app canvas', { timeout: 30_000 });
+    await page.waitForSelector('#app svg.marks .mark-group.role-frame.root', { timeout: 30_000 });
 
     const pill = page.locator('button.vacp-debug-ui-button');
     await expect(pill).toBeVisible();

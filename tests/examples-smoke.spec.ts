@@ -368,7 +368,7 @@ test('examples: vega-lite-gallery', async ({ page }) => {
         sel.dispatchEvent(new Event('change', { bubbles: true }));
       }, specId);
 
-      await page.waitForSelector('canvas', { timeout: 30_000 });
+      await page.waitForSelector('#app svg.marks .mark-group.role-frame.root', { timeout: 30_000 });
       await expectBridge(page);
       await waitForCapabilityRefContains(page, `/vega-lite/${specId}/${specId}`);
 
@@ -459,10 +459,10 @@ test('examples: vega-lite-gallery', async ({ page }) => {
       expect(typeof nAgentHover).toBe('number');
       expect(nAgentHover).toBe(nHover);
 
-      // Trigger a best-effort human selection by clicking into the rendered canvas.
-      const canvas = page.locator('#app canvas').first();
-      if (await canvas.count()) {
-        const box = await canvas.boundingBox();
+      // Trigger a best-effort human selection by clicking into the rendered chart.
+      const svg = page.locator('#app svg.marks').first();
+      if (await svg.count()) {
+        const box = await svg.boundingBox();
         if (box) {
           await page.mouse.click(box.x + box.width * 0.5, box.y + box.height * 0.5);
           await page.waitForTimeout(250);
