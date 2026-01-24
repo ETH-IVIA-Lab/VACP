@@ -17,7 +17,10 @@ function parseMeta(text: string): { mode: string; cursor: number; history: numbe
 }
 
 test('debug-ui: history undo/redo updates time travel cursor', async ({ page }) => {
-  const srv = await startViteDevServer({ name: 'vanilla-minimal', cwd: resolve(examplesDir, 'vanilla-minimal') });
+  const srv = await startViteDevServer({
+    name: 'cars-parallel-coords',
+    cwd: resolve(examplesDir, 'cars-parallel-coords'),
+  });
   try {
     await page.goto(`${srv.url}?vacp-debug=1`, { waitUntil: 'domcontentloaded' });
     await page.waitForFunction(() => !!(globalThis as any).__vacp);
@@ -31,32 +34,54 @@ test('debug-ui: history undo/redo updates time travel cursor', async ({ page }) 
     await expect(page.locator('[data-vacp-graph="1"]')).toHaveAttribute('data-vacp-direction', 'LR');
     await expect(page.locator('.vacp-debug-ui-diagram svg')).toBeVisible({ timeout: 15_000 });
 
-    const selectedIds = async () =>
+    const dimensionOrder = async () =>
       await page.evaluate(async () => {
         const b = (globalThis as any).__vacp;
         const snap = await b.getState();
         const st = snap && typeof snap === 'object' ? (snap as any).state : null;
-        const sel = st
-          ? (Object.values(st).find((v: any) => v && typeof v === 'object' && v.kind === 'Selection') as any)
+        const param = st
+          ? (Object.values(st).find(
+              (v: any) => v && typeof v === 'object' && v.kind === 'Param' && Array.isArray((v as any).value),
+            ) as any)
           : null;
-        const ids = Array.isArray(sel?.value) ? sel.value : [];
-        return ids.filter((x: any) => typeof x === 'number' && Number.isFinite(x)) as number[];
+        const order = Array.isArray(param?.value) ? param.value : [];
+        return order.map((x: any) => String(x));
       });
 
-    // Create a few entries with different selection states.
-    await page.evaluate(async () => {
+    // Create a few history entries with different param states.
+    const orders = await page.evaluate(async () => {
       const b = (globalThis as any).__vacp;
       if (!b || typeof b.dispatch !== 'function') throw new Error('Missing bridge.dispatch');
+
+      const snap = await b.getState();
+      const st = snap && typeof snap === 'object' ? (snap as any).state : null;
+      const param = st
+        ? (Object.values(st).find(
+            (v: any) => v && typeof v === 'object' && v.kind === 'Param' && Array.isArray((v as any).value),
+          ) as any)
+        : null;
+      const base = Array.isArray(param?.value) ? param.value.map((x: any) => String(x)) : [];
+      if (base.length < 2) throw new Error('Expected dimension order with >= 2 entries');
+
+      const orderA = [...base];
+      [orderA[0], orderA[1]] = [orderA[1], orderA[0]];
+
+      const orderB = [...orderA];
+      if (orderB.length >= 3) [orderB[0], orderB[1], orderB[2]] = [orderB[2], orderB[0], orderB[1]];
+
       await b.dispatch(
-        { callId: crypto.randomUUID(), name: 'vanilla.toggle_point', params: { id: 0 } },
-        { source: 'debug', message: 'select 0' },
+        { callId: crypto.randomUUID(), name: 'parallel_coords.set_dimension_order', params: { order: orderA } },
+        { source: 'debug', message: 'order A' },
       );
       await b.dispatch(
-        { callId: crypto.randomUUID(), name: 'vanilla.toggle_point', params: { id: 1 } },
-        { source: 'debug', message: 'select 1' },
+        { callId: crypto.randomUUID(), name: 'parallel_coords.set_dimension_order', params: { order: orderB } },
+        { source: 'debug', message: 'order B' },
       );
+
+      return { orderA, orderB };
     });
-    expect((await selectedIds()).sort()).toEqual([0, 1]);
+    const { orderA, orderB } = orders;
+    expect(await dimensionOrder()).toEqual(orderB);
 
     const historyTab = page.locator('.vacp-debug-ui-module', { hasText: 'History' });
     await expect(historyTab).toBeVisible();
@@ -73,10 +98,10 @@ test('debug-ui: history undo/redo updates time travel cursor', async ({ page }) 
     expect(before.history).toBeGreaterThanOrEqual(3);
 
     // Undo can traverse through multiple history entry kinds; keep clicking until
-    // we reach a different selection state.
+    // we reach the previous param state.
     for (let i = 0; i < 6; i++) {
-      const ids = (await selectedIds()).sort();
-      if (ids.length === 1 && ids[0] === 0) break;
+      const order = await dimensionOrder();
+      if (order.join('|||') === orderA.join('|||')) break;
       await page.locator('button[aria-label="Undo"]').click();
       await page.waitForFunction(() => {
         const t = document.querySelector('.vacp-debug-ui-meta')?.textContent ?? '';
@@ -87,15 +112,15 @@ test('debug-ui: history undo/redo updates time travel cursor', async ({ page }) 
     const afterUndoMeta = await page.locator('.vacp-debug-ui-meta').innerText();
     const afterUndo = parseMeta(afterUndoMeta);
     expect(afterUndo.mode).toBe('inspect');
-    await expect.poll(async () => (await selectedIds()).sort()).toEqual([0]);
+    await expect.poll(async () => await dimensionOrder()).toEqual(orderA);
 
     for (let i = 0; i < 6; i++) {
-      const ids = (await selectedIds()).sort();
-      if (ids.length === 2 && ids[0] === 0 && ids[1] === 1) break;
+      const order = await dimensionOrder();
+      if (order.join('|||') === orderB.join('|||')) break;
       await page.locator('button[aria-label="Redo"]').click();
       await page.waitForTimeout(50);
     }
-    await expect.poll(async () => (await selectedIds()).sort()).toEqual([0, 1]);
+    await expect.poll(async () => await dimensionOrder()).toEqual(orderB);
 
     // Time travel by clicking a snapshot entry while in inspect mode.
     await page.waitForFunction(() => {

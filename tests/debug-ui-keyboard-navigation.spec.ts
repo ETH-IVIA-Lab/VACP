@@ -9,7 +9,10 @@ const vacpRoot = resolve(here, '..');
 const examplesDir = resolve(vacpRoot, 'packages', 'examples');
 
 test('debug-ui: keyboard navigation (tabs + roving focus)', async ({ page }) => {
-  const srv = await startViteDevServer({ name: 'vanilla-minimal', cwd: resolve(examplesDir, 'vanilla-minimal') });
+  const srv = await startViteDevServer({
+    name: 'cars-parallel-coords',
+    cwd: resolve(examplesDir, 'cars-parallel-coords'),
+  });
   try {
     await page.goto(`${srv.url}?vacp-debug=1`, { waitUntil: 'domcontentloaded' });
     await page.waitForFunction(() => !!(globalThis as any).__vacp);
@@ -18,13 +21,30 @@ test('debug-ui: keyboard navigation (tabs + roving focus)', async ({ page }) => 
     await page.evaluate(async () => {
       const b = (globalThis as any).__vacp;
       if (!b || typeof b.dispatch !== 'function') throw new Error('Missing bridge.dispatch');
+
+      const snap = await b.getState();
+      const st = snap && typeof snap === 'object' ? (snap as any).state : null;
+      const param = st
+        ? (Object.values(st).find(
+            (v: any) => v && typeof v === 'object' && v.kind === 'Param' && Array.isArray((v as any).value),
+          ) as any)
+        : null;
+      const base = Array.isArray(param?.value) ? param.value.map((x: any) => String(x)) : [];
+      if (base.length < 2) throw new Error('Expected dimension order with >= 2 entries');
+
+      const orderA = [...base];
+      [orderA[0], orderA[1]] = [orderA[1], orderA[0]];
+
+      const orderB = [...orderA];
+      if (orderB.length >= 3) [orderB[0], orderB[1], orderB[2]] = [orderB[2], orderB[0], orderB[1]];
+
       await b.dispatch(
-        { callId: crypto.randomUUID(), name: 'vanilla.toggle_point', params: { id: 0 } },
-        { source: 'debug', message: 'select 0' },
+        { callId: crypto.randomUUID(), name: 'parallel_coords.set_dimension_order', params: { order: orderA } },
+        { source: 'debug', message: 'order A' },
       );
       await b.dispatch(
-        { callId: crypto.randomUUID(), name: 'vanilla.toggle_point', params: { id: 1 } },
-        { source: 'debug', message: 'select 1' },
+        { callId: crypto.randomUUID(), name: 'parallel_coords.set_dimension_order', params: { order: orderB } },
+        { source: 'debug', message: 'order B' },
       );
     });
 

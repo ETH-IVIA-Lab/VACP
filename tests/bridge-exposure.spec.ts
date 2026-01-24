@@ -9,10 +9,13 @@ const vacpRoot = resolve(here, '..');
 const examplesDir = resolve(vacpRoot, 'packages', 'examples');
 
 test('expose-bridge=0 hides window.__vacp (but snapshot may still exist)', async ({ page }) => {
-  const srv = await startViteDevServer({ name: 'vanilla-minimal', cwd: resolve(examplesDir, 'vanilla-minimal') });
+  const srv = await startViteDevServer({
+    name: 'cars-parallel-coords',
+    cwd: resolve(examplesDir, 'cars-parallel-coords'),
+  });
   try {
     await page.goto(`${srv.url}?expose-bridge=0`, { waitUntil: 'domcontentloaded' });
-    await page.waitForSelector('#app');
+    await page.waitForSelector('#container');
 
     const bridge = await page.evaluate(() => {
       const d = Object.getOwnPropertyDescriptor(globalThis, '__vacp');
@@ -32,7 +35,10 @@ test('expose-bridge=0 hides window.__vacp (but snapshot may still exist)', async
 });
 
 test('expose-bridge=1 keeps window.__vacp', async ({ page }) => {
-  const srv = await startViteDevServer({ name: 'vanilla-minimal', cwd: resolve(examplesDir, 'vanilla-minimal') });
+  const srv = await startViteDevServer({
+    name: 'cars-parallel-coords',
+    cwd: resolve(examplesDir, 'cars-parallel-coords'),
+  });
   try {
     await page.goto(`${srv.url}?expose-bridge=1`, { waitUntil: 'domcontentloaded' });
     await page.waitForFunction(() => !!(globalThis as any).__vacp);

@@ -84,7 +84,10 @@ async function expectPanelWithinViewport(page: Page): Promise<void> {
 }
 
 test('debug-ui: drag snaps to anchors', async ({ page }) => {
-  const srv = await startViteDevServer({ name: 'vanilla-minimal', cwd: resolve(examplesDir, 'vanilla-minimal') });
+  const srv = await startViteDevServer({
+    name: 'cars-parallel-coords',
+    cwd: resolve(examplesDir, 'cars-parallel-coords'),
+  });
   try {
     await page.goto(`${srv.url}?vacp-debug=1`, { waitUntil: 'domcontentloaded' });
     await page.waitForFunction(() => !!(globalThis as any).__vacp);

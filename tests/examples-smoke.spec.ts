@@ -143,9 +143,7 @@ async function waitForHistoryAction(
     const okLen = hist.length >= minLen;
     const okEntry = hist.some(
       (h: any) =>
-        h?.kind === 'action' &&
-        h?.call?.name === args.name &&
-        (args.source ? h?.source === args.source : true),
+        h?.kind === 'action' && h?.call?.name === args.name && (args.source ? h?.source === args.source : true),
     );
     if (okLen && okEntry) return;
     if (Date.now() - start > timeoutMs) {
@@ -425,9 +423,9 @@ test('examples: vega-lite-gallery', async ({ page }) => {
 
       // Agent-driven hover should record source="agent" and reproduce the same selection.
       const rtAfterHover = await getRuntime(page);
-      const lastHumanHover = [...(rtAfterHover.history ?? [])].reverse().find(
-        (h: any) => h?.kind === 'action' && h?.call?.name === 'vega_lite.hover_tooltip' && h?.source === 'human',
-      );
+      const lastHumanHover = [...(rtAfterHover.history ?? [])]
+        .reverse()
+        .find((h: any) => h?.kind === 'action' && h?.call?.name === 'vega_lite.hover_tooltip' && h?.source === 'human');
       expect(lastHumanHover?.call?.params).toBeTruthy();
       const hoverParams = lastHumanHover?.call?.params ?? {};
 
@@ -447,9 +445,7 @@ test('examples: vega-lite-gallery', async ({ page }) => {
       expect(nCleared).toBe(nBase);
 
       const rtBeforeAgentHover = await getRuntime(page);
-      const beforeAgentHoverHist = Array.isArray(rtBeforeAgentHover?.history)
-        ? rtBeforeAgentHover.history.length
-        : 0;
+      const beforeAgentHoverHist = Array.isArray(rtBeforeAgentHover?.history) ? rtBeforeAgentHover.history.length : 0;
       await executeVacp(page, { name: 'vega_lite.hover_tooltip', params: hoverParams });
       await waitForHistoryAction(page, {
         name: 'vega_lite.hover_tooltip',
@@ -478,71 +474,6 @@ test('examples: vega-lite-gallery', async ({ page }) => {
       const nSel = countFromResult(resSel);
       expect(nSel).toBeLessThanOrEqual(nAll);
     }
-  } finally {
-    await srv.stop();
-  }
-});
-
-test('examples: d3-scatter-lasso', async ({ page }) => {
-  const srv = await startViteDevServer({ name: 'd3-scatter-lasso', cwd: resolve(examplesDir, 'd3-scatter-lasso') });
-  try {
-    await page.goto(`${srv.url}?vacp-debug=1`, { waitUntil: 'domcontentloaded' });
-    await expectBridge(page);
-    const caps = await getCapabilities(page);
-    const graph = caps?.graph ?? {};
-    const nodes = graph.nodes ?? [];
-    const handle = nodes.find((n: any) => n?.kind === 'DataHandle');
-    expect(typeof handle?.ref).toBe('string');
-    const handleRef = handle.ref as string;
-
-    const resAll = await dataSql(page, { handleRef, sql: 'SELECT COUNT(*)::INTEGER AS n FROM vacp_all' });
-    expect(resAll.ok).toBeTruthy();
-    const nAll = countFromResult(resAll);
-    expect(nAll).toBeGreaterThan(0);
-
-    await expectDataSchemaWorks(page, handleRef);
-
-    const rtBefore = await getRuntime(page);
-    const beforeHist = (rtBefore.history ?? []).length;
-    const ran = await tryRunFirstNonClearDemoStep(page);
-    expect(ran).toBeTruthy();
-    await waitForHistoryLenAtLeast(page, beforeHist + 1);
-  } finally {
-    await srv.stop();
-  }
-});
-
-test('examples: vanilla-minimal', async ({ page }) => {
-  const srv = await startViteDevServer({ name: 'vanilla-minimal', cwd: resolve(examplesDir, 'vanilla-minimal') });
-  try {
-    await page.goto(`${srv.url}?vacp-debug=1`, { waitUntil: 'domcontentloaded' });
-    await expectBridge(page);
-
-    const caps = await getCapabilities(page);
-    const graph = caps?.graph ?? {};
-    const nodes = graph.nodes ?? [];
-    const handle = nodes.find((n: any) => n?.kind === 'DataHandle');
-    expect(typeof handle?.ref).toBe('string');
-    const handleRef = handle.ref as string;
-
-    const resAll = await dataSql(page, { handleRef, sql: 'SELECT COUNT(*)::INTEGER AS n FROM vacp_all' });
-    expect(resAll.ok).toBeTruthy();
-    const nAll = countFromResult(resAll);
-    expect(nAll).toBeGreaterThan(0);
-
-    await expectDataSchemaWorks(page, handleRef);
-
-    const rtBefore = await getRuntime(page);
-    const beforeHist = (rtBefore.history ?? []).length;
-
-    await page.locator('#app svg circle[data-id="1"]').click();
-    await waitForHistoryLenAtLeast(page, beforeHist + 1);
-
-    const resSel = await dataSql(page, { handleRef, sql: 'SELECT COUNT(*)::INTEGER AS n FROM vacp_handle' });
-    expect(resSel.ok).toBeTruthy();
-    const nSel = countFromResult(resSel);
-    expect(nSel).toBe(1);
-    expect(nSel).toBeLessThanOrEqual(nAll);
   } finally {
     await srv.stop();
   }
