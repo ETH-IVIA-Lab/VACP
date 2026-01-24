@@ -241,6 +241,14 @@ export type ArenaConfig = {
   };
 
   /**
+   * If true, reuse successful run results already present on disk (per-job `run.json`)
+   * instead of creating a new OpenCode session.
+   *
+   * This is most useful when you run with a stable `--out` directory (no timestamp).
+   */
+  resume?: boolean;
+
+  /**
    * Auto-reply behavior for permission prompts (tool usage approvals).
    * Default is `"always"` to make runs fully non-interactive.
    */

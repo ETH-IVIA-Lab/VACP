@@ -17,6 +17,7 @@ program
   .option('--directory <path>', 'OpenCode directory used for project/session context')
   .option('--out <dir>', 'Output directory. Default: ./.agent-arena/runs/<timestamp>')
   .option('--only <substring>', 'Only run entries whose experiment includes this substring')
+  .option('--resume', 'Reuse successful run.json results when present')
   .addOption(
     new Option('--auto-approve <mode>', 'Auto-approve permission requests')
       .choices(['off', 'once', 'always', 'reject'])
@@ -36,6 +37,7 @@ program
         ...filtered,
         ...(raw.directory ? { directory: resolveFromCwd(raw.directory) } : {}),
         autoApprove: raw.autoApprove ?? filtered.autoApprove,
+        ...(raw.resume ? { resume: true } : {}),
       };
 
       const outDir = resolveFromCwd(raw.out ?? defaultOutDir());

@@ -12,6 +12,20 @@ import { requireData, startAutoApprove, writeJson } from './util.js';
 export type ArenaRunInput = {
   config: ArenaConfig;
   outDir: string;
+  hooks?: {
+    afterJob?: (args: {
+      config: ArenaConfig;
+      job: ArenaJob;
+      index: number;
+      outDir: string;
+      jobOutDir: string;
+      directory: string;
+      projectID?: string;
+      uiBase: string;
+      result: ArenaRunResult;
+      client: ReturnType<typeof createClient>;
+    }) => Promise<void>;
+  };
 };
 
 export async function runArena(input: ArenaRunInput): Promise<ArenaRunResult[]> {
@@ -71,6 +85,7 @@ export async function runArena(input: ArenaRunInput): Promise<ArenaRunResult[]> 
 
     await writeJson(path.join(outDir, 'context.json'), {
       projectID,
+      uiBase,
       mcpRequested,
     });
 
@@ -84,6 +99,7 @@ export async function runArena(input: ArenaRunInput): Promise<ArenaRunResult[]> 
         directory,
         projectID,
         uiBase,
+        hooks: input.hooks,
       });
     });
 
@@ -109,6 +125,7 @@ async function runJob(args: {
   directory: string;
   projectID?: string;
   uiBase: string;
+  hooks?: ArenaRunInput['hooks'];
 }): Promise<ArenaRunResult> {
   const jobOutDir = path.join(
     args.outDir,
@@ -118,6 +135,32 @@ async function runJob(args: {
     `modelProvider=${segment(args.job.model.providerID)}`,
     `modelName=${segment(args.job.model.modelID)}`,
   );
+  const runJsonPath = path.join(jobOutDir, 'run.json');
+
+  if (args.config.resume) {
+    const reused = await readRunJson(runJsonPath);
+    if (reused?.ok) {
+      consola.info(`↷ resume ${args.job.experiment} · ${args.job.scenario.id}`);
+      try {
+        await args.hooks?.afterJob?.({
+          config: args.config,
+          job: args.job,
+          index: args.index,
+          outDir: args.outDir,
+          jobOutDir,
+          client: args.client,
+          directory: args.directory,
+          projectID: args.projectID,
+          uiBase: args.uiBase,
+          result: reused,
+        });
+      } catch (error) {
+        consola.warn('afterJob hook failed', { experiment: args.job.experiment, scenario: args.job.scenario.id, error });
+      }
+      return reused;
+    }
+  }
+
   await fs.mkdir(jobOutDir, { recursive: true });
 
   const tools = computeTools(args.job.toolPolicy, args.job);
@@ -134,7 +177,23 @@ async function runJob(args: {
     uiBase: args.uiBase,
   });
 
-  const runJsonPath = path.join(jobOutDir, 'run.json');
+  try {
+    await args.hooks?.afterJob?.({
+      config: args.config,
+      job: args.job,
+      index: args.index,
+      outDir: args.outDir,
+      jobOutDir,
+      client: args.client,
+      directory: args.directory,
+      projectID: args.projectID,
+      uiBase: args.uiBase,
+      result,
+    });
+  } catch (error) {
+    consola.warn('afterJob hook failed', { experiment: args.job.experiment, scenario: args.job.scenario.id, error });
+  }
+
   await writeJson(runJsonPath, result);
 
   const finishedAt = new Date();
@@ -145,6 +204,16 @@ async function runJob(args: {
   consola.info(`  Run: ${relativePath(runJsonPath)}`);
 
   return result;
+}
+
+async function readRunJson(filePath: string): Promise<ArenaRunResult | null> {
+  try {
+    const raw = await fs.readFile(filePath, 'utf8');
+    const parsed = JSON.parse(raw) as ArenaRunResult;
+    return parsed && typeof parsed === 'object' ? parsed : null;
+  } catch {
+    return null;
+  }
 }
 
 function relativePath(p: string) {
