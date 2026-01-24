@@ -14,10 +14,8 @@ const basePort = parsePort(process.env.VACP_EXAMPLES_BASE_PORT, 5174);
 const examples = [
   { route: 'mosaic', title: 'mosaic-gallery', port: basePort + 0 },
   { route: 'vega-lite', title: 'vega-lite-gallery', port: basePort + 1 },
-  { route: 'd3-lasso', title: 'd3-scatter-lasso', port: basePort + 2 },
-  { route: 'vanilla', title: 'vanilla-minimal', port: basePort + 3 },
-  { route: 'react-dashboard', title: 'react-dashboard', port: basePort + 4 },
-  { route: 'cars-parcoords', title: 'cars-parallel-coords', port: basePort + 5 },
+  { route: 'react-dashboard', title: 'react-dashboard', port: basePort + 2 },
+  { route: 'cars-parcoords', title: 'cars-parallel-coords', port: basePort + 3 },
 ];
 
 const routeToTarget = new Map(

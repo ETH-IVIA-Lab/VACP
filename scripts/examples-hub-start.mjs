@@ -101,10 +101,8 @@ const basePort = parsePort(process.env.VACP_EXAMPLES_BASE_PORT, 5174);
 const examples = [
   { route: 'mosaic', dir: resolve(examplesDir, 'mosaic-gallery'), port: basePort + 0 },
   { route: 'vega-lite', dir: resolve(examplesDir, 'vega-lite-gallery'), port: basePort + 1 },
-  { route: 'd3-lasso', dir: resolve(examplesDir, 'd3-scatter-lasso'), port: basePort + 2 },
-  { route: 'vanilla', dir: resolve(examplesDir, 'vanilla-minimal'), port: basePort + 3 },
-  { route: 'react-dashboard', dir: resolve(examplesDir, 'react-dashboard'), port: basePort + 4 },
-  { route: 'cars-parcoords', dir: resolve(examplesDir, 'cars-parallel-coords'), port: basePort + 5 },
+  { route: 'react-dashboard', dir: resolve(examplesDir, 'react-dashboard'), port: basePort + 2 },
+  { route: 'cars-parcoords', dir: resolve(examplesDir, 'cars-parallel-coords'), port: basePort + 3 },
 ];
 
 // This script assumes everything has been built already for the hub

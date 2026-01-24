@@ -77,31 +77,6 @@ importers:
         specifier: ^7.3.1
         version: 7.3.1(@types/node@24.10.8)(jiti@2.6.1)(lightningcss@1.30.2)(tsx@4.21.0)(yaml@2.8.2)
 
-  packages/examples/d3-scatter-lasso:
-    dependencies:
-      '@vacp/core':
-        specifier: workspace:*
-        version: link:../../lib/core
-      '@vacp/debug-ui':
-        specifier: workspace:*
-        version: link:../../lib/debug-ui
-      '@vacp/duckdb':
-        specifier: workspace:*
-        version: link:../../lib/duckdb
-      '@vacp/kit':
-        specifier: workspace:*
-        version: link:../../lib/kit
-      d3:
-        specifier: ^7.9.0
-        version: 7.9.0
-    devDependencies:
-      '@types/d3':
-        specifier: ^7.4.3
-        version: 7.4.3
-      vite:
-        specifier: ^7.3.1
-        version: 7.3.1(@types/node@24.10.8)(jiti@2.6.1)(lightningcss@1.30.2)(tsx@4.21.0)(yaml@2.8.2)
-
   packages/examples/mosaic-gallery:
     dependencies:
       '@uwdata/mosaic-core':
@@ -205,25 +180,6 @@ importers:
       tailwindcss:
         specifier: ^4.1.18
         version: 4.1.18
-      vite:
-        specifier: ^7.3.1
-        version: 7.3.1(@types/node@24.10.8)(jiti@2.6.1)(lightningcss@1.30.2)(tsx@4.21.0)(yaml@2.8.2)
-
-  packages/examples/vanilla-minimal:
-    dependencies:
-      '@vacp/core':
-        specifier: workspace:*
-        version: link:../../lib/core
-      '@vacp/debug-ui':
-        specifier: workspace:*
-        version: link:../../lib/debug-ui
-      '@vacp/duckdb':
-        specifier: workspace:*
-        version: link:../../lib/duckdb
-      '@vacp/kit':
-        specifier: workspace:*
-        version: link:../../lib/kit
-    devDependencies:
       vite:
         specifier: ^7.3.1
         version: 7.3.1(@types/node@24.10.8)(jiti@2.6.1)(lightningcss@1.30.2)(tsx@4.21.0)(yaml@2.8.2)
