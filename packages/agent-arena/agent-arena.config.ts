@@ -202,6 +202,7 @@ function buildBaselineJobs() {
             'Final answer (must follow, exact formatting):',
             `- Answer: on its own line, then output formatted JSON on the following lines inside \`\`\`json fences\`\`\` (start with \`\`\`json and end with \`\`\`), matching \`${ctx.scenario.responseFormat}\`.`,
             '- Reasoning: 1-3 sentences (brief) on its own line after the Answer JSON fence (do not include reasoning inside the JSON).',
+            '- Reflection: 1-3 sentences (brief) on its own line. Be honest about what was difficult or easy and why; include your confidence (low/medium/high) and whether your process felt robust or brittle.',
             '- If you cannot solve: say so explicitly, output `null` as the JSON value for Answer (still inside the ```json fences), and explain why you failed / what blocked you.',
           ].join('\n'),
       });
@@ -253,6 +254,7 @@ function buildSnapshotInjectedJobs() {
             'Final answer (must follow, exact formatting):',
             `- Answer: on its own line, then output formatted JSON on the following lines inside \`\`\`json fences\`\`\` (start with \`\`\`json and end with \`\`\`), matching \`${ctx.scenario.responseFormat}\`.`,
             '- Reasoning: 1-3 sentences (brief) on its own line after the Answer JSON fence (do not include reasoning inside the JSON).',
+            '- Reflection: 1-3 sentences (brief) on its own line. Be honest about what was difficult or easy and why; include your confidence (low/medium/high) and whether your process felt robust or brittle.',
             '- If you cannot solve: say so explicitly, output `null` as the JSON value for Answer (still inside the ```json fences), and explain why you failed / what blocked you.',
           ].join('\n'),
       });
@@ -312,6 +314,7 @@ function buildPureVACPJobs() {
             'Final answer (must follow, exact formatting):',
             `- Answer: on its own line, then output formatted JSON on the following lines inside \`\`\`json fences\`\`\` (start with \`\`\`json and end with \`\`\`), matching \`${ctx.scenario.responseFormat}\`.`,
             '- Reasoning: 1-3 sentences (brief) on its own line after the Answer JSON fence (do not include reasoning inside the JSON).',
+            '- Reflection: 1-3 sentences (brief) on its own line. Be honest about what was difficult or easy and why; include your confidence (low/medium/high) and whether your process felt robust or brittle.',
             '- If you cannot solve: say so explicitly, output `null` as the JSON value for Answer (still inside the ```json fences), and explain why you failed / what blocked you.',
           ].join('\n'),
       });
@@ -388,6 +391,7 @@ function buildFullToolkitJobs() {
             'Final answer (must follow, exact formatting):',
             `- Answer: on its own line, then output formatted JSON on the following lines inside \`\`\`json fences\`\`\` (start with \`\`\`json and end with \`\`\`), matching \`${ctx.scenario.responseFormat}\`.`,
             '- Reasoning: 1-3 sentences (brief) on its own line after the Answer JSON fence (do not include reasoning inside the JSON).',
+            '- Reflection: 1-3 sentences (brief) on its own line. Be honest about what was difficult or easy and why; include your confidence (low/medium/high) and whether your process felt robust or brittle.',
             '- If you cannot solve: say so explicitly, output `null` as the JSON value for Answer (still inside the ```json fences), and explain why you failed / what blocked you.',
             '',
             'Browser tool list (for reference):',
