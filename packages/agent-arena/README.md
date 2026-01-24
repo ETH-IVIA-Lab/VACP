@@ -25,25 +25,15 @@ Outputs are written to `./.agent-arena/runs/<timestamp>/` by default, including 
 
 ## Scenario × Setup Matrix (paper supplement)
 
-To reproduce the manual evidence layout under `nogit/scenario-report-matrix/<date>/` (S1–S4), use:
+The matrix scenarios/experiments are defined in `packages/agent-arena/agent-arena.config.ts`.
+
+To run them end-to-end:
 
 - Start the examples hub (in another terminal): `pnpm dev:examples`
 - Ensure Playwright browsers are installed (needed by `agent-browser`): `pnpm exec playwright install chromium`
-- Run the matrix: `pnpm -C packages/agent-arena start -- matrix`
+- Run: `pnpm -C packages/agent-arena start -- run --export-logs --write-metrics --out nogit/scenario-report-matrix/<YYYY-MM-DD>`
 
-This writes:
-
-- `nogit/scenario-report-matrix/<YYYY-MM-DD>/` (evidence: screenshots, snapshots, answers/result JSON, `report.md`, `summary.md`)
-- `nogit/scenario-report-matrix/<YYYY-MM-DD>/.agent-arena/` (OpenCode IDs + run bookkeeping)
-- `nogit/scenario-report-matrix/<YYYY-MM-DD>/metrics.csv` and `metrics.jsonl` (aggregated tokens/cost/tool-call metrics)
-- `nogit/scenario-report-matrix/<YYYY-MM-DD>/audit.md` (audit checklist + per-run table)
-- `nogit/scenario-report-matrix/<YYYY-MM-DD>/provenance.json` and `manifest.json` (reproducibility + integrity)
-
-Notes:
-- The matrix output path is resolved relative to the repo root (git worktree / `pnpm-workspace.yaml`), not the current working directory.
-- The matrix command resumes from existing successful runs by default (reuses per-run `run.json`); pass `--force` to rerun.
-- By default, `agent-arena matrix` refuses to write into an existing non-empty folder unless it contains `./.agent-arena/` (resume) or you pass `--force`.
-  - Full per-run logs are exported under `./.agent-arena/runs/.../` as `messages.json`, `messages.jsonl`, `tool_calls.jsonl`, and `metrics.json`.
+This writes the standard `agent-arena` output structure into the `--out` directory (per-run folders + `results.json`, plus exported OpenCode logs/metrics when enabled).
 
 ## Concepts
 
