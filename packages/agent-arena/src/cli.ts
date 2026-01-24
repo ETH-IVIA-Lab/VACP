@@ -4,6 +4,7 @@ import { consola } from 'consola';
 import { defaultConfigPaths, loadArenaConfig } from './load.js';
 import { writeAggregatedMetrics } from './logs/aggregate.js';
 import { exportSessionLogs } from './logs/export-session.js';
+import { runScenarioReportMatrix } from './matrix/scenario-report-matrix.js';
 import { resolveFromCwd } from './paths.js';
 import { runArena } from './runner/index.js';
 
@@ -85,6 +86,69 @@ program
       consola.success(`Done: ${results.length} runs (${ok} ok, ${bad} failed)`);
       consola.info(`Results: ${resolveFromCwd(outDir)}/results.json`);
       process.exitCode = bad > 0 ? 1 : 0;
+    } catch (error) {
+      consola.error(error);
+      process.exitCode = 1;
+    }
+  });
+
+program
+  .command('matrix')
+  .description('Reproduce the Scenario × Setup Matrix evidence folder (S1–S4) via OpenCode')
+  .option('--date <yyyy-mm-dd>', 'Run date used for default output directory (default: today, UTC)')
+  .option('--base-url <url>', 'Examples hub base URL (default: http://127.0.0.1:5173)')
+  .option('--out <dir>', 'Output directory (default: nogit/scenario-report-matrix/<date>)')
+  .option('--directory <path>', 'OpenCode directory used for project/session context')
+  .option('--concurrency <n>', 'Parallel runs (default: 2)', (v) => Number(v))
+  .option('--timeout-ms <n>', 'Per-run prompt timeout in ms (default: 1200000)', (v) => Number(v))
+  .option('--model-provider <id>', 'Model provider ID (default: openai)')
+  .option('--model <id>', 'Model ID (default: gpt-5.2)')
+  .option('--force', 'Rerun even if prior successful results exist on disk')
+  .addOption(
+    new Option('--auto-approve <mode>', 'Auto-approve permission requests')
+      .choices(['off', 'once', 'always', 'reject'])
+      .default('always'),
+  )
+  .action(async (raw) => {
+    try {
+      const date = typeof raw.date === 'string' && raw.date.trim() ? raw.date.trim() : undefined;
+      const outDir = typeof raw.out === 'string' && raw.out.trim() ? raw.out.trim() : undefined;
+      const baseUrl = typeof raw.baseUrl === 'string' && raw.baseUrl.trim() ? raw.baseUrl.trim() : undefined;
+      const directory =
+        typeof raw.directory === 'string' && raw.directory.trim() ? resolveFromCwd(raw.directory.trim()) : undefined;
+
+      const modelProviderID =
+        typeof raw.modelProvider === 'string' && raw.modelProvider.trim() ? raw.modelProvider.trim() : undefined;
+      const modelID = typeof raw.model === 'string' && raw.model.trim() ? raw.model.trim() : undefined;
+      const concurrency = Number.isFinite(raw.concurrency) ? Number(raw.concurrency) : undefined;
+      const timeoutMs = Number.isFinite(raw.timeoutMs) ? Number(raw.timeoutMs) : undefined;
+
+      consola.box(
+        [
+          `agent-arena matrix`,
+          ``,
+          `Date:      ${date ?? '(today)'}`,
+          `Base URL:  ${baseUrl ?? 'http://127.0.0.1:5173'}`,
+          `Directory: ${directory ?? '(auto)'}`,
+          `Out:       ${outDir ?? '(default)'}`,
+          `Model:     ${(modelProviderID ?? 'openai') + '/' + (modelID ?? 'gpt-5.2')}`,
+          `Concurrency: ${concurrency ?? 2}`,
+        ].join('\n'),
+      );
+
+      await runScenarioReportMatrix({
+        ...(outDir ? { outDir } : {}),
+        ...(date ? { date } : {}),
+        ...(baseUrl ? { baseUrl } : {}),
+        ...(directory ? { directory } : {}),
+        ...(concurrency ? { concurrency } : {}),
+        ...(timeoutMs ? { timeoutMs } : {}),
+        autoApprove: raw.autoApprove,
+        force: Boolean(raw.force),
+        ...(modelProviderID || modelID
+          ? { model: { providerID: modelProviderID ?? 'openai', modelID: modelID ?? 'gpt-5.2' } }
+          : {}),
+      });
     } catch (error) {
       consola.error(error);
       process.exitCode = 1;
