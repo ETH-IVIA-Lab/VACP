@@ -372,6 +372,19 @@ export const config: ArenaConfig = {
   worktreeRoot: true,
   autoApprove: 'always',
   concurrency: { runs: 4 },
+  server: {
+    mode: 'spawn',
+    // Ensure MCP tool call timeouts are deterministic even for dynamically-added servers.
+    // OpenCode prefixes MCP tool IDs as: `${serverName}_${toolName}` (both sanitized).
+    opencodeConfig: {
+      experimental: { mcp_timeout: 120_000 },
+      mcp: {
+        // Keep these disabled by default to avoid spawning extra browsers eagerly.
+        [VACP_MCP_SERVER_NAME]: { ...VACP_MCP_SERVER_CONFIG, enabled: false },
+        [VACP_TOOLKIT_MCP_SERVER_NAME]: { ...VACP_TOOLKIT_MCP_SERVER_CONFIG, enabled: false },
+      },
+    },
+  },
   runs,
 };
 
