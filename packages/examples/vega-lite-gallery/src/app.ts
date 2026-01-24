@@ -40,7 +40,7 @@ export async function run(): Promise<void> {
 
     app.replaceChildren();
     const spec = entry.createSpec();
-    const result = await embed(app, spec as unknown as VisualizationSpec, { actions: false, renderer: 'canvas' });
+    const result = await embed(app, spec as unknown as VisualizationSpec, { actions: false, renderer: 'svg' });
     (globalThis as unknown as { __vegaView?: unknown }).__vegaView = result.view;
 
     // VACP layer: exposes Vega params/selections as nodes/actions at `window.__vacp`.
@@ -50,6 +50,13 @@ export async function run(): Promise<void> {
       spec: spec as unknown as VisualizationSpec,
       entry,
     });
+
+    // Workaround: in headless Chromium (used by agent-arena), Vega can complete the embed with an
+    // empty DOM/canvas. A follow-up `runAsync` (after the current task) reliably makes the chart
+    // visible for screenshots and agent runs.
+    setTimeout(() => {
+      void result.view.runAsync();
+    }, 0);
   };
 
   selectEl.addEventListener('change', () => {
