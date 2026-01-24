@@ -7,12 +7,15 @@ import { createOpencodeClient } from '@opencode-ai/sdk/v2';
 import type { ArenaConfig } from './types.js';
 import { buildSpawnOpencodeConfig } from './opencode-config.js';
 
+const DEFAULT_OPENCODE_SERVER_URL = 'http://127.0.0.1:4096';
+
 export async function startServer(config: ArenaConfig, options?: { arenaStateDir?: string }) {
   const cfg = config.server;
-  if (cfg?.mode === 'connect') {
-    if (!cfg.baseUrl) throw new Error(`server.baseUrl is required for mode=connect`);
+  if (!cfg || cfg.mode === 'connect') {
+    const baseUrl = cfg?.baseUrl ?? DEFAULT_OPENCODE_SERVER_URL;
+    await waitForHealth(baseUrl, cfg?.timeoutMs ?? 8000);
     return {
-      url: cfg.baseUrl,
+      url: baseUrl,
       close() {},
     };
   }
@@ -165,13 +168,13 @@ function killProcess(proc: ReturnType<typeof spawn>, signal: NodeJS.Signals) {
   }
 }
 
-async function waitForHealth(url: string, timeoutMs: number, proc: ReturnType<typeof spawn>) {
+async function waitForHealth(url: string, timeoutMs: number, proc?: ReturnType<typeof spawn>) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
 
   try {
     while (!controller.signal.aborted) {
-      if (proc.exitCode !== null) {
+      if (proc && proc.exitCode !== null) {
         throw new Error(`opencode server exited with code ${proc.exitCode}`);
       }
       const ok = await fetch(`${url}/global/health`, { signal: controller.signal })
@@ -180,7 +183,7 @@ async function waitForHealth(url: string, timeoutMs: number, proc: ReturnType<ty
       if (ok) return;
       await sleep(100, controller.signal);
     }
-    throw new Error(`Timeout waiting for opencode server health after ${timeoutMs}ms`);
+    throw new Error(`Timeout waiting for opencode server health after ${timeoutMs}ms (${url})`);
   } finally {
     clearTimeout(timer);
   }

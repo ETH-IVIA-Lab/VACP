@@ -17,6 +17,7 @@ Create one file in the directory you run from:
 
 Then run:
 
+- Ensure OpenCode is running (defaults to `http://127.0.0.1:4096`): `opencode serve --hostname=127.0.0.1 --port=4096`
 - `pnpm -C packages/agent-arena start -- run`
 - (override OpenCode project directory) `pnpm -C packages/agent-arena start -- run --directory ..`
 - (export OpenCode logs + metrics) `pnpm -C packages/agent-arena start -- run --export-logs`

@@ -170,7 +170,7 @@ function buildBaselineJobs() {
             '- After each interaction, take a full-page screenshot to the run directory.',
             '',
             'Start:',
-            `- Open: \`${AGENT_BROWSER} --session ${ctx.opencode.sessionID} open ${ctx.scenario.url}\``,
+            `- Open: \`${AGENT_BROWSER} --session ${ctx.opencode.sessionID} open '${ctx.scenario.url}'\``,
             `- Wait for chart render: \`${AGENT_BROWSER} --session ${ctx.opencode.sessionID} wait "${CHART_READY_SELECTOR}"\``,
             `- Screenshot (chart-ready): \`${AGENT_BROWSER} --session ${ctx.opencode.sessionID} screenshot --full "${ctx.run.outDir}/${CHART_READY_SCREENSHOT_NAME}"\``,
             `- Verify (read screenshot): use the \`read\` tool on "${ctx.run.outDir}/${CHART_READY_SCREENSHOT_NAME}" and confirm the chart is visible.`,
@@ -213,7 +213,7 @@ function buildSnapshotInjectedJobs() {
             '- You MUST verify the initial render by taking a screenshot and then reading that image file.',
             '',
             'Start:',
-            `- Open: \`${AGENT_BROWSER} --session ${ctx.opencode.sessionID} open ${ctx.scenario.url}\``,
+            `- Open: \`${AGENT_BROWSER} --session ${ctx.opencode.sessionID} open '${ctx.scenario.url}'\``,
             `- Wait for chart render: \`${AGENT_BROWSER} --session ${ctx.opencode.sessionID} wait "${CHART_READY_SELECTOR}"\``,
             `- Screenshot (chart-ready): \`${AGENT_BROWSER} --session ${ctx.opencode.sessionID} screenshot --full "${ctx.run.outDir}/${CHART_READY_SCREENSHOT_NAME}"\``,
             `- Verify (read screenshot): use the \`read\` tool on "${ctx.run.outDir}/${CHART_READY_SCREENSHOT_NAME}" and confirm the chart is visible.`,
@@ -357,7 +357,7 @@ export const config: ArenaConfig = {
   worktreeRoot: true,
   autoApprove: 'always',
   concurrency: { runs: 4 },
-  server: { mode: 'spawn' },
+  server: { mode: 'connect' },
   runs,
 };
 
