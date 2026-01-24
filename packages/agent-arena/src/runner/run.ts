@@ -7,7 +7,7 @@ import { mapLimit } from '../concurrency.js';
 import { createClient, startServer } from '../opencode.js';
 import { computeTools } from './helpers.js';
 import { runScenario } from './scenario.js';
-import { requireData, startAutoApprove, writeJson } from './util.js';
+import { requireData, startAutoApprove, toErrorPayload, writeJson } from './util.js';
 
 export type ArenaRunInput = {
   config: ArenaConfig;
@@ -35,7 +35,7 @@ export async function runArena(input: ArenaRunInput): Promise<ArenaRunResult[]> 
   const jobs = input.config.runs;
   const runConcurrency = input.config.concurrency?.runs ?? 2;
 
-  const server = await startServer(input.config);
+  const server = await startServer(input.config, { arenaStateDir: outDir });
   let approvalsAbort: AbortController | undefined;
   let approvals: Promise<void> | undefined;
 
@@ -68,7 +68,7 @@ export async function runArena(input: ArenaRunInput): Promise<ArenaRunResult[]> 
 
     const client = createClient(server.url, directory);
 
-    const mcpRequested = await ensureMcpServers(client, directory, jobs);
+    const mcpRequested = computeMcpRequested(jobs);
     approvalsAbort = new AbortController();
     approvals = startAutoApprove({
       client,
@@ -89,17 +89,21 @@ export async function runArena(input: ArenaRunInput): Promise<ArenaRunResult[]> 
       mcpRequested,
     });
 
+    const withLocks = createNameLocks();
     const results = await mapLimit(jobs, runConcurrency, async (job, index) => {
-      return await runJob({
-        config: input.config,
-        job,
-        index,
-        outDir,
-        client,
-        directory,
-        projectID,
-        uiBase,
-        hooks: input.hooks,
+      const lockNames = job.mcp?.servers ? Object.keys(job.mcp.servers) : [];
+      return await withLocks(lockNames, async () => {
+        return await runJob({
+          config: input.config,
+          job,
+          index,
+          outDir,
+          client,
+          directory,
+          projectID,
+          uiBase,
+          hooks: input.hooks,
+        });
       });
     });
 
@@ -155,7 +159,11 @@ async function runJob(args: {
           result: reused,
         });
       } catch (error) {
-        consola.warn('afterJob hook failed', { experiment: args.job.experiment, scenario: args.job.scenario.id, error });
+        consola.warn('afterJob hook failed', {
+          experiment: args.job.experiment,
+          scenario: args.job.scenario.id,
+          error,
+        });
       }
       return reused;
     }
@@ -166,16 +174,31 @@ async function runJob(args: {
   const tools = computeTools(args.job.toolPolicy, args.job);
   const startedAt = new Date();
 
-  const result = await runScenario({
-    config: args.config,
-    job: args.job,
-    client: args.client,
-    directory: args.directory,
-    tools,
-    outDir: jobOutDir,
-    projectID: args.projectID,
-    uiBase: args.uiBase,
-  });
+  let result: ArenaRunResult;
+  try {
+    await ensureMcpServersForJob(args.client, args.directory, args.job);
+    result = await runScenario({
+      config: args.config,
+      job: args.job,
+      client: args.client,
+      directory: args.directory,
+      tools,
+      outDir: jobOutDir,
+      projectID: args.projectID,
+      uiBase: args.uiBase,
+    });
+  } catch (error) {
+    result = {
+      experiment: args.job.experiment,
+      scenario: { id: args.job.scenario.id ?? 'scenario', url: args.job.scenario.url },
+      projectID: args.projectID,
+      sessionID: undefined,
+      ok: false,
+      error: toErrorPayload(error),
+      startedAt: startedAt.toISOString(),
+      finishedAt: new Date().toISOString(),
+    };
+  }
 
   try {
     await args.hooks?.afterJob?.({
@@ -232,39 +255,45 @@ async function resolveProjectID(client: ReturnType<typeof createClient>, directo
   }
 }
 
-async function ensureMcpServers(client: ReturnType<typeof createClient>, directory: string, jobs: ArenaJob[]) {
-  const byName = new Map<string, { config: unknown; sources: string[] }>();
+function computeMcpRequested(jobs: ArenaJob[]) {
+  const byName = new Map<string, { sources: string[] }>();
 
   for (const job of jobs) {
     const servers = job.mcp?.servers;
     if (!servers) continue;
-    for (const [name, config] of Object.entries(servers)) {
+    for (const name of Object.keys(servers)) {
       const existing = byName.get(name);
       if (!existing) {
-        byName.set(name, { config, sources: [job.experiment] });
+        byName.set(name, { sources: [job.experiment] });
         continue;
       }
       existing.sources.push(job.experiment);
-      if (JSON.stringify(existing.config) !== JSON.stringify(config)) {
-        consola.warn('Conflicting MCP server config across runs; using the first one', {
-          name,
-          sources: existing.sources,
-        });
-      }
     }
   }
 
   if (byName.size === 0) return undefined;
 
-  const requested = Object.fromEntries(Array.from(byName.entries()).map(([name, v]) => [name, v.sources]));
-  for (const [name, info] of byName.entries()) {
-    try {
-      await client.mcp.add({ directory, name, config: info.config as any });
-    } catch (error) {
-      consola.warn('Failed to add/connect MCP server', { name, error });
-    }
+  return Object.fromEntries(Array.from(byName.entries()).map(([name, v]) => [name, v.sources]));
+}
+
+async function ensureMcpServersForJob(client: ReturnType<typeof createClient>, directory: string, job: ArenaJob) {
+  const servers = job.mcp?.servers;
+  if (!servers || Object.keys(servers).length === 0) return;
+
+  for (const [name, config] of Object.entries(servers)) {
+    const statusMap = requireData(await client.mcp.add({ directory, name, config: config as any }));
+    const status = (statusMap as any)?.[name];
+    if (status?.status === 'connected') continue;
+
+    const detail = (() => {
+      try {
+        return JSON.stringify(status);
+      } catch {
+        return String(status);
+      }
+    })();
+    throw new Error(`Failed to start MCP server "${name}": ${detail}`);
   }
-  return requested;
 }
 
 function computeRunSlug(job: ArenaJob) {
@@ -284,4 +313,39 @@ function slugSegment(input: string) {
 
 function segment(value: string) {
   return sanitizeSegment(value) || 'x';
+}
+
+function createNameLocks() {
+  const tails = new Map<string, Promise<void>>();
+
+  async function acquire(name: string) {
+    const prev = tails.get(name) ?? Promise.resolve();
+    let release!: () => void;
+    const next = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    tails.set(
+      name,
+      prev.then(() => next).catch(() => next),
+    );
+    await prev;
+    return release;
+  }
+
+  return async function withLocks<T>(names: string[], fn: () => Promise<T>) {
+    const unique = Array.from(new Set(names.map((n) => n.trim()).filter(Boolean))).sort();
+    if (unique.length === 0) return await fn();
+
+    const releases: Array<() => void> = [];
+    for (const name of unique) releases.push(await acquire(name));
+    try {
+      return await fn();
+    } finally {
+      for (const release of releases.reverse()) {
+        try {
+          release();
+        } catch {}
+      }
+    }
+  };
 }

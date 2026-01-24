@@ -1,11 +1,13 @@
 import net from 'node:net';
 import { spawn } from 'node:child_process';
+import fs from 'node:fs/promises';
 import path from 'node:path';
 import { consola } from 'consola';
 import { createOpencodeClient } from '@opencode-ai/sdk/v2';
 import type { ArenaConfig } from './types.js';
+import { buildSpawnOpencodeConfig } from './opencode-config.js';
 
-export async function startServer(config: ArenaConfig) {
+export async function startServer(config: ArenaConfig, options?: { arenaStateDir?: string }) {
   const cfg = config.server;
   if (cfg?.mode === 'connect') {
     if (!cfg.baseUrl) throw new Error(`server.baseUrl is required for mode=connect`);
@@ -18,6 +20,7 @@ export async function startServer(config: ArenaConfig) {
   const hostname = cfg?.hostname ?? '127.0.0.1';
   const timeout = cfg?.timeoutMs ?? 8000;
   const cwd = path.resolve(config.directory ?? config.startDirectory ?? process.cwd());
+  const stateDir = options?.arenaStateDir ? path.resolve(options.arenaStateDir) : path.join(cwd, '.agent-arena');
 
   const maxAttempts = 5;
   let lastError: unknown;
@@ -29,7 +32,8 @@ export async function startServer(config: ArenaConfig) {
         port,
         timeoutMs: timeout,
         cwd,
-        config: cfg?.opencodeConfig ?? {},
+        stateDir,
+        config: buildSpawnOpencodeConfig(config),
       });
     } catch (error) {
       lastError = error;
@@ -54,14 +58,17 @@ async function spawnOpencodeServer(args: {
   port: number;
   timeoutMs: number;
   cwd: string;
+  stateDir: string;
   config: Record<string, unknown>;
 }) {
+  const isolationEnv = await prepareIsolatedOpencodeEnv(args.stateDir);
   const detached = process.platform !== 'win32';
   const proc = spawn('opencode', ['serve', `--hostname=${args.hostname}`, `--port=${args.port}`], {
     cwd: args.cwd,
     detached,
     env: {
       ...process.env,
+      ...isolationEnv,
       OPENCODE_CONFIG_CONTENT: JSON.stringify(args.config ?? {}),
     },
     stdio: 'ignore',
@@ -222,4 +229,37 @@ function isPortFree(port: number) {
 function looksLikePortConflict(error: unknown) {
   const msg = error instanceof Error ? `${error.message}\n${error.stack ?? ''}` : String(error);
   return /EADDRINUSE|address already in use|listen/i.test(msg);
+}
+
+async function prepareIsolatedOpencodeEnv(arenaStateDir: string) {
+  // Keep OpenCode config/state deterministic for `spawn` mode by isolating XDG + "home"
+  // away from the user's machine config. Store it under `.agent-arena/` by default.
+  const root = path.join(arenaStateDir, 'opencode');
+  const xdg = {
+    XDG_CONFIG_HOME: path.join(root, 'xdg', 'config'),
+    XDG_CACHE_HOME: path.join(root, 'xdg', 'cache'),
+    XDG_STATE_HOME: path.join(root, 'xdg', 'state'),
+  } as const;
+
+  const testHome = path.join(root, 'home');
+  const opencodeConfigDir = path.join(xdg.XDG_CONFIG_HOME, 'opencode');
+
+  await fs.mkdir(opencodeConfigDir, { recursive: true });
+  await fs.mkdir(testHome, { recursive: true });
+
+  // Remove any persisted OpenCode config files that could override OPENCODE_CONFIG_CONTENT.
+  // Keep `node_modules/` and other caches intact to avoid repeated installs.
+  await Promise.all(
+    ['config.json', 'opencode.json', 'opencode.jsonc', 'config'].map((name) =>
+      fs.rm(path.join(opencodeConfigDir, name), { force: true }).catch(() => {}),
+    ),
+  );
+  await fs.rm(path.join(testHome, '.opencode'), { recursive: true, force: true }).catch(() => {});
+
+  return {
+    ...xdg,
+    // Keep XDG data (auth tokens) on the user's machine so OpenCode can reuse
+    // existing Codex/ChatGPT OAuth credentials (e.g. OpenAI oauth).
+    OPENCODE_TEST_HOME: testHome,
+  };
 }
