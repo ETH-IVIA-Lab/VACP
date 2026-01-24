@@ -21,87 +21,102 @@ const SCENARIO_BASES = [
     route: '/vega-lite/',
     hash: 'global-development',
     task: 'Which country had the highest life expectancy in 2000?',
+    responseFormat: "{country: string, lifeExpectancy: number}",
   },
   {
     id: 'vl-global-development-t2-fertility-1p5-2-2000',
     route: '/vega-lite/',
     hash: 'global-development',
     task: 'Which countries in year 2000 have the fertility (children per woman) between 1.5-2?',
+    responseFormat: "{countries: Array<string>}",
   },
   {
     id: 'vl-global-development-t3-largest-lowest-lifeexp-2000',
     route: '/vega-lite/',
     hash: 'global-development',
     task: 'Which of the largest countries in the world had the lowest life expectancy in 2000?',
+    responseFormat: "{country: string, lifeExpectancy: number}",
   },
   {
     id: 'vl-seattle-weather-t1-sun-vs-rain-feb-apr-aug-oct',
     route: '/vega-lite/',
     hash: 'seattle-weather',
     task: 'Please compare the amount of rainy and sunny days in the range of Februry-April and August-October. Which range has more sunny days, which has more rainy days?',
+    responseFormat: "{moreSunnyRange: string, moreRainyRange: string}",
   },
   {
     id: 'vl-seattle-weather-t2-extreme-temp-by-weather',
     route: '/vega-lite/',
     hash: 'seattle-weather',
     task: 'Determine the extreme temp_max values associated with rain, sun, snow.',
+    responseFormat: "{rainTempMax: number, sunTempMax: number, snowTempMax: number}",
   },
   {
     id: 'vl-seattle-weather-t3-snow-season-temp-range',
     route: '/vega-lite/',
     hash: 'seattle-weather',
     task: 'Examine when snow occurs in the year and the corresponding temperature ranges.',
+    responseFormat: "{observations: Array<{month: string, tempMin: number, tempMax: number}>}",
   },
   {
     id: 'mosaic-athletes-t1-regression-football-vs-cycling',
     route: '/mosaic/',
     hash: 'athletes',
     task: 'Compare the male athletes of football and cycling. For which sport is the regression line steeper?',
+    responseFormat: "{steeperSport: string}",
   },
   {
     id: 'mosaic-athletes-t2-top3-tallest-female',
     route: '/mosaic/',
     hash: 'athletes',
     task: 'Name three tallest female athletes and their height.',
+    responseFormat: "{tallestFemales: Array<{name: string, height: number}>}",
   },
   {
     id: 'mosaic-athletes-t3-female-judo-100-120kg-count',
     route: '/mosaic/',
     hash: 'athletes',
     task: 'How many female judo practitioners are between 100 and 120 kg?',
+    responseFormat: "{count: number}",
   },
   {
     id: 'vl-airports-t1-nd-most-outgoing-top-destination',
     route: '/vega-lite/',
     hash: 'airports',
     task: 'Find in state ND (North Dakota) the airport with the most outgoing flight connections. Which airport are the most flights to?',
+    responseFormat: "{airport: string, topDestination: string}",
   },
   {
     id: 'vl-airports-t2-bangor-to-denver',
     route: '/vega-lite/',
     hash: 'airports',
-    task: 'Is it possible to fly from airport Bangor International (State ME, Maine) to airport Denver Intl (CO, Colorado)?',
+    task: 'Is it possible to fly from airport Bangor International (State ME, Maine) to airport Denver Intl (CO, Colorado) without transfer?',
+    responseFormat: "{isPossible: boolean}",
   },
   {
     id: 'vl-airports-t3-nm-airports-smallest-outgoing-flights',
     route: '/vega-lite/',
     hash: 'airports',
     task: 'How many airports are there in state New Mexico (NM)? How many outgoing flights does the smalles airport of these have?',
+    responseFormat: "{count: number, smallestOutgoingFlights: number}",
   },
   {
     id: 'cars-parcoords-t1-cylinders-4-weight-range',
     route: '/cars-parcoords/',
     task: 'Select cylinders 4, what is the range of the weight of the cars',
+    responseFormat: "{minWeight: number, maxWeight: number}",
   },
   {
     id: 'cars-parcoords-t2-largest-positive-correlation',
     route: '/cars-parcoords/',
-    task: 'Which dimensions do have the largest positiv correlation',
+    task: 'Which dimensions do have the largest positive correlation',
+    responseFormat: "{dimensions: [string, string]}",
   },
   {
     id: 'cars-parcoords-t3-cylinders-6-horsepower-outliers',
     route: '/cars-parcoords/',
-    task: 'Given the cars with 6 zylinders identifies outliers with respect to the horse power dimension',
+    task: 'Given the cars with 6 zylinders identify outliers with respect to the horse power dimension',
+    responseFormat: "{outliers: Array<{name: string, horsepower: number}>}",
   },
 ];
 
@@ -155,6 +170,7 @@ function buildBaselineJobs() {
           id: scenario.id,
           url: buildScenarioUrl({ route: scenario.route, hash: scenario.hash, query: { 'expose-bridge': '0' } }),
           task: scenario.task,
+          responseFormat: scenario.responseFormat,
         },
         toolPolicy: { mode: 'allow', ids: ['functions.bash', 'functions.read'] },
         promptTemplate: (ctx) =>
@@ -203,6 +219,7 @@ function buildSnapshotInjectedJobs() {
             query: { 'expose-bridge': '1', 'vacp-dom-snapshot': '1', 'vacp-debug': '0' },
           }),
           task: scenario.task,
+          responseFormat: scenario.responseFormat,
         },
         toolPolicy: { mode: 'allow', ids: ['functions.bash', 'functions.read'] },
         promptTemplate: (ctx) =>
@@ -252,7 +269,7 @@ function buildPureVACPJobs() {
       jobs.push({
         experiment: 'pure-vacp',
         model,
-        scenario: { id: scenario.id, url, task: scenario.task },
+        scenario: { id: scenario.id, url, task: scenario.task, responseFormat: scenario.responseFormat },
         toolPolicy: { mode: 'allow', ids: [] },
         mcp: {
           servers: { [VACP_MCP_SERVER_NAME]: buildVacpMcpServerConfig(url) },
@@ -312,7 +329,7 @@ function buildFullToolkitJobs() {
       jobs.push({
         experiment: 'full-toolkit',
         model,
-        scenario: { id: scenario.id, url, task: scenario.task },
+        scenario: { id: scenario.id, url, task: scenario.task, responseFormat: scenario.responseFormat },
         toolPolicy: { mode: 'allow', ids: ['functions.read'] },
         mcp: {
           servers: {

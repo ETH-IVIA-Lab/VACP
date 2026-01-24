@@ -16,6 +16,13 @@ export type Scenario = {
   task: string;
 
   /**
+   * Optional response schema/format hint for the final answer.
+   *
+   * Example: "{country: string, lifeExpectancy: number}"
+   */
+  responseFormat?: string;
+
+  /**
    * Optional tags for filtering / grouping during analysis.
    */
   tags?: string[];
