@@ -31,7 +31,7 @@ installVacpOnVegaLiteView({
 
 Notes:
 
-- This provider works with both `renderer: 'svg'` and `renderer: 'canvas'` (the `packages/examples/vega-lite-gallery` example uses canvas).
+- This provider works with both `renderer: 'svg'` and `renderer: 'canvas'` (the `packages/examples/vega-lite-gallery` example uses SVG).
 - This provider focuses on **Vega-Lite parameters**:
   - variable params → `Param` nodes
   - selection params → `Selection` nodes

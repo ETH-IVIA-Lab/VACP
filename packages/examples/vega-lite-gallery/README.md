@@ -26,7 +26,7 @@ Enable the debug overlay:
 ## How it works
 
 1. The app picks a spec from `src/specs/*.vl.json`.
-2. `vega-embed` renders it to **canvas** and returns a Vega View.
+2. `vega-embed` renders it to **SVG** and returns a Vega View.
 3. `@vacp/vega-lite` installs VACP:
    - **Bridge**: installs/updates `window.__vacp` (capabilities/state/execute, unless `?expose-bridge=0`)
    - **Graph**: creates nodes for:
