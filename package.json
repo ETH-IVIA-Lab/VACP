@@ -20,12 +20,12 @@
     "format:check": "oxfmt --config .oxfmtrc.json --check ."
   },
   "devDependencies": {
-    "@playwright/test": "^1.57.0",
-    "@types/node": "^24.10.8",
+    "@playwright/test": "^1.58.0",
+    "@types/node": "^24.10.9",
     "concurrently": "^9.2.1",
     "http-proxy": "^1.18.1",
     "oxfmt": "^0.24.0",
-    "oxlint": "^1.39.0",
+    "oxlint": "^1.41.0",
     "tsup": "^8.5.1",
     "typescript": "^5.9.3"
   },
