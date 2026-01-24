@@ -5,8 +5,7 @@ import { mcpToolId } from './src/opencode-ids';
 
 const BASE_URL = 'http://127.0.0.1:5173';
 const DEFAULT_MCP_TIMEOUT_MS = 120_000;
-const AGENT_BROWSER_VERSION = '0.7.6';
-const AGENT_BROWSER = `npx -y agent-browser@${AGENT_BROWSER_VERSION}`;
+const AGENT_BROWSER = 'agent-browser';
 const CHART_READY_SELECTOR = '#app canvas, #app svg, #chart canvas, #chart svg';
 const CHART_READY_SCREENSHOT_NAME = '00-chart-ready.png';
 
