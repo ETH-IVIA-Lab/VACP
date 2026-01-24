@@ -20,7 +20,7 @@ export type Scenario = {
    *
    * Example: "{country: string, lifeExpectancy: number}"
    */
-  responseFormat?: string;
+  responseFormat: string;
 
   /**
    * Optional tags for filtering / grouping during analysis.

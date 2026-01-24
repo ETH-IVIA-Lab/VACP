@@ -41,9 +41,13 @@ function normalizeScenario(input: any, index: number, source: string): Scenario 
   if (typeof input.task !== 'string' || !input.task.trim()) {
     throw new Error(`Scenario at index ${index} is missing 'task': ${source}`);
   }
+  if (typeof input.responseFormat !== 'string' || !input.responseFormat.trim()) {
+    throw new Error(`Scenario at index ${index} is missing 'responseFormat': ${source}`);
+  }
   const id = typeof input.id === 'string' && input.id.trim() ? input.id.trim() : `s${index + 1}`;
+  const responseFormat = input.responseFormat.trim();
   const tags = Array.isArray(input.tags) ? input.tags.filter((t: unknown) => typeof t === 'string') : undefined;
-  const scenario: Scenario = { id, url: input.url, task: input.task, ...(tags ? { tags } : {}) };
+  const scenario: Scenario = { id, url: input.url, task: input.task, responseFormat, ...(tags ? { tags } : {}) };
   return scenario;
 }
 
