@@ -34,6 +34,24 @@ Notes:
 - `vacp_capabilities()` → VACP capabilities snapshot (graph + actions)
 - `vacp_state()` → VACP state snapshot (current selections/params)
 - `vacp_execute(name, params?, call_id?)` → run a semantic action via the bridge
+- `vacp_open_url(url, wait_for_bridge?, timeout_ms?)` → navigate the existing page to a scenario URL
+- `vacp_page_info()` → page URL + title
+
+## Optional browser tools (Playwright-backed)
+
+To enable DOM-level browser tooling (screenshots, JS eval, click/fill/press), start the server with:
+
+- `--enable-browser-tools`
+
+This exposes additional MCP tools:
+
+- `browser_screenshot(path, full_page?)`
+- `browser_eval(expression, arg?)`
+- `browser_wait_for_selector(selector, timeout_ms?, state?)`
+- `browser_click(selector)`
+- `browser_fill(selector, value)`
+- `browser_press(selector, key)`
+- `browser_sleep(ms)`
 
 ## External browser via CDP
 
