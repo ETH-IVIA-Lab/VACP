@@ -13,10 +13,6 @@ const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..
 
 const MODELS = [
   { providerID: 'openai', modelID: 'gpt-5.2' },
-  { providerID: 'openai', modelID: 'gpt-5.2-codex' },
-  { providerID: 'openai', modelID: 'gpt-5.1-codex-mini' },
-  { providerID: 'openai', modelID: 'gpt-5.1-codex-max' },
-  { providerID: 'github-copilot', modelID: 'claude-haiku-4.5' },
   { providerID: 'github-copilot', modelID: 'claude-sonnet-4.5' },
   { providerID: 'github-copilot', modelID: 'gemini-3-flash-preview' },
 ];
