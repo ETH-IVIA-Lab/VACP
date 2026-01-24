@@ -1,58 +1,21 @@
-import type { ArenaConfig, ArenaJob } from './src/types';
-import { execSync } from 'node:child_process';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import type { ArenaConfig, ArenaJob } from './src/types';
+import { mcpToolId } from './src/opencode-ids';
 
-// output of agent-browser --help to include in prompts and prevent models spending turns asking for it
-const AGENT_BROWSER_HELP = execSync('npx -y agent-browser --help', { encoding: 'utf-8' }).trimStart().trimEnd();
+const BASE_URL = 'http://127.0.0.1:5173';
+const DEFAULT_MCP_TIMEOUT_MS = 120_000;
+const AGENT_BROWSER_VERSION = '0.7.6';
+const AGENT_BROWSER = `npx -y agent-browser@${AGENT_BROWSER_VERSION}`;
+const CHART_READY_SELECTOR = '#app canvas, #app svg, #chart canvas, #chart svg';
+const CHART_READY_SCREENSHOT_NAME = 'chart-ready.png';
 
-const EXAMPLES_HUB_BASE_URL = 'http://127.0.0.1:5173';
-const REPO_ROOT = execSync('git rev-parse --show-toplevel', { encoding: 'utf-8' }).trim();
+const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 
-function sanitizeMcpSegment(value: string): string {
-  // Must match OpenCode's MCP tool ID sanitization (server + tool name).
-  return value.replace(/[^a-zA-Z0-9_-]/g, '_');
-}
-
-function mcpToolId(serverName: string, toolName: string): string {
-  return `${sanitizeMcpSegment(serverName)}_${sanitizeMcpSegment(toolName)}`;
-}
-
-const VACP_MCP_SERVER_NAME = 'arena_vacp';
-const VACP_TOOLKIT_MCP_SERVER_NAME = 'arena_vacp_toolkit';
-
-const VACP_MCP_PROJECT_DIR = path.join(REPO_ROOT, 'packages/vacp-mcp-server');
-const VACP_MCP_BASE_COMMAND = [
-  'uv',
-  'run',
-  '--project',
-  VACP_MCP_PROJECT_DIR,
-  'vacp-mcp-server',
-  '--stdio',
-  '--headless',
-  '--url',
-  `${EXAMPLES_HUB_BASE_URL}/`,
-];
-
-const VACP_MCP_SERVER_CONFIG = {
-  type: 'local',
-  command: [...VACP_MCP_BASE_COMMAND],
-  timeout: 120_000,
-  environment: {
-    PYTHONUNBUFFERED: '1',
-  },
-} as const;
-
-const VACP_TOOLKIT_MCP_SERVER_CONFIG = {
-  type: 'local',
-  command: [...VACP_MCP_BASE_COMMAND, '--enable-browser-tools'],
-  timeout: 120_000,
-  environment: {
-    PYTHONUNBUFFERED: '1',
-  },
-} as const;
 const MODELS = [
   { providerID: 'openai', modelID: 'gpt-5.2' },
 ];
+
 const SCENARIO_BASES = [
   {
     id: 'vl-global-development-t1-lifeexp-max-2000',
@@ -82,7 +45,7 @@ const SCENARIO_BASES = [
     id: 'vl-seattle-weather-t2-extreme-temp-by-weather',
     route: '/vega-lite/',
     hash: 'seattle-weather',
-    task: 'Determine the extreme temp_max values associated with rain, sun, snow.',
+    task: 'Determine the extreme temp_max values associated with rain, sun, snow.',
   },
   {
     id: 'vl-seattle-weather-t3-snow-season-temp-range',
@@ -144,46 +107,75 @@ const SCENARIO_BASES = [
 ];
 
 function buildScenarioUrl(args: { route: string; hash?: string; query?: Record<string, string> }): string {
-  const u = new URL(args.route, EXAMPLES_HUB_BASE_URL);
+  const u = new URL(args.route, BASE_URL);
   for (const [k, v] of Object.entries(args.query ?? {})) u.searchParams.set(k, v);
   if (args.hash) u.hash = args.hash.startsWith('#') ? args.hash : `#${args.hash}`;
   return u.toString();
 }
 
+const VACP_MCP_SERVER_NAME = 'arena_vacp';
+const VACP_TOOLKIT_MCP_SERVER_NAME = 'arena_vacp_toolkit';
+
+const VACP_MCP_PROJECT_DIR = path.join(REPO_ROOT, 'packages/vacp-mcp-server');
+const VACP_MCP_BASE_COMMAND = [
+  'uv',
+  'run',
+  '--project',
+  VACP_MCP_PROJECT_DIR,
+  'vacp-mcp-server',
+  '--stdio',
+  '--headless',
+];
+
+function buildVacpMcpServerConfig(url: string) {
+  return {
+    type: 'local',
+    command: [...VACP_MCP_BASE_COMMAND, '--url', url],
+    timeout: DEFAULT_MCP_TIMEOUT_MS,
+    environment: { PYTHONUNBUFFERED: '1' },
+  } as const;
+}
+
+function buildVacpToolkitMcpServerConfig(url: string) {
+  return {
+    type: 'local',
+    command: [...VACP_MCP_BASE_COMMAND, '--url', url, '--enable-browser-tools'],
+    timeout: DEFAULT_MCP_TIMEOUT_MS,
+    environment: { PYTHONUNBUFFERED: '1' },
+  } as const;
+}
+
 function buildBaselineJobs() {
   const jobs: ArenaJob[] = [];
   for (const model of MODELS) {
-    for (const scenarioBase of SCENARIO_BASES) {
+    for (const scenario of SCENARIO_BASES) {
       jobs.push({
         experiment: 'baseline',
         model,
         scenario: {
-          id: scenarioBase.id,
-          url: buildScenarioUrl({
-            route: scenarioBase.route,
-            hash: scenarioBase.hash,
-            query: { 'expose-bridge': '0' },
-          }),
-          task: scenarioBase.task,
+          id: scenario.id,
+          url: buildScenarioUrl({ route: scenario.route, hash: scenario.hash, query: { 'expose-bridge': '0' } }),
+          task: scenario.task,
         },
-        toolPolicy: {
-          mode: 'allow',
-          ids: ['functions.bash'],
-        },
+        toolPolicy: { mode: 'allow', ids: ['functions.bash', 'functions.read'] },
         promptTemplate: (ctx) =>
           [
-            'Use the `agent-browser` CLI to interact with the application to complete the task:',
+            'Use the `agent-browser` CLI to interact with the application and answer the task.',
             '',
-            `> ${ctx.scenario.task}`,
+            `Task: ${ctx.scenario.task}`,
             '',
-            `After each interaction with the application, use \`agent-browser --session ${ctx.opencode.sessionID} screenshot --full "${ctx.run.outDir}/step-{n}.png"\` to take screenshots. The directory already exists.`,
-            `\`agent-browser\` is already available in your environment, so you don't need to install it or check it. Below you see the output of \`agent-browser --help\` for your reference:`,
+            'Rules:',
+            '- Do not start solving until a chart is visibly rendered (not a blank/loading screen).',
+            '- You MUST verify the initial render by taking a screenshot and then reading that image file.',
+            '- After each interaction, take a full-page screenshot to the run directory.',
             '',
-            '```text',
-            AGENT_BROWSER_HELP,
-            '```',
-            '',
-            `Start by executing \`agent-browser --session ${ctx.opencode.sessionID} open ${ctx.scenario.url}\` to open the application, and proceed from there.`,
+            'Start:',
+            `- Open: \`${AGENT_BROWSER} --session ${ctx.opencode.sessionID} open ${ctx.scenario.url}\``,
+            `- Wait for chart render: \`${AGENT_BROWSER} --session ${ctx.opencode.sessionID} wait "${CHART_READY_SELECTOR}"\``,
+            `- Screenshot (chart-ready): \`${AGENT_BROWSER} --session ${ctx.opencode.sessionID} screenshot --full "${ctx.run.outDir}/${CHART_READY_SCREENSHOT_NAME}"\``,
+            `- Verify (read screenshot): use the \`read\` tool on "${ctx.run.outDir}/${CHART_READY_SCREENSHOT_NAME}" and confirm the chart is visible.`,
+            `  - If the chart is not visible yet, repeat the wait + screenshot + read loop until it is.`,
+            `- Screenshot (after each interaction): \`${AGENT_BROWSER} --session ${ctx.opencode.sessionID} screenshot --full "${ctx.run.outDir}/step-{n}.png"\``,
           ].join('\n'),
       });
     }
@@ -194,38 +186,39 @@ function buildBaselineJobs() {
 function buildSnapshotInjectedJobs() {
   const jobs: ArenaJob[] = [];
   for (const model of MODELS) {
-    for (const scenarioBase of SCENARIO_BASES) {
+    for (const scenario of SCENARIO_BASES) {
       jobs.push({
         experiment: 'withsnapshot',
         model,
         scenario: {
-          id: scenarioBase.id,
+          id: scenario.id,
           url: buildScenarioUrl({
-            route: scenarioBase.route,
-            hash: scenarioBase.hash,
-            query: { 'expose-bridge': '0', 'vacp-dom-snapshot': '1' },
+            route: scenario.route,
+            hash: scenario.hash,
+            query: { 'expose-bridge': '1', 'vacp-dom-snapshot': '1', 'vacp-debug': '0' },
           }),
-          task: scenarioBase.task,
+          task: scenario.task,
         },
-        toolPolicy: {
-          mode: 'allow',
-          ids: ['functions.bash'],
-        },
+        toolPolicy: { mode: 'allow', ids: ['functions.bash', 'functions.read'] },
         promptTemplate: (ctx) =>
           [
-            'Use the `agent-browser` CLI to interact with the application to complete the task:',
+            'Use the `agent-browser` CLI to interact with the application and answer the task.',
+            'Note: a semantic snapshot is available in the DOM as:',
+            '- `<script id="__vacp_snapshot" type="application/json">{...}</script>`',
             '',
-            `> ${ctx.scenario.task}`,
+            `Task: ${ctx.scenario.task}`,
             '',
-            'Note that there is a semantic representation of the application in `<script id="__vacp_snapshot" type="application/json">{...}</script>`',
-            `After each interaction with the application, use \`agent-browser --session ${ctx.opencode.sessionID} screenshot --full "${ctx.run.outDir}/step-{n}.png"\` to take screenshots. The directory already exists.`,
-            `\`agent-browser\` is already available in your environment, so you don't need to install it or check it. Below you see the output of \`agent-browser --help\` for your reference:`,
+            'Rules:',
+            '- Do not start solving until a chart is visibly rendered (not a blank/loading screen).',
+            '- You MUST verify the initial render by taking a screenshot and then reading that image file.',
             '',
-            '```text',
-            AGENT_BROWSER_HELP,
-            '```',
-            '',
-            `Start by executing \`agent-browser --session ${ctx.opencode.sessionID} open ${ctx.scenario.url}\` to open the application, and proceed from there.`,
+            'Start:',
+            `- Open: \`${AGENT_BROWSER} --session ${ctx.opencode.sessionID} open ${ctx.scenario.url}\``,
+            `- Wait for chart render: \`${AGENT_BROWSER} --session ${ctx.opencode.sessionID} wait "${CHART_READY_SELECTOR}"\``,
+            `- Screenshot (chart-ready): \`${AGENT_BROWSER} --session ${ctx.opencode.sessionID} screenshot --full "${ctx.run.outDir}/${CHART_READY_SCREENSHOT_NAME}"\``,
+            `- Verify (read screenshot): use the \`read\` tool on "${ctx.run.outDir}/${CHART_READY_SCREENSHOT_NAME}" and confirm the chart is visible.`,
+            `  - If the chart is not visible yet, repeat the wait + screenshot + read loop until it is.`,
+            `- Screenshot (after each interaction): \`${AGENT_BROWSER} --session ${ctx.opencode.sessionID} screenshot --full "${ctx.run.outDir}/step-{n}.png"\``,
           ].join('\n'),
       });
     }
@@ -243,27 +236,15 @@ function buildPureVACPJobs() {
   } as const;
 
   for (const model of MODELS) {
-    for (const scenarioBase of SCENARIO_BASES) {
+    for (const scenario of SCENARIO_BASES) {
+      const url = buildScenarioUrl({ route: scenario.route, hash: scenario.hash, query: { 'expose-bridge': '1' } });
       jobs.push({
         experiment: 'pure-vacp',
         model,
-        scenario: {
-          id: scenarioBase.id,
-          url: buildScenarioUrl({
-            route: scenarioBase.route,
-            hash: scenarioBase.hash,
-            query: { 'expose-bridge': '1' },
-          }),
-          task: scenarioBase.task,
-        },
-        toolPolicy: {
-          mode: 'allow',
-          ids: [],
-        },
+        scenario: { id: scenario.id, url, task: scenario.task },
+        toolPolicy: { mode: 'allow', ids: [] },
         mcp: {
-          servers: {
-            [VACP_MCP_SERVER_NAME]: VACP_MCP_SERVER_CONFIG,
-          },
+          servers: { [VACP_MCP_SERVER_NAME]: buildVacpMcpServerConfig(url) },
           allow: [VACP_MCP_SERVER_NAME],
         },
         promptTemplate: (ctx) =>
@@ -271,6 +252,10 @@ function buildPureVACPJobs() {
             'Use the VACP MCP tools only (no shell, no webfetch).',
             '',
             `Task: ${ctx.scenario.task}`,
+            '',
+            'Important:',
+            '- Do not start solving until the app is ready. In this run, you cannot take screenshots.',
+            '- Verify readiness by successfully calling `vacp_open_url` (wait_for_bridge=true) and then reading both `vacp_capabilities` and `vacp_state` before any actions.',
             '',
             `Start by calling \`${tools.openUrl}\` with: ${ctx.scenario.url}`,
             '',
@@ -306,26 +291,20 @@ function buildFullToolkitJobs() {
   } as const;
 
   for (const model of MODELS) {
-    for (const scenarioBase of SCENARIO_BASES) {
+    for (const scenario of SCENARIO_BASES) {
+      const url = buildScenarioUrl({
+        route: scenario.route,
+        hash: scenario.hash,
+        query: { 'expose-bridge': '1', 'vacp-dom-snapshot': '1', 'vacp-debug': '1' },
+      });
       jobs.push({
         experiment: 'full-toolkit',
         model,
-        scenario: {
-          id: scenarioBase.id,
-          url: buildScenarioUrl({
-            route: scenarioBase.route,
-            hash: scenarioBase.hash,
-            query: { 'expose-bridge': '1', 'vacp-dom-snapshot': '1', 'vacp-debug': '1' },
-          }),
-          task: scenarioBase.task,
-        },
-        toolPolicy: {
-          mode: 'allow',
-          ids: [],
-        },
+        scenario: { id: scenario.id, url, task: scenario.task },
+        toolPolicy: { mode: 'allow', ids: ['functions.read'] },
         mcp: {
           servers: {
-            [VACP_TOOLKIT_MCP_SERVER_NAME]: VACP_TOOLKIT_MCP_SERVER_CONFIG,
+            [VACP_TOOLKIT_MCP_SERVER_NAME]: buildVacpToolkitMcpServerConfig(url),
           },
           allow: [VACP_TOOLKIT_MCP_SERVER_NAME],
         },
@@ -336,6 +315,12 @@ function buildFullToolkitJobs() {
             `Task: ${ctx.scenario.task}`,
             '',
             `Start by calling \`${tools.openUrl}\` with: ${ctx.scenario.url}`,
+            '',
+            'Before solving (must do):',
+            `- Wait for chart render: call \`${tools.waitForSelector}\` with selector "${CHART_READY_SELECTOR}" (increase timeout if needed).`,
+            `- Screenshot (chart-ready): call \`${tools.screenshot}\` with path "${ctx.run.outDir}/${CHART_READY_SCREENSHOT_NAME}".`,
+            `- Verify (read screenshot): use the \`read\` tool on "${ctx.run.outDir}/${CHART_READY_SCREENSHOT_NAME}" and confirm the chart is visible.`,
+            `  - If the chart is not visible yet, repeat wait + screenshot + read until it is.`,
             '',
             'Preferred interaction:',
             `- Use \`${tools.capabilities}\`, \`${tools.state}\`, \`${tools.execute}\` for semantic operations whenever possible.`,
@@ -372,19 +357,7 @@ export const config: ArenaConfig = {
   worktreeRoot: true,
   autoApprove: 'always',
   concurrency: { runs: 4 },
-  server: {
-    mode: 'spawn',
-    // Ensure MCP tool call timeouts are deterministic even for dynamically-added servers.
-    // OpenCode prefixes MCP tool IDs as: `${serverName}_${toolName}` (both sanitized).
-    opencodeConfig: {
-      experimental: { mcp_timeout: 120_000 },
-      mcp: {
-        // Keep these disabled by default to avoid spawning extra browsers eagerly.
-        [VACP_MCP_SERVER_NAME]: { ...VACP_MCP_SERVER_CONFIG, enabled: false },
-        [VACP_TOOLKIT_MCP_SERVER_NAME]: { ...VACP_TOOLKIT_MCP_SERVER_CONFIG, enabled: false },
-      },
-    },
-  },
+  server: { mode: 'spawn' },
   runs,
 };
 

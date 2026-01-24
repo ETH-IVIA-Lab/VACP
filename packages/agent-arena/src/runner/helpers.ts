@@ -3,6 +3,7 @@
 
 import { consola } from 'consola';
 import type { ArenaConfig, ArenaJob, PromptContext, ToolPolicy } from '../types.js';
+import { sanitizeMcpSegment } from '../opencode-ids.js';
 
 // --- Prompt/title templates --------------------------------------------
 
@@ -85,15 +86,10 @@ function expandMcpAllow(mcp: ArenaJob['mcp']): Array<{ id: string; enabled: bool
       // Treat `foo_*` as a raw wildcard, otherwise interpret as an MCP server name.
       if (trimmed.includes('*')) return { id: trimmed, enabled: true };
       const resolvedServerKey = serverKeyByLower.get(trimmed.toLowerCase());
-      const id = `${sanitizeMcpName(resolvedServerKey ?? trimmed)}_*`;
+      const id = `${sanitizeMcpSegment(resolvedServerKey ?? trimmed)}_*`;
       return { id, enabled: true };
     })
     .filter((x) => x.id.length > 0);
-}
-
-function sanitizeMcpName(name: string) {
-  // Must match OpenCode's MCP tool ID sanitization.
-  return name.replace(/[^a-zA-Z0-9_-]/g, '_');
 }
 
 function orderedToolMap(entries: Array<{ id: string; enabled: boolean }>) {
