@@ -207,6 +207,7 @@ function buildBaselineJobs() {
             `- Answer: on its own line, then output formatted JSON on the following lines inside \`\`\`json fences\`\`\` (start with \`\`\`json and end with \`\`\`), matching \`${ctx.scenario.responseFormat}\`.`,
             '- Reasoning: 1-3 sentences (brief) on its own line after the Answer JSON fence (do not include reasoning inside the JSON).',
             '- Reflection: 1-3 sentences (brief) on its own line. MUST include: (1) `Provenance: interaction-derived` OR `Provenance: prior-knowledge/guess`, (2) confidence (low/medium/high), and (3) what was difficult/easy and why + whether your process felt robust or brittle. If any prior knowledge influenced you, say so explicitly and what you did/did not verify via interaction.',
+            '- Screenshot log: after the Reflection, output a bulleted list (one bullet per screenshot you READ), in order, starting with `- step-00.png:`. Each bullet MUST be in the form `- step-01.png: <what you did/tried> | <why> | <what you observed> | <how it moved you closer to the answer>`. Be specific. Include this even if you cannot solve.',
             '- If you cannot solve: say so explicitly, output `null` as the JSON value for Answer (still inside the ```json fences), and explain why you failed / what blocked you.',
           ].join('\n'),
       });
@@ -268,6 +269,7 @@ function buildSnapshotInjectedJobs() {
             `- Answer: on its own line, then output formatted JSON on the following lines inside \`\`\`json fences\`\`\` (start with \`\`\`json and end with \`\`\`), matching \`${ctx.scenario.responseFormat}\`.`,
             '- Reasoning: 1-3 sentences (brief) on its own line after the Answer JSON fence (do not include reasoning inside the JSON).',
             '- Reflection: 1-3 sentences (brief) on its own line. MUST include: (1) `Provenance: interaction-derived` OR `Provenance: prior-knowledge/guess`, (2) confidence (low/medium/high), and (3) what was difficult/easy and why + whether your process felt robust or brittle. If any prior knowledge influenced you, say so explicitly and what you did/did not verify via interaction.',
+            '- Screenshot log: after the Reflection, output a bulleted list (one bullet per screenshot you READ), in order, starting with `- step-00.png:`. Each bullet MUST be in the form `- step-01.png: <what you did/tried> | <why> | <what you observed> | <how it moved you closer to the answer>`. Be specific. Include this even if you cannot solve.',
             '- If you cannot solve: say so explicitly, output `null` as the JSON value for Answer (still inside the ```json fences), and explain why you failed / what blocked you.',
           ].join('\n'),
       });
@@ -333,6 +335,7 @@ function buildPureVACPJobs() {
             `- Answer: on its own line, then output formatted JSON on the following lines inside \`\`\`json fences\`\`\` (start with \`\`\`json and end with \`\`\`), matching \`${ctx.scenario.responseFormat}\`.`,
             '- Reasoning: 1-3 sentences (brief) on its own line after the Answer JSON fence (do not include reasoning inside the JSON).',
             '- Reflection: 1-3 sentences (brief) on its own line. MUST include: (1) `Provenance: interaction-derived` OR `Provenance: prior-knowledge/guess`, (2) confidence (low/medium/high), and (3) what was difficult/easy and why + whether your process felt robust or brittle. If any prior knowledge influenced you, say so explicitly and what you did/did not verify via interaction.',
+            '- Trace log: after the Reflection, output a bulleted list (one bullet per stateful step you took), in order. Each bullet MUST be in the form `- step-01: <action you took> | <why> | <what changed in vacp_state> | <how it moved you closer to the answer>`. Be specific. Include this even if you cannot solve.',
             '- If you cannot solve: say so explicitly, output `null` as the JSON value for Answer (still inside the ```json fences), and explain why you failed / what blocked you.',
           ].join('\n'),
       });
@@ -416,6 +419,7 @@ function buildFullToolkitJobs() {
             `- Answer: on its own line, then output formatted JSON on the following lines inside \`\`\`json fences\`\`\` (start with \`\`\`json and end with \`\`\`), matching \`${ctx.scenario.responseFormat}\`.`,
             '- Reasoning: 1-3 sentences (brief) on its own line after the Answer JSON fence (do not include reasoning inside the JSON).',
             '- Reflection: 1-3 sentences (brief) on its own line. MUST include: (1) `Provenance: interaction-derived` OR `Provenance: prior-knowledge/guess`, (2) confidence (low/medium/high), and (3) what was difficult/easy and why + whether your process felt robust or brittle. If any prior knowledge influenced you, say so explicitly and what you did/did not verify via interaction.',
+            '- Screenshot log: after the Reflection, output a bulleted list (one bullet per screenshot you READ), in order, starting with `- step-00.png:`. Each bullet MUST be in the form `- step-01.png: <what you did/tried> | <why> | <what you observed> | <how it moved you closer to the answer>`. Be specific. Include this even if you cannot solve.',
             '- If you cannot solve: say so explicitly, output `null` as the JSON value for Answer (still inside the ```json fences), and explain why you failed / what blocked you.',
             '',
             'Browser tool list (for reference):',
