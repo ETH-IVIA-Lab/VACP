@@ -8,6 +8,18 @@ const AGENT_BROWSER_HELP = execSync('npx -y agent-browser --help', { encoding: '
 const EXAMPLES_HUB_BASE_URL = 'http://127.0.0.1:5173';
 const REPO_ROOT = execSync('git rev-parse --show-toplevel', { encoding: 'utf-8' }).trim();
 
+function sanitizeMcpSegment(value: string): string {
+  // Must match OpenCode's MCP tool ID sanitization (server + tool name).
+  return value.replace(/[^a-zA-Z0-9_-]/g, '_');
+}
+
+function mcpToolId(serverName: string, toolName: string): string {
+  return `${sanitizeMcpSegment(serverName)}_${sanitizeMcpSegment(toolName)}`;
+}
+
+const VACP_MCP_SERVER_NAME = 'arena_vacp';
+const VACP_TOOLKIT_MCP_SERVER_NAME = 'arena_vacp_toolkit';
+
 const VACP_MCP_PROJECT_DIR = path.join(REPO_ROOT, 'packages/vacp-mcp-server');
 const VACP_MCP_BASE_COMMAND = [
   'uv',
@@ -20,6 +32,24 @@ const VACP_MCP_BASE_COMMAND = [
   '--url',
   `${EXAMPLES_HUB_BASE_URL}/`,
 ];
+
+const VACP_MCP_SERVER_CONFIG = {
+  type: 'local',
+  command: [...VACP_MCP_BASE_COMMAND],
+  timeout: 120_000,
+  environment: {
+    PYTHONUNBUFFERED: '1',
+  },
+} as const;
+
+const VACP_TOOLKIT_MCP_SERVER_CONFIG = {
+  type: 'local',
+  command: [...VACP_MCP_BASE_COMMAND, '--enable-browser-tools'],
+  timeout: 120_000,
+  environment: {
+    PYTHONUNBUFFERED: '1',
+  },
+} as const;
 const MODELS = [
   { providerID: 'openai', modelID: 'gpt-5.2' },
 ];
@@ -205,6 +235,12 @@ function buildSnapshotInjectedJobs() {
 
 function buildPureVACPJobs() {
   const jobs: ArenaJob[] = [];
+  const tools = {
+    openUrl: mcpToolId(VACP_MCP_SERVER_NAME, 'vacp_open_url'),
+    capabilities: mcpToolId(VACP_MCP_SERVER_NAME, 'vacp_capabilities'),
+    state: mcpToolId(VACP_MCP_SERVER_NAME, 'vacp_state'),
+    execute: mcpToolId(VACP_MCP_SERVER_NAME, 'vacp_execute'),
+  } as const;
 
   for (const model of MODELS) {
     for (const scenarioBase of SCENARIO_BASES) {
@@ -226,12 +262,9 @@ function buildPureVACPJobs() {
         },
         mcp: {
           servers: {
-            vacp: {
-              type: 'local',
-              command: [...VACP_MCP_BASE_COMMAND],
-            },
+            [VACP_MCP_SERVER_NAME]: VACP_MCP_SERVER_CONFIG,
           },
-          allow: ['vacp'],
+          allow: [VACP_MCP_SERVER_NAME],
         },
         promptTemplate: (ctx) =>
           [
@@ -239,13 +272,13 @@ function buildPureVACPJobs() {
             '',
             `Task: ${ctx.scenario.task}`,
             '',
-            `Start by calling \`vacp_open_url\` with: ${ctx.scenario.url}`,
+            `Start by calling \`${tools.openUrl}\` with: ${ctx.scenario.url}`,
             '',
             'Then:',
-            '- Call `vacp_capabilities()` and use it as the source of truth for actions and schemas.',
-            '- Call `vacp_state()` to understand the current semantic state.',
-            '- Call `vacp_execute(name, params)` to perform one semantic operation at a time.',
-            '- After each action, call `vacp_state()` again to verify the effect.',
+            `- Call \`${tools.capabilities}\` and use it as the source of truth for actions and schemas.`,
+            `- Call \`${tools.state}\` to understand the current semantic state.`,
+            `- Call \`${tools.execute}\` to perform one semantic operation at a time.`,
+            `- After each action, call \`${tools.state}\` again to verify the effect.`,
             '',
             'If the required interaction is not available via VACP actions, state what capability is missing.',
           ].join('\n'),
@@ -258,6 +291,19 @@ function buildPureVACPJobs() {
 
 function buildFullToolkitJobs() {
   const jobs: ArenaJob[] = [];
+  const tools = {
+    openUrl: mcpToolId(VACP_TOOLKIT_MCP_SERVER_NAME, 'vacp_open_url'),
+    capabilities: mcpToolId(VACP_TOOLKIT_MCP_SERVER_NAME, 'vacp_capabilities'),
+    state: mcpToolId(VACP_TOOLKIT_MCP_SERVER_NAME, 'vacp_state'),
+    execute: mcpToolId(VACP_TOOLKIT_MCP_SERVER_NAME, 'vacp_execute'),
+    screenshot: mcpToolId(VACP_TOOLKIT_MCP_SERVER_NAME, 'browser_screenshot'),
+    eval: mcpToolId(VACP_TOOLKIT_MCP_SERVER_NAME, 'browser_eval'),
+    waitForSelector: mcpToolId(VACP_TOOLKIT_MCP_SERVER_NAME, 'browser_wait_for_selector'),
+    click: mcpToolId(VACP_TOOLKIT_MCP_SERVER_NAME, 'browser_click'),
+    fill: mcpToolId(VACP_TOOLKIT_MCP_SERVER_NAME, 'browser_fill'),
+    press: mcpToolId(VACP_TOOLKIT_MCP_SERVER_NAME, 'browser_press'),
+    sleep: mcpToolId(VACP_TOOLKIT_MCP_SERVER_NAME, 'browser_sleep'),
+  } as const;
 
   for (const model of MODELS) {
     for (const scenarioBase of SCENARIO_BASES) {
@@ -279,12 +325,9 @@ function buildFullToolkitJobs() {
         },
         mcp: {
           servers: {
-            vacp_toolkit: {
-              type: 'local',
-              command: [...VACP_MCP_BASE_COMMAND, '--enable-browser-tools'],
-            },
+            [VACP_TOOLKIT_MCP_SERVER_NAME]: VACP_TOOLKIT_MCP_SERVER_CONFIG,
           },
-          allow: ['vacp_toolkit'],
+          allow: [VACP_TOOLKIT_MCP_SERVER_NAME],
         },
         promptTemplate: (ctx) =>
           [
@@ -292,15 +335,24 @@ function buildFullToolkitJobs() {
             '',
             `Task: ${ctx.scenario.task}`,
             '',
-            `Start by calling \`vacp_open_url\` with: ${ctx.scenario.url}`,
+            `Start by calling \`${tools.openUrl}\` with: ${ctx.scenario.url}`,
             '',
             'Preferred interaction:',
-            '- Use `vacp_capabilities`, `vacp_state`, `vacp_execute` for semantic operations whenever possible.',
-            '- Use browser tools (`browser_click`, `browser_fill`, `browser_press`, `browser_eval`) only when needed.',
+            `- Use \`${tools.capabilities}\`, \`${tools.state}\`, \`${tools.execute}\` for semantic operations whenever possible.`,
+            `- Use browser tools (\`${tools.click}\`, \`${tools.fill}\`, \`${tools.press}\`, \`${tools.eval}\`) only when needed.`,
             '',
             'Evidence:',
-            `- After each meaningful interaction, call \`browser_screenshot\` to write "${ctx.run.outDir}/step-{n}.png"`,
+            `- After each meaningful interaction, call \`${tools.screenshot}\` to write "${ctx.run.outDir}/step-{n}.png"`,
             `- The directory "${ctx.run.outDir}" already exists.`,
+            '',
+            'Browser tool list (for reference):',
+            `- Screenshot: \`${tools.screenshot}\``,
+            `- Eval: \`${tools.eval}\``,
+            `- Wait for selector: \`${tools.waitForSelector}\``,
+            `- Click: \`${tools.click}\``,
+            `- Fill: \`${tools.fill}\``,
+            `- Press: \`${tools.press}\``,
+            `- Sleep: \`${tools.sleep}\``,
           ].join('\n'),
       });
     }
