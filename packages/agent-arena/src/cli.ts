@@ -2,6 +2,8 @@
 import { Command, Option } from 'commander';
 import { consola } from 'consola';
 import { defaultConfigPaths, loadArenaConfig } from './load.js';
+import { writeAggregatedMetrics } from './logs/aggregate.js';
+import { exportSessionLogs } from './logs/export-session.js';
 import { resolveFromCwd } from './paths.js';
 import { runArena } from './runner/index.js';
 
@@ -18,6 +20,8 @@ program
   .option('--out <dir>', 'Output directory. Default: ./.agent-arena/runs/<timestamp>')
   .option('--only <substring>', 'Only run entries whose experiment includes this substring')
   .option('--resume', 'Reuse successful run.json results when present')
+  .option('--export-logs', 'Export OpenCode session messages/tool calls + metrics into each job folder')
+  .option('--write-metrics', 'Write aggregated metrics.jsonl and metrics.csv into the output directory')
   .addOption(
     new Option('--auto-approve <mode>', 'Auto-approve permission requests')
       .choices(['off', 'once', 'always', 'reject'])
@@ -51,7 +55,31 @@ program
         ].join('\n'),
       );
 
-      const results = await runArena({ config: runConfig, outDir });
+      const exportLogs = Boolean(raw.exportLogs);
+      const writeMetrics = Boolean(raw.writeMetrics) || exportLogs;
+
+      const results = await runArena({
+        config: runConfig,
+        outDir,
+        ...(exportLogs
+          ? {
+              hooks: {
+                afterJob: async ({ result, directory, client, jobOutDir, uiBase }) => {
+                  if (!result.sessionID) return;
+                  const uiUrl = uiBase ? `${uiBase}/session/${result.sessionID}` : undefined;
+                  await exportSessionLogs({
+                    client,
+                    directory,
+                    sessionID: result.sessionID,
+                    outDir: jobOutDir,
+                    ...(uiUrl ? { uiUrl } : {}),
+                  });
+                },
+              },
+            }
+          : {}),
+      });
+      if (writeMetrics) await writeAggregatedMetrics({ arenaOutDir: outDir, outDir });
       const ok = results.filter((r) => r.ok).length;
       const bad = results.length - ok;
       consola.success(`Done: ${results.length} runs (${ok} ok, ${bad} failed)`);
