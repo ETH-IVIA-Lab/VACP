@@ -208,6 +208,7 @@ function buildBaselineJobs() {
             '- Reasoning: 1-3 sentences (brief) on its own line after the Answer JSON fence (do not include reasoning inside the JSON).',
             '- Reflection: 1-3 sentences (brief) on its own line. MUST include: (1) `Provenance: interaction-derived` OR `Provenance: prior-knowledge/guess`, (2) confidence (low/medium/high), and (3) what was difficult/easy and why + whether your process felt robust or brittle. If any prior knowledge influenced you, say so explicitly and what you did/did not verify via interaction.',
             '- Screenshot log: after the Reflection, output a bulleted list (one bullet per screenshot you READ), in order, starting with `- step-00.png:`. Each bullet MUST be in the form `- step-01.png: <what you did/tried> | <why> | <what you observed> | <how it moved you closer to the answer>`. Be specific. Include this even if you cannot solve.',
+            '- Trajectory: 3-6 sentences (high-level) summarizing your overall approach across the run: what you expected initially, what you tried, what worked/failed, any pivots, and how you decided on the final Answer. Reference key screenshots (e.g. step-03.png) where relevant. Keep it honest; do not invent evidence.',
             '- If you cannot solve: say so explicitly, output `null` as the JSON value for Answer (still inside the ```json fences), and explain why you failed / what blocked you.',
           ].join('\n'),
       });
@@ -270,6 +271,7 @@ function buildSnapshotInjectedJobs() {
             '- Reasoning: 1-3 sentences (brief) on its own line after the Answer JSON fence (do not include reasoning inside the JSON).',
             '- Reflection: 1-3 sentences (brief) on its own line. MUST include: (1) `Provenance: interaction-derived` OR `Provenance: prior-knowledge/guess`, (2) confidence (low/medium/high), and (3) what was difficult/easy and why + whether your process felt robust or brittle. If any prior knowledge influenced you, say so explicitly and what you did/did not verify via interaction.',
             '- Screenshot log: after the Reflection, output a bulleted list (one bullet per screenshot you READ), in order, starting with `- step-00.png:`. Each bullet MUST be in the form `- step-01.png: <what you did/tried> | <why> | <what you observed> | <how it moved you closer to the answer>`. Be specific. Include this even if you cannot solve.',
+            '- Trajectory: 3-6 sentences (high-level) summarizing your overall approach across the run: what you expected initially, what you tried, what worked/failed, any pivots, and how you decided on the final Answer. Reference key screenshots (e.g. step-03.png) where relevant. Keep it honest; do not invent evidence.',
             '- If you cannot solve: say so explicitly, output `null` as the JSON value for Answer (still inside the ```json fences), and explain why you failed / what blocked you.',
           ].join('\n'),
       });
@@ -336,6 +338,7 @@ function buildPureVACPJobs() {
             '- Reasoning: 1-3 sentences (brief) on its own line after the Answer JSON fence (do not include reasoning inside the JSON).',
             '- Reflection: 1-3 sentences (brief) on its own line. MUST include: (1) `Provenance: interaction-derived` OR `Provenance: prior-knowledge/guess`, (2) confidence (low/medium/high), and (3) what was difficult/easy and why + whether your process felt robust or brittle. If any prior knowledge influenced you, say so explicitly and what you did/did not verify via interaction.',
             '- Trace log: after the Reflection, output a bulleted list (one bullet per stateful step you took), in order. Each bullet MUST be in the form `- step-01: <action you took> | <why> | <what changed in vacp_state> | <how it moved you closer to the answer>`. Be specific. Include this even if you cannot solve.',
+            '- Trajectory: 3-6 sentences (high-level) summarizing your overall approach across the run: what you expected initially, what you tried, what worked/failed, any pivots, and how you decided on the final Answer. Reference key steps from the Trace log (e.g. step-03) where relevant. Keep it honest; do not invent evidence.',
             '- If you cannot solve: say so explicitly, output `null` as the JSON value for Answer (still inside the ```json fences), and explain why you failed / what blocked you.',
           ].join('\n'),
       });
@@ -420,6 +423,7 @@ function buildFullToolkitJobs() {
             '- Reasoning: 1-3 sentences (brief) on its own line after the Answer JSON fence (do not include reasoning inside the JSON).',
             '- Reflection: 1-3 sentences (brief) on its own line. MUST include: (1) `Provenance: interaction-derived` OR `Provenance: prior-knowledge/guess`, (2) confidence (low/medium/high), and (3) what was difficult/easy and why + whether your process felt robust or brittle. If any prior knowledge influenced you, say so explicitly and what you did/did not verify via interaction.',
             '- Screenshot log: after the Reflection, output a bulleted list (one bullet per screenshot you READ), in order, starting with `- step-00.png:`. Each bullet MUST be in the form `- step-01.png: <what you did/tried> | <why> | <what you observed> | <how it moved you closer to the answer>`. Be specific. Include this even if you cannot solve.',
+            '- Trajectory: 3-6 sentences (high-level) summarizing your overall approach across the run: what you expected initially, what you tried, what worked/failed, any pivots, and how you decided on the final Answer. Reference key screenshots (e.g. step-03.png) and/or verified `vacp_state` changes where relevant. Keep it honest; do not invent evidence.',
             '- If you cannot solve: say so explicitly, output `null` as the JSON value for Answer (still inside the ```json fences), and explain why you failed / what blocked you.',
             '',
             'Browser tool list (for reference):',
