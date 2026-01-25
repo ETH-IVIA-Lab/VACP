@@ -3,7 +3,7 @@ import { consola } from 'consola';
 import type { ArenaConfig, ArenaJob, ArenaRunResult } from '../types.js';
 import { createClient } from '../opencode.js';
 import { buildPrompt, buildTitle, logScenarioStarted } from './helpers.js';
-import { portablePathWithin, TimeoutError, requireData, sleep, toErrorPayload, withTimeout, writeJson } from './util.js';
+import { portablePathWithin, TimeoutError, requireData, toErrorPayload, withTimeout, writeJson } from './util.js';
 
 export async function runScenario(args: {
   config: ArenaConfig;
@@ -173,6 +173,21 @@ async function waitForSessionIdle(args: {
   sessionID: string;
   signal: AbortSignal;
 }) {
+  const sleepKeepAlive = (ms: number) => {
+    if (args.signal.aborted) return Promise.resolve();
+    return new Promise<void>((resolve) => {
+      const timer = setTimeout(resolve, ms);
+      args.signal.addEventListener(
+        'abort',
+        () => {
+          clearTimeout(timer);
+          resolve();
+        },
+        { once: true },
+      );
+    });
+  };
+
   const baseDelayMs = 750;
   const startupDelayMs = 250;
   const maxStartupWaitMs = 5000;
@@ -186,7 +201,7 @@ async function waitForSessionIdle(args: {
     if (!status) {
       if (!sawBusy && remainingStartupChecks > 0) {
         remainingStartupChecks -= 1;
-        await sleep(startupDelayMs, args.signal);
+        await sleepKeepAlive(startupDelayMs);
         continue;
       }
       return;
@@ -199,7 +214,7 @@ async function waitForSessionIdle(args: {
       status.type === 'retry' && typeof status.next === 'number'
         ? Math.min(Math.max(status.next - Date.now(), 250), 5000)
         : baseDelayMs;
-    await sleep(delayMs, args.signal);
+    await sleepKeepAlive(delayMs);
   }
 
   // Ensure callers using `withTimeout(..., signal => ...)` treat an aborted signal as a timeout.
