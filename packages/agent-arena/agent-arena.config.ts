@@ -541,20 +541,51 @@ function buildFullToolkitJobs() {
 
 const execFileAsync = promisify(execFile);
 
+function sleepMs(ms: number) {
+  return new Promise<void>((resolve) => setTimeout(resolve, ms));
+}
+
+async function listAgentBrowserSessions(): Promise<Set<string>> {
+  try {
+    const { stdout } = await execFileAsync(AGENT_BROWSER, ['--json', 'session', 'list'], { timeout: 10_000 });
+    const parsed = JSON.parse(String(stdout)) as unknown;
+    const sessions = (parsed as any)?.data?.sessions;
+    if (!Array.isArray(sessions)) return new Set();
+    return new Set(sessions.filter((s: unknown) => typeof s === 'string'));
+  } catch {
+    return new Set();
+  }
+}
+
+async function closeAgentBrowserSessionHard(sessionID: string) {
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    try {
+      await execFileAsync(AGENT_BROWSER, ['--session', sessionID, 'close'], { timeout: 30_000 });
+    } catch {
+      // Best-effort: retry and verify via session list below.
+    }
+
+    await sleepMs(250 * attempt);
+
+    const active = await listAgentBrowserSessions();
+    if (!active.has(sessionID)) return;
+  }
+
+  const active = await listAgentBrowserSessions();
+  if (active.has(sessionID)) {
+    throw new Error(`agent-browser session still active after close retries: ${sessionID}`);
+  }
+}
+
 async function closeAgentBrowserSession(ctx: Parameters<NonNullable<ArenaConfig['onFinished']>>[0]) {
-  if (ctx.resumed) return;
-  const sessionID = ctx.opencode.sessionID;
+  const sessionID = ctx.result.sessionID ?? ctx.opencode.sessionID;
   if (!sessionID) return;
 
-  // Heuristic: only close sessions for runs that allow `bash` (these are the `agent-browser` CLI runs).
-  const policy = ctx.job.toolPolicy;
-  const likelyUsesAgentBrowser =
-    policy?.mode === 'allow' &&
-    Array.isArray(policy.ids) &&
-    policy.ids.some((id) => id === 'bash' || id === 'functions.bash' || id === 'functions.*');
-  if (!likelyUsesAgentBrowser) return;
-
-  await execFileAsync(AGENT_BROWSER, ['--session', sessionID, 'close'], { timeout: 30_000 });
+  try {
+    await closeAgentBrowserSessionHard(sessionID);
+  } catch (error) {
+    console.warn(`[agent-arena] Failed to close agent-browser session ${sessionID}`, error);
+  }
 }
 
 const runs: ArenaJob[] = [
