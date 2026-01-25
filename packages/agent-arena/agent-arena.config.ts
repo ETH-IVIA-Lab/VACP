@@ -200,6 +200,7 @@ function agentBrowserEfficiencyGuidance(ctx: PromptContext): string[] {
     'Common control recipe (sliders):',
     '- If you need to set a year/value slider and it is a range input, prefer: `get count \"input[type=range]\"` (expect 1) → `fill \"input[type=range]\" \"<target>\"` → `get value \"input[type=range]\"` to confirm → screenshot + read.',
     '- If `fill` does not change the visible value after 1 retry, use `eval` to set the value and dispatch `input`/`change`, then confirm via `get value` + screenshot.',
+    '- `eval` fallback example (replace `2000`): `eval \'() => { const el=document.querySelector(\"input[type=range]\"); if(!el) return \"no-range\"; el.value=\"2000\"; el.dispatchEvent(new Event(\"input\", {bubbles:true})); el.dispatchEvent(new Event(\"change\", {bubbles:true})); return el.value; }\'`.',
     '- Use `eval` only when necessary to apply a UI change that is hard to do via clicks; never dump large JSON/DOM.',
     '- Shell-safe `eval` rules (zsh-safe; critical): always pass eval code in SINGLE quotes, like `agent-browser ... eval \'() => { ... }\'`. Inside the JS, prefer DOUBLE quotes for strings. Never use JS template literals/backticks (`` `...` ``) or `${...}`. Avoid unescaped `$`, backticks, or `$(...)` in the eval text (the shell will expand them and break the command).',
     '- If an `eval` command fails with a shell parse error (e.g. `bad substitution`, `no matches found`, `parse error`), rewrite it to obey the shell-safe rules above and retry at most once.',
