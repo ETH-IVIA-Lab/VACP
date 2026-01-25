@@ -609,6 +609,7 @@ export const config: ArenaConfig = {
   worktreeRoot: true,
   autoApprove: 'always',
   concurrency: { runs: 4 },
+  timeouts: { promptMs: 15 * 60_000 },
   server: { mode: 'connect' },
   onFinished: closeAgentBrowserSession,
   runs,
