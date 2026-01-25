@@ -1,15 +1,11 @@
 import path from 'node:path';
+import { execFile } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
+import { promisify } from 'node:util';
 import type { ArenaConfig, ArenaJob } from './src/types';
 import { mcpToolId } from './src/opencode-ids';
 
 const BASE_URL = 'http://127.0.0.1:5173';
-const DEFAULT_MCP_TIMEOUT_MS = 120_000;
-const AGENT_BROWSER = 'agent-browser';
-const CHART_READY_SELECTOR = '#app canvas, #app svg, #chart canvas, #chart svg';
-const CHART_READY_SCREENSHOT_NAME = 'step-00.png';
-
-const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 
 const MODELS = [
   { providerID: 'openai', modelID: 'gpt-5.2' },
@@ -175,6 +171,13 @@ export const SCENARIO_BASES = [
     },
   },
 ];
+
+const DEFAULT_MCP_TIMEOUT_MS = 120_000;
+const AGENT_BROWSER = 'agent-browser';
+const CHART_READY_SELECTOR = '#app canvas, #app svg, #chart canvas, #chart svg';
+const CHART_READY_SCREENSHOT_NAME = 'step-00.png';
+
+const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 
 function buildScenarioUrl(args: { route: string; hash?: string; query?: Record<string, string> }): string {
   const u = new URL(args.route, BASE_URL);
@@ -496,6 +499,24 @@ function buildFullToolkitJobs() {
   return jobs;
 }
 
+const execFileAsync = promisify(execFile);
+
+async function closeAgentBrowserSession(ctx: Parameters<NonNullable<ArenaConfig['onFinished']>>[0]) {
+  if (ctx.resumed) return;
+  const sessionID = ctx.opencode.sessionID;
+  if (!sessionID) return;
+
+  // Heuristic: only close sessions for runs that allow `bash` (these are the `agent-browser` CLI runs).
+  const policy = ctx.job.toolPolicy;
+  const likelyUsesAgentBrowser =
+    policy?.mode === 'allow' &&
+    Array.isArray(policy.ids) &&
+    policy.ids.some((id) => id === 'bash' || id === 'functions.bash' || id === 'functions.*');
+  if (!likelyUsesAgentBrowser) return;
+
+  await execFileAsync(AGENT_BROWSER, ['--session', sessionID, 'close'], { timeout: 30_000 });
+}
+
 const runs: ArenaJob[] = [
   ...buildBaselineJobs(),
   ...buildSnapshotInjectedJobs(),
@@ -508,6 +529,7 @@ export const config: ArenaConfig = {
   autoApprove: 'always',
   concurrency: { runs: 8 },
   server: { mode: 'connect' },
+  onFinished: closeAgentBrowserSession,
   runs,
 };
 
