@@ -2,7 +2,7 @@ import path from 'node:path';
 import { execFile } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { promisify } from 'node:util';
-import type { ArenaConfig, ArenaJob } from './src/types';
+import type { ArenaConfig, ArenaJob, PromptContext } from './src/types';
 import { mcpToolId } from './src/opencode-ids';
 
 const BASE_URL = 'http://127.0.0.1:5173';
@@ -178,6 +178,30 @@ const CHART_READY_SELECTOR = '#app canvas, #app svg, #chart canvas, #chart svg';
 const CHART_READY_SCREENSHOT_NAME = 'step-00.png';
 
 const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
+
+function agentBrowserEfficiencyGuidance(ctx: PromptContext): string[] {
+  return [
+    'Efficiency (high priority; avoid timeouts + token bloat):',
+    '- Do NOT run `agent-browser --help` (it is huge and wastes time/tokens).',
+    '- Prefer a single `agent-browser snapshot -i -c --depth 14` per page state; only re-run snapshot after a real UI state change.',
+    '- Prefer `click @ref` / `hover @ref` using refs from `snapshot` over CSS selectors, `find`, or `get html`.',
+    '- Avoid `agent-browser get html` / large `get text` dumps; they balloon the transcript and slow the run.',
+    '- Avoid repeated `mouse` probing / boundingBox loops; do 1 deliberate hover/click, then screenshot + read.',
+    '- Use `eval` only when necessary to apply a UI change that is hard to do via clicks; never dump large JSON/DOM.',
+    '- Only take step-XX screenshots after a successful state change (don’t screenshot after failed attempts).',
+    `- Always use screenshot paths exactly as written (copy/paste): "${ctx.run.outDir}/step-00.png", "${ctx.run.outDir}/step-01.png", ... (don’t rewrite directory segments).`,
+    '- Do NOT manually close the browser session; cleanup is handled automatically.',
+  ];
+}
+
+function snapshotDomEfficiencyGuidance(): string[] {
+  return [
+    'Snapshot note (useful but easy to misuse):',
+    '- You MAY use `agent-browser eval` to read small bits of `#__vacp_snapshot` to find control IDs/allowed values or to dispatch a specific UI change.',
+    '- Do NOT dump the whole snapshot JSON; extract only the minimum needed fields and keep outputs tiny.',
+    '- Still ground the final answer in screenshots you READ (visual evidence), not just the snapshot.',
+  ];
+}
 
 function buildScenarioUrl(args: { route: string; hash?: string; query?: Record<string, string> }): string {
   const u = new URL(args.route, BASE_URL);
