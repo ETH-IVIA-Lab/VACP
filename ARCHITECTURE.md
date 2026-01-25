@@ -132,7 +132,7 @@ interface VacpWindowBridge {
 }
 ```
 
-This repo’s runtime bridge may also provide optional debugging endpoints:
+This repo's runtime bridge may also provide optional debugging endpoints:
 
 - `getRuntime()` (history, cursor, “inspect” vs “live”)
 - `dispatch(call, options)` (records source/message)

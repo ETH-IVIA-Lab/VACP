@@ -4,9 +4,9 @@ First-class VACP integration for vgplot (Mosaic runtime).
 
 This package is the “provider” layer for vgplot:
 
-- it builds a VACP graph from vgplot’s semantic runtime (interactors, linked views),
+- it builds a VACP graph from vgplot's semantic runtime (interactors, linked views),
 - it exposes selection state through `window.__vacp`,
-- it registers semantic actions like `mosaic.set_interval_1d` (so agents don’t drag pixels).
+- it registers semantic actions like `mosaic.set_interval_1d` (so agents don't drag pixels).
 
 ## Use with a single plot
 

@@ -66,7 +66,7 @@ is running.
 
 ## How bidirectionality is achieved
 
-- **Human** interaction updates Vega signals/params through Vega’s runtime.
+- **Human** interaction updates Vega signals/params through Vega's runtime.
 - `@vacp/vega-lite` reads those param values and exposes them via `window.__vacp.getState()`.
 - **Agent** calls `vega_lite.set_param` / `vega_lite.clear_selection`, which updates Vega signals directly.
 - Both paths are recorded in the VACP runtime history so debugging/time travel works uniformly.

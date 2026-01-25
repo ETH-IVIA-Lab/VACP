@@ -14,7 +14,7 @@ Agents, humans, and debugging tools all interact with the same contract.
 
 Instead of clicking pixels, an agent calls `window.__vacp.execute({ callId, name, params })` (usually via MCP), and the app runs the _same_ semantic interactions a human would.
 
-## What’s in this repo
+## What's in this repo
 
 - **Protocol + runtime (TypeScript)**: the in-app contract and history/time travel support (`packages/lib/*`).
 - **Providers (TypeScript)**: first-class integrations for specific visualization stacks:
@@ -73,7 +73,7 @@ Run the MCP server:
 - Start an example (above), then in another terminal: `uv run vacp-mcp-server --url http://localhost:<vite-port>/`
 - The MCP endpoint defaults to `http://localhost:8000/mcp`
 
-For interactive development, it’s often nicer to attach to an existing Chrome via CDP:
+For interactive development, it's often nicer to attach to an existing Chrome via CDP:
 
 - See `packages/vacp-mcp-server/README.md`
 
@@ -84,7 +84,7 @@ For interactive development, it’s often nicer to attach to an existing Chrome 
 
 ## Suggested exploration path
 
-If you’re new to the repo, this is the fastest way to build a correct mental model:
+If you're new to the repo, this is the fastest way to build a correct mental model:
 
 1. Run `packages/examples/mosaic-gallery` and open the overlay (`?vacp-debug=1`).
 2. Use **both**:

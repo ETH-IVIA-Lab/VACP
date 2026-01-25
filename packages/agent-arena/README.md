@@ -57,7 +57,7 @@ Each run writes:
 
 - `run.json` (high-level result, IDs only)
 - `input.json` (per-run inputs: rendered prompt + title + tool settings; includes `run.slug`)
-- For detailed telemetry (tokens/cost/tool calls), read OpenCode’s native session/message logs on disk for the given `projectID` + `sessionID`.
+- For detailed telemetry (tokens/cost/tool calls), read OpenCode's native session/message logs on disk for the given `projectID` + `sessionID`.
 
 ### Parallel runs
 
@@ -121,7 +121,7 @@ export default config;
 
 ### MCP / OpenCode server config (optional)
 
-`agent-arena` runs all runs against a single `opencode serve` process. OpenCode’s MCP server definitions are global to that process, so `agent-arena` applies MCP _server setup_ additively (union across runs), and uses tool permissions to control MCP _exposure_ per run.
+`agent-arena` runs all runs against a single `opencode serve` process. OpenCode's MCP server definitions are global to that process, so `agent-arena` applies MCP _server setup_ additively (union across runs), and uses tool permissions to control MCP _exposure_ per run.
 
 Configure per-run MCP like this:
 
@@ -151,11 +151,11 @@ Configure per-run MCP like this:
 }
 ```
 
-Note: OpenCode’s `write`/`edit`/`patch`/`multiedit` tools all use the same permission gate (`edit`). `agent-arena` normalizes `functions.write`/`write`/`patch` to `edit` so allow/deny behaves as expected.
+Note: OpenCode's `write`/`edit`/`patch`/`multiedit` tools all use the same permission gate (`edit`). `agent-arena` normalizes `functions.write`/`write`/`patch` to `edit` so allow/deny behaves as expected.
 
 ### Session visibility in the web UI
 
-OpenCode’s UI filters sessions by the currently selected directory. `agent-arena` uses the OpenCode-reported worktree root by default (`worktreeRoot: true`) so sessions appear where you expect in the UI.
+OpenCode's UI filters sessions by the currently selected directory. `agent-arena` uses the OpenCode-reported worktree root by default (`worktreeRoot: true`) so sessions appear where you expect in the UI.
 
 To force a specific directory (project context), use:
 
