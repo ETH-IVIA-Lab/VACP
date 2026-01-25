@@ -569,7 +569,7 @@ const runs: ArenaJob[] = [
 export const config: ArenaConfig = {
   worktreeRoot: true,
   autoApprove: 'always',
-  concurrency: { runs: 8 },
+  concurrency: { runs: 4 },
   server: { mode: 'connect' },
   onFinished: closeAgentBrowserSession,
   runs,
