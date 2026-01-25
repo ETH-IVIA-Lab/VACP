@@ -9,8 +9,6 @@ const BASE_URL = 'http://127.0.0.1:5173';
 
 const MODELS = [
   { providerID: 'openai', modelID: 'gpt-5.2' },
-  { providerID: 'github-copilot', modelID: 'claude-sonnet-4.5' },
-  { providerID: 'github-copilot', modelID: 'gemini-3-flash-preview' },
 ];
 
 export const SCENARIO_BASES = [
