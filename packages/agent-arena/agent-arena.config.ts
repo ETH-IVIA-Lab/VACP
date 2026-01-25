@@ -195,9 +195,10 @@ function agentBrowserEfficiencyGuidance(ctx: PromptContext): string[] {
     '- `drag` expects selectors/refs, not coordinates (e.g. `drag @from @to`).',
     '- For coordinate-based gestures, use `mouse` (`move`/`down`/`up`) and verify via screenshot.',
     '- For scrolling, use `mouse wheel` after moving over the region you want to scroll.',
-    '`eval` (use sparingly):',
-    '- Use `eval` only for UI plumbing (e.g., setting a control value + dispatching `input`/`change`) and keep outputs tiny.',
-    '- Do NOT use `eval` to inspect internal chart data/state or compute answers; ground answers in what you can SEE in screenshots.',
+    '`eval` (`agent-browser eval`):',
+    '- Runs JavaScript in the page context.',
+    '- Keep outputs small and targeted (they become part of the run transcript).',
+    '- The final answer must be grounded in screenshots you READ; treat `eval` output as auxiliary (e.g., to set control values + dispatch `input`/`change`).',
     '- Shell-safe `eval` rules (zsh-safe; critical): always pass eval code in SINGLE quotes, like `agent-browser ... eval \'() => { ... }\'`. Inside the JS, prefer DOUBLE quotes for strings. Never use JS template literals/backticks (`` `...` ``) or `${...}`. Avoid unescaped `$`, backticks, or `$(...)` in the eval text (the shell will expand them and break the command).',
     '- If an `eval` command fails with a shell parse error (e.g. `bad substitution`, `no matches found`, `parse error`), rewrite it to obey the shell-safe rules above and retry at most once.',
     "- Only take step-XX screenshots after a successful state change (don't screenshot after failed attempts).",
@@ -208,11 +209,11 @@ function agentBrowserEfficiencyGuidance(ctx: PromptContext): string[] {
 
 function snapshotDomEfficiencyGuidance(): string[] {
   return [
-    'Snapshot note (useful but easy to misuse):',
-    '- You MAY use `agent-browser eval` to read small bits of `#__vacp_snapshot` to find control IDs/allowed values or to dispatch a specific UI change.',
-    '- When using `eval` with the snapshot, follow the shell-safe `eval` rules above (single quotes, no backticks/`${...}`, keep outputs tiny).',
-    '- Do NOT dump the whole snapshot JSON; extract only the minimum needed fields and keep outputs tiny.',
-    '- Still ground the final answer in screenshots you READ (visual evidence), not just the snapshot.',
+    'DOM snapshot (`#__vacp_snapshot`) (optional):',
+    '- The snapshot content can be large; avoid printing it.',
+    '- If needed, use `agent-browser eval` to extract only small, relevant fields (e.g., identifiers or allowed values for controls).',
+    '- When using `eval` with the snapshot, follow the shell-safe `eval` rules above (single quotes, no backticks/`${...}`).',
+    '- Ground the final answer in screenshots you READ (visual evidence), not the snapshot alone.',
   ];
 }
 
