@@ -166,7 +166,13 @@ export const SCENARIO_BASES = [
     id: 'cars-parcoords-t3-cylinders-6-horsepower-outliers',
     route: '/cars-parcoords/',
     task: 'Given the cars with 6 zylinders identify outliers with respect to the horse power dimension',
-    responseFormat: "{outliers: Array<{name: string, horsepower: number}>}",
+    responseFormat: '{outliers: Array<{name: string, horsepower: number}>}',
+    solution: {
+      outliers: [
+        { name: 'Ford Maverick', horsepower: 0 },
+        { name: 'Buick Regal Sport Coupe (turbo)', horsepower: 165 },
+      ],
+    },
   },
 ];
 
