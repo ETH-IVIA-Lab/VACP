@@ -1,13 +1,13 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { consola } from 'consola';
-import type { ArenaConfig, ArenaJob, ArenaRunResult } from '../types.js';
+import type { ArenaConfig, ArenaJob, ArenaRunResult, FinishedContext } from '../types.js';
 import { base64UrlEncode, sanitizeSegment } from '../paths.js';
 import { mapLimit } from '../concurrency.js';
 import { createClient, startServer } from '../opencode.js';
 import { computeTools } from './helpers.js';
 import { runScenario } from './scenario.js';
-import { requireData, startAutoApprove, toErrorPayload, writeJson } from './util.js';
+import { portablePathWithin, requireData, startAutoApprove, toErrorPayload, writeJson } from './util.js';
 
 export type ArenaRunInput = {
   config: ArenaConfig;
@@ -165,6 +165,19 @@ async function runJob(args: {
           error,
         });
       }
+
+      await callOnFinished({
+        config: args.config,
+        job: args.job,
+        directory: args.directory,
+        projectID: args.projectID,
+        uiBase: args.uiBase,
+        arenaOutDir: args.outDir,
+        jobOutDir,
+        tools: computeTools(args.job.toolPolicy, args.job),
+        result: reused,
+        resumed: true,
+      });
       return reused;
     }
   }
@@ -219,6 +232,19 @@ async function runJob(args: {
 
   await writeJson(runJsonPath, result);
 
+  await callOnFinished({
+    config: args.config,
+    job: args.job,
+    directory: args.directory,
+    projectID: args.projectID,
+    uiBase: args.uiBase,
+    arenaOutDir: args.outDir,
+    jobOutDir,
+    tools,
+    result,
+    resumed: false,
+  });
+
   const finishedAt = new Date();
   const durationMs = finishedAt.getTime() - startedAt.getTime();
   const status = result.ok ? '✔' : '✖';
@@ -227,6 +253,55 @@ async function runJob(args: {
   consola.info(`  Run: ${relativePath(runJsonPath)}`);
 
   return result;
+}
+
+async function callOnFinished(args: {
+  config: ArenaConfig;
+  job: ArenaJob;
+  directory: string;
+  projectID?: string;
+  uiBase: string;
+  arenaOutDir: string;
+  jobOutDir: string;
+  tools: Record<string, boolean> | undefined;
+  result: ArenaRunResult;
+  resumed: boolean;
+}) {
+  const hook = args.job.onFinished ?? args.config.onFinished;
+  if (!hook) return;
+
+  const outDir = portablePathWithin(args.directory, args.jobOutDir);
+  const slug = computeRunSlug(args.job);
+  const sessionID = args.result.sessionID;
+  const liveUrl = sessionID ? `${args.uiBase}/session/${sessionID}` : undefined;
+
+  const ctx: FinishedContext = {
+    scenario: args.job.scenario,
+    job: args.job,
+    run: { outDir, slug },
+    opencode: {
+      directory: args.directory,
+      ...(args.projectID ? { projectID: args.projectID } : {}),
+      ...(sessionID ? { sessionID } : {}),
+    },
+    ...(args.tools ? { tools: args.tools } : {}),
+    result: args.result,
+    resumed: args.resumed,
+    meta: {
+      arenaOutDir: args.arenaOutDir,
+      jobOutDir: args.jobOutDir,
+      inputJsonPath: path.join(args.jobOutDir, 'input.json'),
+      runJsonPath: path.join(args.jobOutDir, 'run.json'),
+      uiBase: args.uiBase,
+      liveUrl,
+    },
+  };
+
+  try {
+    await hook(ctx);
+  } catch (error) {
+    consola.warn('onFinished hook failed', { experiment: args.job.experiment, scenario: args.job.scenario.id, error });
+  }
 }
 
 async function readRunJson(filePath: string): Promise<ArenaRunResult | null> {

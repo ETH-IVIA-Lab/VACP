@@ -23,6 +23,14 @@ export function toErrorPayload(error: unknown): { message: string; stack?: strin
   return { message: String(error) };
 }
 
+export function portablePathWithin(rootDir: string, absPath: string) {
+  const root = path.resolve(rootDir);
+  const target = path.resolve(absPath);
+  const rel = path.relative(root, target);
+  if (!rel || rel.startsWith('..') || path.isAbsolute(rel)) return target;
+  return rel;
+}
+
 // --- Timeouts ----------------------------------------------------------
 
 export class TimeoutError extends Error {

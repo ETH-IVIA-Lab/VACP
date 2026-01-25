@@ -82,6 +82,53 @@ export type PromptContext = {
   tools?: Record<string, boolean>;
 };
 
+export type FinishedContext = PromptContext & {
+  /**
+   * The final outcome for this run (success/failure + session id when available).
+   */
+  result: ArenaRunResult;
+
+  /**
+   * True when the run was reused from disk via `resume` (no new session was created).
+   */
+  resumed: boolean;
+
+  /**
+   * Useful file paths and UI links for post-processing.
+   */
+  meta: {
+    /**
+     * Arena output directory (the `--out` folder).
+     */
+    arenaOutDir: string;
+
+    /**
+     * Per-job output directory under `arenaOutDir/runs/...`.
+     */
+    jobOutDir: string;
+
+    /**
+     * Path to the per-run input payload written before prompting.
+     */
+    inputJsonPath?: string;
+
+    /**
+     * Path to the per-run result payload written after completion.
+     */
+    runJsonPath?: string;
+
+    /**
+     * OpenCode UI base URL for this arena invocation (if known).
+     */
+    uiBase?: string;
+
+    /**
+     * OpenCode UI link to the session (if a session was created).
+     */
+    liveUrl?: string;
+  };
+};
+
 export type ToolPolicy =
   /**
    * Tool exposure policy for the agent.
@@ -142,6 +189,13 @@ export type ArenaJob = {
    * If omitted, `agent-arena` uses a default based on experiment + scenario.
    */
   titleTemplate?: (ctx: PromptContext) => string;
+
+  /**
+   * Optional hook called after the run finishes (success, error, or timeout).
+   *
+   * Prefer this for deterministic cleanup (e.g. closing external processes).
+   */
+  onFinished?: (ctx: FinishedContext) => void | Promise<void>;
 
   /**
    * Optional OpenCode agent preset name (if you use OpenCode "agents"/modes).
@@ -276,6 +330,11 @@ export type ArenaConfig = {
    * Default title template applied unless overridden per job.
    */
   titleTemplate?: (ctx: PromptContext) => string;
+
+  /**
+   * Default `onFinished` hook applied unless overridden per job.
+   */
+  onFinished?: (ctx: FinishedContext) => void | Promise<void>;
 };
 
 export type ArenaRunResult = {

@@ -3,7 +3,7 @@ import { consola } from 'consola';
 import type { ArenaConfig, ArenaJob, ArenaRunResult } from '../types.js';
 import { createClient } from '../opencode.js';
 import { buildPrompt, buildTitle, logScenarioStarted } from './helpers.js';
-import { TimeoutError, requireData, toErrorPayload, withTimeout, writeJson } from './util.js';
+import { portablePathWithin, TimeoutError, requireData, toErrorPayload, withTimeout, writeJson } from './util.js';
 
 export async function runScenario(args: {
   config: ArenaConfig;
@@ -163,14 +163,6 @@ export async function runScenario(args: {
       finishedAt: new Date().toISOString(),
     };
   }
-}
-
-function portablePathWithin(rootDir: string, absPath: string) {
-  const root = path.resolve(rootDir);
-  const target = path.resolve(absPath);
-  const rel = path.relative(root, target);
-  if (!rel || rel.startsWith('..') || path.isAbsolute(rel)) return target;
-  return rel;
 }
 
 function computeRunSlug(job: ArenaJob, scenarioId: string) {
