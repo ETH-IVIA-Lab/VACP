@@ -303,7 +303,7 @@ function buildSnapshotInjectedJobs() {
   for (const model of MODELS) {
     for (const scenario of SCENARIO_BASES) {
       jobs.push({
-        experiment: 'withsnapshot',
+        experiment: 'with-snapshot',
         model,
         scenario: {
           id: scenario.id,
