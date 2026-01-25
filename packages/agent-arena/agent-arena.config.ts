@@ -185,7 +185,10 @@ function agentBrowserEfficiencyGuidance(ctx: PromptContext): string[] {
     '- Prefer `click @ref` / `hover @ref` using refs from `snapshot` over CSS selectors, `find`, or `get html`.',
     '- Avoid `agent-browser get html` / large `get text` dumps; they balloon the transcript and slow the run.',
     '- Avoid repeated `mouse` probing / boundingBox loops; do 1 deliberate hover/click, then screenshot + read.',
+    '- Attempt caps (to prevent thrash/timeouts): if an interaction fails (tool error or no visible change), try at most 1 alternative (2 attempts total) then switch strategy. If still blocked, stop early and follow “If you cannot solve” instead of looping until timeout.',
     '- Use `eval` only when necessary to apply a UI change that is hard to do via clicks; never dump large JSON/DOM.',
+    '- Shell-safe `eval` rules (zsh-safe; critical): always pass eval code in SINGLE quotes, like `agent-browser ... eval \'() => { ... }\'`. Inside the JS, prefer DOUBLE quotes for strings. Never use JS template literals/backticks (`` `...` ``) or `${...}`. Avoid unescaped `$`, backticks, or `$(...)` in the eval text (the shell will expand them and break the command).',
+    '- If an `eval` command fails with a shell parse error (e.g. `bad substitution`, `no matches found`, `parse error`), rewrite it to obey the shell-safe rules above and retry at most once.',
     '- Only take step-XX screenshots after a successful state change (don’t screenshot after failed attempts).',
     `- Always use screenshot paths exactly as written (copy/paste): "${ctx.run.outDir}/step-00.png", "${ctx.run.outDir}/step-01.png", ... (don’t rewrite directory segments).`,
     '- Do NOT manually close the browser session; cleanup is handled automatically.',
@@ -196,6 +199,7 @@ function snapshotDomEfficiencyGuidance(): string[] {
   return [
     'Snapshot note (useful but easy to misuse):',
     '- You MAY use `agent-browser eval` to read small bits of `#__vacp_snapshot` to find control IDs/allowed values or to dispatch a specific UI change.',
+    '- When using `eval` with the snapshot, follow the shell-safe `eval` rules above (single quotes, no backticks/`${...}`, keep outputs tiny).',
     '- Do NOT dump the whole snapshot JSON; extract only the minimum needed fields and keep outputs tiny.',
     '- Still ground the final answer in screenshots you READ (visual evidence), not just the snapshot.',
   ];
