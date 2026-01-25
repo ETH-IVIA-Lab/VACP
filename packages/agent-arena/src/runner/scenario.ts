@@ -3,7 +3,7 @@ import { consola } from 'consola';
 import type { ArenaConfig, ArenaJob, ArenaRunResult } from '../types.js';
 import { createClient } from '../opencode.js';
 import { buildPrompt, buildTitle, logScenarioStarted } from './helpers.js';
-import { portablePathWithin, TimeoutError, requireData, toErrorPayload, withTimeout, writeJson } from './util.js';
+import { portablePathWithin, TimeoutError, requireData, sleep, toErrorPayload, withTimeout, writeJson } from './util.js';
 
 export async function runScenario(args: {
   config: ArenaConfig;
@@ -99,9 +99,9 @@ export async function runScenario(args: {
       outDir: args.outDir,
     });
 
-    requireData(
-      await withTimeout(promptTimeoutMs, 'session.prompt', (signal) =>
-        args.client.session.prompt(
+    await withTimeout(promptTimeoutMs, 'session.prompt', async (signal) => {
+      const prompted = await withTimeout(requestTimeoutMs, 'session.promptAsync', (signal) =>
+        args.client.session.promptAsync(
           {
             directory: args.directory,
             sessionID: created.id,
@@ -113,8 +113,10 @@ export async function runScenario(args: {
           },
           { signal },
         ),
-      ),
-    );
+      );
+      if (prompted?.error) throw prompted.error;
+      await waitForSessionIdle({ client: args.client, directory: args.directory, sessionID: created.id, signal });
+    });
 
     const summarize = args.job.summarize ?? false;
     if (summarize) {
@@ -163,6 +165,45 @@ export async function runScenario(args: {
       finishedAt: new Date().toISOString(),
     };
   }
+}
+
+async function waitForSessionIdle(args: {
+  client: ReturnType<typeof createClient>;
+  directory: string;
+  sessionID: string;
+  signal: AbortSignal;
+}) {
+  const baseDelayMs = 750;
+  const startupDelayMs = 250;
+  const maxStartupWaitMs = 5000;
+  const startupChecks = Math.max(1, Math.floor(maxStartupWaitMs / startupDelayMs));
+  let remainingStartupChecks = startupChecks;
+  let sawBusy = false;
+
+  while (!args.signal.aborted) {
+    const statusMap = requireData(await args.client.session.status({ directory: args.directory }, { signal: args.signal }));
+    const status = (statusMap as Record<string, unknown>)[args.sessionID] as { type?: string; next?: number } | undefined;
+    if (!status) {
+      if (!sawBusy && remainingStartupChecks > 0) {
+        remainingStartupChecks -= 1;
+        await sleep(startupDelayMs, args.signal);
+        continue;
+      }
+      return;
+    }
+
+    if (status.type === 'busy' || status.type === 'retry') sawBusy = true;
+    if (status.type === 'idle') return;
+
+    const delayMs =
+      status.type === 'retry' && typeof status.next === 'number'
+        ? Math.min(Math.max(status.next - Date.now(), 250), 5000)
+        : baseDelayMs;
+    await sleep(delayMs, args.signal);
+  }
+
+  // Ensure callers using `withTimeout(..., signal => ...)` treat an aborted signal as a timeout.
+  throw new Error('waitForSessionIdle aborted');
 }
 
 function computeRunSlug(job: ArenaJob, scenarioId: string) {
