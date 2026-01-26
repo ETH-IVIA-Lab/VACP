@@ -209,9 +209,11 @@ function agentBrowserEfficiencyGuidance(ctx: PromptContext): string[] {
 
 function snapshotDomEfficiencyGuidance(): string[] {
   return [
-    'DOM snapshot (`#__vacp_snapshot`) (optional):',
+    'DOM snapshot (`#__vacp_snapshot`) (recommended; semantic map):',
+    '- The snapshot often includes semantic details (e.g., dataset/field names, encodings, current params/filters/selections) that can make the run faster and less brittle.',
+    '- Prefer using it to plan interactions (which control to change / which selection to apply) instead of random UI probing.',
     '- The snapshot content can be large; avoid printing it.',
-    '- If needed, use `agent-browser eval` to extract only small, relevant fields (e.g., identifiers or allowed values for controls).',
+    '- Use `agent-browser eval` to extract only small, relevant fields (e.g., current param values, allowed values, active selection ids).',
     '- When using `eval` with the snapshot, follow the shell-safe `eval` rules above (single quotes, no backticks/`${...}`).',
     '- Ground the final answer in screenshots you READ (visual evidence), not the snapshot alone.',
   ];
@@ -589,7 +591,7 @@ async function closeAgentBrowserSessionHard(sessionID: string) {
 
   const active = await listAgentBrowserSessions();
   if (active.has(sessionID)) {
-    throw new Error(`agent-browser session still active after close retries: ${sessionID}`);
+    console.warn(`[agent-arena] agent-browser session still active after close retries: ${sessionID}`);
   }
 }
 
