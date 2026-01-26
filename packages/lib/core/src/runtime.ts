@@ -46,6 +46,13 @@ export interface VacpRuntimeSnapshot {
   version: VacpCapabilitiesSnapshot['version'];
   /** Stable identifier for the in-page runtime instance (debugging only). */
   runtimeId?: string;
+  /**
+   * Optional session identifier for the currently attached visualization/view.
+   *
+   * When present, tooling can use this to correlate analytics, replays, and
+   * history boundaries across view switches.
+   */
+  sessionKey?: string;
   mode: VacpRuntimeMode;
   cursor: number;
   /** Timeline of observed snapshots and action calls/results. */
