@@ -153,44 +153,60 @@ async function waitForHistoryAction(
   }
 }
 
-async function findFirstTooltipCenter(page: Page, timeoutMs = 15_000): Promise<{ x: number; y: number } | null> {
-  const start = Date.now();
-  while (true) {
-    const point = await page.evaluate(() => {
-      const view = (globalThis as any).__vegaView;
-      const handler = view?._handler;
-      if (!view || !handler || typeof handler.getItemBoundingClientRect !== 'function') return null;
+async function hoverUntilTooltipAction(page: Page, minHistoryLen: number, timeoutMs = 15_000): Promise<void> {
+  const startedAt = Date.now();
 
-      const root = view.scenegraph?.().root ?? null;
-      if (!root) return null;
+  // We intentionally do not rely on `window.__vegaView` being present. Instead,
+  // we take a best-effort set of mark centers from the SVG DOM and hover until
+  // the VACP adapter records a `vega_lite.hover_tooltip` human action.
+  const points = await page.evaluate(() => {
+    const svg = document.querySelector('#app svg.marks');
+    if (!(svg instanceof SVGSVGElement)) return [];
 
-      const stack: any[] = [root];
-      const visited = new Set<any>();
+    const elements = Array.from(
+      svg.querySelectorAll<SVGGraphicsElement>('.role-mark rect, .role-mark path, .role-mark circle'),
+    );
 
-      while (stack.length) {
-        const node = stack.pop();
-        if (!node || typeof node !== 'object') continue;
-        if (visited.has(node)) continue;
-        visited.add(node);
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
 
-        if (node.tooltip != null && node.bounds) {
-          const rect = handler.getItemBoundingClientRect(node);
-          if (rect && Number.isFinite(rect.x) && Number.isFinite(rect.y) && rect.width > 0 && rect.height > 0) {
-            return { x: rect.x + rect.width * 0.5, y: rect.y + rect.height * 0.5 };
-          }
-        }
+    const candidates: Array<{ x: number; y: number; area: number }> = [];
+    for (const el of elements) {
+      const rect = el.getBoundingClientRect();
+      const x = rect.x + rect.width * 0.5;
+      const y = rect.y + rect.height * 0.5;
+      if (!Number.isFinite(x) || !Number.isFinite(y)) continue;
+      if (!Number.isFinite(rect.width) || !Number.isFinite(rect.height)) continue;
+      if (rect.width <= 0 || rect.height <= 0) continue;
+      if (x < 0 || y < 0 || x > vw || y > vh) continue;
+      candidates.push({ x, y, area: rect.width * rect.height });
+    }
 
-        const items = node.items;
-        if (Array.isArray(items)) for (const child of items) stack.push(child);
-      }
+    // Prefer smaller marks (points/bars) to reduce the chance of hitting a large background.
+    candidates.sort((a, b) => a.area - b.area);
+    return candidates.slice(0, 80).map(({ x, y }) => ({ x, y }));
+  });
 
-      return null;
-    });
+  if (points.length === 0) throw new Error('No Vega-Lite marks found to hover for tooltip');
 
-    if (point && Number.isFinite(point.x) && Number.isFinite(point.y)) return point;
-    if (Date.now() - start > timeoutMs) return null;
-    await page.waitForTimeout(150);
+  for (const point of points) {
+    const remainingMs = timeoutMs - (Date.now() - startedAt);
+    if (remainingMs <= 0) break;
+
+    await page.mouse.move(point.x, point.y);
+    try {
+      await waitForHistoryAction(
+        page,
+        { name: 'vega_lite.hover_tooltip', source: 'human', minHistoryLen },
+        Math.min(2_000, remainingMs),
+      );
+      return;
+    } catch {
+      // Try the next mark.
+    }
   }
+
+  throw new Error('Timed out hovering marks waiting for a Vega-Lite tooltip action');
 }
 
 function stableJson(value: unknown): string {
@@ -402,16 +418,7 @@ test('examples: vega-lite-gallery', async ({ page }) => {
       // Hover a mark with tooltip and expect a corresponding human action entry.
       const rtBeforeHover = await getRuntime(page);
       const beforeHoverHist = Array.isArray(rtBeforeHover?.history) ? rtBeforeHover.history.length : 0;
-      const tooltipPoint = await findFirstTooltipCenter(page);
-      expect(tooltipPoint).toBeTruthy();
-      if (tooltipPoint) {
-        await page.mouse.move(tooltipPoint.x, tooltipPoint.y);
-        await waitForHistoryAction(page, {
-          name: 'vega_lite.hover_tooltip',
-          source: 'human',
-          minHistoryLen: beforeHoverHist + 1,
-        });
-      }
+      await hoverUntilTooltipAction(page, beforeHoverHist + 1);
 
       const resHover = await dataSql(page, { handleRef, sql: 'SELECT COUNT(*)::INTEGER AS n FROM vacp_handle' });
       expect(resHover.ok).toBeTruthy();
