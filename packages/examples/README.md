@@ -52,3 +52,8 @@ This makes it easier to run automated evaluation across multiple demos without m
 - Overlay: `VACP_DEBUG_UI=0|1` or `?vacp-debug=0|1` (also supports localStorage `vacp:debug=1`).
 - Bridge exposure (controls whether `window.__vacp` exists at all): `VACP_EXPOSE_BRIDGE=0|1` or `?expose-bridge=0|1`.
 - DOM snapshot injection: `VACP_DOM_SNAPSHOT=0|1` or `?vacp-dom-snapshot=0|1`.
+- Analytics (optional, PostHog):
+  - Enable: set `VACP_POSTHOG_API_KEY=...` (uses `posthog-js` and defaults `api_host` to `https://us.i.posthog.com`).
+  - Self-hosted: set `VACP_POSTHOG_API_HOST=https://your-posthog.example.com`.
+  - Optional: set `VACP_POSTHOG_DEFAULTS=2025-11-30` to pass `defaults` through to `posthog.init`.
+  - Optional: set `VACP_POSTHOG_CAPTURE_SNAPSHOTS=1` to include state snapshots (throttled to ~1/sec to avoid brush spam).
