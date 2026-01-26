@@ -3,6 +3,7 @@ import type {
   VacpActionDescriptor,
   VacpCapabilitiesSnapshot,
   VacpChangeSource,
+  VacpRuntimeBridge,
   VacpStateSnapshot,
 } from '@vacp/core';
 import { nowIso, splitVacpRefAt, VACP_SCHEMA_VERSION } from '@vacp/core';
@@ -249,7 +250,7 @@ export function installVacpOnVegaLiteView(args: {
   view: VegaViewLike;
   spec: VegaLiteSpecLike;
   options: InstallVacpOnVegaLiteOptions;
-}): void {
+}): VacpRuntimeBridge {
   const { view, spec, options } = args;
 
   const actionRegistry = new VacpActionRegistry();
@@ -619,4 +620,6 @@ export function installVacpOnVegaLiteView(args: {
     });
     watched.forEach((s) => view.addSignalListener?.(s, onSignal));
   }
+
+  return bridge;
 }
