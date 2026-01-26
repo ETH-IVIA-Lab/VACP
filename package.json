@@ -11,6 +11,7 @@
     "dev:cars": "pnpm --filter vacp-example-cars-parallel-coords dev:full",
     "dev:react-dashboard": "pnpm --filter vacp-example-react-dashboard dev:full",
     "dev:examples": "node scripts/examples-hub-dev.mjs",
+    "dev:examples:posthog": "VACP_POSTHOG_API_KEY=phc_IbpHrcaOBqVCTARECzfuOO4nw0B0ViSE4eLwyAnw7Oo VACP_POSTHOG_API_HOST=https://us.i.posthog.com VACP_POSTHOG_DEFAULTS=2025-11-30 VACP_POSTHOG_CAPTURE_SNAPSHOTS=1 pnpm dev:examples",
     "start:examples": "pnpm build:examples-hub && node scripts/examples-hub-start.mjs",
     "lint": "pnpm -r lint",
     "typecheck": "pnpm -r typecheck",

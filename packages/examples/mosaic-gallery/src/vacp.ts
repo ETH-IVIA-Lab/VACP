@@ -5,6 +5,7 @@
  * actions on top, without changing how the visualization is authored.
  */
 
+import { installVacpPosthogAnalytics } from '@vacp/analytics';
 import { installVacpOnVgplotDashboard, type VgplotPlotLike, type VgplotTableLike } from '@vacp/vgplot';
 import type { VacpDuckDbClient } from '@vacp/duckdb';
 import { buildMosaicPlaybooks } from './playbooks';
@@ -19,13 +20,16 @@ export function installVacp(args: {
   globalKey?: string;
   duckdbClient: VacpDuckDbClient;
 }): void {
-  installVacpOnVgplotDashboard({
+  const appId = 'vacp-examples';
+  const viewId = `mosaic/${args.entry.id}`;
+
+  const bridge = installVacpOnVgplotDashboard({
     root: args.root,
     plots: args.plots,
     tables: args.tables,
     options: {
-      appId: 'vacp-examples',
-      viewId: `mosaic/${args.entry.id}`,
+      appId,
+      viewId,
       title: args.entry.meta.title,
       globalKey: args.globalKey,
       playbooks: buildMosaicPlaybooks({
@@ -37,4 +41,23 @@ export function installVacp(args: {
       duckdbClient: args.duckdbClient,
     },
   });
+
+  // Optional analytics: if PostHog is configured, stream VACP history into the session replay.
+  const posthogApiKey = import.meta.env.VACP_POSTHOG_API_KEY as string | undefined;
+  if (posthogApiKey) {
+    const posthogDefaults = import.meta.env.VACP_POSTHOG_DEFAULTS as string | undefined;
+    const captureSnapshots = (import.meta.env.VACP_POSTHOG_CAPTURE_SNAPSHOTS as string | undefined) === '1';
+    installVacpPosthogAnalytics({
+      bridge,
+      posthog: {
+        apiKey: posthogApiKey,
+        apiHost: import.meta.env.VACP_POSTHOG_API_HOST as string | undefined,
+        config: posthogDefaults ? { defaults: posthogDefaults } : undefined,
+      },
+      analytics: {
+        getBaseProperties: () => ({ vacp_app_id: appId, vacp_view_id: viewId }),
+        captureSnapshots,
+      },
+    });
+  }
 }

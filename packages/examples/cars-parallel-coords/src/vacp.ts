@@ -7,6 +7,7 @@ import {
   makeVacpDuckDbTableName,
   sqlIdentifier,
 } from '@vacp/kit';
+import { installVacpPosthogAnalytics } from '@vacp/analytics';
 import { createDuckDbWasmClient, getDuckDbTableMetadata, type VacpDuckDbTableMetadata } from '@vacp/duckdb';
 import { VACP_SCHEMA_VERSION, type VacpRef } from '@vacp/core';
 import type { VacpPlaybook } from '@vacp/core';
@@ -475,6 +476,25 @@ export function installVacpForCarsParallelCoords(args: {
     },
     playbooks: buildPlaybooks(),
   });
+
+  // Optional analytics: if PostHog is configured, stream VACP history into the session replay.
+  const posthogApiKey = import.meta.env.VACP_POSTHOG_API_KEY as string | undefined;
+  if (posthogApiKey) {
+    const posthogDefaults = import.meta.env.VACP_POSTHOG_DEFAULTS as string | undefined;
+    const captureSnapshots = (import.meta.env.VACP_POSTHOG_CAPTURE_SNAPSHOTS as string | undefined) === '1';
+    installVacpPosthogAnalytics({
+      bridge: vacp.bridge,
+      posthog: {
+        apiKey: posthogApiKey,
+        apiHost: import.meta.env.VACP_POSTHOG_API_HOST as string | undefined,
+        config: posthogDefaults ? { defaults: posthogDefaults } : undefined,
+      },
+      analytics: {
+        getBaseProperties: () => ({ vacp_app_id: appId, vacp_view_id: viewId, vacp_viz_id: vizId }),
+        captureSnapshots,
+      },
+    });
+  }
 
   return { ...vacp, refs: { viewRef, vizRef, brushRef, orderRef, hoverRef, handleRef } };
 }

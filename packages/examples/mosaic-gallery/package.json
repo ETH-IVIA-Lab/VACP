@@ -15,6 +15,7 @@
     "@uwdata/mosaic-core": "^0.21.1",
     "@uwdata/mosaic-spec": "^0.21.1",
     "@uwdata/vgplot": "^0.21.1",
+    "@vacp/analytics": "workspace:*",
     "@vacp/core": "workspace:*",
     "@vacp/debug-ui": "workspace:*",
     "@vacp/duckdb": "workspace:*",
