@@ -12,6 +12,7 @@ import {
   writeVacpDomSnapshotScript,
   type VacpDomSnapshotSource,
 } from '../dom-snapshot';
+import { purgeVacpWindowGlobals, resolveVacpGlobalKey } from '../window-globals';
 
 const HIDDEN_RUNTIME_BRIDGES = new Map<string, VacpUpdatableRuntimeBridge>();
 
@@ -86,7 +87,7 @@ export function installVacpRuntimeBridge(args: {
   /** Optional override for the injected `<script>` element id. */
   domSnapshotScriptId?: string;
 }): VacpRuntimeBridge {
-  const key = args.globalKey ?? '__vacp';
+  const key = resolveVacpGlobalKey(args.globalKey);
   const exposeBridge = getVacpHyperParams().exposeBridge;
   const domSnapshotEnabled = args.injectDomSnapshot ?? getVacpHyperParams().domSnapshot;
   const domSnapshotScriptId = args.domSnapshotScriptId ?? defaultVacpDomSnapshotScriptId(key);
@@ -94,11 +95,11 @@ export function installVacpRuntimeBridge(args: {
 
   const root = globalThis as unknown as Record<string, unknown>;
   if (!exposeBridge) {
-    try {
-      delete root[key];
-    } catch {
-      root[key] = undefined;
-    }
+    // Move an existing runtime bridge off `window` so history can remain stable,
+    // then purge all `window[${globalKey}*]` globals for hardening.
+    const existingFromWindow = root[key];
+    if (isUpdatableRuntimeBridge(existingFromWindow)) HIDDEN_RUNTIME_BRIDGES.set(key, existingFromWindow);
+    purgeVacpWindowGlobals(key);
   }
 
   const existingFromWindow = root[key];

@@ -6,6 +6,7 @@ import {
   removeVacpDomSnapshotScript,
   updateVacpDomSnapshotScript,
 } from './dom-snapshot';
+import { purgeVacpWindowGlobals, resolveVacpGlobalKey } from './window-globals';
 
 export interface VacpWindowBridgeOptions {
   globalKey?: string;
@@ -36,17 +37,13 @@ export interface VacpWindowBridgeOptions {
  * - no DOM scanning is needed for discovery/state/control
  */
 export function installVacpWindowBridge(bridge: VacpWindowBridge, options?: VacpWindowBridgeOptions): void {
-  const key = options?.globalKey ?? '__vacp';
   const root = globalThis as unknown as Record<string, unknown>;
+  const key = resolveVacpGlobalKey(options?.globalKey);
   const exposeBridge = getVacpHyperParams().exposeBridge;
   if (exposeBridge) {
     root[key] = bridge;
   } else {
-    try {
-      delete root[key];
-    } catch {
-      root[key] = undefined;
-    }
+    purgeVacpWindowGlobals(key);
   }
 
   const scriptId = options?.domSnapshotScriptId ?? defaultVacpDomSnapshotScriptId(key);
@@ -69,7 +66,7 @@ export function installVacpWindowBridge(bridge: VacpWindowBridge, options?: Vacp
  */
 export function getVacpWindowBridge(options?: VacpWindowBridgeOptions): VacpWindowBridge | undefined {
   if (!getVacpHyperParams().exposeBridge) return undefined;
-  const key = options?.globalKey ?? '__vacp';
+  const key = resolveVacpGlobalKey(options?.globalKey);
   const value = (globalThis as unknown as Record<string, unknown>)[key];
   if (!value || typeof value !== 'object') return undefined;
   const maybe = value as Partial<VacpWindowBridge>;
