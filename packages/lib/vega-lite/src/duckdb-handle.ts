@@ -1,4 +1,4 @@
-import type { VacpActionDescriptor, VacpRef } from '@vacp/core';
+import { getVacpHyperParams, type VacpActionDescriptor, type VacpRef } from '@vacp/core';
 import type { VacpDuckDbClient, VacpDuckDbTableMetadata } from '@vacp/duckdb';
 import {
   createDuckDbDataSqlHandler,
@@ -20,6 +20,11 @@ export type VegaLiteDuckDbDataHandle = {
   sourceId: string;
   ensureMetadata: () => Promise<VacpDuckDbTableMetadata | null>;
 };
+
+// When `expose-bridge=0`, we should not stash internal handles on `window`.
+// These in-module caches keep DuckDB reuse without adding global surface area.
+const HIDDEN_DUCKDB_CLIENTS = new Map<string, Promise<VacpDuckDbClient>>();
+const HIDDEN_TABLE_NAMES = new Map<string, Record<string, string>>();
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return !!value && typeof value === 'object' && !Array.isArray(value);
@@ -424,14 +429,27 @@ export function installVegaLiteDuckDbDataHandles(args: {
   const enableDuckDb = options.enableDuckDbDataHandle ?? true;
   if (!enableDuckDb) return [];
 
+  const globalKey = typeof options.globalKey === 'string' && options.globalKey.length ? options.globalKey : '__vacp';
+  const exposeBridge = getVacpHyperParams().exposeBridge;
+
   const duckdbPromise: Promise<VacpDuckDbClient> = (() => {
     if (options.duckdbClient) return Promise.resolve(options.duckdbClient);
+
+    if (!exposeBridge) {
+      const existing = HIDDEN_DUCKDB_CLIENTS.get(globalKey);
+      if (existing) return existing;
+      const created: Promise<VacpDuckDbClient> = createDuckDbWasmClient({ log: false });
+      HIDDEN_DUCKDB_CLIENTS.set(globalKey, created);
+      return created;
+    }
+
     const rootAny = globalThis as unknown as Record<string, unknown>;
-    const existing = rootAny.__vacpDuckDbClient;
+    const key = `${globalKey}DuckDbClient`;
+    const existing = rootAny[key];
     if (existing && typeof (existing as Promise<unknown>).then === 'function')
       return existing as Promise<VacpDuckDbClient>;
     const created: Promise<VacpDuckDbClient> = createDuckDbWasmClient({ log: false });
-    rootAny.__vacpDuckDbClient = created;
+    rootAny[key] = created;
     return created;
   })();
 
@@ -529,15 +547,39 @@ export function installVegaLiteDuckDbDataHandles(args: {
     const tableName = (() => {
       const name = makeVacpDuckDbTableName({ prefix: base, parts: [s.id] });
 
-      const rootAny = globalThis as unknown as {
-        __vacpVegaLiteDuckDbTables?: Record<string, string | Record<string, string>>;
-      };
-      const map = (rootAny.__vacpVegaLiteDuckDbTables ??= {});
+      const cacheKey = `${globalKey}|${viewKey}`;
+      if (!exposeBridge) {
+        const viewMap = HIDDEN_TABLE_NAMES.get(cacheKey) ?? {};
+        const prev = viewMap[suffix] ?? null;
+        viewMap[suffix] = name;
+        HIDDEN_TABLE_NAMES.set(cacheKey, viewMap);
+        if (prev && prev !== name)
+          void duckdbPromise.then((db) => db.exec(`DROP TABLE IF EXISTS main.${prev}`)).catch(() => {});
+        return name;
+      }
+
+      const rootAny = globalThis as unknown as Record<string, unknown>;
+      const key = `${globalKey}VegaLiteDuckDbTables`;
+
+      const map = (() => {
+        const raw = rootAny[key];
+        if (raw instanceof Map) {
+          // Backwards/forwards safety during hot reload: if a previous version stored a Map, drop it.
+          const created: Record<string, unknown> = {};
+          rootAny[key] = created;
+          return created;
+        }
+        if (isRecord(raw)) return raw;
+        const created: Record<string, unknown> = {};
+        rootAny[key] = created;
+        return created;
+      })() as Record<string, string | Record<string, string>>;
+
       const prevValue = map[viewKey];
       const viewMap: Record<string, string> =
         typeof prevValue === 'object' && prevValue !== null ? (prevValue as Record<string, string>) : {};
 
-      const prev = viewMap[suffix];
+      const prev = viewMap[suffix] ?? null;
       viewMap[suffix] = name;
       map[viewKey] = viewMap;
 
