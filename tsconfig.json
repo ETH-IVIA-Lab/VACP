@@ -2,6 +2,7 @@
   "files": [],
   "references": [
     { "path": "packages/lib/core" },
+    { "path": "packages/lib/analytics" },
     { "path": "packages/lib/gateway" },
     { "path": "packages/lib/duckdb" },
     { "path": "packages/lib/diagrams" },
