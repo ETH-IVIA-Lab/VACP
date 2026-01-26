@@ -17,4 +17,3 @@ export function installVacpPosthogAnalytics(args: InstallVacpPosthogAnalyticsArg
   const provider = createPosthogProvider(args.posthog);
   return installVacpRuntimeAnalytics({ bridge: args.bridge, provider, options: args.analytics });
 }
-

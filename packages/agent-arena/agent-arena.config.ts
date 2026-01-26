@@ -7,9 +7,7 @@ import { mcpToolId } from './src/opencode-ids';
 
 const BASE_URL = 'http://127.0.0.1:5173';
 
-const MODELS = [
-  { providerID: 'openai', modelID: 'gpt-5.2' },
-];
+const MODELS = [{ providerID: 'openai', modelID: 'gpt-5.2' }];
 
 export const SCENARIO_BASES = [
   {

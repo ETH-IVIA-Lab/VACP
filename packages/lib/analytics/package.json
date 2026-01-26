@@ -18,7 +18,7 @@
     "typecheck": "tsc -b"
   },
   "dependencies": {
-    "posthog-js": "^1.335.2",
-    "@vacp/core": "workspace:*"
+    "@vacp/core": "workspace:*",
+    "posthog-js": "^1.335.2"
   }
 }

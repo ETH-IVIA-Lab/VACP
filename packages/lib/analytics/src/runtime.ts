@@ -1,6 +1,10 @@
 import type { VacpHistoryEntry, VacpRuntimeBridge, VacpRuntimeSnapshot } from '@vacp/core';
 
-import type { InstallVacpRuntimeAnalyticsArgs, VacpRuntimeAnalyticsInstallation, VacpRuntimeAnalyticsOptions } from './types';
+import type {
+  InstallVacpRuntimeAnalyticsArgs,
+  VacpRuntimeAnalyticsInstallation,
+  VacpRuntimeAnalyticsOptions,
+} from './types';
 
 type VacpRuntimeMeta = Readonly<{
   runtimeId?: string;
@@ -11,7 +15,8 @@ function getRuntimeMeta(bridge: VacpRuntimeBridge, runtime: VacpRuntimeSnapshot 
   // Prefer the public `getRuntime()` snapshot, but fall back to gateway’s
   // internal fields for stability across view switches without polling.
   const runtimeId = runtime?.runtimeId ?? (bridge as VacpRuntimeBridge & { __vacpRuntimeId?: string }).__vacpRuntimeId;
-  const sessionKey = runtime?.sessionKey ?? (bridge as VacpRuntimeBridge & { __vacpSessionKey?: string }).__vacpSessionKey;
+  const sessionKey =
+    runtime?.sessionKey ?? (bridge as VacpRuntimeBridge & { __vacpSessionKey?: string }).__vacpSessionKey;
   return {
     ...(runtimeId ? { runtimeId } : {}),
     ...(sessionKey ? { sessionKey } : {}),
@@ -90,7 +95,8 @@ export function installVacpRuntimeAnalytics(args: InstallVacpRuntimeAnalyticsArg
   const bridgeWithRegistry = bridge as VacpRuntimeBridge & {
     __vacpAnalyticsInstallations?: Map<string, VacpRuntimeAnalyticsInstallation>;
   };
-  const registry = bridgeWithRegistry.__vacpAnalyticsInstallations ?? new Map<string, VacpRuntimeAnalyticsInstallation>();
+  const registry =
+    bridgeWithRegistry.__vacpAnalyticsInstallations ?? new Map<string, VacpRuntimeAnalyticsInstallation>();
   bridgeWithRegistry.__vacpAnalyticsInstallations = registry;
 
   const existing = registry.get(installKey);
@@ -181,14 +187,17 @@ export function installVacpRuntimeAnalytics(args: InstallVacpRuntimeAnalyticsArg
     pendingSnapshot = entry;
 
     if (snapshotTimer !== null) return;
-    snapshotTimer = globalThis.setTimeout(() => {
-      snapshotTimer = null;
-      if (!pendingSnapshot) return;
-      const next = pendingSnapshot;
-      pendingSnapshot = null;
-      lastSnapshotCapturedAtMs = Date.now();
-      captureEntryNow(next);
-    }, Math.max(0, nextAllowedAt - now)) as unknown as number;
+    snapshotTimer = globalThis.setTimeout(
+      () => {
+        snapshotTimer = null;
+        if (!pendingSnapshot) return;
+        const next = pendingSnapshot;
+        pendingSnapshot = null;
+        lastSnapshotCapturedAtMs = Date.now();
+        captureEntryNow(next);
+      },
+      Math.max(0, nextAllowedAt - now),
+    ) as unknown as number;
   };
 
   if (shouldStartRecording) safe(() => provider.startSessionRecording?.());

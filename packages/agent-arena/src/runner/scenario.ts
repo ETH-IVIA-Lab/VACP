@@ -196,8 +196,12 @@ async function waitForSessionIdle(args: {
   let sawBusy = false;
 
   while (!args.signal.aborted) {
-    const statusMap = requireData(await args.client.session.status({ directory: args.directory }, { signal: args.signal }));
-    const status = (statusMap as Record<string, unknown>)[args.sessionID] as { type?: string; next?: number } | undefined;
+    const statusMap = requireData(
+      await args.client.session.status({ directory: args.directory }, { signal: args.signal }),
+    );
+    const status = (statusMap as Record<string, unknown>)[args.sessionID] as
+      | { type?: string; next?: number }
+      | undefined;
     if (!status) {
       if (!sawBusy && remainingStartupChecks > 0) {
         remainingStartupChecks -= 1;
