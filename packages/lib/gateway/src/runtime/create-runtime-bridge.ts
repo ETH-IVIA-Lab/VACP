@@ -302,6 +302,7 @@ export function createRuntimeBridge(args: {
       return {
         version: VACP_SCHEMA_VERSION,
         runtimeId,
+        sessionKey: sessionKey ?? undefined,
         mode,
         cursor,
         history: [...history],
