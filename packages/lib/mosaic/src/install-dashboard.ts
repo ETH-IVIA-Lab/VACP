@@ -1,4 +1,4 @@
-import type { VacpChangeSource, VacpRef } from '@vacp/core';
+import type { VacpChangeSource, VacpRef, VacpRuntimeBridge } from '@vacp/core';
 import { createDuckDbDataSqlHandler, getDuckDbTableMetadata } from '@vacp/duckdb';
 import {
   installVacpRuntimeBridge,
@@ -28,7 +28,7 @@ export function installVacpOnVgplotDashboard(args: {
   plots: Array<{ plotId: string; plot: VgplotPlotLike; element: Element; svg?: SVGElement }>;
   tables?: Array<{ tableId: string; table: VgplotTableLike; element: Element }>;
   options: InstallVacpOnVgplotDashboardOptions;
-}): void {
+}): VacpRuntimeBridge {
   const { root, plots, options } = args;
   const tables = args.tables ?? [];
 
@@ -314,4 +314,5 @@ export function installVacpOnVgplotDashboard(args: {
   installMosaicTableObservers({ tables, notifyRuntime });
 
   notifyRuntime('installed', { immediate: true });
+  return bridge;
 }
