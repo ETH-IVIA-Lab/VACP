@@ -49,6 +49,10 @@ export function createParallelCoordsChart(args: {
   dimensions: string[];
   onStateChange?: (state: ParallelCoordsState, change: { source: ParallelCoordsSource; message: string }) => void;
 }) {
+  const lineStroke = '#a8d5e2';
+  const lineStrokeWidth = 2;
+  const lineStrokeWidthHovered = 3;
+
   const margin = { top: 30, right: 50, bottom: 30, left: 50 };
   const height = 400;
 
@@ -168,6 +172,13 @@ export function createParallelCoordsChart(args: {
       .x((_v, i) => scales[ordered[i]!]!.x)
       .y((v, i) => scales[ordered[i]!]!.scale(v));
 
+    const updateHoverStrokeWidths = (): void => {
+      g.selectAll<SVGPathElement, CarDatum>('.line.selected').style('stroke-width', (d) => {
+        if (!selectedIds.has(d.id)) return 1;
+        return d.id === hoveredId ? lineStrokeWidthHovered : lineStrokeWidth;
+      });
+    };
+
     g.selectAll<SVGPathElement, CarDatum>('.line')
       .data(args.data)
       .enter()
@@ -175,18 +186,17 @@ export function createParallelCoordsChart(args: {
       .attr('class', (d) => (selectedIds.has(d.id) ? 'line selected' : 'line'))
       .attr('d', (d) => line(ordered.map((dim) => toNumber(d[dim]))))
       .style('opacity', (d) => (selectedIds.has(d.id) ? 0.9 : 0))
-      .style('stroke', (d) => {
-        if (!selectedIds.has(d.id)) return '#d4c5e8';
-        return d.id === hoveredId ? '#ffb000' : '#a8d5e2';
-      })
+      .style('stroke', lineStroke)
       .style('stroke-width', (d) => {
         if (!selectedIds.has(d.id)) return 1;
-        return d.id === hoveredId ? 3 : 2;
+        return d.id === hoveredId ? lineStrokeWidthHovered : lineStrokeWidth;
       })
       .style('pointer-events', (d) => (selectedIds.has(d.id) ? 'all' : 'none'))
       .on('mouseover', (event, d) => {
         if (!selectedIds.has(d.id)) return;
+        hoveredId = d.id;
         showTooltip(event, d);
+        updateHoverStrokeWidths();
         emit('human', 'hover line');
       })
       .on('mousemove', (event, d) => {
@@ -195,7 +205,9 @@ export function createParallelCoordsChart(args: {
         void d;
       })
       .on('mouseout', () => {
+        hoveredId = null;
         hideTooltip();
+        updateHoverStrokeWidths();
         emit('human', 'clear hover');
       });
 
@@ -305,25 +317,21 @@ export function createParallelCoordsChart(args: {
       .text((d) => d)
       .call(d3.drag<SVGTextElement, string>().on('start', dragStarted).on('drag', dragged).on('end', dragEnded));
 
-    const brushed = (event: d3.D3BrushEvent<CarDatum>, dim: string, scale: d3.ScaleLinear<number, number>): void => {
-      if (!event.selection) return;
-      if (!(event.sourceEvent instanceof Event)) return;
-
-      const y0 = scale.invert(event.selection[0] as number);
-      const y1 = scale.invert(event.selection[1] as number);
-
-      const [lo, hi] = extents[dim] ?? [0, 0];
-      brushRanges[dim] = clampRange([y1, y0], lo, hi);
-
-      computeSelection();
-
-      d3.select(args.root)
-        .selectAll<SVGPathElement, CarDatum>('.line')
-        .attr('class', (d) => (selectedIds.has(d.id) ? 'line selected' : 'line'))
-        .style('opacity', (d) => (selectedIds.has(d.id) ? 0.9 : 0))
-        .style('pointer-events', (d) => (selectedIds.has(d.id) ? 'all' : 'none'));
-
-      emit('human', 'brush selection');
+    const applyBrushSelectionStyle = (
+      brushGroup: d3.Selection<SVGGElement, unknown, null, undefined>,
+      opts: { show: boolean },
+    ): void => {
+      const selectionOpacity = opts.show ? 0.2 : 0;
+      const strokeOpacity = opts.show ? 1 : 0;
+      brushGroup
+        .selectAll<SVGRectElement, unknown>('.selection')
+        .attr('stroke', 'black')
+        .attr('stroke-width', 2)
+        .attr('stroke-dasharray', '4,4')
+        .attr('stroke-opacity', strokeOpacity)
+        .attr('fill', 'black')
+        .attr('fill-opacity', selectionOpacity);
+      brushGroup.selectAll<SVGRectElement, unknown>('.handle').attr('opacity', opts.show ? 1 : 0);
     };
 
     axisGroups.each(function (dim) {
@@ -332,14 +340,48 @@ export function createParallelCoordsChart(args: {
       const [lo, hi] = extents[dim] ?? [0, 0];
       const range = brushRanges[dim] ?? [lo, hi];
 
+      const brushGroup = axisGroup.append('g').attr('class', 'brush');
+
       const brush = d3
         .brushY()
         .extent([
           [-20, 0],
           [20, plotHeight],
         ])
-        .on('brush', (event) => brushed(event, dim, scale))
+        .on('brush', (event) => {
+          const hasSelection = Boolean(event.selection);
+          applyBrushSelectionStyle(brushGroup, { show: hasSelection });
+
+          if (!event.selection) return;
+          if (!(event.sourceEvent instanceof Event)) return;
+
+          const y0 = scale.invert(event.selection[0] as number);
+          const y1 = scale.invert(event.selection[1] as number);
+
+          brushRanges[dim] = clampRange([y1, y0], lo, hi);
+          computeSelection();
+
+          if (hoveredId !== null && !selectedIds.has(hoveredId)) {
+            hoveredId = null;
+            hideTooltip();
+          }
+
+          d3.select(args.root)
+            .selectAll<SVGPathElement, CarDatum>('.line')
+            .attr('class', (d) => (selectedIds.has(d.id) ? 'line selected' : 'line'))
+            .style('opacity', (d) => (selectedIds.has(d.id) ? 0.9 : 0))
+            .style('stroke', lineStroke)
+            .style('stroke-width', (d) => {
+              if (!selectedIds.has(d.id)) return 1;
+              return d.id === hoveredId ? lineStrokeWidthHovered : lineStrokeWidth;
+            })
+            .style('pointer-events', (d) => (selectedIds.has(d.id) ? 'all' : 'none'));
+
+          emit('human', 'brush selection');
+        })
         .on('end', (event) => {
+          const hasSelection = Boolean(event.selection);
+          applyBrushSelectionStyle(brushGroup, { show: hasSelection });
           if (event.selection) return;
           brushRanges[dim] = [lo, hi];
           computeSelection();
@@ -347,25 +389,11 @@ export function createParallelCoordsChart(args: {
           render();
         });
 
-      const brushGroup = axisGroup.append('g').attr('class', 'brush').call(brush);
+      brushGroup.call(brush);
 
       const isFiltering = range[0] !== lo || range[1] !== hi;
-      const selectionOpacity = isFiltering ? 0.2 : 0;
-
-      brushGroup
-        .selectAll<SVGRectElement, unknown>('.selection')
-        .attr('stroke', 'black')
-        .attr('stroke-width', 2)
-        .attr('stroke-dasharray', '4,4')
-        .attr('fill', 'black')
-        .attr('fill-opacity', selectionOpacity)
-        .attr('stroke-opacity', isFiltering ? 1 : 0);
-
-      brushGroup.selectAll<SVGRectElement, unknown>('.handle').attr('opacity', isFiltering ? 1 : 0);
-
-      if (isFiltering) {
-        brushGroup.call(brush.move as any, [scale(range[1]), scale(range[0])]);
-      }
+      if (isFiltering) brushGroup.call(brush.move as any, [scale(range[1]), scale(range[0])]);
+      applyBrushSelectionStyle(brushGroup, { show: isFiltering });
     });
   };
 
