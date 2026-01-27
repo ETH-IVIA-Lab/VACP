@@ -160,6 +160,8 @@ export function DataModule(props: VacpDebugModuleProps): ReactElement {
     return found?.title ?? null;
   }, [handles, selectedHandle]);
 
+  const canRun = Boolean(selectedHandle);
+
   return (
     <div ref={rootRef} className={cn('grid h-full min-h-0 grid-rows-[auto_minmax(0,1fr)]', dense ? 'gap-2' : 'gap-3')}>
       <Card className={cn('flex flex-col', dense ? 'gap-2 p-2' : 'gap-3')}>
@@ -184,6 +186,7 @@ export function DataModule(props: VacpDebugModuleProps): ReactElement {
               title="Run the SQL query against this handle."
               variant="primary"
               size={iconButtonSize}
+              disabled={!canRun || dataSql.status === 'running'}
               onMouseDown={(ev) => ev.preventDefault()}
               onClick={() => void run()}
             />
@@ -200,6 +203,7 @@ export function DataModule(props: VacpDebugModuleProps): ReactElement {
               label="Copy SQL"
               title="Copy the current SQL to clipboard."
               size={iconButtonSize}
+              disabled={!selectedSql.trim()}
               onMouseDown={(ev) => ev.preventDefault()}
               onClick={() => void copyTextToClipboard(selectedSql)}
             />
@@ -258,7 +262,7 @@ export function DataModule(props: VacpDebugModuleProps): ReactElement {
                   <span className="text-slate-100/60">({shortRef(selectedHandle)})</span>
                 </>
               ) : (
-                'Select a DataHandle to query.'
+                handles.length ? 'Select a DataHandle to query.' : 'No DataHandles available for this view.'
               )}
             </CardDescription>
           </div>
