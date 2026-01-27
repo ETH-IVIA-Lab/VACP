@@ -175,6 +175,12 @@ const CHART_READY_SCREENSHOT_NAME = 'step-00.png';
 
 const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 
+const OPENCODE_ATTACH_DIRECTORY = (() => {
+  const raw = process.env.VACP_ARENA_OPENCODE_DIR?.trim();
+  if (!raw) return path.join(path.dirname(fileURLToPath(import.meta.url)), '.agent-arena');
+  return path.isAbsolute(raw) ? raw : path.resolve(REPO_ROOT, raw);
+})();
+
 const AGENT_BROWSER_HELP = (() => {
   try {
     const stdout = execFileSync(AGENT_BROWSER, ['--help'], { encoding: 'utf8', timeout: 5000 });
@@ -576,7 +582,8 @@ const runs: ArenaJob[] = [
 ];
 
 export const config: ArenaConfig = {
-  worktreeRoot: true,
+  directory: OPENCODE_ATTACH_DIRECTORY,
+  worktreeRoot: false,
   autoApprove: 'always',
   concurrency: { runs: 8 },
   timeouts: { promptMs: 15 * 60_000 },

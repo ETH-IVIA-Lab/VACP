@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import path from 'node:path';
 import { Command, Option } from 'commander';
 import { consola } from 'consola';
 import { defaultConfigPaths, loadArenaConfig } from './load.js';
@@ -44,7 +45,8 @@ program
         ...(raw.resume ? { resume: true } : {}),
       };
 
-      const outDir = resolveFromCwd(raw.out ?? defaultOutDir());
+      const baseOutDir = runConfig.directory ? path.resolve(runConfig.directory) : process.cwd();
+      const outDir = raw.out ? resolveFromCwd(raw.out) : resolveFromBase(runConfig.outDir ?? defaultOutDir(baseOutDir), baseOutDir);
       consola.box(
         [
           `agent-arena`,
@@ -110,7 +112,12 @@ async function main(argv: string[]) {
   }
 }
 
-function defaultOutDir() {
+function defaultOutDir(baseDir?: string) {
   const stamp = new Date().toISOString().replace(/[:.]/g, '-');
-  return `.agent-arena/runs/${stamp}`;
+  const baseName = baseDir ? path.basename(path.resolve(baseDir)) : '';
+  return baseName === '.agent-arena' ? `runs/${stamp}` : `.agent-arena/runs/${stamp}`;
+}
+
+function resolveFromBase(p: string, baseDir: string) {
+  return path.isAbsolute(p) ? p : path.resolve(baseDir, p);
 }
