@@ -1,5 +1,5 @@
 import path from 'node:path';
-import { execFile } from 'node:child_process';
+import { execFile, execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { promisify } from 'node:util';
 import type { ArenaConfig, ArenaJob, PromptContext } from './src/types';
@@ -175,10 +175,24 @@ const CHART_READY_SCREENSHOT_NAME = 'step-00.png';
 
 const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 
+const AGENT_BROWSER_HELP = (() => {
+  try {
+    const stdout = execFileSync(AGENT_BROWSER, ['--help'], { encoding: 'utf8', timeout: 5000 });
+    return String(stdout).trimEnd();
+  } catch (error) {
+    const stdout = (error as any)?.stdout ? String((error as any).stdout) : '';
+    const stderr = (error as any)?.stderr ? String((error as any).stderr) : '';
+    const combined = [stdout, stderr].filter(Boolean).join('\n').trim();
+    if (combined) return combined;
+    if (error instanceof Error) return `Failed to run "${AGENT_BROWSER} --help": ${error.message}`;
+    return `Failed to run "${AGENT_BROWSER} --help": ${String(error)}`;
+  }
+})();
+
 function agentBrowserEfficiencyGuidance(ctx: PromptContext): string[] {
   return [
     'agent-browser usage (must follow):',
-    '- Do NOT run `agent-browser --help`.',
+    '- Do NOT run `agent-browser --help` (reference is included below).',
     `- Always pass \`--session ${ctx.opencode.sessionID}\` to \`${AGENT_BROWSER}\` commands.`,
     '- Keep command outputs small (avoid dumping large DOM/text).',
     `- Screenshots: write "${ctx.run.outDir}/step-00.png" for the initial visible chart; then use step-01.png, step-02.png, ...`,
@@ -186,6 +200,11 @@ function agentBrowserEfficiencyGuidance(ctx: PromptContext): string[] {
     '- Read screenshots only when you need visual grounding; at minimum, read step-00.png and any screenshot you rely on for the final answer.',
     `- Always use screenshot paths exactly as written: "${ctx.run.outDir}/step-00.png", "${ctx.run.outDir}/step-01.png", ...`,
     '- `eval`: pass JS in SINGLE quotes; avoid backticks and `${...}` to prevent shell expansion.',
+    '',
+    'agent-browser --help (pre-fetched for this run):',
+    '```text',
+    ...AGENT_BROWSER_HELP.split('\n'),
+    '```',
   ];
 }
 
