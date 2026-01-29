@@ -171,7 +171,7 @@ export const SCENARIO_BASES = [
 const DEFAULT_MCP_TIMEOUT_MS = 120_000;
 const AGENT_BROWSER = 'agent-browser';
 const CHART_READY_SELECTOR = '#app canvas, #app svg, #chart canvas, #chart svg';
-const CHART_READY_SCREENSHOT_NAME = 'step-00.png';
+const CHART_READY_SCREENSHOT_NAME = 'step-00.jpg';
 
 const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 
@@ -201,10 +201,10 @@ function agentBrowserEfficiencyGuidance(ctx: PromptContext): string[] {
     '- Do NOT run `agent-browser --help` (reference is included below).',
     `- Always pass \`--session ${ctx.opencode.sessionID}\` to \`${AGENT_BROWSER}\` commands.`,
     '- Keep command outputs small (avoid dumping large DOM/text).',
-    `- Screenshots: write "${ctx.run.outDir}/step-00.png" for the initial visible chart; then use step-01.png, step-02.png, ...`,
+    `- Screenshots: write "${ctx.run.outDir}/step-00.jpg" for the initial visible chart; then use step-01.jpg, step-02.jpg, ...`,
     '- Take screenshots only after a meaningful UI/state change (do not take periodic screenshots).',
-    '- Read screenshots only when you need visual grounding; at minimum, read step-00.png and any screenshot you rely on for the final answer.',
-    `- Always use screenshot paths exactly as written: "${ctx.run.outDir}/step-00.png", "${ctx.run.outDir}/step-01.png", ...`,
+    '- Read screenshots only when you need visual grounding; at minimum, read step-00.jpg and any screenshot you rely on for the final answer.',
+    `- Always use screenshot paths exactly as written: "${ctx.run.outDir}/step-00.jpg", "${ctx.run.outDir}/step-01.jpg", ...`,
     '- `eval`: pass JS in SINGLE quotes; avoid backticks and `${...}` to prevent shell expansion.',
     '',
     'agent-browser --help (pre-fetched for this run):',
@@ -301,7 +301,7 @@ function buildBaselineJobs() {
             'Boundaries (must follow):',
             '- Use only tools: `bash` + `read`.',
             `- (bash) may run ONLY \`${AGENT_BROWSER} ...\` commands (no other shell commands or scripting).`,
-            `- (read) may open ONLY screenshots you create for this run under "${ctx.run.outDir}/step-00.png", "${ctx.run.outDir}/step-01.png", ...`,
+            `- (read) may open ONLY screenshots you create for this run under "${ctx.run.outDir}/step-00.jpg", "${ctx.run.outDir}/step-01.jpg", ...`,
             '- Treat the repository, local filesystem, and run artifacts as off-limits.',
             '- Finish by producing the "Final answer" section below (Answer can be `null`). Do not run until the prompt timeout.',
             '- If you are stuck, output `null` early rather than waiting for timeout.',
@@ -346,7 +346,7 @@ function buildSnapshotInjectedJobs() {
             'Boundaries (must follow):',
             '- Use only tools: `bash` + `read`.',
             `- (bash) may run ONLY \`${AGENT_BROWSER} ...\` commands (no other shell commands or scripting).`,
-            `- (read) may open ONLY screenshots you create for this run under "${ctx.run.outDir}/step-00.png", "${ctx.run.outDir}/step-01.png", ...`,
+            `- (read) may open ONLY screenshots you create for this run under "${ctx.run.outDir}/step-00.jpg", "${ctx.run.outDir}/step-01.jpg", ...`,
             '- Treat the repository, local filesystem, and run artifacts as off-limits.',
             '- Finish by producing the "Final answer" section below (Answer can be `null`). Do not run until the prompt timeout.',
             '- If you are stuck, output `null` early rather than waiting for timeout.',
@@ -472,7 +472,7 @@ function buildFullToolkitJobs() {
             '',
             'Hard constraints (must follow):',
             '- Treat the repository, local filesystem, and run artifacts as off-limits.',
-            `- Do NOT use the \`read\` tool on anything except screenshots you create for this run: "${ctx.run.outDir}/step-00.png", "${ctx.run.outDir}/step-01.png", ...`,
+            `- Do NOT use the \`read\` tool on anything except screenshots you create for this run: "${ctx.run.outDir}/step-00.jpg", "${ctx.run.outDir}/step-01.jpg", ...`,
             '- Do NOT try to solve by inspecting source files, configs, logs, or `.agent-arena/**` outputs.',
             '',
             'Efficiency (high priority; avoid timeouts + token bloat):',
@@ -480,7 +480,7 @@ function buildFullToolkitJobs() {
             `- Use browser tools only to accomplish UI interactions not exposed semantically, and keep them minimal.`,
             `- Keep \`${tools.eval}\` outputs tiny; never dump large DOM/snapshot JSON.`,
             `- Only take screenshots after meaningful state changes, and avoid extra screenshots for failed attempts.`,
-            `- Always use screenshot paths exactly as written (copy/paste): "${ctx.run.outDir}/step-00.png", "${ctx.run.outDir}/step-01.png", ...`,
+            `- Always use screenshot paths exactly as written (copy/paste): "${ctx.run.outDir}/step-00.jpg", "${ctx.run.outDir}/step-01.jpg", ...`,
             '',
             `Start by calling \`${tools.openUrl}\` with: ${ctx.scenario.url}`,
             '',
@@ -489,7 +489,7 @@ function buildFullToolkitJobs() {
             `- Wait for chart render: call \`${tools.waitForSelector}\` with selector "${CHART_READY_SELECTOR}" (increase timeout if needed).`,
             `- Screenshot (sentinel): call \`${tools.screenshot}\` with path "${ctx.run.outDir}/${CHART_READY_SCREENSHOT_NAME}".`,
             `- Visual check: use the \`read\` tool on "${ctx.run.outDir}/${CHART_READY_SCREENSHOT_NAME}" and confirm the chart is visibly rendered.`,
-            `- If not visible yet: sleep 5s, wait again, and overwrite step-00.png (no reload/refresh/re-open). Repeat until visible.`,
+            `- If not visible yet: sleep 5s, wait again, and overwrite step-00.jpg (no reload/refresh/re-open). Repeat until visible.`,
             `- Once visible: call \`${tools.capabilities}\` and \`${tools.state}\` to see available interactions and the current semantic state.`,
             '',
             'Interaction style (must follow):',
@@ -497,7 +497,7 @@ function buildFullToolkitJobs() {
             '- Do NOT jump straight to computations/data extraction before interacting; first drive the viz into the right state (e.g. year=2000, relevant selection applied).',
             '- Ground your answer ONLY in evidence you obtain through genuine interaction in this run (screenshots + verified `vacp_state`). Do NOT use memorized/prior knowledge of the dataset/chart to answer.',
             `- After each meaningful interaction:`,
-            `  - Screenshot: call \`${tools.screenshot}\` with "${ctx.run.outDir}/step-01.png" (then step-02.png, step-03.png, ...; two digits).`,
+            `  - Screenshot: call \`${tools.screenshot}\` with "${ctx.run.outDir}/step-01.jpg" (then step-02.jpg, step-03.jpg, ...; two digits).`,
             `  - Read the screenshot for visual grounding, then verify via \`${tools.state}\` before proceeding.`,
             '',
             'Preferred tools:',
