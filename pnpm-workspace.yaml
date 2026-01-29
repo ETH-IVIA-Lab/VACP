@@ -5,3 +5,5 @@ packages:
 
 onlyBuiltDependencies:
   - '@parcel/watcher'
+  - core-js
+  - protobufjs
