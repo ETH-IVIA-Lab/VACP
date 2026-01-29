@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import sys
 from contextlib import suppress
 from dataclasses import dataclass
 from typing import Any
@@ -70,6 +71,24 @@ class BrowserManager:
         self._page: Page | None = None
         self._launched_browser = False
         self._connected_cdp_url: str | None = None
+
+    def _log(self, msg: str) -> None:
+        print(msg, file=sys.stderr)
+
+    async def _best_effort_goto(self, page: Page, url: str) -> None:
+        """
+        Navigate to the configured URL, but don't crash the whole MCP server if it fails.
+
+        This is important for headless / automation use where the target app may not be up
+        yet when the MCP process starts. Agents can still connect and later call
+        `vacp_open_url(...)` once the app is reachable.
+        """
+        if not url:
+            return
+        try:
+            await page.goto(url)
+        except Exception as e:  # noqa: BLE001
+            self._log(f'[vacp-mcp-server] Initial navigation failed (continuing): {e}')
 
     @property
     def page(self) -> Page:
@@ -167,7 +186,7 @@ class BrowserManager:
         # Otherwise create a new page and navigate.
         context = self._browser.contexts[0] if self._browser.contexts else await self._browser.new_context()
         p = await context.new_page()
-        await p.goto(self._config.url)
+        await self._best_effort_goto(p, self._config.url)
         return p
 
     async def start(self) -> None:
@@ -220,7 +239,7 @@ class BrowserManager:
         self._launched_browser = True
         context = await self._browser.new_context(**self._context_kwargs())
         self._page = await context.new_page()
-        await self._page.goto(self._config.url)
+        await self._best_effort_goto(self._page, self._config.url)
 
     async def stop(self) -> None:
         if self._browser is not None:
@@ -241,9 +260,17 @@ class BrowserManager:
         self._launched_browser = False
 
     async def get_page_info(self) -> dict[str, str]:
+        title = ''
+        with suppress(Exception):
+            title = await self.page.title()
+
+        url = ''
+        with suppress(Exception):
+            url = self.page.url or ''
+
         return {
-            'title': await self.page.title(),
-            'url': self.page.url,
+            'title': title,
+            'url': url,
             'mode': 'embedded' if self._launched_browser else 'external',
             'cdp': self._connected_cdp_url or '',
         }
