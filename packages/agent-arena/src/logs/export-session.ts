@@ -62,12 +62,9 @@ export async function exportSessionLogs(args: {
   const messagesPath = path.join(args.outDir, 'messages.json');
   await writeJson(messagesPath, messages);
 
-  const messagesJsonlPath = path.join(args.outDir, 'messages.jsonl');
-  await writeJsonl(messagesJsonlPath, messages);
-
   const toolCalls = extractToolCalls(messages);
-  const toolCallsPath = path.join(args.outDir, 'tool_calls.jsonl');
-  await writeJsonl(toolCallsPath, toolCalls);
+  const toolCallsPath = path.join(args.outDir, 'tool_calls.json');
+  await writeJson(toolCallsPath, toolCalls);
 
   const metrics = computeSessionMetrics({
     sessionID: args.sessionID,
@@ -83,7 +80,6 @@ export async function exportSessionLogs(args: {
 
   return {
     messagesPath,
-    messagesJsonlPath,
     toolCallsPath,
     metricsPath,
     sessionPath,
@@ -219,10 +215,4 @@ function computeSessionMetrics(args: {
 async function writeJson(filePath: string, value: unknown) {
   await fs.mkdir(path.dirname(filePath), { recursive: true });
   await fs.writeFile(filePath, JSON.stringify(value, null, 2) + '\n', 'utf8');
-}
-
-async function writeJsonl(filePath: string, rows: unknown[]) {
-  await fs.mkdir(path.dirname(filePath), { recursive: true });
-  const lines = rows.map((row) => JSON.stringify(row));
-  await fs.writeFile(filePath, lines.join('\n') + (lines.length ? '\n' : ''), 'utf8');
 }

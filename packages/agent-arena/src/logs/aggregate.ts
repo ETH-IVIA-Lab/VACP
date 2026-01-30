@@ -100,16 +100,13 @@ export async function writeAggregatedMetrics(args: { arenaOutDir: string; outDir
     return k1.localeCompare(k2);
   });
 
-  const jsonlPath = path.join(args.outDir, 'metrics.jsonl');
-  await writeJsonl(jsonlPath, rows);
+  const jsonPath = path.join(args.outDir, 'metrics.json');
+  await writeJsonArray(jsonPath, rows);
 
-  const csvPath = path.join(args.outDir, 'metrics.csv');
-  await writeCsv(csvPath, rows);
-
-  const toolCallsAggPath = path.join(args.outDir, 'tool_calls.jsonl');
+  const toolCallsAggPath = path.join(args.outDir, 'tool_calls.json');
   await writeAggregatedToolCalls(toolCallsAggPath, rows, args.outDir);
 
-  return { jsonlPath, csvPath, toolCallsAggPath, rows };
+  return { jsonPath, toolCallsAggPath, rows };
 }
 
 function computeDurationMs(args: { startedAt?: string; finishedAt?: string; metrics: any }) {
@@ -160,114 +157,33 @@ async function walk(
   }
 }
 
-async function writeJsonl(filePath: string, rows: unknown[]) {
+async function writeJsonArray(filePath: string, rows: unknown[]) {
   await fs.mkdir(path.dirname(filePath), { recursive: true });
-  const lines = rows.map((row) => JSON.stringify(row));
-  await fs.writeFile(filePath, lines.join('\n') + (lines.length ? '\n' : ''), 'utf8');
-}
-
-async function writeCsv(filePath: string, rows: AggregatedRunRow[]) {
-  await fs.mkdir(path.dirname(filePath), { recursive: true });
-  const header = [
-    'experiment',
-    'scenario_id',
-    'url',
-    'model_provider',
-    'model_name',
-    'ok',
-    'project_id',
-    'session_id',
-    'ui_url',
-    'started_at',
-    'finished_at',
-    'duration_ms',
-    'cost',
-    'tokens_input',
-    'tokens_output',
-    'tokens_reasoning',
-    'tokens_cache_read',
-    'tokens_cache_write',
-    'tool_calls',
-    'tool_errors',
-    'tool_timed_calls',
-    'tool_duration_ms',
-    'tools_json',
-    'log_dir',
-  ];
-
-  const lines = [header.join(',')];
-  for (const r of rows) {
-    lines.push(
-      [
-        r.experiment,
-        r.scenarioId,
-        r.url,
-        r.modelProvider,
-        r.modelName,
-        String(r.ok),
-        r.projectID ?? '',
-        r.sessionID ?? '',
-        r.uiUrl ?? '',
-        r.startedAt ?? '',
-        r.finishedAt ?? '',
-        typeof r.durationMs === 'number' ? String(r.durationMs) : '',
-        typeof r.cost === 'number' ? String(r.cost) : '',
-        typeof r.tokensInput === 'number' ? String(r.tokensInput) : '',
-        typeof r.tokensOutput === 'number' ? String(r.tokensOutput) : '',
-        typeof r.tokensReasoning === 'number' ? String(r.tokensReasoning) : '',
-        typeof r.tokensCacheRead === 'number' ? String(r.tokensCacheRead) : '',
-        typeof r.tokensCacheWrite === 'number' ? String(r.tokensCacheWrite) : '',
-        typeof r.toolCalls === 'number' ? String(r.toolCalls) : '',
-        typeof r.toolErrors === 'number' ? String(r.toolErrors) : '',
-        typeof r.toolTimedCalls === 'number' ? String(r.toolTimedCalls) : '',
-        typeof r.toolDurationMs === 'number' ? String(r.toolDurationMs) : '',
-        r.toolsJson ? JSON.stringify(r.toolsJson) : '',
-        r.logDir,
-      ]
-        .map(csvCell)
-        .join(','),
-    );
-  }
-
-  await fs.writeFile(filePath, lines.join('\n') + '\n', 'utf8');
-}
-
-function csvCell(value: string) {
-  if (value.includes('"') || value.includes(',') || value.includes('\n')) return `"${value.replace(/"/g, '""')}"`;
-  return value;
+  await fs.writeFile(filePath, JSON.stringify(rows, null, 2) + '\n', 'utf8');
 }
 
 async function writeAggregatedToolCalls(filePath: string, rows: AggregatedRunRow[], outDir: string) {
   const all: any[] = [];
   for (const row of rows) {
-    const sessionToolCallsPath = path.join(outDir, row.logDir, 'tool_calls.jsonl');
-    let raw: string;
-    try {
-      raw = await fs.readFile(sessionToolCallsPath, 'utf8');
-    } catch {
-      continue;
-    }
-    const lines = raw.split('\n').filter((l) => l.trim().length > 0);
-    for (const line of lines) {
-      try {
-        const parsed = JSON.parse(line) as any;
-        all.push({
-          experiment: row.experiment,
-          scenarioId: row.scenarioId,
-          url: row.url,
-          modelProvider: row.modelProvider,
-          modelName: row.modelName,
-          ok: row.ok,
-          projectID: row.projectID,
-          sessionID: row.sessionID,
-          uiUrl: row.uiUrl,
-          logDir: row.logDir,
-          ...parsed,
-        });
-      } catch {
-        // ignore bad line
-      }
+    const sessionToolCallsPath = path.join(outDir, row.logDir, 'tool_calls.json');
+    const toolCalls = (await readJsonOrNull(sessionToolCallsPath)) as any;
+    if (!Array.isArray(toolCalls)) continue;
+    for (const parsed of toolCalls) {
+      if (!parsed || typeof parsed !== 'object') continue;
+      all.push({
+        experiment: row.experiment,
+        scenarioId: row.scenarioId,
+        url: row.url,
+        modelProvider: row.modelProvider,
+        modelName: row.modelName,
+        ok: row.ok,
+        projectID: row.projectID,
+        sessionID: row.sessionID,
+        uiUrl: row.uiUrl,
+        logDir: row.logDir,
+        ...parsed,
+      });
     }
   }
-  await writeJsonl(filePath, all);
+  await writeJsonArray(filePath, all);
 }
