@@ -6,59 +6,6 @@ import type { ArenaConfig, ArenaJob, PromptContext } from './src/types';
 import { mcpToolId } from './src/opencode-ids';
 
 const BASE_URL = 'http://127.0.0.1:5173';
-const PREFLIGHT_TIMEOUT_MS = Number(process.env.VACP_ARENA_PREFLIGHT_TIMEOUT_MS ?? 1500);
-
-function assertBaseUrlReachableSync(url: string) {
-  if (process.env.VACP_ARENA_SKIP_PREFLIGHT?.trim() === '1') return;
-
-  const u = new URL(url);
-  const host = u.hostname;
-  const port = u.port ? Number(u.port) : u.protocol === 'https:' ? 443 : 80;
-
-  const script = `
-const net = require('node:net');
-const host = process.env.VACP_PREFLIGHT_HOST;
-const port = Number(process.env.VACP_PREFLIGHT_PORT);
-const timeoutMs = Number(process.env.VACP_PREFLIGHT_TIMEOUT_MS || 1500);
-const socket = net.connect({ host, port });
-const finish = (code, message) => {
-  try { socket.destroy(); } catch {}
-  if (message) process.stderr.write(String(message) + '\\n');
-  process.exit(code);
-};
-socket.setTimeout(timeoutMs, () => finish(1, 'timeout'));
-socket.once('connect', () => finish(0));
-socket.once('error', (err) => finish(1, err && err.message ? err.message : String(err)));
-`.trim();
-
-  try {
-    execFileSync(process.execPath, ['-e', script], {
-      encoding: 'utf8',
-      stdio: ['ignore', 'pipe', 'pipe'],
-      timeout: Math.max(PREFLIGHT_TIMEOUT_MS + 1000, 2500),
-      env: {
-        ...process.env,
-        VACP_PREFLIGHT_HOST: host,
-        VACP_PREFLIGHT_PORT: String(port),
-        VACP_PREFLIGHT_TIMEOUT_MS: String(PREFLIGHT_TIMEOUT_MS),
-      },
-    });
-  } catch (error) {
-    const stderr = (error as any)?.stderr ? String((error as any).stderr).trim() : '';
-    const stdout = (error as any)?.stdout ? String((error as any).stdout).trim() : '';
-    const detail = [stderr, stdout].filter(Boolean).join('\n').trim();
-    const hint = [
-      `[agent-arena] Preflight failed: BASE_URL is not reachable (${u.origin}).`,
-      detail ? `[agent-arena] Details: ${detail}` : undefined,
-      '[agent-arena] Fix:',
-      '- Start the local server (e.g. `pnpm dev:examples`) or update `BASE_URL` in agent-arena.config.ts.',
-      '- Or skip this check by setting `VACP_ARENA_SKIP_PREFLIGHT=1`.',
-    ]
-      .filter(Boolean)
-      .join('\n');
-    throw new Error(hint);
-  }
-}
 
 const MODELS = [{ providerID: 'openai', modelID: 'gpt-5.2' }];
 
@@ -581,6 +528,59 @@ function buildFullToolkitJobs() {
 }
 
 const execFileAsync = promisify(execFile);
+
+function assertBaseUrlReachableSync(url: string) {
+  if (process.env.VACP_ARENA_SKIP_PREFLIGHT?.trim() === '1') return;
+
+  const timeoutMs = Number(process.env.VACP_ARENA_PREFLIGHT_TIMEOUT_MS ?? 1500);
+  const u = new URL(url);
+  const host = u.hostname;
+  const port = u.port ? Number(u.port) : u.protocol === 'https:' ? 443 : 80;
+
+  const script = `
+const net = require('node:net');
+const host = process.env.VACP_PREFLIGHT_HOST;
+const port = Number(process.env.VACP_PREFLIGHT_PORT);
+const timeoutMs = Number(process.env.VACP_PREFLIGHT_TIMEOUT_MS || 1500);
+const socket = net.connect({ host, port });
+const finish = (code, message) => {
+  try { socket.destroy(); } catch {}
+  if (message) process.stderr.write(String(message) + '\\n');
+  process.exit(code);
+};
+socket.setTimeout(timeoutMs, () => finish(1, 'timeout'));
+socket.once('connect', () => finish(0));
+socket.once('error', (err) => finish(1, err && err.message ? err.message : String(err)));
+`.trim();
+
+  try {
+    execFileSync(process.execPath, ['-e', script], {
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'pipe'],
+      timeout: Math.max(timeoutMs + 1000, 2500),
+      env: {
+        ...process.env,
+        VACP_PREFLIGHT_HOST: host,
+        VACP_PREFLIGHT_PORT: String(port),
+        VACP_PREFLIGHT_TIMEOUT_MS: String(timeoutMs),
+      },
+    });
+  } catch (error) {
+    const stderr = (error as any)?.stderr ? String((error as any).stderr).trim() : '';
+    const stdout = (error as any)?.stdout ? String((error as any).stdout).trim() : '';
+    const detail = [stderr, stdout].filter(Boolean).join('\n').trim();
+    const hint = [
+      `[agent-arena] Preflight failed: BASE_URL is not reachable (${u.origin}).`,
+      detail ? `[agent-arena] Details: ${detail}` : undefined,
+      '[agent-arena] Fix:',
+      '- Start the local server (e.g. `pnpm dev:examples`) or update `BASE_URL` in agent-arena.config.ts.',
+      '- Or skip this check by setting `VACP_ARENA_SKIP_PREFLIGHT=1`.',
+    ]
+      .filter(Boolean)
+      .join('\n');
+    throw new Error(hint);
+  }
+}
 
 function sleepMs(ms: number) {
   return new Promise<void>((resolve) => setTimeout(resolve, ms));
