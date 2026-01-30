@@ -6,6 +6,7 @@ import { defaultConfigPaths, loadArenaConfig } from './load.js';
 import { writeAggregatedMetrics } from './logs/aggregate.js';
 import { exportSessionLogs } from './logs/export-session.js';
 import { resolveFromCwd } from './paths.js';
+import { analyzeArenaRun } from './analyze/analyze-run.js';
 import { runArena } from './runner/index.js';
 
 const program = new Command()
@@ -22,7 +23,7 @@ program
   .option('--only <substring>', 'Only run entries whose experiment includes this substring')
   .option('--resume', 'Reuse successful run.json results when present')
   .option('--export-logs', 'Export OpenCode session messages/tool calls + metrics into each job folder')
-  .option('--write-metrics', 'Write aggregated metrics.jsonl and metrics.csv into the output directory')
+  .option('--write-metrics', 'Write aggregated metrics.json and tool_calls.json into the output directory')
   .addOption(
     new Option('--auto-approve <mode>', 'Auto-approve permission requests')
       .choices(['off', 'once', 'always', 'reject'])
@@ -46,7 +47,9 @@ program
       };
 
       const baseOutDir = runConfig.directory ? path.resolve(runConfig.directory) : process.cwd();
-      const outDir = raw.out ? resolveFromCwd(raw.out) : resolveFromBase(runConfig.outDir ?? defaultOutDir(baseOutDir), baseOutDir);
+      const outDir = raw.out
+        ? resolveFromCwd(raw.out)
+        : resolveFromBase(runConfig.outDir ?? defaultOutDir(baseOutDir), baseOutDir);
       consola.box(
         [
           `agent-arena`,
@@ -87,6 +90,46 @@ program
       consola.success(`Done: ${results.length} runs (${ok} ok, ${bad} failed)`);
       consola.info(`Results: ${resolveFromCwd(outDir)}/results.json`);
       process.exitCode = bad > 0 ? 1 : 0;
+    } catch (error) {
+      consola.error(error);
+      process.exitCode = 1;
+    }
+  });
+
+program
+  .command('analyze')
+  .description('Parse a run folder and export tabular datasets (runs + tool calls)')
+  .requiredOption('--run <dir>', 'Arena run folder (contains results.json + runs/...)')
+  .option('--out <dir>', 'Output directory. Default: <runDir>/analysis')
+  .option(
+    '--config <path>',
+    'Arena config file (TS/JS). Used to load SCENARIO_BASES judge predicates for scoring. Default: ./packages/agent-arena/agent-arena.config.ts if present.',
+  )
+  .option(
+    '--opencode-root <dir>',
+    'OpenCode root or storage dir. Defaults try ~/.local/share/opencode/storage then ~/.opencode/storage.',
+  )
+  .option('--max-field-chars <n>', 'Max chars stored per large string field (sensitive default). Default: 500', '500')
+  .action(async (raw) => {
+    try {
+      const runDir = resolveFromCwd(raw.run);
+      const outDir = raw.out ? resolveFromCwd(raw.out) : undefined;
+      const configPath = raw.config ? resolveFromCwd(raw.config) : undefined;
+      const opencodeRoot = raw.opencodeRoot ? resolveFromCwd(raw.opencodeRoot) : undefined;
+      const maxFieldChars = Number(raw.maxFieldChars);
+
+      const res = await analyzeArenaRun({
+        runDir,
+        ...(outDir ? { outDir } : {}),
+        ...(configPath ? { configPath } : {}),
+        ...(opencodeRoot ? { opencodeRoot } : {}),
+        ...(Number.isFinite(maxFieldChars) ? { maxFieldChars } : {}),
+      });
+
+      consola.success(`Wrote analysis to: ${res.outDir}`);
+      consola.info(`- runs:       ${res.runsJsonPath}`);
+      consola.info(`- tool calls:  ${res.toolCallsJsonPath}`);
+      consola.info(`- meta:       ${res.metaPath}`);
     } catch (error) {
       consola.error(error);
       process.exitCode = 1;
