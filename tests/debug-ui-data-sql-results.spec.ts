@@ -67,4 +67,3 @@ for (const c of cases) {
     }
   });
 }
-

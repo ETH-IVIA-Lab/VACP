@@ -261,8 +261,10 @@ export function DataModule(props: VacpDebugModuleProps): ReactElement {
                   Target: <code className={inlineCodeClass}>{selectedHandleTitle ?? shortRef(selectedHandle)}</code>{' '}
                   <span className="text-slate-100/60">({shortRef(selectedHandle)})</span>
                 </>
+              ) : handles.length ? (
+                'Select a DataHandle to query.'
               ) : (
-                handles.length ? 'Select a DataHandle to query.' : 'No DataHandles available for this view.'
+                'No DataHandles available for this view.'
               )}
             </CardDescription>
           </div>
