@@ -25,6 +25,34 @@ Then run:
 
 Outputs are written to `./.agent-arena/runs/<timestamp>/` by default, including per-run JSON with `projectID` + `sessionID` (portable across machines).
 
+## Analysis + report
+
+After you have a run folder, you can parse it into tabular datasets and generate a publication-ready report:
+
+```bash
+# From packages/agent-arena/
+pnpm start -- analyze --run .agent-arena/runs/<runId>
+pnpm start -- report --analysis .agent-arena/runs/<runId>/analysis
+```
+
+The report writes:
+
+- `analysis/report/index.html` (single-file report, embeds static SVGs)
+- `analysis/report/figures/*.svg` (publication-ready charts)
+
+Optional customization (useful for paper-ready exports):
+
+```bash
+# Smaller, larger-font figures (global theme overrides)
+pnpm start -- report --analysis .agent-arena/runs/<runId>/analysis --width 640 --font-size 14
+
+# Render only a subset of charts / sections
+pnpm start -- report --analysis .agent-arena/runs/<runId>/analysis --charts solved-strict,pareto --sections figures,footer
+
+# Per-chart overrides (JSON object keyed by chart id)
+pnpm start -- report --analysis .agent-arena/runs/<runId>/analysis --chart-config ./report.charts.json
+```
+
 ## Scenario × Setup Matrix (paper supplement)
 
 The matrix scenarios/experiments are defined in `packages/agent-arena/agent-arena.config.ts`.

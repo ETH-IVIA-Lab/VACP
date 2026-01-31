@@ -7,6 +7,8 @@ import { writeAggregatedMetrics } from './logs/aggregate.js';
 import { exportSessionLogs } from './logs/export-session.js';
 import { resolveFromCwd } from './paths.js';
 import { analyzeArenaRun } from './analyze/analyze-run.js';
+import fs from 'node:fs/promises';
+import { DEFAULT_CHARTS, DEFAULT_REPORT_SECTIONS, generateArenaReport } from './report/index.js';
 import { runArena } from './runner/index.js';
 
 const program = new Command()
@@ -135,6 +137,55 @@ program
       process.exitCode = 1;
     }
   });
+
+program
+  .command('report')
+  .description('Generate a publication-ready HTML + SVG report from an analysis folder')
+  .requiredOption('--analysis <dir>', 'Analysis folder (contains meta.json + runs.*)')
+  .option('--out <dir>', 'Output directory. Default: <analysisDir>/report')
+  .option('--width <px>', 'Override figure width in px (affects all charts)')
+  .option('--font-size <px>', 'Override base chart font size in px (affects all charts)')
+  .option('--charts <ids>', 'Comma-separated chart ids to include (default: all)')
+  .option('--sections <ids>', 'Comma-separated report section ids to include (default: all)')
+  .option('--chart-config <path>', 'JSON file mapping chart ids -> per-chart config (layout + chart-specific options)')
+  .action(async (raw) => {
+    try {
+      const analysisDir = resolveFromCwd(raw.analysis);
+      const outDir = raw.out ? resolveFromCwd(raw.out) : undefined;
+
+      const width = raw.width ? Number(raw.width) : undefined;
+      const fontSizePx = raw.fontSize ? Number(raw.fontSize) : undefined;
+
+      const chartIds = parseCsv(raw.charts);
+      const charts = chartIds ? selectById(DEFAULT_CHARTS, chartIds, 'chart') : undefined;
+
+      const sectionIds = parseCsv(raw.sections);
+      const sections = sectionIds ? selectById(DEFAULT_REPORT_SECTIONS, sectionIds, 'section') : undefined;
+
+      const chartConfigPath = raw.chartConfig ? resolveFromCwd(raw.chartConfig) : null;
+      const chartConfigById = chartConfigPath ? await loadJsonObject(chartConfigPath) : undefined;
+
+      const theme = {
+        ...(typeof width === 'number' && Number.isFinite(width) && width > 0 ? { width } : {}),
+        ...(typeof fontSizePx === 'number' && Number.isFinite(fontSizePx) && fontSizePx > 0 ? { fontSizePx } : {}),
+      };
+
+      const res = await generateArenaReport({
+        analysisDir,
+        ...(outDir ? { outDir } : {}),
+        ...(Object.keys(theme).length ? { theme } : {}),
+        ...(charts ? { charts } : {}),
+        ...(sections ? { sections } : {}),
+        ...(chartConfigById ? { chartConfigById } : {}),
+      });
+      consola.success(`Wrote report to: ${res.outDir}`);
+      consola.info(`- html:     ${res.htmlPath}`);
+      consola.info(`- figures:  ${res.figuresDir}`);
+    } catch (error) {
+      consola.error(error);
+      process.exitCode = 1;
+    }
+  });
 const argv =
   process.argv.length >= 3 && process.argv[2] === '--'
     ? [...process.argv.slice(0, 2), ...process.argv.slice(3)]
@@ -163,4 +214,43 @@ function defaultOutDir(baseDir?: string) {
 
 function resolveFromBase(p: string, baseDir: string) {
   return path.isAbsolute(p) ? p : path.resolve(baseDir, p);
+}
+
+function parseCsv(value: unknown): string[] | null {
+  if (typeof value !== 'string') return null;
+  const items = value
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean);
+  return items.length ? items : null;
+}
+
+function selectById<T extends { id: string }>(items: T[], ids: string[], kind: string) {
+  const byId = new Map<string, T>(items.map((i) => [i.id, i] as const));
+  const out: T[] = [];
+  for (const id of ids) {
+    const found = byId.get(id);
+    if (!found) {
+      const known = Array.from(byId.keys())
+        .sort((a, b) => a.localeCompare(b))
+        .join(', ');
+      throw new Error(`Unknown ${kind} id: ${id}\nKnown ${kind}s: ${known}`);
+    }
+    out.push(found);
+  }
+  return out;
+}
+
+async function loadJsonObject(filePath: string): Promise<Record<string, unknown>> {
+  const raw = await fs.readFile(filePath, 'utf8');
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch (err) {
+    throw new Error(`Failed to parse JSON: ${filePath}\n${String(err)}`);
+  }
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+    throw new Error(`Expected JSON object in: ${filePath}`);
+  }
+  return parsed as Record<string, unknown>;
 }
