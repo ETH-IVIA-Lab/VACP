@@ -134,7 +134,7 @@ export async function run(): Promise<void> {
 
     // VACP layer: attaches a bridge (`window.__vacp`), actions, state snapshots, and DuckDB access.
     if (token !== renderToken) return;
-    installVacp({ root: element, plots, tables, entry, duckdbClient });
+    await installVacp({ root: element, plots, tables, entry, duckdbClient });
   };
 
   selectEl.addEventListener('change', () => {

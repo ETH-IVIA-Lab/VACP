@@ -19,7 +19,7 @@ async function openDebugUi(page: import('@playwright/test').Page): Promise<void>
   const pill = page.locator('button.vacp-debug-ui-button');
   await expect(pill).toBeVisible({ timeout: 15_000 });
   await pill.click();
-  await expect(page.locator('.vacp-debug-ui-meta')).toContainText('mode=', { timeout: 15_000 });
+  await expect(page.locator('#vacp-debug-ui-panel')).toBeVisible({ timeout: 15_000 });
 }
 
 async function runDefaultDataSqlAndExpectResults(page: import('@playwright/test').Page): Promise<void> {

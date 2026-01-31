@@ -12,7 +12,10 @@ test('vega-lite: interval brush playbook renders brush rectangle (sets brush_x)'
   const srv = await startViteDevServer({ name: 'vega-lite-gallery', cwd: resolve(examplesDir, 'vega-lite-gallery') });
   try {
     await page.goto(`${srv.url}?vacp-debug=1#seattle-weather`, { waitUntil: 'domcontentloaded' });
-    await page.waitForFunction(() => !!(globalThis as any).__vacp);
+    await page.waitForFunction(() => {
+      const b = (globalThis as any).__vacp;
+      return b && typeof b.getCapabilities === 'function' && typeof b.getState === 'function';
+    });
     await page.waitForSelector('#app svg.marks .mark-group.role-frame.root', { timeout: 30_000 });
 
     const pill = page.locator('button.vacp-debug-ui-button');
@@ -25,7 +28,8 @@ test('vega-lite: interval brush playbook renders brush rectangle (sets brush_x)'
     await playbookTab.click();
 
     // Step 3 in the Seattle Weather playbook is "Brush Feb-Apr" (interval selection).
-    const brushStep = page.locator('button', { hasText: '3. Brush Feb-Apr' }).first();
+    await expect(page.locator('#vacp-playbook')).toBeVisible({ timeout: 30_000 });
+    const brushStep = page.locator('button', { hasText: 'Brush Feb-Apr' }).first();
     await expect(brushStep).toBeVisible({ timeout: 30_000 });
     await brushStep.click();
     await page.locator('button[aria-label="Run step"]').click();

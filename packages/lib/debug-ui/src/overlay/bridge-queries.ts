@@ -5,6 +5,12 @@ import { useEffect, useRef } from 'react';
 import { getBridge, readPlaybooks, readRuntime } from '@vacp/debug-ui/bridge';
 import type { VacpWindowBridge } from '@vacp/debug-ui/types';
 
+// TanStack Query's default retryDelay backoff can grow large. For the overlay,
+// we prefer short, bounded retries so "Connecting…" resolves quickly when a bridge
+// appears a moment after the panel opens (or after a spec switch).
+const BRIDGE_RETRY_DELAY_MS = 200;
+const BRIDGE_RETRY_COUNT = 50;
+
 export function useVacpBridgePresence(globalKey: string) {
   return useQuery({
     queryKey: ['vacp', 'bridgePresence', globalKey],
@@ -20,7 +26,8 @@ export function useVacpBridge(globalKey: string, enabled: boolean) {
   return useQuery({
     queryKey: ['vacp', 'bridge', globalKey],
     enabled,
-    retry: 25,
+    retry: BRIDGE_RETRY_COUNT,
+    retryDelay: BRIDGE_RETRY_DELAY_MS,
     queryFn: async (): Promise<VacpWindowBridge> => {
       const b = getBridge(globalKey);
       if (!b) throw new Error(`No VACP bridge found (expected window.${globalKey}).`);
@@ -36,7 +43,8 @@ export function useVacpRuntime(globalKey: string, bridge: VacpWindowBridge | nul
   const q = useQuery({
     queryKey: ['vacp', 'runtime', globalKey],
     enabled: enabled && Boolean(bridge),
-    retry: 25,
+    retry: BRIDGE_RETRY_COUNT,
+    retryDelay: BRIDGE_RETRY_DELAY_MS,
     queryFn: async (): Promise<VacpRuntimeSnapshot> => {
       if (!bridge) throw new Error('Missing VACP bridge');
       return await readRuntime(bridge);
@@ -70,7 +78,8 @@ export function useVacpPlaybooks(globalKey: string, bridge: VacpWindowBridge | n
   return useQuery({
     queryKey: ['vacp', 'playbooks', globalKey],
     enabled: enabled && Boolean(bridge),
-    retry: 25,
+    retry: BRIDGE_RETRY_COUNT,
+    retryDelay: BRIDGE_RETRY_DELAY_MS,
     queryFn: async (): Promise<VacpPlaybook[]> => {
       if (!bridge) throw new Error('Missing VACP bridge');
       return await readPlaybooks(bridge);
