@@ -32,13 +32,34 @@ After you have a run folder, you can parse it into tabular datasets and generate
 ```bash
 # From packages/agent-arena/
 pnpm start -- analyze --run .agent-arena/runs/<runId>
+pnpm start -- datasets --analysis .agent-arena/runs/<runId>/analysis
 pnpm start -- report --analysis .agent-arena/runs/<runId>/analysis
 ```
 
-The report writes:
+The report writes a small multi-page suite (one page per model, plus an index):
 
-- `analysis/report/index.html` (single-file report, embeds static SVGs)
-- `analysis/report/figures/*.svg` (publication-ready charts)
+- `analysis/report/index.html` (model index + links)
+- `analysis/report/all/index.html` (combined report across all models)
+- `analysis/report/models/<model>/index.html` (per-model report)
+- `analysis/report/**/figures/*.svg` (publication-ready charts)
+- `analysis/report/**/data/*.json` (per-chart datasets; JSON arrays)
+- In the HTML report, each chart also includes `SVG` / `PNG` / `Data` download actions.
+
+Evaluation notes:
+
+- `agent-arena analyze` classifies each run into `eval_outcome` buckets (e.g. `plumbing_failure`, `protocol_failure`, `semantic_failure`, `solved_strict`).
+- `solved_strict` / `solved_semantic` are set to `null` when a run is not gradeable (so solved rates use the right denominator).
+- The report index/summary include coverage columns (`Plumbing OK`, `Parsed OK`, `Gradeable`) to separate infra/protocol issues from semantic accuracy.
+
+The datasets export writes:
+
+- `analysis/datasets/*.json` (derived tables + indices)
+- `analysis/datasets/charts/*.json` (per-chart datasets; JSON arrays)
+
+Implementation notes (for maintainers):
+
+- `src/eval/outcome.ts` is the single source of truth for run outcome classification (`plumbing_failure` vs `protocol_failure` vs semantic correctness).
+- `src/report/prepare.ts` is shared by the report generator and datasets exporter so filtering + ordering + summary stats stay consistent.
 
 Optional customization (useful for paper-ready exports):
 
