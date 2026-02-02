@@ -8,7 +8,12 @@ import { exportSessionLogs } from './logs/export-session.js';
 import { resolveFromCwd } from './paths.js';
 import { analyzeArenaRun } from './analyze/analyze-run.js';
 import fs from 'node:fs/promises';
-import { DEFAULT_CHARTS, DEFAULT_REPORT_SECTIONS, generateArenaReport } from './report/index.js';
+import {
+  DEFAULT_CHARTS,
+  DEFAULT_REPORT_SECTIONS,
+  exportArenaDatasets,
+  generateArenaReportSuite,
+} from './report/index.js';
 import { runArena } from './runner/index.js';
 
 const program = new Command()
@@ -170,7 +175,7 @@ program
         ...(typeof fontSizePx === 'number' && Number.isFinite(fontSizePx) && fontSizePx > 0 ? { fontSizePx } : {}),
       };
 
-      const res = await generateArenaReport({
+      const res = await generateArenaReportSuite({
         analysisDir,
         ...(outDir ? { outDir } : {}),
         ...(Object.keys(theme).length ? { theme } : {}),
@@ -178,9 +183,48 @@ program
         ...(sections ? { sections } : {}),
         ...(chartConfigById ? { chartConfigById } : {}),
       });
-      consola.success(`Wrote report to: ${res.outDir}`);
-      consola.info(`- html:     ${res.htmlPath}`);
-      consola.info(`- figures:  ${res.figuresDir}`);
+      consola.success(`Wrote report suite to: ${res.outDir}`);
+      consola.info(`- index:  ${res.indexHtmlPath}`);
+      if (res.allHtmlPath) consola.info(`- all:    ${res.allHtmlPath}`);
+      for (const page of res.modelReports) {
+        consola.info(`- model:  ${page.modelLabel}  →  ${page.htmlPath}`);
+      }
+    } catch (error) {
+      consola.error(error);
+      process.exitCode = 1;
+    }
+  });
+
+program
+  .command('datasets')
+  .description('Export chart-ready datasets (and derived tables) as JSON under an analysis folder')
+  .requiredOption('--analysis <dir>', 'Analysis folder (contains meta.json + runs.*)')
+  .option('--out <dir>', 'Output directory. Default: <analysisDir>/datasets')
+  .option('--charts <ids>', 'Comma-separated chart ids to export (default: all)')
+  .option('--chart-config <path>', 'JSON file mapping chart ids -> per-chart config (affects dataset shape)')
+  .action(async (raw) => {
+    try {
+      const analysisDir = resolveFromCwd(raw.analysis);
+      const outDir = raw.out ? resolveFromCwd(raw.out) : undefined;
+
+      const chartIds = parseCsv(raw.charts);
+      const charts = chartIds ? selectById(DEFAULT_CHARTS, chartIds, 'chart') : undefined;
+
+      const chartConfigPath = raw.chartConfig ? resolveFromCwd(raw.chartConfig) : null;
+      const chartConfigById = chartConfigPath ? await loadJsonObject(chartConfigPath) : undefined;
+
+      const res = await exportArenaDatasets({
+        analysisDir,
+        ...(outDir ? { outDir } : {}),
+        ...(charts ? { charts } : {}),
+        ...(chartConfigById ? { chartConfigById } : {}),
+      });
+
+      consola.success(`Wrote datasets to: ${res.outDir}`);
+      consola.info(`- charts: ${path.join(res.outDir, 'charts')}`);
+      consola.info(
+        `- tables: runs_normalized.json, experiment_summaries.json, task_summaries.json, task_index.json, tool_by_experiment.json`,
+      );
     } catch (error) {
       consola.error(error);
       process.exitCode = 1;

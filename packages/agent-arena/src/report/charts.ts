@@ -2,6 +2,7 @@ import type { ExperimentSummary, NormalizedRun, ToolByExperimentRow } from './st
 import type { ArenaAnyChart, ArenaChartContext, ArenaFigure, ArenaReportTheme } from './charts/types.js';
 import { createTheme, DEFAULT_THEME } from './charts/theme.js';
 import { durationChart } from './charts/duration.js';
+import { evalOutcomesChart } from './charts/eval-outcomes.js';
 import { flagsHeatmapChart } from './charts/flags-heatmap.js';
 import { paretoChart } from './charts/pareto.js';
 import { scenarioDurationHeatmapChart } from './charts/scenario-duration-heatmap.js';
@@ -26,6 +27,7 @@ export { DEFAULT_THEME, createTheme } from './charts/theme.js';
 export const DEFAULT_CHARTS: ArenaAnyChart[] = [
   solvedStrictChart,
   solvedSemanticChart,
+  evalOutcomesChart,
   paretoChart,
   durationChart,
   tokensChart,
