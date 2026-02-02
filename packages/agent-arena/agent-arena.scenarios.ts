@@ -68,7 +68,7 @@ export const SCENARIO_BASES: ScenarioBase[] = [
     id: 'vl-global-development-t3-largest-lowest-lifeexp-2000',
     route: '/vega-lite/',
     hash: 'global-development',
-    task: 'Which of the largest countries in the world had the lowest life expectancy in 2000?',
+    task: 'Which of the largest countries (population above 1 billion) in the world had the lowest life expectancy in 2000?',
     responseFormat: '{country: string, lifeExpectancy: number}',
     judge: makeSolutionJudge({ country: 'Nigeria', lifeExpectancy: 54.6 }),
   },
@@ -155,7 +155,7 @@ export const SCENARIO_BASES: ScenarioBase[] = [
     id: 'vl-airports-t3-nm-airports-smallest-outgoing-flights',
     route: '/vega-lite/',
     hash: 'airports',
-    task: 'How many airports are there in state New Mexico (NM)? How many outgoing flights does the smalles airport of these have?',
+    task: 'How many airports are there in state New Mexico (NM)? How many outgoing flights (total number of flights) does the smallest airport (depending on the number of routes to other airports) have?',
     responseFormat: '{count: number, smallestOutgoingFlights: number}',
     judge: makeSolutionJudge({ count: 2, smallestOutgoingFlights: 961 }),
   },
@@ -181,7 +181,7 @@ export const SCENARIO_BASES: ScenarioBase[] = [
     judge: makeSolutionJudge({
       outliers: [
         { name: 'Ford Maverick', horsepower: 0 },
-        { name: 'Buick Regal Sport Coupe (turbo)', horsepower: 165 },
+        { name: 'Ford Grenada I', horsepower: 112 },
       ],
     }),
   },
