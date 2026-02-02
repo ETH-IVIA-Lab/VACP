@@ -6,23 +6,28 @@ import type { NormalizedRun } from '../stats.js';
 
 export type SolvedSemanticChartConfig = ArenaFigureLayout;
 
+function solvedSemanticRows(ctx: Parameters<ArenaChart<SolvedSemanticChartConfig>['getData']>[0]) {
+  const byExp = countSolved(ctx.runs, (r) => r.solvedSemantic);
+  return ctx.experimentDomain.map((experiment) => {
+    const counts = byExp.get(experiment) ?? { total: 0, usable: 0, solved: 0 };
+    const rate = counts.usable ? counts.solved / counts.usable : null;
+    return {
+      experiment,
+      solved_semantic_rate: rate,
+      solved_semantic_rate_display: rate ?? 0,
+      ...counts,
+    };
+  });
+}
+
 export const solvedSemanticChart: ArenaChart<SolvedSemanticChartConfig> = {
   id: 'solved-semantic',
   title: 'Solved Rate (Semantic)',
   caption: 'Per-experiment semantic solved rate (from `solved_semantic` when present).',
   isApplicable: (ctx) => ctx.runs.some((r) => typeof r.solvedSemantic === 'boolean'),
+  getData: (ctx) => solvedSemanticRows(ctx),
   render: (ctx, config) => {
-    const byExp = countSolved(ctx.runs, (r) => r.solvedSemantic);
-    const data = ctx.experimentDomain.map((experiment) => {
-      const counts = byExp.get(experiment) ?? { total: 0, usable: 0, solved: 0 };
-      const rate = counts.usable ? counts.solved / counts.usable : null;
-      return {
-        experiment,
-        rate,
-        displayRate: rate ?? 0,
-        ...counts,
-      };
-    });
+    const data = solvedSemanticRows(ctx);
 
     const layout = resolveLayout(
       ctx.theme,
@@ -45,24 +50,24 @@ export const solvedSemanticChart: ArenaChart<SolvedSemanticChartConfig> = {
         marks: [
           Plot.barY(data, {
             x: 'experiment',
-            y: 'displayRate',
-            fill: (d) => (d.rate === null ? ctx.theme.colors.grid : ctx.theme.colors.neutral),
+            y: 'solved_semantic_rate_display',
+            fill: (d) => (d.solved_semantic_rate === null ? ctx.theme.colors.grid : ctx.theme.colors.neutral),
             title: (d) => {
               const missing = Math.max(0, d.total - d.usable);
-              if (d.rate === null)
+              if (d.solved_semantic_rate === null)
                 return `${d.experiment}\nSolved (semantic): n/a (0/${d.total} runs report solved_semantic)`;
               return [
                 d.experiment,
                 `n=${d.total}`,
-                `Solved (semantic): ${fmtPct(d.rate)} (${d.solved}/${d.usable}${missing ? `; ${missing} missing` : ''})`,
+                `Solved (semantic): ${fmtPct(d.solved_semantic_rate)} (${d.solved}/${d.usable}${missing ? `; ${missing} missing` : ''})`,
               ].join('\n');
             },
           }),
           Plot.ruleY([0]),
           Plot.text(data, {
             x: 'experiment',
-            y: 'displayRate',
-            text: (d) => (d.rate === null ? 'n/a' : fmtPct(d.rate)),
+            y: 'solved_semantic_rate_display',
+            text: (d) => (d.solved_semantic_rate === null ? 'n/a' : fmtPct(d.solved_semantic_rate)),
             dy: -8,
             fill: ctx.theme.colors.ink,
             fontSize: 10,
@@ -72,7 +77,7 @@ export const solvedSemanticChart: ArenaChart<SolvedSemanticChartConfig> = {
       }),
     });
 
-    return { id: solvedSemanticChart.id, title: solvedSemanticChart.title, caption: solvedSemanticChart.caption, svg };
+    return { id: solvedSemanticChart.id, title: solvedSemanticChart.title, caption: solvedSemanticChart.caption, svg, data };
   },
 };
 

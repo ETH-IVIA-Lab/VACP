@@ -8,48 +8,58 @@ export type ToolsHeatmapChartConfig = ArenaFigureLayout & {
   topK?: number;
 };
 
+function toolsHeatmapCells(ctx: Parameters<ArenaChart<ToolsHeatmapChartConfig>['getData']>[0], config?: ToolsHeatmapChartConfig) {
+  const topK = config?.topK ?? 10;
+  const topTools = topKTools(ctx.toolByExperiment, topK);
+  const toolLabels = makeUniqueToolLabels(topTools);
+  const toolLabelByTool = new Map<string, string>(topTools.map((t, i) => [t, toolLabels[i]] as const));
+
+  const displayTools: Array<{ tool_raw: string; tool_label: string }> = [
+    ...topTools.map((tool_raw) => ({ tool_raw, tool_label: toolLabelByTool.get(tool_raw) ?? tool_raw })),
+    { tool_raw: 'other', tool_label: 'other' },
+  ];
+
+  const collapsed = collapseOtherTools(ctx.toolByExperiment, topTools);
+  const byKey = new Map<string, number>();
+  for (const r of collapsed) byKey.set(`${r.experiment}__${r.tool}`, r.calls);
+
+  const rows: Array<{ experiment: string; tool_raw: string; tool_label: string; calls: number }> = [];
+  for (const tool of displayTools) {
+    for (const experiment of ctx.experimentDomain) {
+      const calls = byKey.get(`${experiment}__${tool.tool_raw}`) ?? 0;
+      rows.push({ experiment, tool_raw: tool.tool_raw, tool_label: tool.tool_label, calls });
+    }
+  }
+
+  const q = quantiles(
+    rows.map((d) => d.calls),
+    [0.2, 0.4, 0.6, 0.8],
+  );
+  const palette = ['#eff6ff', '#bfdbfe', '#93c5fd', '#60a5fa', '#2563eb', '#1e3a8a'];
+  return rows.map((d) => {
+    const fill = palette[bucketIndex(d.calls, q)];
+    return {
+      ...d,
+      fill,
+      label: d.calls ? fmtNumber(d.calls) : '',
+      text_fill: isDark(fill) ? '#ffffff' : ctx.theme.colors.ink,
+    };
+  });
+}
+
 export const toolsHeatmapChart: ArenaChart<ToolsHeatmapChartConfig> = {
   id: 'tools-heatmap',
   title: 'Top Tools by Call Count',
   caption:
     'Heatmap of tool call counts by experiment for the top tools (by total calls), plus an “other” bucket. Cell text is the exact call count; background is a quantized scale for quick scanning.',
   isApplicable: (ctx) => ctx.toolByExperiment.length > 0,
+  getData: (ctx, config) => toolsHeatmapCells(ctx, config),
   render: (ctx, config) => {
     const topK = config?.topK ?? 10;
     const topTools = topKTools(ctx.toolByExperiment, topK);
     const toolLabels = makeUniqueToolLabels(topTools);
-    const toolLabelByTool = new Map<string, string>(topTools.map((t, i) => [t, toolLabels[i]] as const));
     const yDomain = [...toolLabels, 'other'];
-
-    const collapsed = collapseOtherTools(ctx.toolByExperiment, topTools);
-    const byKey = new Map<string, number>();
-    for (const r of collapsed) {
-      const label = r.tool === 'other' ? 'other' : (toolLabelByTool.get(r.tool) ?? r.tool);
-      byKey.set(`${r.experiment}__${label}`, r.calls);
-    }
-
-    const data = [];
-    for (const tool of yDomain) {
-      for (const experiment of ctx.experimentDomain) {
-        const calls = byKey.get(`${experiment}__${tool}`) ?? 0;
-        data.push({ experiment, tool, calls });
-      }
-    }
-
-    const q = quantiles(
-      data.map((d) => d.calls),
-      [0.2, 0.4, 0.6, 0.8],
-    );
-    const palette = ['#eff6ff', '#bfdbfe', '#93c5fd', '#60a5fa', '#2563eb', '#1e3a8a'];
-    const cells = data.map((d) => {
-      const fill = palette[bucketIndex(d.calls, q)];
-      return {
-        ...d,
-        fill,
-        label: d.calls ? fmtNumber(d.calls) : '',
-        textFill: isDark(fill) ? '#ffffff' : ctx.theme.colors.ink,
-      };
-    });
+    const cells = toolsHeatmapCells(ctx, config);
 
     const layout = resolveLayout(
       ctx.theme,
@@ -79,16 +89,16 @@ export const toolsHeatmapChart: ArenaChart<ToolsHeatmapChartConfig> = {
         marks: [
           Plot.cell(cells, {
             x: 'experiment',
-            y: 'tool',
+            y: 'tool_label',
             fill: 'fill',
             inset: 1,
-            title: (d) => `${d.experiment} × ${d.tool}\nCalls: ${fmtNumber(d.calls)}`,
+            title: (d) => `${d.experiment} × ${d.tool_raw}\nCalls: ${fmtNumber(d.calls)}`,
           }),
           Plot.text(cells, {
             x: 'experiment',
-            y: 'tool',
+            y: 'tool_label',
             text: 'label',
-            fill: 'textFill',
+            fill: 'text_fill',
             fontSize: 11,
             textAnchor: 'middle',
             dy: 3,
@@ -98,7 +108,7 @@ export const toolsHeatmapChart: ArenaChart<ToolsHeatmapChartConfig> = {
       }),
     });
 
-    return { id: toolsHeatmapChart.id, title: toolsHeatmapChart.title, caption: toolsHeatmapChart.caption, svg };
+    return { id: toolsHeatmapChart.id, title: toolsHeatmapChart.title, caption: toolsHeatmapChart.caption, svg, data: cells };
   },
 };
 

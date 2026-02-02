@@ -5,6 +5,9 @@ export type ArenaFigure = {
   title: string;
   caption: string;
   svg: string;
+  // JSON-serializable rows used to render the chart (post-aggregation).
+  // Exported for downstream analysis + per-chart downloads in the HTML report.
+  data: unknown[];
 };
 
 export type ArenaReportTheme = {
@@ -45,6 +48,9 @@ export type ArenaChart<Config extends object = Record<string, never>> = {
   title: string;
   caption: string;
   isApplicable?: (ctx: ArenaChartContext) => boolean;
+  // Returns the same rows that the Plot marks consume (post-filtering + post-aggregation).
+  // Must be JSON-serializable.
+  getData: (ctx: ArenaChartContext, config?: Config) => unknown[];
   render: (ctx: ArenaChartContext, config?: Config) => ArenaFigure;
 };
 

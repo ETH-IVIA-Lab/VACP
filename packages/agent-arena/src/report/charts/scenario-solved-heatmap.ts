@@ -6,53 +6,64 @@ import type { NormalizedRun } from '../stats.js';
 
 export type ScenarioSolvedHeatmapChartConfig = ArenaFigureLayout;
 
+function scenarioSolvedCells(ctx: Parameters<ArenaChart<ScenarioSolvedHeatmapChartConfig>['getData']>[0]) {
+  const scenarioIndex = new Map<string, number>();
+  for (const [i, id] of ctx.scenarioDomain.entries()) scenarioIndex.set(id, i + 1);
+
+  const byKey = aggregateSolvedRate(ctx.runs);
+
+  const cells = [];
+  for (const experiment of ctx.experimentDomain) {
+    for (const scenarioId of ctx.scenarioDomain) {
+      const key = `${experiment}__${scenarioId}`;
+      const d = byKey.get(key) ?? { experiment, scenarioId, total: 0, usable: 0, solved: 0 };
+      const rate = d.usable ? d.solved / d.usable : null;
+      const missing = d.total - d.usable;
+      const bucket =
+        d.total === 0
+          ? 'not-run'
+          : rate === null
+            ? 'unknown'
+            : rate === 1
+              ? 'solved'
+              : rate === 0
+                ? 'unsolved'
+                : 'mixed';
+      const fill = bucketColor(bucket, ctx.theme);
+      const label = bucket === 'not-run' ? '' : rate === null ? 'n/a' : String(Math.round(rate * 100));
+      const text_fill = isDark(fill) ? '#ffffff' : ctx.theme.colors.ink;
+      cells.push({
+        experiment,
+        scenario_id: scenarioId,
+        scenario_index: scenarioIndex.get(scenarioId) ?? null,
+        total: d.total,
+        usable: d.usable,
+        solved: d.solved,
+        missing,
+        solved_strict_rate: rate,
+        bucket,
+        fill,
+        label,
+        text_fill,
+      });
+    }
+  }
+
+  return cells;
+}
+
 export const scenarioSolvedHeatmapChart: ArenaChart<ScenarioSolvedHeatmapChartConfig> = {
   id: 'scenario-heatmap',
   title: 'Scenario × Experiment (Solved Strict)',
   caption: 'Heatmap of strict solved rate per task. X-axis labels are task indices (see “Task Index” table).',
   isApplicable: (ctx) => ctx.runs.some((r) => typeof r.solvedStrict === 'boolean'),
+  getData: (ctx) => scenarioSolvedCells(ctx),
   render: (ctx, config) => {
     const scenarioIndex = new Map<string, number>();
     for (const [i, id] of ctx.scenarioDomain.entries()) scenarioIndex.set(id, i + 1);
 
     const labelEvery = tickStep(ctx.scenarioDomain.length);
-    const byKey = aggregateSolvedRate(ctx.runs);
-
-    const cells = [];
-    for (const experiment of ctx.experimentDomain) {
-      for (const scenarioId of ctx.scenarioDomain) {
-        const key = `${experiment}__${scenarioId}`;
-        const d = byKey.get(key) ?? { experiment, scenarioId, total: 0, usable: 0, solved: 0 };
-        const rate = d.usable ? d.solved / d.usable : null;
-        const missing = d.total - d.usable;
-        const bucket =
-          d.total === 0
-            ? 'not-run'
-            : rate === null
-              ? 'unknown'
-              : rate === 1
-                ? 'solved'
-                : rate === 0
-                  ? 'unsolved'
-                  : 'mixed';
-        const fill = bucketColor(bucket, ctx.theme);
-        const label = bucket === 'not-run' ? '' : rate === null ? 'n/a' : String(Math.round(rate * 100));
-        const textFill = isDark(fill) ? '#ffffff' : ctx.theme.colors.ink;
-        cells.push({
-          experiment,
-          scenarioId,
-          total: d.total,
-          usable: d.usable,
-          solved: d.solved,
-          missing,
-          rate,
-          bucket,
-          fill,
-          label,
-          textFill,
-        });
-      }
-    }
+    const cells = scenarioSolvedCells(ctx);
 
     const layout = resolveLayout(
       ctx.theme,
@@ -92,17 +103,17 @@ export const scenarioSolvedHeatmapChart: ArenaChart<ScenarioSolvedHeatmapChartCo
         color: { type: 'identity' },
         marks: [
           Plot.cell(cells, {
-            x: 'scenarioId',
+            x: 'scenario_id',
             y: 'experiment',
             fill: 'fill',
             inset: 1,
             title: (d) => formatSolvedCellTitle(d),
           }),
           Plot.text(cells, {
-            x: 'scenarioId',
+            x: 'scenario_id',
             y: 'experiment',
             text: 'label',
-            fill: 'textFill',
+            fill: 'text_fill',
             fontSize: 11,
             textAnchor: 'middle',
             dy: 3,
@@ -117,6 +128,7 @@ export const scenarioSolvedHeatmapChart: ArenaChart<ScenarioSolvedHeatmapChartCo
       title: scenarioSolvedHeatmapChart.title,
       caption: scenarioSolvedHeatmapChart.caption,
       svg,
+      data: cells,
     };
   },
 };
@@ -156,18 +168,18 @@ function bucketColor(bucket: string, theme: { colors: { ok: string; bad: string;
 
 function formatSolvedCellTitle(row: {
   experiment: string;
-  scenarioId: string;
-  rate: number | null;
+  scenario_id: string;
+  solved_strict_rate: number | null;
   total: number;
   usable: number;
   solved: number;
   missing: number;
   bucket: string;
 }) {
-  if (row.bucket === 'not-run') return `${row.experiment} × ${row.scenarioId}\nNot run`;
-  if (row.rate === null)
-    return `${row.experiment} × ${row.scenarioId}\nSolved (strict): n/a (0/${row.total} runs report solved_strict)`;
+  if (row.bucket === 'not-run') return `${row.experiment} × ${row.scenario_id}\nNot run`;
+  if (row.solved_strict_rate === null)
+    return `${row.experiment} × ${row.scenario_id}\nSolved (strict): n/a (0/${row.total} runs report solved_strict)`;
 
   const missingSuffix = row.missing ? `; ${row.missing} missing` : '';
-  return `${row.experiment} × ${row.scenarioId}\nSolved (strict): ${fmtPct(row.rate)} (${row.solved}/${row.usable}${missingSuffix})`;
+  return `${row.experiment} × ${row.scenario_id}\nSolved (strict): ${fmtPct(row.solved_strict_rate)} (${row.solved}/${row.usable}${missingSuffix})`;
 }

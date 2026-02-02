@@ -4,6 +4,9 @@ export type ArenaReportSummaryRow = {
   experiment: string;
   n: number;
   okRate: number;
+  plumbingOkRate: number | null;
+  protocolOkRate: number | null;
+  gradeableRate: number | null;
   solvedStrictRate: number | null;
   solvedSemanticRate: number | null;
   durationMedianS: number | null;
@@ -36,6 +39,8 @@ export type ArenaReportHtmlContext = {
   analysisDir: string;
   runId: string | null;
   generatedAt: string | null;
+  modelLabel: string | null;
+  indexHref: string | null;
   scenarioDefsPath: string | null;
   figureWidthPx: number;
   summaries: ArenaReportSummaryRow[];
@@ -77,9 +82,13 @@ export function renderArenaReportHtml(
   ctx: ArenaReportHtmlContext,
   sections: ArenaReportSection[] = DEFAULT_REPORT_SECTIONS,
 ) {
-  const title = ctx.runId ? `Agent Arena Report - ${ctx.runId}` : 'Agent Arena Report';
+  const titleParts = ['Agent Arena Report'];
+  if (ctx.runId) titleParts.push(ctx.runId);
+  if (ctx.modelLabel) titleParts.push(ctx.modelLabel);
+  const title = titleParts.join(' - ');
   const sub = [
     ctx.runId ? `Run: ${ctx.runId}` : null,
+    ctx.modelLabel ? `Model: ${ctx.modelLabel}` : null,
     ctx.generatedAt ? `Analyzed: ${ctx.generatedAt}` : null,
     `Source: ${ctx.analysisDir}`,
     ctx.scenarioDefsPath ? `Tasks: ${ctx.scenarioDefsPath}` : null,
@@ -101,11 +110,19 @@ export function renderArenaReportHtml(
     '<body>',
     '  <main class="wrap">',
     `    <header class="header">`,
+    ctx.indexHref ? `      <a class="home" href="${escapeAttr(ctx.indexHref)}">Index</a>` : '',
     `      <h1 class="title">Agent Arena Report</h1>`,
     `      <div class="sub">${escapeHtml(sub)}</div>`,
     `    </header>`,
     ...sections.map((s) => s.render(ctx)),
     '  </main>',
+    `  <script id="__agent_arena_figure_data" type="application/json">`,
+    safeJsonForScript(
+      Object.fromEntries(
+        ctx.figures.map((f) => [f.id, Array.isArray((f as any).data) ? ((f as any).data as unknown[]) : []] as const),
+      ),
+    ),
+    `  </script>`,
     '  <script>',
     js(),
     '  </script>',
@@ -123,6 +140,9 @@ function renderSummarySection(ctx: ArenaReportHtmlContext) {
         `<td class="exp">${escapeHtml(s.experiment)}</td>`,
         `<td class="num">${fmtInt(s.n)}</td>`,
         `<td class="num">${fmtPct(s.okRate)}</td>`,
+        `<td class="num">${s.plumbingOkRate === null ? 'n/a' : fmtPct(s.plumbingOkRate)}</td>`,
+        `<td class="num">${s.protocolOkRate === null ? 'n/a' : fmtPct(s.protocolOkRate)}</td>`,
+        `<td class="num">${s.gradeableRate === null ? 'n/a' : fmtPct(s.gradeableRate)}</td>`,
         `<td class="num">${s.solvedStrictRate === null ? 'n/a' : fmtPct(s.solvedStrictRate)}</td>`,
         `<td class="num">${s.solvedSemanticRate === null ? 'n/a' : fmtPct(s.solvedSemanticRate)}</td>`,
         `<td class="num">${s.durationMedianS === null ? 'n/a' : fmtInt(Math.round(s.durationMedianS))}</td>`,
@@ -137,13 +157,17 @@ function renderSummarySection(ctx: ArenaReportHtmlContext) {
   return [
     '    <section class="section">',
     '      <h2>Summary</h2>',
+    '      <div class="muted small">Solved rates are computed over gradeable runs (plumbing OK + parsed OK + judge available).</div>',
     '      <div class="tableWrap">',
     '        <table>',
     '          <thead>',
     '            <tr>',
     '              <th>Experiment</th>',
     '              <th class="num">n</th>',
-    '              <th class="num">OK</th>',
+    '              <th class="num">Run OK</th>',
+    '              <th class="num">Plumbing OK</th>',
+    '              <th class="num">Parsed OK</th>',
+    '              <th class="num">Gradeable</th>',
     '              <th class="num">Solved (strict)</th>',
     '              <th class="num">Solved (semantic)</th>',
     '              <th class="num">Median s</th>',
@@ -153,7 +177,7 @@ function renderSummarySection(ctx: ArenaReportHtmlContext) {
     '            </tr>',
     '          </thead>',
     '          <tbody>',
-    tableRows || '<tr><td colspan="9" class="muted">No runs found.</td></tr>',
+    tableRows || '<tr><td colspan="12" class="muted">No runs found.</td></tr>',
     '          </tbody>',
     '        </table>',
     '      </div>',
@@ -171,6 +195,7 @@ function renderFiguresSection(ctx: ArenaReportHtmlContext) {
         `<div class="actions" aria-label="Export chart">`,
         `<a class="btn" href="figures/${escapeAttr(f.id)}.svg" download="${escapeAttr(f.id)}.svg">SVG</a>`,
         `<button class="btn" type="button" data-export="png" data-figure="${escapeAttr(f.id)}">PNG</button>`,
+        `<button class="btn" type="button" data-export="data" data-figure="${escapeAttr(f.id)}">Data</button>`,
         `</div>`,
         `</div>`,
         `<figure class="figure" data-figure-id="${escapeAttr(f.id)}">`,
@@ -364,6 +389,21 @@ body {
   margin-bottom: 18px;
 }
 
+.home {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--muted);
+  text-decoration: none;
+  font-size: 12px;
+  margin-bottom: 6px;
+}
+
+.home:hover {
+  color: var(--ink);
+  text-decoration: underline;
+}
+
 .title {
   margin: 0;
   font-size: 28px;
@@ -501,6 +541,10 @@ figcaption {
   color: var(--muted);
 }
 
+.small {
+  font-size: 12px;
+}
+
 table.scenarios {
   min-width: 1160px;
 }
@@ -533,6 +577,20 @@ table.tasks {
 function js() {
   return `
 (() => {
+  function getFigureData() {
+    const el = document.getElementById('__agent_arena_figure_data');
+    if (!(el instanceof HTMLScriptElement)) return {};
+    try {
+      const raw = String(el.textContent || '').trim();
+      if (!raw) return {};
+      const parsed = JSON.parse(raw);
+      if (!parsed || typeof parsed !== 'object') return {};
+      return parsed;
+    } catch {
+      return {};
+    }
+  }
+
   function downloadBlob(blob, filename) {
     const a = document.createElement('a');
     const url = URL.createObjectURL(blob);
@@ -601,13 +659,23 @@ function js() {
     downloadBlob(pngBlob, figureId + '.png');
   }
 
+  async function exportData(figureId) {
+    const data = getFigureData();
+    const rows = data && typeof data === 'object' ? data[figureId] : null;
+    if (!Array.isArray(rows)) throw new Error('Data not found for: ' + figureId);
+    const blob = new Blob([JSON.stringify(rows, null, 2) + '\\n'], { type: 'application/json;charset=utf-8' });
+    downloadBlob(blob, figureId + '.json');
+  }
+
   document.addEventListener('click', (ev) => {
     const t = ev.target;
     if (!(t instanceof HTMLElement)) return;
-    if (t.getAttribute('data-export') !== 'png') return;
+    const mode = t.getAttribute('data-export');
+    if (mode !== 'png' && mode !== 'data') return;
     const figureId = t.getAttribute('data-figure');
     if (!figureId) return;
-    exportPng(figureId).catch((err) => console.error(err));
+    if (mode === 'png') exportPng(figureId).catch((err) => console.error(err));
+    else exportData(figureId).catch((err) => console.error(err));
   });
 })();
 `.trim();
@@ -635,6 +703,11 @@ function escapeHtml(value: string) {
 
 function escapeAttr(value: string) {
   return escapeHtml(value).replace(/`/g, '&#96;');
+}
+
+function safeJsonForScript(value: unknown) {
+  // Avoid `<script>` parsing edge cases inside the script tag body.
+  return JSON.stringify(value).replace(/</g, '\\u003c');
 }
 
 const ESC_HTML: Record<string, string> = {

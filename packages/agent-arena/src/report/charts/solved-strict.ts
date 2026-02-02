@@ -6,23 +6,28 @@ import type { NormalizedRun } from '../stats.js';
 
 export type SolvedStrictChartConfig = ArenaFigureLayout;
 
+function solvedStrictRows(ctx: Parameters<ArenaChart<SolvedStrictChartConfig>['getData']>[0]) {
+  const byExp = countSolved(ctx.runs, (r) => r.solvedStrict);
+  return ctx.experimentDomain.map((experiment) => {
+    const counts = byExp.get(experiment) ?? { total: 0, usable: 0, solved: 0 };
+    const rate = counts.usable ? counts.solved / counts.usable : null;
+    return {
+      experiment,
+      solved_strict_rate: rate,
+      solved_strict_rate_display: rate ?? 0,
+      ...counts,
+    };
+  });
+}
+
 export const solvedStrictChart: ArenaChart<SolvedStrictChartConfig> = {
   id: 'solved-strict',
   title: 'Solved Rate (Strict)',
   caption: 'Per-experiment strict solved rate (from `solved_strict` when present).',
   isApplicable: (ctx) => ctx.runs.some((r) => typeof r.solvedStrict === 'boolean'),
+  getData: (ctx) => solvedStrictRows(ctx),
   render: (ctx, config) => {
-    const byExp = countSolved(ctx.runs, (r) => r.solvedStrict);
-    const data = ctx.experimentDomain.map((experiment) => {
-      const counts = byExp.get(experiment) ?? { total: 0, usable: 0, solved: 0 };
-      const rate = counts.usable ? counts.solved / counts.usable : null;
-      return {
-        experiment,
-        rate,
-        displayRate: rate ?? 0,
-        ...counts,
-      };
-    });
+    const data = solvedStrictRows(ctx);
 
     const layout = resolveLayout(
       ctx.theme,
@@ -45,24 +50,24 @@ export const solvedStrictChart: ArenaChart<SolvedStrictChartConfig> = {
         marks: [
           Plot.barY(data, {
             x: 'experiment',
-            y: 'displayRate',
-            fill: (d) => (d.rate === null ? ctx.theme.colors.grid : ctx.theme.colors.ok),
+            y: 'solved_strict_rate_display',
+            fill: (d) => (d.solved_strict_rate === null ? ctx.theme.colors.grid : ctx.theme.colors.ok),
             title: (d) => {
               const missing = Math.max(0, d.total - d.usable);
-              if (d.rate === null)
+              if (d.solved_strict_rate === null)
                 return `${d.experiment}\nSolved (strict): n/a (0/${d.total} runs report solved_strict)`;
               return [
                 d.experiment,
                 `n=${d.total}`,
-                `Solved (strict): ${fmtPct(d.rate)} (${d.solved}/${d.usable}${missing ? `; ${missing} missing` : ''})`,
+                `Solved (strict): ${fmtPct(d.solved_strict_rate)} (${d.solved}/${d.usable}${missing ? `; ${missing} missing` : ''})`,
               ].join('\n');
             },
           }),
           Plot.ruleY([0]),
           Plot.text(data, {
             x: 'experiment',
-            y: 'displayRate',
-            text: (d) => (d.rate === null ? 'n/a' : fmtPct(d.rate)),
+            y: 'solved_strict_rate_display',
+            text: (d) => (d.solved_strict_rate === null ? 'n/a' : fmtPct(d.solved_strict_rate)),
             dy: -8,
             fill: ctx.theme.colors.ink,
             fontSize: 10,
@@ -72,7 +77,7 @@ export const solvedStrictChart: ArenaChart<SolvedStrictChartConfig> = {
       }),
     });
 
-    return { id: 'solved-strict', title: 'Solved Rate (Strict)', caption: solvedStrictChart.caption, svg };
+    return { id: 'solved-strict', title: 'Solved Rate (Strict)', caption: solvedStrictChart.caption, svg, data };
   },
 };
 

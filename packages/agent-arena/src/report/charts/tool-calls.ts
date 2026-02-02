@@ -5,23 +5,28 @@ import type { ArenaChart, ArenaFigureLayout } from './types.js';
 
 export type ToolCallsChartConfig = ArenaFigureLayout;
 
+function toolCallRows(ctx: Parameters<ArenaChart<ToolCallsChartConfig>['getData']>[0]) {
+  return ctx.runs
+    .filter((r) => typeof r.toolCalls === 'number')
+    .map((r) => ({
+      experiment: r.experiment,
+      scenario_id: r.scenarioId,
+      tool_calls: r.toolCalls as number,
+      tool_errors: r.toolErrors ?? 0,
+      solved_strict: r.solvedStrict,
+      solved_semantic: r.solvedSemantic,
+    }));
+}
+
 export const toolCallsChart: ArenaChart<ToolCallsChartConfig> = {
   id: 'tool-calls',
   title: 'Tool Calls by Experiment',
   caption: 'Tool calls counted from OpenCode message parts (includes bash/browser helpers and MCP tools).',
   isApplicable: (ctx) => ctx.runs.some((r) => typeof r.toolCalls === 'number'),
+  getData: (ctx) => toolCallRows(ctx),
   render: (ctx, config) => {
-    const data = ctx.runs
-      .filter((r) => typeof r.toolCalls === 'number')
-      .map((r) => ({
-        experiment: r.experiment,
-        scenarioId: r.scenarioId,
-        toolCalls: r.toolCalls as number,
-        toolErrors: r.toolErrors ?? 0,
-        solvedStrict: r.solvedStrict,
-        solvedSemantic: r.solvedSemantic,
-      }));
-    const maxToolCalls = maxOf(data, (d) => d.toolCalls);
+    const data = toolCallRows(ctx);
+    const maxToolCalls = maxOf(data, (d) => d.tool_calls);
 
     const layout = resolveLayout(
       ctx.theme,
@@ -42,26 +47,26 @@ export const toolCallsChart: ArenaChart<ToolCallsChartConfig> = {
         x: { domain: ctx.experimentDomain, tickRotate: -20, label: null },
         y: { grid: true, label: 'Tool calls (count)', tickFormat: intTick, domain: [0, niceCeil(maxToolCalls * 1.05)] },
         marks: [
-          Plot.boxY(data, { x: 'experiment', y: 'toolCalls', stroke: ctx.theme.colors.ink }),
+          Plot.boxY(data, { x: 'experiment', y: 'tool_calls', stroke: ctx.theme.colors.ink }),
           Plot.dot(data, {
             x: 'experiment',
-            y: 'toolCalls',
+            y: 'tool_calls',
             fill: ctx.theme.colors.neutral,
             stroke: ctx.theme.colors.neutral,
             r: 3,
             opacity: 0.45,
             title: (d) =>
               [
-                `${d.experiment} × ${d.scenarioId}`,
-                `Tool calls: ${fmtNumber(d.toolCalls)} (${fmtNumber(d.toolErrors)} errors)`,
-                `Solved (strict): ${d.solvedStrict === null ? 'n/a' : d.solvedStrict ? 'yes' : 'no'}`,
-                `Solved (semantic): ${d.solvedSemantic === null ? 'n/a' : d.solvedSemantic ? 'yes' : 'no'}`,
+                `${d.experiment} × ${d.scenario_id}`,
+                `Tool calls: ${fmtNumber(d.tool_calls)} (${fmtNumber(d.tool_errors)} errors)`,
+                `Solved (strict): ${d.solved_strict === null ? 'n/a' : d.solved_strict ? 'yes' : 'no'}`,
+                `Solved (semantic): ${d.solved_semantic === null ? 'n/a' : d.solved_semantic ? 'yes' : 'no'}`,
               ].join('\n'),
           }),
         ],
       }),
     });
 
-    return { id: toolCallsChart.id, title: toolCallsChart.title, caption: toolCallsChart.caption, svg };
+    return { id: toolCallsChart.id, title: toolCallsChart.title, caption: toolCallsChart.caption, svg, data };
   },
 };

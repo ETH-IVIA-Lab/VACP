@@ -5,27 +5,32 @@ import type { ArenaChart, ArenaFigureLayout } from './types.js';
 
 export type ParetoChartConfig = ArenaFigureLayout;
 
+function paretoPoints(ctx: Parameters<ArenaChart<ParetoChartConfig>['getData']>[0]) {
+  return ctx.summaries
+    .flatMap((s) => {
+      if (typeof s.tokensMedianNoCache !== 'number' || typeof s.durationMedianS !== 'number') return [];
+      return [
+        {
+          experiment: s.experiment,
+          tokens_median_no_cache: s.tokensMedianNoCache,
+          duration_s_median: s.durationMedianS,
+          solved_strict_rate: s.solvedStrictRate,
+        },
+      ];
+    })
+    .filter((p) => ctx.experimentDomain.includes(p.experiment));
+}
+
 export const paretoChart: ArenaChart<ParetoChartConfig> = {
   id: 'pareto',
-  title: 'Efficiency vs Correctness (Medians)',
+  title: 'Duration vs Tokens (Medians)',
   caption:
-    'Each point is one experiment: x = median tokens (no cache), y = median duration (seconds). Labels include strict solved rate.',
+    'Scatter plot (not a computed Pareto frontier). Each point is one experiment: x = median tokens (no cache), y = median duration (seconds). Labels show strict solved rate.',
   isApplicable: (ctx) =>
     ctx.summaries.some((s) => typeof s.tokensMedianNoCache === 'number' && typeof s.durationMedianS === 'number'),
+  getData: (ctx) => paretoPoints(ctx),
   render: (ctx, config) => {
-    const points = ctx.summaries
-      .flatMap((s) => {
-        if (typeof s.tokensMedianNoCache !== 'number' || typeof s.durationMedianS !== 'number') return [];
-        return [
-          {
-            experiment: s.experiment,
-            tokens: s.tokensMedianNoCache,
-            durationS: s.durationMedianS,
-            solvedStrictRate: s.solvedStrictRate,
-          },
-        ];
-      })
-      .filter((p) => ctx.experimentDomain.includes(p.experiment));
+    const points = paretoPoints(ctx);
 
     const layout = resolveLayout(
       ctx.theme,
@@ -47,32 +52,32 @@ export const paretoChart: ArenaChart<ParetoChartConfig> = {
           grid: true,
           label: 'Median tokens (no cache)',
           tickFormat: intTick,
-          domain: [0, niceCeil(maxOf(points, (d) => d.tokens) * 1.05)],
+          domain: [0, niceCeil(maxOf(points, (d) => d.tokens_median_no_cache) * 1.05)],
         },
         y: {
           grid: true,
           label: 'Median duration (s)',
           tickFormat: intTick,
-          domain: [0, niceCeil(maxOf(points, (d) => d.durationS) * 1.05)],
+          domain: [0, niceCeil(maxOf(points, (d) => d.duration_s_median) * 1.05)],
         },
         marks: [
           Plot.dot(points, {
-            x: 'tokens',
-            y: 'durationS',
+            x: 'tokens_median_no_cache',
+            y: 'duration_s_median',
             r: 6,
             fill: ctx.theme.colors.ok,
             stroke: ctx.theme.colors.ink,
             title: (d) =>
               [
                 d.experiment,
-                `Median: ${fmtNumber(d.tokens)} tokens, ${fmtNumber(Math.round(d.durationS))}s`,
-                `Solved (strict): ${d.solvedStrictRate === null ? 'n/a' : fmtPct(d.solvedStrictRate)}`,
+                `Median: ${fmtNumber(d.tokens_median_no_cache)} tokens, ${fmtNumber(Math.round(d.duration_s_median))}s`,
+                `Solved (strict): ${d.solved_strict_rate === null ? 'n/a' : fmtPct(d.solved_strict_rate)}`,
               ].join('\n'),
           }),
           Plot.text(points, {
-            x: 'tokens',
-            y: 'durationS',
-            text: (d) => `${d.experiment}${d.solvedStrictRate === null ? '' : ` (${fmtPct(d.solvedStrictRate)})`}`,
+            x: 'tokens_median_no_cache',
+            y: 'duration_s_median',
+            text: (d) => `${d.experiment}${d.solved_strict_rate === null ? '' : ` (${fmtPct(d.solved_strict_rate)})`}`,
             dx: 10,
             dy: -10,
             fontSize: 11,
@@ -83,6 +88,6 @@ export const paretoChart: ArenaChart<ParetoChartConfig> = {
       }),
     });
 
-    return { id: paretoChart.id, title: paretoChart.title, caption: paretoChart.caption, svg };
+    return { id: paretoChart.id, title: paretoChart.title, caption: paretoChart.caption, svg, data: points };
   },
 };

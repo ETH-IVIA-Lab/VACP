@@ -35,21 +35,16 @@ export function createScenarioMetricHeatmapChart(
     title: spec.title,
     caption: spec.caption,
     isApplicable: (ctx) => ctx.runs.some((r) => typeof spec.getValue(r) === 'number'),
+    getData: (ctx) => scenarioMetricCells({ ctx, spec }),
     render: (ctx, config) => renderScenarioMetricHeatmap({ ctx, config, spec }),
   };
 }
 
-function renderScenarioMetricHeatmap(args: {
-  ctx: ArenaChartContext;
-  config?: ScenarioMetricHeatmapConfig;
-  spec: ScenarioMetricHeatmapSpec;
-}) {
+function scenarioMetricCells(args: { ctx: ArenaChartContext; spec: ScenarioMetricHeatmapSpec }) {
   const palette = args.spec.palette ?? ['#eff6ff', '#bfdbfe', '#93c5fd', '#60a5fa', '#2563eb', '#1e3a8a'];
 
   const scenarioIndex = new Map<string, number>();
   for (const [i, id] of args.ctx.scenarioDomain.entries()) scenarioIndex.set(id, i + 1);
-
-  const labelEvery = tickStep(args.ctx.scenarioDomain.length);
 
   const totalByKey = new Map<string, number>();
   const valuesByKey = new Map<string, number[]>();
@@ -87,20 +82,35 @@ function renderScenarioMetricHeatmap(args: {
         total === 0 ? '#ffffff' : value === null ? args.ctx.theme.colors.grid : palette[bucketIndex(value, q)];
 
       const label = total === 0 ? '' : value === null ? 'n/a' : args.spec.formatCell(value);
-      const textFill = isDark(fill) ? '#ffffff' : args.ctx.theme.colors.ink;
+      const text_fill = isDark(fill) ? '#ffffff' : args.ctx.theme.colors.ink;
 
       cells.push({
         experiment,
-        scenarioId,
+        scenario_id: scenarioId,
+        scenario_index: scenarioIndex.get(scenarioId) ?? null,
         total,
         n,
         value,
         fill,
         label,
-        textFill,
+        text_fill,
       });
     }
   }
+  return cells;
+}
+
+function renderScenarioMetricHeatmap(args: {
+  ctx: ArenaChartContext;
+  config?: ScenarioMetricHeatmapConfig;
+  spec: ScenarioMetricHeatmapSpec;
+}) {
+  const scenarioIndex = new Map<string, number>();
+  for (const [i, id] of args.ctx.scenarioDomain.entries()) scenarioIndex.set(id, i + 1);
+
+  const labelEvery = tickStep(args.ctx.scenarioDomain.length);
+
+  const cells = scenarioMetricCells({ ctx: args.ctx, spec: args.spec });
 
   const layout = resolveLayout(
     args.ctx.theme,
@@ -140,22 +150,22 @@ function renderScenarioMetricHeatmap(args: {
       color: { type: 'identity' },
       marks: [
         Plot.cell(cells, {
-          x: 'scenarioId',
+          x: 'scenario_id',
           y: 'experiment',
           fill: 'fill',
           inset: 1,
           title: (d) =>
             d.total === 0
-              ? `${d.experiment} × ${d.scenarioId}\nNot run`
+              ? `${d.experiment} × ${d.scenario_id}\nNot run`
               : d.value === null
-                ? `${d.experiment} × ${d.scenarioId}\n${args.spec.valueLabel}: n/a (0/${d.total} runs)`
-                : `${d.experiment} × ${d.scenarioId}\n${args.spec.valueLabel}: ${args.spec.formatTitle(d.value)} (n=${d.n})`,
+                ? `${d.experiment} × ${d.scenario_id}\n${args.spec.valueLabel}: n/a (0/${d.total} runs)`
+                : `${d.experiment} × ${d.scenario_id}\n${args.spec.valueLabel}: ${args.spec.formatTitle(d.value)} (n=${d.n})`,
         }),
         Plot.text(cells, {
-          x: 'scenarioId',
+          x: 'scenario_id',
           y: 'experiment',
           text: 'label',
-          fill: 'textFill',
+          fill: 'text_fill',
           fontSize: 11,
           textAnchor: 'middle',
           dy: 3,
@@ -170,6 +180,7 @@ function renderScenarioMetricHeatmap(args: {
     title: args.spec.title,
     caption: args.spec.caption,
     svg,
+    data: cells,
   };
 }
 

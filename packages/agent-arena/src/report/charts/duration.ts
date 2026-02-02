@@ -5,23 +5,28 @@ import type { ArenaChart, ArenaFigureLayout } from './types.js';
 
 export type DurationChartConfig = ArenaFigureLayout;
 
+function durationRows(ctx: Parameters<ArenaChart<DurationChartConfig>['getData']>[0]) {
+  return ctx.runs
+    .filter((r) => typeof r.durationS === 'number')
+    .map((r) => ({
+      experiment: r.experiment,
+      scenario_id: r.scenarioId,
+      duration_s: r.durationS as number,
+      solved_strict: r.solvedStrict,
+      solved_semantic: r.solvedSemantic,
+    }));
+}
+
 export const durationChart: ArenaChart<DurationChartConfig> = {
   id: 'duration',
   title: 'Run Duration by Experiment',
   caption:
     'Per-run wall clock time (prefers `opencode_duration_ms` when present). Boxplots show distribution; dots show individual runs.',
   isApplicable: (ctx) => ctx.runs.some((r) => typeof r.durationS === 'number'),
+  getData: (ctx) => durationRows(ctx),
   render: (ctx, config) => {
-    const data = ctx.runs
-      .filter((r) => typeof r.durationS === 'number')
-      .map((r) => ({
-        experiment: r.experiment,
-        scenarioId: r.scenarioId,
-        durationS: r.durationS as number,
-        solvedStrict: r.solvedStrict,
-        solvedSemantic: r.solvedSemantic,
-      }));
-    const maxDuration = maxOf(data, (d) => d.durationS);
+    const data = durationRows(ctx);
+    const maxDuration = maxOf(data, (d) => d.duration_s);
 
     const layout = resolveLayout(
       ctx.theme,
@@ -42,26 +47,26 @@ export const durationChart: ArenaChart<DurationChartConfig> = {
         x: { domain: ctx.experimentDomain, tickRotate: -20, label: null },
         y: { grid: true, label: 'Duration (s)', tickFormat: intTick, domain: [0, niceCeil(maxDuration * 1.05)] },
         marks: [
-          Plot.boxY(data, { x: 'experiment', y: 'durationS', stroke: ctx.theme.colors.ink }),
+          Plot.boxY(data, { x: 'experiment', y: 'duration_s', stroke: ctx.theme.colors.ink }),
           Plot.dot(data, {
             x: 'experiment',
-            y: 'durationS',
+            y: 'duration_s',
             fill: ctx.theme.colors.neutral,
             stroke: ctx.theme.colors.neutral,
             r: 3,
             opacity: 0.45,
             title: (d) =>
               [
-                `${d.experiment} × ${d.scenarioId}`,
-                `Duration: ${fmtNumber(d.durationS)}s`,
-                `Solved (strict): ${d.solvedStrict === null ? 'n/a' : d.solvedStrict ? 'yes' : 'no'}`,
-                `Solved (semantic): ${d.solvedSemantic === null ? 'n/a' : d.solvedSemantic ? 'yes' : 'no'}`,
+                `${d.experiment} × ${d.scenario_id}`,
+                `Duration: ${fmtNumber(d.duration_s)}s`,
+                `Solved (strict): ${d.solved_strict === null ? 'n/a' : d.solved_strict ? 'yes' : 'no'}`,
+                `Solved (semantic): ${d.solved_semantic === null ? 'n/a' : d.solved_semantic ? 'yes' : 'no'}`,
               ].join('\n'),
           }),
         ],
       }),
     });
 
-    return { id: durationChart.id, title: durationChart.title, caption: durationChart.caption, svg };
+    return { id: durationChart.id, title: durationChart.title, caption: durationChart.caption, svg, data };
   },
 };
