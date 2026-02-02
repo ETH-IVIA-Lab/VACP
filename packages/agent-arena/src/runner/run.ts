@@ -62,7 +62,19 @@ export async function runArena(input: ArenaRunInput): Promise<ArenaRunResult[]> 
     const requestedDirectory = path.resolve(input.config.directory ?? input.config.startDirectory ?? process.cwd());
     const worktreeRoot = input.config.worktreeRoot ?? true;
 
+    // In `connect` mode, `server.opencodeConfig` is NOT applied by `opencode serve` automatically.
+    // To keep arena runs self-contained (and avoid requiring users to edit global OpenCode config),
+    // write a local `opencode.json` into the arena directory (which is typically `.agent-arena/`).
+    //
+    // This intentionally only auto-writes when the directory basename is `.agent-arena` to avoid
+    // surprising config/secrets writes into arbitrary project roots.
     const bootstrapClient = createClient(server.url, requestedDirectory);
+    await ensureLocalOpencodeConfigForConnectMode({
+      arenaConfig: input.config,
+      directory: requestedDirectory,
+      client: bootstrapClient,
+    });
+
     const ocPath = requireData(await bootstrapClient.path.get({ directory: requestedDirectory })) as any;
     const directory = worktreeRoot ? String(ocPath.worktree) : String(ocPath.directory);
 
@@ -117,6 +129,48 @@ export async function runArena(input: ArenaRunInput): Promise<ArenaRunResult[]> 
       await approvals;
     } catch {}
     await server.close();
+  }
+}
+
+async function ensureLocalOpencodeConfigForConnectMode(args: {
+  arenaConfig: ArenaConfig;
+  directory: string;
+  client: ReturnType<typeof createClient>;
+}) {
+  const cfg = args.arenaConfig.server;
+  if (!cfg || cfg.mode !== 'connect') return;
+  if (!cfg.opencodeConfig || Object.keys(cfg.opencodeConfig).length === 0) return;
+
+  const dirBase = path.basename(path.resolve(args.directory));
+  if (dirBase !== '.agent-arena') {
+    consola.warn(
+      `[agent-arena] server.opencodeConfig is set, but server.mode=\"connect\" cannot inject it automatically (directory is ${args.directory}). ` +
+        `Either (1) set directory to a dedicated \".agent-arena\" folder, or (2) configure this provider in your OpenCode config.`,
+    );
+    return;
+  }
+
+  const filePath = path.join(args.directory, 'opencode.json');
+  const payload = {
+    $schema: 'https://opencode.ai/config.json',
+    ...cfg.opencodeConfig,
+  } as const;
+
+  const desired = JSON.stringify(payload, null, 2) + '\n';
+  const existing = await fs
+    .readFile(filePath, 'utf8')
+    .then((s) => s)
+    .catch(() => null);
+
+  if (existing !== desired) {
+    await fs.writeFile(filePath, desired, 'utf8');
+  }
+
+  // Ensure OpenCode reloads config + plugins for this directory if an instance is already cached.
+  try {
+    await args.client.instance.dispose({ directory: args.directory });
+  } catch {
+    // Best effort; OpenCode will still pick up the file on a fresh instance.
   }
 }
 
