@@ -8,9 +8,49 @@ import { SCENARIO_BASES } from './agent-arena.scenarios';
 
 export { SCENARIO_BASES };
 
+const AGENT_ARENA_DIR = path.dirname(fileURLToPath(import.meta.url));
+try {
+  // Prefer local project secrets if present (Node >=20.6).
+  process.loadEnvFile(path.join(AGENT_ARENA_DIR, '.env'));
+} catch {
+  // ignore
+}
+
 const BASE_URL = 'http://127.0.0.1:5173';
 
-const MODELS = [{ providerID: 'openai', modelID: 'gpt-5.2' }];
+const MODELS = [
+  { providerID: 'openai', modelID: 'gpt-5.2' },
+  // Disabled for now: this model was very brittle in the current arena harness, with frequent:
+  // - zsh URL escaping issues (`?`, `&`, `#`) causing early `agent-browser open` failures
+  // - screenshot path copy drift leading to `read` ENOENT / "File not found"
+  // - DOM snapshot confusion (`#__vacp_snapshot` vs `window.__vacp_snapshot`)
+  // - occasional provider overload/INTERNAL errors yielding empty/aborted runs
+  //
+  // Keep the provider plumbing below so it is easy to re-enable.
+  // Note: packages/agent-arena/.opencode/ is tracked and contains the OpenCode plugin used for this model.
+  // { providerID: 'google-custom', modelID: 'gemini-2.5-computer-use-preview-10-2025' },
+];
+
+const GOOGLE_API_KEY = process.env.GOOGLE_API_KEY?.trim() ?? '';
+const GOOGLE_CUSTOM_PROVIDER_CONFIG = {
+  npm: '@ai-sdk/google',
+  name: 'Google Custom',
+  options: {
+    apiKey: GOOGLE_API_KEY,
+  },
+  models: {
+    'gemini-2.5-computer-use-preview-10-2025': {
+      id: 'models/gemini-2.5-computer-use-preview-10-2025',
+      name: 'models/gemini-2.5-computer-use-preview-10-2025',
+      attachment: true,
+      tool_call: true,
+      modalities: {
+        input: ['text', 'image'],
+        output: ['text'],
+      },
+    },
+  },
+} as const;
 
 const DEFAULT_MCP_TIMEOUT_MS = 120_000;
 const AGENT_BROWSER = 'agent-browser';
@@ -486,7 +526,14 @@ export const config: ArenaConfig = {
   autoApprove: 'always',
   concurrency: { runs: 8 },
   timeouts: { promptMs: 15 * 60_000 },
-  server: { mode: 'connect' },
+  server: {
+    mode: 'connect',
+    opencodeConfig: {
+      provider: {
+        'google-custom': GOOGLE_CUSTOM_PROVIDER_CONFIG,
+      },
+    },
+  },
   onFinished: closeAgentBrowserSession,
   runs,
 };
