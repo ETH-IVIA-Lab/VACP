@@ -20,15 +20,7 @@ const BASE_URL = 'http://127.0.0.1:5173';
 
 const MODELS = [
   { providerID: 'openai', modelID: 'gpt-5.2' },
-  // Disabled for now: this model was very brittle in the current arena harness, with frequent:
-  // - zsh URL escaping issues (`?`, `&`, `#`) causing early `agent-browser open` failures
-  // - screenshot path copy drift leading to `read` ENOENT / "File not found"
-  // - DOM snapshot confusion (`#__vacp_snapshot` vs `window.__vacp_snapshot`)
-  // - occasional provider overload/INTERNAL errors yielding empty/aborted runs
-  //
-  // Keep the provider plumbing below so it is easy to re-enable.
-  // Note: packages/agent-arena/.opencode/ is tracked and contains the OpenCode plugin used for this model.
-  // { providerID: 'google-custom', modelID: 'gemini-2.5-computer-use-preview-10-2025' },
+  { providerID: 'google', modelID: 'gemini-3-pro-preview' },
 ];
 
 const GOOGLE_API_KEY = process.env.GOOGLE_API_KEY?.trim() ?? '';
