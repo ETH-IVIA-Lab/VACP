@@ -12,6 +12,7 @@ import {
   resolveOpencodeStorageRoot,
   type OpencodeMessageInfo,
 } from './opencode-storage.js';
+import { classifyEvalOutcome, detectPlumbingFailure } from '../eval/outcome.js';
 import { parseAnswerFromText } from './score.js';
 
 export type AnalyzeRunArgs = {
@@ -96,6 +97,7 @@ export async function analyzeArenaRun(args: AnalyzeRunArgs) {
     const modelName = String(input?.model?.modelID ?? '');
 
     const ok = Boolean(run?.ok);
+    const runErrorMessage = typeof run?.error?.message === 'string' ? String(run.error.message) : null;
     const projectID = typeof run?.projectID === 'string' ? String(run.projectID) : '';
     const sessionID = typeof run?.sessionID === 'string' ? String(run.sessionID) : '';
     const uiUrl = uiBase && sessionID ? `${uiBase}/session/${sessionID}` : '';
@@ -140,6 +142,21 @@ export async function analyzeArenaRun(args: AnalyzeRunArgs) {
         /chrome-error:\/\/chromewebdata/.test(t.errorPreview ?? ''),
     );
 
+    const plumbingFailure = detectPlumbingFailure({
+      ok,
+      runErrorMessage,
+      hasErrConnectionRefused: hasErrConnRefused,
+      hasChromeWebdata,
+    });
+    const plumbingOk = plumbingFailure === null;
+    const evalOutcome = classifyEvalOutcome({
+      plumbingOk,
+      parseStatus: parsed.parseStatus,
+      hasJudge: typeof judge === 'function',
+      solvedStrict: score.solvedStrict,
+      solvedSemantic: score.solvedSemantic,
+    });
+
     const row = {
       run_id: runId,
       experiment,
@@ -148,6 +165,7 @@ export async function analyzeArenaRun(args: AnalyzeRunArgs) {
       model_provider: modelProvider,
       model_name: modelName,
       ok,
+      run_error_message: clampField(runErrorMessage, maxFieldChars),
       project_id: projectID,
       session_id: sessionID,
       ui_url: uiUrl,
@@ -185,6 +203,9 @@ export async function analyzeArenaRun(args: AnalyzeRunArgs) {
       score_json: score.result,
       solved_strict: score.solvedStrict,
       solved_semantic: score.solvedSemantic,
+      plumbing_ok: plumbingOk,
+      plumbing_failure: plumbingFailure,
+      eval_outcome: evalOutcome,
       has_https_tool_calls: hasHttps,
       has_read_enoent: hasReadEnoent,
       has_err_connection_refused: hasErrConnRefused,
@@ -257,8 +278,8 @@ async function evaluateScenario(args: {
   const defaultFailed: ScenarioScore = {
     ok: false,
     label: 'parse_error',
-    solvedStrict: false,
-    solvedSemantic: false,
+    solvedStrict: null,
+    solvedSemantic: null,
     result: { ok: false, label: 'parse_error', notes: [args.parseStatus] },
   };
 
@@ -287,8 +308,8 @@ async function evaluateScenario(args: {
     return {
       ok: false,
       label: 'judge_error',
-      solvedStrict: false,
-      solvedSemantic: false,
+      solvedStrict: null,
+      solvedSemantic: null,
       result: { ok: false, label: 'judge_error', error: message },
     };
   }
@@ -297,8 +318,8 @@ async function evaluateScenario(args: {
     return {
       ok: false,
       label: 'invalid_judge_result',
-      solvedStrict: false,
-      solvedSemantic: false,
+      solvedStrict: null,
+      solvedSemantic: null,
       result: { ok: false, label: 'invalid_judge_result' },
     };
   }
@@ -308,8 +329,8 @@ async function evaluateScenario(args: {
 
   const strict = (res as any).strictOk ?? (res as any).solvedStrict;
   const semantic = (res as any).semanticOk ?? (res as any).solvedSemantic;
-  const solvedStrict = typeof strict === 'boolean' ? strict : null;
-  const solvedSemantic = typeof semantic === 'boolean' ? semantic : null;
+  const solvedStrict = typeof strict === 'boolean' ? strict : ok;
+  const solvedSemantic = typeof semantic === 'boolean' ? semantic : ok;
 
   return { ok, label, solvedStrict, solvedSemantic, result: res };
 }
@@ -633,6 +654,11 @@ function summarizeToolCalls(calls: ToolCallRow[]) {
 function truncate(value: string, maxChars: number) {
   if (value.length <= maxChars) return value;
   return value.slice(0, maxChars) + '…';
+}
+
+function clampField(value: string | null, maxChars: number) {
+  if (typeof value !== 'string') return null;
+  return truncate(redactHomePath(value), maxChars);
 }
 
 function safeJsonString(value: unknown) {

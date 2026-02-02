@@ -144,8 +144,8 @@ async function ensureLocalOpencodeConfigForConnectMode(args: {
   const dirBase = path.basename(path.resolve(args.directory));
   if (dirBase !== '.agent-arena') {
     consola.warn(
-      `[agent-arena] server.opencodeConfig is set, but server.mode=\"connect\" cannot inject it automatically (directory is ${args.directory}). ` +
-        `Either (1) set directory to a dedicated \".agent-arena\" folder, or (2) configure this provider in your OpenCode config.`,
+      `[agent-arena] server.opencodeConfig is set, but server.mode="connect" cannot inject it automatically (directory is ${args.directory}). ` +
+        `Either (1) set directory to a dedicated ".agent-arena" folder, or (2) configure this provider in your OpenCode config.`,
     );
     return;
   }

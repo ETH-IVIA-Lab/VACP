@@ -1,4 +1,5 @@
 import type { ArenaRunRow, ArenaToolCallRow } from './load-analysis.js';
+import { deriveEvalOutcome, isGradeable, isParseOk } from '../eval/outcome.js';
 
 export type NormalizedRun = {
   experiment: string;
@@ -7,6 +8,13 @@ export type NormalizedRun = {
   modelName: string;
 
   ok: boolean;
+  // True when the run reached a stable, gradeable state (no infra/harness failures detected).
+  // Older analysis folders won't have this field; fall back to `ok`.
+  plumbingOk: boolean | null;
+  plumbingFailure: string | null;
+  answerParseStatus: string | null;
+  evalOutcome: string | null;
+
   durationS: number | null;
   tokensTotalNoCache: number | null;
   toolCalls: number | null;
@@ -25,6 +33,9 @@ export type ExperimentSummary = {
   experiment: string;
   n: number;
   okRate: number;
+  plumbingOkRate: number | null;
+  protocolOkRate: number | null;
+  gradeableRate: number | null;
   solvedStrictRate: number | null;
   solvedSemanticRate: number | null;
   durationMedianS: number | null;
@@ -47,6 +58,9 @@ export type ScenarioExperimentSummary = {
   experiment: string;
   n: number;
   okRate: number;
+  plumbingOkRate: number | null;
+  protocolOkRate: number | null;
+  gradeableRate: number | null;
   solvedStrictRate: number | null;
   solvedSemanticRate: number | null;
   durationMedianS: number | null;
@@ -64,6 +78,10 @@ export function normalizeRuns(rows: ArenaRunRow[]): NormalizedRun[] {
     const modelName = asString((row as any).model_name);
 
     const ok = asBoolean((row as any).ok) ?? false;
+    const plumbingOk = asBoolean((row as any).plumbing_ok) ?? ok;
+    const plumbingFailure = asOptionalString((row as any).plumbing_failure);
+    const answerParseStatus = asOptionalString((row as any).answer_parse_status);
+    let evalOutcome = asOptionalString((row as any).eval_outcome);
 
     const durationMs = pickNumber((row as any).opencode_duration_ms, (row as any).duration_ms);
     const durationS = typeof durationMs === 'number' ? durationMs / 1000 : null;
@@ -75,8 +93,11 @@ export function normalizeRuns(rows: ArenaRunRow[]): NormalizedRun[] {
     const toolCalls = asNumber((row as any).tool_calls);
     const toolErrors = asNumber((row as any).tool_errors);
 
-    const solvedStrict = asBoolean((row as any).solved_strict) ?? asBoolean((row as any).score_ok);
-    const solvedSemantic = asBoolean((row as any).solved_semantic);
+    const solvedStrict = normalizeSolvedField(row, 'solved_strict', 'score_ok');
+    const solvedSemantic = normalizeSolvedField(row, 'solved_semantic', null);
+
+    if (!evalOutcome)
+      evalOutcome = deriveEvalOutcome({ ok, plumbingOk, parseStatus: answerParseStatus, solvedStrict, solvedSemantic });
 
     out.push({
       experiment,
@@ -84,6 +105,10 @@ export function normalizeRuns(rows: ArenaRunRow[]): NormalizedRun[] {
       modelProvider,
       modelName,
       ok,
+      plumbingOk,
+      plumbingFailure,
+      answerParseStatus,
+      evalOutcome,
       durationS,
       tokensTotalNoCache,
       toolCalls,
@@ -107,6 +132,9 @@ export function computeExperimentSummaries(runs: NormalizedRun[]): ExperimentSum
   for (const [experiment, rows] of byExp) {
     const n = rows.length;
     const okRate = n ? rows.filter((r) => r.ok).length / n : 0;
+    const plumbingOkRate = fraction(rows.map((r) => r.plumbingOk));
+    const protocolOkRate = fraction(rows.map((r) => isParseOk(r.answerParseStatus)));
+    const gradeableRate = fraction(rows.map((r) => isGradeableRow(r)));
     const solvedStrictRate = fraction(rows.map((r) => r.solvedStrict));
     const solvedSemanticRate = fraction(rows.map((r) => r.solvedSemantic));
     const durationMedianS = median(rows.flatMap((r) => (typeof r.durationS === 'number' ? [r.durationS] : [])));
@@ -120,6 +148,9 @@ export function computeExperimentSummaries(runs: NormalizedRun[]): ExperimentSum
       experiment,
       n,
       okRate,
+      plumbingOkRate,
+      protocolOkRate,
+      gradeableRate,
       solvedStrictRate,
       solvedSemanticRate,
       durationMedianS,
@@ -199,6 +230,9 @@ export function computeScenarioExperimentSummaries(runs: NormalizedRun[]): Scena
     const [scenarioId, experiment] = key.split('__');
     const n = rows.length;
     const okRate = n ? rows.filter((r) => r.ok).length / n : 0;
+    const plumbingOkRate = fraction(rows.map((r) => r.plumbingOk));
+    const protocolOkRate = fraction(rows.map((r) => isParseOk(r.answerParseStatus)));
+    const gradeableRate = fraction(rows.map((r) => isGradeableRow(r)));
     const solvedStrictRate = fraction(rows.map((r) => r.solvedStrict));
     const solvedSemanticRate = fraction(rows.map((r) => r.solvedSemantic));
     const durationMedianS = median(rows.flatMap((r) => (typeof r.durationS === 'number' ? [r.durationS] : [])));
@@ -213,6 +247,9 @@ export function computeScenarioExperimentSummaries(runs: NormalizedRun[]): Scena
       experiment: experiment ?? '',
       n,
       okRate,
+      plumbingOkRate,
+      protocolOkRate,
+      gradeableRate,
       solvedStrictRate,
       solvedSemanticRate,
       durationMedianS,
@@ -233,12 +270,33 @@ function asString(value: unknown) {
   return typeof value === 'string' ? value : value == null ? '' : String(value);
 }
 
+function asOptionalString(value: unknown): string | null {
+  if (typeof value !== 'string') return null;
+  const trimmed = value.trim();
+  return trimmed ? trimmed : null;
+}
+
 function asNumber(value: unknown): number | null {
   return typeof value === 'number' && Number.isFinite(value) ? value : null;
 }
 
 function asBoolean(value: unknown): boolean | null {
   return typeof value === 'boolean' ? value : null;
+}
+
+function normalizeSolvedField(row: ArenaRunRow, primaryKey: string, fallbackKey: string | null) {
+  if (Object.prototype.hasOwnProperty.call(row, primaryKey)) return asBoolean((row as any)[primaryKey]);
+  if (fallbackKey && Object.prototype.hasOwnProperty.call(row, fallbackKey)) return asBoolean((row as any)[fallbackKey]);
+  return null;
+}
+
+function isGradeableRow(run: NormalizedRun) {
+  return isGradeable({
+    plumbingOk: run.plumbingOk,
+    parseStatus: run.answerParseStatus,
+    solvedStrict: run.solvedStrict,
+    solvedSemantic: run.solvedSemantic,
+  });
 }
 
 function pickNumber(...values: unknown[]) {
