@@ -8,7 +8,10 @@ export type ToolsHeatmapChartConfig = ArenaFigureLayout & {
   topK?: number;
 };
 
-function toolsHeatmapCells(ctx: Parameters<ArenaChart<ToolsHeatmapChartConfig>['getData']>[0], config?: ToolsHeatmapChartConfig) {
+function toolsHeatmapCells(
+  ctx: Parameters<ArenaChart<ToolsHeatmapChartConfig>['getData']>[0],
+  config?: ToolsHeatmapChartConfig,
+) {
   const topK = config?.topK ?? 10;
   const topTools = topKTools(ctx.toolByExperiment, topK);
   const toolLabels = makeUniqueToolLabels(topTools);
@@ -108,7 +111,13 @@ export const toolsHeatmapChart: ArenaChart<ToolsHeatmapChartConfig> = {
       }),
     });
 
-    return { id: toolsHeatmapChart.id, title: toolsHeatmapChart.title, caption: toolsHeatmapChart.caption, svg, data: cells };
+    return {
+      id: toolsHeatmapChart.id,
+      title: toolsHeatmapChart.title,
+      caption: toolsHeatmapChart.caption,
+      svg,
+      data: cells,
+    };
   },
 };
 

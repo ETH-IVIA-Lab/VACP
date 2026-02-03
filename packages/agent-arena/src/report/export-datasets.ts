@@ -154,7 +154,14 @@ function exportToolByExperiment(rows: ToolByExperimentRow[]) {
 }
 
 function exportTaskIndex(
-  rows: Array<{ index: number; scenarioId: string; app: string | null; tags: string[]; task: string | null; responseFormat: string | null }>,
+  rows: Array<{
+    index: number;
+    scenarioId: string;
+    app: string | null;
+    tags: string[];
+    task: string | null;
+    responseFormat: string | null;
+  }>,
 ) {
   return rows.map((row) => ({
     index: row.index,

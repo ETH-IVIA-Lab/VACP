@@ -85,4 +85,3 @@ export function isGradeable(args: {
   if (args.parseStatus !== 'ok') return false;
   return typeof args.solvedStrict === 'boolean' || typeof args.solvedSemantic === 'boolean';
 }
-

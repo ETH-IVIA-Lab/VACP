@@ -516,13 +516,17 @@ async function findBestAnswer(storage: { storageDir: string }, messages: Opencod
   for (const m of candidates) {
     const text = await readAssistantMessageText(storage, m.id);
     if (!text) continue;
-    if (!text.includes('```json')) continue;
+    const parsed = parseAnswerFromText(text);
+    if (parsed.parseStatus === 'no_text' || parsed.parseStatus === 'no_json_fence') continue;
 
     let score = 1;
     const trimmed = text.trim();
     if (/^final answer/i.test(trimmed)) score += 3;
     if (/^answer:/i.test(trimmed)) score += 4;
     if (/answer:\s*```json/i.test(text)) score += 10;
+    if (/answer:\s*```/i.test(text)) score += 6;
+    if (parsed.parseStatus === 'ok') score += 8;
+    if (parsed.parseStatus === 'json_parse_error') score += 2;
 
     const timeCreated = typeof m.timeCreated === 'number' ? m.timeCreated : 0;
     if (!best || score > best.score || (score === best.score && timeCreated > best.timeCreated)) {

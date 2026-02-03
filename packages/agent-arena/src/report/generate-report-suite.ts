@@ -7,7 +7,10 @@ import { prepareArenaAnalysis } from './prepare.js';
 import type { NormalizedRun } from './stats.js';
 import { isGradeable, isParseOk } from '../eval/outcome.js';
 
-export type GenerateArenaReportSuiteArgs = Omit<GenerateArenaReportArgs, 'outDir' | 'filter' | 'modelLabel' | 'indexHref'> & {
+export type GenerateArenaReportSuiteArgs = Omit<
+  GenerateArenaReportArgs,
+  'outDir' | 'filter' | 'modelLabel' | 'indexHref'
+> & {
   outDir?: string;
   includeAllReport?: boolean;
 };
@@ -27,7 +30,9 @@ export type GenerateArenaReportSuiteResult = {
   }>;
 };
 
-export async function generateArenaReportSuite(args: GenerateArenaReportSuiteArgs): Promise<GenerateArenaReportSuiteResult> {
+export async function generateArenaReportSuite(
+  args: GenerateArenaReportSuiteArgs,
+): Promise<GenerateArenaReportSuiteResult> {
   const analysisDir = path.resolve(args.analysisDir);
   const outDir = path.resolve(args.outDir ?? path.join(analysisDir, 'report'));
 
@@ -108,7 +113,9 @@ function collectModelKeys(runs: NormalizedRun[]) {
     const key = `${provider}__${name}`;
     if (!seen.has(key)) seen.set(key, { modelProvider: provider, modelName: name });
   }
-  return Array.from(seen.values()).sort((a, b) => formatModelLabel(a.modelProvider, a.modelName).localeCompare(formatModelLabel(b.modelProvider, b.modelName)));
+  return Array.from(seen.values()).sort((a, b) =>
+    formatModelLabel(a.modelProvider, a.modelName).localeCompare(formatModelLabel(b.modelProvider, b.modelName)),
+  );
 }
 
 function formatModelLabel(modelProvider: string, modelName: string) {
@@ -169,7 +176,9 @@ function buildIndexModelRows(
       ),
       solvedStrictRate: fractionOrNull(modelRuns.map((r) => r.solvedStrict)),
       durationMedianS: median(modelRuns.flatMap((r) => (typeof r.durationS === 'number' ? [r.durationS] : []))),
-      tokensMedianNoCache: median(modelRuns.flatMap((r) => (typeof r.tokensTotalNoCache === 'number' ? [r.tokensTotalNoCache] : []))),
+      tokensMedianNoCache: median(
+        modelRuns.flatMap((r) => (typeof r.tokensTotalNoCache === 'number' ? [r.tokensTotalNoCache] : [])),
+      ),
       href: `models/${report.slug}/index.html`,
     });
   }

@@ -181,7 +181,7 @@ export const SCENARIO_BASES: ScenarioBase[] = [
     judge: makeSolutionJudge({
       outliers: [
         { name: 'Ford Maverick', horsepower: 0 },
-        { name: 'Ford Grenada I', horsepower: 112 },
+        { name: 'Ford Grenada l', horsepower: 112 },
       ],
     }),
   },

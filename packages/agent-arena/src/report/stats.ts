@@ -286,7 +286,8 @@ function asBoolean(value: unknown): boolean | null {
 
 function normalizeSolvedField(row: ArenaRunRow, primaryKey: string, fallbackKey: string | null) {
   if (Object.prototype.hasOwnProperty.call(row, primaryKey)) return asBoolean((row as any)[primaryKey]);
-  if (fallbackKey && Object.prototype.hasOwnProperty.call(row, fallbackKey)) return asBoolean((row as any)[fallbackKey]);
+  if (fallbackKey && Object.prototype.hasOwnProperty.call(row, fallbackKey))
+    return asBoolean((row as any)[fallbackKey]);
   return null;
 }
 

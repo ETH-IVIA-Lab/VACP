@@ -70,11 +70,7 @@ export const flagsHeatmapChart: ArenaChart<FlagsHeatmapChartConfig> = {
       ctx.theme,
       {
         height: Math.max(220, 64 + flags.length * 26),
-        marginLeft: marginLeftForLabels(
-          flags,
-          ctx.theme,
-          { min: 140, max: 320 },
-        ),
+        marginLeft: marginLeftForLabels(flags, ctx.theme, { min: 140, max: 320 }),
         marginRight: 24,
         marginTop: 24,
         marginBottom: 48,
@@ -122,6 +118,12 @@ export const flagsHeatmapChart: ArenaChart<FlagsHeatmapChartConfig> = {
       }),
     });
 
-    return { id: flagsHeatmapChart.id, title: flagsHeatmapChart.title, caption: flagsHeatmapChart.caption, svg, data: cells };
+    return {
+      id: flagsHeatmapChart.id,
+      title: flagsHeatmapChart.title,
+      caption: flagsHeatmapChart.caption,
+      svg,
+      data: cells,
+    };
   },
 };

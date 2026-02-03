@@ -54,7 +54,9 @@ export async function prepareArenaAnalysis(args: {
   const scenarioDefById = new Map<string, ScenarioDef>((scenarioDefs ?? []).map((d) => [d.id, d] as const));
 
   const orderedScenarioIds = orderScenarioIds(rawScenarioIds, scenarioDefs);
-  const taskIndex = orderedScenarioIds.map((id, i) => makeTaskIndexEntry({ index: i + 1, scenarioId: id, def: scenarioDefById.get(id) ?? null }));
+  const taskIndex = orderedScenarioIds.map((id, i) =>
+    makeTaskIndexEntry({ index: i + 1, scenarioId: id, def: scenarioDefById.get(id) ?? null }),
+  );
 
   return {
     analysisDir: analysis.analysisDir,
@@ -77,10 +79,7 @@ function filterByModel<T extends Record<string, unknown>>(
   return rows.filter((row) => matchesModel(row, filter));
 }
 
-function matchesModel(
-  row: Record<string, unknown>,
-  filter: { modelProvider: string; modelName: string },
-) {
+function matchesModel(row: Record<string, unknown>, filter: { modelProvider: string; modelName: string }) {
   const provider = typeof (row as any).model_provider === 'string' ? String((row as any).model_provider) : '';
   const name = typeof (row as any).model_name === 'string' ? String((row as any).model_name) : '';
   return provider === filter.modelProvider && name === filter.modelName;

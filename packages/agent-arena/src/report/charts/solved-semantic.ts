@@ -77,7 +77,13 @@ export const solvedSemanticChart: ArenaChart<SolvedSemanticChartConfig> = {
       }),
     });
 
-    return { id: solvedSemanticChart.id, title: solvedSemanticChart.title, caption: solvedSemanticChart.caption, svg, data };
+    return {
+      id: solvedSemanticChart.id,
+      title: solvedSemanticChart.title,
+      caption: solvedSemanticChart.caption,
+      svg,
+      data,
+    };
   },
 };
 

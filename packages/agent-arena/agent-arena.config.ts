@@ -23,27 +23,6 @@ const MODELS = [
   { providerID: 'google', modelID: 'gemini-3-pro-preview' },
 ];
 
-const GOOGLE_API_KEY = process.env.GOOGLE_API_KEY?.trim() ?? '';
-const GOOGLE_CUSTOM_PROVIDER_CONFIG = {
-  npm: '@ai-sdk/google',
-  name: 'Google Custom',
-  options: {
-    apiKey: GOOGLE_API_KEY,
-  },
-  models: {
-    'gemini-2.5-computer-use-preview-10-2025': {
-      id: 'models/gemini-2.5-computer-use-preview-10-2025',
-      name: 'models/gemini-2.5-computer-use-preview-10-2025',
-      attachment: true,
-      tool_call: true,
-      modalities: {
-        input: ['text', 'image'],
-        output: ['text'],
-      },
-    },
-  },
-} as const;
-
 const DEFAULT_MCP_TIMEOUT_MS = 120_000;
 const AGENT_BROWSER = 'agent-browser';
 const CHART_READY_SELECTOR = '#app canvas, #app svg, #chart canvas, #chart svg';
@@ -516,15 +495,10 @@ export const config: ArenaConfig = {
   directory: OPENCODE_ATTACH_DIRECTORY,
   worktreeRoot: false,
   autoApprove: 'always',
-  concurrency: { runs: 8 },
-  timeouts: { promptMs: 15 * 60_000 },
+  concurrency: { runs: 4 },
+  timeouts: { promptMs: 10 * 60_000 },
   server: {
     mode: 'connect',
-    opencodeConfig: {
-      provider: {
-        'google-custom': GOOGLE_CUSTOM_PROVIDER_CONFIG,
-      },
-    },
   },
   onFinished: closeAgentBrowserSession,
   runs,
