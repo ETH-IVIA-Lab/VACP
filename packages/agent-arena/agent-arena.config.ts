@@ -20,7 +20,7 @@ const BASE_URL = 'http://127.0.0.1:5173';
 
 const MODELS = [
   { providerID: 'openai', modelID: 'gpt-5.2' },
-  { providerID: 'google', modelID: 'gemini-3-pro-preview' },
+  // { providerID: 'google', modelID: 'gemini-3-pro-preview' },
 ];
 
 const DEFAULT_MCP_TIMEOUT_MS = 120_000;
@@ -495,7 +495,7 @@ export const config: ArenaConfig = {
   directory: OPENCODE_ATTACH_DIRECTORY,
   worktreeRoot: false,
   autoApprove: 'always',
-  concurrency: { runs: 4 },
+  concurrency: { runs: 8 },
   timeouts: { promptMs: 10 * 60_000 },
   server: {
     mode: 'connect',
