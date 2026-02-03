@@ -125,8 +125,10 @@ function formatModelLabel(modelProvider: string, modelName: string) {
 }
 
 function modelSlug(modelProvider: string, modelName: string) {
-  const provider = sanitizeSegment(modelProvider || 'unknown') || 'unknown';
-  const nameRaw = sanitizeSegment(modelName || 'unknown') || 'unknown';
+  // NOTE: `npx serve` treats directory names with dots oddly (shows directory listing
+  // instead of serving `index.html`). Replace dots to keep report URLs browseable.
+  const provider = (sanitizeSegment(modelProvider || 'unknown') || 'unknown').replace(/\./g, '-');
+  const nameRaw = (sanitizeSegment(modelName || 'unknown') || 'unknown').replace(/\./g, '-');
   const name = nameRaw.slice(0, 60) || 'unknown';
   const hash = base64UrlEncode(`${modelProvider}/${modelName}`).slice(0, 8);
   return `${provider}__${name}__${hash}`;
