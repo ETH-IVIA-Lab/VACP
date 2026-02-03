@@ -1,5 +1,5 @@
 import * as Plot from '@observablehq/plot';
-import { plotSvg } from './plot.js';
+import { plotSvg, type SvgLegend } from './plot.js';
 import { fmtPct, isDark, marginLeftForLabels, resolveLayout } from './utils.js';
 import type { ArenaChart, ArenaFigureLayout } from './types.js';
 
@@ -65,6 +65,7 @@ export const flagsHeatmapChart: ArenaChart<FlagsHeatmapChartConfig> = {
   render: (ctx, config) => {
     const cells = flagsHeatmapCells(ctx);
     const flags = Array.from(new Set(cells.map((d) => d.flag_label)));
+    const legend = legendForFlagsHeatmap(ctx);
 
     const layout = resolveLayout(
       ctx.theme,
@@ -80,6 +81,7 @@ export const flagsHeatmapChart: ArenaChart<FlagsHeatmapChartConfig> = {
 
     const svg = plotSvg({
       theme: ctx.theme,
+      legend,
       plot: Plot.plot({
         document: ctx.document,
         width: layout.width,
@@ -127,3 +129,25 @@ export const flagsHeatmapChart: ArenaChart<FlagsHeatmapChartConfig> = {
     };
   },
 };
+
+function legendForFlagsHeatmap(ctx: Parameters<typeof flagsHeatmapChart.render>[0]): SvgLegend {
+  const palette = ['#fff5f0', '#fee0d2', '#fcbba1', '#fc9272', '#fb6a4a', '#cb181d'];
+  const steps = palette.length;
+  const segments = palette.map((fill, i) => ({
+    from: i / steps,
+    to: (i + 1) / steps,
+    fill,
+  }));
+  const ticks = Array.from({ length: steps + 1 }, (_, i) => {
+    const value = i / steps;
+    return { value, label: fmtPct(value) };
+  });
+
+  return {
+    kind: 'ramp',
+    title: 'Rate',
+    segments,
+    ticks,
+    extras: [{ label: 'n/a', fill: ctx.theme.colors.grid }],
+  };
+}

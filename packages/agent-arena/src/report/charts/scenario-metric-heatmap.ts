@@ -1,5 +1,5 @@
 import * as Plot from '@observablehq/plot';
-import { plotSvg } from './plot.js';
+import { plotSvg, type SvgLegend } from './plot.js';
 import {
   bucketIndex,
   isDark,
@@ -111,6 +111,7 @@ function renderScenarioMetricHeatmap(args: {
   const labelEvery = tickStep(args.ctx.scenarioDomain.length);
 
   const cells = scenarioMetricCells({ ctx: args.ctx, spec: args.spec });
+  const legend = legendForScenarioMetricHeatmap(cells, args.spec, args.ctx.theme);
 
   const layout = resolveLayout(
     args.ctx.theme,
@@ -126,6 +127,7 @@ function renderScenarioMetricHeatmap(args: {
 
   const svg = plotSvg({
     theme: args.ctx.theme,
+    legend,
     plot: Plot.plot({
       document: args.ctx.document,
       width: layout.width,
@@ -181,6 +183,59 @@ function renderScenarioMetricHeatmap(args: {
     caption: args.spec.caption,
     svg,
     data: cells,
+  };
+}
+
+function legendForScenarioMetricHeatmap(
+  cells: Array<{ value: number | null; total: number; fill: string }>,
+  spec: ScenarioMetricHeatmapSpec,
+  theme: ArenaReportTheme,
+): SvgLegend {
+  const valuesByFill = new Map<string, number[]>();
+  for (const cell of cells) {
+    if (cell.total === 0 || cell.value === null) continue;
+    const list = valuesByFill.get(cell.fill) ?? [];
+    list.push(cell.value);
+    valuesByFill.set(cell.fill, list);
+  }
+
+  const bins = Array.from(valuesByFill.entries())
+    .map(([fill, values]) => {
+      let min = Infinity;
+      let max = -Infinity;
+      for (const v of values) {
+        if (!Number.isFinite(v)) continue;
+        if (v < min) min = v;
+        if (v > max) max = v;
+      }
+      return { fill, min, max };
+    })
+    .filter((d) => Number.isFinite(d.min) && Number.isFinite(d.max))
+    .sort((a, b) => a.min - b.min || a.max - b.max);
+
+  if (!bins.length) {
+    return {
+      kind: 'swatches',
+      title: spec.aggregate === 'mean' ? `${spec.valueLabel} (mean)` : spec.valueLabel,
+      items: [
+        { label: 'n/a', fill: theme.colors.grid },
+        { label: 'Not run', fill: '#ffffff', stroke: theme.colors.grid },
+      ],
+    };
+  }
+
+  return {
+    kind: 'ramp',
+    title: spec.aggregate === 'mean' ? `${spec.valueLabel} (mean)` : spec.valueLabel,
+    segments: bins.map((b) => ({ from: b.min, to: b.max, fill: b.fill })),
+    ticks: Array.from(new Set([bins[0].min, ...bins.map((b) => b.max)])).map((value) => ({
+      value,
+      label: spec.formatCell(value),
+    })),
+    extras: [
+      { label: 'n/a', fill: theme.colors.grid },
+      { label: 'Not run', fill: '#ffffff', stroke: theme.colors.grid },
+    ],
   };
 }
 

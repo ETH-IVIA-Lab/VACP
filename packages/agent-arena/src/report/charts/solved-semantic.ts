@@ -1,5 +1,5 @@
 import * as Plot from '@observablehq/plot';
-import { plotSvg } from './plot.js';
+import { plotSvg, type SvgLegend } from './plot.js';
 import { fmtPct, percentTick, resolveLayout } from './utils.js';
 import type { ArenaChart, ArenaFigureLayout } from './types.js';
 import type { NormalizedRun } from '../stats.js';
@@ -28,6 +28,12 @@ export const solvedSemanticChart: ArenaChart<SolvedSemanticChartConfig> = {
   getData: (ctx) => solvedSemanticRows(ctx),
   render: (ctx, config) => {
     const data = solvedSemanticRows(ctx);
+    const legend: SvgLegend = {
+      items: [
+        { label: 'Solved rate available', fill: ctx.theme.colors.neutral },
+        { label: 'Solved rate missing', fill: ctx.theme.colors.grid },
+      ],
+    };
 
     const layout = resolveLayout(
       ctx.theme,
@@ -37,6 +43,7 @@ export const solvedSemanticChart: ArenaChart<SolvedSemanticChartConfig> = {
 
     const svg = plotSvg({
       theme: ctx.theme,
+      legend,
       plot: Plot.plot({
         document: ctx.document,
         width: layout.width,

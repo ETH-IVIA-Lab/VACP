@@ -1,5 +1,5 @@
 import * as Plot from '@observablehq/plot';
-import { plotSvg } from './plot.js';
+import { plotSvg, type SvgLegend } from './plot.js';
 import { fmtPct, percentTick, resolveLayout } from './utils.js';
 import type { ArenaChart, ArenaFigureLayout } from './types.js';
 import type { NormalizedRun } from '../stats.js';
@@ -28,6 +28,12 @@ export const solvedStrictChart: ArenaChart<SolvedStrictChartConfig> = {
   getData: (ctx) => solvedStrictRows(ctx),
   render: (ctx, config) => {
     const data = solvedStrictRows(ctx);
+    const legend: SvgLegend = {
+      items: [
+        { label: 'Solved rate available', fill: ctx.theme.colors.ok },
+        { label: 'Solved rate missing', fill: ctx.theme.colors.grid },
+      ],
+    };
 
     const layout = resolveLayout(
       ctx.theme,
@@ -37,6 +43,7 @@ export const solvedStrictChart: ArenaChart<SolvedStrictChartConfig> = {
 
     const svg = plotSvg({
       theme: ctx.theme,
+      legend,
       plot: Plot.plot({
         document: ctx.document,
         width: layout.width,

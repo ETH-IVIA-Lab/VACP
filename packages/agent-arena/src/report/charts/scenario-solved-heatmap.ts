@@ -1,5 +1,5 @@
 import * as Plot from '@observablehq/plot';
-import { plotSvg } from './plot.js';
+import { plotSvg, type SvgLegend } from './plot.js';
 import { fmtPct, isDark, marginLeftForLabels, resolveLayout, tickStep } from './utils.js';
 import type { ArenaChart, ArenaFigureLayout } from './types.js';
 import type { NormalizedRun } from '../stats.js';
@@ -59,6 +59,16 @@ export const scenarioSolvedHeatmapChart: ArenaChart<ScenarioSolvedHeatmapChartCo
   isApplicable: (ctx) => ctx.runs.some((r) => typeof r.solvedStrict === 'boolean'),
   getData: (ctx) => scenarioSolvedCells(ctx),
   render: (ctx, config) => {
+    const legend: SvgLegend = {
+      items: [
+        { label: '100% solved', fill: ctx.theme.colors.ok },
+        { label: '0% solved', fill: ctx.theme.colors.bad },
+        { label: 'Mixed (0–99%)', fill: ctx.theme.colors.neutral },
+        { label: 'n/a', fill: ctx.theme.colors.grid },
+        { label: 'Not run', fill: '#ffffff', stroke: ctx.theme.colors.grid },
+      ],
+    };
+
     const scenarioIndex = new Map<string, number>();
     for (const [i, id] of ctx.scenarioDomain.entries()) scenarioIndex.set(id, i + 1);
 
@@ -79,6 +89,7 @@ export const scenarioSolvedHeatmapChart: ArenaChart<ScenarioSolvedHeatmapChartCo
 
     const svg = plotSvg({
       theme: ctx.theme,
+      legend,
       plot: Plot.plot({
         document: ctx.document,
         width: layout.width,

@@ -1,5 +1,5 @@
 import * as Plot from '@observablehq/plot';
-import { plotSvg } from './plot.js';
+import { plotSvg, type SvgLegend } from './plot.js';
 import { bucketIndex, fmtNumber, isDark, marginLeftForLabels, quantiles, resolveLayout } from './utils.js';
 import type { ArenaChart, ArenaFigureLayout } from './types.js';
 import type { ToolByExperimentRow } from '../stats.js';
@@ -63,6 +63,7 @@ export const toolsHeatmapChart: ArenaChart<ToolsHeatmapChartConfig> = {
     const toolLabels = makeUniqueToolLabels(topTools);
     const yDomain = [...toolLabels, 'other'];
     const cells = toolsHeatmapCells(ctx, config);
+    const legend = legendForToolsHeatmap(cells);
 
     const layout = resolveLayout(
       ctx.theme,
@@ -78,6 +79,7 @@ export const toolsHeatmapChart: ArenaChart<ToolsHeatmapChartConfig> = {
 
     const svg = plotSvg({
       theme: ctx.theme,
+      legend,
       plot: Plot.plot({
         document: ctx.document,
         width: layout.width,
@@ -120,6 +122,41 @@ export const toolsHeatmapChart: ArenaChart<ToolsHeatmapChartConfig> = {
     };
   },
 };
+
+function legendForToolsHeatmap(cells: Array<{ fill: string; calls: number }>): SvgLegend {
+  const valuesByFill = new Map<string, number[]>();
+  for (const cell of cells) {
+    const list = valuesByFill.get(cell.fill) ?? [];
+    list.push(cell.calls);
+    valuesByFill.set(cell.fill, list);
+  }
+
+  const bins = Array.from(valuesByFill.entries())
+    .map(([fill, values]) => {
+      let min = Infinity;
+      let max = -Infinity;
+      for (const v of values) {
+        if (!Number.isFinite(v)) continue;
+        if (v < min) min = v;
+        if (v > max) max = v;
+      }
+      return { fill, min, max };
+    })
+    .filter((d) => Number.isFinite(d.min) && Number.isFinite(d.max))
+    .sort((a, b) => a.min - b.min || a.max - b.max);
+
+  if (!bins.length) return { kind: 'swatches', title: 'Calls', items: [] };
+
+  return {
+    kind: 'ramp',
+    title: 'Calls',
+    segments: bins.map((b) => ({ from: b.min, to: b.max, fill: b.fill })),
+    ticks: Array.from(new Set([bins[0].min, ...bins.map((b) => b.max)])).map((value) => ({
+      value,
+      label: fmtNumber(value),
+    })),
+  };
+}
 
 function topKTools(rows: ToolByExperimentRow[], k: number) {
   const totals = new Map<string, number>();
