@@ -1,4 +1,4 @@
-import type { ExperimentSummary, NormalizedRun, ToolByExperimentRow } from '../stats.js';
+import type { ExperimentSummary, NormalizedRun, ToolByExperimentRow, ToolByScenarioRow } from '../stats.js';
 
 export type ArenaFigure = {
   id: string;
@@ -30,6 +30,7 @@ export type ArenaChartContext = {
   runs: NormalizedRun[];
   summaries: ExperimentSummary[];
   toolByExperiment: ToolByExperimentRow[];
+  toolByScenario: ToolByScenarioRow[];
   experimentDomain: string[];
   scenarioDomain: string[];
 };

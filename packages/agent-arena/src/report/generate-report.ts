@@ -42,6 +42,7 @@ export async function generateArenaReport(args: GenerateArenaReportArgs, deps: G
     runs: prepared.runs,
     summaries: prepared.summaries,
     toolByExperiment: prepared.toolByExperiment,
+    toolByScenario: prepared.toolByScenario,
     experimentDomain: prepared.experimentDomain,
     scenarioDomain: prepared.scenarioDomain,
     theme: args.theme,

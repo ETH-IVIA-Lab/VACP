@@ -53,6 +53,15 @@ export type ToolByExperimentRow = {
   durationMs: number;
 };
 
+export type ToolByScenarioRow = {
+  scenarioId: string;
+  tool: string;
+  calls: number;
+  errors: number;
+  timedCalls: number;
+  durationMs: number;
+};
+
 export type ScenarioExperimentSummary = {
   scenarioId: string;
   experiment: string;
@@ -217,6 +226,47 @@ export function summarizeToolCallsByExperiment(toolCalls: ArenaToolCallRow[]) {
   const out = Array.from(byKey.values());
   out.sort((a, b) => {
     if (a.experiment !== b.experiment) return a.experiment.localeCompare(b.experiment);
+    return a.tool.localeCompare(b.tool);
+  });
+  return out;
+}
+
+export function summarizeToolCallsByScenario(toolCalls: ArenaToolCallRow[]) {
+  if (!toolCalls.length) return [];
+
+  const byKey = new Map<string, ToolByScenarioRow>();
+  for (const t of toolCalls) {
+    const tool = asString((t as any).tool);
+    if (!tool) continue;
+    const scenarioId = asString((t as any).scenario_id) || asString((t as any).scenarioId);
+    if (!scenarioId) continue;
+
+    const key = `${scenarioId}__${tool}`;
+    const status = asString((t as any).status);
+    const durationMs = asNumber((t as any).duration_ms) ?? 0;
+
+    const row =
+      byKey.get(key) ??
+      ({
+        scenarioId,
+        tool,
+        calls: 0,
+        errors: 0,
+        timedCalls: 0,
+        durationMs: 0,
+      } satisfies ToolByScenarioRow);
+    row.calls += 1;
+    if (status === 'error') row.errors += 1;
+    if (durationMs > 0) {
+      row.timedCalls += 1;
+      row.durationMs += durationMs;
+    }
+    byKey.set(key, row);
+  }
+
+  const out = Array.from(byKey.values());
+  out.sort((a, b) => {
+    if (a.scenarioId !== b.scenarioId) return a.scenarioId.localeCompare(b.scenarioId);
     return a.tool.localeCompare(b.tool);
   });
   return out;

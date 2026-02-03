@@ -7,10 +7,12 @@ import {
   normalizeRuns,
   scenarioDomain,
   summarizeToolCallsByExperiment,
+  summarizeToolCallsByScenario,
   type ExperimentSummary,
   type NormalizedRun,
   type ScenarioExperimentSummary,
   type ToolByExperimentRow,
+  type ToolByScenarioRow,
 } from './stats.js';
 
 export type PreparedArenaAnalysis = {
@@ -21,6 +23,7 @@ export type PreparedArenaAnalysis = {
   scenarioDomain: string[];
   summaries: ExperimentSummary[];
   toolByExperiment: ToolByExperimentRow[];
+  toolByScenario: ToolByScenarioRow[];
   taskSummaries: ScenarioExperimentSummary[];
   taskIndex: Array<{
     index: number;
@@ -46,6 +49,7 @@ export async function prepareArenaAnalysis(args: {
   const rawScenarioIds = scenarioDomain(runs);
   const summaries = computeExperimentSummaries(runs);
   const toolByExperiment = summarizeToolCallsByExperiment(toolCallsRaw);
+  const toolByScenario = summarizeToolCallsByScenario(toolCallsRaw);
   const taskSummaries = computeScenarioExperimentSummaries(runs);
 
   const loadedScenarioDefs = await loadScenarioDefs(analysis.meta);
@@ -66,6 +70,7 @@ export async function prepareArenaAnalysis(args: {
     scenarioDomain: orderedScenarioIds,
     summaries,
     toolByExperiment,
+    toolByScenario,
     taskSummaries,
     taskIndex,
     scenarioDefsPath,

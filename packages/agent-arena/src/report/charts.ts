@@ -1,4 +1,4 @@
-import type { ExperimentSummary, NormalizedRun, ToolByExperimentRow } from './stats.js';
+import type { ExperimentSummary, NormalizedRun, ToolByExperimentRow, ToolByScenarioRow } from './stats.js';
 import type { ArenaAnyChart, ArenaChartContext, ArenaFigure, ArenaReportTheme } from './charts/types.js';
 import { createTheme, DEFAULT_THEME } from './charts/theme.js';
 import { durationChart } from './charts/duration.js';
@@ -7,12 +7,14 @@ import { flagsHeatmapChart } from './charts/flags-heatmap.js';
 import { paretoChart } from './charts/pareto.js';
 import { scenarioDurationHeatmapChart } from './charts/scenario-duration-heatmap.js';
 import { scenarioSolvedHeatmapChart } from './charts/scenario-solved-heatmap.js';
+import { scenarioSolvedSemanticHeatmapChart } from './charts/scenario-solved-semantic-heatmap.js';
 import { scenarioTokensHeatmapChart } from './charts/scenario-tokens-heatmap.js';
 import { solvedSemanticChart } from './charts/solved-semantic.js';
 import { solvedStrictChart } from './charts/solved-strict.js';
 import { tokensChart } from './charts/tokens.js';
 import { toolCallsChart } from './charts/tool-calls.js';
 import { toolsHeatmapChart } from './charts/tools-heatmap.js';
+import { toolsHeatmapByTaskChart } from './charts/tools-heatmap-by-task.js';
 
 export type {
   ArenaAnyChart,
@@ -34,9 +36,11 @@ export const DEFAULT_CHARTS: ArenaAnyChart[] = [
   toolCallsChart,
   flagsHeatmapChart,
   scenarioSolvedHeatmapChart,
+  scenarioSolvedSemanticHeatmapChart,
   scenarioDurationHeatmapChart,
   scenarioTokensHeatmapChart,
   toolsHeatmapChart,
+  toolsHeatmapByTaskChart,
 ];
 
 export function renderCharts(args: {
@@ -58,6 +62,7 @@ export function buildDefaultFigures(args: {
   runs: NormalizedRun[];
   summaries: ExperimentSummary[];
   toolByExperiment: ToolByExperimentRow[];
+  toolByScenario: ToolByScenarioRow[];
   experimentDomain: string[];
   scenarioDomain: string[];
   theme?: Partial<ArenaReportTheme>;
@@ -71,6 +76,7 @@ export function buildDefaultFigures(args: {
     runs: args.runs,
     summaries: args.summaries,
     toolByExperiment: args.toolByExperiment,
+    toolByScenario: args.toolByScenario,
     experimentDomain: args.experimentDomain,
     scenarioDomain: args.scenarioDomain,
   };
@@ -87,6 +93,7 @@ export function createChartContext(args: {
   runs: NormalizedRun[];
   summaries: ExperimentSummary[];
   toolByExperiment: ToolByExperimentRow[];
+  toolByScenario: ToolByScenarioRow[];
   experimentDomain: string[];
   scenarioDomain: string[];
   theme?: Partial<ArenaReportTheme>;
@@ -98,6 +105,7 @@ export function createChartContext(args: {
     runs: args.runs,
     summaries: args.summaries,
     toolByExperiment: args.toolByExperiment,
+    toolByScenario: args.toolByScenario,
     experimentDomain: args.experimentDomain,
     scenarioDomain: args.scenarioDomain,
   };

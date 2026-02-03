@@ -3,7 +3,13 @@ import path from 'node:path';
 import { JSDOM } from 'jsdom';
 import { DEFAULT_CHARTS, createChartContext, type ArenaAnyChart, type ArenaReportTheme } from './charts.js';
 import { prepareArenaAnalysis } from './prepare.js';
-import type { ExperimentSummary, NormalizedRun, ScenarioExperimentSummary, ToolByExperimentRow } from './stats.js';
+import type {
+  ExperimentSummary,
+  NormalizedRun,
+  ScenarioExperimentSummary,
+  ToolByExperimentRow,
+  ToolByScenarioRow,
+} from './stats.js';
 
 export type ExportArenaDatasetsArgs = {
   analysisDir: string;
@@ -26,6 +32,7 @@ export async function exportArenaDatasets(args: ExportArenaDatasetsArgs) {
     runs: prepared.runs,
     summaries: prepared.summaries,
     toolByExperiment: prepared.toolByExperiment,
+    toolByScenario: prepared.toolByScenario,
     experimentDomain: prepared.experimentDomain,
     scenarioDomain: prepared.scenarioDomain,
   });
@@ -69,6 +76,7 @@ export async function exportArenaDatasets(args: ExportArenaDatasetsArgs) {
   await writeJson(path.join(outDir, 'experiment_summaries.json'), exportExperimentSummaries(prepared.summaries));
   await writeJson(path.join(outDir, 'task_summaries.json'), exportTaskSummaries(prepared.taskSummaries));
   await writeJson(path.join(outDir, 'tool_by_experiment.json'), exportToolByExperiment(prepared.toolByExperiment));
+  await writeJson(path.join(outDir, 'tool_by_scenario.json'), exportToolByScenario(prepared.toolByScenario));
   await writeJson(path.join(outDir, 'task_index.json'), exportTaskIndex(prepared.taskIndex));
 
   for (const ds of chartDatasets) {
@@ -145,6 +153,17 @@ function exportTaskSummaries(summaries: ScenarioExperimentSummary[]) {
 function exportToolByExperiment(rows: ToolByExperimentRow[]) {
   return rows.map((r) => ({
     experiment: r.experiment,
+    tool: r.tool,
+    calls: r.calls,
+    errors: r.errors,
+    timed_calls: r.timedCalls,
+    duration_ms: r.durationMs,
+  }));
+}
+
+function exportToolByScenario(rows: ToolByScenarioRow[]) {
+  return rows.map((r) => ({
+    scenario_id: r.scenarioId,
     tool: r.tool,
     calls: r.calls,
     errors: r.errors,
