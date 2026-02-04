@@ -15,6 +15,7 @@ import {
   generateArenaReportSuite,
 } from './report/index.js';
 import { runArena } from './runner/index.js';
+import { inspectJob, type ResumeReuseMode } from './runner/job-state.js';
 
 const program = new Command()
   .name('agent-arena')
@@ -28,7 +29,7 @@ program
   .option('--directory <path>', 'OpenCode directory used for project/session context')
   .option('--out <dir>', 'Output directory. Default: ./.agent-arena/runs/<timestamp>')
   .option('--only <substring>', 'Only run entries whose experiment includes this substring')
-  .option('--resume', 'Reuse successful run.json results when present')
+  .option('--resume', 'Reuse successful run.json results when present (reruns failures)')
   .option('--export-logs', 'Export OpenCode session messages/tool calls + metrics into each job folder')
   .option('--write-metrics', 'Write aggregated metrics.json and tool_calls.json into the output directory')
   .addOption(
@@ -92,6 +93,91 @@ program
           : {}),
       });
       if (writeMetrics) await writeAggregatedMetrics({ arenaOutDir: outDir, outDir });
+      const ok = results.filter((r) => r.ok).length;
+      const bad = results.length - ok;
+      consola.success(`Done: ${results.length} runs (${ok} ok, ${bad} failed)`);
+      consola.info(`Results: ${resolveFromCwd(outDir)}/results.json`);
+      process.exitCode = bad > 0 ? 1 : 0;
+    } catch (error) {
+      consola.error(error);
+      process.exitCode = 1;
+    }
+  });
+
+program
+  .command('resume')
+  .description('Resume an existing run folder (runs only missing/unfinished jobs)')
+  .requiredOption('--run <dir>', 'Existing arena run folder (contains runs/**/input.json)')
+  .option('--config <path>', 'Arena config file (TS/JS). Default: inferred from the run folder or ./agent-arena.config.ts')
+  .option('--directory <path>', 'OpenCode directory used for project/session context')
+  .option('--only <substring>', 'Only run entries whose experiment includes this substring')
+  .option('--dry-run', 'Plan only; do not execute any runs')
+  .option('--rerun-failed', 'Rerun jobs that finished with ok=false (default: reuse finished results)')
+  .option('--export-logs', 'Export OpenCode session messages/tool calls + metrics into each job folder')
+  .option('--write-metrics', 'Write aggregated metrics.json and tool_calls.json into the output directory')
+  .addOption(
+    new Option('--auto-approve <mode>', 'Auto-approve permission requests')
+      .choices(['off', 'once', 'always', 'reject'])
+      .default('always'),
+  )
+  .action(async (raw) => {
+    try {
+      const runDir = resolveFromCwd(raw.run);
+      await assertIsDirectory(runDir);
+
+      const defaults = defaultConfigPaths();
+      const inferredConfig = await inferConfigPath({ explicit: raw.config, runDir, fallback: defaults.config });
+      const configPath = inferredConfig ? inferredConfig : defaults.config;
+
+      const cfg = await loadArenaConfig(configPath);
+      const filtered = raw.only
+        ? { ...cfg, runs: cfg.runs.filter((r) => r.experiment.toLowerCase().includes(String(raw.only).toLowerCase())) }
+        : cfg;
+
+      const resumeReuseMode: ResumeReuseMode = raw.rerunFailed ? 'ok' : 'finished';
+      const runConfig = {
+        ...filtered,
+        ...(raw.directory ? { directory: resolveFromCwd(raw.directory) } : {}),
+        autoApprove: raw.autoApprove ?? filtered.autoApprove,
+        resume: true,
+      };
+
+      const outDir = runDir;
+      await logResumePlan({ config: runConfig, outDir, configPath, resumeReuseMode });
+      if (raw.dryRun) return;
+
+      // Preserve the original manifest/context for postmortems; `runArena` will rewrite these.
+      await backupIfPresent(path.join(outDir, 'inputs.json'));
+      await backupIfPresent(path.join(outDir, 'context.json'));
+
+      const exportLogs = Boolean(raw.exportLogs);
+      const writeMetrics = Boolean(raw.writeMetrics) || exportLogs;
+
+      const results = await runArena({
+        config: runConfig,
+        outDir,
+        resumeReuseMode,
+        ...(exportLogs
+          ? {
+              hooks: {
+                afterJob: async ({ result, directory, client, jobOutDir, uiBase }) => {
+                  if (!result.sessionID) return;
+                  const uiUrl = uiBase ? `${uiBase}/session/${result.sessionID}` : undefined;
+                  await exportSessionLogs({
+                    client,
+                    directory,
+                    sessionID: result.sessionID,
+                    outDir: jobOutDir,
+                    ...(uiUrl ? { uiUrl } : {}),
+                  });
+                },
+              },
+            }
+          : {}),
+      });
+
+      if (writeMetrics) await writeAggregatedMetrics({ arenaOutDir: outDir, outDir });
+
       const ok = results.filter((r) => r.ok).length;
       const bad = results.length - ok;
       consola.success(`Done: ${results.length} runs (${ok} ok, ${bad} failed)`);
@@ -297,4 +383,161 @@ async function loadJsonObject(filePath: string): Promise<Record<string, unknown>
     throw new Error(`Expected JSON object in: ${filePath}`);
   }
   return parsed as Record<string, unknown>;
+}
+
+async function assertIsDirectory(p: string) {
+  const st = await fs.stat(p).catch(() => null);
+  if (!st || !st.isDirectory()) throw new Error(`Not a directory: ${p}`);
+}
+
+async function inferConfigPath(args: { explicit?: string; runDir: string; fallback: string }) {
+  if (typeof args.explicit === 'string' && args.explicit.trim()) return resolveFromCwd(args.explicit);
+
+  const candidates: string[] = [];
+  candidates.push(args.fallback);
+
+  // Common monorepo layout: infer config as sibling of `.agent-arena/`.
+  // <pkg>/.agent-arena/runs/<id>  ->  <pkg>/agent-arena.config.ts
+  const runDirAbs = path.resolve(args.runDir);
+  const maybeAgentArenaDir = path.resolve(runDirAbs, '..', '..'); // .../.agent-arena
+  const maybePkgDir = path.resolve(maybeAgentArenaDir, '..'); // .../packages/agent-arena
+  candidates.push(path.join(maybePkgDir, 'agent-arena.config.ts'));
+
+  // As a convenience when running from repo root.
+  candidates.push(path.resolve(process.cwd(), 'packages/agent-arena/agent-arena.config.ts'));
+
+  for (const p of candidates) {
+    const st = await fs.stat(p).catch(() => null);
+    if (st && st.isFile()) return p;
+  }
+  return null;
+}
+
+async function logResumePlan(args: {
+  config: Awaited<ReturnType<typeof loadArenaConfig>>;
+  outDir: string;
+  configPath: string;
+  resumeReuseMode: ResumeReuseMode;
+}) {
+  const manifest = await readJsonOptional(path.join(args.outDir, 'inputs.json'));
+  const manifestValue =
+    manifest?.value && typeof manifest.value === 'object' && !Array.isArray(manifest.value) ? (manifest.value as any) : null;
+  const manifestStartedAt = typeof manifestValue?.startedAt === 'string' ? String(manifestValue.startedAt) : null;
+  const manifestRuns = Array.isArray(manifestValue?.runs) ? Number(manifestValue.runs.length) : null;
+
+  const inspections = await Promise.all(
+    args.config.runs.map((job, index) =>
+      inspectJob({ arenaOutDir: args.outDir, job, index, reuseMode: args.resumeReuseMode }),
+    ),
+  );
+
+  const done = inspections.filter((i) => i.state === 'complete' && i.reusable).length;
+  const partial = inspections.filter((i) => i.state === 'partial').length;
+  const missing = inspections.filter((i) => i.state === 'missing').length;
+  const rerunFailed = inspections.filter((i) => i.state === 'complete' && !i.reusable).length;
+  const toRun = partial + missing + rerunFailed;
+
+  const byExperiment = new Map<
+    string,
+    { total: number; done: number; partial: number; missing: number; rerunFailed: number }
+  >();
+  for (let i = 0; i < args.config.runs.length; i++) {
+    const job = args.config.runs[i];
+    const insp = inspections[i];
+    const ex = job.experiment;
+    const row = byExperiment.get(ex) ?? { total: 0, done: 0, partial: 0, missing: 0, rerunFailed: 0 };
+    row.total += 1;
+    if (insp.state === 'complete' && insp.reusable) row.done += 1;
+    else if (insp.state === 'partial') row.partial += 1;
+    else if (insp.state === 'missing') row.missing += 1;
+    else row.rerunFailed += 1;
+    byExperiment.set(ex, row);
+  }
+
+  const sortedExperiments = Array.from(byExperiment.entries()).sort((a, b) => a[0].localeCompare(b[0]));
+  const expLines = sortedExperiments.map(([ex, r]) => {
+    const toRun = r.total - r.done;
+    const parts =
+      args.resumeReuseMode === 'ok'
+        ? `done ${r.done}/${r.total}, to run ${toRun} (missing ${r.missing}, partial ${r.partial}, rerunFailed ${r.rerunFailed})`
+        : `done ${r.done}/${r.total}, to run ${toRun} (missing ${r.missing}, partial ${r.partial})`;
+    return `- ${ex}: ${parts}`;
+  });
+
+  const partialItems = args.config.runs
+    .map((job, idx) => ({ job, insp: inspections[idx] }))
+    .filter((x) => x.insp.state === 'partial')
+    .slice(0, 12)
+    .map((x) => `- ${x.job.experiment} · ${x.job.scenario.id} · ${x.job.model.providerID}/${x.job.model.modelID} (${x.insp.reason})`);
+  const partialExtra = partial > partialItems.length ? `(+${partial - partialItems.length} more)` : null;
+
+  const rerunFailedItems =
+    args.resumeReuseMode === 'ok'
+      ? args.config.runs
+          .map((job, idx) => ({ job, insp: inspections[idx] }))
+          .filter(
+            (x): x is { job: (typeof args.config.runs)[number]; insp: Extract<(typeof inspections)[number], { state: 'complete' }> } =>
+              x.insp.state === 'complete' && x.insp.reusable === false,
+          )
+          .slice(0, 10)
+          .map((x) => {
+            const err = x.insp.result.error?.message ? ` | ${x.insp.result.error.message}` : '';
+            return `- ${x.job.experiment} · ${x.job.scenario.id} · ${x.job.model.providerID}/${x.job.model.modelID}${err}`;
+          })
+      : [];
+  const rerunFailedExtra =
+    args.resumeReuseMode === 'ok' && rerunFailed > rerunFailedItems.length ? `(+${rerunFailed - rerunFailedItems.length} more)` : null;
+
+  consola.box(
+    [
+      `agent-arena resume`,
+      ``,
+      `Run dir:   ${args.outDir}`,
+      `Config:    ${args.configPath}`,
+      `Directory: ${args.config.directory ?? '(auto)'}`,
+      `Reuse:     ${args.resumeReuseMode === 'finished' ? 'finished (ok+failed)' : 'ok only (rerun failed)'}`,
+      manifestStartedAt ? `Prev run:  startedAt=${manifestStartedAt}${manifestRuns ? ` runs=${manifestRuns}` : ''}` : null,
+      ``,
+      `Plan:`,
+      `- total:   ${inspections.length}`,
+      `- done:    ${done}`,
+      `- to run:  ${toRun}`,
+      `  - missing:      ${missing}`,
+      `  - partial:      ${partial}`,
+      args.resumeReuseMode === 'ok' ? `  - rerun failed: ${rerunFailed}` : null,
+      ``,
+      `By experiment:`,
+      ...expLines,
+      partialItems.length ? `` : null,
+      partialItems.length ? `Partial jobs (showing up to ${partialItems.length}):` : null,
+      ...partialItems,
+      partialExtra,
+      rerunFailedItems.length ? `` : null,
+      rerunFailedItems.length ? `Rerun failed jobs (showing up to ${rerunFailedItems.length}):` : null,
+      ...rerunFailedItems,
+      rerunFailedItems.length ? rerunFailedExtra : null,
+    ]
+      .filter(Boolean)
+      .join('\n'),
+  );
+}
+
+async function readJsonOptional(filePath: string): Promise<{ value: unknown } | null> {
+  try {
+    const raw = await fs.readFile(filePath, 'utf8');
+    return { value: JSON.parse(raw) as unknown };
+  } catch {
+    return null;
+  }
+}
+
+async function backupIfPresent(filePath: string) {
+  const st = await fs.stat(filePath).catch(() => null);
+  if (!st || !st.isFile()) return;
+
+  const dir = path.dirname(filePath);
+  const base = path.basename(filePath);
+  const stamp = new Date().toISOString().replace(/[:.]/g, '-');
+  const out = path.join(dir, `${base}.pre-resume.${stamp}.bak`);
+  await fs.copyFile(filePath, out);
 }
