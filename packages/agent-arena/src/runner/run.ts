@@ -2,16 +2,25 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { consola } from 'consola';
 import type { ArenaConfig, ArenaJob, ArenaRunResult, FinishedContext } from '../types.js';
-import { base64UrlEncode, sanitizeSegment } from '../paths.js';
+import { base64UrlEncode } from '../paths.js';
 import { mapLimit } from '../concurrency.js';
 import { createClient, startServer } from '../opencode.js';
 import { computeTools } from './helpers.js';
 import { runScenario } from './scenario.js';
 import { portablePathWithin, requireData, startAutoApprove, toErrorPayload, writeJson } from './util.js';
+import { archiveJobArtifacts, computeJobArtifactPaths, inspectJob, type ResumeReuseMode } from './job-state.js';
 
 export type ArenaRunInput = {
   config: ArenaConfig;
   outDir: string;
+  /**
+   * When resuming, decide which prior results count as reusable.
+   * - "ok": reuse only `run.json` where `ok: true`
+   * - "finished": reuse any `run.json` with a `finishedAt` timestamp (ok or failed)
+   *
+   * Default: "ok" (keeps `agent-arena run --resume` semantics).
+   */
+  resumeReuseMode?: ResumeReuseMode;
   hooks?: {
     afterJob?: (args: {
       config: ArenaConfig;
@@ -110,6 +119,7 @@ export async function runArena(input: ArenaRunInput): Promise<ArenaRunResult[]> 
           job,
           index,
           outDir,
+          resumeReuseMode: input.resumeReuseMode,
           client,
           directory,
           projectID,
@@ -179,26 +189,29 @@ async function runJob(args: {
   job: ArenaJob;
   index: number;
   outDir: string;
+  resumeReuseMode?: ResumeReuseMode;
   client: ReturnType<typeof createClient>;
   directory: string;
   projectID?: string;
   uiBase: string;
   hooks?: ArenaRunInput['hooks'];
 }): Promise<ArenaRunResult> {
-  const jobOutDir = path.join(
-    args.outDir,
-    'runs',
-    `experiment=${segment(args.job.experiment)}`,
-    `scenario=${segment(args.job.scenario.id ?? `s${args.index + 1}`)}`,
-    `modelProvider=${segment(args.job.model.providerID)}`,
-    `modelName=${segment(args.job.model.modelID)}`,
-  );
-  const runJsonPath = path.join(jobOutDir, 'run.json');
+  const resumeReuseMode = args.resumeReuseMode ?? 'ok';
+  const paths = computeJobArtifactPaths({ arenaOutDir: args.outDir, job: args.job, index: args.index });
+  const jobOutDir = paths.jobOutDir;
+  const runJsonPath = paths.runJsonPath;
 
   if (args.config.resume) {
-    const reused = await readRunJson(runJsonPath);
-    if (reused?.ok) {
-      consola.info(`↷ resume ${args.job.experiment} · ${args.job.scenario.id}`);
+    const inspection = await inspectJob({
+      arenaOutDir: args.outDir,
+      job: args.job,
+      index: args.index,
+      reuseMode: resumeReuseMode,
+    });
+
+    if (inspection.state === 'complete' && inspection.reusable) {
+      const reused = inspection.result;
+      consola.info(`↷ resume ${args.job.experiment} · ${args.job.scenario.id} (${resumeReuseMode})`);
       try {
         await args.hooks?.afterJob?.({
           config: args.config,
@@ -233,6 +246,18 @@ async function runJob(args: {
         resumed: true,
       });
       return reused;
+    }
+
+    // Partial/invalid artifacts should not count as “done”. Archive them before rerunning so
+    // analysis doesn't accidentally count stale screenshots/log exports.
+    if (inspection.state !== 'missing') {
+      const archived = await archiveJobArtifacts({
+        jobOutDir,
+        reason: inspection.reason,
+      });
+      if (archived && archived.moved.length > 0) {
+        consola.warn(`↺ archived partial run artifacts (${inspection.reason}): ${relativePath(archived.archivedDir)}`);
+      }
     }
   }
 
@@ -358,16 +383,6 @@ async function callOnFinished(args: {
   }
 }
 
-async function readRunJson(filePath: string): Promise<ArenaRunResult | null> {
-  try {
-    const raw = await fs.readFile(filePath, 'utf8');
-    const parsed = JSON.parse(raw) as ArenaRunResult;
-    return parsed && typeof parsed === 'object' ? parsed : null;
-  } catch {
-    return null;
-  }
-}
-
 function relativePath(p: string) {
   const abs = path.resolve(p);
   const rel = path.relative(process.cwd(), abs);
@@ -438,10 +453,6 @@ function slugSegment(input: string) {
     .replace(/^-+|-+$/g, '')
     .slice(0, 80);
   return v || 'x';
-}
-
-function segment(value: string) {
-  return sanitizeSegment(value) || 'x';
 }
 
 function createNameLocks() {
