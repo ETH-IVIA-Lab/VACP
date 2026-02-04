@@ -25,6 +25,16 @@ Then run:
 
 Outputs are written to `./.agent-arena/runs/<timestamp>/` by default, including per-run JSON with `projectID` + `sessionID` (portable across machines).
 
+### Resuming an interrupted run
+
+If you interrupted a long run, resume it in-place:
+
+- `pnpm -C packages/agent-arena start -- resume --run .agent-arena/runs/<runId>`
+- (plan only) `pnpm -C packages/agent-arena start -- resume --run .agent-arena/runs/<runId> --dry-run`
+- (also rerun `ok=false` jobs) `pnpm -C packages/agent-arena start -- resume --run .agent-arena/runs/<runId> --rerun-failed`
+
+`resume` reuses any existing finished `run.json` results (ok or failed) and runs only missing/unfinished jobs. It also detects partial artifacts from mid-run interruption and reruns those jobs.
+
 ## Analysis + report
 
 After you have a run folder, you can parse it into tabular datasets and generate a publication-ready report:

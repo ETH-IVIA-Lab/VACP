@@ -302,10 +302,14 @@ export type ArenaConfig = {
   };
 
   /**
-   * If true, reuse successful run results already present on disk (per-job `run.json`)
+   * If true, reuse prior run results already present on disk (per-job `run.json`)
    * instead of creating a new OpenCode session.
    *
    * This is most useful when you run with a stable `--out` directory (no timestamp).
+   *
+   * Notes:
+   * - `agent-arena run --resume` reuses only `ok: true` results (reruns failures).
+   * - `agent-arena resume` reuses any finished results (ok or failed) and runs only missing/unfinished jobs.
    */
   resume?: boolean;
 
