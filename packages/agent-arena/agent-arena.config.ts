@@ -20,7 +20,7 @@ const BASE_URL = 'http://127.0.0.1:5173';
 
 const MODELS = [
   { providerID: 'openai', modelID: 'gpt-5.2' },
-  { providerID: "google-vertex", modelID: "gemini-3-pro-preview" },
+  { providerID: 'google-vertex', modelID: 'gemini-3-pro-preview' },
 ];
 
 const DEFAULT_MCP_TIMEOUT_MS = 120_000;

@@ -252,7 +252,9 @@ function parseArenaRunResult(value: unknown): ArenaRunResult | null {
   return out;
 }
 
-async function readJsonOptional(filePath: string): Promise<{ ok: true; value: unknown } | { ok: false; error: string }> {
+async function readJsonOptional(
+  filePath: string,
+): Promise<{ ok: true; value: unknown } | { ok: false; error: string }> {
   try {
     const raw = await fs.readFile(filePath, 'utf8');
     try {

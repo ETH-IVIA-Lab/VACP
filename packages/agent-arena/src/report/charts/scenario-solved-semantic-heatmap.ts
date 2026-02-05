@@ -6,7 +6,9 @@ import type { NormalizedRun } from '../stats.js';
 
 export type ScenarioSolvedSemanticHeatmapChartConfig = ArenaFigureLayout;
 
-function scenarioSolvedSemanticCells(ctx: Parameters<ArenaChart<ScenarioSolvedSemanticHeatmapChartConfig>['getData']>[0]) {
+function scenarioSolvedSemanticCells(
+  ctx: Parameters<ArenaChart<ScenarioSolvedSemanticHeatmapChartConfig>['getData']>[0],
+) {
   const scenarioIndex = new Map<string, number>();
   for (const [i, id] of ctx.scenarioDomain.entries()) scenarioIndex.set(id, i + 1);
 
@@ -194,4 +196,3 @@ function formatSolvedSemanticCellTitle(row: {
   const missingSuffix = row.missing ? `; ${row.missing} missing` : '';
   return `${row.experiment} × ${row.scenario_id}\nSolved (semantic): ${fmtPct(row.solved_semantic_rate)} (${row.solved}/${row.usable}${missingSuffix})`;
 }
-

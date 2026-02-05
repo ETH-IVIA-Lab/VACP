@@ -108,7 +108,10 @@ program
   .command('resume')
   .description('Resume an existing run folder (runs only missing/unfinished jobs)')
   .requiredOption('--run <dir>', 'Existing arena run folder (contains runs/**/input.json)')
-  .option('--config <path>', 'Arena config file (TS/JS). Default: inferred from the run folder or ./agent-arena.config.ts')
+  .option(
+    '--config <path>',
+    'Arena config file (TS/JS). Default: inferred from the run folder or ./agent-arena.config.ts',
+  )
   .option('--directory <path>', 'OpenCode directory used for project/session context')
   .option('--only <substring>', 'Only run entries whose experiment includes this substring')
   .option('--dry-run', 'Plan only; do not execute any runs')
@@ -421,7 +424,9 @@ async function logResumePlan(args: {
 }) {
   const manifest = await readJsonOptional(path.join(args.outDir, 'inputs.json'));
   const manifestValue =
-    manifest?.value && typeof manifest.value === 'object' && !Array.isArray(manifest.value) ? (manifest.value as any) : null;
+    manifest?.value && typeof manifest.value === 'object' && !Array.isArray(manifest.value)
+      ? (manifest.value as any)
+      : null;
   const manifestStartedAt = typeof manifestValue?.startedAt === 'string' ? String(manifestValue.startedAt) : null;
   const manifestRuns = Array.isArray(manifestValue?.runs) ? Number(manifestValue.runs.length) : null;
 
@@ -468,7 +473,10 @@ async function logResumePlan(args: {
     .map((job, idx) => ({ job, insp: inspections[idx] }))
     .filter((x) => x.insp.state === 'partial')
     .slice(0, 12)
-    .map((x) => `- ${x.job.experiment} · ${x.job.scenario.id} · ${x.job.model.providerID}/${x.job.model.modelID} (${x.insp.reason})`);
+    .map(
+      (x) =>
+        `- ${x.job.experiment} · ${x.job.scenario.id} · ${x.job.model.providerID}/${x.job.model.modelID} (${x.insp.reason})`,
+    );
   const partialExtra = partial > partialItems.length ? `(+${partial - partialItems.length} more)` : null;
 
   const rerunFailedItems =
@@ -476,8 +484,12 @@ async function logResumePlan(args: {
       ? args.config.runs
           .map((job, idx) => ({ job, insp: inspections[idx] }))
           .filter(
-            (x): x is { job: (typeof args.config.runs)[number]; insp: Extract<(typeof inspections)[number], { state: 'complete' }> } =>
-              x.insp.state === 'complete' && x.insp.reusable === false,
+            (
+              x,
+            ): x is {
+              job: (typeof args.config.runs)[number];
+              insp: Extract<(typeof inspections)[number], { state: 'complete' }>;
+            } => x.insp.state === 'complete' && x.insp.reusable === false,
           )
           .slice(0, 10)
           .map((x) => {
@@ -486,7 +498,9 @@ async function logResumePlan(args: {
           })
       : [];
   const rerunFailedExtra =
-    args.resumeReuseMode === 'ok' && rerunFailed > rerunFailedItems.length ? `(+${rerunFailed - rerunFailedItems.length} more)` : null;
+    args.resumeReuseMode === 'ok' && rerunFailed > rerunFailedItems.length
+      ? `(+${rerunFailed - rerunFailedItems.length} more)`
+      : null;
 
   consola.box(
     [
@@ -496,7 +510,9 @@ async function logResumePlan(args: {
       `Config:    ${args.configPath}`,
       `Directory: ${args.config.directory ?? '(auto)'}`,
       `Reuse:     ${args.resumeReuseMode === 'finished' ? 'finished (ok+failed)' : 'ok only (rerun failed)'}`,
-      manifestStartedAt ? `Prev run:  startedAt=${manifestStartedAt}${manifestRuns ? ` runs=${manifestRuns}` : ''}` : null,
+      manifestStartedAt
+        ? `Prev run:  startedAt=${manifestStartedAt}${manifestRuns ? ` runs=${manifestRuns}` : ''}`
+        : null,
       ``,
       `Plan:`,
       `- total:   ${inspections.length}`,

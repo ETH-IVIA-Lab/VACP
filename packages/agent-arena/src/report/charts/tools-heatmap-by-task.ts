@@ -227,4 +227,3 @@ function formatToolLabel(tool: string) {
   if (prefix === 'vacp:' && rest.startsWith('vacp/')) rest = rest.slice('vacp/'.length);
   return `${prefix}${rest}`;
 }
-

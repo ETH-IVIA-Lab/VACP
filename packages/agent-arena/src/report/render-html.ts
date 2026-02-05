@@ -407,9 +407,7 @@ function renderJsonCell(runs: NormalizedRun[]) {
 
       const text = formatAnswerJson(r);
       const pre =
-        text === null
-          ? `<pre class="jsonPre muted">n/a</pre>`
-          : `<pre class="jsonPre">${escapeHtml(text)}</pre>`;
+        text === null ? `<pre class="jsonPre muted">n/a</pre>` : `<pre class="jsonPre">${escapeHtml(text)}</pre>`;
       return `${header}${pre}`;
     })
     .join('');
