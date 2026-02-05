@@ -76,6 +76,7 @@ export async function generateArenaReport(args: GenerateArenaReportArgs, deps: G
     renderArenaReportHtml(
       {
         analysisDir,
+        runs: prepared.runs,
         summaries: prepared.summaries,
         figures,
         runId: typeof prepared.meta?.runId === 'string' ? prepared.meta.runId : null,

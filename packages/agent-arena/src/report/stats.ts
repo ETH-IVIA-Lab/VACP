@@ -2,6 +2,7 @@ import type { ArenaRunRow, ArenaToolCallRow } from './load-analysis.js';
 import { deriveEvalOutcome, isGradeable, isParseOk } from '../eval/outcome.js';
 
 export type NormalizedRun = {
+  runId: string | null;
   experiment: string;
   scenarioId: string;
   modelProvider: string;
@@ -13,6 +14,8 @@ export type NormalizedRun = {
   plumbingOk: boolean | null;
   plumbingFailure: string | null;
   answerParseStatus: string | null;
+  answerJson: unknown | null;
+  answerJsonRaw: string | null;
   evalOutcome: string | null;
 
   durationS: number | null;
@@ -81,6 +84,7 @@ export type ScenarioExperimentSummary = {
 export function normalizeRuns(rows: ArenaRunRow[]): NormalizedRun[] {
   const out: NormalizedRun[] = [];
   for (const row of rows) {
+    const runId = asOptionalString((row as any).run_id);
     const experiment = asString(row.experiment);
     const scenarioId = asString((row as any).scenario_id);
     const modelProvider = asString((row as any).model_provider);
@@ -90,6 +94,8 @@ export function normalizeRuns(rows: ArenaRunRow[]): NormalizedRun[] {
     const plumbingOk = asBoolean((row as any).plumbing_ok) ?? ok;
     const plumbingFailure = asOptionalString((row as any).plumbing_failure);
     const answerParseStatus = asOptionalString((row as any).answer_parse_status);
+    const answerJson = ((row as any).answer_json as unknown) ?? null;
+    const answerJsonRaw = asOptionalString((row as any).answer_json_raw);
     let evalOutcome = asOptionalString((row as any).eval_outcome);
 
     const durationMs = pickNumber((row as any).opencode_duration_ms, (row as any).duration_ms);
@@ -109,6 +115,7 @@ export function normalizeRuns(rows: ArenaRunRow[]): NormalizedRun[] {
       evalOutcome = deriveEvalOutcome({ ok, plumbingOk, parseStatus: answerParseStatus, solvedStrict, solvedSemantic });
 
     out.push({
+      runId,
       experiment,
       scenarioId,
       modelProvider,
@@ -117,6 +124,8 @@ export function normalizeRuns(rows: ArenaRunRow[]): NormalizedRun[] {
       plumbingOk,
       plumbingFailure,
       answerParseStatus,
+      answerJson,
+      answerJsonRaw,
       evalOutcome,
       durationS,
       tokensTotalNoCache,

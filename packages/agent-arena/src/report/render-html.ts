@@ -1,4 +1,5 @@
 import type { ArenaFigure } from './charts/types.js';
+import type { NormalizedRun } from './stats.js';
 
 export type ArenaReportSummaryRow = {
   experiment: string;
@@ -43,6 +44,7 @@ export type ArenaReportHtmlContext = {
   indexHref: string | null;
   scenarioDefsPath: string | null;
   figureWidthPx: number;
+  runs: NormalizedRun[];
   summaries: ArenaReportSummaryRow[];
   figures: ArenaFigure[];
   taskIndex: ArenaReportTaskIndexRow[];
@@ -69,6 +71,10 @@ export const DEFAULT_REPORT_SECTIONS: ArenaReportSection[] = [
     render: renderTaskBreakdownSection,
   },
   {
+    id: 'model-responses',
+    render: renderModelResponsesSection,
+  },
+  {
     id: 'task-index',
     render: renderTaskIndexSection,
   },
@@ -88,7 +94,6 @@ export function renderArenaReportHtml(
   const title = titleParts.join(' - ');
   const sub = [
     ctx.runId ? `Run: ${ctx.runId}` : null,
-    ctx.modelLabel ? `Model: ${ctx.modelLabel}` : null,
     ctx.generatedAt ? `Analyzed: ${ctx.generatedAt}` : null,
     `Source: ${ctx.analysisDir}`,
     ctx.scenarioDefsPath ? `Tasks: ${ctx.scenarioDefsPath}` : null,
@@ -112,6 +117,7 @@ export function renderArenaReportHtml(
     `    <header class="header">`,
     ctx.indexHref ? `      <a class="home" href="${escapeAttr(ctx.indexHref)}">Index</a>` : '',
     `      <h1 class="title">Agent Arena Report</h1>`,
+    ctx.modelLabel ? `      <div class="modelTitle">${escapeHtml(ctx.modelLabel)}</div>` : '',
     `      <div class="sub">${escapeHtml(sub)}</div>`,
     `    </header>`,
     ...sections.map((s) => s.render(ctx)),
@@ -306,6 +312,123 @@ function renderTaskBreakdownSection(ctx: ArenaReportHtmlContext) {
   ].join('\n');
 }
 
+function renderModelResponsesSection(ctx: ArenaReportHtmlContext) {
+  if (!ctx.modelLabel) {
+    return [
+      '    <section class="section">',
+      '      <h2>Model Responses</h2>',
+      '      <div class="muted small">Open a per-model report to see extracted JSON answers per task × mode.</div>',
+      '    </section>',
+    ].join('\n');
+  }
+
+  const byKey = new Map<string, NormalizedRun[]>();
+  for (const r of ctx.runs) {
+    const key = `${r.scenarioId}__${r.experiment}`;
+    const list = byKey.get(key);
+    if (list) list.push(r);
+    else byKey.set(key, [r]);
+  }
+
+  const colgroup = [
+    `<colgroup>`,
+    `<col style="width: 44px" />`,
+    `<col style="width: 320px" />`,
+    `<col style="width: 560px" />`,
+    ...ctx.experiments.map(() => `<col style="width: 420px" />`),
+    `</colgroup>`,
+  ].join('\n');
+
+  const tableHead = [
+    `<thead>`,
+    `<tr>`,
+    `<th class="num">#</th>`,
+    `<th>Scenario</th>`,
+    `<th>Task</th>`,
+    ...ctx.experiments.map((exp) => `<th class="group">${escapeHtml(exp)}</th>`),
+    `</tr>`,
+    `</thead>`,
+  ].join('\n');
+
+  const rows = ctx.taskIndex
+    .map((t) => {
+      const taskHtml = t.task ? escapeHtml(t.task) : '<span class="muted">n/a</span>';
+
+      const cells = ctx.experiments
+        .map((exp) => {
+          const runs = byKey.get(`${t.scenarioId}__${exp}`) ?? [];
+          if (!runs.length) return `<td class="muted">—</td>`;
+          return `<td class="jsonCell">${renderJsonCell(runs)}</td>`;
+        })
+        .join('');
+
+      return [
+        `<tr>`,
+        `<td class="num">${fmtInt(t.index)}</td>`,
+        `<td class="exp">${escapeHtml(t.scenarioId)}</td>`,
+        `<td class="taskText">${taskHtml}</td>`,
+        cells,
+        `</tr>`,
+      ].join('');
+    })
+    .join('\n');
+
+  return [
+    '    <section class="section">',
+    '      <h2>Model Responses</h2>',
+    '      <div class="muted small">Extracted from the final assistant message JSON fence (when present). If multiple runs exist, all are included.</div>',
+    '      <div class="tableWrap">',
+    '        <table class="responses">',
+    colgroup,
+    tableHead,
+    '          <tbody>',
+    rows || `<tr><td colspan="${3 + ctx.experiments.length}" class="muted">No tasks found.</td></tr>`,
+    '          </tbody>',
+    '        </table>',
+    '      </div>',
+    '    </section>',
+  ].join('\n');
+}
+
+function renderJsonCell(runs: NormalizedRun[]) {
+  const summary = runs.length > 1 ? `View JSON (${runs.length})` : 'View JSON';
+  const bodies = runs
+    .map((r, i) => {
+      const metaParts = [
+        r.runId ? `run: ${r.runId}` : null,
+        r.answerParseStatus ? `parse: ${r.answerParseStatus}` : null,
+        typeof r.solvedSemantic === 'boolean' ? `semantic: ${r.solvedSemantic ? 'yes' : 'no'}` : null,
+        typeof r.solvedStrict === 'boolean' ? `strict: ${r.solvedStrict ? 'yes' : 'no'}` : null,
+      ].filter(Boolean);
+
+      const header = metaParts.length
+        ? `<div class="jsonMeta">${escapeHtml(`${runs.length > 1 ? `#${i + 1} · ` : ''}${metaParts.join(' · ')}`)}</div>`
+        : '';
+
+      const text = formatAnswerJson(r);
+      const pre =
+        text === null
+          ? `<pre class="jsonPre muted">n/a</pre>`
+          : `<pre class="jsonPre">${escapeHtml(text)}</pre>`;
+      return `${header}${pre}`;
+    })
+    .join('');
+
+  return `<details class="jsonDetails"><summary>${escapeHtml(summary)}</summary>${bodies}</details>`;
+}
+
+function formatAnswerJson(run: NormalizedRun) {
+  if (run.answerJson !== null) {
+    try {
+      return JSON.stringify(run.answerJson, null, 2);
+    } catch {
+      return String(run.answerJson);
+    }
+  }
+  if (typeof run.answerJsonRaw === 'string' && run.answerJsonRaw.trim()) return run.answerJsonRaw;
+  return null;
+}
+
 function renderTaskIndexSection(ctx: ArenaReportHtmlContext) {
   const scenarioRows = ctx.taskIndex
     .map((row) => {
@@ -315,7 +438,6 @@ function renderTaskIndexSection(ctx: ArenaReportHtmlContext) {
         `<td class="exp">${escapeHtml(row.scenarioId)}</td>`,
         `<td class="exp">${escapeHtml(row.app ?? 'n/a')}</td>`,
         `<td class="taskText">${row.task ? escapeHtml(row.task) : '<span class="muted">n/a</span>'}</td>`,
-        `<td class="exp">${row.tags.length ? escapeHtml(row.tags.join(', ')) : '<span class="muted">n/a</span>'}</td>`,
         `<td class="exp">${row.responseFormat ? escapeHtml(row.responseFormat) : '<span class="muted">n/a</span>'}</td>`,
         `</tr>`,
       ].join('');
@@ -333,12 +455,11 @@ function renderTaskIndexSection(ctx: ArenaReportHtmlContext) {
     '              <th>Scenario</th>',
     '              <th>App</th>',
     '              <th>Task</th>',
-    '              <th>Tags</th>',
     '              <th>Response format</th>',
     '            </tr>',
     '          </thead>',
     '          <tbody>',
-    scenarioRows || '<tr><td colspan="6" class="muted">No tasks found.</td></tr>',
+    scenarioRows || '<tr><td colspan="5" class="muted">No tasks found.</td></tr>',
     '          </tbody>',
     '        </table>',
     '      </div>',
@@ -408,6 +529,13 @@ body {
   margin: 0;
   font-size: 28px;
   letter-spacing: -0.03em;
+}
+
+.modelTitle {
+  margin-top: 6px;
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
 }
 
 .sub {
@@ -551,6 +679,41 @@ table.scenarios {
 
 table.tasks {
   min-width: 1920px;
+}
+
+table.responses {
+  min-width: 2520px;
+}
+
+.jsonCell {
+  min-width: 360px;
+}
+
+.jsonDetails summary {
+  cursor: pointer;
+  user-select: none;
+  font-size: 12px;
+}
+
+.jsonDetails summary:hover {
+  text-decoration: underline;
+}
+
+.jsonMeta {
+  margin: 8px 0 4px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.jsonPre {
+  margin: 0 0 10px;
+  padding: 10px;
+  background: var(--card2);
+  border: 1px solid var(--grid);
+  border-radius: 10px;
+  overflow: auto;
+  max-height: 260px;
+  font: 12px/1.35 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
 }
 
 .footer {
