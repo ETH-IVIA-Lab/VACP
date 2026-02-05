@@ -57,7 +57,9 @@ class BrowserPage(Protocol):
 
     async def wait_for_timeout(self, timeout: float) -> Any: ...
 
-    async def wait_for_selector(self, selector: str, *, timeout: float | None = None, state: str | None = None) -> Any: ...
+    async def wait_for_selector(
+        self, selector: str, *, timeout: float | None = None, state: str | None = None
+    ) -> Any: ...
 
     async def click(self, selector: str) -> Any: ...
 
@@ -269,7 +271,7 @@ Typical agent loop:
             title='Browser Evaluate',
             annotations={'readOnlyHint': True},
         )
-        async def browser_eval(expression: str, arg: object | None = None) -> object:
+        async def browser_eval(expression: str, arg: dict[str, object] | None = None) -> object:
             """
             Evaluate a JavaScript expression in the page context.
 
@@ -289,7 +291,9 @@ Typical agent loop:
         @mcp.tool(
             title='Browser Wait For Selector',
         )
-        async def browser_wait_for_selector(selector: str, timeout_ms: int = 15_000, state: str | None = None) -> dict[str, object]:
+        async def browser_wait_for_selector(
+            selector: str, timeout_ms: int = 15_000, state: str | None = None
+        ) -> dict[str, object]:
             """
             Wait until a selector is present in the DOM (or matches an optional state).
             """
