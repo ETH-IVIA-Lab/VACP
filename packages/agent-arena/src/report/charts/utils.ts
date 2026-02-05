@@ -73,12 +73,9 @@ export function maxOf<T>(rows: T[], get: (row: T) => number) {
   return best;
 }
 
-export function niceCeil(value: number) {
-  if (!Number.isFinite(value) || value <= 0) return 1;
-  const pow = 10 ** Math.floor(Math.log10(value));
-  const n = value / pow;
-  const step = n <= 1 ? 1 : n <= 2 ? 2 : n <= 5 ? 5 : 10;
-  return step * pow;
+export function paddedMax(value: number, pad = 0.2, fallback = 1) {
+  if (!Number.isFinite(value) || value <= 0) return fallback;
+  return value * (1 + pad);
 }
 
 export function tickStep(n: number) {

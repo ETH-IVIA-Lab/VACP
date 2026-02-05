@@ -1,6 +1,6 @@
 import * as Plot from '@observablehq/plot';
 import { plotSvg } from './plot.js';
-import { fmtNumber, intTick, maxOf, niceCeil, resolveLayout } from './utils.js';
+import { fmtNumber, intTick, maxOf, paddedMax, resolveLayout } from './utils.js';
 import type { ArenaChart, ArenaFigureLayout } from './types.js';
 
 export type ToolCallsChartConfig = ArenaFigureLayout;
@@ -45,7 +45,13 @@ export const toolCallsChart: ArenaChart<ToolCallsChartConfig> = {
         marginTop: layout.marginTop,
         marginBottom: layout.marginBottom,
         x: { domain: ctx.experimentDomain, tickRotate: -20, label: null },
-        y: { grid: true, label: 'Tool calls (count)', tickFormat: intTick, domain: [0, niceCeil(maxToolCalls * 1.05)] },
+        y: {
+          grid: true,
+          label: 'Tool calls (count)',
+          tickFormat: intTick,
+          nice: false,
+          domain: [0, paddedMax(maxToolCalls)],
+        },
         marks: [
           Plot.boxY(data, { x: 'experiment', y: 'tool_calls', stroke: ctx.theme.colors.ink }),
           Plot.dot(data, {

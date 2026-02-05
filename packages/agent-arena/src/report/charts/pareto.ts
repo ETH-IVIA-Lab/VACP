@@ -1,6 +1,6 @@
 import * as Plot from '@observablehq/plot';
 import { plotSvg } from './plot.js';
-import { fmtNumber, fmtPct, intTick, maxOf, niceCeil, resolveLayout } from './utils.js';
+import { fmtNumber, fmtPct, intTick, maxOf, paddedMax, resolveLayout } from './utils.js';
 import type { ArenaChart, ArenaFigureLayout } from './types.js';
 
 export type ParetoChartConfig = ArenaFigureLayout;
@@ -52,13 +52,15 @@ export const paretoChart: ArenaChart<ParetoChartConfig> = {
           grid: true,
           label: 'Median tokens (no cache)',
           tickFormat: intTick,
-          domain: [0, niceCeil(maxOf(points, (d) => d.tokens_median_no_cache) * 1.05)],
+          nice: false,
+          domain: [0, paddedMax(maxOf(points, (d) => d.tokens_median_no_cache))],
         },
         y: {
           grid: true,
           label: 'Median duration (s)',
           tickFormat: intTick,
-          domain: [0, niceCeil(maxOf(points, (d) => d.duration_s_median) * 1.05)],
+          nice: false,
+          domain: [0, paddedMax(maxOf(points, (d) => d.duration_s_median))],
         },
         marks: [
           Plot.dot(points, {

@@ -1,6 +1,6 @@
 import * as Plot from '@observablehq/plot';
 import { plotSvg } from './plot.js';
-import { fmtNumber, intTick, maxOf, niceCeil, resolveLayout } from './utils.js';
+import { fmtNumber, intTick, maxOf, paddedMax, resolveLayout } from './utils.js';
 import type { ArenaChart, ArenaFigureLayout } from './types.js';
 
 export type TokensChartConfig = ArenaFigureLayout;
@@ -48,7 +48,8 @@ export const tokensChart: ArenaChart<TokensChartConfig> = {
           grid: true,
           label: 'Tokens (input+output+reasoning)',
           tickFormat: intTick,
-          domain: [0, niceCeil(maxTokens * 1.05)],
+          nice: false,
+          domain: [0, paddedMax(maxTokens)],
         },
         marks: [
           Plot.boxY(data, { x: 'experiment', y: 'tokens_total_no_cache', stroke: ctx.theme.colors.ink }),

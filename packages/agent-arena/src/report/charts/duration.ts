@@ -1,6 +1,6 @@
 import * as Plot from '@observablehq/plot';
 import { plotSvg } from './plot.js';
-import { fmtNumber, intTick, maxOf, niceCeil, resolveLayout } from './utils.js';
+import { fmtNumber, intTick, maxOf, paddedMax, resolveLayout } from './utils.js';
 import type { ArenaChart, ArenaFigureLayout } from './types.js';
 
 export type DurationChartConfig = ArenaFigureLayout;
@@ -45,7 +45,13 @@ export const durationChart: ArenaChart<DurationChartConfig> = {
         marginTop: layout.marginTop,
         marginBottom: layout.marginBottom,
         x: { domain: ctx.experimentDomain, tickRotate: -20, label: null },
-        y: { grid: true, label: 'Duration (s)', tickFormat: intTick, domain: [0, niceCeil(maxDuration * 1.05)] },
+        y: {
+          grid: true,
+          label: 'Duration (s)',
+          tickFormat: intTick,
+          nice: false,
+          domain: [0, paddedMax(maxDuration)],
+        },
         marks: [
           Plot.boxY(data, { x: 'experiment', y: 'duration_s', stroke: ctx.theme.colors.ink }),
           Plot.dot(data, {
