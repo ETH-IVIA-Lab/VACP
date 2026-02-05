@@ -70,7 +70,7 @@ export const SCENARIO_BASES: ScenarioBase[] = [
     hash: 'global-development',
     task: 'Which of the largest countries (population above 1 billion) in the world had the lowest life expectancy in 2000?',
     responseFormat: '{country: string, lifeExpectancy: number}',
-    judge: makeSolutionJudge({ country: 'Nigeria', lifeExpectancy: 54.6 }),
+    judge: makeSolutionJudge({ country: 'India', lifeExpectancy: 62.9 }),
   },
   {
     id: 'vl-seattle-weather-t1-sun-vs-rain-feb-apr-aug-oct',
@@ -92,7 +92,7 @@ export const SCENARIO_BASES: ScenarioBase[] = [
     id: 'vl-seattle-weather-t3-snow-season-temp-range',
     route: '/vega-lite/',
     hash: 'seattle-weather',
-    task: 'Examine when snow occurs in the year and the corresponding temperature ranges.',
+    task: 'Examine when snow occurs in the year and the corresponding temperature ranges (lowest and highest displayed temperature values per month).',
     responseFormat: '{observations: Array<{month: string, tempMin: number, tempMax: number}>}',
     judge: makeSolutionJudge({
       observations: [
@@ -171,7 +171,7 @@ export const SCENARIO_BASES: ScenarioBase[] = [
     route: '/cars-parcoords/',
     task: 'Which dimensions do have the largest positive correlation',
     responseFormat: '{dimensions: [string, string]}',
-    judge: makeSolutionJudge({ dimensions: ['Displacement', 'Weight'] }),
+    judge: makeSolutionJudge({ dimensions: ['Cylinders', 'Displacement'] }),
   },
   {
     id: 'cars-parcoords-t3-cylinders-6-horsepower-outliers',
@@ -181,7 +181,7 @@ export const SCENARIO_BASES: ScenarioBase[] = [
     judge: makeSolutionJudge({
       outliers: [
         { name: 'Ford Maverick', horsepower: 0 },
-        { name: 'Ford Grenada l', horsepower: 112 },
+        { name: 'Buick Regal Sport Coupe (turbo)', horsepower: 165 },
       ],
     }),
   },

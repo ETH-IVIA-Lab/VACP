@@ -20,7 +20,7 @@ const BASE_URL = 'http://127.0.0.1:5173';
 
 const MODELS = [
   { providerID: 'openai', modelID: 'gpt-5.2' },
-  // { providerID: 'google', modelID: 'gemini-3-pro-preview' },
+  { providerID: "google-vertex", modelID: "gemini-3-pro-preview" },
 ];
 
 const DEFAULT_MCP_TIMEOUT_MS = 120_000;
@@ -185,7 +185,7 @@ function buildSnapshotInjectedJobs() {
           url: buildScenarioUrl({
             route: scenario.route,
             hash: scenario.hash,
-            query: { 'expose-bridge': '1', 'vacp-dom-snapshot': '1', 'vacp-debug': '0' },
+            query: { 'expose-bridge': '0', 'vacp-dom-snapshot': '1', 'vacp-debug': '0' },
           }),
           task: scenario.task,
           responseFormat: scenario.responseFormat,
@@ -495,8 +495,8 @@ export const config: ArenaConfig = {
   directory: OPENCODE_ATTACH_DIRECTORY,
   worktreeRoot: false,
   autoApprove: 'always',
-  concurrency: { runs: 8 },
-  timeouts: { promptMs: 10 * 60_000 },
+  concurrency: { runs: 4 },
+  timeouts: { promptMs: 15 * 60_000 },
   server: {
     mode: 'connect',
   },
