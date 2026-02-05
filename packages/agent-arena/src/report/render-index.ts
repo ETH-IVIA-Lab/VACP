@@ -8,7 +8,7 @@ export type ArenaReportIndexModelRow = {
   plumbingOkRate: number | null;
   protocolOkRate: number | null;
   gradeableRate: number | null;
-  solvedStrictRate: number | null;
+  solvedSemanticRate: number | null;
   durationMedianS: number | null;
   tokensMedianNoCache: number | null;
   href: string;
@@ -50,7 +50,7 @@ export function renderArenaReportIndexHtml(ctx: ArenaReportIndexHtmlContext) {
         `<td class="num">${m.plumbingOkRate === null ? 'n/a' : fmtPct(m.plumbingOkRate)}</td>`,
         `<td class="num">${m.protocolOkRate === null ? 'n/a' : fmtPct(m.protocolOkRate)}</td>`,
         `<td class="num">${m.gradeableRate === null ? 'n/a' : fmtPct(m.gradeableRate)}</td>`,
-        `<td class="num">${m.solvedStrictRate === null ? 'n/a' : fmtPct(m.solvedStrictRate)}</td>`,
+        `<td class="num">${m.solvedSemanticRate === null ? 'n/a' : fmtPct(m.solvedSemanticRate)}</td>`,
         `<td class="num">${m.durationMedianS === null ? 'n/a' : fmtInt(Math.round(m.durationMedianS))}</td>`,
         `<td class="num">${m.tokensMedianNoCache === null ? 'n/a' : fmtInt(Math.round(m.tokensMedianNoCache))}</td>`,
         `</tr>`,
@@ -95,7 +95,7 @@ export function renderArenaReportIndexHtml(ctx: ArenaReportIndexHtmlContext) {
     '              <th class="num">Plumbing OK</th>',
     '              <th class="num">Parsed OK</th>',
     '              <th class="num">Gradeable</th>',
-    '              <th class="num">Solved (strict)</th>',
+    '              <th class="num">Solved</th>',
     '              <th class="num">Median s</th>',
     '              <th class="num">Median tokens</th>',
     '            </tr>',

@@ -176,7 +176,7 @@ function buildIndexModelRows(
           }),
         ),
       ),
-      solvedStrictRate: fractionOrNull(modelRuns.map((r) => r.solvedStrict)),
+      solvedSemanticRate: fractionOrNull(modelRuns.map((r) => r.solvedSemantic)),
       durationMedianS: median(modelRuns.flatMap((r) => (typeof r.durationS === 'number' ? [r.durationS] : []))),
       tokensMedianNoCache: median(
         modelRuns.flatMap((r) => (typeof r.tokensTotalNoCache === 'number' ? [r.tokensTotalNoCache] : [])),
