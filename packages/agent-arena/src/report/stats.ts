@@ -1,6 +1,11 @@
 import type { ArenaRunRow, ArenaToolCallRow } from './load-analysis.js';
 import { deriveEvalOutcome, isGradeable, isParseOk } from '../eval/outcome.js';
 
+const CANONICAL_EXPERIMENT_ORDER = ['baseline', 'with-snapshot', 'pure-vacp', 'full-toolkit'] as const;
+const CANONICAL_EXPERIMENT_RANK = new Map<string, number>(
+  CANONICAL_EXPERIMENT_ORDER.map((name, index) => [name, index] as const),
+);
+
 export type NormalizedRun = {
   runId: string | null;
   experiment: string;
@@ -13,6 +18,7 @@ export type NormalizedRun = {
   // Older analysis folders won't have this field; fall back to `ok`.
   plumbingOk: boolean | null;
   plumbingFailure: string | null;
+  runErrorMessage: string | null;
   answerParseStatus: string | null;
   answerJson: unknown | null;
   answerJsonRaw: string | null;
@@ -27,9 +33,17 @@ export type NormalizedRun = {
   evalOutcome: string | null;
 
   durationS: number | null;
+  tokensInput: number | null;
+  tokensOutput: number | null;
+  tokensReasoning: number | null;
+  tokensCacheRead: number | null;
+  tokensCacheWrite: number | null;
   tokensTotalNoCache: number | null;
+  tokensTotalWithCacheRead: number | null;
+  tokensTotalWithCacheAll: number | null;
   toolCalls: number | null;
   toolErrors: number | null;
+  hasVacpExecuteTool: boolean | null;
 
   solvedStrict: boolean | null;
   solvedSemantic: boolean | null;
@@ -51,6 +65,12 @@ export type ExperimentSummary = {
   solvedSemanticRate: number | null;
   durationMedianS: number | null;
   tokensMedianNoCache: number | null;
+  tokensMedianWithCacheRead: number | null;
+  tokensMedianWithCacheAll: number | null;
+  tokensMedianCacheRead: number | null;
+  tokensMedianCacheWrite: number | null;
+  tokensReadMultiplierMedian: number | null;
+  tokensAllMultiplierMedian: number | null;
   toolCallsMean: number | null;
   toolErrorsMean: number | null;
 };
@@ -85,6 +105,10 @@ export type ScenarioExperimentSummary = {
   solvedSemanticRate: number | null;
   durationMedianS: number | null;
   tokensMedianNoCache: number | null;
+  tokensMedianWithCacheRead: number | null;
+  tokensMedianWithCacheAll: number | null;
+  tokensMedianCacheRead: number | null;
+  tokensMedianCacheWrite: number | null;
   toolCallsMean: number | null;
   toolErrorsMean: number | null;
 };
@@ -101,6 +125,7 @@ export function normalizeRuns(rows: ArenaRunRow[]): NormalizedRun[] {
     const ok = asBoolean((row as any).ok) ?? false;
     const plumbingOk = asBoolean((row as any).plumbing_ok) ?? ok;
     const plumbingFailure = asOptionalString((row as any).plumbing_failure);
+    const runErrorMessage = asOptionalString((row as any).run_error_message);
     const answerParseStatus = asOptionalString((row as any).answer_parse_status);
     const answerJson = ((row as any).answer_json as unknown) ?? null;
     const answerJsonRaw = asOptionalString((row as any).answer_json_raw);
@@ -108,7 +133,10 @@ export function normalizeRuns(rows: ArenaRunRow[]): NormalizedRun[] {
     const reflectionStructuredJson = ((row as any).reflection_structured_json as unknown) ?? null;
     const reflectionStructuredRaw = asOptionalString((row as any).reflection_structured_raw);
     const reflectionProvenance =
-      normalizeEnumString(asOptionalString((row as any).reflection_provenance), ['interaction-derived', 'prior-knowledge/guess']) ??
+      normalizeEnumString(asOptionalString((row as any).reflection_provenance), [
+        'interaction-derived',
+        'prior-knowledge/guess',
+      ]) ??
       normalizeEnumString(
         extractStringFromObject(reflectionStructuredJson, ['provenance', 'data_provenance', 'dataProvenance']),
         ['interaction-derived', 'prior-knowledge/guess'],
@@ -142,12 +170,28 @@ export function normalizeRuns(rows: ArenaRunRow[]): NormalizedRun[] {
     const durationMs = pickNumber((row as any).opencode_duration_ms, (row as any).duration_ms);
     const durationS = typeof durationMs === 'number' ? durationMs / 1000 : null;
 
+    const tokensInput = asNumber((row as any).tokens_input);
+    const tokensOutput = asNumber((row as any).tokens_output);
+    const tokensReasoning = asNumber((row as any).tokens_reasoning);
+    const tokensCacheRead = asNumber((row as any).tokens_cache_read);
+    const tokensCacheWrite = asNumber((row as any).tokens_cache_write);
+
     const tokensTotalNoCache =
       asNumber((row as any).tokens_total_no_cache) ??
       sumNumbers((row as any).tokens_input, (row as any).tokens_output, (row as any).tokens_reasoning);
+    const tokensTotalWithCacheRead =
+      asNumber((row as any).tokens_total_with_cache) ??
+      (typeof tokensTotalNoCache === 'number' ? tokensTotalNoCache + (tokensCacheRead ?? 0) : null);
+    const tokensTotalWithCacheAll =
+      typeof tokensTotalWithCacheRead === 'number'
+        ? tokensTotalWithCacheRead + (tokensCacheWrite ?? 0)
+        : typeof tokensTotalNoCache === 'number'
+          ? tokensTotalNoCache + (tokensCacheRead ?? 0) + (tokensCacheWrite ?? 0)
+          : null;
 
     const toolCalls = asNumber((row as any).tool_calls);
     const toolErrors = asNumber((row as any).tool_errors);
+    const hasVacpExecuteTool = hasVacpExecuteSignal((row as any).tools_json);
 
     const solvedStrict = normalizeSolvedField(row, 'solved_strict', 'score_ok');
     const solvedSemantic = normalizeSolvedField(row, 'solved_semantic', null);
@@ -164,6 +208,7 @@ export function normalizeRuns(rows: ArenaRunRow[]): NormalizedRun[] {
       ok,
       plumbingOk,
       plumbingFailure,
+      runErrorMessage,
       answerParseStatus,
       answerJson,
       answerJsonRaw,
@@ -177,9 +222,17 @@ export function normalizeRuns(rows: ArenaRunRow[]): NormalizedRun[] {
       reflectionActionsToolsAvailableVsUsedWhy,
       evalOutcome,
       durationS,
+      tokensInput,
+      tokensOutput,
+      tokensReasoning,
+      tokensCacheRead,
+      tokensCacheWrite,
       tokensTotalNoCache,
+      tokensTotalWithCacheRead,
+      tokensTotalWithCacheAll,
       toolCalls,
       toolErrors,
+      hasVacpExecuteTool,
       solvedStrict,
       solvedSemantic,
       hasHttpsToolCalls: asBoolean((row as any).has_https_tool_calls),
@@ -208,6 +261,28 @@ export function computeExperimentSummaries(runs: NormalizedRun[]): ExperimentSum
     const tokensMedianNoCache = median(
       rows.flatMap((r) => (typeof r.tokensTotalNoCache === 'number' ? [r.tokensTotalNoCache] : [])),
     );
+    const tokensMedianWithCacheRead = median(
+      rows.flatMap((r) => (typeof r.tokensTotalWithCacheRead === 'number' ? [r.tokensTotalWithCacheRead] : [])),
+    );
+    const tokensMedianWithCacheAll = median(
+      rows.flatMap((r) => (typeof r.tokensTotalWithCacheAll === 'number' ? [r.tokensTotalWithCacheAll] : [])),
+    );
+    const tokensMedianCacheRead = median(
+      rows.flatMap((r) => (typeof r.tokensCacheRead === 'number' ? [r.tokensCacheRead] : [])),
+    );
+    const tokensMedianCacheWrite = median(
+      rows.flatMap((r) => (typeof r.tokensCacheWrite === 'number' ? [r.tokensCacheWrite] : [])),
+    );
+    const tokensReadMultiplierMedian =
+      typeof tokensMedianNoCache === 'number' &&
+      tokensMedianNoCache > 0 &&
+      typeof tokensMedianWithCacheRead === 'number'
+        ? tokensMedianWithCacheRead / tokensMedianNoCache
+        : null;
+    const tokensAllMultiplierMedian =
+      typeof tokensMedianNoCache === 'number' && tokensMedianNoCache > 0 && typeof tokensMedianWithCacheAll === 'number'
+        ? tokensMedianWithCacheAll / tokensMedianNoCache
+        : null;
     const toolCallsMean = mean(rows.flatMap((r) => (typeof r.toolCalls === 'number' ? [r.toolCalls] : [])));
     const toolErrorsMean = mean(rows.flatMap((r) => (typeof r.toolErrors === 'number' ? [r.toolErrors] : [])));
 
@@ -222,24 +297,26 @@ export function computeExperimentSummaries(runs: NormalizedRun[]): ExperimentSum
       solvedSemanticRate,
       durationMedianS,
       tokensMedianNoCache,
+      tokensMedianWithCacheRead,
+      tokensMedianWithCacheAll,
+      tokensMedianCacheRead,
+      tokensMedianCacheWrite,
+      tokensReadMultiplierMedian,
+      tokensAllMultiplierMedian,
       toolCallsMean,
       toolErrorsMean,
     });
   }
 
-  out.sort((a, b) => a.experiment.localeCompare(b.experiment));
+  out.sort((a, b) => compareExperimentNames(a.experiment, b.experiment));
   return out;
 }
 
 export function experimentDomainByMedianDuration(runs: NormalizedRun[]) {
-  const summaries = computeExperimentSummaries(runs);
-  summaries.sort((a, b) => {
-    const da = a.durationMedianS ?? Number.POSITIVE_INFINITY;
-    const db = b.durationMedianS ?? Number.POSITIVE_INFINITY;
-    if (da !== db) return da - db;
-    return a.experiment.localeCompare(b.experiment);
-  });
-  return summaries.map((s) => s.experiment);
+  // Historical name retained for API stability.
+  const names = Array.from(new Set(runs.map((r) => r.experiment).filter(Boolean)));
+  names.sort(compareExperimentNames);
+  return names;
 }
 
 export function scenarioDomain(runs: NormalizedRun[]) {
@@ -283,7 +360,7 @@ export function summarizeToolCallsByExperiment(toolCalls: ArenaToolCallRow[]) {
 
   const out = Array.from(byKey.values());
   out.sort((a, b) => {
-    if (a.experiment !== b.experiment) return a.experiment.localeCompare(b.experiment);
+    if (a.experiment !== b.experiment) return compareExperimentNames(a.experiment, b.experiment);
     return a.tool.localeCompare(b.tool);
   });
   return out;
@@ -347,6 +424,18 @@ export function computeScenarioExperimentSummaries(runs: NormalizedRun[]): Scena
     const tokensMedianNoCache = median(
       rows.flatMap((r) => (typeof r.tokensTotalNoCache === 'number' ? [r.tokensTotalNoCache] : [])),
     );
+    const tokensMedianWithCacheRead = median(
+      rows.flatMap((r) => (typeof r.tokensTotalWithCacheRead === 'number' ? [r.tokensTotalWithCacheRead] : [])),
+    );
+    const tokensMedianWithCacheAll = median(
+      rows.flatMap((r) => (typeof r.tokensTotalWithCacheAll === 'number' ? [r.tokensTotalWithCacheAll] : [])),
+    );
+    const tokensMedianCacheRead = median(
+      rows.flatMap((r) => (typeof r.tokensCacheRead === 'number' ? [r.tokensCacheRead] : [])),
+    );
+    const tokensMedianCacheWrite = median(
+      rows.flatMap((r) => (typeof r.tokensCacheWrite === 'number' ? [r.tokensCacheWrite] : [])),
+    );
     const toolCallsMean = mean(rows.flatMap((r) => (typeof r.toolCalls === 'number' ? [r.toolCalls] : [])));
     const toolErrorsMean = mean(rows.flatMap((r) => (typeof r.toolErrors === 'number' ? [r.toolErrors] : [])));
 
@@ -362,6 +451,10 @@ export function computeScenarioExperimentSummaries(runs: NormalizedRun[]): Scena
       solvedSemanticRate,
       durationMedianS,
       tokensMedianNoCache,
+      tokensMedianWithCacheRead,
+      tokensMedianWithCacheAll,
+      tokensMedianCacheRead,
+      tokensMedianCacheWrite,
       toolCallsMean,
       toolErrorsMean,
     });
@@ -369,9 +462,18 @@ export function computeScenarioExperimentSummaries(runs: NormalizedRun[]): Scena
 
   out.sort((a, b) => {
     if (a.scenarioId !== b.scenarioId) return a.scenarioId.localeCompare(b.scenarioId);
-    return a.experiment.localeCompare(b.experiment);
+    return compareExperimentNames(a.experiment, b.experiment);
   });
   return out;
+}
+
+function compareExperimentNames(a: string, b: string) {
+  const ia = CANONICAL_EXPERIMENT_RANK.get(a);
+  const ib = CANONICAL_EXPERIMENT_RANK.get(b);
+  if (typeof ia === 'number' && typeof ib === 'number') return ia - ib;
+  if (typeof ia === 'number') return -1;
+  if (typeof ib === 'number') return 1;
+  return a.localeCompare(b);
 }
 
 function asString(value: unknown) {
@@ -406,7 +508,9 @@ function extractStringFromObject(value: unknown, keys: string[]): string | null 
     (root.reflection && typeof root.reflection === 'object' && !Array.isArray(root.reflection)
       ? (root.reflection as Record<string, unknown>)
       : null) ??
-    (root.reflection_structured && typeof root.reflection_structured === 'object' && !Array.isArray(root.reflection_structured)
+    (root.reflection_structured &&
+    typeof root.reflection_structured === 'object' &&
+    !Array.isArray(root.reflection_structured)
       ? (root.reflection_structured as Record<string, unknown>)
       : null);
   const source = nested ?? root;
@@ -419,6 +523,35 @@ function extractStringFromObject(value: unknown, keys: string[]): string | null 
 
 function asNumber(value: unknown): number | null {
   return typeof value === 'number' && Number.isFinite(value) ? value : null;
+}
+
+function hasVacpExecuteSignal(value: unknown): boolean | null {
+  const names = extractToolNames(value);
+  if (!names) return null;
+  return names.some((name) => /(?:^|[_/.-])vacp_execute(?:$|[_/.-])/i.test(name));
+}
+
+function extractToolNames(value: unknown): string[] | null {
+  if (!value) return null;
+
+  if (Array.isArray(value)) {
+    const names: string[] = [];
+    for (const item of value) {
+      if (typeof item === 'string' && item.trim()) names.push(item.trim());
+      else if (item && typeof item === 'object') {
+        const tool = asOptionalString((item as any).tool) ?? asOptionalString((item as any).name);
+        if (tool) names.push(tool);
+      }
+    }
+    return names.length ? names : null;
+  }
+
+  if (typeof value === 'object') {
+    const names = Object.keys(value as Record<string, unknown>).filter((k) => k.trim());
+    return names.length ? names : null;
+  }
+
+  return null;
 }
 
 function asBoolean(value: unknown): boolean | null {

@@ -8,11 +8,11 @@ export type ParetoChartConfig = ArenaFigureLayout;
 function paretoPoints(ctx: Parameters<ArenaChart<ParetoChartConfig>['getData']>[0]) {
   return ctx.summaries
     .flatMap((s) => {
-      if (typeof s.tokensMedianNoCache !== 'number' || typeof s.durationMedianS !== 'number') return [];
+      if (typeof s.tokensMedianWithCacheAll !== 'number' || typeof s.durationMedianS !== 'number') return [];
       return [
         {
           experiment: s.experiment,
-          tokens_median_no_cache: s.tokensMedianNoCache,
+          tokens_median_with_cache: s.tokensMedianWithCacheAll,
           duration_s_median: s.durationMedianS,
           solved_strict_rate: s.solvedStrictRate,
         },
@@ -23,11 +23,11 @@ function paretoPoints(ctx: Parameters<ArenaChart<ParetoChartConfig>['getData']>[
 
 export const paretoChart: ArenaChart<ParetoChartConfig> = {
   id: 'pareto',
-  title: 'Duration vs Tokens (Medians)',
+  title: 'Duration vs Tokens — Medians',
   caption:
-    'Scatter plot (not a computed Pareto frontier). Each point is one experiment: x = median tokens (no cache), y = median duration (seconds). Labels show strict solved rate.',
+    'Each point is one experiment. Right means more tokens, up means slower runs. Labels include strict solved rate.',
   isApplicable: (ctx) =>
-    ctx.summaries.some((s) => typeof s.tokensMedianNoCache === 'number' && typeof s.durationMedianS === 'number'),
+    ctx.summaries.some((s) => typeof s.tokensMedianWithCacheAll === 'number' && typeof s.durationMedianS === 'number'),
   getData: (ctx) => paretoPoints(ctx),
   render: (ctx, config) => {
     const points = paretoPoints(ctx);
@@ -50,10 +50,10 @@ export const paretoChart: ArenaChart<ParetoChartConfig> = {
         marginBottom: layout.marginBottom,
         x: {
           grid: true,
-          label: 'Median tokens (no cache)',
+          label: 'Median tokens with cache',
           tickFormat: intTick,
           nice: false,
-          domain: [0, paddedMax(maxOf(points, (d) => d.tokens_median_no_cache))],
+          domain: [0, paddedMax(maxOf(points, (d) => d.tokens_median_with_cache))],
         },
         y: {
           grid: true,
@@ -64,20 +64,20 @@ export const paretoChart: ArenaChart<ParetoChartConfig> = {
         },
         marks: [
           Plot.dot(points, {
-            x: 'tokens_median_no_cache',
+            x: 'tokens_median_with_cache',
             y: 'duration_s_median',
             r: 6,
-            fill: ctx.theme.colors.ok,
+            fill: ctx.theme.colors.info,
             stroke: ctx.theme.colors.ink,
             title: (d) =>
               [
                 d.experiment,
-                `Median: ${fmtNumber(d.tokens_median_no_cache)} tokens, ${fmtNumber(Math.round(d.duration_s_median))}s`,
-                `Solved (strict): ${d.solved_strict_rate === null ? 'n/a' : fmtPct(d.solved_strict_rate)}`,
+                `Median: ${fmtNumber(d.tokens_median_with_cache)} tokens with cache, ${fmtNumber(Math.round(d.duration_s_median))}s`,
+                `Solved strict: ${d.solved_strict_rate === null ? 'n/a' : fmtPct(d.solved_strict_rate)}`,
               ].join('\n'),
           }),
           Plot.text(points, {
-            x: 'tokens_median_no_cache',
+            x: 'tokens_median_with_cache',
             y: 'duration_s_median',
             text: (d) => `${d.experiment}${d.solved_strict_rate === null ? '' : ` (${fmtPct(d.solved_strict_rate)})`}`,
             dx: 10,

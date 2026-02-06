@@ -38,7 +38,7 @@ function flagsHeatmapCells(ctx: Parameters<ArenaChart<FlagsHeatmapChartConfig>['
     }
   }
 
-  const palette = ['#fff5f0', '#fee0d2', '#fcbba1', '#fc9272', '#fb6a4a', '#cb181d'];
+  const palette = riskPalette();
   const steps = palette.length;
   return rows.map((d) => {
     const fill = d.rate === null ? ctx.theme.colors.grid : palette[Math.min(steps - 1, Math.floor(d.rate * steps))];
@@ -50,9 +50,8 @@ function flagsHeatmapCells(ctx: Parameters<ArenaChart<FlagsHeatmapChartConfig>['
 
 export const flagsHeatmapChart: ArenaChart<FlagsHeatmapChartConfig> = {
   id: 'flags-heatmap',
-  title: 'Policy / Infra Flags (Rate)',
-  caption:
-    'Rate of “red flag” conditions per experiment. HTTPS tool calls indicate external network use; the others are common infra / filesystem issues during automation.',
+  title: 'Policy and Infrastructure Flags — Rate',
+  caption: 'How often key reliability flags appeared in each experiment.',
   isApplicable: (ctx) =>
     ctx.runs.some(
       (r) =>
@@ -98,7 +97,7 @@ export const flagsHeatmapChart: ArenaChart<FlagsHeatmapChartConfig> = {
             x: 'experiment',
             y: 'flag_label',
             fill: 'fill',
-            inset: 1,
+            inset: 0,
             title: (d) => {
               if (d.rate === null)
                 return `${d.experiment} × ${d.flag_label}\nRate: n/a (0/${d.total} runs report flag)`;
@@ -115,7 +114,6 @@ export const flagsHeatmapChart: ArenaChart<FlagsHeatmapChartConfig> = {
             textAnchor: 'middle',
             dy: 3,
           }),
-          Plot.frame({ stroke: ctx.theme.colors.grid }),
         ],
       }),
     });
@@ -131,7 +129,7 @@ export const flagsHeatmapChart: ArenaChart<FlagsHeatmapChartConfig> = {
 };
 
 function legendForFlagsHeatmap(ctx: Parameters<typeof flagsHeatmapChart.render>[0]): SvgLegend {
-  const palette = ['#fff5f0', '#fee0d2', '#fcbba1', '#fc9272', '#fb6a4a', '#cb181d'];
+  const palette = riskPalette();
   const steps = palette.length;
   const segments = palette.map((fill, i) => ({
     from: i / steps,
@@ -150,4 +148,9 @@ function legendForFlagsHeatmap(ctx: Parameters<typeof flagsHeatmapChart.render>[
     ticks,
     extras: [{ label: 'n/a', fill: ctx.theme.colors.grid }],
   };
+}
+
+function riskPalette() {
+  // Single-hue risk scale used for policy/infra risk rate.
+  return ['#fff5f4', '#fee4e2', '#fecdca', '#fda29b', '#f97066', '#d92d20'];
 }

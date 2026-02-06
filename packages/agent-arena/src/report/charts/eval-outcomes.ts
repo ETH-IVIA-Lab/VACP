@@ -8,15 +8,17 @@ export type EvalOutcomesChartConfig = ArenaFigureLayout;
 
 type OutcomeSpec = { id: string; label: string; color: string };
 
-function outcomeDomain(theme: { colors: { ok: string; bad: string; grid: string; neutral: string } }): OutcomeSpec[] {
+function outcomeDomain(theme: {
+  colors: { ok: string; warn: string; bad: string; info: string; grid: string; neutral: string; subtle: string };
+}): OutcomeSpec[] {
   return [
     { id: 'plumbing_failure', label: 'Plumbing failure', color: theme.colors.grid },
-    { id: 'protocol_failure', label: 'Protocol failure', color: '#f59e0b' }, // amber
+    { id: 'protocol_failure', label: 'Protocol failure', color: theme.colors.warn },
     { id: 'eval_error', label: 'Eval error', color: theme.colors.neutral },
-    { id: 'unscored', label: 'Unscored', color: '#cbd5e1' }, // slate 300
+    { id: 'unscored', label: 'Unscored', color: theme.colors.subtle },
     { id: 'semantic_failure', label: 'Semantic failure', color: theme.colors.bad },
-    { id: 'solved_semantic', label: 'Solved (semantic)', color: '#60a5fa' }, // blue 400
-    { id: 'solved_strict', label: 'Solved (strict)', color: theme.colors.ok },
+    { id: 'solved_semantic', label: 'Solved semantic', color: theme.colors.ok },
+    { id: 'solved_strict', label: 'Solved strict', color: theme.colors.ok },
   ];
 }
 
@@ -93,8 +95,7 @@ function evalOutcomeRows(ctx: Parameters<ArenaChart<EvalOutcomesChartConfig>['ge
 export const evalOutcomesChart: ArenaChart<EvalOutcomesChartConfig> = {
   id: 'eval-outcomes',
   title: 'Outcome Breakdown by Experiment',
-  caption:
-    'Stacked counts of run outcomes. Plumbing failures are infra/harness issues; protocol failures are ungradeable final answers; semantic failures are gradeable but incorrect answers.',
+  caption: 'How runs end in each experiment: solved, semantic miss, parse/protocol miss, infra issue, or unscored.',
   isApplicable: (ctx) => ctx.runs.length > 0,
   getData: (ctx) => evalOutcomeRows(ctx),
   render: (ctx, config) => {

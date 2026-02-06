@@ -75,6 +75,14 @@ export async function exportArenaDatasets(args: ExportArenaDatasetsArgs) {
   await writeJson(path.join(outDir, 'runs_normalized.json'), exportNormalizedRuns(prepared.runs));
   await writeJson(path.join(outDir, 'experiment_summaries.json'), exportExperimentSummaries(prepared.summaries));
   await writeJson(path.join(outDir, 'task_summaries.json'), exportTaskSummaries(prepared.taskSummaries));
+  await writeJson(
+    path.join(outDir, 'token_accounting_by_experiment.json'),
+    exportTokenAccountingByExperiment(prepared.summaries),
+  );
+  await writeJson(
+    path.join(outDir, 'token_accounting_by_task.json'),
+    exportTokenAccountingByTask(prepared.taskSummaries),
+  );
   await writeJson(path.join(outDir, 'tool_by_experiment.json'), exportToolByExperiment(prepared.toolByExperiment));
   await writeJson(path.join(outDir, 'tool_by_scenario.json'), exportToolByScenario(prepared.toolByScenario));
   await writeJson(path.join(outDir, 'task_index.json'), exportTaskIndex(prepared.taskIndex));
@@ -100,6 +108,7 @@ function exportNormalizedRuns(runs: NormalizedRun[]) {
     ok: r.ok,
     plumbing_ok: r.plumbingOk,
     plumbing_failure: r.plumbingFailure,
+    run_error_message: r.runErrorMessage,
     answer_parse_status: r.answerParseStatus,
     reflection_structured_parse_status: r.reflectionStructuredParseStatus,
     reflection_structured_json: r.reflectionStructuredJson,
@@ -111,9 +120,17 @@ function exportNormalizedRuns(runs: NormalizedRun[]) {
     reflection_actions_tools_available_vs_used_why: r.reflectionActionsToolsAvailableVsUsedWhy,
     eval_outcome: r.evalOutcome,
     duration_s: r.durationS,
+    tokens_input: r.tokensInput,
+    tokens_output: r.tokensOutput,
+    tokens_reasoning: r.tokensReasoning,
+    tokens_cache_read: r.tokensCacheRead,
+    tokens_cache_write: r.tokensCacheWrite,
     tokens_total_no_cache: r.tokensTotalNoCache,
+    tokens_total_with_cache_read: r.tokensTotalWithCacheRead,
+    tokens_total_with_cache_all: r.tokensTotalWithCacheAll,
     tool_calls: r.toolCalls,
     tool_errors: r.toolErrors,
+    has_vacp_execute_tool: r.hasVacpExecuteTool,
     solved_strict: r.solvedStrict,
     solved_semantic: r.solvedSemantic,
     has_https_tool_calls: r.hasHttpsToolCalls,
@@ -135,6 +152,12 @@ function exportExperimentSummaries(summaries: ExperimentSummary[]) {
     solved_semantic_rate: s.solvedSemanticRate,
     duration_s_median: s.durationMedianS,
     tokens_total_no_cache_median: s.tokensMedianNoCache,
+    tokens_total_with_cache_read_median: s.tokensMedianWithCacheRead,
+    tokens_total_with_cache_all_median: s.tokensMedianWithCacheAll,
+    tokens_cache_read_median: s.tokensMedianCacheRead,
+    tokens_cache_write_median: s.tokensMedianCacheWrite,
+    tokens_read_multiplier_median: s.tokensReadMultiplierMedian,
+    tokens_all_multiplier_median: s.tokensAllMultiplierMedian,
     tool_calls_mean: s.toolCallsMean,
     tool_errors_mean: s.toolErrorsMean,
   }));
@@ -153,8 +176,39 @@ function exportTaskSummaries(summaries: ScenarioExperimentSummary[]) {
     solved_semantic_rate: s.solvedSemanticRate,
     duration_s_median: s.durationMedianS,
     tokens_total_no_cache_median: s.tokensMedianNoCache,
+    tokens_total_with_cache_read_median: s.tokensMedianWithCacheRead,
+    tokens_total_with_cache_all_median: s.tokensMedianWithCacheAll,
+    tokens_cache_read_median: s.tokensMedianCacheRead,
+    tokens_cache_write_median: s.tokensMedianCacheWrite,
     tool_calls_mean: s.toolCallsMean,
     tool_errors_mean: s.toolErrorsMean,
+  }));
+}
+
+function exportTokenAccountingByExperiment(summaries: ExperimentSummary[]) {
+  return summaries.map((s) => ({
+    experiment: s.experiment,
+    n: s.n,
+    tokens_total_no_cache_median: s.tokensMedianNoCache,
+    tokens_total_with_cache_read_median: s.tokensMedianWithCacheRead,
+    tokens_total_with_cache_all_median: s.tokensMedianWithCacheAll,
+    tokens_cache_read_median: s.tokensMedianCacheRead,
+    tokens_cache_write_median: s.tokensMedianCacheWrite,
+    tokens_read_multiplier_median: s.tokensReadMultiplierMedian,
+    tokens_all_multiplier_median: s.tokensAllMultiplierMedian,
+  }));
+}
+
+function exportTokenAccountingByTask(summaries: ScenarioExperimentSummary[]) {
+  return summaries.map((s) => ({
+    scenario_id: s.scenarioId,
+    experiment: s.experiment,
+    n: s.n,
+    tokens_total_no_cache_median: s.tokensMedianNoCache,
+    tokens_total_with_cache_read_median: s.tokensMedianWithCacheRead,
+    tokens_total_with_cache_all_median: s.tokensMedianWithCacheAll,
+    tokens_cache_read_median: s.tokensMedianCacheRead,
+    tokens_cache_write_median: s.tokensMedianCacheWrite,
   }));
 }
 

@@ -22,15 +22,17 @@ function solvedSemanticRows(ctx: Parameters<ArenaChart<SolvedSemanticChartConfig
 
 export const solvedSemanticChart: ArenaChart<SolvedSemanticChartConfig> = {
   id: 'solved-semantic',
-  title: 'Solved Rate (Semantic)',
-  caption: 'Per-experiment semantic solved rate (from `solved_semantic` when present).',
+  title: 'Solved Rate — Semantic',
+  caption:
+    'Share of runs solved in semantic mode. Semantic accepts meaning-equivalent answers even when wording differs.',
   isApplicable: (ctx) => ctx.runs.some((r) => typeof r.solvedSemantic === 'boolean'),
   getData: (ctx) => solvedSemanticRows(ctx),
   render: (ctx, config) => {
     const data = solvedSemanticRows(ctx);
+    const semanticColor = ctx.theme.colors.ok;
     const legend: SvgLegend = {
       items: [
-        { label: 'Solved rate available', fill: ctx.theme.colors.neutral },
+        { label: 'Solved rate available', fill: semanticColor },
         { label: 'Solved rate missing', fill: ctx.theme.colors.grid },
       ],
     };
@@ -53,20 +55,20 @@ export const solvedSemanticChart: ArenaChart<SolvedSemanticChartConfig> = {
         marginTop: layout.marginTop,
         marginBottom: layout.marginBottom,
         x: { domain: ctx.experimentDomain, label: null, tickRotate: -20 },
-        y: { domain: [0, 1], grid: true, label: 'Solved rate (semantic)', tickFormat: percentTick },
+        y: { domain: [0, 1], grid: true, label: 'Solved rate semantic', tickFormat: percentTick },
         marks: [
           Plot.barY(data, {
             x: 'experiment',
             y: 'solved_semantic_rate_display',
-            fill: (d) => (d.solved_semantic_rate === null ? ctx.theme.colors.grid : ctx.theme.colors.neutral),
+            fill: (d) => (d.solved_semantic_rate === null ? ctx.theme.colors.grid : semanticColor),
             title: (d) => {
               const missing = Math.max(0, d.total - d.usable);
               if (d.solved_semantic_rate === null)
-                return `${d.experiment}\nSolved (semantic): n/a (0/${d.total} runs report solved_semantic)`;
+                return `${d.experiment}\nSolved semantic: n/a (0/${d.total} runs report solved_semantic)`;
               return [
                 d.experiment,
                 `n=${d.total}`,
-                `Solved (semantic): ${fmtPct(d.solved_semantic_rate)} (${d.solved}/${d.usable}${missing ? `; ${missing} missing` : ''})`,
+                `Solved semantic: ${fmtPct(d.solved_semantic_rate)} (${d.solved}/${d.usable}${missing ? `; ${missing} missing` : ''})`,
               ].join('\n');
             },
           }),

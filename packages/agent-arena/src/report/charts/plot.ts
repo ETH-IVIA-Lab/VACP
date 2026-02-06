@@ -40,7 +40,7 @@ export function plotSvg(args: { plot: unknown; theme: ArenaReportTheme; legend?:
   const bg = svg.ownerDocument.createElementNS('http://www.w3.org/2000/svg', 'rect');
   bg.setAttribute('width', '100%');
   bg.setAttribute('height', '100%');
-  bg.setAttribute('fill', '#ffffff');
+  bg.setAttribute('fill', '#f4f5f5');
   svg.insertBefore(bg, svg.firstChild);
 
   const w = svg.getAttribute('width');

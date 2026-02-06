@@ -21,7 +21,7 @@ function toolCallRows(ctx: Parameters<ArenaChart<ToolCallsChartConfig>['getData'
 export const toolCallsChart: ArenaChart<ToolCallsChartConfig> = {
   id: 'tool-calls',
   title: 'Tool Calls by Experiment',
-  caption: 'Tool calls counted from OpenCode message parts (includes bash/browser helpers and MCP tools).',
+  caption: 'How heavily each experiment used tools across runs.',
   isApplicable: (ctx) => ctx.runs.some((r) => typeof r.toolCalls === 'number'),
   getData: (ctx) => toolCallRows(ctx),
   render: (ctx, config) => {
@@ -53,20 +53,26 @@ export const toolCallsChart: ArenaChart<ToolCallsChartConfig> = {
           domain: [0, paddedMax(maxToolCalls)],
         },
         marks: [
-          Plot.boxY(data, { x: 'experiment', y: 'tool_calls', stroke: ctx.theme.colors.ink }),
+          Plot.boxY(data, {
+            x: 'experiment',
+            y: 'tool_calls',
+            stroke: ctx.theme.colors.ink,
+            fill: '#d3d9e2',
+            strokeWidth: 1.2,
+          }),
           Plot.dot(data, {
             x: 'experiment',
             y: 'tool_calls',
-            fill: ctx.theme.colors.neutral,
-            stroke: ctx.theme.colors.neutral,
+            fill: ctx.theme.colors.info,
+            stroke: ctx.theme.colors.info,
             r: 3,
-            opacity: 0.45,
+            opacity: 0.5,
             title: (d) =>
               [
                 `${d.experiment} × ${d.scenario_id}`,
                 `Tool calls: ${fmtNumber(d.tool_calls)} (${fmtNumber(d.tool_errors)} errors)`,
-                `Solved (strict): ${d.solved_strict === null ? 'n/a' : d.solved_strict ? 'yes' : 'no'}`,
-                `Solved (semantic): ${d.solved_semantic === null ? 'n/a' : d.solved_semantic ? 'yes' : 'no'}`,
+                `Solved strict: ${d.solved_strict === null ? 'n/a' : d.solved_strict ? 'yes' : 'no'}`,
+                `Solved semantic: ${d.solved_semantic === null ? 'n/a' : d.solved_semantic ? 'yes' : 'no'}`,
               ].join('\n'),
           }),
         ],

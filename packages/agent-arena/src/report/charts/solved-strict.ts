@@ -22,8 +22,9 @@ function solvedStrictRows(ctx: Parameters<ArenaChart<SolvedStrictChartConfig>['g
 
 export const solvedStrictChart: ArenaChart<SolvedStrictChartConfig> = {
   id: 'solved-strict',
-  title: 'Solved Rate (Strict)',
-  caption: 'Per-experiment strict solved rate (from `solved_strict` when present).',
+  title: 'Solved Rate — Strict',
+  caption:
+    'Share of runs solved in strict mode. Strict means the answer matches expected values and structure exactly.',
   isApplicable: (ctx) => ctx.runs.some((r) => typeof r.solvedStrict === 'boolean'),
   getData: (ctx) => solvedStrictRows(ctx),
   render: (ctx, config) => {
@@ -53,7 +54,7 @@ export const solvedStrictChart: ArenaChart<SolvedStrictChartConfig> = {
         marginTop: layout.marginTop,
         marginBottom: layout.marginBottom,
         x: { domain: ctx.experimentDomain, label: null, tickRotate: -20 },
-        y: { domain: [0, 1], grid: true, label: 'Solved rate (strict)', tickFormat: percentTick },
+        y: { domain: [0, 1], grid: true, label: 'Solved rate strict', tickFormat: percentTick },
         marks: [
           Plot.barY(data, {
             x: 'experiment',
@@ -62,11 +63,11 @@ export const solvedStrictChart: ArenaChart<SolvedStrictChartConfig> = {
             title: (d) => {
               const missing = Math.max(0, d.total - d.usable);
               if (d.solved_strict_rate === null)
-                return `${d.experiment}\nSolved (strict): n/a (0/${d.total} runs report solved_strict)`;
+                return `${d.experiment}\nSolved strict: n/a (0/${d.total} runs report solved_strict)`;
               return [
                 d.experiment,
                 `n=${d.total}`,
-                `Solved (strict): ${fmtPct(d.solved_strict_rate)} (${d.solved}/${d.usable}${missing ? `; ${missing} missing` : ''})`,
+                `Solved strict: ${fmtPct(d.solved_strict_rate)} (${d.solved}/${d.usable}${missing ? `; ${missing} missing` : ''})`,
               ].join('\n');
             },
           }),
@@ -84,7 +85,7 @@ export const solvedStrictChart: ArenaChart<SolvedStrictChartConfig> = {
       }),
     });
 
-    return { id: 'solved-strict', title: 'Solved Rate (Strict)', caption: solvedStrictChart.caption, svg, data };
+    return { id: 'solved-strict', title: 'Solved Rate — Strict', caption: solvedStrictChart.caption, svg, data };
   },
 };
 

@@ -1,14 +1,12 @@
 import * as Plot from '@observablehq/plot';
 import { plotSvg, type SvgLegend } from './plot.js';
-import { fmtPct, isDark, marginLeftForLabels, resolveLayout, tickStep } from './utils.js';
+import { isDark, marginLeftForLabels, resolveLayout, tickStep } from './utils.js';
 import type { ArenaChart, ArenaFigureLayout } from './types.js';
 import type { NormalizedRun } from '../stats.js';
 
 export type ReflectionProvenanceHeatmapChartConfig = ArenaFigureLayout;
 
-function reflectionProvenanceCells(
-  ctx: Parameters<ArenaChart<ReflectionProvenanceHeatmapChartConfig>['getData']>[0],
-) {
+function reflectionProvenanceCells(ctx: Parameters<ArenaChart<ReflectionProvenanceHeatmapChartConfig>['getData']>[0]) {
   const scenarioIndex = new Map<string, number>();
   for (const [i, id] of ctx.scenarioDomain.entries()) scenarioIndex.set(id, i + 1);
 
@@ -40,7 +38,16 @@ function reflectionProvenanceCells(
                 ? 'prior-only'
                 : 'mixed';
       const fill = bucketColor(bucket, ctx.theme);
-      const label = bucket === 'not-run' ? '' : interactionRate === null ? 'n/a' : String(Math.round(interactionRate * 100));
+      const label =
+        bucket === 'not-run'
+          ? ''
+          : bucket === 'unknown'
+            ? 'n/a'
+            : bucket === 'interaction-only'
+              ? 'I'
+              : bucket === 'prior-only'
+                ? 'P'
+                : 'M';
       const text_fill = isDark(fill) ? '#ffffff' : ctx.theme.colors.ink;
       cells.push({
         experiment,
@@ -66,18 +73,18 @@ function reflectionProvenanceCells(
 
 export const reflectionProvenanceHeatmapChart: ArenaChart<ReflectionProvenanceHeatmapChartConfig> = {
   id: 'reflection-provenance-heatmap',
-  title: 'Task × Experiment (Interaction-Derived Provenance Rate)',
+  title: 'Task by Experiment — Evidence Provenance',
   caption:
-    'Heatmap of `interaction-derived` reflection provenance rates per task. X-axis labels are task indices (see “Task Index” table).',
+    'Where the model said its answer came from: interaction-derived, prior-knowledge-led, mixed, or unavailable.',
   isApplicable: (ctx) => ctx.runs.some((r) => !!r.reflectionProvenance),
   getData: (ctx) => reflectionProvenanceCells(ctx),
   render: (ctx, config) => {
     const legend: SvgLegend = {
       items: [
-        { label: '100% interaction-derived', fill: ctx.theme.colors.ok },
-        { label: '0% interaction-derived (all prior/guess)', fill: ctx.theme.colors.bad },
-        { label: 'Mixed', fill: ctx.theme.colors.neutral },
-        { label: 'n/a', fill: ctx.theme.colors.grid },
+        { label: 'Interaction-derived', fill: ctx.theme.colors.ok },
+        { label: 'Prior-knowledge-led', fill: ctx.theme.colors.bad },
+        { label: 'Mixed evidence', fill: ctx.theme.colors.neutral },
+        { label: 'Unavailable', fill: ctx.theme.colors.grid },
         { label: 'Not run', fill: '#ffffff', stroke: ctx.theme.colors.grid },
       ],
     };
@@ -130,7 +137,7 @@ export const reflectionProvenanceHeatmapChart: ArenaChart<ReflectionProvenanceHe
             x: 'scenario_id',
             y: 'experiment',
             fill: 'fill',
-            inset: 1,
+            inset: 0,
             title: (d) => formatCellTitle(d),
           }),
           Plot.text(cells, {
@@ -142,7 +149,6 @@ export const reflectionProvenanceHeatmapChart: ArenaChart<ReflectionProvenanceHe
             textAnchor: 'middle',
             dy: 3,
           }),
-          Plot.frame({ stroke: ctx.theme.colors.grid }),
         ],
       }),
     });
@@ -208,18 +214,24 @@ function formatCellTitle(row: {
   parsed: number;
   interaction_derived: number;
   prior_knowledge_guess: number;
-  interaction_derived_rate: number | null;
   missing: number;
   bucket: string;
 }) {
   if (row.bucket === 'not-run') return `${row.experiment} × ${row.scenario_id}\nNot run`;
-  if (row.interaction_derived_rate === null)
-    return `${row.experiment} × ${row.scenario_id}\nInteraction-derived: n/a (no structured reflection parsed)`;
+  if (row.bucket === 'unknown')
+    return `${row.experiment} × ${row.scenario_id}\nEvidence provenance unavailable (no structured reflection parsed)`;
 
   const missingSuffix = row.missing ? `; ${row.missing} missing` : '';
+  const category =
+    row.bucket === 'interaction-only'
+      ? 'Interaction-derived'
+      : row.bucket === 'prior-only'
+        ? 'Prior-knowledge-led'
+        : 'Mixed evidence';
   return [
     `${row.experiment} × ${row.scenario_id}`,
-    `Interaction-derived: ${fmtPct(row.interaction_derived_rate)} (${row.interaction_derived}/${row.parsed}${missingSuffix})`,
+    `Evidence category: ${category}`,
+    `Interaction-derived: ${row.interaction_derived}/${row.parsed}${missingSuffix}`,
     `Prior-knowledge/guess: ${row.prior_knowledge_guess}/${row.parsed}`,
   ].join('\n');
 }

@@ -41,7 +41,7 @@ export function createScenarioMetricHeatmapChart(
 }
 
 function scenarioMetricCells(args: { ctx: ArenaChartContext; spec: ScenarioMetricHeatmapSpec }) {
-  const palette = args.spec.palette ?? ['#eff6ff', '#bfdbfe', '#93c5fd', '#60a5fa', '#2563eb', '#1e3a8a'];
+  const palette = args.spec.palette ?? metricPalette(args.ctx.theme);
 
   const scenarioIndex = new Map<string, number>();
   for (const [i, id] of args.ctx.scenarioDomain.entries()) scenarioIndex.set(id, i + 1);
@@ -155,7 +155,7 @@ function renderScenarioMetricHeatmap(args: {
           x: 'scenario_id',
           y: 'experiment',
           fill: 'fill',
-          inset: 1,
+          inset: 0,
           title: (d) =>
             d.total === 0
               ? `${d.experiment} × ${d.scenario_id}\nNot run`
@@ -172,7 +172,6 @@ function renderScenarioMetricHeatmap(args: {
           textAnchor: 'middle',
           dy: 3,
         }),
-        Plot.frame({ stroke: args.ctx.theme.colors.grid }),
       ],
     }),
   });
@@ -240,8 +239,7 @@ function legendForScenarioMetricHeatmap(
 }
 
 export function metricPalette(theme: ArenaReportTheme) {
-  // Blue sequential palette in the same hue family as the "ok" color.
-  // Overrideable per chart via spec.palette.
   void theme;
-  return ['#eff6ff', '#bfdbfe', '#93c5fd', '#60a5fa', '#2563eb', '#1e3a8a'];
+  // Reserved single-hue quantitative scale used across heatmaps.
+  return ['#eef3ff', '#dbe7ff', '#bfd3ff', '#93b5ff', '#5b8ff7', '#1d4ed8'];
 }

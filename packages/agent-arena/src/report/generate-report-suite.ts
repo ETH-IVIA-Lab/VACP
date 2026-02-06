@@ -181,6 +181,12 @@ function buildIndexModelRows(
       tokensMedianNoCache: median(
         modelRuns.flatMap((r) => (typeof r.tokensTotalNoCache === 'number' ? [r.tokensTotalNoCache] : [])),
       ),
+      tokensMedianWithCacheRead: median(
+        modelRuns.flatMap((r) => (typeof r.tokensTotalWithCacheRead === 'number' ? [r.tokensTotalWithCacheRead] : [])),
+      ),
+      tokensMedianWithCacheAll: median(
+        modelRuns.flatMap((r) => (typeof r.tokensTotalWithCacheAll === 'number' ? [r.tokensTotalWithCacheAll] : [])),
+      ),
       href: `models/${report.slug}/index.html`,
     });
   }

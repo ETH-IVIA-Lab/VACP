@@ -3,11 +3,10 @@ import { fmtCompact, fmtNumber } from './utils.js';
 
 export const scenarioTokensHeatmapChart = createScenarioMetricHeatmapChart({
   id: 'scenario-tokens-heatmap',
-  title: 'Task × Experiment (Median Tokens)',
-  caption:
-    'Median tokens (no cache) per task. Cell text is a compact value; hover for exact counts. X-axis labels are task indices.',
-  valueLabel: 'Median tokens',
-  getValue: (r) => r.tokensTotalNoCache,
+  title: 'Task by Experiment — Median Tokens with Cache',
+  caption: 'Median with-cache tokens per task. X-axis numbers map to the Task Index table.',
+  valueLabel: 'Median tokens with cache',
+  getValue: (r) => r.tokensTotalWithCacheAll ?? r.tokensTotalWithCacheRead ?? r.tokensTotalNoCache,
   formatCell: (v) => fmtCompact(v),
   formatTitle: (v) => `${fmtNumber(Math.round(v))} tokens`,
   aggregate: 'median',

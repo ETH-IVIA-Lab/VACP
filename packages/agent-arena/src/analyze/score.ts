@@ -201,7 +201,10 @@ function parseLooseStructuredReflection(text: string): StructuredReflection | nu
       matchGroup(text, /\b([^.\n\r]{0,120}\b(?:easy|hard)\b[^.\n\r]{0,120})/i),
   );
   const actionsToolsAvailableVsUsedWhy = normalizeFreeText(
-    matchGroup(text, /\b(?:actions[_\s-]*tools[_\s-]*available[_\s-]*vs[_\s-]*used[_\s-]*why|tools(?:\s+used)?):\s*([^\n\r]+)/i),
+    matchGroup(
+      text,
+      /\b(?:actions[_\s-]*tools[_\s-]*available[_\s-]*vs[_\s-]*used[_\s-]*why|tools(?:\s+used)?):\s*([^\n\r]+)/i,
+    ),
   );
 
   if (!provenance && !confidence && !processRobustness) return null;

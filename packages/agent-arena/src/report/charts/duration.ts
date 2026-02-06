@@ -20,8 +20,7 @@ function durationRows(ctx: Parameters<ArenaChart<DurationChartConfig>['getData']
 export const durationChart: ArenaChart<DurationChartConfig> = {
   id: 'duration',
   title: 'Run Duration by Experiment',
-  caption:
-    'Per-run wall clock time (prefers `opencode_duration_ms` when present). Boxplots show distribution; dots show individual runs.',
+  caption: 'How long runs take. Box plots show spread and median; dots show individual runs.',
   isApplicable: (ctx) => ctx.runs.some((r) => typeof r.durationS === 'number'),
   getData: (ctx) => durationRows(ctx),
   render: (ctx, config) => {
@@ -53,20 +52,26 @@ export const durationChart: ArenaChart<DurationChartConfig> = {
           domain: [0, paddedMax(maxDuration)],
         },
         marks: [
-          Plot.boxY(data, { x: 'experiment', y: 'duration_s', stroke: ctx.theme.colors.ink }),
+          Plot.boxY(data, {
+            x: 'experiment',
+            y: 'duration_s',
+            stroke: ctx.theme.colors.ink,
+            fill: '#d3d9e2',
+            strokeWidth: 1.2,
+          }),
           Plot.dot(data, {
             x: 'experiment',
             y: 'duration_s',
-            fill: ctx.theme.colors.neutral,
-            stroke: ctx.theme.colors.neutral,
+            fill: ctx.theme.colors.info,
+            stroke: ctx.theme.colors.info,
             r: 3,
-            opacity: 0.45,
+            opacity: 0.5,
             title: (d) =>
               [
                 `${d.experiment} × ${d.scenario_id}`,
                 `Duration: ${fmtNumber(d.duration_s)}s`,
-                `Solved (strict): ${d.solved_strict === null ? 'n/a' : d.solved_strict ? 'yes' : 'no'}`,
-                `Solved (semantic): ${d.solved_semantic === null ? 'n/a' : d.solved_semantic ? 'yes' : 'no'}`,
+                `Solved strict: ${d.solved_strict === null ? 'n/a' : d.solved_strict ? 'yes' : 'no'}`,
+                `Solved semantic: ${d.solved_semantic === null ? 'n/a' : d.solved_semantic ? 'yes' : 'no'}`,
               ].join('\n'),
           }),
         ],

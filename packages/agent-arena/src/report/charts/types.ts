@@ -19,8 +19,11 @@ export type ArenaReportTheme = {
     ink: string;
     grid: string;
     ok: string;
+    warn: string;
     bad: string;
+    info: string;
     neutral: string;
+    subtle: string;
   };
 };
 

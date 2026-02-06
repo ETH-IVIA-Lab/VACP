@@ -12,6 +12,12 @@ export type ArenaReportSummaryRow = {
   solvedSemanticRate: number | null;
   durationMedianS: number | null;
   tokensMedianNoCache: number | null;
+  tokensMedianWithCacheRead: number | null;
+  tokensMedianWithCacheAll: number | null;
+  tokensMedianCacheRead: number | null;
+  tokensMedianCacheWrite: number | null;
+  tokensReadMultiplierMedian: number | null;
+  tokensAllMultiplierMedian: number | null;
   toolCallsMean: number | null;
   toolErrorsMean: number | null;
 };
@@ -34,6 +40,10 @@ export type ArenaReportTaskSummaryRow = {
   solvedSemanticRate: number | null;
   durationMedianS: number | null;
   tokensMedianNoCache: number | null;
+  tokensMedianWithCacheRead: number | null;
+  tokensMedianWithCacheAll: number | null;
+  tokensMedianCacheRead: number | null;
+  tokensMedianCacheWrite: number | null;
 };
 
 export type ArenaReportHtmlContext = {
@@ -57,10 +67,56 @@ export type ArenaReportSection = {
   render: (ctx: ArenaReportHtmlContext) => string;
 };
 
+const INCLUDE_MODEL_REFLECTION_SECTION = false;
+
+type ChartGroupDef = {
+  id: string;
+  title: string;
+  subtitle: string;
+  chartIds: string[];
+};
+
+const CHART_GROUPS: ChartGroupDef[] = [
+  {
+    id: 'charts-outcomes',
+    title: 'Outcome Overview',
+    subtitle:
+      'Strict asks for exact values and format. Semantic accepts meaning-equivalent answers. Both are shown here, along with total run outcomes.',
+    chartIds: ['solved-strict', 'solved-semantic', 'eval-outcomes'],
+  },
+  {
+    id: 'charts-efficiency',
+    title: 'Efficiency & Token Accounting',
+    subtitle:
+      'Speed and token cost by experiment. With-cache is the primary lens, with no-cache as supporting context.',
+    chartIds: ['pareto', 'duration', 'tokens', 'tokens-median-with-cache', 'tokens-median-no-cache'],
+  },
+  {
+    id: 'charts-task-outcomes',
+    title: 'Task-Level Outcome Matrix',
+    subtitle: 'Task-by-task outcomes, time, and token usage across experiments.',
+    chartIds: ['scenario-heatmap', 'scenario-heatmap-semantic', 'scenario-duration-heatmap', 'scenario-tokens-heatmap'],
+  },
+  {
+    id: 'charts-tools',
+    title: 'Tools & Reliability',
+    subtitle: 'Tool usage patterns and reliability signals across runs.',
+    chartIds: ['tool-calls', 'flags-heatmap', 'tools-heatmap', 'tools-heatmap-by-task'],
+  },
+];
+
 export const DEFAULT_REPORT_SECTIONS: ArenaReportSection[] = [
+  {
+    id: 'overview',
+    render: renderOverviewSection,
+  },
   {
     id: 'summary',
     render: renderSummarySection,
+  },
+  {
+    id: 'token-accounting',
+    render: renderTokenAccountingSection,
   },
   {
     id: 'figures',
@@ -71,13 +127,17 @@ export const DEFAULT_REPORT_SECTIONS: ArenaReportSection[] = [
     render: renderTaskBreakdownSection,
   },
   {
-    id: 'reflection-structured',
-    render: renderReflectionStructuredSection,
-  },
-  {
     id: 'model-responses',
     render: renderModelResponsesSection,
   },
+  ...(INCLUDE_MODEL_REFLECTION_SECTION
+    ? ([
+        {
+          id: 'reflection-structured',
+          render: renderReflectionStructuredSection,
+        },
+      ] satisfies ArenaReportSection[])
+    : []),
   {
     id: 'task-index',
     render: renderTaskIndexSection,
@@ -92,16 +152,13 @@ export function renderArenaReportHtml(
   ctx: ArenaReportHtmlContext,
   sections: ArenaReportSection[] = DEFAULT_REPORT_SECTIONS,
 ) {
+  const enabledSections = new Set(sections.map((s) => s.id));
+  const chartGroups = groupFigures(ctx.figures);
   const titleParts = ['Agent Arena Report'];
   if (ctx.runId) titleParts.push(ctx.runId);
   if (ctx.modelLabel) titleParts.push(ctx.modelLabel);
   const title = titleParts.join(' - ');
-  const sub = [
-    ctx.runId ? `Run: ${ctx.runId}` : null,
-    ctx.generatedAt ? `Analyzed: ${ctx.generatedAt}` : null,
-    `Source: ${ctx.analysisDir}`,
-    ctx.scenarioDefsPath ? `Tasks: ${ctx.scenarioDefsPath}` : null,
-  ]
+  const sub = [ctx.runId ? `Run: ${ctx.runId}` : null, ctx.generatedAt ? `Analyzed: ${ctx.generatedAt}` : null]
     .filter(Boolean)
     .join('  ·  ');
 
@@ -117,6 +174,7 @@ export function renderArenaReportHtml(
     '  </style>',
     '</head>',
     '<body>',
+    renderFloatingNav({ enabledSections, chartGroups }),
     '  <main class="wrap">',
     `    <header class="header">`,
     ctx.indexHref ? `      <a class="home" href="${escapeAttr(ctx.indexHref)}">Index</a>` : '',
@@ -142,6 +200,158 @@ export function renderArenaReportHtml(
   ].join('\n');
 }
 
+function renderOverviewSection(ctx: ArenaReportHtmlContext) {
+  const totalRuns = ctx.runs.length;
+  const experiments = ctx.experiments.length;
+  const durationMedian = medianNumber(ctx.runs.flatMap((r) => (typeof r.durationS === 'number' ? [r.durationS] : [])));
+  const withCacheMedian = medianNumber(
+    ctx.runs.flatMap((r) =>
+      typeof r.tokensTotalWithCacheAll === 'number'
+        ? [r.tokensTotalWithCacheAll]
+        : typeof r.tokensTotalWithCacheRead === 'number'
+          ? [r.tokensTotalWithCacheRead]
+          : typeof r.tokensTotalNoCache === 'number'
+            ? [r.tokensTotalNoCache]
+            : [],
+    ),
+  );
+
+  const semanticUsable = ctx.runs.filter((r) => typeof r.solvedSemantic === 'boolean');
+  const semanticSolved = semanticUsable.filter((r) => r.solvedSemantic === true).length;
+  const semanticRate = semanticUsable.length ? semanticSolved / semanticUsable.length : null;
+
+  const strictUsable = ctx.runs.filter((r) => typeof r.solvedStrict === 'boolean');
+  const strictSolved = strictUsable.filter((r) => r.solvedStrict === true).length;
+  const strictRate = strictUsable.length ? strictSolved / strictUsable.length : null;
+
+  const cards = [
+    {
+      label: 'Runs',
+      value: fmtInt(totalRuns),
+      meta: `${fmtInt(experiments)} experiments`,
+    },
+    {
+      label: 'Median Tokens',
+      value: withCacheMedian === null ? 'n/a' : fmtInt(Math.round(withCacheMedian)),
+      meta: 'Primary: with cache',
+    },
+    {
+      label: 'Median Duration',
+      value: durationMedian === null ? 'n/a' : `${fmtInt(Math.round(durationMedian))}s`,
+      meta: 'Per run',
+    },
+    {
+      label: 'Solved Semantic',
+      value: semanticRate === null ? 'n/a' : fmtPct(semanticRate),
+      meta: `${fmtInt(semanticSolved)}/${fmtInt(semanticUsable.length)} gradeable`,
+    },
+    {
+      label: 'Solved Strict',
+      value: strictRate === null ? 'n/a' : fmtPct(strictRate),
+      meta: `${fmtInt(strictSolved)}/${fmtInt(strictUsable.length)} gradeable`,
+    },
+  ];
+
+  return [
+    '    <section class="section overviewSection" id="section-overview">',
+    '      <div class="sectionKicker">Overview</div>',
+    '      <h2 class="overviewTitle">Arena Snapshot</h2>',
+    '      <p class="sectionIntro muted small">Primary token lens is with-cache. Full no-cache, cache-read, and cache-write accounting remains in dedicated sections below.</p>',
+    '      <div class="overviewGrid">',
+    ...cards.map((card) =>
+      [
+        '        <article class="metricCard">',
+        `          <div class="metricLabel">${escapeHtml(card.label)}</div>`,
+        `          <div class="metricValue">${escapeHtml(card.value)}</div>`,
+        `          <div class="metricMeta">${escapeHtml(card.meta)}</div>`,
+        '        </article>',
+      ].join('\n'),
+    ),
+    '      </div>',
+    '    </section>',
+  ].join('\n');
+}
+
+function medianNumber(values: number[]) {
+  if (!values.length) return null;
+  const sorted = [...values].sort((a, b) => a - b);
+  const mid = Math.floor(sorted.length / 2);
+  return sorted.length % 2 === 0 ? (sorted[mid - 1] + sorted[mid]) / 2 : sorted[mid];
+}
+
+function groupFigures(figures: ArenaFigure[]) {
+  const byId = new Map(figures.map((f) => [f.id, f] as const));
+  const used = new Set<string>();
+  const grouped: Array<{
+    id: string;
+    title: string;
+    subtitle: string;
+    figures: ArenaFigure[];
+  }> = [];
+
+  for (const group of CHART_GROUPS) {
+    const groupFigures = group.chartIds.flatMap((chartId) => {
+      const figure = byId.get(chartId);
+      return figure ? [figure] : [];
+    });
+    if (!groupFigures.length) continue;
+    grouped.push({
+      id: group.id,
+      title: group.title,
+      subtitle: group.subtitle,
+      figures: groupFigures,
+    });
+    for (const figure of groupFigures) used.add(figure.id);
+  }
+
+  const uncategorized = figures.filter((figure) => !used.has(figure.id));
+  if (uncategorized.length) {
+    grouped.push({
+      id: 'charts-other',
+      title: 'Additional Charts',
+      subtitle: 'Other chart outputs from this analysis.',
+      figures: uncategorized,
+    });
+  }
+
+  return grouped;
+}
+
+function renderFloatingNav(args: {
+  enabledSections: Set<string>;
+  chartGroups: Array<{ id: string; title: string; subtitle: string; figures: ArenaFigure[] }>;
+}) {
+  const links: Array<{ href: string; label: string }> = [];
+
+  if (args.enabledSections.has('overview')) links.push({ href: '#section-overview', label: 'Overview' });
+  if (args.enabledSections.has('summary')) links.push({ href: '#section-summary', label: 'Summary' });
+  if (args.enabledSections.has('token-accounting'))
+    links.push({ href: '#section-token-accounting', label: 'Token Accounting' });
+
+  if (args.enabledSections.has('figures')) {
+    for (const group of args.chartGroups) links.push({ href: `#${group.id}`, label: group.title });
+  }
+
+  if (args.enabledSections.has('task-breakdown'))
+    links.push({ href: '#section-task-breakdown', label: 'Task Breakdown' });
+  if (args.enabledSections.has('model-responses'))
+    links.push({ href: '#section-model-responses', label: 'Model Responses' });
+  if (args.enabledSections.has('reflection-structured'))
+    links.push({ href: '#section-reflection-structured', label: 'Model Reflection' });
+  if (args.enabledSections.has('task-index')) links.push({ href: '#section-task-index', label: 'Task Index' });
+
+  if (!links.length) return '';
+
+  return [
+    '  <aside class="floatingNav" aria-label="Report navigation">',
+    '    <div class="floatingNavTitle">Jump To</div>',
+    '    <ul class="floatingNavList">',
+    ...links.map((link) => `      <li><a href="${escapeAttr(link.href)}">${escapeHtml(link.label)}</a></li>`),
+    '    </ul>',
+    '  </aside>',
+  ].join('\n');
+}
+
 function renderSummarySection(ctx: ArenaReportHtmlContext) {
   const tableRows = ctx.summaries
     .map((s) => {
@@ -156,7 +366,7 @@ function renderSummarySection(ctx: ArenaReportHtmlContext) {
         `<td class="num">${s.solvedStrictRate === null ? 'n/a' : fmtPct(s.solvedStrictRate)}</td>`,
         `<td class="num">${s.solvedSemanticRate === null ? 'n/a' : fmtPct(s.solvedSemanticRate)}</td>`,
         `<td class="num">${s.durationMedianS === null ? 'n/a' : fmtInt(Math.round(s.durationMedianS))}</td>`,
-        `<td class="num">${s.tokensMedianNoCache === null ? 'n/a' : fmtInt(Math.round(s.tokensMedianNoCache))}</td>`,
+        `<td class="num">${s.tokensMedianWithCacheAll === null ? 'n/a' : fmtInt(Math.round(s.tokensMedianWithCacheAll))}</td>`,
         `<td class="num">${s.toolCallsMean === null ? 'n/a' : fmt1(s.toolCallsMean)}</td>`,
         `<td class="num">${s.toolErrorsMean === null ? 'n/a' : fmt2(s.toolErrorsMean)}</td>`,
         `</tr>`,
@@ -165,9 +375,9 @@ function renderSummarySection(ctx: ArenaReportHtmlContext) {
     .join('\n');
 
   return [
-    '    <section class="section">',
+    '    <section class="section panelSection" id="section-summary">',
     '      <h2>Summary</h2>',
-    '      <div class="muted small">Solved rates are computed over gradeable runs (plumbing OK + parsed OK + judge available).</div>',
+    '      <p class="sectionIntro muted small">Solved rates are computed only on gradeable runs: plumbing OK, parsed OK, and judge output available.</p>',
     '      <div class="tableWrap">',
     '        <table>',
     '          <thead>',
@@ -178,10 +388,10 @@ function renderSummarySection(ctx: ArenaReportHtmlContext) {
     '              <th class="num">Plumbing OK</th>',
     '              <th class="num">Parsed OK</th>',
     '              <th class="num">Gradeable</th>',
-    '              <th class="num">Solved (strict)</th>',
-    '              <th class="num">Solved (semantic)</th>',
+    '              <th class="num">Solved strict</th>',
+    '              <th class="num">Solved semantic</th>',
     '              <th class="num">Median s</th>',
-    '              <th class="num">Median tokens</th>',
+    '              <th class="num">Median tokens with cache</th>',
     '              <th class="num">Mean tool calls</th>',
     '              <th class="num">Mean tool errors</th>',
     '            </tr>',
@@ -195,25 +405,83 @@ function renderSummarySection(ctx: ArenaReportHtmlContext) {
   ].join('\n');
 }
 
+function renderTokenAccountingSection(ctx: ArenaReportHtmlContext) {
+  const tableRows = ctx.summaries
+    .map((s) =>
+      [
+        `<tr>`,
+        `<td class="exp">${escapeHtml(s.experiment)}</td>`,
+        `<td class="num">${fmtInt(s.n)}</td>`,
+        `<td class="num">${s.tokensMedianWithCacheAll === null ? 'n/a' : fmtInt(Math.round(s.tokensMedianWithCacheAll))}</td>`,
+        `<td class="num">${s.tokensMedianWithCacheRead === null ? 'n/a' : fmtInt(Math.round(s.tokensMedianWithCacheRead))}</td>`,
+        `<td class="num">${s.tokensMedianNoCache === null ? 'n/a' : fmtInt(Math.round(s.tokensMedianNoCache))}</td>`,
+        `<td class="num">${s.tokensMedianCacheRead === null ? 'n/a' : fmtInt(Math.round(s.tokensMedianCacheRead))}</td>`,
+        `<td class="num">${s.tokensMedianCacheWrite === null ? 'n/a' : fmtInt(Math.round(s.tokensMedianCacheWrite))}</td>`,
+        `<td class="num">${s.tokensAllMultiplierMedian === null ? 'n/a' : `${fmt2(s.tokensAllMultiplierMedian)}×`}</td>`,
+        `<td class="num">${s.tokensReadMultiplierMedian === null ? 'n/a' : `${fmt2(s.tokensReadMultiplierMedian)}×`}</td>`,
+        `</tr>`,
+      ].join(''),
+    )
+    .join('\n');
+
+  return [
+    '    <section class="section panelSection" id="section-token-accounting">',
+    '      <h2>Token Accounting</h2>',
+    '      <p class="sectionIntro muted small">Main metric is with-cache read + write. Supporting columns show with-cache read only and no-cache totals for context.</p>',
+    '      <div class="tableWrap">',
+    '        <table>',
+    '          <thead>',
+    '            <tr>',
+    '              <th>Experiment</th>',
+    '              <th class="num">n</th>',
+    '              <th class="num">Median with-cache read + write</th>',
+    '              <th class="num">Median with-cache read</th>',
+    '              <th class="num">Median no-cache</th>',
+    '              <th class="num">Median cache read</th>',
+    '              <th class="num">Median cache write</th>',
+    '              <th class="num">All/No</th>',
+    '              <th class="num">Read/No</th>',
+    '            </tr>',
+    '          </thead>',
+    '          <tbody>',
+    tableRows || '<tr><td colspan="9" class="muted">No runs found.</td></tr>',
+    '          </tbody>',
+    '        </table>',
+    '      </div>',
+    '    </section>',
+  ].join('\n');
+}
+
 function renderFiguresSection(ctx: ArenaReportHtmlContext) {
-  return ctx.figures
-    .map((f) => {
+  const groups = groupFigures(ctx.figures);
+  return groups
+    .map((group) => {
       return [
-        `<section class="section">`,
-        `<div class="sectionHead">`,
-        `<h2 id="${escapeAttr(f.id)}">${escapeHtml(f.title)}</h2>`,
-        `<div class="actions" aria-label="Export chart">`,
-        `<a class="btn" href="figures/${escapeAttr(f.id)}.svg" download="${escapeAttr(f.id)}.svg">SVG</a>`,
-        `<button class="btn" type="button" data-export="png" data-figure="${escapeAttr(f.id)}">PNG</button>`,
-        `<button class="btn" type="button" data-export="data" data-figure="${escapeAttr(f.id)}">Data</button>`,
+        `<section class="section chartGroup" id="${escapeAttr(group.id)}">`,
+        `<div class="chartGroupHeader">`,
+        `<h2>${escapeHtml(group.title)}</h2>`,
+        `<p class="sectionIntro muted small">${escapeHtml(group.subtitle)}</p>`,
         `</div>`,
-        `</div>`,
-        `<figure class="figure" data-figure-id="${escapeAttr(f.id)}">`,
-        `<div class="svgWrap" role="img" aria-label="${escapeAttr(f.title)}">`,
-        f.svg,
-        `</div>`,
-        `<figcaption>${escapeHtml(f.caption)}</figcaption>`,
-        `</figure>`,
+        ...group.figures.map((figure) =>
+          [
+            `<article class="chartCard">`,
+            `<div class="sectionHead">`,
+            `<h3 id="${escapeAttr(figure.id)}">${escapeHtml(figure.title)}</h3>`,
+            `<div class="actions" aria-label="Export chart">`,
+            `<a class="btn" href="figures/${escapeAttr(figure.id)}.svg" download="${escapeAttr(figure.id)}.svg">SVG</a>`,
+            `<button class="btn" type="button" data-export="png" data-figure="${escapeAttr(figure.id)}">PNG</button>`,
+            `<button class="btn" type="button" data-export="data" data-figure="${escapeAttr(figure.id)}">Data</button>`,
+            `</div>`,
+            `</div>`,
+            `<figure class="figure" data-figure-id="${escapeAttr(figure.id)}">`,
+            `<div class="svgWrap" role="img" aria-label="${escapeAttr(figure.title)}">`,
+            figure.svg,
+            `</div>`,
+            `<figcaption>${escapeHtml(figure.caption)}</figcaption>`,
+            `</figure>`,
+            `</article>`,
+          ].join('\n'),
+        ),
         `</section>`,
       ].join('\n');
     })
@@ -227,8 +495,7 @@ function renderTaskBreakdownSection(ctx: ArenaReportHtmlContext) {
   const taskColgroup = [
     `<colgroup>`,
     `<col style="width: 44px" />`,
-    `<col style="width: 320px" />`,
-    `<col style="width: 560px" />`,
+    `<col style="width: 680px" />`,
     ...ctx.experiments.flatMap(() => [
       `<col style="width: 96px" />`,
       `<col style="width: 96px" />`,
@@ -242,16 +509,15 @@ function renderTaskBreakdownSection(ctx: ArenaReportHtmlContext) {
     `<thead>`,
     `<tr>`,
     `<th rowspan="2" class="num">#</th>`,
-    `<th rowspan="2">Scenario</th>`,
     `<th rowspan="2">Task</th>`,
     ...ctx.experiments.map((exp) => `<th colspan="4" class="group">${escapeHtml(exp)}</th>`),
     `</tr>`,
     `<tr>`,
     ...ctx.experiments.flatMap(() => [
-      `<th class="num">Solved (strict)</th>`,
-      `<th class="num">Solved (semantic)</th>`,
+      `<th class="num">Solved strict</th>`,
+      `<th class="num">Solved semantic</th>`,
       `<th class="num">Median s</th>`,
-      `<th class="num">Median tokens</th>`,
+      `<th class="num">Median tokens with cache</th>`,
     ]),
     `</tr>`,
     `</thead>`,
@@ -274,17 +540,18 @@ function renderTaskBreakdownSection(ctx: ArenaReportHtmlContext) {
           const title = [
             `${exp} × ${t.scenarioId}`,
             `n=${s.n}`,
-            `Solved (strict): ${s.solvedStrictRate === null ? 'n/a' : fmtPct(s.solvedStrictRate)}`,
-            `Solved (semantic): ${s.solvedSemanticRate === null ? 'n/a' : fmtPct(s.solvedSemanticRate)}`,
+            `Solved strict: ${s.solvedStrictRate === null ? 'n/a' : fmtPct(s.solvedStrictRate)}`,
+            `Solved semantic: ${s.solvedSemanticRate === null ? 'n/a' : fmtPct(s.solvedSemanticRate)}`,
             `Median duration: ${s.durationMedianS === null ? 'n/a' : fmtInt(Math.round(s.durationMedianS)) + 's'}`,
-            `Median tokens: ${s.tokensMedianNoCache === null ? 'n/a' : fmtInt(Math.round(s.tokensMedianNoCache))}`,
+            `Median tokens with cache: ${s.tokensMedianWithCacheAll === null ? 'n/a' : fmtInt(Math.round(s.tokensMedianWithCacheAll))}`,
+            `Median tokens no cache: ${s.tokensMedianNoCache === null ? 'n/a' : fmtInt(Math.round(s.tokensMedianNoCache))}`,
           ].join('\n');
 
           return [
             `<td class="num" title="${escapeAttr(title)}">${s.solvedStrictRate === null ? 'n/a' : fmtPct(s.solvedStrictRate)}</td>`,
             `<td class="num" title="${escapeAttr(title)}">${s.solvedSemanticRate === null ? 'n/a' : fmtPct(s.solvedSemanticRate)}</td>`,
             `<td class="num" title="${escapeAttr(title)}">${s.durationMedianS === null ? 'n/a' : fmtInt(Math.round(s.durationMedianS))}</td>`,
-            `<td class="num" title="${escapeAttr(title)}">${s.tokensMedianNoCache === null ? 'n/a' : fmtInt(Math.round(s.tokensMedianNoCache))}</td>`,
+            `<td class="num" title="${escapeAttr(title)}">${s.tokensMedianWithCacheAll === null ? 'n/a' : fmtInt(Math.round(s.tokensMedianWithCacheAll))}</td>`,
           ];
         })
         .join('');
@@ -292,7 +559,6 @@ function renderTaskBreakdownSection(ctx: ArenaReportHtmlContext) {
       return [
         `<tr>`,
         `<td class="num">${fmtInt(t.index)}</td>`,
-        `<td class="exp">${escapeHtml(t.scenarioId)}</td>`,
         `<td class="taskText">${t.task ? escapeHtml(t.task) : '<span class="muted">n/a</span>'}</td>`,
         cells,
         `</tr>`,
@@ -301,14 +567,15 @@ function renderTaskBreakdownSection(ctx: ArenaReportHtmlContext) {
     .join('\n');
 
   return [
-    '    <section class="section">',
+    '    <section class="section panelSection" id="section-task-breakdown">',
     '      <h2>Task Breakdown</h2>',
+    '      <p class="sectionIntro muted small">Each row is one benchmark task. Columns show solved rates, median time, and median with-cache tokens per experiment.</p>',
     '      <div class="tableWrap">',
     '        <table class="tasks">',
     taskColgroup,
     taskTableHeader,
     '          <tbody>',
-    taskTableRows || '<tr><td colspan="3" class="muted">No tasks found.</td></tr>',
+    taskTableRows || `<tr><td colspan="${2 + ctx.experiments.length * 4}" class="muted">No tasks found.</td></tr>`,
     '          </tbody>',
     '        </table>',
     '      </div>',
@@ -320,50 +587,60 @@ function renderReflectionStructuredSection(ctx: ArenaReportHtmlContext) {
   const rows = buildReflectionTaskRows(ctx);
   if (!rows.length) {
     return [
-      '    <section class="section">',
-      '      <h2>Reflection (Structured)</h2>',
-      '      <div class="muted small">No structured reflection metadata found in these runs.</div>',
+      '    <section class="section panelSection" id="section-reflection-structured">',
+      '      <h2>Model Reflection</h2>',
+      '      <p class="sectionIntro muted small">No structured reflection metadata found in these runs.</p>',
       '    </section>',
     ].join('\n');
   }
 
+  const rowsByTask = new Map<string, number>();
+  for (const row of rows) {
+    const key = `${row.index}__${row.scenarioId}`;
+    rowsByTask.set(key, (rowsByTask.get(key) ?? 0) + 1);
+  }
+  const emittedTaskCells = new Set<string>();
+
   const tableRows = rows
     .map((row) => {
+      const taskKey = `${row.index}__${row.scenarioId}`;
+      const span = rowsByTask.get(taskKey) ?? 1;
+      const includeTaskCells = !emittedTaskCells.has(taskKey);
+      if (includeTaskCells) emittedTaskCells.add(taskKey);
+
       return [
         `<tr>`,
-        `<td class="num">${fmtInt(row.index)}</td>`,
-        `<td class="exp">${escapeHtml(row.scenarioId)}</td>`,
+        includeTaskCells ? `<td class="num" rowspan="${span}">${fmtInt(row.index)}</td>` : '',
+        includeTaskCells
+          ? `<td class="taskText" rowspan="${span}">${row.task ? escapeHtml(row.task) : '<span class="muted">n/a</span>'}</td>`
+          : '',
         `<td class="exp">${escapeHtml(row.experiment)}</td>`,
         `<td class="num">${fmtInt(row.n)}</td>`,
-        `<td class="num">${fmtInt(row.parsed)}</td>`,
-        `<td class="num">${row.parsed ? fmtPct(row.interactionRate) : 'n/a'}</td>`,
-        `<td class="num">${row.parsed ? fmtPct(row.priorRate) : 'n/a'}</td>`,
-        `<td class="num">${row.parsed ? `${fmtInt(row.confLow)}/${fmtInt(row.confMedium)}/${fmtInt(row.confHigh)}` : 'n/a'}</td>`,
-        `<td class="num">${row.parsed ? `${fmtInt(row.robust)}/${fmtInt(row.brittle)}` : 'n/a'}</td>`,
-        `<td class="taskText">${row.task ? escapeHtml(row.task) : '<span class="muted">n/a</span>'}</td>`,
+        `<td>${escapeHtml(row.coverageLabel)}</td>`,
+        `<td>${escapeHtml(row.provenanceLabel)}</td>`,
+        `<td>${escapeHtml(row.confidenceLabel)}</td>`,
+        `<td>${escapeHtml(row.robustnessLabel)}</td>`,
         `</tr>`,
       ].join('');
     })
     .join('\n');
 
   return [
-    '    <section class="section">',
-    '      <h2>Reflection (Structured)</h2>',
-    '      <div class="muted small">Per task × experiment reflection metadata parsed from the model final answer. Confidence is shown as low/medium/high counts. Robustness is robust/brittle counts.</div>',
+    '    <section class="section panelSection" id="section-reflection-structured">',
+    '      <h2>Model Reflection</h2>',
+    '      <p class="sectionIntro muted small">Categorical self-reported process signals from model reflections, summarized per task and experiment.</p>',
     '      <div class="tableWrap">',
     '        <table class="reflections">',
     '          <thead>',
     '            <tr>',
     '              <th class="num">#</th>',
-    '              <th>Scenario</th>',
+    '              <th>Task</th>',
     '              <th>Experiment</th>',
     '              <th class="num">n</th>',
-    '              <th class="num">Parsed</th>',
-    '              <th class="num">Interaction-derived</th>',
-    '              <th class="num">Prior/guess</th>',
-    '              <th class="num">Confidence (L/M/H)</th>',
-    '              <th class="num">Robust/Brittle</th>',
-    '              <th>Task</th>',
+    '              <th>Reflection completeness</th>',
+    '              <th>Evidence source</th>',
+    '              <th>Confidence level</th>',
+    '              <th>Process quality</th>',
     '            </tr>',
     '          </thead>',
     '          <tbody>',
@@ -390,14 +667,10 @@ function buildReflectionTaskRows(ctx: ArenaReportHtmlContext) {
     task: string | null;
     experiment: string;
     n: number;
-    parsed: number;
-    interactionRate: number;
-    priorRate: number;
-    confLow: number;
-    confMedium: number;
-    confHigh: number;
-    robust: number;
-    brittle: number;
+    coverageLabel: string;
+    provenanceLabel: string;
+    confidenceLabel: string;
+    robustnessLabel: string;
   }> = [];
 
   for (const task of ctx.taskIndex) {
@@ -421,20 +694,47 @@ function buildReflectionTaskRows(ctx: ArenaReportHtmlContext) {
       const robust = parsedRuns.filter((r) => r.reflectionRobustness === 'robust').length;
       const brittle = parsedRuns.filter((r) => r.reflectionRobustness === 'brittle').length;
 
+      const coverageLabel =
+        parsed === 0
+          ? `Missing (${parsed}/${runs.length})`
+          : parsed === runs.length
+            ? `Complete (${parsed}/${runs.length})`
+            : `Partial (${parsed}/${runs.length})`;
+
+      const provenanceLabel =
+        parsed === 0
+          ? 'Unknown evidence source'
+          : interaction > 0 && prior === 0
+            ? `Interaction-derived only (${interaction}/${parsed})`
+            : interaction === 0 && prior > 0
+              ? `Prior-knowledge only (${prior}/${parsed})`
+              : interaction > 0 && prior > 0
+                ? `Mixed interaction and prior (${interaction}/${prior})`
+                : 'Unspecified evidence source';
+
+      const confidenceTotal = confLow + confMedium + confHigh;
+      const confidenceLabel =
+        confidenceTotal === 0 ? 'Unspecified confidence' : dominantConfidenceLabel({ confLow, confMedium, confHigh });
+
+      const robustnessLabel =
+        robust === 0 && brittle === 0
+          ? 'Unspecified process robustness'
+          : robust > 0 && brittle === 0
+            ? `Robust process (${robust}/${parsed})`
+            : brittle > 0 && robust === 0
+              ? `Brittle process (${brittle}/${parsed})`
+              : `Mixed process robustness (${robust}/${brittle})`;
+
       rows.push({
         index: task.index,
         scenarioId: task.scenarioId,
         task: task.task,
         experiment: exp,
         n: runs.length,
-        parsed,
-        interactionRate: parsed ? interaction / parsed : 0,
-        priorRate: parsed ? prior / parsed : 0,
-        confLow,
-        confMedium,
-        confHigh,
-        robust,
-        brittle,
+        coverageLabel,
+        provenanceLabel,
+        confidenceLabel,
+        robustnessLabel,
       });
     }
   }
@@ -442,10 +742,25 @@ function buildReflectionTaskRows(ctx: ArenaReportHtmlContext) {
   return rows;
 }
 
+function dominantConfidenceLabel(args: { confLow: number; confMedium: number; confHigh: number }) {
+  const entries: Array<{ label: string; value: number; short: string }> = [
+    { label: 'Low confidence', value: args.confLow, short: 'L' },
+    { label: 'Medium confidence', value: args.confMedium, short: 'M' },
+    { label: 'High confidence', value: args.confHigh, short: 'H' },
+  ];
+  const sorted = [...entries].sort((a, b) => b.value - a.value);
+  const top = sorted[0];
+  const second = sorted[1];
+  const total = args.confLow + args.confMedium + args.confHigh;
+  if (!top || total === 0) return 'Unspecified confidence';
+  if (!second || top.value > second.value) return `${top.label} (${top.value}/${total})`;
+  return `Mixed confidence (${args.confLow}/${args.confMedium}/${args.confHigh})`;
+}
+
 function renderModelResponsesSection(ctx: ArenaReportHtmlContext) {
   if (!ctx.modelLabel) {
     return [
-      '    <section class="section">',
+      '    <section class="section panelSection" id="section-model-responses">',
       '      <h2>Model Responses</h2>',
       '      <div class="muted small">Open a per-model report to see extracted JSON answers per task × mode.</div>',
       '    </section>',
@@ -463,8 +778,7 @@ function renderModelResponsesSection(ctx: ArenaReportHtmlContext) {
   const colgroup = [
     `<colgroup>`,
     `<col style="width: 44px" />`,
-    `<col style="width: 320px" />`,
-    `<col style="width: 560px" />`,
+    `<col style="width: 680px" />`,
     ...ctx.experiments.map(() => `<col style="width: 420px" />`),
     `</colgroup>`,
   ].join('\n');
@@ -473,7 +787,6 @@ function renderModelResponsesSection(ctx: ArenaReportHtmlContext) {
     `<thead>`,
     `<tr>`,
     `<th class="num">#</th>`,
-    `<th>Scenario</th>`,
     `<th>Task</th>`,
     ...ctx.experiments.map((exp) => `<th class="group">${escapeHtml(exp)}</th>`),
     `</tr>`,
@@ -495,7 +808,6 @@ function renderModelResponsesSection(ctx: ArenaReportHtmlContext) {
       return [
         `<tr>`,
         `<td class="num">${fmtInt(t.index)}</td>`,
-        `<td class="exp">${escapeHtml(t.scenarioId)}</td>`,
         `<td class="taskText">${taskHtml}</td>`,
         cells,
         `</tr>`,
@@ -504,15 +816,15 @@ function renderModelResponsesSection(ctx: ArenaReportHtmlContext) {
     .join('\n');
 
   return [
-    '    <section class="section">',
+    '    <section class="section panelSection" id="section-model-responses">',
     '      <h2>Model Responses</h2>',
-    '      <div class="muted small">Extracted from the final assistant message JSON fence (when present). If multiple runs exist, all are included.</div>',
+    '      <p class="sectionIntro muted small">Final JSON answers captured from each run. If multiple runs exist for a cell, all are listed.</p>',
     '      <div class="tableWrap">',
     '        <table class="responses">',
     colgroup,
     tableHead,
     '          <tbody>',
-    rows || `<tr><td colspan="${3 + ctx.experiments.length}" class="muted">No tasks found.</td></tr>`,
+    rows || `<tr><td colspan="${2 + ctx.experiments.length}" class="muted">No tasks found.</td></tr>`,
     '          </tbody>',
     '        </table>',
     '      </div>',
@@ -563,31 +875,30 @@ function renderTaskIndexSection(ctx: ArenaReportHtmlContext) {
       return [
         `<tr>`,
         `<td class="num">${fmtInt(row.index)}</td>`,
-        `<td class="exp">${escapeHtml(row.scenarioId)}</td>`,
-        `<td class="exp">${escapeHtml(row.app ?? 'n/a')}</td>`,
         `<td class="taskText">${row.task ? escapeHtml(row.task) : '<span class="muted">n/a</span>'}</td>`,
-        `<td class="exp">${row.responseFormat ? escapeHtml(row.responseFormat) : '<span class="muted">n/a</span>'}</td>`,
+        `<td class="exp">${escapeHtml(row.app ?? 'n/a')}</td>`,
+        `<td class="responseFormatCode">${row.responseFormat ? escapeHtml(row.responseFormat) : '<span class="muted">n/a</span>'}</td>`,
         `</tr>`,
       ].join('');
     })
     .join('\n');
 
   return [
-    '    <section class="section">',
+    '    <section class="section panelSection" id="section-task-index">',
     '      <h2>Task Index</h2>',
+    '      <p class="sectionIntro muted small">Reference list for task numbers used across charts and tables.</p>',
     '      <div class="tableWrap">',
     '        <table class="scenarios">',
     '          <thead>',
     '            <tr>',
     '              <th class="num">#</th>',
-    '              <th>Scenario</th>',
-    '              <th>App</th>',
     '              <th>Task</th>',
+    '              <th>App</th>',
     '              <th>Response format</th>',
     '            </tr>',
     '          </thead>',
     '          <tbody>',
-    scenarioRows || '<tr><td colspan="5" class="muted">No tasks found.</td></tr>',
+    scenarioRows || '<tr><td colspan="4" class="muted">No tasks found.</td></tr>',
     '          </tbody>',
     '        </table>',
     '      </div>',
@@ -597,23 +908,24 @@ function renderTaskIndexSection(ctx: ArenaReportHtmlContext) {
 
 function renderFooter(ctx: ArenaReportHtmlContext) {
   void ctx;
-  return [
-    '    <footer class="footer">',
-    `      <div class="muted">Generated from \`agent-arena analyze\` outputs using Observable Plot (static SVG).</div>`,
-    '    </footer>',
-  ].join('\n');
+  return '    <footer class="footer"></footer>';
 }
 
 function css(args: { figureWidthPx: number }) {
   return `
 :root {
-  --bg: #ffffff;
+  --bg: #f4f5f5;
+  --surface: #ffffff;
+  --surface-muted: #f8f9fa;
   --ink: #111827;
-  --muted: #6b7280;
-  --grid: #e5e7eb;
-  --card: #ffffff;
-  --card2: #f9fafb;
+  --muted: #5f6774;
+  --grid: #d6dce5;
+  --grid-strong: #bcc5d1;
+  --grid-soft: #e5eaf1;
+  --accent: #1d4ed8;
+  --row-hover: #f2f5fa;
   --figure-min: ${args.figureWidthPx}px;
+  --nav-w: 230px;
 }
 
 html, body {
@@ -622,20 +934,71 @@ html, body {
 
 body {
   margin: 0;
-  padding: 32px 20px 64px;
+  padding: 28px calc(var(--nav-w) + 34px) 56px 18px;
   background: var(--bg);
   color: var(--ink);
-  font: 14px/1.45 "IBM Plex Sans", "Helvetica Neue", Helvetica, Arial, sans-serif;
-  letter-spacing: -0.01em;
+  font: 14px/1.5 "IBM Plex Sans", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  letter-spacing: -0.004em;
 }
 
 .wrap {
-  max-width: 1040px;
+  max-width: 1120px;
   margin: 0 auto;
 }
 
+.floatingNav {
+  position: fixed;
+  top: 24px;
+  right: 16px;
+  width: var(--nav-w);
+  max-height: calc(100vh - 28px);
+  overflow: auto;
+  border-left: 2px solid var(--grid-strong);
+  padding: 0 0 0 12px;
+  z-index: 30;
+}
+
+.floatingNavTitle {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--muted);
+  padding: 0 0 2px;
+}
+
+.floatingNavList {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.floatingNavList a {
+  display: block;
+  text-decoration: none;
+  color: var(--ink);
+  padding: 4px 0 4px 8px;
+  font-size: 12px;
+  border-left: 2px solid transparent;
+  transition: color 120ms ease, border-color 120ms ease;
+}
+
+.floatingNavList a:hover {
+  color: var(--accent);
+}
+
+.floatingNavList a[aria-current="true"] {
+  border-color: var(--accent);
+  color: var(--accent);
+  font-weight: 600;
+}
+
 .header {
-  margin-bottom: 18px;
+  margin-bottom: 22px;
+  padding: 0 0 14px;
+  border-bottom: 1px solid var(--grid-strong);
 }
 
 .home {
@@ -644,8 +1007,10 @@ body {
   gap: 6px;
   color: var(--muted);
   text-decoration: none;
-  font-size: 12px;
-  margin-bottom: 6px;
+  font-size: 10px;
+  margin-bottom: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
 }
 
 .home:hover {
@@ -655,38 +1020,134 @@ body {
 
 .title {
   margin: 0;
-  font-size: 28px;
-  letter-spacing: -0.03em;
+  font-size: 40px;
+  line-height: 1.06;
+  letter-spacing: -0.028em;
 }
 
 .modelTitle {
-  margin-top: 6px;
-  font-size: 16px;
+  margin-top: 10px;
+  font-size: 28px;
   font-weight: 600;
+  line-height: 1.08;
   letter-spacing: -0.02em;
+  color: var(--ink);
 }
 
 .sub {
-  margin-top: 6px;
+  margin-top: 8px;
   color: var(--muted);
-  font-size: 13px;
+  font-size: 12px;
 }
 
 .section {
-  margin-top: 20px;
+  margin-top: 30px;
+  padding-top: 0;
+  scroll-margin-top: 16px;
+}
+
+.panelSection {
+  padding: 0;
 }
 
 .sectionHead {
   display: flex;
-  align-items: baseline;
+  align-items: flex-end;
   justify-content: space-between;
   gap: 12px;
+  margin-bottom: 12px;
+}
+
+.sectionKicker {
+  display: inline-flex;
+  align-items: center;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 6px;
+}
+
+.sectionIntro {
+  margin: 10px 0 16px;
+}
+
+.overviewSection {
+  padding: 0;
+}
+
+.overviewTitle {
+  margin: 0;
+}
+
+.overviewGrid {
+  margin-top: 16px;
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
+.metricCard {
+  border-left: 1px solid var(--grid-soft);
+  padding: 12px 10px 11px;
+  min-height: 0;
+}
+
+.overviewGrid .metricCard:first-child {
+  border-left: 0;
+}
+
+.metricLabel {
+  margin: 0;
+  color: var(--muted);
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.metricValue {
+  margin-top: 2px;
+  font-size: 28px;
+  line-height: 1.08;
+  letter-spacing: -0.025em;
+  font-weight: 620;
+  color: var(--ink);
+}
+
+.metricMeta {
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.chartGroup {
+  margin-top: 34px;
+}
+
+.chartGroupHeader {
+  margin-bottom: 16px;
 }
 
 h2 {
-  margin: 18px 0 10px;
-  font-size: 16px;
-  letter-spacing: -0.02em;
+  margin: 0 0 6px;
+  font-size: 26px;
+  line-height: 1.08;
+  letter-spacing: -0.024em;
+}
+
+h3 {
+  margin: 6px 0 7px;
+  font-size: 17px;
+  letter-spacing: -0.015em;
+}
+
+.chartCard {
+  margin-top: 22px;
+}
+
+.chartCard .sectionHead h3 {
+  margin-top: 0;
 }
 
 .actions {
@@ -699,27 +1160,30 @@ h2 {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  border: 1px solid var(--grid);
-  background: var(--card2);
+  border: 1px solid var(--grid-strong);
+  background: transparent;
   color: var(--ink);
-  border-radius: 10px;
-  padding: 6px 10px;
+  padding: 6px 9px;
   font: inherit;
-  font-size: 12px;
+  font-size: 10px;
   line-height: 1;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
   text-decoration: none;
   cursor: pointer;
+  transition: border-color 120ms ease, color 120ms ease, background-color 120ms ease;
 }
 
 .btn:hover {
-  background: #eef2ff;
+  border-color: var(--accent);
+  color: var(--accent);
 }
 
 .tableWrap {
+  margin-top: 12px;
   overflow-x: auto;
-  background: var(--card);
-  border: 1px solid var(--grid);
-  border-radius: 12px;
+  background: var(--surface);
+  border: 0;
 }
 
 table {
@@ -731,14 +1195,19 @@ table {
 thead th {
   position: sticky;
   top: 0;
-  background: var(--card2);
+  background: var(--surface-muted);
   z-index: 1;
+  color: var(--muted);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  font-weight: 700;
 }
 
 th, td {
   text-align: left;
   padding: 8px 10px;
-  border-bottom: 1px solid var(--grid);
+  border-bottom: 1px solid var(--grid-soft);
   vertical-align: top;
   font-variant-numeric: tabular-nums;
 }
@@ -746,6 +1215,11 @@ th, td {
 .group {
   text-align: center;
   font-weight: 600;
+  color: var(--ink);
+}
+
+tbody tr:hover td {
+  background: var(--row-hover);
 }
 
 tbody tr:last-child td {
@@ -769,11 +1243,10 @@ tbody tr:last-child td {
 }
 
 .figure {
-  margin: 0;
-  background: var(--card);
-  border: 1px solid var(--grid);
-  border-radius: 12px;
-  padding: 12px 12px 10px;
+  margin: 8px 0 0;
+  background: transparent;
+  border: 0;
+  padding: 0;
   overflow-x: auto;
 }
 
@@ -788,9 +1261,10 @@ tbody tr:last-child td {
 }
 
 figcaption {
-  margin-top: 8px;
+  margin-top: 9px;
   color: var(--muted);
   font-size: 12px;
+  line-height: 1.45;
 }
 
 .muted {
@@ -802,19 +1276,19 @@ figcaption {
 }
 
 table.scenarios {
-  min-width: 1160px;
+  min-width: 980px;
 }
 
 table.tasks {
-  min-width: 1920px;
+  min-width: 1680px;
 }
 
 table.reflections {
-  min-width: 1520px;
+  min-width: 1560px;
 }
 
 table.responses {
-  min-width: 2520px;
+  min-width: 2360px;
 }
 
 .jsonCell {
@@ -840,16 +1314,35 @@ table.responses {
 .jsonPre {
   margin: 0 0 10px;
   padding: 10px;
-  background: var(--card2);
+  background: var(--surface-muted);
   border: 1px solid var(--grid);
-  border-radius: 10px;
   overflow: auto;
   max-height: 260px;
   font: 12px/1.35 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
 }
 
 .footer {
-  margin-top: 28px;
+  margin-top: 24px;
+  min-height: 1px;
+}
+
+.responseFormatCode {
+  font: 12px/1.35 Consolas, "Liberation Mono", Menlo, Monaco, "Courier New", monospace;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+a:focus-visible,
+button:focus-visible,
+summary:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .btn {
+    transition: none;
+  }
 }
 
 @media print {
@@ -857,6 +1350,7 @@ table.responses {
     padding: 0;
   }
 
+  .floatingNav,
   .actions {
     display: none;
   }
@@ -864,6 +1358,92 @@ table.responses {
   .tableWrap,
   .figure {
     break-inside: avoid;
+  }
+}
+
+@media (max-width: 1280px) {
+  body {
+    padding: 18px 14px 40px;
+  }
+
+  .floatingNav {
+    position: sticky;
+    top: 0;
+    right: auto;
+    width: auto;
+    max-height: none;
+    margin: 0 auto 16px;
+    padding: 8px 0;
+    border-left: 0;
+    border-top: 1px solid var(--grid-strong);
+    border-bottom: 1px solid var(--grid-strong);
+  }
+
+  .floatingNavList {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .floatingNavList a {
+    padding: 3px 8px;
+    border-left: 0;
+    border-bottom: 2px solid transparent;
+  }
+
+  .floatingNavList a[aria-current="true"] {
+    border-bottom-color: var(--accent);
+  }
+}
+
+@media (max-width: 900px) {
+  .title {
+    font-size: 31px;
+  }
+
+  .modelTitle {
+    font-size: 24px;
+  }
+
+  .overviewGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    border-bottom: 0;
+  }
+
+  .metricCard {
+    border-top: 1px solid var(--grid);
+    border-left: 0;
+  }
+}
+
+@media (max-width: 640px) {
+  body {
+    padding: 12px 10px 28px;
+    font-size: 13px;
+  }
+
+  .overviewGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .title {
+    font-size: 24px;
+  }
+
+  .modelTitle {
+    font-size: 20px;
+  }
+
+  .metricValue {
+    font-size: 23px;
+  }
+
+  .actions {
+    gap: 6px;
+  }
+
+  .btn {
+    padding: 5px 7px;
   }
 }
 `;
@@ -936,11 +1516,9 @@ function js() {
     const ctx = canvas.getContext('2d');
     if (!ctx) throw new Error('Canvas 2D context not available');
 
-    // Plot SVGs are rendered on a white page; match that in PNG exports so
-    // transparency doesn't show up as black in some viewers.
     ctx.save();
     ctx.setTransform(1, 0, 0, 1, 0, 0);
-    ctx.fillStyle = '#ffffff';
+    ctx.fillStyle = '#f4f5f5';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     ctx.restore();
 
@@ -972,6 +1550,54 @@ function js() {
     if (mode === 'png') exportPng(figureId).catch((err) => console.error(err));
     else exportData(figureId).catch((err) => console.error(err));
   });
+
+  function setupScrollSpy() {
+    const links = Array.from(document.querySelectorAll('.floatingNav a[href^="#"]'));
+    if (!links.length) return;
+
+    const byId = new Map();
+    for (const link of links) {
+      const href = link.getAttribute('href') || '';
+      const id = href.startsWith('#') ? href.slice(1) : '';
+      if (!id) continue;
+      const section = document.getElementById(id);
+      if (!section) continue;
+      byId.set(id, { link, section });
+    }
+
+    const entries = Array.from(byId.entries());
+    if (!entries.length) return;
+
+    function setActive(id) {
+      for (const [key, pair] of entries) {
+        if (key === id) pair.link.setAttribute('aria-current', 'true');
+        else pair.link.removeAttribute('aria-current');
+      }
+    }
+
+    const observer = new IntersectionObserver(
+      (items) => {
+        const visible = items
+          .filter((item) => item.isIntersecting)
+          .sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top);
+        if (!visible.length) return;
+        const hit = visible[0];
+        const id = hit.target.id;
+        if (id) setActive(id);
+      },
+      {
+        rootMargin: '-15% 0px -70% 0px',
+        threshold: [0, 0.2, 0.5, 1],
+      },
+    );
+
+    for (const [, pair] of entries) observer.observe(pair.section);
+
+    const firstId = entries[0][0];
+    if (firstId) setActive(firstId);
+  }
+
+  setupScrollSpy();
 })();
 `.trim();
 }
@@ -1001,7 +1627,6 @@ function escapeAttr(value: string) {
 }
 
 function safeJsonForScript(value: unknown) {
-  // Avoid `<script>` parsing edge cases inside the script tag body.
   return JSON.stringify(value).replace(/</g, '\\u003c');
 }
 

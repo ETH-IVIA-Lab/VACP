@@ -312,7 +312,7 @@ program
       consola.success(`Wrote datasets to: ${res.outDir}`);
       consola.info(`- charts: ${path.join(res.outDir, 'charts')}`);
       consola.info(
-        `- tables: runs_normalized.json, experiment_summaries.json, task_summaries.json, task_index.json, tool_by_experiment.json`,
+        `- tables: runs_normalized.json, experiment_summaries.json, task_summaries.json, token_accounting_by_experiment.json, token_accounting_by_task.json, task_index.json, tool_by_experiment.json, tool_by_scenario.json`,
       );
     } catch (error) {
       consola.error(error);

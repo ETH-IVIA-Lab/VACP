@@ -3,6 +3,7 @@ import { plotSvg, type SvgLegend } from './plot.js';
 import { bucketIndex, fmtNumber, isDark, marginLeftForLabels, quantiles, resolveLayout } from './utils.js';
 import type { ArenaChart, ArenaFigureLayout } from './types.js';
 import type { ToolByExperimentRow } from '../stats.js';
+import { metricPalette } from './scenario-metric-heatmap.js';
 
 export type ToolsHeatmapChartConfig = ArenaFigureLayout & {
   topK?: number;
@@ -38,7 +39,7 @@ function toolsHeatmapCells(
     rows.map((d) => d.calls),
     [0.2, 0.4, 0.6, 0.8],
   );
-  const palette = ['#eff6ff', '#bfdbfe', '#93c5fd', '#60a5fa', '#2563eb', '#1e3a8a'];
+  const palette = metricPalette(ctx.theme);
   return rows.map((d) => {
     const fill = palette[bucketIndex(d.calls, q)];
     return {
@@ -53,8 +54,7 @@ function toolsHeatmapCells(
 export const toolsHeatmapChart: ArenaChart<ToolsHeatmapChartConfig> = {
   id: 'tools-heatmap',
   title: 'Top Tools by Call Count',
-  caption:
-    'Heatmap of tool call counts by experiment for the top tools (by total calls), plus an “other” bucket. Cell text is the exact call count; background is a quantized scale for quick scanning.',
+  caption: 'Top tools by call volume, shown per experiment. Cell numbers are exact counts.',
   isApplicable: (ctx) => ctx.toolByExperiment.length > 0,
   getData: (ctx, config) => toolsHeatmapCells(ctx, config),
   render: (ctx, config) => {
@@ -96,7 +96,7 @@ export const toolsHeatmapChart: ArenaChart<ToolsHeatmapChartConfig> = {
             x: 'experiment',
             y: 'tool_label',
             fill: 'fill',
-            inset: 1,
+            inset: 0,
             title: (d) => `${d.experiment} × ${d.tool_raw}\nCalls: ${fmtNumber(d.calls)}`,
           }),
           Plot.text(cells, {
@@ -108,7 +108,6 @@ export const toolsHeatmapChart: ArenaChart<ToolsHeatmapChartConfig> = {
             textAnchor: 'middle',
             dy: 3,
           }),
-          Plot.frame({ stroke: ctx.theme.colors.grid }),
         ],
       }),
     });

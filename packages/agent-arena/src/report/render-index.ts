@@ -11,6 +11,8 @@ export type ArenaReportIndexModelRow = {
   solvedSemanticRate: number | null;
   durationMedianS: number | null;
   tokensMedianNoCache: number | null;
+  tokensMedianWithCacheRead: number | null;
+  tokensMedianWithCacheAll: number | null;
   href: string;
 };
 
@@ -28,12 +30,7 @@ export function renderArenaReportIndexHtml(ctx: ArenaReportIndexHtmlContext) {
   if (ctx.runId) titleParts.push(ctx.runId);
   const title = titleParts.join(' - ');
 
-  const sub = [
-    ctx.runId ? `Run: ${ctx.runId}` : null,
-    ctx.generatedAt ? `Analyzed: ${ctx.generatedAt}` : null,
-    `Source: ${ctx.analysisDir}`,
-    ctx.scenarioDefsPath ? `Tasks: ${ctx.scenarioDefsPath}` : null,
-  ]
+  const sub = [ctx.runId ? `Run: ${ctx.runId}` : null, ctx.generatedAt ? `Analyzed: ${ctx.generatedAt}` : null]
     .filter(Boolean)
     .join('  ·  ');
 
@@ -52,15 +49,13 @@ export function renderArenaReportIndexHtml(ctx: ArenaReportIndexHtmlContext) {
         `<td class="num">${m.gradeableRate === null ? 'n/a' : fmtPct(m.gradeableRate)}</td>`,
         `<td class="num">${m.solvedSemanticRate === null ? 'n/a' : fmtPct(m.solvedSemanticRate)}</td>`,
         `<td class="num">${m.durationMedianS === null ? 'n/a' : fmtInt(Math.round(m.durationMedianS))}</td>`,
+        `<td class="num">${m.tokensMedianWithCacheAll === null ? 'n/a' : fmtInt(Math.round(m.tokensMedianWithCacheAll))}</td>`,
+        `<td class="num">${m.tokensMedianWithCacheRead === null ? 'n/a' : fmtInt(Math.round(m.tokensMedianWithCacheRead))}</td>`,
         `<td class="num">${m.tokensMedianNoCache === null ? 'n/a' : fmtInt(Math.round(m.tokensMedianNoCache))}</td>`,
         `</tr>`,
       ].join('');
     })
     .join('\n');
-
-  const allLink = ctx.allHref
-    ? `<a class="btn" href="${escapeAttr(ctx.allHref)}">All models report</a>`
-    : '<span class="muted">No combined report.</span>';
 
   return [
     '<!doctype html>',
@@ -78,9 +73,8 @@ export function renderArenaReportIndexHtml(ctx: ArenaReportIndexHtmlContext) {
     `    <header class="header">`,
     `      <h1 class="title">Agent Arena Reports</h1>`,
     `      <div class="sub">${escapeHtml(sub)}</div>`,
-    `      <div class="topActions">${allLink}</div>`,
     `    </header>`,
-    '    <section class="section">',
+    '    <section class="section panel">',
     '      <h2>Models</h2>',
     '      <div class="tableWrap">',
     '        <table>',
@@ -97,11 +91,13 @@ export function renderArenaReportIndexHtml(ctx: ArenaReportIndexHtmlContext) {
     '              <th class="num">Gradeable</th>',
     '              <th class="num">Solved</th>',
     '              <th class="num">Median s</th>',
-    '              <th class="num">Median tokens</th>',
+    '              <th class="num">Median tokens (with cache)</th>',
+    '              <th class="num">Median tokens (with cache read)</th>',
+    '              <th class="num">Median tokens (no cache)</th>',
     '            </tr>',
     '          </thead>',
     '          <tbody>',
-    tableRows || '<tr><td colspan="12" class="muted">No runs found.</td></tr>',
+    tableRows || '<tr><td colspan="14" class="muted">No runs found.</td></tr>',
     '          </tbody>',
     '        </table>',
     '      </div>',
@@ -116,12 +112,15 @@ export function renderArenaReportIndexHtml(ctx: ArenaReportIndexHtmlContext) {
 function css() {
   return `
 :root {
-  --bg: #ffffff;
+  --bg: #f4f5f5;
+  --surface: #ffffff;
+  --surface-muted: #f8f9fa;
   --ink: #111827;
-  --muted: #6b7280;
-  --grid: #e5e7eb;
-  --card: #ffffff;
-  --card2: #f9fafb;
+  --muted: #5f6774;
+  --grid: #d6dce5;
+  --grid-strong: #bcc5d1;
+  --accent: #1d4ed8;
+  --row-hover: #f2f5fa;
 }
 
 html, body {
@@ -130,32 +129,35 @@ html, body {
 
 body {
   margin: 0;
-  padding: 32px 20px 64px;
+  padding: 28px 18px 48px;
   background: var(--bg);
   color: var(--ink);
-  font: 14px/1.45 "IBM Plex Sans", "Helvetica Neue", Helvetica, Arial, sans-serif;
-  letter-spacing: -0.01em;
+  font: 14px/1.5 "IBM Plex Sans", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  letter-spacing: -0.004em;
 }
 
 .wrap {
-  max-width: 1120px;
+  max-width: 1180px;
   margin: 0 auto;
 }
 
 .header {
-  margin-bottom: 18px;
+  margin-bottom: 22px;
+  padding: 0 0 14px;
+  border-bottom: 2px solid var(--grid-strong);
 }
 
 .title {
   margin: 0;
-  font-size: 28px;
-  letter-spacing: -0.03em;
+  font-size: 40px;
+  line-height: 1.06;
+  letter-spacing: -0.028em;
 }
 
 .sub {
-  margin-top: 6px;
+  margin-top: 8px;
   color: var(--muted);
-  font-size: 13px;
+  font-size: 12px;
 }
 
 .topActions {
@@ -163,53 +165,66 @@ body {
 }
 
 .section {
-  margin-top: 20px;
+  margin-top: 30px;
+  padding-top: 0;
+}
+
+.panel {
+  padding: 0;
 }
 
 h2 {
-  margin: 18px 0 10px;
-  font-size: 16px;
-  letter-spacing: -0.02em;
+  margin: 0 0 10px;
+  font-size: 26px;
+  line-height: 1.08;
+  letter-spacing: -0.024em;
 }
 
 .btn {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  border: 1px solid var(--grid);
-  background: var(--card2);
+  border: 1px solid var(--grid-strong);
+  background: transparent;
   color: var(--ink);
-  border-radius: 10px;
-  padding: 8px 12px;
+  padding: 6px 9px;
   font: inherit;
-  font-size: 13px;
+  font-size: 10px;
   line-height: 1;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
   text-decoration: none;
   cursor: pointer;
+  transition: border-color 120ms ease, color 120ms ease, background-color 120ms ease;
 }
 
 .btn:hover {
-  background: #eef2ff;
+  border-color: var(--accent);
+  color: var(--accent);
 }
 
 .tableWrap {
   overflow-x: auto;
-  background: var(--card);
+  background: var(--surface);
   border: 1px solid var(--grid);
-  border-radius: 12px;
 }
 
 table {
   border-collapse: collapse;
   width: 100%;
-  min-width: 1240px;
+  min-width: 1480px;
 }
 
 thead th {
   position: sticky;
   top: 0;
-  background: var(--card2);
+  background: var(--surface-muted);
   z-index: 1;
+  color: var(--muted);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  font-weight: 700;
 }
 
 th, td {
@@ -224,6 +239,10 @@ tbody tr:last-child td {
   border-bottom: 0;
 }
 
+tbody tr:hover td {
+  background: var(--row-hover);
+}
+
 .num {
   text-align: right;
 }
@@ -236,6 +255,22 @@ tbody tr:last-child td {
 
 .muted {
   color: var(--muted);
+}
+
+a:focus-visible,
+button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+@media (max-width: 900px) {
+  body {
+    padding: 14px 10px 30px;
+  }
+
+  .title {
+    font-size: 30px;
+  }
 }
 `;
 }

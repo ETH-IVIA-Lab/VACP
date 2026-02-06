@@ -3,6 +3,7 @@ import { plotSvg, type SvgLegend } from './plot.js';
 import { bucketIndex, fmtNumber, isDark, marginLeftForLabels, quantiles, resolveLayout, tickStep } from './utils.js';
 import type { ArenaChart, ArenaFigureLayout } from './types.js';
 import type { ToolByScenarioRow } from '../stats.js';
+import { metricPalette } from './scenario-metric-heatmap.js';
 
 export type ToolsHeatmapByTaskChartConfig = ArenaFigureLayout & {
   topK?: number;
@@ -38,7 +39,7 @@ function toolsHeatmapByTaskCells(
     rows.map((d) => d.calls),
     [0.2, 0.4, 0.6, 0.8],
   );
-  const palette = ['#eff6ff', '#bfdbfe', '#93c5fd', '#60a5fa', '#2563eb', '#1e3a8a'];
+  const palette = metricPalette(ctx.theme);
   return rows.map((d) => {
     const fill = palette[bucketIndex(d.calls, q)];
     return {
@@ -52,9 +53,8 @@ function toolsHeatmapByTaskCells(
 
 export const toolsHeatmapByTaskChart: ArenaChart<ToolsHeatmapByTaskChartConfig> = {
   id: 'tools-heatmap-by-task',
-  title: 'Top Tools by Call Count (by Task)',
-  caption:
-    'Heatmap of tool call counts by task for the top tools (by total calls), plus an “other” bucket. Cell text is the exact call count; background is a quantized scale for quick scanning.',
+  title: 'Top Tools by Call Count — Task View',
+  caption: 'Top tools by call volume, shown per task. Cell numbers are exact counts.',
   isApplicable: (ctx) => ctx.toolByScenario.length > 0,
   getData: (ctx, config) => toolsHeatmapByTaskCells(ctx, config),
   render: (ctx, config) => {
@@ -111,7 +111,7 @@ export const toolsHeatmapByTaskChart: ArenaChart<ToolsHeatmapByTaskChartConfig> 
             x: 'scenario_id',
             y: 'tool_label',
             fill: 'fill',
-            inset: 1,
+            inset: 0,
             title: (d) => `${d.scenario_id} × ${d.tool_raw}\nCalls: ${fmtNumber(d.calls)}`,
           }),
           Plot.text(cells, {
@@ -123,7 +123,6 @@ export const toolsHeatmapByTaskChart: ArenaChart<ToolsHeatmapByTaskChartConfig> 
             textAnchor: 'middle',
             dy: 3,
           }),
-          Plot.frame({ stroke: ctx.theme.colors.grid }),
         ],
       }),
     });

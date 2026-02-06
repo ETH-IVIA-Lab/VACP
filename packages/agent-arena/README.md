@@ -60,11 +60,23 @@ Evaluation notes:
 - `agent-arena analyze` classifies each run into `eval_outcome` buckets (e.g. `plumbing_failure`, `protocol_failure`, `semantic_failure`, `solved_strict`).
 - `solved_strict` / `solved_semantic` are set to `null` when a run is not gradeable (so solved rates use the right denominator).
 - The report index/summary include coverage columns (`Plumbing OK`, `Parsed OK`, `Gradeable`) to separate infra/protocol issues from semantic accuracy.
+- Token accounting is shown in three explicit bases:
+  - `no-cache = input + output + reasoning`
+  - `with-cache(read) = no-cache + cache_read`
+  - `with-cache(read+write) = no-cache + cache_read + cache_write`
+- Report summaries/charts now treat **with-cache(read+write)** as the primary token metric.
+- The report includes a dedicated **Token Accounting** section and separate median charts for:
+  - **Median Token Accounting by Experiment (No Cache)**
+  - **Median Token Accounting by Experiment (With Cache)**
+- Scenario solved heatmaps are categorical (green/yellow/red) to distinguish interaction-derived solves vs workaround solves vs failures.
 
 The datasets export writes:
 
 - `analysis/datasets/*.json` (derived tables + indices)
 - `analysis/datasets/charts/*.json` (per-chart datasets; JSON arrays)
+- includes token-accounting tables:
+  - `analysis/datasets/token_accounting_by_experiment.json`
+  - `analysis/datasets/token_accounting_by_task.json`
 
 Implementation notes (for maintainers):
 
