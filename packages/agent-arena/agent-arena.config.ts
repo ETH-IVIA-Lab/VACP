@@ -83,15 +83,46 @@ function snapshotDomEfficiencyGuidance(): string[] {
   ];
 }
 
+function dataProvenanceGuardrails(): string[] {
+  return [
+    'Data provenance (must follow):',
+    '- The benchmark datasets are intentionally edited and may differ from public/original versions.',
+    '- Do NOT look up external datasets, docs, or similar examples on the internet for answering this task.',
+    '- Do NOT rely on memorized values from prior exposure to common datasets.',
+    '- Derive the answer only from evidence you obtain from this VA app in this run (interactions + observed state).',
+  ];
+}
+
 function finalAnswerFormatBlock(ctx: PromptContext): string[] {
   return [
-    'Final answer (must follow, exact formatting):',
-    `- Answer: on its own line, then output formatted JSON on the following lines inside \`\`\`json fences\`\`\` (start with \`\`\`json and end with \`\`\`), matching \`${ctx.scenario.responseFormat}\`.`,
-    '- Reasoning: 1-3 sentences (brief) on its own line after the Answer JSON fence (do not include reasoning inside the JSON).',
-    '- Reflection: 2-5 sentences (brief) on its own line. MUST include: (1) `Provenance: interaction-derived` OR `Provenance: prior-knowledge/guess`, (2) confidence (low/medium/high), (3) what was difficult/easy and why + whether your process felt robust or brittle, and (4) the main actions/options you had at your disposal in this run (tools/capabilities/UI interactions) and why you chose the ones you used over the alternatives. If any prior knowledge influenced you, say so explicitly and what you did/did not verify via interaction.',
-    '- Trace log: after the Reflection, output a bulleted list (one bullet per stateful step you took), in order. Each bullet MUST be in the form `- step-01: <action you took> | <why> | <what changed in vacp_state (or other observable state, if vacp_state is unavailable)> | <how it moved you closer to the answer>`. Be specific. Include this even if you cannot solve.',
-    '- Trajectory: 3-6 sentences (high-level) summarizing your overall approach across the run: what you expected initially, what you tried, what worked/failed, any pivots, and how you decided on the final Answer. Reference key steps from the Trace log (e.g. step-03) where relevant. Keep it honest; do not invent evidence.',
-    '- If you cannot solve: say so explicitly, output `null` as the JSON value for Answer (still inside the ```json fences), and explain why you failed / what blocked you.',
+    'Final answer format (strict):',
+    `1) Answer`,
+    '- On its own line write `Answer:`.',
+    `- On the following lines, output ONLY JSON inside \`\`\`json fences\`\`\`, matching \`${ctx.scenario.responseFormat}\`.`,
+    '- Do not put reasoning inside the JSON.',
+    '2) Reasoning',
+    '- On its own line write `Reasoning:` then 1-3 brief sentences.',
+    '3) Reflection',
+    '- On its own line write `Reflection:` then 2-3 brief sentences.',
+    '- Keep this narrative concise; machine-readable reflection details are required in step 4.',
+    '- If any prior knowledge influenced the answer, explicitly state what was and was not verified via interaction.',
+    '4) Reflection (structured)',
+    '- On its own line write `Reflection (structured):`.',
+    '- On the following lines, output ONLY JSON inside ```json fences with keys:',
+    '- `provenance`: exactly `interaction-derived` OR `prior-knowledge/guess`',
+    '- `confidence`: exactly `low` OR `medium` OR `high`',
+    '- `easy_hard_why`: brief string describing what was easy/hard and why',
+    '- `process_robustness`: must clearly indicate `robust` or `brittle` (you may include brief rationale)',
+    '- `actions_tools_available_vs_used_why`: brief string explaining which actions/tools were available, which you used, and why',
+    '- This structured block is mandatory, even when unsolved.',
+    '5) Trace log',
+    '- After Reflection, output a bullet list in execution order (one bullet per stateful step).',
+    '- Exact bullet schema: `- step-01: <action> | <why> | <state change (vacp_state or other observable state)> | <progress toward answer>`.',
+    '- Include Trace log even when unsolved.',
+    '6) Trajectory',
+    '- On its own line write `Trajectory:` then 3-6 sentences summarizing approach, pivots, failures, and why the final Answer was chosen; reference key trace steps where relevant.',
+    'If blocked/unsolved:',
+    '- Say unsolved explicitly; set Answer JSON value to `null` (inside ```json fences); explain the blocker.',
   ];
 }
 
@@ -165,6 +196,8 @@ function buildBaselineJobs() {
             '- Finish by producing the "Final answer" section below (Answer can be `null`). Do not run until the prompt timeout.',
             '- If you are stuck, output `null` early rather than waiting for timeout.',
             '',
+            ...dataProvenanceGuardrails(),
+            '',
             ...agentBrowserEfficiencyGuidance(ctx),
             '',
             ...finalAnswerFormatBlock(ctx),
@@ -209,6 +242,8 @@ function buildSnapshotInjectedJobs() {
             '- Treat the repository, local filesystem, and run artifacts as off-limits.',
             '- Finish by producing the "Final answer" section below (Answer can be `null`). Do not run until the prompt timeout.',
             '- If you are stuck, output `null` early rather than waiting for timeout.',
+            '',
+            ...dataProvenanceGuardrails(),
             '',
             ...agentBrowserEfficiencyGuidance(ctx),
             '',
@@ -258,6 +293,8 @@ function buildPureVACPJobs() {
             '- Do NOT spam/retry `vacp_open_url` in a loop (that reloads). Call it once with `wait_for_bridge=true` and a sufficiently large `timeout_ms`.',
             '- Verify readiness by successfully calling `vacp_open_url` and then reading both `vacp_capabilities` and `vacp_state` before any actions.',
             '- Validity requirement: if you did not successfully call VACP tools in this run, you MUST NOT claim `Provenance: interaction-derived` (treat it as a guess and/or output null if blocked).',
+            '',
+            ...dataProvenanceGuardrails(),
             '',
             'Efficiency (high priority):',
             '- Keep result sets tiny: prefer aggregations and tight `LIMIT`s; when using `vacp.data_sql`, pass a small `maxRows`.',
@@ -333,6 +370,8 @@ function buildFullToolkitJobs() {
             '- Treat the repository, local filesystem, and run artifacts as off-limits.',
             `- Do NOT use the \`read\` tool on anything except screenshots you create for this run: "${ctx.run.outDir}/step-00.jpg", "${ctx.run.outDir}/step-01.jpg", ...`,
             '- Do NOT try to solve by inspecting source files, configs, logs, or `.agent-arena/**` outputs.',
+            '',
+            ...dataProvenanceGuardrails(),
             '',
             'Efficiency (high priority; avoid timeouts + token bloat):',
             `- Prefer semantic tools (\`${tools.capabilities}\`, \`${tools.state}\`, \`${tools.execute}\`) over browser tools whenever possible.`,
