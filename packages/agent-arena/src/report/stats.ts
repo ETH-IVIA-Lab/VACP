@@ -16,6 +16,14 @@ export type NormalizedRun = {
   answerParseStatus: string | null;
   answerJson: unknown | null;
   answerJsonRaw: string | null;
+  reflectionStructuredParseStatus: string | null;
+  reflectionStructuredJson: unknown | null;
+  reflectionStructuredRaw: string | null;
+  reflectionProvenance: string | null;
+  reflectionConfidence: string | null;
+  reflectionRobustness: string | null;
+  reflectionEasyHardWhy: string | null;
+  reflectionActionsToolsAvailableVsUsedWhy: string | null;
   evalOutcome: string | null;
 
   durationS: number | null;
@@ -96,6 +104,39 @@ export function normalizeRuns(rows: ArenaRunRow[]): NormalizedRun[] {
     const answerParseStatus = asOptionalString((row as any).answer_parse_status);
     const answerJson = ((row as any).answer_json as unknown) ?? null;
     const answerJsonRaw = asOptionalString((row as any).answer_json_raw);
+    const reflectionStructuredParseStatus = asOptionalString((row as any).reflection_structured_parse_status);
+    const reflectionStructuredJson = ((row as any).reflection_structured_json as unknown) ?? null;
+    const reflectionStructuredRaw = asOptionalString((row as any).reflection_structured_raw);
+    const reflectionProvenance =
+      normalizeEnumString(asOptionalString((row as any).reflection_provenance), ['interaction-derived', 'prior-knowledge/guess']) ??
+      normalizeEnumString(
+        extractStringFromObject(reflectionStructuredJson, ['provenance', 'data_provenance', 'dataProvenance']),
+        ['interaction-derived', 'prior-knowledge/guess'],
+      );
+    const reflectionConfidence =
+      normalizeEnumString(asOptionalString((row as any).reflection_confidence), ['low', 'medium', 'high']) ??
+      normalizeEnumString(extractStringFromObject(reflectionStructuredJson, ['confidence', 'certainty']), [
+        'low',
+        'medium',
+        'high',
+      ]);
+    const reflectionRobustness =
+      normalizeEnumString(asOptionalString((row as any).reflection_robustness), ['robust', 'brittle']) ??
+      normalizeEnumString(
+        extractStringFromObject(reflectionStructuredJson, ['process_robustness', 'processRobustness', 'robustness']),
+        ['robust', 'brittle'],
+      );
+    const reflectionEasyHardWhy =
+      asOptionalString((row as any).reflection_easy_hard_why) ??
+      extractStringFromObject(reflectionStructuredJson, ['easy_hard_why', 'easyHardWhy', 'difficulty']);
+    const reflectionActionsToolsAvailableVsUsedWhy =
+      asOptionalString((row as any).reflection_actions_tools_available_vs_used_why) ??
+      extractStringFromObject(reflectionStructuredJson, [
+        'actions_tools_available_vs_used_why',
+        'actionsToolsAvailableVsUsedWhy',
+        'tools',
+        'tool_choice',
+      ]);
     let evalOutcome = asOptionalString((row as any).eval_outcome);
 
     const durationMs = pickNumber((row as any).opencode_duration_ms, (row as any).duration_ms);
@@ -126,6 +167,14 @@ export function normalizeRuns(rows: ArenaRunRow[]): NormalizedRun[] {
       answerParseStatus,
       answerJson,
       answerJsonRaw,
+      reflectionStructuredParseStatus,
+      reflectionStructuredJson,
+      reflectionStructuredRaw,
+      reflectionProvenance,
+      reflectionConfidence,
+      reflectionRobustness,
+      reflectionEasyHardWhy,
+      reflectionActionsToolsAvailableVsUsedWhy,
       evalOutcome,
       durationS,
       tokensTotalNoCache,
@@ -333,6 +382,39 @@ function asOptionalString(value: unknown): string | null {
   if (typeof value !== 'string') return null;
   const trimmed = value.trim();
   return trimmed ? trimmed : null;
+}
+
+function normalizeEnumString(value: string | null, allowed: string[]) {
+  if (!value) return null;
+  const lower = value.trim().toLowerCase();
+  if (allowed.includes(lower)) return lower;
+  if (allowed.includes('interaction-derived') && lower.includes('interaction')) return 'interaction-derived';
+  if (allowed.includes('prior-knowledge/guess') && (lower.includes('prior') || lower.includes('guess')))
+    return 'prior-knowledge/guess';
+  if (allowed.includes('low') && lower.includes('low')) return 'low';
+  if (allowed.includes('medium') && lower.includes('medium')) return 'medium';
+  if (allowed.includes('high') && lower.includes('high')) return 'high';
+  if (allowed.includes('robust') && lower.includes('robust')) return 'robust';
+  if (allowed.includes('brittle') && lower.includes('brittle')) return 'brittle';
+  return null;
+}
+
+function extractStringFromObject(value: unknown, keys: string[]): string | null {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+  const root = value as Record<string, unknown>;
+  const nested =
+    (root.reflection && typeof root.reflection === 'object' && !Array.isArray(root.reflection)
+      ? (root.reflection as Record<string, unknown>)
+      : null) ??
+    (root.reflection_structured && typeof root.reflection_structured === 'object' && !Array.isArray(root.reflection_structured)
+      ? (root.reflection_structured as Record<string, unknown>)
+      : null);
+  const source = nested ?? root;
+  for (const key of keys) {
+    const v = source[key];
+    if (typeof v === 'string' && v.trim()) return v.trim();
+  }
+  return null;
 }
 
 function asNumber(value: unknown): number | null {

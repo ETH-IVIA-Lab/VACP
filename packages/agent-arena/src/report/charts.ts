@@ -5,6 +5,7 @@ import { durationChart } from './charts/duration.js';
 import { evalOutcomesChart } from './charts/eval-outcomes.js';
 import { flagsHeatmapChart } from './charts/flags-heatmap.js';
 import { paretoChart } from './charts/pareto.js';
+import { reflectionProvenanceHeatmapChart } from './charts/reflection-provenance-heatmap.js';
 import { scenarioDurationHeatmapChart } from './charts/scenario-duration-heatmap.js';
 import { scenarioSolvedHeatmapChart } from './charts/scenario-solved-heatmap.js';
 import { scenarioSolvedSemanticHeatmapChart } from './charts/scenario-solved-semantic-heatmap.js';
@@ -35,6 +36,7 @@ export const DEFAULT_CHARTS: ArenaAnyChart[] = [
   tokensChart,
   toolCallsChart,
   flagsHeatmapChart,
+  reflectionProvenanceHeatmapChart,
   scenarioSolvedHeatmapChart,
   scenarioSolvedSemanticHeatmapChart,
   scenarioDurationHeatmapChart,

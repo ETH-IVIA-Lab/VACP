@@ -71,6 +71,10 @@ export const DEFAULT_REPORT_SECTIONS: ArenaReportSection[] = [
     render: renderTaskBreakdownSection,
   },
   {
+    id: 'reflection-structured',
+    render: renderReflectionStructuredSection,
+  },
+  {
     id: 'model-responses',
     render: renderModelResponsesSection,
   },
@@ -310,6 +314,132 @@ function renderTaskBreakdownSection(ctx: ArenaReportHtmlContext) {
     '      </div>',
     '    </section>',
   ].join('\n');
+}
+
+function renderReflectionStructuredSection(ctx: ArenaReportHtmlContext) {
+  const rows = buildReflectionTaskRows(ctx);
+  if (!rows.length) {
+    return [
+      '    <section class="section">',
+      '      <h2>Reflection (Structured)</h2>',
+      '      <div class="muted small">No structured reflection metadata found in these runs.</div>',
+      '    </section>',
+    ].join('\n');
+  }
+
+  const tableRows = rows
+    .map((row) => {
+      return [
+        `<tr>`,
+        `<td class="num">${fmtInt(row.index)}</td>`,
+        `<td class="exp">${escapeHtml(row.scenarioId)}</td>`,
+        `<td class="exp">${escapeHtml(row.experiment)}</td>`,
+        `<td class="num">${fmtInt(row.n)}</td>`,
+        `<td class="num">${fmtInt(row.parsed)}</td>`,
+        `<td class="num">${row.parsed ? fmtPct(row.interactionRate) : 'n/a'}</td>`,
+        `<td class="num">${row.parsed ? fmtPct(row.priorRate) : 'n/a'}</td>`,
+        `<td class="num">${row.parsed ? `${fmtInt(row.confLow)}/${fmtInt(row.confMedium)}/${fmtInt(row.confHigh)}` : 'n/a'}</td>`,
+        `<td class="num">${row.parsed ? `${fmtInt(row.robust)}/${fmtInt(row.brittle)}` : 'n/a'}</td>`,
+        `<td class="taskText">${row.task ? escapeHtml(row.task) : '<span class="muted">n/a</span>'}</td>`,
+        `</tr>`,
+      ].join('');
+    })
+    .join('\n');
+
+  return [
+    '    <section class="section">',
+    '      <h2>Reflection (Structured)</h2>',
+    '      <div class="muted small">Per task × experiment reflection metadata parsed from the model final answer. Confidence is shown as low/medium/high counts. Robustness is robust/brittle counts.</div>',
+    '      <div class="tableWrap">',
+    '        <table class="reflections">',
+    '          <thead>',
+    '            <tr>',
+    '              <th class="num">#</th>',
+    '              <th>Scenario</th>',
+    '              <th>Experiment</th>',
+    '              <th class="num">n</th>',
+    '              <th class="num">Parsed</th>',
+    '              <th class="num">Interaction-derived</th>',
+    '              <th class="num">Prior/guess</th>',
+    '              <th class="num">Confidence (L/M/H)</th>',
+    '              <th class="num">Robust/Brittle</th>',
+    '              <th>Task</th>',
+    '            </tr>',
+    '          </thead>',
+    '          <tbody>',
+    tableRows,
+    '          </tbody>',
+    '        </table>',
+    '      </div>',
+    '    </section>',
+  ].join('\n');
+}
+
+function buildReflectionTaskRows(ctx: ArenaReportHtmlContext) {
+  const byKey = new Map<string, NormalizedRun[]>();
+  for (const run of ctx.runs) {
+    const key = `${run.scenarioId}__${run.experiment}`;
+    const list = byKey.get(key);
+    if (list) list.push(run);
+    else byKey.set(key, [run]);
+  }
+
+  const rows: Array<{
+    index: number;
+    scenarioId: string;
+    task: string | null;
+    experiment: string;
+    n: number;
+    parsed: number;
+    interactionRate: number;
+    priorRate: number;
+    confLow: number;
+    confMedium: number;
+    confHigh: number;
+    robust: number;
+    brittle: number;
+  }> = [];
+
+  for (const task of ctx.taskIndex) {
+    for (const exp of ctx.experiments) {
+      const runs = byKey.get(`${task.scenarioId}__${exp}`) ?? [];
+      if (!runs.length) continue;
+
+      const parsedRuns = runs.filter(
+        (r) =>
+          r.reflectionProvenance === 'interaction-derived' ||
+          r.reflectionProvenance === 'prior-knowledge/guess' ||
+          r.reflectionStructuredParseStatus === 'ok',
+      );
+
+      const parsed = parsedRuns.length;
+      const interaction = parsedRuns.filter((r) => r.reflectionProvenance === 'interaction-derived').length;
+      const prior = parsedRuns.filter((r) => r.reflectionProvenance === 'prior-knowledge/guess').length;
+      const confLow = parsedRuns.filter((r) => r.reflectionConfidence === 'low').length;
+      const confMedium = parsedRuns.filter((r) => r.reflectionConfidence === 'medium').length;
+      const confHigh = parsedRuns.filter((r) => r.reflectionConfidence === 'high').length;
+      const robust = parsedRuns.filter((r) => r.reflectionRobustness === 'robust').length;
+      const brittle = parsedRuns.filter((r) => r.reflectionRobustness === 'brittle').length;
+
+      rows.push({
+        index: task.index,
+        scenarioId: task.scenarioId,
+        task: task.task,
+        experiment: exp,
+        n: runs.length,
+        parsed,
+        interactionRate: parsed ? interaction / parsed : 0,
+        priorRate: parsed ? prior / parsed : 0,
+        confLow,
+        confMedium,
+        confHigh,
+        robust,
+        brittle,
+      });
+    }
+  }
+
+  return rows;
 }
 
 function renderModelResponsesSection(ctx: ArenaReportHtmlContext) {
@@ -677,6 +807,10 @@ table.scenarios {
 
 table.tasks {
   min-width: 1920px;
+}
+
+table.reflections {
+  min-width: 1520px;
 }
 
 table.responses {
