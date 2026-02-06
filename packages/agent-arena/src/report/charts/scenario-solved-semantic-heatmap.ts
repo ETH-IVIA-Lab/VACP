@@ -1,10 +1,18 @@
 import * as Plot from '@observablehq/plot';
 import { plotSvg, type SvgLegend } from './plot.js';
-import { fmtPct, isDark, marginLeftForLabels, resolveLayout, tickStep } from './utils.js';
+import { marginLeftForLabels, resolveLayout, tickStep } from './utils.js';
 import type { ArenaChart, ArenaFigureLayout } from './types.js';
 import type { NormalizedRun } from '../stats.js';
+import {
+  buildFailureSnippet,
+  buildTrajectorySnippet,
+  classifySolvedEvidence,
+  pushUniqueBounded,
+} from './solved-evidence.js';
 
 export type ScenarioSolvedSemanticHeatmapChartConfig = ArenaFigureLayout;
+
+type SolvedOutcomeBucket = 'solved-interaction' | 'solved-workaround' | 'failed' | 'unknown' | 'not-run';
 
 function scenarioSolvedSemanticCells(
   ctx: Parameters<ArenaChart<ScenarioSolvedSemanticHeatmapChartConfig>['getData']>[0],
@@ -12,41 +20,46 @@ function scenarioSolvedSemanticCells(
   const scenarioIndex = new Map<string, number>();
   for (const [i, id] of ctx.scenarioDomain.entries()) scenarioIndex.set(id, i + 1);
 
-  const byKey = aggregateSolvedSemanticRate(ctx.runs);
+  const byKey = aggregateSolvedSemanticOutcomes(ctx.runs);
 
   const cells = [];
   for (const experiment of ctx.experimentDomain) {
     for (const scenarioId of ctx.scenarioDomain) {
       const key = `${experiment}__${scenarioId}`;
-      const d = byKey.get(key) ?? { experiment, scenarioId, total: 0, usable: 0, solved: 0 };
-      const rate = d.usable ? d.solved / d.usable : null;
-      const missing = d.total - d.usable;
-      const bucket =
-        d.total === 0
-          ? 'not-run'
-          : rate === null
-            ? 'unknown'
-            : rate === 1
-              ? 'solved'
-              : rate === 0
-                ? 'unsolved'
-                : 'mixed';
+      const d = byKey.get(key) ?? {
+        experiment,
+        scenarioId,
+        total: 0,
+        usable: 0,
+        solvedInteraction: 0,
+        solvedWorkaround: 0,
+        failed: 0,
+        basisSelfReportedInteraction: 0,
+        basisSelfReportedPriorKnowledge: 0,
+        basisInferredVacpExecute: 0,
+        basisUnknown: 0,
+        trajectoryNotes: [] as string[],
+        failureNotes: [] as string[],
+      };
+      const bucket = classifySolvedBucket(d);
       const fill = bucketColor(bucket, ctx.theme);
-      const label = bucket === 'not-run' ? '' : rate === null ? 'n/a' : String(Math.round(rate * 100));
-      const text_fill = isDark(fill) ? '#ffffff' : ctx.theme.colors.ink;
       cells.push({
         experiment,
         scenario_id: scenarioId,
         scenario_index: scenarioIndex.get(scenarioId) ?? null,
         total: d.total,
         usable: d.usable,
-        solved: d.solved,
-        missing,
-        solved_semantic_rate: rate,
+        solved_interaction: d.solvedInteraction,
+        solved_workaround: d.solvedWorkaround,
+        failed: d.failed,
+        basis_self_reported_interaction: d.basisSelfReportedInteraction,
+        basis_self_reported_prior_knowledge: d.basisSelfReportedPriorKnowledge,
+        basis_inferred_vacp_execute: d.basisInferredVacpExecute,
+        basis_unknown: d.basisUnknown,
+        trajectory_notes: d.trajectoryNotes,
+        failure_notes: d.failureNotes,
         bucket,
         fill,
-        label,
-        text_fill,
       });
     }
   }
@@ -56,16 +69,17 @@ function scenarioSolvedSemanticCells(
 
 export const scenarioSolvedSemanticHeatmapChart: ArenaChart<ScenarioSolvedSemanticHeatmapChartConfig> = {
   id: 'scenario-heatmap-semantic',
-  title: 'Scenario × Experiment (Solved Semantic)',
-  caption: 'Heatmap of semantic solved rate per task. X-axis labels are task indices (see “Task Index” table).',
+  title: 'Scenario by Experiment — Solved Semantic',
+  caption:
+    'Semantic result per task. Workaround detection uses reflection provenance first, with vacp_execute as fallback evidence when provenance is missing. Hover a cell for trajectory notes.',
   isApplicable: (ctx) => ctx.runs.some((r) => typeof r.solvedSemantic === 'boolean'),
   getData: (ctx) => scenarioSolvedSemanticCells(ctx),
   render: (ctx, config) => {
     const legend: SvgLegend = {
       items: [
-        { label: '100% solved', fill: ctx.theme.colors.ok },
-        { label: '0% solved', fill: ctx.theme.colors.bad },
-        { label: 'Mixed (0–99%)', fill: ctx.theme.colors.neutral },
+        { label: 'Solved (interaction-derived)', fill: ctx.theme.colors.ok },
+        { label: 'Solved (workaround / loophole)', fill: ctx.theme.colors.warn },
+        { label: 'Failed', fill: ctx.theme.colors.bad },
         { label: 'n/a', fill: ctx.theme.colors.grid },
         { label: 'Not run', fill: '#ffffff', stroke: ctx.theme.colors.grid },
       ],
@@ -119,19 +133,9 @@ export const scenarioSolvedSemanticHeatmapChart: ArenaChart<ScenarioSolvedSemant
             x: 'scenario_id',
             y: 'experiment',
             fill: 'fill',
-            inset: 1,
+            inset: 0,
             title: (d) => formatSolvedSemanticCellTitle(d),
           }),
-          Plot.text(cells, {
-            x: 'scenario_id',
-            y: 'experiment',
-            text: 'label',
-            fill: 'text_fill',
-            fontSize: 11,
-            textAnchor: 'middle',
-            dy: 3,
-          }),
-          Plot.frame({ stroke: ctx.theme.colors.grid }),
         ],
       }),
     });
@@ -146,53 +150,137 @@ export const scenarioSolvedSemanticHeatmapChart: ArenaChart<ScenarioSolvedSemant
   },
 };
 
-function aggregateSolvedSemanticRate(runs: NormalizedRun[]) {
+function aggregateSolvedSemanticOutcomes(runs: NormalizedRun[]) {
   const byKey = new Map<
     string,
-    { experiment: string; scenarioId: string; total: number; usable: number; solved: number }
+    {
+      experiment: string;
+      scenarioId: string;
+      total: number;
+      usable: number;
+      solvedInteraction: number;
+      solvedWorkaround: number;
+      failed: number;
+      basisSelfReportedInteraction: number;
+      basisSelfReportedPriorKnowledge: number;
+      basisInferredVacpExecute: number;
+      basisUnknown: number;
+      trajectoryNotes: string[];
+      failureNotes: string[];
+    }
   >();
-  for (const r of runs) {
-    if (!r.experiment || !r.scenarioId) continue;
-    const key = `${r.experiment}__${r.scenarioId}`;
+
+  for (const run of runs) {
+    if (!run.experiment || !run.scenarioId) continue;
+    const key = `${run.experiment}__${run.scenarioId}`;
     const cur = byKey.get(key) ?? {
-      experiment: r.experiment,
-      scenarioId: r.scenarioId,
+      experiment: run.experiment,
+      scenarioId: run.scenarioId,
       total: 0,
       usable: 0,
-      solved: 0,
+      solvedInteraction: 0,
+      solvedWorkaround: 0,
+      failed: 0,
+      basisSelfReportedInteraction: 0,
+      basisSelfReportedPriorKnowledge: 0,
+      basisInferredVacpExecute: 0,
+      basisUnknown: 0,
+      trajectoryNotes: [],
+      failureNotes: [],
     };
+
     cur.total += 1;
-    if (typeof r.solvedSemantic === 'boolean') {
+
+    if (typeof run.solvedSemantic === 'boolean') {
       cur.usable += 1;
-      if (r.solvedSemantic) cur.solved += 1;
+      if (run.solvedSemantic) {
+        const evidence = classifySolvedEvidence(run);
+        if (evidence.classification === 'interaction') cur.solvedInteraction += 1;
+        else cur.solvedWorkaround += 1;
+
+        if (evidence.basis === 'self-reported interaction-derived') cur.basisSelfReportedInteraction += 1;
+        else if (evidence.basis === 'self-reported prior-knowledge/guess') cur.basisSelfReportedPriorKnowledge += 1;
+        else if (evidence.basis === 'inferred interaction from vacp_execute') cur.basisInferredVacpExecute += 1;
+        else cur.basisUnknown += 1;
+
+        pushUniqueBounded(cur.trajectoryNotes, buildTrajectorySnippet(run), 3);
+      } else {
+        cur.failed += 1;
+        pushUniqueBounded(cur.failureNotes, buildFailureSnippet(run), 2);
+      }
     }
+
     byKey.set(key, cur);
   }
+
   return byKey;
 }
 
-function bucketColor(bucket: string, theme: { colors: { ok: string; bad: string; grid: string; neutral: string } }) {
-  if (bucket === 'solved') return theme.colors.ok;
-  if (bucket === 'unsolved') return theme.colors.bad;
+function classifySolvedBucket(row: {
+  total: number;
+  solvedInteraction: number;
+  solvedWorkaround: number;
+  failed: number;
+}): SolvedOutcomeBucket {
+  if (row.total === 0) return 'not-run';
+  if (row.solvedWorkaround > 0) return 'solved-workaround';
+  if (row.solvedInteraction > 0) return 'solved-interaction';
+  if (row.failed > 0) return 'failed';
+  return 'unknown';
+}
+
+function bucketColor(
+  bucket: SolvedOutcomeBucket,
+  theme: { colors: { ok: string; warn: string; bad: string; grid: string } },
+) {
+  if (bucket === 'solved-interaction') return theme.colors.ok;
+  if (bucket === 'solved-workaround') return theme.colors.warn;
+  if (bucket === 'failed') return theme.colors.bad;
   if (bucket === 'unknown') return theme.colors.grid;
-  if (bucket === 'not-run') return '#ffffff';
-  return theme.colors.neutral;
+  return '#ffffff';
 }
 
 function formatSolvedSemanticCellTitle(row: {
   experiment: string;
   scenario_id: string;
-  solved_semantic_rate: number | null;
   total: number;
   usable: number;
-  solved: number;
-  missing: number;
-  bucket: string;
+  solved_interaction: number;
+  solved_workaround: number;
+  failed: number;
+  basis_self_reported_interaction: number;
+  basis_self_reported_prior_knowledge: number;
+  basis_inferred_vacp_execute: number;
+  basis_unknown: number;
+  trajectory_notes: string[];
+  failure_notes: string[];
+  bucket: SolvedOutcomeBucket;
 }) {
   if (row.bucket === 'not-run') return `${row.experiment} × ${row.scenario_id}\nNot run`;
-  if (row.solved_semantic_rate === null)
-    return `${row.experiment} × ${row.scenario_id}\nSolved (semantic): n/a (0/${row.total} runs report solved_semantic)`;
+  if (row.bucket === 'unknown')
+    return `${row.experiment} × ${row.scenario_id}\nSolved semantic: n/a (no usable solved_semantic value)`;
 
-  const missingSuffix = row.missing ? `; ${row.missing} missing` : '';
-  return `${row.experiment} × ${row.scenario_id}\nSolved (semantic): ${fmtPct(row.solved_semantic_rate)} (${row.solved}/${row.usable}${missingSuffix})`;
+  const verdict =
+    row.bucket === 'solved-interaction'
+      ? 'Solved (interaction-derived)'
+      : row.bucket === 'solved-workaround'
+        ? 'Solved (workaround / loophole)'
+        : 'Failed';
+  return [
+    `${row.experiment} × ${row.scenario_id}`,
+    `Outcome: ${verdict}`,
+    `Runs: total ${row.total}, usable ${row.usable}`,
+    `Solved (interaction-derived): ${row.solved_interaction}`,
+    `Solved (workaround / loophole): ${row.solved_workaround}`,
+    `Failed: ${row.failed}`,
+    `Evidence basis:`,
+    `- Self-reported interaction-derived: ${row.basis_self_reported_interaction}`,
+    `- Self-reported prior-knowledge/guess: ${row.basis_self_reported_prior_knowledge}`,
+    `- Inferred interaction from vacp_execute: ${row.basis_inferred_vacp_execute}`,
+    `- Unknown provenance: ${row.basis_unknown}`,
+    ...(row.trajectory_notes.length
+      ? ['Trajectory notes (sample):', ...row.trajectory_notes.map((note) => `- ${note}`)]
+      : []),
+    ...(row.failure_notes.length ? ['Failure notes (sample):', ...row.failure_notes.map((note) => `- ${note}`)] : []),
+  ].join('\n');
 }
