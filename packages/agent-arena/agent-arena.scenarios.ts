@@ -258,11 +258,22 @@ export function makeIataIncludesJudge(expected: {
   };
 }
 
-function deepEqual(expected: unknown, actual: unknown, ctx: { numericTolerance: number; semantic: boolean }): boolean {
+function deepEqual(
+  expected: unknown,
+  actual: unknown,
+  ctx: { numericTolerance: number; semantic: boolean },
+  keyHint?: string,
+): boolean {
   if (expected === null || expected === undefined) return expected === actual;
 
   if (typeof expected === 'number') return numericEqual(expected, actual, ctx.numericTolerance);
-  if (typeof expected === 'string') return typeof actual === 'string' && expected === actual;
+  if (typeof expected === 'string') {
+    if (typeof actual !== 'string') return false;
+    if (ctx.semantic && keyHint && isMonthKey(keyHint)) {
+      return normalizeMonth(expected) === normalizeMonth(actual);
+    }
+    return expected === actual;
+  }
   if (typeof expected === 'boolean') return typeof actual === 'boolean' && expected === actual;
 
   if (Array.isArray(expected)) {
@@ -280,7 +291,7 @@ function deepEqual(expected: unknown, actual: unknown, ctx: { numericTolerance: 
     if (eKeys.length !== aKeys.length) return false;
     for (let i = 0; i < eKeys.length; i++) if (eKeys[i] !== aKeys[i]) return false;
     for (const k of eKeys) {
-      if (!deepEqual(e[k], a[k], ctx)) return false;
+      if (!deepEqual(e[k], a[k], ctx, k)) return false;
     }
     return true;
   }
@@ -333,7 +344,7 @@ function arrayEqual(expected: unknown[], actual: unknown[], ctx: { numericTolera
 }
 
 function normalizeMonth(value: string) {
-  const k = value.trim().toLowerCase();
+  const k = value.trim().toLowerCase().replace(/\.$/, '');
   const map: Record<string, string> = {
     jan: 'January',
     january: 'January',
@@ -361,4 +372,9 @@ function normalizeMonth(value: string) {
     december: 'December',
   };
   return map[k] ?? value;
+}
+
+function isMonthKey(value: string) {
+  const k = value.trim().toLowerCase();
+  return k === 'month' || k === 'monthname' || k === 'month_name';
 }
