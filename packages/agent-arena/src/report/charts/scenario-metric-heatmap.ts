@@ -1,12 +1,12 @@
 import * as Plot from '@observablehq/plot';
 import { plotSvg, type SvgLegend } from './plot.js';
 import {
-  bucketIndex,
   isDark,
+  linearTicks,
   marginLeftForLabels,
   meanNumber,
   medianNumber,
-  quantiles,
+  normalize01,
   resolveLayout,
   tickStep,
 } from './utils.js';
@@ -42,6 +42,7 @@ export function createScenarioMetricHeatmapChart(
 
 function scenarioMetricCells(args: { ctx: ArenaChartContext; spec: ScenarioMetricHeatmapSpec }) {
   const palette = args.spec.palette ?? metricPalette(args.ctx.theme);
+  const steps = Math.max(1, palette.length);
 
   const scenarioIndex = new Map<string, number>();
   for (const [i, id] of args.ctx.scenarioDomain.entries()) scenarioIndex.set(id, i + 1);
@@ -67,7 +68,8 @@ function scenarioMetricCells(args: { ctx: ArenaChartContext; spec: ScenarioMetri
   }
 
   const allValues = Array.from(aggregates.values()).map((d) => d.value);
-  const q = quantiles(allValues, [0.2, 0.4, 0.6, 0.8]);
+  const minValue = allValues.length ? Math.min(...allValues) : 0;
+  const maxValue = allValues.length ? Math.max(...allValues) : 0;
 
   const cells = [];
   for (const experiment of args.ctx.experimentDomain) {
@@ -79,7 +81,11 @@ function scenarioMetricCells(args: { ctx: ArenaChartContext; spec: ScenarioMetri
       const n = agg ? agg.n : 0;
 
       const fill =
-        total === 0 ? '#ffffff' : value === null ? args.ctx.theme.colors.grid : palette[bucketIndex(value, q)];
+        total === 0
+          ? '#ffffff'
+          : value === null
+            ? args.ctx.theme.colors.grid
+            : palette[Math.min(steps - 1, Math.floor(normalize01(value, minValue, maxValue) * steps))];
 
       const label = total === 0 ? '' : value === null ? 'n/a' : args.spec.formatCell(value);
       const text_fill = isDark(fill) ? '#ffffff' : args.ctx.theme.colors.ink;
@@ -190,29 +196,11 @@ function legendForScenarioMetricHeatmap(
   spec: ScenarioMetricHeatmapSpec,
   theme: ArenaReportTheme,
 ): SvgLegend {
-  const valuesByFill = new Map<string, number[]>();
-  for (const cell of cells) {
-    if (cell.total === 0 || cell.value === null) continue;
-    const list = valuesByFill.get(cell.fill) ?? [];
-    list.push(cell.value);
-    valuesByFill.set(cell.fill, list);
-  }
-
-  const bins = Array.from(valuesByFill.entries())
-    .map(([fill, values]) => {
-      let min = Infinity;
-      let max = -Infinity;
-      for (const v of values) {
-        if (!Number.isFinite(v)) continue;
-        if (v < min) min = v;
-        if (v > max) max = v;
-      }
-      return { fill, min, max };
-    })
-    .filter((d) => Number.isFinite(d.min) && Number.isFinite(d.max))
-    .sort((a, b) => a.min - b.min || a.max - b.max);
-
-  if (!bins.length) {
+  const values = cells
+    .filter((cell) => cell.total > 0 && cell.value !== null)
+    .map((cell) => cell.value as number)
+    .filter((v) => Number.isFinite(v));
+  if (!values.length) {
     return {
       kind: 'swatches',
       title: spec.aggregate === 'mean' ? `${spec.valueLabel} (mean)` : spec.valueLabel,
@@ -223,11 +211,24 @@ function legendForScenarioMetricHeatmap(
     };
   }
 
+  const minValue = Math.min(...values);
+  const maxValue = Math.max(...values);
+  const palette = spec.palette ?? metricPalette(theme);
+  const steps = Math.max(1, palette.length);
+  const span = Math.max(1e-9, maxValue - minValue);
+  const stepSize = span / steps;
+  const segments = Array.from({ length: steps }, (_, i) => ({
+    from: minValue + i * stepSize,
+    to: minValue + (i + 1) * stepSize,
+    fill: palette[Math.min(i, palette.length - 1)],
+  }));
+  const tickValues = linearTicks(minValue, minValue + span, steps + 1);
+
   return {
     kind: 'ramp',
     title: spec.aggregate === 'mean' ? `${spec.valueLabel} (mean)` : spec.valueLabel,
-    segments: bins.map((b) => ({ from: b.min, to: b.max, fill: b.fill })),
-    ticks: Array.from(new Set([bins[0].min, ...bins.map((b) => b.max)])).map((value) => ({
+    segments,
+    ticks: tickValues.map((value) => ({
       value,
       label: spec.formatCell(value),
     })),

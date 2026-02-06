@@ -152,3 +152,54 @@ export function parseHex(hex: string) {
   }
   return { r: 0, g: 0, b: 0 };
 }
+
+export function normalize01(value: number, min: number, max: number) {
+  if (!Number.isFinite(value)) return 0;
+  if (!Number.isFinite(min) || !Number.isFinite(max) || max <= min) return 0.5;
+  return clamp(0, (value - min) / (max - min), 1);
+}
+
+export function interpolatePalette(palette: string[], t: number) {
+  if (!palette.length) return '#000000';
+  if (palette.length === 1) return palette[0];
+  const clamped = clamp(0, t, 1);
+  const scaled = clamped * (palette.length - 1);
+  const leftIndex = Math.floor(scaled);
+  const rightIndex = Math.min(palette.length - 1, leftIndex + 1);
+  const localT = scaled - leftIndex;
+  return interpolateHexColor(palette[leftIndex], palette[rightIndex], localT);
+}
+
+export function linearTicks(min: number, max: number, count = 5) {
+  if (!Number.isFinite(min) || !Number.isFinite(max)) return [];
+  if (count <= 1 || max <= min) return [min];
+  const out: number[] = [];
+  for (let i = 0; i < count; i += 1) out.push(min + ((max - min) * i) / (count - 1));
+  return out;
+}
+
+export function continuousLegendStops(min: number, max: number, palette: string[]) {
+  if (!Number.isFinite(min) || !Number.isFinite(max) || !palette.length) return [];
+  if (palette.length === 1 || max <= min)
+    return [
+      { value: min, fill: palette[0] },
+      { value: max, fill: palette[0] },
+    ];
+  return palette.map((fill, i) => ({
+    value: min + ((max - min) * i) / (palette.length - 1),
+    fill,
+  }));
+}
+
+function interpolateHexColor(a: string, b: string, t: number) {
+  const ca = parseHex(a);
+  const cb = parseHex(b);
+  const r = Math.round(ca.r + (cb.r - ca.r) * t);
+  const g = Math.round(ca.g + (cb.g - ca.g) * t);
+  const b2 = Math.round(ca.b + (cb.b - ca.b) * t);
+  return `#${toHex2(r)}${toHex2(g)}${toHex2(b2)}`;
+}
+
+function toHex2(value: number) {
+  return Math.max(0, Math.min(255, value)).toString(16).padStart(2, '0');
+}

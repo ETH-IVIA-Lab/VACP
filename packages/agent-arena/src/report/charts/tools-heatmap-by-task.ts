@@ -1,7 +1,15 @@
 import * as Plot from '@observablehq/plot';
 import { plotSvg, type SvgLegend } from './plot.js';
-import { bucketIndex, fmtNumber, isDark, marginLeftForLabels, quantiles, resolveLayout, tickStep } from './utils.js';
-import type { ArenaChart, ArenaFigureLayout } from './types.js';
+import {
+  fmtNumber,
+  isDark,
+  linearTicks,
+  marginLeftForLabels,
+  normalize01,
+  resolveLayout,
+  tickStep,
+} from './utils.js';
+import type { ArenaChart, ArenaFigureLayout, ArenaReportTheme } from './types.js';
 import type { ToolByScenarioRow } from '../stats.js';
 import { metricPalette } from './scenario-metric-heatmap.js';
 
@@ -35,13 +43,13 @@ function toolsHeatmapByTaskCells(
     }
   }
 
-  const q = quantiles(
-    rows.map((d) => d.calls),
-    [0.2, 0.4, 0.6, 0.8],
-  );
+  const callValues = rows.map((d) => d.calls).filter((v) => Number.isFinite(v));
+  const minCalls = callValues.length ? Math.min(...callValues) : 0;
+  const maxCalls = callValues.length ? Math.max(...callValues) : 0;
   const palette = metricPalette(ctx.theme);
+  const steps = Math.max(1, palette.length);
   return rows.map((d) => {
-    const fill = palette[bucketIndex(d.calls, q)];
+    const fill = palette[Math.min(steps - 1, Math.floor(normalize01(d.calls, minCalls, maxCalls) * steps))];
     return {
       ...d,
       fill,
@@ -63,7 +71,7 @@ export const toolsHeatmapByTaskChart: ArenaChart<ToolsHeatmapByTaskChartConfig> 
     const toolLabels = makeUniqueToolLabels(topTools);
     const yDomain = [...toolLabels, 'other'];
     const cells = toolsHeatmapByTaskCells(ctx, config);
-    const legend = legendForToolsHeatmapByTask(cells);
+    const legend = legendForToolsHeatmapByTask(cells, ctx.theme);
 
     const scenarioIndex = new Map<string, number>();
     for (const [i, id] of ctx.scenarioDomain.entries()) scenarioIndex.set(id, i + 1);
@@ -137,35 +145,30 @@ export const toolsHeatmapByTaskChart: ArenaChart<ToolsHeatmapByTaskChartConfig> 
   },
 };
 
-function legendForToolsHeatmapByTask(cells: Array<{ fill: string; calls: number }>): SvgLegend {
-  const valuesByFill = new Map<string, number[]>();
-  for (const cell of cells) {
-    const list = valuesByFill.get(cell.fill) ?? [];
-    list.push(cell.calls);
-    valuesByFill.set(cell.fill, list);
-  }
-
-  const bins = Array.from(valuesByFill.entries())
-    .map(([fill, values]) => {
-      let min = Infinity;
-      let max = -Infinity;
-      for (const v of values) {
-        if (!Number.isFinite(v)) continue;
-        if (v < min) min = v;
-        if (v > max) max = v;
-      }
-      return { fill, min, max };
-    })
-    .filter((d) => Number.isFinite(d.min) && Number.isFinite(d.max))
-    .sort((a, b) => a.min - b.min || a.max - b.max);
-
-  if (!bins.length) return { kind: 'swatches', title: 'Calls', items: [] };
+function legendForToolsHeatmapByTask(
+  cells: Array<{ fill: string; calls: number }>,
+  theme: ArenaReportTheme,
+): SvgLegend {
+  const values = cells.map((cell) => cell.calls).filter((v) => Number.isFinite(v));
+  if (!values.length) return { kind: 'swatches', title: 'Calls', items: [] };
+  const minCalls = Math.min(...values);
+  const maxCalls = Math.max(...values);
+  const palette = metricPalette(theme);
+  const steps = Math.max(1, palette.length);
+  const span = Math.max(1e-9, maxCalls - minCalls);
+  const stepSize = span / steps;
+  const segments = Array.from({ length: steps }, (_, i) => ({
+    from: minCalls + i * stepSize,
+    to: minCalls + (i + 1) * stepSize,
+    fill: palette[Math.min(i, palette.length - 1)],
+  }));
+  const tickValues = linearTicks(minCalls, minCalls + span, steps + 1);
 
   return {
     kind: 'ramp',
     title: 'Calls',
-    segments: bins.map((b) => ({ from: b.min, to: b.max, fill: b.fill })),
-    ticks: Array.from(new Set([bins[0].min, ...bins.map((b) => b.max)])).map((value) => ({
+    segments,
+    ticks: tickValues.map((value) => ({
       value,
       label: fmtNumber(value),
     })),

@@ -16,9 +16,14 @@ export type SvgLegendSwatches = {
 export type SvgLegendRamp = {
   kind: 'ramp';
   title?: string;
+  continuous?: boolean;
   segments: Array<{
     from: number;
     to: number;
+    fill: string;
+  }>;
+  stops?: Array<{
+    value: number;
     fill: string;
   }>;
   ticks: Array<{
@@ -29,6 +34,7 @@ export type SvgLegendRamp = {
 };
 
 export type SvgLegend = SvgLegendSwatches | SvgLegendRamp;
+let rampGradientSeq = 0;
 
 export function plotSvg(args: { plot: unknown; theme: ArenaReportTheme; legend?: SvgLegend | null }) {
   const { svg, legend } = extractSvgAndLegend(args.plot);
@@ -55,7 +61,7 @@ export function plotSvg(args: { plot: unknown; theme: ArenaReportTheme; legend?:
   if (finalLegend) {
     const hasContent =
       finalLegend.kind === 'ramp'
-        ? finalLegend.segments.length > 0
+        ? finalLegend.segments.length > 0 || (Array.isArray(finalLegend.stops) && finalLegend.stops.length > 0)
         : Array.isArray(finalLegend.items) && finalLegend.items.length > 0;
     if (hasContent) appendLegend(svg, finalLegend, args.theme);
   }
@@ -252,7 +258,7 @@ function renderRampLegend(
   const maxRowWidth = layout.maxRowWidth;
   const barWidth = maxRowWidth;
 
-  const domain = inferRampDomain(legend.segments);
+  const domain = inferRampDomain(legend.segments, legend.stops);
   const scale = (value: number) => {
     if (!Number.isFinite(domain.max) || !Number.isFinite(domain.min) || domain.max <= domain.min) return layout.x;
     const t = (value - domain.min) / (domain.max - domain.min);
@@ -261,19 +267,51 @@ function renderRampLegend(
 
   const doc = g.ownerDocument;
   const barY = layout.y;
-  for (const segment of legend.segments) {
-    const x0 = scale(segment.from);
-    const x1 = scale(segment.to);
-    const left = Math.min(x0, x1);
-    const width = Math.max(0, Math.abs(x1 - x0));
-    if (width <= 0.5) continue;
+  if (legend.continuous && legend.stops && legend.stops.length >= 2 && domain.max > domain.min) {
+    const defs = doc.createElementNS('http://www.w3.org/2000/svg', 'defs');
+    const gradient = doc.createElementNS('http://www.w3.org/2000/svg', 'linearGradient');
+    const gradientId = `legend-ramp-${rampGradientSeq++}`;
+    gradient.setAttribute('id', gradientId);
+    gradient.setAttribute('x1', '0%');
+    gradient.setAttribute('y1', '0%');
+    gradient.setAttribute('x2', '100%');
+    gradient.setAttribute('y2', '0%');
+    const stops = [...legend.stops].sort((a, b) => a.value - b.value);
+    for (const stop of stops) {
+      const t = (stop.value - domain.min) / (domain.max - domain.min);
+      const offset = Math.max(0, Math.min(1, t)) * 100;
+      const stopEl = doc.createElementNS('http://www.w3.org/2000/svg', 'stop');
+      stopEl.setAttribute('offset', `${offset}%`);
+      stopEl.setAttribute('stop-color', stop.fill);
+      gradient.appendChild(stopEl);
+    }
+    defs.appendChild(gradient);
+    g.appendChild(defs);
+
     const rect = doc.createElementNS('http://www.w3.org/2000/svg', 'rect');
-    rect.setAttribute('x', String(left));
+    rect.setAttribute('x', String(layout.x));
     rect.setAttribute('y', String(barY));
-    rect.setAttribute('width', String(width));
+    rect.setAttribute('width', String(barWidth));
     rect.setAttribute('height', String(barHeight));
-    rect.setAttribute('fill', segment.fill);
+    rect.setAttribute('fill', `url(#${gradientId})`);
     g.appendChild(rect);
+  } else {
+    for (const [index, segment] of legend.segments.entries()) {
+      const x0 = scale(segment.from);
+      const x1 = scale(segment.to);
+      const left = Math.min(x0, x1);
+      const baseWidth = Math.max(0, Math.abs(x1 - x0));
+      // Slight overlap avoids anti-alias hairline seams between adjacent bins.
+      const width = baseWidth + (index < legend.segments.length - 1 ? 0.5 : 0);
+      if (width <= 0.5) continue;
+      const rect = doc.createElementNS('http://www.w3.org/2000/svg', 'rect');
+      rect.setAttribute('x', String(left));
+      rect.setAttribute('y', String(barY));
+      rect.setAttribute('width', String(width));
+      rect.setAttribute('height', String(barHeight));
+      rect.setAttribute('fill', segment.fill);
+      g.appendChild(rect);
+    }
   }
 
   const outline = doc.createElementNS('http://www.w3.org/2000/svg', 'rect');
@@ -318,9 +356,19 @@ function renderRampLegend(
   return y;
 }
 
-function inferRampDomain(segments: Array<{ from: number; to: number }>) {
+function inferRampDomain(
+  segments: Array<{ from: number; to: number }>,
+  stops?: Array<{ value: number; fill: string }>,
+) {
   let min = Infinity;
   let max = -Infinity;
+  if (Array.isArray(stops)) {
+    for (const stop of stops) {
+      if (!Number.isFinite(stop.value)) continue;
+      if (stop.value < min) min = stop.value;
+      if (stop.value > max) max = stop.value;
+    }
+  }
   for (const s of segments) {
     if (Number.isFinite(s.from)) min = Math.min(min, s.from);
     if (Number.isFinite(s.to)) max = Math.max(max, s.to);
