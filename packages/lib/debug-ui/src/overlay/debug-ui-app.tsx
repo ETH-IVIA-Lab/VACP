@@ -45,7 +45,12 @@ export function VacpDebugUiApp(props: { globalKey: string; includeActions: boole
   const bridgePresence = useVacpBridgePresence(props.globalKey);
   const bridgeQuery = useVacpBridge(props.globalKey, open);
   const runtimeQuery = useVacpRuntime(props.globalKey, bridgeQuery.data ?? null, open);
-  const playbooksQuery = useVacpPlaybooks(props.globalKey, bridgeQuery.data ?? null, open);
+  const playbooksQuery = useVacpPlaybooks(
+    props.globalKey,
+    bridgeQuery.data ?? null,
+    open,
+    runtimeQuery.data?.runtimeId ?? null,
+  );
 
   const panelSize = useElementSize(panelRef);
   const compactPanel = panelSize.width < 720;
@@ -65,6 +70,11 @@ export function VacpDebugUiApp(props: { globalKey: string; includeActions: boole
   useEffect(() => {
     runtimeRefetchRef.current = runtimeQuery.refetch;
   }, [runtimeQuery.refetch]);
+
+  const playbooksRefetchRef = useRef(playbooksQuery.refetch);
+  useEffect(() => {
+    playbooksRefetchRef.current = playbooksQuery.refetch;
+  }, [playbooksQuery.refetch]);
 
   const bridgeStatus: VacpDebugBridgeStatus = bridgePresence.data
     ? 'ok'
@@ -132,6 +142,7 @@ export function VacpDebugUiApp(props: { globalKey: string; includeActions: boole
         const b = bridgeRef.current;
         if (b && typeof b.refresh === 'function') void b.refresh({ source: 'debug', message: 'refresh' });
         void runtimeRefetchRef.current();
+        void playbooksRefetchRef.current();
         return;
       }
 
@@ -168,6 +179,7 @@ export function VacpDebugUiApp(props: { globalKey: string; includeActions: boole
       useVacpDebugUiStore.getState().resetDataModule();
       void bridgeRefetchRef.current();
       void runtimeRefetchRef.current();
+      void playbooksRefetchRef.current();
     };
     window.addEventListener('hashchange', onPlotChange);
     window.addEventListener('popstate', onPlotChange);

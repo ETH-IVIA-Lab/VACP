@@ -27,8 +27,14 @@ async function runDefaultDataSqlAndExpectResults(page: import('@playwright/test'
   await expect(dataTab).toBeVisible({ timeout: 15_000 });
   await dataTab.click();
 
+  // The Data module may briefly show "Connecting…" while handles are being hydrated.
+  const connecting = page.locator('.vacp-debug-ui-content', { hasText: 'Connecting' });
+  if (await connecting.isVisible().catch(() => false)) {
+    await expect(connecting).toBeHidden({ timeout: 45_000 });
+  }
+
   const run = page.locator('button[aria-label="Run query"]');
-  await expect(run).toBeVisible({ timeout: 15_000 });
+  await expect(run).toBeVisible({ timeout: 45_000 });
   await run.click();
 
   const panel = page.locator('.vacp-debug-ui-panel');
@@ -43,10 +49,10 @@ async function runDefaultDataSqlAndExpectResults(page: import('@playwright/test'
   expect(hasAnyNumber).toBeTruthy();
 }
 
-const cases: Array<{ name: string; cwd: string }> = [
+const cases: Array<{ name: string; cwd: string; hash?: string }> = [
   { name: 'cars-parallel-coords', cwd: resolve(examplesDir, 'cars-parallel-coords') },
-  { name: 'mosaic-gallery', cwd: resolve(examplesDir, 'mosaic-gallery') },
-  { name: 'vega-lite-gallery', cwd: resolve(examplesDir, 'vega-lite-gallery') },
+  { name: 'mosaic-gallery', cwd: resolve(examplesDir, 'mosaic-gallery'), hash: '#weather' },
+  { name: 'vega-lite-gallery', cwd: resolve(examplesDir, 'vega-lite-gallery'), hash: '#seattle-weather' },
   { name: 'react-dashboard', cwd: resolve(examplesDir, 'react-dashboard') },
 ];
 
@@ -55,7 +61,8 @@ for (const c of cases) {
     await ensureArtifactsDir();
     const srv = await startViteDevServer({ name: c.name, cwd: c.cwd, artifactsDir });
     try {
-      await page.goto(`${srv.url}?vacp-debug=1`, { waitUntil: 'domcontentloaded' });
+      const targetUrl = c.hash ? `${srv.url}?vacp-debug=1${c.hash}` : `${srv.url}?vacp-debug=1`;
+      await page.goto(targetUrl, { waitUntil: 'domcontentloaded' });
       await page.waitForFunction(() => !!(globalThis as any).__vacp);
 
       await openDebugUi(page);

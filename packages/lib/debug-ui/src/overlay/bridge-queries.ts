@@ -10,6 +10,21 @@ import type { VacpWindowBridge } from '@vacp/debug-ui/types';
 // appears a moment after the panel opens (or after a spec switch).
 const BRIDGE_RETRY_DELAY_MS = 200;
 const BRIDGE_RETRY_COUNT = 50;
+const BRIDGE_QUERY_TIMEOUT_MS = 4_000;
+
+async function withTimeout<T>(promise: Promise<T>, timeoutMs: number, label: string): Promise<T> {
+  let timer: number | null = null;
+  try {
+    return await Promise.race([
+      promise,
+      new Promise<T>((_, reject) => {
+        timer = window.setTimeout(() => reject(new Error(`${label} timed out after ${timeoutMs}ms`)), timeoutMs);
+      }),
+    ]);
+  } finally {
+    if (timer !== null) window.clearTimeout(timer);
+  }
+}
 
 export function useVacpBridgePresence(globalKey: string) {
   return useQuery({
@@ -47,7 +62,7 @@ export function useVacpRuntime(globalKey: string, bridge: VacpWindowBridge | nul
     retryDelay: BRIDGE_RETRY_DELAY_MS,
     queryFn: async (): Promise<VacpRuntimeSnapshot> => {
       if (!bridge) throw new Error('Missing VACP bridge');
-      return await readRuntime(bridge);
+      return await withTimeout(readRuntime(bridge), BRIDGE_QUERY_TIMEOUT_MS, 'readRuntime');
     },
   });
 
@@ -74,15 +89,20 @@ export function useVacpRuntime(globalKey: string, bridge: VacpWindowBridge | nul
   return q;
 }
 
-export function useVacpPlaybooks(globalKey: string, bridge: VacpWindowBridge | null, enabled: boolean) {
+export function useVacpPlaybooks(
+  globalKey: string,
+  bridge: VacpWindowBridge | null,
+  enabled: boolean,
+  runtimeId: string | null,
+) {
   return useQuery({
-    queryKey: ['vacp', 'playbooks', globalKey],
+    queryKey: ['vacp', 'playbooks', globalKey, runtimeId ?? 'unknown'],
     enabled: enabled && Boolean(bridge),
     retry: BRIDGE_RETRY_COUNT,
     retryDelay: BRIDGE_RETRY_DELAY_MS,
     queryFn: async (): Promise<VacpPlaybook[]> => {
       if (!bridge) throw new Error('Missing VACP bridge');
-      return await readPlaybooks(bridge);
+      return await withTimeout(readPlaybooks(bridge), BRIDGE_QUERY_TIMEOUT_MS, 'readPlaybooks');
     },
   });
 }

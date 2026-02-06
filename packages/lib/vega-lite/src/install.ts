@@ -21,6 +21,21 @@ import { tryGetSignal } from './signals';
 import type { InstallVacpOnVegaLiteOptions, VegaLiteSpecLike, VegaViewLike } from './types';
 
 const VEGA_LITE_TOOLTIP_HOVER_ACTION = 'vega_lite.hover_tooltip';
+const DATA_HANDLE_META_TIMEOUT_MS = 1_500;
+
+async function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T> {
+  let timer: number | null = null;
+  try {
+    return await Promise.race([
+      promise,
+      new Promise<T>((_, reject) => {
+        timer = window.setTimeout(() => reject(new Error(`Timed out after ${timeoutMs}ms`)), timeoutMs);
+      }),
+    ]);
+  } finally {
+    if (timer !== null) window.clearTimeout(timer);
+  }
+}
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return !!value && typeof value === 'object' && !Array.isArray(value);
@@ -506,7 +521,10 @@ export function installVacpOnVegaLiteView(args: {
         for (const h of dataHandles) {
           const node = graph.nodes.find((n) => n.kind === 'DataHandle' && n.ref === h.ref) ?? null;
           if (!node) continue;
-          if (!handleMetaByRef.has(h.ref)) handleMetaByRef.set(h.ref, await h.ensureMetadata());
+          if (!handleMetaByRef.has(h.ref)) {
+            const meta = await withTimeout(h.ensureMetadata(), DATA_HANDLE_META_TIMEOUT_MS).catch(() => null);
+            if (meta) handleMetaByRef.set(h.ref, meta);
+          }
           const meta = handleMetaByRef.get(h.ref) ?? null;
           if (!meta) continue;
           (node as any).data = { ...(node as any).data, duckdb: meta };
