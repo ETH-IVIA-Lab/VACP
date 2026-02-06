@@ -13,7 +13,7 @@ import {
   type OpencodeMessageInfo,
 } from './opencode-storage.js';
 import { classifyEvalOutcome, detectPlumbingFailure } from '../eval/outcome.js';
-import { parseAnswerFromText } from './score.js';
+import { parseAnswerFromText, parseStructuredReflectionFromText } from './score.js';
 
 export type AnalyzeRunArgs = {
   runDir: string;
@@ -118,6 +118,9 @@ export async function analyzeArenaRun(args: AnalyzeRunArgs) {
     const parsed = answerCandidate?.text
       ? parseAnswerFromText(answerCandidate.text)
       : { parseStatus: 'no_final_assistant' as const, answerJson: null as null };
+    const structuredReflection = answerCandidate?.text
+      ? parseStructuredReflectionFromText(answerCandidate.text)
+      : { parseStatus: 'no_final_assistant' as const, reflection: null as null };
 
     const judge = judgeByScenarioId.get(scenarioId);
     const score = await evaluateScenario({
@@ -198,6 +201,15 @@ export async function analyzeArenaRun(args: AnalyzeRunArgs) {
       answer_parse_status: parsed.parseStatus,
       answer_json: parsed.answerJson,
       answer_json_raw: parsed.answerJsonRaw ?? '',
+      reflection_structured_parse_status: structuredReflection.parseStatus,
+      reflection_structured_json: structuredReflection.reflection,
+      reflection_structured_raw: structuredReflection.reflectionRaw ?? '',
+      reflection_provenance: structuredReflection.reflection?.provenance ?? null,
+      reflection_confidence: structuredReflection.reflection?.confidence ?? null,
+      reflection_robustness: structuredReflection.reflection?.processRobustness ?? null,
+      reflection_easy_hard_why: structuredReflection.reflection?.easyHardWhy ?? null,
+      reflection_actions_tools_available_vs_used_why:
+        structuredReflection.reflection?.actionsToolsAvailableVsUsedWhy ?? null,
       score_ok: score.ok,
       score_label: score.label,
       score_json: score.result,
