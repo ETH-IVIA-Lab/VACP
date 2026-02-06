@@ -21,6 +21,8 @@ const BASE_URL = 'http://127.0.0.1:5173';
 const MODELS = [
   { providerID: 'openai', modelID: 'gpt-5.2' },
   { providerID: 'google-vertex', modelID: 'gemini-3-pro-preview' },
+  { providerID: "amazon-bedrock", modelID: "anthropic.claude-sonnet-4-5-20250929-v1:0" },
+  { providerID: "amazon-bedrock", modelID: "anthropic.claude-opus-4-6-v1" },
 ];
 
 const DEFAULT_MCP_TIMEOUT_MS = 120_000;
@@ -495,7 +497,7 @@ export const config: ArenaConfig = {
   directory: OPENCODE_ATTACH_DIRECTORY,
   worktreeRoot: false,
   autoApprove: 'always',
-  concurrency: { runs: 4 },
+  concurrency: { runs: 8 },
   timeouts: { promptMs: 15 * 60_000 },
   server: {
     mode: 'connect',
