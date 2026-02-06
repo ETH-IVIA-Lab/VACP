@@ -85,17 +85,17 @@ const CHART_GROUPS: ChartGroupDef[] = [
     chartIds: ['solved-strict', 'solved-semantic', 'eval-outcomes'],
   },
   {
+    id: 'charts-task-outcomes',
+    title: 'Task-Level Outcome Matrix',
+    subtitle: 'Task-by-task outcomes, time, and token usage across experiments.',
+    chartIds: ['scenario-heatmap', 'scenario-heatmap-semantic', 'scenario-duration-heatmap', 'scenario-tokens-heatmap'],
+  },
+  {
     id: 'charts-efficiency',
     title: 'Efficiency & Token Accounting',
     subtitle:
       'Speed and token cost by experiment. With-cache is the primary lens, with no-cache as supporting context.',
     chartIds: ['pareto', 'duration', 'tokens', 'tokens-median-with-cache', 'tokens-median-no-cache'],
-  },
-  {
-    id: 'charts-task-outcomes',
-    title: 'Task-Level Outcome Matrix',
-    subtitle: 'Task-by-task outcomes, time, and token usage across experiments.',
-    chartIds: ['scenario-heatmap', 'scenario-heatmap-semantic', 'scenario-duration-heatmap', 'scenario-tokens-heatmap'],
   },
   {
     id: 'charts-tools',
@@ -115,12 +115,12 @@ export const DEFAULT_REPORT_SECTIONS: ArenaReportSection[] = [
     render: renderSummarySection,
   },
   {
-    id: 'token-accounting',
-    render: renderTokenAccountingSection,
-  },
-  {
     id: 'figures',
     render: renderFiguresSection,
+  },
+  {
+    id: 'token-accounting',
+    render: renderTokenAccountingSection,
   },
   {
     id: 'task-breakdown',
@@ -325,12 +325,12 @@ function renderFloatingNav(args: {
 
   if (args.enabledSections.has('overview')) links.push({ href: '#section-overview', label: 'Overview' });
   if (args.enabledSections.has('summary')) links.push({ href: '#section-summary', label: 'Summary' });
-  if (args.enabledSections.has('token-accounting'))
-    links.push({ href: '#section-token-accounting', label: 'Token Accounting' });
 
   if (args.enabledSections.has('figures')) {
     for (const group of args.chartGroups) links.push({ href: `#${group.id}`, label: group.title });
   }
+  if (args.enabledSections.has('token-accounting'))
+    links.push({ href: '#section-token-accounting', label: 'Token Accounting' });
 
   if (args.enabledSections.has('task-breakdown'))
     links.push({ href: '#section-task-breakdown', label: 'Task Breakdown' });
