@@ -7,12 +7,15 @@ import type {
   VacpPlaybook,
   VacpRuntimeMode,
   VacpRuntimeSnapshot,
+  VacpStateRequest,
   VacpStateSnapshot,
+  VacpStateUpdate,
 } from '@vacp/core';
 import { nowIso, VACP_APPLY_STATE_ACTION, VACP_SCHEMA_VERSION } from '@vacp/core';
 import { VacpActionRegistry } from '../action-registry';
 import { createStateObserver } from './observer';
 import type { VacpSnapshotProvider, VacpUpdatableRuntimeBridge } from './types';
+import { buildStateUpdate, computeStateToken, scopeStateSnapshot } from './state-update';
 import {
   entryMessage,
   entrySource,
@@ -22,6 +25,8 @@ import {
   notify,
   stateFromEntry,
 } from './helpers';
+
+const STATE_UPDATE_CACHE_LIMIT = 64;
 /**
  * Runtime bridge: wraps snapshots + actions with history/cursor time travel and optional overrides.
  * The live app remains the source of truth; overrides never mutate the app unless an action is executed.
@@ -46,6 +51,18 @@ export function createRuntimeBridge(args: {
 
   let liveCapabilities: VacpCapabilitiesSnapshot | null = null;
   let liveState: VacpStateSnapshot | null = null;
+  const stateUpdateCache = new Map<string, VacpStateSnapshot>();
+
+  const cacheStateSnapshot = (token: string, snapshot: VacpStateSnapshot): void => {
+    if (!token) return;
+    if (stateUpdateCache.has(token)) stateUpdateCache.delete(token);
+    stateUpdateCache.set(token, snapshot);
+    while (stateUpdateCache.size > STATE_UPDATE_CACHE_LIMIT) {
+      const oldest = stateUpdateCache.keys().next().value;
+      if (!oldest) break;
+      stateUpdateCache.delete(oldest);
+    }
+  };
 
   // Inspection-only overrides (do not affect live app state).
   let graphOverride: VacpCapabilitiesSnapshot | null = null;
@@ -257,6 +274,7 @@ export function createRuntimeBridge(args: {
       cursor = -1;
       liveCapabilities = null;
       liveState = null;
+      stateUpdateCache.clear();
       if (listeners.size > 0) {
         stopObserving();
         startObserving({ source: 'system', message: 'observe' });
@@ -276,6 +294,38 @@ export function createRuntimeBridge(args: {
     });
   };
 
+  async function getState(): Promise<VacpStateSnapshot>;
+  async function getState(request: VacpStateRequest): Promise<VacpStateUpdate>;
+  async function getState(request?: VacpStateRequest): Promise<VacpStateSnapshot | VacpStateUpdate> {
+    await ensureLive();
+    recordIfStateChanged('system', 'observed state');
+    const current = liveState as VacpStateSnapshot;
+    if (!request) return current;
+
+    const normalizedRequest: VacpStateRequest = {
+      mode: request.mode ?? 'auto',
+      ...(typeof request.since === 'string' && request.since.length ? { since: request.since } : {}),
+      ...(Array.isArray(request.refs) ? { refs: request.refs } : {}),
+      ...(typeof request.includeSummary === 'boolean' ? { includeSummary: request.includeSummary } : {}),
+    };
+
+    const baseline =
+      typeof normalizedRequest.since === 'string'
+        ? (stateUpdateCache.get(normalizedRequest.since) ?? undefined)
+        : undefined;
+
+    const update = buildStateUpdate({
+      current,
+      request: normalizedRequest,
+      baseline,
+    });
+
+    const scoped = scopeStateSnapshot(current, normalizedRequest).snapshot;
+    const token = computeStateToken(scoped);
+    cacheStateSnapshot(token, scoped);
+    return update;
+  }
+
   const bridge: VacpUpdatableRuntimeBridge = {
     version: VACP_SCHEMA_VERSION,
 
@@ -284,11 +334,7 @@ export function createRuntimeBridge(args: {
       return liveCapabilities as VacpCapabilitiesSnapshot;
     },
 
-    getState: async () => {
-      await ensureLive();
-      recordIfStateChanged('system', 'observed state');
-      return liveState as VacpStateSnapshot;
-    },
+    getState,
 
     execute: async (call: VacpActionCall): Promise<VacpActionResult> => {
       return dispatch(call, { source: 'agent' });

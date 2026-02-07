@@ -286,6 +286,50 @@ export interface VacpStateSnapshot {
   summary?: Record<VacpRef, unknown>;
 }
 
+export type VacpStateRequestMode = 'auto' | 'full' | 'delta';
+
+export interface VacpStateRequest {
+  /**
+   * Retrieval mode:
+   * - `full`: always return a scoped full snapshot envelope.
+   * - `delta`: return a delta when `since` is known, else fallback to full.
+   * - `auto` (default): choose delta when possible, else full.
+   */
+  mode?: VacpStateRequestMode;
+  /** Baseline token from a previous state-update response. */
+  since?: string;
+  /** Optional scope: include only these refs in full/delta computation. */
+  refs?: VacpRef[];
+  /** Include per-ref summaries when available (default: true). */
+  includeSummary?: boolean;
+}
+
+export interface VacpStateDeltaPayload {
+  changed: Record<VacpRef, unknown>;
+  removed: VacpRef[];
+  summaryChanged?: Record<VacpRef, unknown>;
+  summaryRemoved?: VacpRef[];
+}
+
+export type VacpStateUpdate =
+  | {
+      version: VacpSchemaVersion;
+      createdAt: string;
+      mode: 'full';
+      token: string;
+      scope?: { refs?: VacpRef[] };
+      snapshot: VacpStateSnapshot;
+    }
+  | {
+      version: VacpSchemaVersion;
+      createdAt: string;
+      mode: 'delta';
+      token: string;
+      baseToken: string;
+      scope?: { refs?: VacpRef[] };
+      delta: VacpStateDeltaPayload;
+    };
+
 /**
  * Action invocation request.
  *
@@ -314,6 +358,7 @@ export type VacpActionResult =
 export interface VacpWindowBridge {
   version: VacpSchemaVersion;
   getCapabilities(): Promise<VacpCapabilitiesSnapshot> | VacpCapabilitiesSnapshot;
+  getState(request: VacpStateRequest): Promise<VacpStateUpdate>;
   getState(): Promise<VacpStateSnapshot>;
   execute(call: VacpActionCall): Promise<VacpActionResult>;
 }

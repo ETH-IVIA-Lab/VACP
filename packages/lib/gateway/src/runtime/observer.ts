@@ -1,27 +1,7 @@
 import type { VacpCapabilitiesSnapshot, VacpChangeSource, VacpHistoryEntry, VacpStateSnapshot } from '@vacp/core';
-import { nowIso } from '@vacp/core';
+import { nowIso, stableStringify } from '@vacp/core';
 
 import { entryMessage, entrySource, makeEntryId } from './helpers';
-
-function stableStringify(value: unknown): string {
-  const seen = new WeakSet<object>();
-  const walk = (v: unknown): unknown => {
-    if (!v || typeof v !== 'object') return v;
-    const obj = v as object;
-    if (seen.has(obj)) return '[Circular]';
-    seen.add(obj);
-    if (Array.isArray(v)) return v.map(walk);
-    const rec = v as Record<string, unknown>;
-    const out: Record<string, unknown> = {};
-    Object.keys(rec)
-      .sort()
-      .forEach((k) => {
-        out[k] = walk(rec[k]);
-      });
-    return out;
-  };
-  return JSON.stringify(walk(value));
-}
 
 export function createStateObserver(args: {
   getState: () => VacpStateSnapshot | Promise<VacpStateSnapshot>;
