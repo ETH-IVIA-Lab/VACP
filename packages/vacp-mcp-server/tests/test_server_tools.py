@@ -4,15 +4,27 @@ import pytest
 from fastmcp.tools.tool import FunctionTool
 
 from vacp_mcp_server.bridge import ActionCall, ActionResult, VacpBridgeClient
+from vacp_mcp_server.models import VacpStateRequestOptions
 from vacp_mcp_server.server import create_mcp
 
 
 class _FakeClient(VacpBridgeClient):
+    def __init__(self) -> None:
+        self.last_state_request: VacpStateRequestOptions | None = None
+
     async def get_capabilities(self) -> dict:
         return {'graph': {'nodes': [], 'edges': [], 'actions': []}}
 
-    async def get_state(self) -> dict:
-        return {'state': {}}
+    async def get_state(self, request: VacpStateRequestOptions | None = None) -> dict:
+        self.last_state_request = request
+        if request is None:
+            return {'state': {}}
+        return {
+            'mode': 'delta',
+            'token': 'st_next',
+            'baseToken': request.get('since'),
+            'delta': {'changed': {}, 'removed': []},
+        }
 
     async def execute(self, call: ActionCall) -> ActionResult:
         return ActionResult(
@@ -60,6 +72,70 @@ async def test_create_mcp_registers_expected_tools() -> None:
     mcp = create_mcp(_FakeClient())
     tools = await mcp.get_tools()
     assert set(tools.keys()) == {'vacp_capabilities', 'vacp_state', 'vacp_execute'}
+
+
+@pytest.mark.asyncio
+async def test_vacp_state_full_shape_when_options_omitted() -> None:
+    client = _FakeClient()
+    mcp = create_mcp(client)
+    tool = await mcp.get_tool('vacp_state')
+    assert isinstance(tool, FunctionTool)
+    res = await tool.fn()
+    assert res == {'state': {}}
+    assert client.last_state_request is None
+
+
+@pytest.mark.asyncio
+async def test_vacp_state_forwards_options_for_delta_requests() -> None:
+    client = _FakeClient()
+    mcp = create_mcp(client)
+    tool = await mcp.get_tool('vacp_state')
+    assert isinstance(tool, FunctionTool)
+    res = await tool.fn(
+        options={
+            'mode': 'delta',
+            'since': 'st_prev',
+            'refs': ['vacp://a', 'vacp://b'],
+            'includeSummary': False,
+        }
+    )
+    assert res['mode'] == 'delta'
+    assert client.last_state_request == {
+        'mode': 'delta',
+        'since': 'st_prev',
+        'refs': ['vacp://a', 'vacp://b'],
+        'includeSummary': False,
+    }
+
+
+@pytest.mark.asyncio
+async def test_vacp_state_rejects_invalid_options() -> None:
+    mcp = create_mcp(_FakeClient())
+    tool = await mcp.get_tool('vacp_state')
+    assert isinstance(tool, FunctionTool)
+    with pytest.raises(ValueError, match='Unknown options key'):
+        await tool.fn(options={'bogus': 1})
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ('options', 'message'),
+    [
+        ('nope', 'Expected options to be a JSON object'),
+        ({'mode': 'nope'}, 'Expected options.mode to be one of: auto, full, delta'),
+        ({'since': ''}, 'Expected options.since to be a non-empty string'),
+        ({'since': '   '}, 'Expected options.since to be a non-empty string'),
+        ({'refs': 'bad'}, 'Expected options.refs to be an array of strings'),
+        ({'refs': ['ok', '   ']}, 'Expected every options.refs item to be a non-empty string'),
+        ({'includeSummary': 'nope'}, 'Expected options.includeSummary to be a boolean'),
+    ],
+)
+async def test_vacp_state_rejects_invalid_option_values(options: object, message: str) -> None:
+    mcp = create_mcp(_FakeClient())
+    tool = await mcp.get_tool('vacp_state')
+    assert isinstance(tool, FunctionTool)
+    with pytest.raises(ValueError, match=message):
+        await tool.fn(options=options)
 
 
 @pytest.mark.asyncio

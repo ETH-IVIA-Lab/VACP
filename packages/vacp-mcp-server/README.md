@@ -32,10 +32,17 @@ Notes:
 ## MCP tools
 
 - `vacp_capabilities()` → VACP capabilities snapshot (graph + actions)
-- `vacp_state()` → VACP state snapshot (current selections/params)
+- `vacp_state(options?)` → VACP state snapshot or token-efficient update envelope
 - `vacp_execute(name, params?, call_id?)` → run a semantic action via the bridge
 - `vacp_open_url(url, wait_for_bridge?, timeout_ms?)` → navigate the existing page to a scenario URL
 - `vacp_page_info()` → page URL + title
+
+`vacp_state(options?)` supports optional progressive retrieval:
+
+- `options.mode`: `auto | full | delta`
+- `options.since`: previous token from a prior `vacp_state(options)` response
+- `options.refs`: limit retrieval to specific refs
+- `options.includeSummary`: include/exclude summary map
 
 ## Optional browser tools (Playwright-backed)
 

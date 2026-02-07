@@ -5,6 +5,8 @@ from typing import Protocol
 
 from playwright.async_api import Page
 
+from vacp_mcp_server.models import VacpStateRequestOptions
+
 """
 Bridge client (project concepts).
 
@@ -36,7 +38,7 @@ class ActionResult:
 class VacpBridgeClient(Protocol):
     async def get_capabilities(self) -> dict[str, object]: ...
 
-    async def get_state(self) -> dict[str, object]: ...
+    async def get_state(self, request: VacpStateRequestOptions | None = None) -> dict[str, object]: ...
 
     async def execute(self, call: ActionCall) -> ActionResult: ...
 
@@ -73,9 +75,14 @@ class PlaywrightVacpBridgeClient(VacpBridgeClient):
         await self._require_bridge()
         return await self._page.evaluate("""(key) => globalThis[key].getCapabilities()""", self._global_key)
 
-    async def get_state(self) -> dict[str, object]:
+    async def get_state(self, request: VacpStateRequestOptions | None = None) -> dict[str, object]:
         await self._require_bridge()
-        return await self._page.evaluate("""(key) => globalThis[key].getState()""", self._global_key)
+        if request is None:
+            return await self._page.evaluate("""(key) => globalThis[key].getState()""", self._global_key)
+        return await self._page.evaluate(
+            """({ key, request }) => globalThis[key].getState(request)""",
+            {'key': self._global_key, 'request': request},
+        )
 
     async def execute(self, call: ActionCall) -> ActionResult:
         await self._require_bridge()
