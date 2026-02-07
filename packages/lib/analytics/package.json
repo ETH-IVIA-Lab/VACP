@@ -19,6 +19,6 @@
   },
   "dependencies": {
     "@vacp/core": "workspace:*",
-    "posthog-js": "^1.342.0"
+    "posthog-js": "^1.342.1"
   }
 }
