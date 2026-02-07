@@ -108,6 +108,7 @@ type VacpStateSnapshot = {
   version: string;
   createdAt: string; // ISO timestamp
   state: Record<string /* ref */, unknown /* typed by kind */>;
+  summary?: Record<string /* ref */, unknown>;
 };
 ```
 
@@ -127,6 +128,7 @@ Providers install a bridge (usually) at `window.__vacp`:
 ```ts
 interface VacpWindowBridge {
   getCapabilities(): Promise<VacpCapabilitiesSnapshot>;
+  getState(request: VacpStateRequest): Promise<VacpStateUpdate>;
   getState(): Promise<VacpStateSnapshot>;
   execute(call: VacpActionCall): Promise<VacpActionResult>;
 }
@@ -148,13 +150,97 @@ These invariants are what make the protocol useful for mixed-initiative systems:
 - **Bidirectionality**: human input and agent calls produce compatible state snapshots.
 - **Transport-agnostic**: MCP, WebSocket, or any other wire can carry the same messages.
 
-### Discovery (optional DOM snapshot)
+### State tokens and token-efficient state retrieval
 
-Some agents/tools can only “see” the DOM. For that case, `@vacp/gateway` can also inject a pure-JSON snapshot into the
-page as a `<script type="application/json">` tag:
+#### State token
 
-- `id="__vacp_snapshot"`
-- text content contains `{ capabilities, state }`
+A **state token** is a deterministic content identifier for a scoped state snapshot:
+
+- shape: `st_<hash(canonical_json({ state, summary? }))>`
+- equal token => equal scoped semantic state content
+- different token => at least one scoped value or summary changed
+
+The token is computed after applying request scope (`refs`, `includeSummary`), so it precisely identifies the payload the caller asked for.
+
+#### Problem
+
+For non-trivial apps, repeatedly shipping the entire state map on every agent step is wasteful:
+
+- high token cost for LLM calls,
+- repeated parsing of unchanged structure,
+- unnecessary latency.
+
+#### API shape
+
+`getState()` now has two modes:
+
+- no argument: return full `VacpStateSnapshot` (backward-compatible baseline read),
+- with request: return `VacpStateUpdate` envelope.
+
+Request options:
+
+- `mode`: `auto | full | delta`
+- `since`: prior state token
+- `refs`: optional ref subset (scoping)
+- `includeSummary`: include/exclude summary map
+
+Response envelope:
+
+- `mode: "full"`: `{ token, snapshot, scope? }`
+- `mode: "delta"`: `{ token, baseToken, delta, scope? }`
+
+#### How delta computation works
+
+Runtime algorithm (`packages/lib/gateway/src/runtime/create-runtime-bridge.ts` + `state-update.ts`):
+
+1. Normalize request (default `mode="auto"`; optional `since/refs/includeSummary`).
+2. Scope current state to requested refs/summary policy.
+3. Compute deterministic token `st_<hash(canonical_json)>`.
+4. If `since` token resolves to a cached baseline and mode is not forced `full`, compute delta:
+   - `changed`: refs whose values differ,
+   - `removed`: refs missing from current,
+   - `summaryChanged/summaryRemoved` similarly for summaries.
+5. If baseline is missing (stale/unknown `since`), fall back to `mode: "full"` automatically.
+6. Cache the scoped full snapshot under its token (bounded insertion-ordered map, size 64).
+
+This guarantees correctness without requiring long-lived server session state: token cache miss is safe and explicit (full fallback).
+
+#### Why this is useful
+
+- Caller can cheaply poll with `mode="delta"` and only process change sets.
+- `refs` scoping prevents unrelated state from entering context.
+- `includeSummary=false` lets callers skip secondary payload when not needed.
+- `token/baseToken` makes state transitions auditable and composable.
+
+### Discovery (optional DOM snapshot, incremental)
+
+Some agents/tools can only “see” the DOM. For that case, `@vacp/gateway` injects a JSON semantic layer rooted at:
+
+- `id="__vacp_snapshot"` (compact manifest, `format: "vacp.dom_snapshot"`).
+
+The injected payloads are intentionally unversioned (greenfield contract) and split for progressive reads:
+
+The manifest points to additional JSON scripts:
+
+- graph script (`manifest.graph.scriptId`) with compact graph/action structure,
+- state index script (`manifest.state.indexScriptId`) with `{ token, baseToken?, changedRefs, removedRefs, catalog }`,
+- state catalog script (`manifest.state.catalogScriptId`) with stable ref metadata (`ref`, `scriptId`, kind/layer/title),
+- per-ref scripts: `script[data-vacp="snapshot-ref"][data-vacp-ref="vacp://..."]` containing `{ ref, value, summary? }`.
+
+DOM update strategy (`packages/lib/gateway/src/dom-snapshot.ts`):
+
+- graph script rewrites only when `graphToken` changes,
+- per-ref scripts rewrite only for changed refs (fingerprint diff),
+- removed refs delete their script nodes,
+- catalog rewrites only when ref membership/metadata changes (`catalogToken`),
+- index + manifest update each cycle to advertise current tokens and change counts.
+
+This lets DOM-only agents do incremental consumption:
+
+1. read manifest,
+2. read state index,
+3. if `catalog.changed`, refresh catalog, else reuse prior map,
+4. fetch only scripts listed in `changedRefs`.
 
 This is enabled by default and can be disabled via:
 
@@ -174,8 +260,10 @@ The in-page overlay (`@vacp/debug-ui`) is intentionally opt-in:
 The Python `vacp-mcp-server` maps the bridge to MCP tools:
 
 - `vacp_capabilities()` → `window.__vacp.getCapabilities()`
-- `vacp_state()` → `window.__vacp.getState()`
+- `vacp_state(options?)` → `window.__vacp.getState(options?)`
 - `vacp_execute(name, params?, call_id?)` → `window.__vacp.execute({callId, name, params})`
+
+`vacp_state(options)` is validated with a strict typed schema (`TypedDict` + Pydantic `TypeAdapter`) before forwarding to the bridge.
 
 ## Control and observation flows
 
