@@ -143,7 +143,7 @@ export function DebugUiView(props: {
       <div
         id="vacp-debug-ui-panel"
         className={cn(
-          'vacp-debug-ui-panel fixed z-[2147483001] grid h-[min(680px,calc(100vh-92px))] w-[min(860px,calc(100vw-28px))] overflow-hidden rounded-xl border border-white/20 bg-slate-950 text-slate-100 shadow-[0_16px_40px_rgba(0,0,0,0.35)]',
+          'vacp-debug-ui-panel fixed z-[2147483001] grid h-[min(680px,calc(100vh-92px))] w-[min(980px,calc(100vw-28px))] overflow-hidden rounded-xl border border-white/20 bg-slate-950 text-slate-100 shadow-[0_16px_40px_rgba(0,0,0,0.35)]',
           'grid-rows-[auto_minmax(0,1fr)]',
           props.densePanel && 'vacp-debug-ui-dense',
         )}

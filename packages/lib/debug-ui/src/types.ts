@@ -1,9 +1,11 @@
 import type {
   VacpCapabilitiesSnapshot,
   VacpPlaybook,
+  VacpStateRequest,
   VacpRuntimeBridge,
   VacpRuntimeSnapshot,
   VacpStateSnapshot,
+  VacpStateUpdate,
 } from '@vacp/core';
 
 export type VacpDebugUiEnabled = boolean | 'auto';
@@ -26,7 +28,10 @@ export interface VacpDebugUiOptions {
 
 export type VacpWindowBridge = VacpRuntimeBridge & {
   getCapabilities: () => Promise<VacpCapabilitiesSnapshot>;
-  getState: () => Promise<VacpStateSnapshot>;
+  getState: {
+    (): Promise<VacpStateSnapshot>;
+    (request: VacpStateRequest): Promise<VacpStateUpdate>;
+  };
   getRuntime?: () => Promise<VacpRuntimeSnapshot>;
   getPlaybooks?: () => Promise<VacpPlaybook[]>;
 };
