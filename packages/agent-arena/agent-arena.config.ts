@@ -40,47 +40,92 @@ const OPENCODE_ATTACH_DIRECTORY = (() => {
 
 assertBaseUrlReachableSync(BASE_URL);
 
-const AGENT_BROWSER_HELP = (() => {
-  try {
-    const stdout = execFileSync(AGENT_BROWSER, ['--help'], { encoding: 'utf8', timeout: 5000 });
-    return String(stdout).trimEnd();
-  } catch (error) {
-    const stdout = (error as any)?.stdout ? String((error as any).stdout) : '';
-    const stderr = (error as any)?.stderr ? String((error as any).stderr) : '';
-    const combined = [stdout, stderr].filter(Boolean).join('\n').trim();
-    if (combined) return combined;
-    if (error instanceof Error) return `Failed to run "${AGENT_BROWSER} --help": ${error.message}`;
-    return `Failed to run "${AGENT_BROWSER} --help": ${String(error)}`;
-  }
-})();
-
 function agentBrowserEfficiencyGuidance(ctx: PromptContext): string[] {
   return [
-    'agent-browser usage (must follow):',
-    '- Do NOT run `agent-browser --help` (reference is included below).',
+    'agent-browser usage:',
     `- Always pass \`--session ${ctx.opencode.sessionID}\` to \`${AGENT_BROWSER}\` commands.`,
-    '- Keep command outputs small (avoid dumping large DOM/text).',
-    `- Screenshots: write "${ctx.run.outDir}/step-00.jpg" for the initial visible chart; then use step-01.jpg, step-02.jpg, ...`,
-    '- Take screenshots only after a meaningful UI/state change (do not take periodic screenshots).',
-    '- Read screenshots only when you need visual grounding; at minimum, read step-00.jpg and any screenshot you rely on for the final answer.',
-    `- Always use screenshot paths exactly as written: "${ctx.run.outDir}/step-00.jpg", "${ctx.run.outDir}/step-01.jpg", ...`,
+    '- Do NOT run `agent-browser --help`.',
+    '- Keep command outputs small (avoid large DOM/text dumps).',
+    '- Open the URL once; do not repeat `open` unless the page clearly failed to load.',
+    '- Use these exact command forms. Do not use `--url` or `--path` variants:',
+    `- \`${AGENT_BROWSER} open \"<url>\" --session ${ctx.opencode.sessionID}\``,
+    `- \`${AGENT_BROWSER} wait <ms> --session ${ctx.opencode.sessionID}\``,
+    `- \`${AGENT_BROWSER} screenshot \"<path>\" --session ${ctx.opencode.sessionID}\``,
+    `- \`${AGENT_BROWSER} eval '<js>' --session ${ctx.opencode.sessionID}\``,
+    `- \`${AGENT_BROWSER} select <selector-or-@ref> <value> --session ${ctx.opencode.sessionID}\``,
+    `- Save screenshots only under "${ctx.run.outDir}/step-XX.jpg". Use step-00 for the initial screenshot.`,
+    '- Take screenshots only after meaningful state changes; avoid redundant screenshots.',
+    '- Read only screenshots you rely on for the final answer.',
     '- `eval`: pass JS in SINGLE quotes; avoid backticks and `${...}` to prevent shell expansion.',
-    '',
-    'agent-browser --help (pre-fetched for this run):',
-    '```text',
-    ...AGENT_BROWSER_HELP.split('\n'),
-    '```',
+    '- `eval`: return compact JSON objects only.',
   ];
 }
 
 function snapshotDomEfficiencyGuidance(): string[] {
   return [
-    'DOM snapshot (`#__vacp_snapshot`) (semantic context):',
-    '- Includes semantic details (e.g., field names/encodings and current params/filters/selections).',
-    '- Do not print the whole snapshot; use `agent-browser eval` to extract only small, relevant pieces.',
-    '- When using `eval` with the snapshot, follow the shell-safe `eval` rules above (single quotes, no backticks/`${...}`).',
-    '- Ground the final answer in screenshots you READ (visual evidence), not the snapshot alone.',
+    'DOM semantic layer (`#__vacp_snapshot`) guidance:',
+    '- In `with-snapshot`, use this as the semantic map.',
+    '- Prefer direct deterministic control operations first: `select`, sliders, buttons.',
+    '- Use snapshot scripts when semantics are otherwise hidden, such as canvas-driven views, or when ref-level state is needed.',
+    '- Read progressively: manifest -> state index -> catalog/ref scripts only when needed.',
+    '- Use state token flow (`token`, `baseToken`, `changedRefs`, `removedRefs`) to avoid re-reading unchanged refs.',
+    '- Do not read all ref scripts unless absolutely necessary for the task.',
+    '- Canonical access:',
+    '- `const manifest = JSON.parse(document.querySelector(\"#__vacp_snapshot\").textContent || \"{}\");`',
+    '- `const index = JSON.parse(document.getElementById(manifest.state.indexScriptId).textContent || \"{}\");`',
+    '- `const catalog = JSON.parse(document.getElementById(manifest.state.catalogScriptId).textContent || \"{}\");`',
+    '- `const refEl = document.querySelector(\'script[data-vacp=\"snapshot-ref\"][data-vacp-ref=\"<ref>\"]\');`',
+    '- Keep every `eval` result tiny. Return small objects only. Avoid broad DOM/snapshot dumps.',
+    '- If two attempts on one path fail, pivot quickly.',
+    '- Ground final answers in screenshots you read as visual evidence, not snapshot data alone.',
   ];
+}
+
+function withSnapshotExecutionBudgetGuidance(): string[] {
+  return [
+    'Execution budget:',
+    '- Keep trajectories short: target <= 12 total tool calls.',
+    '- Keep screenshots minimal: target 2. Use one initial shot `step-00` and one final evidence shot.',
+    '- Use at most one accessibility `snapshot` call; prefer direct control setting for form controls.',
+    '- Reuse the latest state token from the snapshot index; do not poll full snapshot payloads repeatedly.',
+    '- After two failed attempts on the same interaction path, pivot or return `null`.',
+  ];
+}
+
+function vacpStateEfficiencyGuidance(stateTool: string): string[] {
+  return [
+    'VACP state strategy:',
+    `- Call \`${stateTool}\` once without options to establish baseline context and token.`,
+    `- After each meaningful interaction, prefer \`${stateTool}\` with \`options={mode:\"delta\", since:\"<token>\"}\`.`,
+    '- Once relevant refs are known, pass `refs` to limit payload scope.',
+    '- Set `includeSummary=false` unless summary fields are needed for the current step.',
+    '- If token lineage is unclear or a delta is unexpectedly uninformative, refresh with one `mode:\"full\"` call, then resume delta.',
+  ];
+}
+
+function vacpToolRoutingGuidance(args: {
+  capabilitiesTool: string;
+  stateTool: string;
+  executeTool: string;
+  evalTool?: string;
+  screenshotTool?: string;
+}): string[] {
+  const lines = [
+    'Tool routing strategy:',
+    `- Plan from \`${args.capabilitiesTool}\`, act via \`${args.executeTool}\`, verify via \`${args.stateTool}\`, and repeat.`,
+    '- Prefer semantic VACP tools for all interactions they expose.',
+  ];
+  if (args.evalTool) {
+    lines.push(
+      `- Keep \`${args.evalTool}\` outputs minimal. Return small structs only. Never return large DOM/JSON dumps.`,
+    );
+  }
+  if (args.screenshotTool) {
+    lines.push(
+      `- Use \`${args.screenshotTool}\` at milestones: initial readiness and key evidence. Do not capture after every minor step.`,
+    );
+  }
+  return lines;
 }
 
 function dataProvenanceGuardrails(): string[] {
@@ -123,6 +168,29 @@ function finalAnswerFormatBlock(ctx: PromptContext): string[] {
     '- On its own line write `Trajectory:` then 3-6 sentences summarizing approach, pivots, failures, and why the final Answer was chosen; reference key trace steps where relevant.',
     'If blocked/unsolved:',
     '- Say unsolved explicitly; set Answer JSON value to `null` (inside ```json fences); explain the blocker.',
+  ];
+}
+
+function finalAnswerFormatCompactBlock(ctx: PromptContext): string[] {
+  return [
+    'Final answer format (strict):',
+    '1) Answer',
+    '- On its own line write `Answer:`.',
+    `- On the following lines, output ONLY JSON inside \`\`\`json fences\`\`\`, matching \`${ctx.scenario.responseFormat}\`.`,
+    '- Do not put reasoning inside the JSON.',
+    '2) Reasoning',
+    '- On its own line write `Reasoning:` then 1 brief sentence grounded in run evidence.',
+    '3) Reflection (structured)',
+    '- On its own line write `Reflection (structured):`.',
+    '- On the following lines, output ONLY JSON inside ```json fences with keys:',
+    '- `provenance`: exactly `interaction-derived` OR `prior-knowledge/guess`',
+    '- `confidence`: exactly `low` OR `medium` OR `high`',
+    '- `easy_hard_why`: brief string',
+    '- `process_robustness`: include `robust` or `brittle`',
+    '- `actions_tools_available_vs_used_why`: brief string',
+    '- This structured block is mandatory, even when unsolved.',
+    'If blocked/unsolved:',
+    '- Say unsolved explicitly; set Answer JSON value to `null` (inside ```json fences); explain the blocker briefly.',
   ];
 }
 
@@ -191,7 +259,7 @@ function buildBaselineJobs() {
             'Boundaries (must follow):',
             '- Use only tools: `bash` + `read`.',
             `- (bash) may run ONLY \`${AGENT_BROWSER} ...\` commands (no other shell commands or scripting).`,
-            `- (read) may open ONLY screenshots you create for this run under "${ctx.run.outDir}/step-00.jpg", "${ctx.run.outDir}/step-01.jpg", ...`,
+            `- (read) may open ONLY screenshots you create for this run under "${ctx.run.outDir}/step-*.jpg".`,
             '- Treat the repository, local filesystem, and run artifacts as off-limits.',
             '- Finish by producing the "Final answer" section below (Answer can be `null`). Do not run until the prompt timeout.',
             '- If you are stuck, output `null` early rather than waiting for timeout.',
@@ -238,7 +306,7 @@ function buildSnapshotInjectedJobs() {
             'Boundaries (must follow):',
             '- Use only tools: `bash` + `read`.',
             `- (bash) may run ONLY \`${AGENT_BROWSER} ...\` commands (no other shell commands or scripting).`,
-            `- (read) may open ONLY screenshots you create for this run under "${ctx.run.outDir}/step-00.jpg", "${ctx.run.outDir}/step-01.jpg", ...`,
+            `- (read) may open ONLY screenshots you create for this run under "${ctx.run.outDir}/step-*.jpg".`,
             '- Treat the repository, local filesystem, and run artifacts as off-limits.',
             '- Finish by producing the "Final answer" section below (Answer can be `null`). Do not run until the prompt timeout.',
             '- If you are stuck, output `null` early rather than waiting for timeout.',
@@ -247,9 +315,11 @@ function buildSnapshotInjectedJobs() {
             '',
             ...agentBrowserEfficiencyGuidance(ctx),
             '',
+            ...withSnapshotExecutionBudgetGuidance(),
+            '',
             ...snapshotDomEfficiencyGuidance(),
             '',
-            ...finalAnswerFormatBlock(ctx),
+            ...finalAnswerFormatCompactBlock(ctx),
           ].join('\n'),
       });
     }
@@ -295,6 +365,8 @@ function buildPureVACPJobs() {
             '- Validity requirement: if you did not successfully call VACP tools in this run, you MUST NOT claim `Provenance: interaction-derived` (treat it as a guess and/or output null if blocked).',
             '',
             ...dataProvenanceGuardrails(),
+            '',
+            ...vacpStateEfficiencyGuidance(tools.state),
             '',
             'Efficiency (high priority):',
             '- Keep result sets tiny: prefer aggregations and tight `LIMIT`s; when using `vacp.data_sql`, pass a small `maxRows`.',
@@ -372,6 +444,16 @@ function buildFullToolkitJobs() {
             '- Do NOT try to solve by inspecting source files, configs, logs, or `.agent-arena/**` outputs.',
             '',
             ...dataProvenanceGuardrails(),
+            '',
+            ...vacpToolRoutingGuidance({
+              capabilitiesTool: tools.capabilities,
+              stateTool: tools.state,
+              executeTool: tools.execute,
+              evalTool: tools.eval,
+              screenshotTool: tools.screenshot,
+            }),
+            '',
+            ...vacpStateEfficiencyGuidance(tools.state),
             '',
             'Efficiency (high priority; avoid timeouts + token bloat):',
             `- Prefer semantic tools (\`${tools.capabilities}\`, \`${tools.state}\`, \`${tools.execute}\`) over browser tools whenever possible.`,
