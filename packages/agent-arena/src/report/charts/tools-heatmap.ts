@@ -1,13 +1,6 @@
 import * as Plot from '@observablehq/plot';
 import { plotSvg, type SvgLegend } from './plot.js';
-import {
-  fmtNumber,
-  isDark,
-  linearTicks,
-  marginLeftForLabels,
-  normalize01,
-  resolveLayout,
-} from './utils.js';
+import { fmtNumber, isDark, linearTicks, marginLeftForLabels, normalize01, resolveLayout } from './utils.js';
 import type { ArenaChart, ArenaFigureLayout, ArenaReportTheme } from './types.js';
 import type { ToolByExperimentRow } from '../stats.js';
 import { metricPalette } from './scenario-metric-heatmap.js';
