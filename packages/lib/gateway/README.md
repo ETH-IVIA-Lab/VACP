@@ -22,7 +22,8 @@ installVacpRuntimeBridge({ snapshots: { getCapabilities, getState }, actions });
 By default this exposes a bridge at `window.__vacp` (disable via `VACP_EXPOSE_BRIDGE=0` / `?expose-bridge=0`).
 
 By default, `installVacpRuntimeBridge` also injects a `type="application/json"` `<script>` tag
-(`id="__vacp_snapshot"`) whose text content is pure JSON containing `{ capabilities, state }`.
+(`id="__vacp_snapshot"`) whose text content is a compact manifest (`vacp.dom_snapshot`) that points to
+graph/state-index/state-catalog/per-ref JSON scripts for progressive DOM-only access.
 Disable via `injectDomSnapshot: false` (or set `VACP_DOM_SNAPSHOT=0` / `?vacp-dom-snapshot=0`).
 
 If you pass `injectDomSnapshot`, it takes precedence over env/URL config.

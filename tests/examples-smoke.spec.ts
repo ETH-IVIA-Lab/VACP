@@ -22,10 +22,52 @@ async function expectDomSnapshotScript(page: Page, scriptId = '__vacp_snapshot')
   }, scriptId);
 
   const raw = await page.evaluate((id) => document.getElementById(String(id))?.textContent ?? '', scriptId);
-  const parsed = JSON.parse(raw);
-  expect(parsed?.capabilities?.graph).toBeTruthy();
-  expect(typeof parsed?.state?.state).toBe('object');
-  return parsed;
+  const manifest = JSON.parse(raw);
+  expect(manifest?.format).toBe('vacp.dom_snapshot');
+  expect(Object.prototype.hasOwnProperty.call(manifest, 'version')).toBeFalsy();
+  expect(typeof manifest?.graph?.scriptId).toBe('string');
+  expect(typeof manifest?.state?.indexScriptId).toBe('string');
+  expect(typeof manifest?.state?.catalogScriptId).toBe('string');
+
+  const graphRaw = await page.evaluate(
+    (id) => document.getElementById(String(id))?.textContent ?? '',
+    manifest.graph.scriptId,
+  );
+  const graph = JSON.parse(graphRaw);
+  expect(Object.prototype.hasOwnProperty.call(graph, 'version')).toBeFalsy();
+  expect(Array.isArray(graph?.graph?.nodes)).toBeTruthy();
+  expect(Array.isArray(graph?.graph?.actions)).toBeTruthy();
+
+  const stateIndexRaw = await page.evaluate(
+    (id) => document.getElementById(String(id))?.textContent ?? '',
+    manifest.state.indexScriptId,
+  );
+  const stateIndex = JSON.parse(stateIndexRaw);
+  expect(Object.prototype.hasOwnProperty.call(stateIndex, 'version')).toBeFalsy();
+  expect(Array.isArray(stateIndex?.changedRefs)).toBeTruthy();
+  expect(Array.isArray(stateIndex?.removedRefs)).toBeTruthy();
+  expect(typeof stateIndex?.catalog?.scriptId).toBe('string');
+
+  const stateCatalogRaw = await page.evaluate(
+    (id) => document.getElementById(String(id))?.textContent ?? '',
+    manifest.state.catalogScriptId,
+  );
+  const stateCatalog = JSON.parse(stateCatalogRaw);
+  expect(Object.prototype.hasOwnProperty.call(stateCatalog, 'version')).toBeFalsy();
+  expect(Array.isArray(stateCatalog?.refs)).toBeTruthy();
+
+  const firstRef = (stateCatalog?.refs ?? [])[0];
+  if (firstRef?.scriptId) {
+    const refRaw = await page.evaluate(
+      (id) => document.getElementById(String(id))?.textContent ?? '',
+      firstRef.scriptId,
+    );
+    const refPayload = JSON.parse(refRaw);
+    expect(Object.prototype.hasOwnProperty.call(refPayload, 'version')).toBeFalsy();
+    expect(refPayload?.ref).toBe(firstRef.ref);
+    expect(Object.prototype.hasOwnProperty.call(refPayload, 'value')).toBeTruthy();
+  }
+  return { manifest, graph, stateIndex, stateCatalog };
 }
 
 async function getCapabilities(page: Page): Promise<any> {
