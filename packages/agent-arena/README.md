@@ -68,7 +68,7 @@ Evaluation notes:
 - The report includes a dedicated **Token Accounting** section and separate median charts for:
   - **Median Token Accounting by Experiment (No Cache)**
   - **Median Token Accounting by Experiment (With Cache)**
-- Scenario solved heatmaps are categorical (green/yellow/red) to distinguish interaction-derived solves vs workaround solves vs failures.
+- Scenario solved heatmaps are categorical (green/yellow/red) to distinguish solves with observed `vacp_execute` vs no `vacp_execute` signal vs failures.
 
 The datasets export writes:
 
