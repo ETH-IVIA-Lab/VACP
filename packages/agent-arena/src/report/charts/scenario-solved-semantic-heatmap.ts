@@ -5,14 +5,13 @@ import type { ArenaChart, ArenaFigureLayout } from './types.js';
 import type { NormalizedRun } from '../stats.js';
 import {
   buildFailureSnippet,
-  buildTrajectorySnippet,
   classifySolvedEvidence,
   pushUniqueBounded,
 } from './solved-evidence.js';
 
 export type ScenarioSolvedSemanticHeatmapChartConfig = ArenaFigureLayout;
 
-type SolvedOutcomeBucket = 'solved-interaction' | 'solved-workaround' | 'failed' | 'unknown' | 'not-run';
+type SolvedOutcomeBucket = 'solved-observed-vacp-execute' | 'solved-no-vacp-execute-signal' | 'failed' | 'unknown' | 'not-run';
 
 function scenarioSolvedSemanticCells(
   ctx: Parameters<ArenaChart<ScenarioSolvedSemanticHeatmapChartConfig>['getData']>[0],
@@ -31,14 +30,11 @@ function scenarioSolvedSemanticCells(
         scenarioId,
         total: 0,
         usable: 0,
-        solvedInteraction: 0,
-        solvedWorkaround: 0,
+        solvedObservedVacpExecute: 0,
+        solvedNoVacpExecuteSignal: 0,
         failed: 0,
-        basisSelfReportedInteraction: 0,
-        basisSelfReportedPriorKnowledge: 0,
-        basisInferredVacpExecute: 0,
-        basisUnknown: 0,
-        trajectoryNotes: [] as string[],
+        basisObservedVacpExecute: 0,
+        basisNoVacpExecuteSignal: 0,
         failureNotes: [] as string[],
       };
       const bucket = classifySolvedBucket(d);
@@ -49,14 +45,11 @@ function scenarioSolvedSemanticCells(
         scenario_index: scenarioIndex.get(scenarioId) ?? null,
         total: d.total,
         usable: d.usable,
-        solved_interaction: d.solvedInteraction,
-        solved_workaround: d.solvedWorkaround,
+        solved_observed_vacp_execute: d.solvedObservedVacpExecute,
+        solved_no_vacp_execute_signal: d.solvedNoVacpExecuteSignal,
         failed: d.failed,
-        basis_self_reported_interaction: d.basisSelfReportedInteraction,
-        basis_self_reported_prior_knowledge: d.basisSelfReportedPriorKnowledge,
-        basis_inferred_vacp_execute: d.basisInferredVacpExecute,
-        basis_unknown: d.basisUnknown,
-        trajectory_notes: d.trajectoryNotes,
+        basis_observed_vacp_execute: d.basisObservedVacpExecute,
+        basis_no_vacp_execute_signal: d.basisNoVacpExecuteSignal,
         failure_notes: d.failureNotes,
         bucket,
         fill,
@@ -71,14 +64,14 @@ export const scenarioSolvedSemanticHeatmapChart: ArenaChart<ScenarioSolvedSemant
   id: 'scenario-heatmap-semantic',
   title: 'Scenario by Experiment — Solved Semantic',
   caption:
-    'Semantic result per task. Workaround detection uses reflection provenance first, with vacp_execute as fallback evidence when provenance is missing. Hover a cell for trajectory notes.',
+    'Semantic result per task. Evidence labels report whether vacp_execute was observed, without inferring intent.',
   isApplicable: (ctx) => ctx.runs.some((r) => typeof r.solvedSemantic === 'boolean'),
   getData: (ctx) => scenarioSolvedSemanticCells(ctx),
   render: (ctx, config) => {
     const legend: SvgLegend = {
       items: [
-        { label: 'Solved (interaction-derived)', fill: ctx.theme.colors.ok },
-        { label: 'Solved (workaround / loophole)', fill: ctx.theme.colors.warn },
+        { label: 'Solved (observed vacp_execute)', fill: ctx.theme.colors.ok },
+        { label: 'Solved (no vacp_execute signal)', fill: ctx.theme.colors.warn },
         { label: 'Failed', fill: ctx.theme.colors.bad },
         { label: 'n/a', fill: ctx.theme.colors.grid },
         { label: 'Not run', fill: '#ffffff', stroke: ctx.theme.colors.grid },
@@ -158,14 +151,11 @@ function aggregateSolvedSemanticOutcomes(runs: NormalizedRun[]) {
       scenarioId: string;
       total: number;
       usable: number;
-      solvedInteraction: number;
-      solvedWorkaround: number;
+      solvedObservedVacpExecute: number;
+      solvedNoVacpExecuteSignal: number;
       failed: number;
-      basisSelfReportedInteraction: number;
-      basisSelfReportedPriorKnowledge: number;
-      basisInferredVacpExecute: number;
-      basisUnknown: number;
-      trajectoryNotes: string[];
+      basisObservedVacpExecute: number;
+      basisNoVacpExecuteSignal: number;
       failureNotes: string[];
     }
   >();
@@ -178,14 +168,11 @@ function aggregateSolvedSemanticOutcomes(runs: NormalizedRun[]) {
       scenarioId: run.scenarioId,
       total: 0,
       usable: 0,
-      solvedInteraction: 0,
-      solvedWorkaround: 0,
+      solvedObservedVacpExecute: 0,
+      solvedNoVacpExecuteSignal: 0,
       failed: 0,
-      basisSelfReportedInteraction: 0,
-      basisSelfReportedPriorKnowledge: 0,
-      basisInferredVacpExecute: 0,
-      basisUnknown: 0,
-      trajectoryNotes: [],
+      basisObservedVacpExecute: 0,
+      basisNoVacpExecuteSignal: 0,
       failureNotes: [],
     };
 
@@ -195,15 +182,11 @@ function aggregateSolvedSemanticOutcomes(runs: NormalizedRun[]) {
       cur.usable += 1;
       if (run.solvedSemantic) {
         const evidence = classifySolvedEvidence(run);
-        if (evidence.classification === 'interaction') cur.solvedInteraction += 1;
-        else cur.solvedWorkaround += 1;
+        if (evidence.classification === 'observed-vacp-execute') cur.solvedObservedVacpExecute += 1;
+        else cur.solvedNoVacpExecuteSignal += 1;
 
-        if (evidence.basis === 'self-reported interaction-derived') cur.basisSelfReportedInteraction += 1;
-        else if (evidence.basis === 'self-reported prior-knowledge/guess') cur.basisSelfReportedPriorKnowledge += 1;
-        else if (evidence.basis === 'inferred interaction from vacp_execute') cur.basisInferredVacpExecute += 1;
-        else cur.basisUnknown += 1;
-
-        pushUniqueBounded(cur.trajectoryNotes, buildTrajectorySnippet(run), 3);
+        if (evidence.basis === 'observed vacp_execute') cur.basisObservedVacpExecute += 1;
+        else cur.basisNoVacpExecuteSignal += 1;
       } else {
         cur.failed += 1;
         pushUniqueBounded(cur.failureNotes, buildFailureSnippet(run), 2);
@@ -218,13 +201,13 @@ function aggregateSolvedSemanticOutcomes(runs: NormalizedRun[]) {
 
 function classifySolvedBucket(row: {
   total: number;
-  solvedInteraction: number;
-  solvedWorkaround: number;
+  solvedObservedVacpExecute: number;
+  solvedNoVacpExecuteSignal: number;
   failed: number;
 }): SolvedOutcomeBucket {
   if (row.total === 0) return 'not-run';
-  if (row.solvedWorkaround > 0) return 'solved-workaround';
-  if (row.solvedInteraction > 0) return 'solved-interaction';
+  if (row.solvedNoVacpExecuteSignal > 0) return 'solved-no-vacp-execute-signal';
+  if (row.solvedObservedVacpExecute > 0) return 'solved-observed-vacp-execute';
   if (row.failed > 0) return 'failed';
   return 'unknown';
 }
@@ -233,8 +216,8 @@ function bucketColor(
   bucket: SolvedOutcomeBucket,
   theme: { colors: { ok: string; warn: string; bad: string; grid: string } },
 ) {
-  if (bucket === 'solved-interaction') return theme.colors.ok;
-  if (bucket === 'solved-workaround') return theme.colors.warn;
+  if (bucket === 'solved-observed-vacp-execute') return theme.colors.ok;
+  if (bucket === 'solved-no-vacp-execute-signal') return theme.colors.warn;
   if (bucket === 'failed') return theme.colors.bad;
   if (bucket === 'unknown') return theme.colors.grid;
   return '#ffffff';
@@ -245,14 +228,11 @@ function formatSolvedSemanticCellTitle(row: {
   scenario_id: string;
   total: number;
   usable: number;
-  solved_interaction: number;
-  solved_workaround: number;
+  solved_observed_vacp_execute: number;
+  solved_no_vacp_execute_signal: number;
   failed: number;
-  basis_self_reported_interaction: number;
-  basis_self_reported_prior_knowledge: number;
-  basis_inferred_vacp_execute: number;
-  basis_unknown: number;
-  trajectory_notes: string[];
+  basis_observed_vacp_execute: number;
+  basis_no_vacp_execute_signal: number;
   failure_notes: string[];
   bucket: SolvedOutcomeBucket;
 }) {
@@ -261,26 +241,21 @@ function formatSolvedSemanticCellTitle(row: {
     return `${row.experiment} × ${row.scenario_id}\nSolved semantic: n/a (no usable solved_semantic value)`;
 
   const verdict =
-    row.bucket === 'solved-interaction'
-      ? 'Solved (interaction-derived)'
-      : row.bucket === 'solved-workaround'
-        ? 'Solved (workaround / loophole)'
+    row.bucket === 'solved-observed-vacp-execute'
+      ? 'Solved (observed vacp_execute)'
+      : row.bucket === 'solved-no-vacp-execute-signal'
+        ? 'Solved (no vacp_execute signal)'
         : 'Failed';
   return [
     `${row.experiment} × ${row.scenario_id}`,
     `Outcome: ${verdict}`,
     `Runs: total ${row.total}, usable ${row.usable}`,
-    `Solved (interaction-derived): ${row.solved_interaction}`,
-    `Solved (workaround / loophole): ${row.solved_workaround}`,
+    `Solved (observed vacp_execute): ${row.solved_observed_vacp_execute}`,
+    `Solved (no vacp_execute signal): ${row.solved_no_vacp_execute_signal}`,
     `Failed: ${row.failed}`,
     `Evidence basis:`,
-    `- Self-reported interaction-derived: ${row.basis_self_reported_interaction}`,
-    `- Self-reported prior-knowledge/guess: ${row.basis_self_reported_prior_knowledge}`,
-    `- Inferred interaction from vacp_execute: ${row.basis_inferred_vacp_execute}`,
-    `- Unknown provenance: ${row.basis_unknown}`,
-    ...(row.trajectory_notes.length
-      ? ['Trajectory notes (sample):', ...row.trajectory_notes.map((note) => `- ${note}`)]
-      : []),
+    `- Observed vacp_execute: ${row.basis_observed_vacp_execute}`,
+    `- No vacp_execute signal: ${row.basis_no_vacp_execute_signal}`,
     ...(row.failure_notes.length ? ['Failure notes (sample):', ...row.failure_notes.map((note) => `- ${note}`)] : []),
   ].join('\n');
 }

@@ -1,55 +1,24 @@
 import type { NormalizedRun } from '../stats.js';
 
-export type SolvedEvidenceClass = 'interaction' | 'workaround';
+export type SolvedEvidenceClass = 'observed-vacp-execute' | 'no-vacp-execute-signal';
 
-export type SolvedEvidenceBasis =
-  | 'self-reported interaction-derived'
-  | 'self-reported prior-knowledge/guess'
-  | 'inferred interaction from vacp_execute'
-  | 'unknown provenance';
+export type SolvedEvidenceBasis = 'observed vacp_execute' | 'no vacp_execute signal';
 
 export function classifySolvedEvidence(run: NormalizedRun): {
   classification: SolvedEvidenceClass;
   basis: SolvedEvidenceBasis;
 } {
-  if (run.reflectionProvenance === 'interaction-derived') {
-    return {
-      classification: 'interaction',
-      basis: 'self-reported interaction-derived',
-    };
-  }
-
-  if (run.reflectionProvenance === 'prior-knowledge/guess') {
-    return {
-      classification: 'workaround',
-      basis: 'self-reported prior-knowledge/guess',
-    };
-  }
-
   if (run.hasVacpExecuteTool === true) {
     return {
-      classification: 'interaction',
-      basis: 'inferred interaction from vacp_execute',
+      classification: 'observed-vacp-execute',
+      basis: 'observed vacp_execute',
     };
   }
 
   return {
-    classification: 'workaround',
-    basis: 'unknown provenance',
+    classification: 'no-vacp-execute-signal',
+    basis: 'no vacp_execute signal',
   };
-}
-
-export function buildTrajectorySnippet(run: NormalizedRun): string | null {
-  const parts: string[] = [];
-  if (run.reflectionActionsToolsAvailableVsUsedWhy) {
-    parts.push(`tools: ${cleanText(run.reflectionActionsToolsAvailableVsUsedWhy)}`);
-  }
-  if (run.reflectionEasyHardWhy) {
-    parts.push(`difficulty: ${cleanText(run.reflectionEasyHardWhy)}`);
-  }
-  if (!parts.length) return null;
-  const model = `${run.modelProvider}/${run.modelName}`;
-  return `${model}: ${truncate(parts.join(' | '), 260)}`;
 }
 
 export function buildFailureSnippet(run: NormalizedRun): string | null {

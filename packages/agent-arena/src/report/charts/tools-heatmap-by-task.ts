@@ -27,25 +27,52 @@ function toolsHeatmapByTaskCells(
   const byKey = new Map<string, number>();
   for (const r of collapsed) byKey.set(`${r.scenarioId}__${r.tool}`, r.calls);
 
-  const rows: Array<{ scenario_id: string; tool_raw: string; tool_label: string; calls: number }> = [];
+  const runsByScenario = new Map<string, number>();
+  for (const run of ctx.runs) {
+    if (!run.scenarioId) continue;
+    runsByScenario.set(run.scenarioId, (runsByScenario.get(run.scenarioId) ?? 0) + 1);
+  }
+
+  const rows: Array<{
+    scenario_id: string;
+    tool_raw: string;
+    tool_label: string;
+    calls: number;
+    run_count: number;
+    calls_per_run: number | null;
+  }> = [];
   for (const tool of displayTools) {
     for (const scenarioId of ctx.scenarioDomain) {
       const calls = byKey.get(`${scenarioId}__${tool.tool_raw}`) ?? 0;
-      rows.push({ scenario_id: scenarioId, tool_raw: tool.tool_raw, tool_label: tool.tool_label, calls });
+      const runCount = runsByScenario.get(scenarioId) ?? 0;
+      const callsPerRun = runCount > 0 ? calls / runCount : null;
+      rows.push({
+        scenario_id: scenarioId,
+        tool_raw: tool.tool_raw,
+        tool_label: tool.tool_label,
+        calls,
+        run_count: runCount,
+        calls_per_run: callsPerRun,
+      });
     }
   }
 
-  const callValues = rows.map((d) => d.calls).filter((v) => Number.isFinite(v));
+  const callValues = rows
+    .map((d) => d.calls_per_run)
+    .filter((v): v is number => typeof v === 'number' && Number.isFinite(v));
   const minCalls = callValues.length ? Math.min(...callValues) : 0;
   const maxCalls = callValues.length ? Math.max(...callValues) : 0;
   const palette = metricPalette(ctx.theme);
   const steps = Math.max(1, palette.length);
   return rows.map((d) => {
-    const fill = palette[Math.min(steps - 1, Math.floor(normalize01(d.calls, minCalls, maxCalls) * steps))];
+    const fill =
+      d.calls_per_run === null
+        ? ctx.theme.colors.grid
+        : palette[Math.min(steps - 1, Math.floor(normalize01(d.calls_per_run, minCalls, maxCalls) * steps))];
     return {
       ...d,
       fill,
-      label: d.calls ? fmtNumber(d.calls) : '',
+      label: d.calls_per_run === null ? 'n/a' : formatCallsPerRun(d.calls_per_run),
       text_fill: isDark(fill) ? '#ffffff' : ctx.theme.colors.ink,
     };
   });
@@ -53,8 +80,8 @@ function toolsHeatmapByTaskCells(
 
 export const toolsHeatmapByTaskChart: ArenaChart<ToolsHeatmapByTaskChartConfig> = {
   id: 'tools-heatmap-by-task',
-  title: 'Top Tools by Call Count — Task View',
-  caption: 'Top tools by call volume, shown per task. Cell numbers are exact counts.',
+  title: 'Top Tools by Calls per Run — Task View',
+  caption: 'Top tools normalized by run count, shown per task. Cells show calls per run.',
   isApplicable: (ctx) => ctx.toolByScenario.length > 0,
   getData: (ctx, config) => toolsHeatmapByTaskCells(ctx, config),
   render: (ctx, config) => {
@@ -112,7 +139,8 @@ export const toolsHeatmapByTaskChart: ArenaChart<ToolsHeatmapByTaskChartConfig> 
             y: 'tool_label',
             fill: 'fill',
             inset: 0,
-            title: (d) => `${d.scenario_id} × ${d.tool_raw}\nCalls: ${fmtNumber(d.calls)}`,
+            title: (d) =>
+              `${d.scenario_id} × ${d.tool_raw}\nCalls per run: ${d.calls_per_run === null ? 'n/a' : formatCallsPerRun(d.calls_per_run)}\nCalls: ${fmtNumber(d.calls)}\nRuns: ${fmtNumber(d.run_count)}`,
           }),
           Plot.text(cells, {
             x: 'scenario_id',
@@ -138,11 +166,13 @@ export const toolsHeatmapByTaskChart: ArenaChart<ToolsHeatmapByTaskChartConfig> 
 };
 
 function legendForToolsHeatmapByTask(
-  cells: Array<{ fill: string; calls: number }>,
+  cells: Array<{ fill: string; calls_per_run: number | null }>,
   theme: ArenaReportTheme,
 ): SvgLegend {
-  const values = cells.map((cell) => cell.calls).filter((v) => Number.isFinite(v));
-  if (!values.length) return { kind: 'swatches', title: 'Calls', items: [] };
+  const values = cells
+    .map((cell) => cell.calls_per_run)
+    .filter((v): v is number => typeof v === 'number' && Number.isFinite(v));
+  if (!values.length) return { kind: 'swatches', title: 'Calls per run', items: [] };
   const minCalls = Math.min(...values);
   const maxCalls = Math.max(...values);
   const palette = metricPalette(theme);
@@ -158,13 +188,19 @@ function legendForToolsHeatmapByTask(
 
   return {
     kind: 'ramp',
-    title: 'Calls',
+    title: 'Calls per run',
     segments,
     ticks: tickValues.map((value) => ({
       value,
-      label: fmtNumber(value),
+      label: formatCallsPerRun(value),
     })),
   };
+}
+
+function formatCallsPerRun(value: number) {
+  if (!Number.isFinite(value)) return 'n/a';
+  const rounded = value >= 10 ? value.toFixed(1) : value.toFixed(2);
+  return rounded.replace(/\.0+$/, '').replace(/(\.\d*[1-9])0+$/, '$1');
 }
 
 function topKTools(rows: ToolByScenarioRow[], k: number) {

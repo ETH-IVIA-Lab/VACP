@@ -8,7 +8,11 @@ import { paretoChart } from './charts/pareto.js';
 import { scenarioDurationHeatmapChart } from './charts/scenario-duration-heatmap.js';
 import { scenarioSolvedHeatmapChart } from './charts/scenario-solved-heatmap.js';
 import { scenarioSolvedSemanticHeatmapChart } from './charts/scenario-solved-semantic-heatmap.js';
-import { scenarioTokensHeatmapChart } from './charts/scenario-tokens-heatmap.js';
+import {
+  scenarioTokensHeatmapNoCacheChart,
+  scenarioTokensHeatmapWithCacheAllChart,
+  scenarioTokensHeatmapWithCacheReadChart,
+} from './charts/scenario-tokens-heatmap.js';
 import { solvedSemanticChart } from './charts/solved-semantic.js';
 import { solvedStrictChart } from './charts/solved-strict.js';
 import { tokensMedianNoCacheChart, tokensMedianWithCacheChart } from './charts/tokens-cache-comparison.js';
@@ -41,7 +45,9 @@ export const DEFAULT_CHARTS: ArenaAnyChart[] = [
   scenarioSolvedHeatmapChart,
   scenarioSolvedSemanticHeatmapChart,
   scenarioDurationHeatmapChart,
-  scenarioTokensHeatmapChart,
+  scenarioTokensHeatmapWithCacheAllChart,
+  scenarioTokensHeatmapWithCacheReadChart,
+  scenarioTokensHeatmapNoCacheChart,
   toolsHeatmapChart,
   toolsHeatmapByTaskChart,
 ];

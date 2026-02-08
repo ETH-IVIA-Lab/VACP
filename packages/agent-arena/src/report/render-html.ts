@@ -67,8 +67,6 @@ export type ArenaReportSection = {
   render: (ctx: ArenaReportHtmlContext) => string;
 };
 
-const INCLUDE_MODEL_REFLECTION_SECTION = false;
-
 type ChartGroupDef = {
   id: string;
   title: string;
@@ -87,8 +85,16 @@ const CHART_GROUPS: ChartGroupDef[] = [
   {
     id: 'charts-task-outcomes',
     title: 'Task-Level Outcome Matrix',
-    subtitle: 'Task-by-task outcomes, time, and token usage across experiments.',
-    chartIds: ['scenario-heatmap', 'scenario-heatmap-semantic', 'scenario-duration-heatmap', 'scenario-tokens-heatmap'],
+    subtitle:
+      'Task-by-task outcomes, time, and token usage across experiments. Token heatmaps are split by explicit accounting basis.',
+    chartIds: [
+      'scenario-heatmap',
+      'scenario-heatmap-semantic',
+      'scenario-duration-heatmap',
+      'scenario-tokens-heatmap-with-cache-all',
+      'scenario-tokens-heatmap-with-cache-read',
+      'scenario-tokens-heatmap-no-cache',
+    ],
   },
   {
     id: 'charts-efficiency',
@@ -100,7 +106,7 @@ const CHART_GROUPS: ChartGroupDef[] = [
   {
     id: 'charts-tools',
     title: 'Tools & Reliability',
-    subtitle: 'Tool usage patterns and reliability signals across runs.',
+    subtitle: 'Tool usage patterns and reliability signals across runs. Tool heatmaps are normalized as calls per run.',
     chartIds: ['tool-calls', 'flags-heatmap', 'tools-heatmap', 'tools-heatmap-by-task'],
   },
 ];
@@ -130,14 +136,6 @@ export const DEFAULT_REPORT_SECTIONS: ArenaReportSection[] = [
     id: 'model-responses',
     render: renderModelResponsesSection,
   },
-  ...(INCLUDE_MODEL_REFLECTION_SECTION
-    ? ([
-        {
-          id: 'reflection-structured',
-          render: renderReflectionStructuredSection,
-        },
-      ] satisfies ArenaReportSection[])
-    : []),
   {
     id: 'task-index',
     render: renderTaskIndexSection,
@@ -268,6 +266,11 @@ function renderOverviewSection(ctx: ArenaReportHtmlContext) {
       ].join('\n'),
     ),
     '      </div>',
+    '      <ul class="overviewCaveats muted small">',
+    '        <li>Charts use the preferred-run view: one selected run per model, run_id, experiment, and scenario group.</li>',
+    '        <li>Flag rates are computed over runs with available telemetry for each flag. Missing values are excluded and shown as n/a.</li>',
+    '        <li>Tool heatmaps report calls per run, not raw call totals.</li>',
+    '      </ul>',
     '    </section>',
   ].join('\n');
 }
@@ -336,8 +339,6 @@ function renderFloatingNav(args: {
     links.push({ href: '#section-task-breakdown', label: 'Task Breakdown' });
   if (args.enabledSections.has('model-responses'))
     links.push({ href: '#section-model-responses', label: 'Model Responses' });
-  if (args.enabledSections.has('reflection-structured'))
-    links.push({ href: '#section-reflection-structured', label: 'Model Reflection' });
   if (args.enabledSections.has('task-index')) links.push({ href: '#section-task-index', label: 'Task Index' });
 
   if (!links.length) return '';
@@ -581,180 +582,6 @@ function renderTaskBreakdownSection(ctx: ArenaReportHtmlContext) {
     '      </div>',
     '    </section>',
   ].join('\n');
-}
-
-function renderReflectionStructuredSection(ctx: ArenaReportHtmlContext) {
-  const rows = buildReflectionTaskRows(ctx);
-  if (!rows.length) {
-    return [
-      '    <section class="section panelSection" id="section-reflection-structured">',
-      '      <h2>Model Reflection</h2>',
-      '      <p class="sectionIntro muted small">No structured reflection metadata found in these runs.</p>',
-      '    </section>',
-    ].join('\n');
-  }
-
-  const rowsByTask = new Map<string, number>();
-  for (const row of rows) {
-    const key = `${row.index}__${row.scenarioId}`;
-    rowsByTask.set(key, (rowsByTask.get(key) ?? 0) + 1);
-  }
-  const emittedTaskCells = new Set<string>();
-
-  const tableRows = rows
-    .map((row) => {
-      const taskKey = `${row.index}__${row.scenarioId}`;
-      const span = rowsByTask.get(taskKey) ?? 1;
-      const includeTaskCells = !emittedTaskCells.has(taskKey);
-      if (includeTaskCells) emittedTaskCells.add(taskKey);
-
-      return [
-        `<tr>`,
-        includeTaskCells ? `<td class="num" rowspan="${span}">${fmtInt(row.index)}</td>` : '',
-        includeTaskCells
-          ? `<td class="taskText" rowspan="${span}">${row.task ? escapeHtml(row.task) : '<span class="muted">n/a</span>'}</td>`
-          : '',
-        `<td class="exp">${escapeHtml(row.experiment)}</td>`,
-        `<td class="num">${fmtInt(row.n)}</td>`,
-        `<td>${escapeHtml(row.coverageLabel)}</td>`,
-        `<td>${escapeHtml(row.provenanceLabel)}</td>`,
-        `<td>${escapeHtml(row.confidenceLabel)}</td>`,
-        `<td>${escapeHtml(row.robustnessLabel)}</td>`,
-        `</tr>`,
-      ].join('');
-    })
-    .join('\n');
-
-  return [
-    '    <section class="section panelSection" id="section-reflection-structured">',
-    '      <h2>Model Reflection</h2>',
-    '      <p class="sectionIntro muted small">Categorical self-reported process signals from model reflections, summarized per task and experiment.</p>',
-    '      <div class="tableWrap">',
-    '        <table class="reflections">',
-    '          <thead>',
-    '            <tr>',
-    '              <th class="num">#</th>',
-    '              <th>Task</th>',
-    '              <th>Experiment</th>',
-    '              <th class="num">n</th>',
-    '              <th>Reflection completeness</th>',
-    '              <th>Evidence source</th>',
-    '              <th>Confidence level</th>',
-    '              <th>Process quality</th>',
-    '            </tr>',
-    '          </thead>',
-    '          <tbody>',
-    tableRows,
-    '          </tbody>',
-    '        </table>',
-    '      </div>',
-    '    </section>',
-  ].join('\n');
-}
-
-function buildReflectionTaskRows(ctx: ArenaReportHtmlContext) {
-  const byKey = new Map<string, NormalizedRun[]>();
-  for (const run of ctx.runs) {
-    const key = `${run.scenarioId}__${run.experiment}`;
-    const list = byKey.get(key);
-    if (list) list.push(run);
-    else byKey.set(key, [run]);
-  }
-
-  const rows: Array<{
-    index: number;
-    scenarioId: string;
-    task: string | null;
-    experiment: string;
-    n: number;
-    coverageLabel: string;
-    provenanceLabel: string;
-    confidenceLabel: string;
-    robustnessLabel: string;
-  }> = [];
-
-  for (const task of ctx.taskIndex) {
-    for (const exp of ctx.experiments) {
-      const runs = byKey.get(`${task.scenarioId}__${exp}`) ?? [];
-      if (!runs.length) continue;
-
-      const parsedRuns = runs.filter(
-        (r) =>
-          r.reflectionProvenance === 'interaction-derived' ||
-          r.reflectionProvenance === 'prior-knowledge/guess' ||
-          r.reflectionStructuredParseStatus === 'ok',
-      );
-
-      const parsed = parsedRuns.length;
-      const interaction = parsedRuns.filter((r) => r.reflectionProvenance === 'interaction-derived').length;
-      const prior = parsedRuns.filter((r) => r.reflectionProvenance === 'prior-knowledge/guess').length;
-      const confLow = parsedRuns.filter((r) => r.reflectionConfidence === 'low').length;
-      const confMedium = parsedRuns.filter((r) => r.reflectionConfidence === 'medium').length;
-      const confHigh = parsedRuns.filter((r) => r.reflectionConfidence === 'high').length;
-      const robust = parsedRuns.filter((r) => r.reflectionRobustness === 'robust').length;
-      const brittle = parsedRuns.filter((r) => r.reflectionRobustness === 'brittle').length;
-
-      const coverageLabel =
-        parsed === 0
-          ? `Missing (${parsed}/${runs.length})`
-          : parsed === runs.length
-            ? `Complete (${parsed}/${runs.length})`
-            : `Partial (${parsed}/${runs.length})`;
-
-      const provenanceLabel =
-        parsed === 0
-          ? 'Unknown evidence source'
-          : interaction > 0 && prior === 0
-            ? `Interaction-derived only (${interaction}/${parsed})`
-            : interaction === 0 && prior > 0
-              ? `Prior-knowledge only (${prior}/${parsed})`
-              : interaction > 0 && prior > 0
-                ? `Mixed interaction and prior (${interaction}/${prior})`
-                : 'Unspecified evidence source';
-
-      const confidenceTotal = confLow + confMedium + confHigh;
-      const confidenceLabel =
-        confidenceTotal === 0 ? 'Unspecified confidence' : dominantConfidenceLabel({ confLow, confMedium, confHigh });
-
-      const robustnessLabel =
-        robust === 0 && brittle === 0
-          ? 'Unspecified process robustness'
-          : robust > 0 && brittle === 0
-            ? `Robust process (${robust}/${parsed})`
-            : brittle > 0 && robust === 0
-              ? `Brittle process (${brittle}/${parsed})`
-              : `Mixed process robustness (${robust}/${brittle})`;
-
-      rows.push({
-        index: task.index,
-        scenarioId: task.scenarioId,
-        task: task.task,
-        experiment: exp,
-        n: runs.length,
-        coverageLabel,
-        provenanceLabel,
-        confidenceLabel,
-        robustnessLabel,
-      });
-    }
-  }
-
-  return rows;
-}
-
-function dominantConfidenceLabel(args: { confLow: number; confMedium: number; confHigh: number }) {
-  const entries: Array<{ label: string; value: number; short: string }> = [
-    { label: 'Low confidence', value: args.confLow, short: 'L' },
-    { label: 'Medium confidence', value: args.confMedium, short: 'M' },
-    { label: 'High confidence', value: args.confHigh, short: 'H' },
-  ];
-  const sorted = [...entries].sort((a, b) => b.value - a.value);
-  const top = sorted[0];
-  const second = sorted[1];
-  const total = args.confLow + args.confMedium + args.confHigh;
-  if (!top || total === 0) return 'Unspecified confidence';
-  if (!second || top.value > second.value) return `${top.label} (${top.value}/${total})`;
-  return `Mixed confidence (${args.confLow}/${args.confMedium}/${args.confHigh})`;
 }
 
 function renderModelResponsesSection(ctx: ArenaReportHtmlContext) {
@@ -1087,6 +914,11 @@ body {
   grid-template-columns: repeat(5, minmax(0, 1fr));
 }
 
+.overviewCaveats {
+  margin: 12px 0 0;
+  padding-left: 18px;
+}
+
 .metricCard {
   border-left: 1px solid var(--grid-soft);
   padding: 12px 10px 11px;
@@ -1281,10 +1113,6 @@ table.scenarios {
 
 table.tasks {
   min-width: 1680px;
-}
-
-table.reflections {
-  min-width: 1560px;
 }
 
 table.responses {
