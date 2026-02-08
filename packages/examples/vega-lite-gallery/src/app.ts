@@ -42,7 +42,7 @@ export async function run(): Promise<void> {
     const spec = entry.createSpec();
     const g = globalThis as unknown as { __vegaView?: unknown };
     try {
-      const result = await embed(app, spec as unknown as VisualizationSpec, { actions: false, renderer: 'svg' });
+      const result = await embed(app, spec as unknown as VisualizationSpec, { actions: false, renderer: 'canvas' });
 
       // VACP layer: exposes Vega params/selections as nodes/actions at `window.__vacp`.
       installVacp({
