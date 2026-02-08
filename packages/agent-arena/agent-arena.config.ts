@@ -45,7 +45,7 @@ function agentBrowserEfficiencyGuidance(ctx: PromptContext): string[] {
     'agent-browser usage:',
     `- Always pass \`--session ${ctx.opencode.sessionID}\` to \`${AGENT_BROWSER}\` commands.`,
     '- Do NOT run `agent-browser --help`.',
-    '- Keep command outputs small (avoid large DOM/text dumps).',
+    '- Keep command outputs small. Avoid large DOM/text dumps.',
     '- Open the URL once; do not repeat `open` unless the page clearly failed to load.',
     '- Use these exact command forms. Do not use `--url` or `--path` variants:',
     `- \`${AGENT_BROWSER} open \"<url>\" --session ${ctx.opencode.sessionID}\``,
@@ -58,6 +58,8 @@ function agentBrowserEfficiencyGuidance(ctx: PromptContext): string[] {
     '- Read only screenshots you rely on for the final answer.',
     '- `eval`: pass JS in SINGLE quotes; avoid backticks and `${...}` to prevent shell expansion.',
     '- `eval`: return compact JSON objects only.',
+    '- `eval`: do NOT call `fetch`, `XMLHttpRequest`, or similar network APIs to pull raw dataset files or JSON payloads.',
+    '- `eval`: use it for small interaction and state checks that a human can verify on-screen.',
   ];
 }
 
@@ -77,18 +79,6 @@ function snapshotDomEfficiencyGuidance(): string[] {
     '- `const refEl = document.querySelector(\'script[data-vacp=\"snapshot-ref\"][data-vacp-ref=\"<ref>\"]\');`',
     '- Keep every `eval` result tiny. Return small objects only. Avoid broad DOM/snapshot dumps.',
     '- If two attempts on one path fail, pivot quickly.',
-    '- Ground final answers in screenshots you read as visual evidence, not snapshot data alone.',
-  ];
-}
-
-function withSnapshotExecutionBudgetGuidance(): string[] {
-  return [
-    'Execution budget:',
-    '- Keep trajectories short: target <= 12 total tool calls.',
-    '- Keep screenshots minimal: target 2. Use one initial shot `step-00` and one final evidence shot.',
-    '- Use at most one accessibility `snapshot` call; prefer direct control setting for form controls.',
-    '- Reuse the latest state token from the snapshot index; do not poll full snapshot payloads repeatedly.',
-    '- After two failed attempts on the same interaction path, pivot or return `null`.',
   ];
 }
 
@@ -96,10 +86,12 @@ function vacpStateEfficiencyGuidance(stateTool: string): string[] {
   return [
     'VACP state strategy:',
     `- Call \`${stateTool}\` once without options to establish baseline context and token.`,
-    `- After each meaningful interaction, prefer \`${stateTool}\` with \`options={mode:\"delta\", since:\"<token>\"}\`.`,
+    `- When you need to re-check state, prefer \`${stateTool}\` with \`options={mode:\"delta\", since:\"<token>\"}\`.`,
+    '- Use the returned `token` as your next `since` value.',
+    '- In delta mode, use `baseToken`, `changedRefs`, and `removedRefs` to confirm what changed without re-reading unchanged state.',
     '- Once relevant refs are known, pass `refs` to limit payload scope.',
     '- Set `includeSummary=false` unless summary fields are needed for the current step.',
-    '- If token lineage is unclear or a delta is unexpectedly uninformative, refresh with one `mode:\"full\"` call, then resume delta.',
+    '- If token lineage is unclear or delta data is unexpectedly uninformative, refresh with one `mode:\"full\"` call, then resume delta mode.',
   ];
 }
 
@@ -119,6 +111,9 @@ function vacpToolRoutingGuidance(args: {
     lines.push(
       `- Keep \`${args.evalTool}\` outputs minimal. Return small structs only. Never return large DOM/JSON dumps.`,
     );
+    lines.push(
+      `- Do NOT use \`${args.evalTool}\` to fetch/download raw dataset files or API payloads such as CSV, JSON, Parquet, or \`/data/*\` content.`,
+    );
   }
   if (args.screenshotTool) {
     lines.push(
@@ -130,67 +125,58 @@ function vacpToolRoutingGuidance(args: {
 
 function dataProvenanceGuardrails(): string[] {
   return [
-    'Data provenance (must follow):',
+    'Data provenance requirements:',
     '- The benchmark datasets are intentionally edited and may differ from public/original versions.',
     '- Do NOT look up external datasets, docs, or similar examples on the internet for answering this task.',
     '- Do NOT rely on memorized values from prior exposure to common datasets.',
+    '- Do NOT fetch raw dataset files from app endpoints for solving, such as CSV, JSON, Parquet, or `/data/*` payloads.',
     '- Derive the answer only from evidence you obtain from this VA app in this run (interactions + observed state).',
+  ];
+}
+
+function humanTraceabilityGuidance(): string[] {
+  return [
+    'Traceability requirements:',
+    '- Build the answer from interaction evidence a human can replay in the UI: controls, selections, hovers, and visible state changes.',
+    '- Prefer interaction-derived evidence over raw data extraction shortcuts.',
+    '- In `Reasoning`, reference the key interaction steps that support the answer.',
   ];
 }
 
 function finalAnswerFormatBlock(ctx: PromptContext): string[] {
   return [
-    'Final answer format (strict):',
-    `1) Answer`,
-    '- On its own line write `Answer:`.',
-    `- On the following lines, output ONLY JSON inside \`\`\`json fences\`\`\`, matching \`${ctx.scenario.responseFormat}\`.`,
-    '- Do not put reasoning inside the JSON.',
-    '2) Reasoning',
-    '- On its own line write `Reasoning:` then 1-3 brief sentences.',
-    '3) Reflection',
-    '- On its own line write `Reflection:` then 2-3 brief sentences.',
-    '- Keep this narrative concise; machine-readable reflection details are required in step 4.',
-    '- If any prior knowledge influenced the answer, explicitly state what was and was not verified via interaction.',
-    '4) Reflection (structured)',
-    '- On its own line write `Reflection (structured):`.',
-    '- On the following lines, output ONLY JSON inside ```json fences with keys:',
-    '- `provenance`: exactly `interaction-derived` OR `prior-knowledge/guess`',
-    '- `confidence`: exactly `low` OR `medium` OR `high`',
-    '- `easy_hard_why`: brief string describing what was easy/hard and why',
-    '- `process_robustness`: must clearly indicate `robust` or `brittle` (you may include brief rationale)',
-    '- `actions_tools_available_vs_used_why`: brief string explaining which actions/tools were available, which you used, and why',
-    '- This structured block is mandatory, even when unsolved.',
-    '5) Trace log',
-    '- After Reflection, output a bullet list in execution order (one bullet per stateful step).',
-    '- Exact bullet schema: `- step-01: <action> | <why> | <state change (vacp_state or other observable state)> | <progress toward answer>`.',
-    '- Include Trace log even when unsolved.',
-    '6) Trajectory',
-    '- On its own line write `Trajectory:` then 3-6 sentences summarizing approach, pivots, failures, and why the final Answer was chosen; reference key trace steps where relevant.',
-    'If blocked/unsolved:',
-    '- Say unsolved explicitly; set Answer JSON value to `null` (inside ```json fences); explain the blocker.',
-  ];
-}
-
-function finalAnswerFormatCompactBlock(ctx: PromptContext): string[] {
-  return [
-    'Final answer format (strict):',
+    'Final answer format you must follow:',
     '1) Answer',
     '- On its own line write `Answer:`.',
     `- On the following lines, output ONLY JSON inside \`\`\`json fences\`\`\`, matching \`${ctx.scenario.responseFormat}\`.`,
     '- Do not put reasoning inside the JSON.',
     '2) Reasoning',
-    '- On its own line write `Reasoning:` then 1 brief sentence grounded in run evidence.',
-    '3) Reflection (structured)',
-    '- On its own line write `Reflection (structured):`.',
-    '- On the following lines, output ONLY JSON inside ```json fences with keys:',
-    '- `provenance`: exactly `interaction-derived` OR `prior-knowledge/guess`',
-    '- `confidence`: exactly `low` OR `medium` OR `high`',
-    '- `easy_hard_why`: brief string',
-    '- `process_robustness`: include `robust` or `brittle`',
-    '- `actions_tools_available_vs_used_why`: brief string',
-    '- This structured block is mandatory, even when unsolved.',
+    '- On its own line write `Reasoning:` then 1-2 concise sentences grounded in run evidence.',
+    '3) Reflection',
+    '- On its own line write `Reflection:` then 1-2 concise sentences with uncertainty/blockers.',
     'If blocked/unsolved:',
-    '- Say unsolved explicitly; set Answer JSON value to `null` (inside ```json fences); explain the blocker briefly.',
+    '- If available context or allowed capabilities are insufficient to solve reliably, do not guess.',
+    '- You may stop early once this is clear.',
+    '- Say unsolved explicitly; set Answer JSON value to `null` inside ```json fences; explain the blocker briefly.',
+  ];
+}
+
+function fullToolkitScreenshotGuidance(args: {
+  runOutDir: string;
+  screenshotTool: string;
+  sleepTool: string;
+  waitForSelectorTool: string;
+  capabilitiesTool: string;
+  stateTool: string;
+}): string[] {
+  return [
+    'Screenshot policy:',
+    `- Use only screenshot paths under "${args.runOutDir}/step-*.jpg". Use two-digit sequence names such as step-00, step-01, and step-02.`,
+    `- Chart-ready sentinel: \`${args.sleepTool}\` with ms=5000 -> \`${args.waitForSelectorTool}\` with selector "${CHART_READY_SELECTOR}" -> \`${args.screenshotTool}\` to "${args.runOutDir}/${CHART_READY_SCREENSHOT_NAME}" -> \`read\` step-00.`,
+    `- If step-00 is not visibly ready, repeat sleep + wait and overwrite "${args.runOutDir}/${CHART_READY_SCREENSHOT_NAME}". Do not reload or re-open the page.`,
+    `- Once visible, call \`${args.capabilitiesTool}\` and \`${args.stateTool}\` before solving.`,
+    '- After each meaningful state change, capture the next step image and read it for visual grounding.',
+    '- Avoid redundant screenshots for repeated/failed attempts.',
   ];
 }
 
@@ -249,22 +235,24 @@ function buildBaselineJobs() {
         toolPolicy: { mode: 'allow', ids: ['functions.bash', 'functions.read'] },
         promptTemplate: (ctx) =>
           [
-            'Use the `bash` tool to run the `agent-browser` CLI (this is your browser access) and answer the task.',
+            'Use the `bash` tool to run the `agent-browser` CLI. This is your browser access for this run.',
             '',
             `Task: ${ctx.scenario.task}`,
             '',
             `Session: ${ctx.opencode.sessionID}`,
             `URL: ${ctx.scenario.url}`,
             '',
-            'Boundaries (must follow):',
+            'Boundaries you must follow:',
             '- Use only tools: `bash` + `read`.',
-            `- (bash) may run ONLY \`${AGENT_BROWSER} ...\` commands (no other shell commands or scripting).`,
-            `- (read) may open ONLY screenshots you create for this run under "${ctx.run.outDir}/step-*.jpg".`,
+            `- \`bash\` may run only \`${AGENT_BROWSER} ...\` commands. Do not run other shell commands or scripting.`,
+            `- \`read\` may open only screenshots you create for this run under "${ctx.run.outDir}/step-*.jpg".`,
             '- Treat the repository, local filesystem, and run artifacts as off-limits.',
-            '- Finish by producing the "Final answer" section below (Answer can be `null`). Do not run until the prompt timeout.',
+            '- Finish by producing the "Final answer" section below. Answer can be `null`.',
             '- If you are stuck, output `null` early rather than waiting for timeout.',
             '',
             ...dataProvenanceGuardrails(),
+            '',
+            ...humanTraceabilityGuidance(),
             '',
             ...agentBrowserEfficiencyGuidance(ctx),
             '',
@@ -296,30 +284,30 @@ function buildSnapshotInjectedJobs() {
         toolPolicy: { mode: 'allow', ids: ['functions.bash', 'functions.read'] },
         promptTemplate: (ctx) =>
           [
-            'Use the `bash` tool to run the `agent-browser` CLI (this is your browser access) and answer the task.',
+            'Use the `bash` tool to run the `agent-browser` CLI. This is your browser access for this run.',
             '',
             `Task: ${ctx.scenario.task}`,
             '',
             `Session: ${ctx.opencode.sessionID}`,
             `URL: ${ctx.scenario.url}`,
             '',
-            'Boundaries (must follow):',
+            'Boundaries you must follow:',
             '- Use only tools: `bash` + `read`.',
-            `- (bash) may run ONLY \`${AGENT_BROWSER} ...\` commands (no other shell commands or scripting).`,
-            `- (read) may open ONLY screenshots you create for this run under "${ctx.run.outDir}/step-*.jpg".`,
+            `- \`bash\` may run only \`${AGENT_BROWSER} ...\` commands. Do not run other shell commands or scripting.`,
+            `- \`read\` may open only screenshots you create for this run under "${ctx.run.outDir}/step-*.jpg".`,
             '- Treat the repository, local filesystem, and run artifacts as off-limits.',
-            '- Finish by producing the "Final answer" section below (Answer can be `null`). Do not run until the prompt timeout.',
+            '- Finish by producing the "Final answer" section below. Answer can be `null`.',
             '- If you are stuck, output `null` early rather than waiting for timeout.',
             '',
             ...dataProvenanceGuardrails(),
             '',
-            ...agentBrowserEfficiencyGuidance(ctx),
+            ...humanTraceabilityGuidance(),
             '',
-            ...withSnapshotExecutionBudgetGuidance(),
+            ...agentBrowserEfficiencyGuidance(ctx),
             '',
             ...snapshotDomEfficiencyGuidance(),
             '',
-            ...finalAnswerFormatCompactBlock(ctx),
+            ...finalAnswerFormatBlock(ctx),
           ].join('\n'),
       });
     }
@@ -350,34 +338,35 @@ function buildPureVACPJobs() {
         },
         promptTemplate: (ctx) =>
           [
-            'Use the VACP MCP tools only (no shell, no webfetch).',
+            'Use only VACP MCP tools. Do not use shell commands or webfetch.',
             '',
             `Task: ${ctx.scenario.task}`,
             '',
-            'Hard constraints (must follow):',
+            'Hard constraints you must follow:',
             '- Do not attempt to read any local files, repo source, configs, or run artifacts.',
             '- Use only the VACP tools provided by the MCP server to interact with the app; do not rely on any other context.',
             '',
             'Important:',
             '- Do not start solving until the app is ready. In this run, you cannot take screenshots.',
-            '- Do NOT spam/retry `vacp_open_url` in a loop (that reloads). Call it once with `wait_for_bridge=true` and a sufficiently large `timeout_ms`.',
+            '- Do NOT spam/retry `vacp_open_url` in a loop because it reloads. Call it once with `wait_for_bridge=true` and a sufficiently large `timeout_ms`.',
             '- Verify readiness by successfully calling `vacp_open_url` and then reading both `vacp_capabilities` and `vacp_state` before any actions.',
-            '- Validity requirement: if you did not successfully call VACP tools in this run, you MUST NOT claim `Provenance: interaction-derived` (treat it as a guess and/or output null if blocked).',
             '',
             ...dataProvenanceGuardrails(),
             '',
+            ...humanTraceabilityGuidance(),
+            '',
             ...vacpStateEfficiencyGuidance(tools.state),
             '',
-            'Efficiency (high priority):',
+            'Efficiency guidance with high priority:',
             '- Keep result sets tiny: prefer aggregations and tight `LIMIT`s; when using `vacp.data_sql`, pass a small `maxRows`.',
             '- Cast numeric-like strings via `try_cast(...)` to avoid lexicographic mistakes and reruns.',
+            '- Keep `vacp_state` reads token-efficient: baseline once, then use `mode:"delta"` with `since=<latest token>` and rely on `changedRefs` and `removedRefs`.',
             '',
-            'Interaction style (must follow):',
-            '- Solve the task by gradually changing the visualization state, like a human partner would (set params, apply selections, hover for tooltips).',
+            'Interaction style you must follow:',
+            '- Solve the task by gradually changing the visualization state like a human partner would: set params, apply selections, and hover for tooltips.',
             '- Do NOT jump straight to computations/data extraction before you have set the relevant params/selections in the app.',
-            '- Ground your answer ONLY in evidence you obtain through genuine interaction in this run (verified `vacp_state` + actions you performed). Do NOT use memorized/prior knowledge of the dataset/chart to answer.',
-            '- If capabilities expose a SQL/data action (e.g. `vacp.data_sql`), use it only after the app state matches the question (e.g. year=2000, selection applied), and primarily to confirm/format the final answer.',
-            `- After each interaction, call \`${tools.state}\` to verify the effect before doing the next step.`,
+            '- If capabilities expose a SQL/data action such as `vacp.data_sql`, use it only after the app state matches the question, for example year=2000 with selection applied, and primarily to confirm or format the final answer.',
+            `- Use \`${tools.state}\` to verify key state transitions and to track progress toward the answer.`,
             '',
             `Start by calling \`${tools.openUrl}\` with: ${ctx.scenario.url}`,
             '',
@@ -385,7 +374,7 @@ function buildPureVACPJobs() {
             `- Call \`${tools.capabilities}\` and use it as the source of truth for actions and schemas.`,
             `- Call \`${tools.state}\` to understand the current semantic state.`,
             `- Call \`${tools.execute}\` to perform one semantic operation at a time.`,
-            `- After each action, call \`${tools.state}\` again to verify the effect.`,
+            `- Use \`${tools.state}\` as needed after actions to confirm effects before finalizing the answer.`,
             '',
             'If the required interaction is not available via VACP actions, state what capability is missing.',
             '',
@@ -434,51 +423,49 @@ function buildFullToolkitJobs() {
         },
         promptTemplate: (ctx) =>
           [
-            'Use VACP semantic tools plus browser-control tools (Playwright-backed).',
+            'Use VACP semantic tools plus browser-control tools backed by Playwright.',
             '',
             `Task: ${ctx.scenario.task}`,
             '',
-            'Hard constraints (must follow):',
+            'Hard constraints you must follow:',
             '- Treat the repository, local filesystem, and run artifacts as off-limits.',
-            `- Do NOT use the \`read\` tool on anything except screenshots you create for this run: "${ctx.run.outDir}/step-00.jpg", "${ctx.run.outDir}/step-01.jpg", ...`,
+            `- Do NOT use the \`read\` tool on anything except screenshots you create for this run under "${ctx.run.outDir}/step-*.jpg".`,
             '- Do NOT try to solve by inspecting source files, configs, logs, or `.agent-arena/**` outputs.',
             '',
             ...dataProvenanceGuardrails(),
+            '',
+            ...humanTraceabilityGuidance(),
             '',
             ...vacpToolRoutingGuidance({
               capabilitiesTool: tools.capabilities,
               stateTool: tools.state,
               executeTool: tools.execute,
               evalTool: tools.eval,
-              screenshotTool: tools.screenshot,
             }),
             '',
             ...vacpStateEfficiencyGuidance(tools.state),
             '',
-            'Efficiency (high priority; avoid timeouts + token bloat):',
+            'Efficiency guidance with high priority:',
             `- Prefer semantic tools (\`${tools.capabilities}\`, \`${tools.state}\`, \`${tools.execute}\`) over browser tools whenever possible.`,
             `- Use browser tools only to accomplish UI interactions not exposed semantically, and keep them minimal.`,
             `- Keep \`${tools.eval}\` outputs tiny; never dump large DOM/snapshot JSON.`,
-            `- Only take screenshots after meaningful state changes, and avoid extra screenshots for failed attempts.`,
-            `- Always use screenshot paths exactly as written (copy/paste): "${ctx.run.outDir}/step-00.jpg", "${ctx.run.outDir}/step-01.jpg", ...`,
+            `- Keep \`${tools.state}\` token-efficient: baseline once, then use \`mode:\"delta\"\` with \`since=<latest token>\` and rely on \`changedRefs\` and \`removedRefs\`.`,
             '',
             `Start by calling \`${tools.openUrl}\` with: ${ctx.scenario.url}`,
             '',
-            'Chart-ready sentinel (must do before solving):',
-            `- Sleep (minimum 5s): call \`${tools.sleep}\` with ms=5000.`,
-            `- Wait for chart render: call \`${tools.waitForSelector}\` with selector "${CHART_READY_SELECTOR}" (increase timeout if needed).`,
-            `- Screenshot (sentinel): call \`${tools.screenshot}\` with path "${ctx.run.outDir}/${CHART_READY_SCREENSHOT_NAME}".`,
-            `- Visual check: use the \`read\` tool on "${ctx.run.outDir}/${CHART_READY_SCREENSHOT_NAME}" and confirm the chart is visibly rendered.`,
-            `- If not visible yet: sleep 5s, wait again, and overwrite step-00.jpg (no reload/refresh/re-open). Repeat until visible.`,
-            `- Once visible: call \`${tools.capabilities}\` and \`${tools.state}\` to see available interactions and the current semantic state.`,
+            ...fullToolkitScreenshotGuidance({
+              runOutDir: ctx.run.outDir,
+              screenshotTool: tools.screenshot,
+              sleepTool: tools.sleep,
+              waitForSelectorTool: tools.waitForSelector,
+              capabilitiesTool: tools.capabilities,
+              stateTool: tools.state,
+            }),
             '',
-            'Interaction style (must follow):',
-            '- Solve the task by gradually changing the app state through human-like interactions (sliders, selections/brushes, hover tooltips, zoom/pan).',
-            '- Do NOT jump straight to computations/data extraction before interacting; first drive the viz into the right state (e.g. year=2000, relevant selection applied).',
-            '- Ground your answer ONLY in evidence you obtain through genuine interaction in this run (screenshots + verified `vacp_state`). Do NOT use memorized/prior knowledge of the dataset/chart to answer.',
-            `- After each meaningful interaction:`,
-            `  - Screenshot: call \`${tools.screenshot}\` with "${ctx.run.outDir}/step-01.jpg" (then step-02.jpg, step-03.jpg, ...; two digits).`,
-            `  - Read the screenshot for visual grounding, then verify via \`${tools.state}\` before proceeding.`,
+            'Interaction style you must follow:',
+            '- Solve the task by gradually changing the app state through human-like interactions: sliders, selections or brushes, hover tooltips, and zoom or pan.',
+            '- Do NOT jump straight to computations or data extraction before interacting; first drive the viz into the right state, for example year=2000 with relevant selection applied.',
+            `- Use \`${tools.state}\` when needed to verify key state transitions before finalizing the answer.`,
             '',
             'Preferred tools:',
             `- Use \`${tools.capabilities}\`, \`${tools.state}\`, \`${tools.execute}\` for semantic operations whenever possible.`,
@@ -489,7 +476,7 @@ function buildFullToolkitJobs() {
             '',
             ...finalAnswerFormatBlock(ctx),
             '',
-            'Browser tool list (for reference):',
+            'Browser tool list:',
             `- Screenshot: \`${tools.screenshot}\``,
             `- Eval: \`${tools.eval}\``,
             `- Wait for selector: \`${tools.waitForSelector}\``,
