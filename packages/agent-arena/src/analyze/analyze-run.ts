@@ -13,7 +13,7 @@ import {
   type OpencodeMessageInfo,
 } from './opencode-storage.js';
 import { classifyEvalOutcome, detectPlumbingFailure } from '../eval/outcome.js';
-import { parseAnswerFromText, parseStructuredReflectionFromText } from './score.js';
+import { hasAnswerAnchor, parseAnswerFromText } from './score.js';
 
 export type AnalyzeRunArgs = {
   runDir: string;
@@ -118,10 +118,6 @@ export async function analyzeArenaRun(args: AnalyzeRunArgs) {
     const parsed = answerCandidate?.text
       ? parseAnswerFromText(answerCandidate.text)
       : { parseStatus: 'no_final_assistant' as const, answerJson: null as null };
-    const structuredReflection = answerCandidate?.text
-      ? parseStructuredReflectionFromText(answerCandidate.text)
-      : { parseStatus: 'no_final_assistant' as const, reflection: null as null };
-
     const judge = judgeByScenarioId.get(scenarioId);
     const score = await evaluateScenario({
       judge,
@@ -201,15 +197,6 @@ export async function analyzeArenaRun(args: AnalyzeRunArgs) {
       answer_parse_status: parsed.parseStatus,
       answer_json: parsed.answerJson,
       answer_json_raw: parsed.answerJsonRaw ?? '',
-      reflection_structured_parse_status: structuredReflection.parseStatus,
-      reflection_structured_json: structuredReflection.reflection,
-      reflection_structured_raw: structuredReflection.reflectionRaw ?? '',
-      reflection_provenance: structuredReflection.reflection?.provenance ?? null,
-      reflection_confidence: structuredReflection.reflection?.confidence ?? null,
-      reflection_robustness: structuredReflection.reflection?.processRobustness ?? null,
-      reflection_easy_hard_why: structuredReflection.reflection?.easyHardWhy ?? null,
-      reflection_actions_tools_available_vs_used_why:
-        structuredReflection.reflection?.actionsToolsAvailableVsUsedWhy ?? null,
       score_ok: score.ok,
       score_label: score.label,
       score_json: score.result,
@@ -513,41 +500,18 @@ async function readAssistantMessageText(storage: { storageDir: string }, message
 }
 
 async function findBestAnswer(storage: { storageDir: string }, messages: OpencodeMessageInfo[]) {
-  const candidates = messages.filter((m) => m.role === 'assistant');
-  if (!candidates.length) return null;
+  const assistants = messages.filter((m) => m.role === 'assistant');
+  if (!assistants.length) return null;
 
-  let best:
-    | {
-        score: number;
-        timeCreated: number;
-        messageID: string;
-        text: string;
-      }
-    | undefined;
-
-  for (const m of candidates) {
+  for (let i = assistants.length - 1; i >= 0; i -= 1) {
+    const m = assistants[i];
     const text = await readAssistantMessageText(storage, m.id);
     if (!text) continue;
-    const parsed = parseAnswerFromText(text);
-    if (parsed.parseStatus === 'no_text' || parsed.parseStatus === 'no_json_fence') continue;
-
-    let score = 1;
-    const trimmed = text.trim();
-    if (/^final answer/i.test(trimmed)) score += 3;
-    if (/^answer:/i.test(trimmed)) score += 4;
-    if (/answer:\s*```json/i.test(text)) score += 10;
-    if (/answer:\s*```/i.test(text)) score += 6;
-    if (parsed.parseStatus === 'ok') score += 8;
-    if (parsed.parseStatus === 'json_parse_error') score += 2;
-
-    const timeCreated = typeof m.timeCreated === 'number' ? m.timeCreated : 0;
-    if (!best || score > best.score || (score === best.score && timeCreated > best.timeCreated)) {
-      best = { score, timeCreated, messageID: m.id, text };
-    }
+    if (!hasAnswerAnchor(text)) return null;
+    return { messageID: m.id, text };
   }
 
-  if (!best) return null;
-  return { messageID: best.messageID, text: best.text };
+  return null;
 }
 
 type ToolCallRow = {
