@@ -46,6 +46,8 @@ pnpm start -- datasets --analysis .agent-arena/runs/<runId>/analysis
 pnpm start -- report --analysis .agent-arena/runs/<runId>/analysis
 ```
 
+You can also pass `--opencode-root <dir>` to `analyze`, `report`, or `datasets` when OpenCode storage is not in a default location.
+
 The report writes a small multi-page suite (one page per model, plus an index):
 
 - `analysis/report/index.html` (model index + links)
@@ -54,6 +56,14 @@ The report writes a small multi-page suite (one page per model, plus an index):
 - `analysis/report/**/figures/*.svg` (publication-ready charts)
 - `analysis/report/**/data/*.json` (per-chart datasets; JSON arrays)
 - In the HTML report, each chart also includes `SVG` / `PNG` / `Data` download actions.
+
+Self-contained evidence notes:
+
+- `analyze` now enforces a run-local Opencode evidence snapshot under:
+  - `<runDir>/evidence/opencode-storage/`
+  - manifest: `<runDir>/evidence/opencode-storage/manifest.json`
+- Required session-scoped artifacts are copied (strict mode): `message/`, `part/`, matching `session/**/<sessionID>.json`, and `project/<projectID>.json`.
+- `report` and `datasets` also enforce this snapshot preflight. If required evidence is missing and cannot be copied, the command fails.
 
 Evaluation notes:
 
@@ -128,7 +138,7 @@ Each run writes:
 
 - `run.json` (high-level result, IDs only)
 - `input.json` (per-run inputs: rendered prompt + title + tool settings; includes `run.slug`)
-- For detailed telemetry (tokens/cost/tool calls), read OpenCode's native session/message logs on disk for the given `projectID` + `sessionID`.
+- For detailed telemetry (tokens/cost/tool calls), use the run-local snapshot in `<runDir>/evidence/opencode-storage` for the given `projectID` + `sessionID`.
 
 ### Parallel runs
 
