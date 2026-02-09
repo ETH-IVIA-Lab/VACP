@@ -58,6 +58,22 @@ export async function exportArenaDatasets(args: ExportArenaDatasetsArgs) {
     analysis_dir: analysisDir,
     run_id: typeof prepared.meta?.runId === 'string' ? prepared.meta.runId : null,
     scenario_defs_path: prepared.scenarioDefsPath,
+    opencode_storage_dir: typeof prepared.meta?.opencodeStorageDir === 'string' ? prepared.meta.opencodeStorageDir : null,
+    opencode_evidence_dir: typeof prepared.meta?.opencodeEvidenceDir === 'string' ? prepared.meta.opencodeEvidenceDir : null,
+    opencode_evidence_manifest:
+      typeof prepared.meta?.opencodeEvidenceManifest === 'string' ? prepared.meta.opencodeEvidenceManifest : null,
+    opencode_evidence_source_storage_dir:
+      typeof prepared.meta?.opencodeEvidenceSourceStorageDir === 'string'
+        ? prepared.meta.opencodeEvidenceSourceStorageDir
+        : null,
+    opencode_evidence_complete:
+      typeof prepared.meta?.opencodeEvidenceComplete === 'boolean' ? prepared.meta.opencodeEvidenceComplete : null,
+    opencode_evidence_generated_at:
+      typeof prepared.meta?.opencodeEvidenceGeneratedAt === 'string' ? prepared.meta.opencodeEvidenceGeneratedAt : null,
+    opencode_evidence_counts:
+      typeof prepared.meta?.opencodeEvidenceCounts === 'object' && prepared.meta.opencodeEvidenceCounts
+        ? prepared.meta.opencodeEvidenceCounts
+        : null,
     charts: chartDatasets.map((c) => ({
       id: c.id,
       title: c.title,

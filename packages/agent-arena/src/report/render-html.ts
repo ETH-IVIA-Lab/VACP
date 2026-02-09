@@ -61,6 +61,11 @@ export type ArenaReportHtmlContext = {
   taskIndex: ArenaReportTaskIndexRow[];
   experiments: string[];
   taskSummaries: ArenaReportTaskSummaryRow[];
+  opencodeEvidenceDir: string | null;
+  opencodeEvidenceManifest: string | null;
+  opencodeEvidenceSourceStorageDir: string | null;
+  opencodeEvidenceComplete: boolean | null;
+  opencodeEvidenceGeneratedAt: string | null;
 };
 
 export type ArenaReportSection = {
@@ -251,6 +256,19 @@ function renderOverviewSection(ctx: ArenaReportHtmlContext) {
     },
   ];
 
+  const evidenceLine =
+    ctx.opencodeEvidenceDir === null
+      ? 'Opencode evidence snapshot metadata is unavailable for this analysis.'
+      : [
+          `Opencode evidence snapshot: ${ctx.opencodeEvidenceComplete === false ? 'incomplete' : 'complete'}.`,
+          `Snapshot: ${ctx.opencodeEvidenceDir}.`,
+          ctx.opencodeEvidenceManifest ? `Manifest: ${ctx.opencodeEvidenceManifest}.` : null,
+          ctx.opencodeEvidenceSourceStorageDir ? `Source storage: ${ctx.opencodeEvidenceSourceStorageDir}.` : null,
+          ctx.opencodeEvidenceGeneratedAt ? `Snapshot generated: ${ctx.opencodeEvidenceGeneratedAt}.` : null,
+        ]
+          .filter(Boolean)
+          .join(' ');
+
   return [
     '    <section class="section overviewSection" id="section-overview">',
     '      <div class="sectionKicker">Overview</div>',
@@ -271,6 +289,7 @@ function renderOverviewSection(ctx: ArenaReportHtmlContext) {
     '        <li>Charts use the preferred-run view: one selected run per model, run_id, experiment, and scenario group.</li>',
     '        <li>Flag rates are computed over runs with available telemetry for each flag. Missing values are excluded and shown as n/a.</li>',
     '        <li>Tool heatmaps report calls per run, not raw call totals.</li>',
+    `        <li>${escapeHtml(evidenceLine)}</li>`,
     '      </ul>',
     '    </section>',
   ].join('\n');
