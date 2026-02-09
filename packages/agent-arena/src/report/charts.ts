@@ -32,8 +32,8 @@ export type {
 export { DEFAULT_THEME, createTheme } from './charts/theme.js';
 
 export const DEFAULT_CHARTS: ArenaAnyChart[] = [
-  solvedStrictChart,
   solvedSemanticChart,
+  solvedStrictChart,
   evalOutcomesChart,
   paretoChart,
   durationChart,

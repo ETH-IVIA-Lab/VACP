@@ -1,5 +1,6 @@
 import type { ArenaFigure } from './charts/types.js';
 import type { NormalizedRun } from './stats.js';
+import { deriveEvalOutcome } from '../eval/outcome.js';
 
 export type ArenaReportSummaryRow = {
   experiment: string;
@@ -80,7 +81,7 @@ const CHART_GROUPS: ChartGroupDef[] = [
     title: 'Outcome Overview',
     subtitle:
       'Strict asks for exact values and format. Semantic accepts meaning-equivalent answers. Both are shown here, along with total run outcomes.',
-    chartIds: ['solved-strict', 'solved-semantic', 'eval-outcomes'],
+    chartIds: ['solved-semantic', 'solved-strict', 'eval-outcomes'],
   },
   {
     id: 'charts-task-outcomes',
@@ -364,8 +365,8 @@ function renderSummarySection(ctx: ArenaReportHtmlContext) {
         `<td class="num">${s.plumbingOkRate === null ? 'n/a' : fmtPct(s.plumbingOkRate)}</td>`,
         `<td class="num">${s.protocolOkRate === null ? 'n/a' : fmtPct(s.protocolOkRate)}</td>`,
         `<td class="num">${s.gradeableRate === null ? 'n/a' : fmtPct(s.gradeableRate)}</td>`,
-        `<td class="num">${s.solvedStrictRate === null ? 'n/a' : fmtPct(s.solvedStrictRate)}</td>`,
         `<td class="num">${s.solvedSemanticRate === null ? 'n/a' : fmtPct(s.solvedSemanticRate)}</td>`,
+        `<td class="num">${s.solvedStrictRate === null ? 'n/a' : fmtPct(s.solvedStrictRate)}</td>`,
         `<td class="num">${s.durationMedianS === null ? 'n/a' : fmtInt(Math.round(s.durationMedianS))}</td>`,
         `<td class="num">${s.tokensMedianWithCacheAll === null ? 'n/a' : fmtInt(Math.round(s.tokensMedianWithCacheAll))}</td>`,
         `<td class="num">${s.toolCallsMean === null ? 'n/a' : fmt1(s.toolCallsMean)}</td>`,
@@ -389,8 +390,8 @@ function renderSummarySection(ctx: ArenaReportHtmlContext) {
     '              <th class="num">Plumbing OK</th>',
     '              <th class="num">Parsed OK</th>',
     '              <th class="num">Gradeable</th>',
-    '              <th class="num">Solved strict</th>',
     '              <th class="num">Solved semantic</th>',
+    '              <th class="num">Solved strict</th>',
     '              <th class="num">Median s</th>',
     '              <th class="num">Median tokens with cache</th>',
     '              <th class="num">Mean tool calls</th>',
@@ -428,7 +429,7 @@ function renderTokenAccountingSection(ctx: ArenaReportHtmlContext) {
   return [
     '    <section class="section panelSection" id="section-token-accounting">',
     '      <h2>Token Accounting</h2>',
-    '      <p class="sectionIntro muted small">Main metric is with-cache read + write. Supporting columns show with-cache read only and no-cache totals for context.</p>',
+    '      <p class="sectionIntro muted small">Main metric is with-cache read + write. Supporting columns show with-cache read-only and no-cache totals. Ratios are explicit formulas: with-cache(all)/no-cache and with-cache(read)/no-cache.</p>',
     '      <div class="tableWrap">',
     '        <table>',
     '          <thead>',
@@ -440,8 +441,8 @@ function renderTokenAccountingSection(ctx: ArenaReportHtmlContext) {
     '              <th class="num">Median no-cache</th>',
     '              <th class="num">Median cache read</th>',
     '              <th class="num">Median cache write</th>',
-    '              <th class="num">All/No</th>',
-    '              <th class="num">Read/No</th>',
+    '              <th class="num">With-cache (all) / No-cache</th>',
+    '              <th class="num">With-cache (read) / No-cache</th>',
     '            </tr>',
     '          </thead>',
     '          <tbody>',
@@ -515,8 +516,8 @@ function renderTaskBreakdownSection(ctx: ArenaReportHtmlContext) {
     `</tr>`,
     `<tr>`,
     ...ctx.experiments.flatMap(() => [
-      `<th class="num">Solved strict</th>`,
       `<th class="num">Solved semantic</th>`,
+      `<th class="num">Solved strict</th>`,
       `<th class="num">Median s</th>`,
       `<th class="num">Median tokens with cache</th>`,
     ]),
@@ -541,16 +542,16 @@ function renderTaskBreakdownSection(ctx: ArenaReportHtmlContext) {
           const title = [
             `${exp} × ${t.scenarioId}`,
             `n=${s.n}`,
-            `Solved strict: ${s.solvedStrictRate === null ? 'n/a' : fmtPct(s.solvedStrictRate)}`,
             `Solved semantic: ${s.solvedSemanticRate === null ? 'n/a' : fmtPct(s.solvedSemanticRate)}`,
+            `Solved strict: ${s.solvedStrictRate === null ? 'n/a' : fmtPct(s.solvedStrictRate)}`,
             `Median duration: ${s.durationMedianS === null ? 'n/a' : fmtInt(Math.round(s.durationMedianS)) + 's'}`,
             `Median tokens with cache: ${s.tokensMedianWithCacheAll === null ? 'n/a' : fmtInt(Math.round(s.tokensMedianWithCacheAll))}`,
             `Median tokens no cache: ${s.tokensMedianNoCache === null ? 'n/a' : fmtInt(Math.round(s.tokensMedianNoCache))}`,
           ].join('\n');
 
           return [
-            `<td class="num" title="${escapeAttr(title)}">${s.solvedStrictRate === null ? 'n/a' : fmtPct(s.solvedStrictRate)}</td>`,
             `<td class="num" title="${escapeAttr(title)}">${s.solvedSemanticRate === null ? 'n/a' : fmtPct(s.solvedSemanticRate)}</td>`,
+            `<td class="num" title="${escapeAttr(title)}">${s.solvedStrictRate === null ? 'n/a' : fmtPct(s.solvedStrictRate)}</td>`,
             `<td class="num" title="${escapeAttr(title)}">${s.durationMedianS === null ? 'n/a' : fmtInt(Math.round(s.durationMedianS))}</td>`,
             `<td class="num" title="${escapeAttr(title)}">${s.tokensMedianWithCacheAll === null ? 'n/a' : fmtInt(Math.round(s.tokensMedianWithCacheAll))}</td>`,
           ];
@@ -660,10 +661,14 @@ function renderModelResponsesSection(ctx: ArenaReportHtmlContext) {
 }
 
 function renderJsonCell(runs: NormalizedRun[]) {
-  const summary = runs.length > 1 ? `View JSON (${runs.length})` : 'View JSON';
+  const status = summarizeJsonCellStatus(runs);
+  const summaryBase = runs.length > 1 ? `View JSON (${runs.length})` : 'View JSON';
+  const summary = `${status.icon} ${status.label} - ${summaryBase}`;
   const bodies = runs
     .map((r, i) => {
+      const runStatus = classifyRunStatus(r);
       const metaParts = [
+        `${runStatus.icon} ${runStatus.label}`,
         r.runId ? `run: ${r.runId}` : null,
         r.answerParseStatus ? `parse: ${r.answerParseStatus}` : null,
         typeof r.solvedSemantic === 'boolean' ? `semantic: ${r.solvedSemantic ? 'yes' : 'no'}` : null,
@@ -682,6 +687,58 @@ function renderJsonCell(runs: NormalizedRun[]) {
     .join('');
 
   return `<details class="jsonDetails"><summary>${escapeHtml(summary)}</summary>${bodies}</details>`;
+}
+
+type JsonCellStatusKey = 'timeout' | 'correct_solution' | 'incorrect_solution';
+
+function resolveRunEvalOutcome(run: NormalizedRun) {
+  const provided = typeof run.evalOutcome === 'string' ? run.evalOutcome.trim() : '';
+  if (provided) return provided;
+  return deriveEvalOutcome({
+    ok: run.ok,
+    plumbingOk: run.plumbingOk,
+    parseStatus: run.answerParseStatus,
+    solvedStrict: run.solvedStrict,
+    solvedSemantic: run.solvedSemantic,
+  });
+}
+
+function classifyRunStatus(run: NormalizedRun): { key: JsonCellStatusKey; label: string; icon: string } {
+  const outcome = resolveRunEvalOutcome(run);
+  if (outcome === 'plumbing_failure') return { key: 'timeout', label: 'Timeout', icon: '⚪' };
+  if (run.solvedSemantic === true || outcome === 'solved_semantic' || outcome === 'solved_strict') {
+    return { key: 'correct_solution', label: 'Correct Solution', icon: '🟢' };
+  }
+  return { key: 'incorrect_solution', label: 'Incorrect Solution', icon: '🔴' };
+}
+
+function summarizeJsonCellStatus(runs: NormalizedRun[]) {
+  const counts: Record<JsonCellStatusKey, number> = {
+    timeout: 0,
+    correct_solution: 0,
+    incorrect_solution: 0,
+  };
+
+  for (const run of runs) {
+    const status = classifyRunStatus(run);
+    counts[status.key] += 1;
+  }
+
+  // Tie-breaker order keeps the harsher status when counts are equal.
+  const precedence: JsonCellStatusKey[] = ['timeout', 'incorrect_solution', 'correct_solution'];
+  let best: JsonCellStatusKey = precedence[0];
+  let bestCount = -1;
+  for (const key of precedence) {
+    const count = counts[key];
+    if (count > bestCount) {
+      best = key;
+      bestCount = count;
+    }
+  }
+
+  if (best === 'timeout') return { key: best, label: 'Timeout', icon: '⚪' };
+  if (best === 'correct_solution') return { key: best, label: 'Correct Solution', icon: '🟢' };
+  return { key: best, label: 'Incorrect Solution', icon: '🔴' };
 }
 
 function formatAnswerJson(run: NormalizedRun) {
@@ -1190,41 +1247,38 @@ summary:focus-visible {
 }
 
 @media (max-width: 1280px) {
+  :root {
+    --nav-w: 188px;
+  }
+
   body {
-    padding: 18px 14px 40px;
+    padding: 18px calc(var(--nav-w) + 24px) 40px 12px;
   }
 
   .floatingNav {
-    position: sticky;
-    top: 0;
-    right: auto;
-    width: auto;
-    max-height: none;
-    margin: 0 auto 16px;
-    padding: 8px 0;
-    border-left: 0;
-    border-top: 1px solid var(--grid-strong);
-    border-bottom: 1px solid var(--grid-strong);
-  }
-
-  .floatingNavList {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
+    right: 8px;
+    top: 16px;
   }
 
   .floatingNavList a {
-    padding: 3px 8px;
-    border-left: 0;
-    border-bottom: 2px solid transparent;
-  }
-
-  .floatingNavList a[aria-current="true"] {
-    border-bottom-color: var(--accent);
+    font-size: 11px;
+    padding: 3px 0 3px 7px;
   }
 }
 
 @media (max-width: 900px) {
+  :root {
+    --nav-w: 164px;
+  }
+
+  body {
+    padding-right: calc(var(--nav-w) + 18px);
+  }
+
+  .floatingNavTitle {
+    font-size: 9px;
+  }
+
   .title {
     font-size: 31px;
   }
@@ -1246,8 +1300,19 @@ summary:focus-visible {
 
 @media (max-width: 640px) {
   body {
-    padding: 12px 10px 28px;
+    padding: 12px calc(var(--nav-w) + 12px) 28px 8px;
     font-size: 13px;
+  }
+
+  .floatingNav {
+    right: 4px;
+    top: 8px;
+    padding-left: 8px;
+  }
+
+  .floatingNavList a {
+    font-size: 10px;
+    padding: 2px 0 2px 6px;
   }
 
   .overviewGrid {
