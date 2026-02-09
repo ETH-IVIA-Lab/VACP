@@ -2,6 +2,7 @@ import * as Plot from '@observablehq/plot';
 import { plotSvg } from './plot.js';
 import { fmtNumber, intTick, maxOf, paddedMax, resolveLayout } from './utils.js';
 import type { ArenaChart, ArenaFigureLayout } from './types.js';
+import { formatSolvedStatus } from './solved-status.js';
 
 export type DurationChartConfig = ArenaFigureLayout;
 
@@ -70,8 +71,8 @@ export const durationChart: ArenaChart<DurationChartConfig> = {
               [
                 `${d.experiment} × ${d.scenario_id}`,
                 `Duration: ${fmtNumber(d.duration_s)}s`,
-                `Solved strict: ${d.solved_strict === null ? 'n/a' : d.solved_strict ? 'yes' : 'no'}`,
-                `Solved semantic: ${d.solved_semantic === null ? 'n/a' : d.solved_semantic ? 'yes' : 'no'}`,
+                `Semantic outcome: ${formatSolvedStatus(d.solved_semantic)}`,
+                `Strict outcome: ${formatSolvedStatus(d.solved_strict)}`,
               ].join('\n'),
           }),
         ],
