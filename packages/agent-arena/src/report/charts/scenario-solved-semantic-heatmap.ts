@@ -5,13 +5,12 @@ import type { ArenaChart, ArenaFigureLayout } from './types.js';
 import type { NormalizedRun } from '../stats.js';
 import {
   buildFailureSnippet,
-  classifySolvedEvidence,
   pushUniqueBounded,
 } from './solved-evidence.js';
 
 export type ScenarioSolvedSemanticHeatmapChartConfig = ArenaFigureLayout;
 
-type SolvedOutcomeBucket = 'solved-observed-vacp-execute' | 'solved-no-vacp-execute-signal' | 'failed' | 'unknown' | 'not-run';
+type SolvedOutcomeBucket = 'correct_solution' | 'incorrect_solution' | 'timeout' | 'not-run';
 
 function scenarioSolvedSemanticCells(
   ctx: Parameters<ArenaChart<ScenarioSolvedSemanticHeatmapChartConfig>['getData']>[0],
@@ -30,11 +29,8 @@ function scenarioSolvedSemanticCells(
         scenarioId,
         total: 0,
         usable: 0,
-        solvedObservedVacpExecute: 0,
-        solvedNoVacpExecuteSignal: 0,
+        solved: 0,
         failed: 0,
-        basisObservedVacpExecute: 0,
-        basisNoVacpExecuteSignal: 0,
         failureNotes: [] as string[],
       };
       const bucket = classifySolvedBucket(d);
@@ -45,11 +41,8 @@ function scenarioSolvedSemanticCells(
         scenario_index: scenarioIndex.get(scenarioId) ?? null,
         total: d.total,
         usable: d.usable,
-        solved_observed_vacp_execute: d.solvedObservedVacpExecute,
-        solved_no_vacp_execute_signal: d.solvedNoVacpExecuteSignal,
+        solved: d.solved,
         failed: d.failed,
-        basis_observed_vacp_execute: d.basisObservedVacpExecute,
-        basis_no_vacp_execute_signal: d.basisNoVacpExecuteSignal,
         failure_notes: d.failureNotes,
         bucket,
         fill,
@@ -63,17 +56,15 @@ function scenarioSolvedSemanticCells(
 export const scenarioSolvedSemanticHeatmapChart: ArenaChart<ScenarioSolvedSemanticHeatmapChartConfig> = {
   id: 'scenario-heatmap-semantic',
   title: 'Scenario by Experiment — Solved Semantic',
-  caption:
-    'Semantic result per task. Evidence labels report whether vacp_execute was observed, without inferring intent.',
+  caption: 'Semantic result per task.',
   isApplicable: (ctx) => ctx.runs.some((r) => typeof r.solvedSemantic === 'boolean'),
   getData: (ctx) => scenarioSolvedSemanticCells(ctx),
   render: (ctx, config) => {
     const legend: SvgLegend = {
       items: [
-        { label: 'Solved (observed vacp_execute)', fill: ctx.theme.colors.ok },
-        { label: 'Solved (no vacp_execute signal)', fill: ctx.theme.colors.warn },
-        { label: 'Failed', fill: ctx.theme.colors.bad },
-        { label: 'n/a', fill: ctx.theme.colors.grid },
+        { label: 'Correct Solution', fill: ctx.theme.colors.ok },
+        { label: 'Incorrect Solution', fill: ctx.theme.colors.bad },
+        { label: 'Timeout', fill: ctx.theme.colors.grid },
         { label: 'Not run', fill: '#ffffff', stroke: ctx.theme.colors.grid },
       ],
     };
@@ -151,11 +142,8 @@ function aggregateSolvedSemanticOutcomes(runs: NormalizedRun[]) {
       scenarioId: string;
       total: number;
       usable: number;
-      solvedObservedVacpExecute: number;
-      solvedNoVacpExecuteSignal: number;
+      solved: number;
       failed: number;
-      basisObservedVacpExecute: number;
-      basisNoVacpExecuteSignal: number;
       failureNotes: string[];
     }
   >();
@@ -168,11 +156,8 @@ function aggregateSolvedSemanticOutcomes(runs: NormalizedRun[]) {
       scenarioId: run.scenarioId,
       total: 0,
       usable: 0,
-      solvedObservedVacpExecute: 0,
-      solvedNoVacpExecuteSignal: 0,
+      solved: 0,
       failed: 0,
-      basisObservedVacpExecute: 0,
-      basisNoVacpExecuteSignal: 0,
       failureNotes: [],
     };
 
@@ -181,12 +166,7 @@ function aggregateSolvedSemanticOutcomes(runs: NormalizedRun[]) {
     if (typeof run.solvedSemantic === 'boolean') {
       cur.usable += 1;
       if (run.solvedSemantic) {
-        const evidence = classifySolvedEvidence(run);
-        if (evidence.classification === 'observed-vacp-execute') cur.solvedObservedVacpExecute += 1;
-        else cur.solvedNoVacpExecuteSignal += 1;
-
-        if (evidence.basis === 'observed vacp_execute') cur.basisObservedVacpExecute += 1;
-        else cur.basisNoVacpExecuteSignal += 1;
+        cur.solved += 1;
       } else {
         cur.failed += 1;
         pushUniqueBounded(cur.failureNotes, buildFailureSnippet(run), 2);
@@ -201,25 +181,22 @@ function aggregateSolvedSemanticOutcomes(runs: NormalizedRun[]) {
 
 function classifySolvedBucket(row: {
   total: number;
-  solvedObservedVacpExecute: number;
-  solvedNoVacpExecuteSignal: number;
+  solved: number;
   failed: number;
 }): SolvedOutcomeBucket {
   if (row.total === 0) return 'not-run';
-  if (row.solvedNoVacpExecuteSignal > 0) return 'solved-no-vacp-execute-signal';
-  if (row.solvedObservedVacpExecute > 0) return 'solved-observed-vacp-execute';
-  if (row.failed > 0) return 'failed';
-  return 'unknown';
+  if (row.solved > 0) return 'correct_solution';
+  if (row.failed > 0) return 'incorrect_solution';
+  return 'timeout';
 }
 
 function bucketColor(
   bucket: SolvedOutcomeBucket,
-  theme: { colors: { ok: string; warn: string; bad: string; grid: string } },
+  theme: { colors: { ok: string; bad: string; grid: string } },
 ) {
-  if (bucket === 'solved-observed-vacp-execute') return theme.colors.ok;
-  if (bucket === 'solved-no-vacp-execute-signal') return theme.colors.warn;
-  if (bucket === 'failed') return theme.colors.bad;
-  if (bucket === 'unknown') return theme.colors.grid;
+  if (bucket === 'correct_solution') return theme.colors.ok;
+  if (bucket === 'incorrect_solution') return theme.colors.bad;
+  if (bucket === 'timeout') return theme.colors.grid;
   return '#ffffff';
 }
 
@@ -228,34 +205,22 @@ function formatSolvedSemanticCellTitle(row: {
   scenario_id: string;
   total: number;
   usable: number;
-  solved_observed_vacp_execute: number;
-  solved_no_vacp_execute_signal: number;
+  solved: number;
   failed: number;
-  basis_observed_vacp_execute: number;
-  basis_no_vacp_execute_signal: number;
   failure_notes: string[];
   bucket: SolvedOutcomeBucket;
 }) {
   if (row.bucket === 'not-run') return `${row.experiment} × ${row.scenario_id}\nNot run`;
-  if (row.bucket === 'unknown')
-    return `${row.experiment} × ${row.scenario_id}\nSolved semantic: n/a (no usable solved_semantic value)`;
+  if (row.bucket === 'timeout')
+    return `${row.experiment} × ${row.scenario_id}\nOutcome: Timeout (no usable solved_semantic value)`;
 
-  const verdict =
-    row.bucket === 'solved-observed-vacp-execute'
-      ? 'Solved (observed vacp_execute)'
-      : row.bucket === 'solved-no-vacp-execute-signal'
-        ? 'Solved (no vacp_execute signal)'
-        : 'Failed';
+  const verdict = row.bucket === 'correct_solution' ? 'Correct Solution' : 'Incorrect Solution';
   return [
     `${row.experiment} × ${row.scenario_id}`,
     `Outcome: ${verdict}`,
     `Runs: total ${row.total}, usable ${row.usable}`,
-    `Solved (observed vacp_execute): ${row.solved_observed_vacp_execute}`,
-    `Solved (no vacp_execute signal): ${row.solved_no_vacp_execute_signal}`,
-    `Failed: ${row.failed}`,
-    `Evidence basis:`,
-    `- Observed vacp_execute: ${row.basis_observed_vacp_execute}`,
-    `- No vacp_execute signal: ${row.basis_no_vacp_execute_signal}`,
+    `Correct Solution runs: ${row.solved}`,
+    `Incorrect Solution runs: ${row.failed}`,
     ...(row.failure_notes.length ? ['Failure notes (sample):', ...row.failure_notes.map((note) => `- ${note}`)] : []),
   ].join('\n');
 }

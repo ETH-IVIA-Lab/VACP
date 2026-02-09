@@ -6,19 +6,16 @@ import { deriveEvalOutcome } from '../../eval/outcome.js';
 
 export type EvalOutcomesChartConfig = ArenaFigureLayout;
 
-type OutcomeSpec = { id: string; label: string; color: string };
+type OutcomeBucketId = 'correct_solution' | 'incorrect_solution' | 'timeout';
+type OutcomeSpec = { id: OutcomeBucketId; label: string; color: string };
 
 function outcomeDomain(theme: {
   colors: { ok: string; warn: string; bad: string; info: string; grid: string; neutral: string; subtle: string };
 }): OutcomeSpec[] {
   return [
-    { id: 'plumbing_failure', label: 'Plumbing failure', color: theme.colors.grid },
-    { id: 'protocol_failure', label: 'Protocol failure', color: theme.colors.warn },
-    { id: 'eval_error', label: 'Eval error', color: theme.colors.neutral },
-    { id: 'unscored', label: 'Unscored', color: theme.colors.subtle },
-    { id: 'semantic_failure', label: 'Semantic failure', color: theme.colors.bad },
-    { id: 'solved_semantic', label: 'Solved semantic', color: theme.colors.ok },
-    { id: 'solved_strict', label: 'Solved strict', color: theme.colors.ok },
+    { id: 'correct_solution', label: 'Correct Solution', color: theme.colors.ok },
+    { id: 'incorrect_solution', label: 'Incorrect Solution', color: theme.colors.bad },
+    { id: 'timeout', label: 'Timeout', color: theme.colors.grid },
   ];
 }
 
@@ -41,9 +38,24 @@ function resolveOutcome(run: {
   });
 }
 
+function resolveOutcomeBucket(run: {
+  ok: boolean;
+  plumbingOk: boolean | null;
+  answerParseStatus: string | null;
+  solvedStrict: boolean | null;
+  solvedSemantic: boolean | null;
+  evalOutcome: string | null;
+}): OutcomeBucketId {
+  const outcome = resolveOutcome(run);
+  if (outcome === 'plumbing_failure') return 'timeout';
+  if (run.solvedSemantic === true || outcome === 'solved_semantic' || outcome === 'solved_strict') {
+    return 'correct_solution';
+  }
+  return 'incorrect_solution';
+}
+
 function evalOutcomeRows(ctx: Parameters<ArenaChart<EvalOutcomesChartConfig>['getData']>[0]) {
   const specs = outcomeDomain(ctx.theme);
-  const specById = new Map<string, OutcomeSpec>(specs.map((s) => [s.id, s] as const));
 
   const rows: Array<{
     experiment: string;
@@ -57,9 +69,9 @@ function evalOutcomeRows(ctx: Parameters<ArenaChart<EvalOutcomesChartConfig>['ge
   for (const experiment of ctx.experimentDomain) {
     const expRuns = ctx.runs.filter((r) => r.experiment === experiment);
     const total = expRuns.length;
-    const counts = new Map<string, number>();
+    const counts = new Map<OutcomeBucketId, number>();
     for (const r of expRuns) {
-      const key = resolveOutcome(r);
+      const key = resolveOutcomeBucket(r);
       counts.set(key, (counts.get(key) ?? 0) + 1);
     }
     for (const spec of specs) {
@@ -74,19 +86,6 @@ function evalOutcomeRows(ctx: Parameters<ArenaChart<EvalOutcomesChartConfig>['ge
         rate,
       });
     }
-
-    // Preserve any unknown categories we didn't anticipate.
-    for (const [outcome, count] of counts) {
-      if (specById.has(outcome)) continue;
-      rows.push({
-        experiment,
-        outcome,
-        outcome_label: outcome,
-        count,
-        total,
-        rate: total ? count / total : 0,
-      });
-    }
   }
 
   return rows;
@@ -95,7 +94,7 @@ function evalOutcomeRows(ctx: Parameters<ArenaChart<EvalOutcomesChartConfig>['ge
 export const evalOutcomesChart: ArenaChart<EvalOutcomesChartConfig> = {
   id: 'eval-outcomes',
   title: 'Outcome Breakdown by Experiment',
-  caption: 'How runs end in each experiment: solved, semantic miss, parse/protocol miss, infra issue, or unscored.',
+  caption: 'How runs end in each experiment: timeout, correct solution (semantic), or incorrect solution.',
   isApplicable: (ctx) => ctx.runs.length > 0,
   getData: (ctx) => evalOutcomeRows(ctx),
   render: (ctx, config) => {
