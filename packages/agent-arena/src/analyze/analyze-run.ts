@@ -9,9 +9,9 @@ import {
   readMessageParts,
   readSessionMessages,
   relPathFromStorage,
-  resolveOpencodeStorageRoot,
   type OpencodeMessageInfo,
 } from './opencode-storage.js';
+import { ensureOpencodeEvidenceSnapshot } from './opencode-evidence.js';
 import { classifyEvalOutcome, detectPlumbingFailure } from '../eval/outcome.js';
 import { hasAnswerAnchor, parseAnswerFromText } from './score.js';
 
@@ -43,7 +43,14 @@ export async function analyzeArenaRun(args: AnalyzeRunArgs) {
   }
 
   const sessionIDs = await collectSessionIDs(jobDirs);
-  const storage = await resolveOpencodeStorageRoot({ opencodeRoot: args.opencodeRoot, sessionIDs });
+  const projectIDs = await collectProjectIDs(jobDirs);
+  const evidence = await ensureOpencodeEvidenceSnapshot({
+    runDir,
+    sessionIDs,
+    projectIDs,
+    ...(args.opencodeRoot ? { opencodeRoot: args.opencodeRoot } : {}),
+  });
+  const storage = { storageDir: evidence.evidenceDir };
 
   const scoring = await loadScenarioJudges(args.configPath);
   const configHash = scoring?.configHash ?? null;
@@ -62,7 +69,13 @@ export async function analyzeArenaRun(args: AnalyzeRunArgs) {
         generatedAt: new Date().toISOString(),
         runDir,
         runId,
-        opencodeStorageDir: storage.storageDir,
+        opencodeStorageDir: evidence.sourceStorageDir,
+        opencodeEvidenceDir: evidence.evidenceDir,
+        opencodeEvidenceManifest: evidence.manifestPath,
+        opencodeEvidenceSourceStorageDir: evidence.sourceStorageDir,
+        opencodeEvidenceComplete: evidence.complete,
+        opencodeEvidenceGeneratedAt: evidence.generatedAt,
+        opencodeEvidenceCounts: evidence.counts,
         uiBase: uiBase ?? null,
         configPath: scoring?.configPath ?? null,
         configSha256: configHash,
@@ -255,6 +268,8 @@ export async function analyzeArenaRun(args: AnalyzeRunArgs) {
     runsJsonPath,
     toolCallsJsonPath,
     metaPath,
+    evidenceDir: evidence.evidenceDir,
+    evidenceManifestPath: evidence.manifestPath,
     rows: allJobRows,
   };
 }
@@ -341,6 +356,17 @@ async function collectSessionIDs(jobDirsAbs: string[]) {
     const run = (await readJsonOptional(runPath, `run.json (${jobDirAbs})`)) as any;
     const sessionID = typeof run?.sessionID === 'string' ? String(run.sessionID) : '';
     if (sessionID) out.push(sessionID);
+  }
+  return Array.from(new Set(out));
+}
+
+async function collectProjectIDs(jobDirsAbs: string[]) {
+  const out: string[] = [];
+  for (const jobDirAbs of jobDirsAbs) {
+    const runPath = path.join(jobDirAbs, 'run.json');
+    const run = (await readJsonOptional(runPath, `run.json (${jobDirAbs})`)) as any;
+    const projectID = typeof run?.projectID === 'string' ? String(run.projectID).trim() : '';
+    if (projectID) out.push(projectID);
   }
   return Array.from(new Set(out));
 }
