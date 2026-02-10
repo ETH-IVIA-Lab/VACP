@@ -472,7 +472,12 @@ function buildSemanticStringRuleIndex(raw?: Record<string, SemanticStringRule | 
 }
 
 function normalizeSemanticPath(value: string) {
-  return value.trim().replace(/\[\d+\]/g, '').replace(/\.\./g, '.').replace(/^\./, '').replace(/\.$/, '');
+  return value
+    .trim()
+    .replace(/\[\d+\]/g, '')
+    .replace(/\.\./g, '.')
+    .replace(/^\./, '')
+    .replace(/\.$/, '');
 }
 
 function getLeafPathKey(pathHint: string) {
@@ -495,8 +500,14 @@ function normalizeCaseFold(value: string) {
 }
 
 function normalizeMonthRange(value: string) {
-  const normalizedDash = value.trim().replace(/[–—−]/g, '-').replace(/\s*-\s*/g, '-');
-  const parts = normalizedDash.split('-').map((v) => v.trim()).filter(Boolean);
+  const normalizedDash = value
+    .trim()
+    .replace(/[–—−]/g, '-')
+    .replace(/\s*-\s*/g, '-');
+  const parts = normalizedDash
+    .split('-')
+    .map((v) => v.trim())
+    .filter(Boolean);
   if (parts.length !== 2) return null;
 
   const start = normalizeMonth(parts[0]);
