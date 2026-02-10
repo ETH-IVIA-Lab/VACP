@@ -3,6 +3,7 @@ import { consola } from 'consola';
 import type { ArenaConfig, ArenaJob, ArenaRunResult } from '../types.js';
 import { createClient } from '../opencode.js';
 import { buildPrompt, buildTitle, logScenarioStarted } from './helpers.js';
+import { rewritePromptForLane, type McpServerAliases } from './mcp-lane.js';
 import { portablePathWithin, TimeoutError, requireData, toErrorPayload, withTimeout, writeJson } from './util.js';
 
 export async function runScenario(args: {
@@ -14,6 +15,8 @@ export async function runScenario(args: {
   outDir: string;
   projectID?: string;
   uiBase?: string;
+  mcpServerAliases?: McpServerAliases;
+  workerID?: number;
 }): Promise<ArenaRunResult> {
   const startedAt = new Date();
   const scenarioId = args.job.scenario.id ?? 'scenario';
@@ -62,7 +65,9 @@ export async function runScenario(args: {
       }
     }
 
-    const prompt = buildPrompt(args.config, ctxWithSession);
+    const aliases = args.mcpServerAliases ?? {};
+    const prompt = rewritePromptForLane(buildPrompt(args.config, ctxWithSession), aliases);
+    const system = args.job.system ? rewritePromptForLane(args.job.system, aliases) : args.job.system;
 
     await writeJson(path.join(args.outDir, 'input.json'), {
       experiment: args.job.experiment,
@@ -83,6 +88,10 @@ export async function runScenario(args: {
       opencode: {
         projectID: args.projectID,
         sessionID: created.id,
+      },
+      runtime: {
+        workerID: args.workerID ?? null,
+        mcpServerAliases: args.mcpServerAliases ?? null,
       },
       title,
       prompt,
@@ -107,7 +116,7 @@ export async function runScenario(args: {
             sessionID: created.id,
             model: args.job.model,
             agent: args.job.agent,
-            system: args.job.system,
+            system,
             tools: args.tools,
             parts: [{ type: 'text', text: prompt }],
           },

@@ -143,8 +143,8 @@ export type ArenaMcpExperiment = {
   /**
    * MCP servers to add/connect before running.
    *
-   * `agent-arena` uses a single OpenCode server, so server setup is applied additively:
-   * the union of all experiment `mcp.servers` is added before runs start.
+   * `agent-arena` may alias server names per worker lane at runtime so runs can execute
+   * concurrently without MCP name collisions while still using one OpenCode server.
    */
   servers?: Record<string, unknown>;
 

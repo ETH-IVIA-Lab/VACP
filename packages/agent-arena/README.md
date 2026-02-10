@@ -202,7 +202,9 @@ export default config;
 
 ### MCP / OpenCode server config (optional)
 
-`agent-arena` runs all runs against a single `opencode serve` process. OpenCode's MCP server definitions are global to that process, so `agent-arena` applies MCP _server setup_ additively (union across runs), and uses tool permissions to control MCP _exposure_ per run.
+`agent-arena` runs all runs against a single `opencode serve` process. MCP servers are added per run. When concurrent runs would share the same MCP server name, `agent-arena` rewrites names to lane-scoped aliases at runtime (for example `arena_vacp__lane1`, `arena_vacp__lane2`) so runs can execute in parallel without name collisions.
+
+In config, keep using your canonical server names. Lane aliases are runtime-only.
 
 Configure per-run MCP like this:
 
@@ -214,7 +216,8 @@ Configure per-run MCP like this:
       model: { providerID: "openai", modelID: "gpt-5.2" },
       scenario: { id: "s1", url: "http://…", task: "…" },
 
-      // Add/connect MCP servers needed by this experiment (merged across experiments).
+      // Add/connect MCP servers needed by this run.
+      // Names may be lane-aliased at runtime for concurrency, but config stays canonical.
       mcp: {
         servers: {
           context7: { type: "remote", url: "https://mcp.context7.com/mcp" },

@@ -489,9 +489,11 @@ test('examples: vega-lite-gallery', async ({ page }) => {
       try {
         await hoverUntilTooltipAction(page, beforeHoverHist + 1);
         const rtAfterHover = await getRuntime(page);
-        const lastHumanHover = [...(rtAfterHover.history ?? [])].reverse().find(
-          (h: any) => h?.kind === 'action' && h?.call?.name === 'vega_lite.hover_tooltip' && h?.source === 'human',
-        );
+        const lastHumanHover = [...(rtAfterHover.history ?? [])]
+          .reverse()
+          .find(
+            (h: any) => h?.kind === 'action' && h?.call?.name === 'vega_lite.hover_tooltip' && h?.source === 'human',
+          );
         hoverParams = (lastHumanHover?.call?.params ?? null) as Record<string, unknown> | null;
       } catch {
         // Fallback below.
@@ -553,7 +555,10 @@ test('examples: vega-lite-gallery', async ({ page }) => {
         minHistoryLen: beforeAgentHoverAgainHist + 1,
       });
 
-      const resAgentHoverAgain = await dataSql(page, { handleRef, sql: 'SELECT COUNT(*)::INTEGER AS n FROM vacp_handle' });
+      const resAgentHoverAgain = await dataSql(page, {
+        handleRef,
+        sql: 'SELECT COUNT(*)::INTEGER AS n FROM vacp_handle',
+      });
       expect(resAgentHoverAgain.ok).toBeTruthy();
       const nAgentHoverAgain = countFromResult(resAgentHoverAgain);
       expect(typeof nAgentHoverAgain).toBe('number');

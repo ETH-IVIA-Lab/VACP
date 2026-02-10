@@ -6,6 +6,7 @@ import { base64UrlEncode } from '../paths.js';
 import { mapLimit } from '../concurrency.js';
 import { createClient, startServer } from '../opencode.js';
 import { computeTools } from './helpers.js';
+import { createLaneRuntimeJob, type McpServerAliases } from './mcp-lane.js';
 import { runScenario } from './scenario.js';
 import { portablePathWithin, requireData, startAutoApprove, toErrorPayload, writeJson } from './util.js';
 import { archiveJobArtifacts, computeJobArtifactPaths, inspectJob, type ResumeReuseMode } from './job-state.js';
@@ -110,22 +111,22 @@ export async function runArena(input: ArenaRunInput): Promise<ArenaRunResult[]> 
       mcpRequested,
     });
 
-    const withLocks = createNameLocks();
-    const results = await mapLimit(jobs, runConcurrency, async (job, index) => {
-      const lockNames = job.mcp?.servers ? Object.keys(job.mcp.servers) : [];
-      return await withLocks(lockNames, async () => {
-        return await runJob({
-          config: input.config,
-          job,
-          index,
-          outDir,
-          resumeReuseMode: input.resumeReuseMode,
-          client,
-          directory,
-          projectID,
-          uiBase,
-          hooks: input.hooks,
-        });
+    const results = await mapLimit(jobs, runConcurrency, async (job, index, workerID) => {
+      const runtime = createLaneRuntimeJob({ job, workerID });
+      return await runJob({
+        config: input.config,
+        job,
+        runtimeJob: runtime.job,
+        mcpServerAliases: runtime.serverAliases,
+        workerID,
+        index,
+        outDir,
+        resumeReuseMode: input.resumeReuseMode,
+        client,
+        directory,
+        projectID,
+        uiBase,
+        hooks: input.hooks,
       });
     });
 
@@ -187,6 +188,9 @@ async function ensureLocalOpencodeConfigForConnectMode(args: {
 async function runJob(args: {
   config: ArenaConfig;
   job: ArenaJob;
+  runtimeJob: ArenaJob;
+  mcpServerAliases: McpServerAliases;
+  workerID: number;
   index: number;
   outDir: string;
   resumeReuseMode?: ResumeReuseMode;
@@ -200,6 +204,7 @@ async function runJob(args: {
   const paths = computeJobArtifactPaths({ arenaOutDir: args.outDir, job: args.job, index: args.index });
   const jobOutDir = paths.jobOutDir;
   const runJsonPath = paths.runJsonPath;
+  const runtimeJob = args.runtimeJob;
 
   if (args.config.resume) {
     const inspection = await inspectJob({
@@ -263,21 +268,23 @@ async function runJob(args: {
 
   await fs.mkdir(jobOutDir, { recursive: true });
 
-  const tools = computeTools(args.job.toolPolicy, args.job);
+  const tools = computeTools(runtimeJob.toolPolicy, runtimeJob);
   const startedAt = new Date();
 
   let result: ArenaRunResult;
   try {
-    await ensureMcpServersForJob(args.client, args.directory, args.job);
+    await ensureMcpServersForJob(args.client, args.directory, runtimeJob);
     result = await runScenario({
       config: args.config,
-      job: args.job,
+      job: runtimeJob,
       client: args.client,
       directory: args.directory,
       tools,
       outDir: jobOutDir,
       projectID: args.projectID,
       uiBase: args.uiBase,
+      mcpServerAliases: args.mcpServerAliases,
+      workerID: args.workerID,
     });
   } catch (error) {
     result = {
@@ -453,39 +460,4 @@ function slugSegment(input: string) {
     .replace(/^-+|-+$/g, '')
     .slice(0, 80);
   return v || 'x';
-}
-
-function createNameLocks() {
-  const tails = new Map<string, Promise<void>>();
-
-  async function acquire(name: string) {
-    const prev = tails.get(name) ?? Promise.resolve();
-    let release!: () => void;
-    const next = new Promise<void>((resolve) => {
-      release = resolve;
-    });
-    tails.set(
-      name,
-      prev.then(() => next).catch(() => next),
-    );
-    await prev;
-    return release;
-  }
-
-  return async function withLocks<T>(names: string[], fn: () => Promise<T>) {
-    const unique = Array.from(new Set(names.map((n) => n.trim()).filter(Boolean))).sort();
-    if (unique.length === 0) return await fn();
-
-    const releases: Array<() => void> = [];
-    for (const name of unique) releases.push(await acquire(name));
-    try {
-      return await fn();
-    } finally {
-      for (const release of releases.reverse()) {
-        try {
-          release();
-        } catch {}
-      }
-    }
-  };
 }
