@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Annotated, Literal
 
-from pydantic import ConfigDict, StringConstraints, TypeAdapter, ValidationError, with_config
+from pydantic import ConfigDict, StringConstraints, TypeAdapter, with_config
 from typing_extensions import TypedDict
 
 NonBlankString = Annotated[str, StringConstraints(min_length=1, pattern=r'.*\S.*')]

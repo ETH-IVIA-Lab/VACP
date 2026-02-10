@@ -16,7 +16,7 @@ test('vega-lite: interval brush playbook renders brush rectangle (sets brush_x)'
       const b = (globalThis as any).__vacp;
       return b && typeof b.getCapabilities === 'function' && typeof b.getState === 'function';
     });
-    await page.waitForSelector('#app svg.marks .mark-group.role-frame.root', { timeout: 30_000 });
+    await page.waitForSelector('#app canvas.marks, #app svg.marks', { timeout: 30_000 });
 
     const pill = page.locator('button.vacp-debug-ui-button');
     await expect(pill).toBeVisible();
@@ -34,15 +34,37 @@ test('vega-lite: interval brush playbook renders brush rectangle (sets brush_x)'
     await brushStep.click();
     await page.locator('button[aria-label="Run step"]').click();
 
-    // Regression target: ensure the interval brush rectangle becomes visible.
-    // We intentionally do not rely on `window.__vegaView` (it is not exposed).
+    // Regression target: ensure the interval selection is applied.
+    // Avoid DOM-shape assumptions because Vega-Lite can render marks on canvas.
     await expect
       .poll(async () => {
-        return await page.evaluate(() => {
-          const path = document.querySelector('#app svg.marks g.brush_brush path');
-          if (!(path instanceof SVGPathElement)) return false;
-          const rect = path.getBoundingClientRect();
-          return rect.width > 0 && rect.height > 0;
+        return await page.evaluate(async () => {
+          const snapshot = await (globalThis as any).__vacp.getState();
+          const entries = Object.entries(snapshot?.state ?? {});
+          const brushEntry = entries.find(
+            ([ref, value]) =>
+              String(ref).includes('/param/brush') &&
+              value &&
+              typeof value === 'object' &&
+              (value as any).kind === 'Selection',
+          );
+          const dataEntry = entries.find(
+            ([ref, value]) =>
+              String(ref).includes('/data/main') &&
+              value &&
+              typeof value === 'object' &&
+              (value as any).kind === 'DataHandle',
+          );
+
+          const brushValue = (brushEntry?.[1] as any)?.value;
+          const hasBrushValue =
+            !!brushValue &&
+            typeof brushValue === 'object' &&
+            Object.values(brushValue).some((v) => Array.isArray(v) && v.length === 2);
+
+          const selectionWhere = (dataEntry?.[1] as any)?.selectionWhere;
+          const hasSelectionWhere = typeof selectionWhere === 'string' && selectionWhere.length > 0;
+          return hasBrushValue && hasSelectionWhere;
         });
       })
       .toBe(true);

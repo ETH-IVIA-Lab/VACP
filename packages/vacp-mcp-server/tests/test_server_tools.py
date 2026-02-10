@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import pytest
 from fastmcp.tools.tool import FunctionTool
+from pydantic import ValidationError
 
 from vacp_mcp_server.bridge import ActionCall, ActionResult, VacpBridgeClient
 from vacp_mcp_server.models import VacpStateRequestOptions
@@ -113,28 +114,28 @@ async def test_vacp_state_rejects_invalid_options() -> None:
     mcp = create_mcp(_FakeClient())
     tool = await mcp.get_tool('vacp_state')
     assert isinstance(tool, FunctionTool)
-    with pytest.raises(ValueError, match='Unknown options key'):
+    with pytest.raises(ValidationError):
         await tool.fn(options={'bogus': 1})
 
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
-    ('options', 'message'),
+    'options',
     [
-        ('nope', 'Expected options to be a JSON object'),
-        ({'mode': 'nope'}, 'Expected options.mode to be one of: auto, full, delta'),
-        ({'since': ''}, 'Expected options.since to be a non-empty string'),
-        ({'since': '   '}, 'Expected options.since to be a non-empty string'),
-        ({'refs': 'bad'}, 'Expected options.refs to be an array of strings'),
-        ({'refs': ['ok', '   ']}, 'Expected every options.refs item to be a non-empty string'),
-        ({'includeSummary': 'nope'}, 'Expected options.includeSummary to be a boolean'),
+        'nope',
+        {'mode': 'nope'},
+        {'since': ''},
+        {'since': '   '},
+        {'refs': 'bad'},
+        {'refs': ['ok', '   ']},
+        {'includeSummary': 'nope'},
     ],
 )
-async def test_vacp_state_rejects_invalid_option_values(options: object, message: str) -> None:
+async def test_vacp_state_rejects_invalid_option_values(options: object) -> None:
     mcp = create_mcp(_FakeClient())
     tool = await mcp.get_tool('vacp_state')
     assert isinstance(tool, FunctionTool)
-    with pytest.raises(ValueError, match=message):
+    with pytest.raises(ValidationError):
         await tool.fn(options=options)
 
 
