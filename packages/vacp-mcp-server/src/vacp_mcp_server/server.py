@@ -8,7 +8,7 @@ from typing import Any, Protocol
 from fastmcp import FastMCP
 
 from vacp_mcp_server.bridge import ActionCall, VacpBridgeClient
-from vacp_mcp_server.models import VacpStateRequestOptions, normalize_state_request_options
+from vacp_mcp_server.models import normalize_state_request_options
 
 """
 MCP adapter layer (project concepts).
@@ -148,7 +148,7 @@ Efficient defaults:
         title='VACP State Snapshot',
         annotations={'readOnlyHint': True},
     )
-    async def vacp_state(options: VacpStateRequestOptions | None = None) -> dict[str, object]:
+    async def vacp_state(options: dict[str, object] | None = None) -> dict[str, object]:
         """
         Fetch the current VACP state snapshot (or requested update) from the in-window bridge.
 

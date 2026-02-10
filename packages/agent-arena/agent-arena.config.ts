@@ -20,8 +20,8 @@ const BASE_URL = 'http://127.0.0.1:5173';
 
 const MODELS = [
   { providerID: 'openai', modelID: 'gpt-5.2' },
-  { providerID: 'google-vertex', modelID: 'gemini-3-pro-preview' },
-  { providerID: 'github-copilot', modelID: 'claude-sonnet-4.5' },
+  //{ providerID: 'google-vertex', modelID: 'gemini-3-pro-preview' },
+  //{ providerID: 'github-copilot', modelID: 'claude-sonnet-4.5' },
   //{ providerID: 'amazon-bedrock', modelID: 'anthropic.claude-sonnet-4-5-20250929-v1:0' },
   //{ providerID: 'amazon-bedrock', modelID: 'anthropic.claude-opus-4-6-v1' },
 ];
@@ -596,8 +596,8 @@ async function closeAgentBrowserSession(ctx: Parameters<NonNullable<ArenaConfig[
 }
 
 const runs: ArenaJob[] = [
-  ...buildBaselineJobs(),
-  ...buildSnapshotInjectedJobs(),
+  //...buildBaselineJobs(),
+  //...buildSnapshotInjectedJobs(),
   ...buildPureVACPJobs(),
   ...buildFullToolkitJobs(),
 ];
