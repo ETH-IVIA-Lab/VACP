@@ -18,6 +18,8 @@ export type ScenarioJudgeResult = {
   notes?: string[];
 };
 
+export type SemanticStringRule = 'month_range' | 'case_fold';
+
 export type ScenarioBase = {
   id: string;
   route: string;
@@ -78,7 +80,15 @@ export const SCENARIO_BASES: ScenarioBase[] = [
     hash: 'seattle-weather',
     task: 'Please compare the amount of rainy and sunny days in the range of Februry-April and August-October. Which range has more sunny days, which has more rainy days?',
     responseFormat: '{moreSunnyRange: string, moreRainyRange: string}',
-    judge: makeSolutionJudge({ moreSunnyRange: 'August-October', moreRainyRange: 'February-April' }),
+    judge: makeSolutionJudge(
+      { moreSunnyRange: 'August-October', moreRainyRange: 'February-April' },
+      {
+        semanticStringRules: {
+          moreSunnyRange: 'month_range',
+          moreRainyRange: 'month_range',
+        },
+      },
+    ),
   },
   {
     id: 'vl-seattle-weather-t2-extreme-temp-by-weather',
@@ -111,7 +121,7 @@ export const SCENARIO_BASES: ScenarioBase[] = [
     hash: 'athletes',
     task: 'Compare the male athletes of football and cycling. For which sport is the regression line steeper?',
     responseFormat: '{steeperSport: string}',
-    judge: makeSolutionJudge({ steeperSport: 'football' }),
+    judge: makeSolutionJudge({ steeperSport: 'football' }, { semanticStringRules: { steeperSport: 'case_fold' } }),
   },
   {
     id: 'mosaic-athletes-t2-top3-tallest-female',
@@ -193,11 +203,13 @@ export function makeSolutionJudge(
     numericTolerance?: number;
     accept?: 'strict' | 'semantic';
     includeExpected?: boolean;
+    semanticStringRules?: Record<string, SemanticStringRule | SemanticStringRule[]>;
   },
 ) {
   const tolerance = typeof opts?.numericTolerance === 'number' ? opts.numericTolerance : 0.15;
   const accept = opts?.accept ?? 'semantic';
   const includeExpected = opts?.includeExpected !== false;
+  const semanticStringRuleIndex = buildSemanticStringRuleIndex(opts?.semanticStringRules);
 
   return ({ answer, parseStatus }: ScenarioJudgeInput): ScenarioJudgeResult => {
     if (parseStatus !== 'ok') {
@@ -211,7 +223,11 @@ export function makeSolutionJudge(
     }
 
     const strictOk = deepEqual(expected, answer, { numericTolerance: tolerance, semantic: false });
-    const semanticOk = deepEqual(expected, answer, { numericTolerance: tolerance, semantic: true });
+    const semanticOk = deepEqual(expected, answer, {
+      numericTolerance: tolerance,
+      semantic: true,
+      semanticStringRuleIndex,
+    });
     const ok = accept === 'strict' ? strictOk : semanticOk;
 
     return {
@@ -261,15 +277,23 @@ export function makeIataIncludesJudge(expected: {
 function deepEqual(
   expected: unknown,
   actual: unknown,
-  ctx: { numericTolerance: number; semantic: boolean },
-  keyHint?: string,
+  ctx: {
+    numericTolerance: number;
+    semantic: boolean;
+    semanticStringRuleIndex?: Map<string, readonly SemanticStringRule[]>;
+  },
+  pathHint = '',
 ): boolean {
   if (expected === null || expected === undefined) return expected === actual;
 
   if (typeof expected === 'number') return numericEqual(expected, actual, ctx.numericTolerance);
   if (typeof expected === 'string') {
     if (typeof actual !== 'string') return false;
-    if (ctx.semantic && keyHint && isMonthKey(keyHint)) {
+    if (ctx.semantic) {
+      const ruleMatch = compareWithSemanticStringRules(expected, actual, pathHint, ctx.semanticStringRuleIndex);
+      if (ruleMatch !== null) return ruleMatch;
+    }
+    if (ctx.semantic && isMonthKey(getLeafPathKey(pathHint))) {
       return normalizeMonth(expected) === normalizeMonth(actual);
     }
     return expected === actual;
@@ -278,7 +302,7 @@ function deepEqual(
 
   if (Array.isArray(expected)) {
     if (!Array.isArray(actual)) return false;
-    return arrayEqual(expected, actual, ctx);
+    return arrayEqual(expected, actual, ctx, pathHint);
   }
 
   if (typeof expected === 'object') {
@@ -291,7 +315,8 @@ function deepEqual(
     if (eKeys.length !== aKeys.length) return false;
     for (let i = 0; i < eKeys.length; i++) if (eKeys[i] !== aKeys[i]) return false;
     for (const k of eKeys) {
-      if (!deepEqual(e[k], a[k], ctx, k)) return false;
+      const childPath = pathHint ? `${pathHint}.${k}` : k;
+      if (!deepEqual(e[k], a[k], ctx, childPath)) return false;
     }
     return true;
   }
@@ -307,7 +332,16 @@ function numericEqual(expected: number, actual: unknown, tol: number) {
   return Math.abs(expected - actual) <= tol;
 }
 
-function arrayEqual(expected: unknown[], actual: unknown[], ctx: { numericTolerance: number; semantic: boolean }) {
+function arrayEqual(
+  expected: unknown[],
+  actual: unknown[],
+  ctx: {
+    numericTolerance: number;
+    semantic: boolean;
+    semanticStringRuleIndex?: Map<string, readonly SemanticStringRule[]>;
+  },
+  pathHint: string,
+) {
   if (expected.length !== actual.length) return false;
 
   // Simple semantic normalizations that matter for evaluation:
@@ -335,12 +369,12 @@ function arrayEqual(expected: unknown[], actual: unknown[], ctx: { numericTolera
       const a = [...(actual as any[])].sort((x, y) =>
         String(normMonth(String(x[key]))).localeCompare(String(normMonth(String(y[key])))),
       );
-      return e.every((v, i) => deepEqual(v, a[i], ctx));
+      return e.every((v, i) => deepEqual(v, a[i], ctx, pathHint ? `${pathHint}[${i}]` : `[${i}]`));
     }
   }
 
   // Strict fallback: positional compare
-  return expected.every((v, i) => deepEqual(v, actual[i], ctx));
+  return expected.every((v, i) => deepEqual(v, actual[i], ctx, pathHint ? `${pathHint}[${i}]` : `[${i}]`));
 }
 
 function normalizeMonth(value: string) {
@@ -377,4 +411,113 @@ function normalizeMonth(value: string) {
 function isMonthKey(value: string) {
   const k = value.trim().toLowerCase();
   return k === 'month' || k === 'monthname' || k === 'month_name';
+}
+
+function compareWithSemanticStringRules(
+  expected: string,
+  actual: string,
+  pathHint: string,
+  ruleIndex?: Map<string, readonly SemanticStringRule[]>,
+) {
+  if (!ruleIndex || ruleIndex.size === 0) return null;
+
+  const rules = getSemanticStringRules(pathHint, ruleIndex);
+  if (rules.length === 0) return null;
+
+  for (const rule of rules) {
+    if (rule === 'month_range') {
+      const exp = normalizeMonthRange(expected);
+      const act = normalizeMonthRange(actual);
+      if (exp !== null && act !== null && exp === act) return true;
+      continue;
+    }
+
+    if (rule === 'case_fold') {
+      if (normalizeCaseFold(expected) === normalizeCaseFold(actual)) return true;
+      continue;
+    }
+  }
+
+  return expected === actual;
+}
+
+function getSemanticStringRules(pathHint: string, ruleIndex: Map<string, readonly SemanticStringRule[]>) {
+  const normalizedPath = normalizeSemanticPath(pathHint);
+  const leaf = getLeafPathKey(normalizedPath);
+
+  const out = new Set<SemanticStringRule>();
+  for (const candidate of [normalizedPath, leaf]) {
+    if (!candidate) continue;
+    const rules = ruleIndex.get(candidate) ?? [];
+    for (const rule of rules) out.add(rule);
+  }
+
+  return Array.from(out);
+}
+
+function buildSemanticStringRuleIndex(raw?: Record<string, SemanticStringRule | SemanticStringRule[]>) {
+  const out = new Map<string, readonly SemanticStringRule[]>();
+  if (!raw) return out;
+
+  for (const [rawPath, rawRules] of Object.entries(raw)) {
+    const path = normalizeSemanticPath(rawPath);
+    if (!path) continue;
+    const rules = (Array.isArray(rawRules) ? rawRules : [rawRules]).filter(isSemanticStringRule);
+    if (rules.length === 0) continue;
+    const prev = out.get(path) ?? [];
+    out.set(path, uniqueRules([...prev, ...rules]));
+  }
+
+  return out;
+}
+
+function normalizeSemanticPath(value: string) {
+  return value.trim().replace(/\[\d+\]/g, '').replace(/\.\./g, '.').replace(/^\./, '').replace(/\.$/, '');
+}
+
+function getLeafPathKey(pathHint: string) {
+  const normalizedPath = normalizeSemanticPath(pathHint);
+  if (!normalizedPath) return '';
+  const parts = normalizedPath.split('.');
+  return parts[parts.length - 1] ?? '';
+}
+
+function isSemanticStringRule(value: unknown): value is SemanticStringRule {
+  return value === 'month_range' || value === 'case_fold';
+}
+
+function uniqueRules(values: SemanticStringRule[]) {
+  return Array.from(new Set(values));
+}
+
+function normalizeCaseFold(value: string) {
+  return value.trim().replace(/\s+/g, ' ').toLowerCase();
+}
+
+function normalizeMonthRange(value: string) {
+  const normalizedDash = value.trim().replace(/[–—−]/g, '-').replace(/\s*-\s*/g, '-');
+  const parts = normalizedDash.split('-').map((v) => v.trim()).filter(Boolean);
+  if (parts.length !== 2) return null;
+
+  const start = normalizeMonth(parts[0]);
+  const end = normalizeMonth(parts[1]);
+  if (!isCanonicalMonth(start) || !isCanonicalMonth(end)) return null;
+  return `${start}-${end}`;
+}
+
+function isCanonicalMonth(value: string) {
+  return (
+    value === 'January' ||
+    value === 'February' ||
+    value === 'March' ||
+    value === 'April' ||
+    value === 'May' ||
+    value === 'June' ||
+    value === 'July' ||
+    value === 'August' ||
+    value === 'September' ||
+    value === 'October' ||
+    value === 'November' ||
+    value === 'December'
+  );
 }
