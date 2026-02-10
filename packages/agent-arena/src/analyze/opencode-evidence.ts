@@ -240,6 +240,7 @@ async function inspectEvidenceStorage(args: {
   const sessionFileIndex = await indexSessionFiles(path.join(evidenceDir, 'session'));
 
   const messageIDs = new Set<string>();
+  const partOptionalMessageIDs = new Set<string>();
   for (const sessionID of args.sessionIDs) {
     const messageDir = path.join(evidenceDir, 'message', sessionID);
     const messageFiles = await listJsonFiles(messageDir);
@@ -249,7 +250,13 @@ async function inspectEvidenceStorage(args: {
       counts.messageFiles += messageFiles.length;
       for (const fileName of messageFiles) {
         const messageID = fileName.replace(/\.json$/i, '');
-        if (messageID) messageIDs.add(messageID);
+        if (!messageID) continue;
+        messageIDs.add(messageID);
+        const messagePath = path.join(messageDir, fileName);
+        const message = await readJsonOptional(messagePath);
+        if (isPartOptionalAssistantErrorMessage(message)) {
+          partOptionalMessageIDs.add(messageID);
+        }
       }
     }
 
@@ -267,6 +274,7 @@ async function inspectEvidenceStorage(args: {
     const partDir = path.join(evidenceDir, 'part', messageID);
     const partFiles = await listJsonFiles(partDir);
     if (!partFiles.length) {
+      if (partOptionalMessageIDs.has(messageID)) continue;
       missing.push(`part/${messageID}/*.json`);
     } else {
       counts.partFiles += partFiles.length;
@@ -401,4 +409,20 @@ function coerceOptionalString(value: string | undefined) {
   if (typeof value !== 'string') return null;
   const trimmed = value.trim();
   return trimmed.length ? trimmed : null;
+}
+
+function isPartOptionalAssistantErrorMessage(value: unknown) {
+  if (!value || typeof value !== 'object') return false;
+  const rec = value as Record<string, unknown>;
+  if (rec.role !== 'assistant') return false;
+  if (!rec.error || typeof rec.error !== 'object') return false;
+
+  const content = rec.content;
+  if (typeof content === 'string' && content.trim().length > 0) return false;
+  if (Array.isArray(content) && content.length > 0) return false;
+
+  const parts = rec.parts;
+  if (Array.isArray(parts) && parts.length > 0) return false;
+
+  return true;
 }

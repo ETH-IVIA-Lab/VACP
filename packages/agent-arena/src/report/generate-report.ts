@@ -87,7 +87,8 @@ export async function generateArenaReport(args: GenerateArenaReportArgs, deps: G
         experiments: prepared.experimentDomain,
         taskSummaries: prepared.taskSummaries,
         scenarioDefsPath: prepared.scenarioDefsPath,
-        opencodeEvidenceDir: typeof prepared.meta?.opencodeEvidenceDir === 'string' ? prepared.meta.opencodeEvidenceDir : null,
+        opencodeEvidenceDir:
+          typeof prepared.meta?.opencodeEvidenceDir === 'string' ? prepared.meta.opencodeEvidenceDir : null,
         opencodeEvidenceManifest:
           typeof prepared.meta?.opencodeEvidenceManifest === 'string' ? prepared.meta.opencodeEvidenceManifest : null,
         opencodeEvidenceSourceStorageDir:

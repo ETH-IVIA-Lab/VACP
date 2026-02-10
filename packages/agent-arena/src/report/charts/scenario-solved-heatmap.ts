@@ -3,10 +3,7 @@ import { plotSvg, type SvgLegend } from './plot.js';
 import { marginLeftForLabels, resolveLayout, tickStep } from './utils.js';
 import type { ArenaChart, ArenaFigureLayout } from './types.js';
 import type { NormalizedRun } from '../stats.js';
-import {
-  buildFailureSnippet,
-  pushUniqueBounded,
-} from './solved-evidence.js';
+import { buildFailureSnippet, pushUniqueBounded } from './solved-evidence.js';
 
 export type ScenarioSolvedHeatmapChartConfig = ArenaFigureLayout;
 
@@ -177,21 +174,14 @@ function aggregateSolvedOutcomes(runs: NormalizedRun[]) {
   return byKey;
 }
 
-function classifySolvedBucket(row: {
-  total: number;
-  solved: number;
-  failed: number;
-}): SolvedOutcomeBucket {
+function classifySolvedBucket(row: { total: number; solved: number; failed: number }): SolvedOutcomeBucket {
   if (row.total === 0) return 'not-run';
   if (row.solved > 0) return 'correct_solution';
   if (row.failed > 0) return 'incorrect_solution';
   return 'timeout';
 }
 
-function bucketColor(
-  bucket: SolvedOutcomeBucket,
-  theme: { colors: { ok: string; bad: string; grid: string } },
-) {
+function bucketColor(bucket: SolvedOutcomeBucket, theme: { colors: { ok: string; bad: string; grid: string } }) {
   if (bucket === 'correct_solution') return theme.colors.ok;
   if (bucket === 'incorrect_solution') return theme.colors.bad;
   if (bucket === 'timeout') return theme.colors.grid;

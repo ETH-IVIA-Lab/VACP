@@ -16,8 +16,7 @@ export const scenarioTokensHeatmapWithCacheAllChart = createScenarioMetricHeatma
 export const scenarioTokensHeatmapWithCacheReadChart = createScenarioMetricHeatmapChart({
   id: 'scenario-tokens-heatmap-with-cache-read',
   title: 'Task by Experiment — Median Tokens (With Cache Read)',
-  caption:
-    'Median per-task tokens using the explicit with-cache-read basis (input + output + reasoning + cache read).',
+  caption: 'Median per-task tokens using the explicit with-cache-read basis (input + output + reasoning + cache read).',
   valueLabel: 'Median tokens (with cache read)',
   getValue: (r) => r.tokensTotalWithCacheRead,
   formatCell: (v) => fmtCompact(v),

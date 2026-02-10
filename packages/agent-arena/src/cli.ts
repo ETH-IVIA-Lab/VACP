@@ -241,10 +241,7 @@ program
   .description('Generate a publication-ready HTML + SVG report from an analysis folder')
   .requiredOption('--analysis <dir>', 'Analysis folder (contains meta.json + runs.*)')
   .option('--out <dir>', 'Output directory. Default: <analysisDir>/report')
-  .option(
-    '--opencode-root <dir>',
-    'OpenCode root or storage dir used when evidence snapshot backfill is required.',
-  )
+  .option('--opencode-root <dir>', 'OpenCode root or storage dir used when evidence snapshot backfill is required.')
   .option('--width <px>', 'Override figure width in px (affects all charts)')
   .option('--font-size <px>', 'Override base chart font size in px (affects all charts)')
   .option('--charts <ids>', 'Comma-separated chart ids to include (default: all)')
@@ -303,10 +300,7 @@ program
   .description('Export chart-ready datasets (and derived tables) as JSON under an analysis folder')
   .requiredOption('--analysis <dir>', 'Analysis folder (contains meta.json + runs.*)')
   .option('--out <dir>', 'Output directory. Default: <analysisDir>/datasets')
-  .option(
-    '--opencode-root <dir>',
-    'OpenCode root or storage dir used when evidence snapshot backfill is required.',
-  )
+  .option('--opencode-root <dir>', 'OpenCode root or storage dir used when evidence snapshot backfill is required.')
   .option('--charts <ids>', 'Comma-separated chart ids to export (default: all)')
   .option('--chart-config <path>', 'JSON file mapping chart ids -> per-chart config (affects dataset shape)')
   .action(async (raw) => {
@@ -419,8 +413,9 @@ async function ensureAnalysisEvidenceSnapshot(args: { analysisDir: string; openc
   const sessionIDs = uniqueNonEmptyStrings(analysis.runs.map((row) => rowString(row, 'session_id')));
   const projectIDs = uniqueNonEmptyStrings(analysis.runs.map((row) => rowString(row, 'project_id')));
 
-  const metaSourceStorage = coerceOptionalString(analysis.meta?.opencodeEvidenceSourceStorageDir)
-    ?? coerceOptionalString(analysis.meta?.opencodeStorageDir);
+  const metaSourceStorage =
+    coerceOptionalString(analysis.meta?.opencodeEvidenceSourceStorageDir) ??
+    coerceOptionalString(analysis.meta?.opencodeStorageDir);
 
   const snapshot = await ensureOpencodeEvidenceSnapshot({
     runDir,

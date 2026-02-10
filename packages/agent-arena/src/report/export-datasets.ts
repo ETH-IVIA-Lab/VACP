@@ -58,8 +58,10 @@ export async function exportArenaDatasets(args: ExportArenaDatasetsArgs) {
     analysis_dir: analysisDir,
     run_id: typeof prepared.meta?.runId === 'string' ? prepared.meta.runId : null,
     scenario_defs_path: prepared.scenarioDefsPath,
-    opencode_storage_dir: typeof prepared.meta?.opencodeStorageDir === 'string' ? prepared.meta.opencodeStorageDir : null,
-    opencode_evidence_dir: typeof prepared.meta?.opencodeEvidenceDir === 'string' ? prepared.meta.opencodeEvidenceDir : null,
+    opencode_storage_dir:
+      typeof prepared.meta?.opencodeStorageDir === 'string' ? prepared.meta.opencodeStorageDir : null,
+    opencode_evidence_dir:
+      typeof prepared.meta?.opencodeEvidenceDir === 'string' ? prepared.meta.opencodeEvidenceDir : null,
     opencode_evidence_manifest:
       typeof prepared.meta?.opencodeEvidenceManifest === 'string' ? prepared.meta.opencodeEvidenceManifest : null,
     opencode_evidence_source_storage_dir:

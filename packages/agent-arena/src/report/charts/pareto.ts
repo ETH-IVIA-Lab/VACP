@@ -81,7 +81,8 @@ export const paretoChart: ArenaChart<ParetoChartConfig> = {
           Plot.text(points, {
             x: 'tokens_median_no_cache',
             y: 'duration_s_median',
-            text: (d) => `${d.experiment}${d.solved_semantic_rate === null ? '' : ` (${fmtPct(d.solved_semantic_rate)})`}`,
+            text: (d) =>
+              `${d.experiment}${d.solved_semantic_rate === null ? '' : ` (${fmtPct(d.solved_semantic_rate)})`}`,
             dx: 10,
             dy: -10,
             fontSize: 11,
