@@ -229,7 +229,11 @@ function buildBaselineJobs() {
         model,
         scenario: {
           id: scenario.id,
-          url: buildScenarioUrl({ route: scenario.route, hash: scenario.hash, query: { 'expose-bridge': '0' } }),
+          url: buildScenarioUrl({
+            route: scenario.route,
+            hash: scenario.hash,
+            query: { 'expose-bridge': '0', 'vacp-dom-snapshot': '0', 'vacp-debug': '0' },
+          }),
           task: scenario.task,
           responseFormat: scenario.responseFormat,
         },
@@ -327,7 +331,11 @@ function buildPureVACPJobs() {
 
   for (const model of MODELS) {
     for (const scenario of SCENARIO_BASES) {
-      const url = buildScenarioUrl({ route: scenario.route, hash: scenario.hash, query: { 'expose-bridge': '1' } });
+      const url = buildScenarioUrl({
+        route: scenario.route,
+        hash: scenario.hash,
+        query: { 'expose-bridge': '1', 'vacp-dom-snapshot': '0', 'vacp-debug': '0' },
+      });
       jobs.push({
         experiment: 'pure-vacp',
         model,

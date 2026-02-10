@@ -165,7 +165,7 @@ export const SCENARIO_BASES: ScenarioBase[] = [
     id: 'vl-airports-t3-nm-airports-smallest-outgoing-flights',
     route: '/vega-lite/',
     hash: 'airports',
-    task: 'How many airports are there in state New Mexico (NM)? How many outgoing flights (total number of flights) does the smallest airport (depending on the number of routes to other airports) have?',
+    task: 'How many airports are there in state New Mexico (NM) with outgoing flights? How many outgoing flights (total number of flights) does the smallest airport (depending on the number of routes to other airports) have?',
     responseFormat: '{count: number, smallestOutgoingFlights: number}',
     judge: makeSolutionJudge({ count: 2, smallestOutgoingFlights: 961 }),
   },
