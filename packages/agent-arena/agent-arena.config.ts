@@ -22,7 +22,7 @@ const BASE_URL = 'http://127.0.0.1:5173';
 const MODELS = [
   { providerID: 'openai', modelID: 'gpt-5.2' },
   { providerID: 'google-vertex', modelID: 'gemini-3-pro-preview' },
-  { providerID: 'github-copilot', modelID: 'claude-sonnet-4.5' },
+  //{ providerID: 'github-copilot', modelID: 'claude-sonnet-4.5' },
   //{ providerID: 'amazon-bedrock', modelID: 'anthropic.claude-sonnet-4-5-20250929-v1:0' },
   //{ providerID: 'amazon-bedrock', modelID: 'anthropic.claude-opus-4-6-v1' },
 ];
@@ -462,9 +462,13 @@ async function evaluateChartVisualReadiness(args: {
     timeoutMs: args.timeoutMs,
     signal: args.signal,
   });
-  if (!value || typeof value !== 'object') return { ok: false, reason: 'visual_eval_invalid' };
-  const ok = Boolean((value as any).ok);
-  const reason = String((value as any).reason ?? 'visual_eval_failed');
+  const payload =
+    value && typeof value === 'object' && 'result' in (value as any) && (value as any).result
+      ? (value as any).result
+      : value;
+  if (!payload || typeof payload !== 'object') return { ok: false, reason: 'visual_eval_invalid' };
+  const ok = Boolean((payload as any).ok);
+  const reason = String((payload as any).reason ?? 'visual_eval_failed');
   return { ok, reason };
 }
 
