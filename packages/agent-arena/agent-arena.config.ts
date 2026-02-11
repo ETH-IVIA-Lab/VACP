@@ -38,9 +38,7 @@ const AGENT_BROWSER_SETUP_RELOAD_TIMEOUT_MS = Number(process.env.VACP_ARENA_SETU
 const AGENT_BROWSER_SETUP_RETRY_SLEEP_MS = Number(process.env.VACP_ARENA_SETUP_RETRY_SLEEP_MS ?? 800);
 const AGENT_BROWSER_SETUP_MAX_ATTEMPTS = Number(process.env.VACP_ARENA_SETUP_MAX_ATTEMPTS ?? 5);
 const AGENT_BROWSER_SETUP_STEP0_MIN_BYTES = Number(process.env.VACP_ARENA_SETUP_STEP0_MIN_BYTES ?? 1_500);
-const AGENT_BROWSER_SETUP_MIN_NON_WHITE_FRACTION = Number(
-  process.env.VACP_ARENA_SETUP_MIN_NON_WHITE_FRACTION ?? 0.005,
-);
+const AGENT_BROWSER_SETUP_MIN_NON_WHITE_FRACTION = Number(process.env.VACP_ARENA_SETUP_MIN_NON_WHITE_FRACTION ?? 0.005);
 const VACP_MCP_STARTUP_READY_TIMEOUT_MS = Number(process.env.VACP_ARENA_MCP_READY_TIMEOUT_MS ?? 45_000);
 
 const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
@@ -226,7 +224,14 @@ function buildVacpMcpServerConfig(url: string) {
   const readyTimeoutMs = String(positiveIntOr(VACP_MCP_STARTUP_READY_TIMEOUT_MS, 45_000));
   return {
     type: 'local',
-    command: [...VACP_MCP_BASE_COMMAND, '--url', url, '--startup-wait-for-bridge', '--startup-ready-timeout-ms', readyTimeoutMs],
+    command: [
+      ...VACP_MCP_BASE_COMMAND,
+      '--url',
+      url,
+      '--startup-wait-for-bridge',
+      '--startup-ready-timeout-ms',
+      readyTimeoutMs,
+    ],
     timeout: DEFAULT_MCP_TIMEOUT_MS,
     environment: { PYTHONUNBUFFERED: '1' },
   } as const;

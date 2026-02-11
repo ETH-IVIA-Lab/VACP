@@ -127,7 +127,9 @@ export async function analyzeArenaRun(args: AnalyzeRunArgs) {
         ? Math.max(0, Number(run.setup.durationMs))
         : computeDurationMs({ startedAt: setupStartedAt, finishedAt: setupFinishedAt });
     const setupErrorMessage =
-      typeof run?.setup?.error?.message === 'string' ? clampField(String(run.setup.error.message), maxFieldChars) : null;
+      typeof run?.setup?.error?.message === 'string'
+        ? clampField(String(run.setup.error.message), maxFieldChars)
+        : null;
 
     const screenshotStats = await computeScreenshotStats(jobDirAbs);
 
@@ -169,8 +171,8 @@ export async function analyzeArenaRun(args: AnalyzeRunArgs) {
         /chrome-error:\/\/chromewebdata/.test(t.errorPreview ?? ''),
     );
     const hasQuestionPending = toolCalls.some((t) => t.tool === 'question' && t.status === 'running');
-    const hasPermissionRuleDenied = toolCalls.some(
-      (t) => /rule which prevents you from using this specific tool call/i.test(t.errorPreview ?? ''),
+    const hasPermissionRuleDenied = toolCalls.some((t) =>
+      /rule which prevents you from using this specific tool call/i.test(t.errorPreview ?? ''),
     );
 
     const plumbingFailure = detectPlumbingFailure({

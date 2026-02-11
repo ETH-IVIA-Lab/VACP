@@ -45,6 +45,13 @@ function shortRef(ref: VacpRef): string {
   const parts = clean
     .split('/')
     .filter(Boolean)
+    .map((p) => {
+      try {
+        return decodeURIComponent(p);
+      } catch {
+        return p;
+      }
+    })
     .filter((p) => p !== 'vacp:');
   return parts.slice(-3).join('/');
 }

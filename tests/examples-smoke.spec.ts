@@ -4,13 +4,51 @@ import { dirname, resolve } from 'node:path';
 
 import { startViteDevServer } from './helpers/devserver';
 
-async function expectBridge(page: Page): Promise<void> {
+function isRetryableExecutionContextError(error: unknown): boolean {
+  const msg = String((error as { message?: unknown })?.message ?? error ?? '');
+  return (
+    msg.includes('Execution context was destroyed') ||
+    msg.includes('Cannot find context with specified id') ||
+    msg.includes('Target page, context or browser has been closed')
+  );
+}
+
+async function waitForVacpBridge(page: Page, timeoutMs = 20_000): Promise<void> {
   await page.waitForFunction(
     () =>
       !!(globalThis as any).__vacp &&
       typeof (globalThis as any).__vacp.getCapabilities === 'function' &&
       typeof (globalThis as any).__vacp.getRuntime === 'function',
+    undefined,
+    { timeout: timeoutMs },
   );
+}
+
+async function evaluateWithVacpRetry<T>(args: {
+  page: Page;
+  label: string;
+  evalFn: (payload: unknown) => Promise<T> | T;
+  payload: unknown;
+  maxAttempts?: number;
+}): Promise<T> {
+  const maxAttempts = args.maxAttempts ?? 4;
+  let lastError: unknown = null;
+  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+    try {
+      return await args.page.evaluate(args.evalFn, args.payload);
+    } catch (error) {
+      lastError = error;
+      if (!isRetryableExecutionContextError(error) || attempt >= maxAttempts) throw error;
+      await args.page.waitForLoadState('domcontentloaded', { timeout: 10_000 }).catch(() => {});
+      await waitForVacpBridge(args.page, 15_000).catch(() => {});
+      await args.page.waitForTimeout(80 * attempt);
+    }
+  }
+  throw lastError ?? new Error(`Failed ${args.label}: unknown error`);
+}
+
+async function expectBridge(page: Page): Promise<void> {
+  await waitForVacpBridge(page);
 }
 
 async function expectDomSnapshotScript(page: Page, scriptId = '__vacp_snapshot'): Promise<any> {
@@ -71,15 +109,30 @@ async function expectDomSnapshotScript(page: Page, scriptId = '__vacp_snapshot')
 }
 
 async function getCapabilities(page: Page): Promise<any> {
-  return await page.evaluate(async () => await (globalThis as any).__vacp.getCapabilities());
+  return await evaluateWithVacpRetry({
+    page,
+    label: 'getCapabilities',
+    payload: null,
+    evalFn: async () => await (globalThis as any).__vacp.getCapabilities(),
+  });
 }
 
 async function getState(page: Page): Promise<any> {
-  return await page.evaluate(async () => await (globalThis as any).__vacp.getState());
+  return await evaluateWithVacpRetry({
+    page,
+    label: 'getState',
+    payload: null,
+    evalFn: async () => await (globalThis as any).__vacp.getState(),
+  });
 }
 
 async function getRuntime(page: Page): Promise<any> {
-  return await page.evaluate(async () => await (globalThis as any).__vacp.getRuntime());
+  return await evaluateWithVacpRetry({
+    page,
+    label: 'getRuntime',
+    payload: null,
+    evalFn: async () => await (globalThis as any).__vacp.getRuntime(),
+  });
 }
 
 async function getPlaybooks(page: Page): Promise<any[]> {
@@ -113,38 +166,54 @@ async function tryRunFirstNonClearDemoStep(page: Page): Promise<boolean> {
 }
 
 async function dataSql(page: Page, args: { handleRef: string; sql: string; maxRows?: number }): Promise<any> {
-  return await page.evaluate(
-    async ({ handleRef, sql, maxRows }) =>
-      await (globalThis as any).__vacp.execute({
+  return await evaluateWithVacpRetry({
+    page,
+    label: 'vacp.data_sql',
+    payload: args,
+    evalFn: async (payload) => {
+      const { handleRef, sql, maxRows } = payload as { handleRef: string; sql: string; maxRows?: number };
+      return await (globalThis as any).__vacp.execute({
         callId: crypto.randomUUID(),
         name: 'vacp.data_sql',
         params: { handleRef, sql, format: 'json', maxRows: maxRows ?? 500 },
-      }),
-    args,
-  );
+      });
+    },
+  });
 }
 
 async function dataSchema(
   page: Page,
   args: { handleRef: string; detail?: 'columns' | 'full'; sampleRows?: number },
 ): Promise<any> {
-  return await page.evaluate(
-    async ({ handleRef, detail, sampleRows }) =>
-      await (globalThis as any).__vacp.execute({
+  return await evaluateWithVacpRetry({
+    page,
+    label: 'vacp.data_schema',
+    payload: args,
+    evalFn: async (payload) => {
+      const { handleRef, detail, sampleRows } = payload as {
+        handleRef: string;
+        detail?: 'columns' | 'full';
+        sampleRows?: number;
+      };
+      return await (globalThis as any).__vacp.execute({
         callId: crypto.randomUUID(),
         name: 'vacp.data_schema',
         params: { handleRef, detail, sampleRows },
-      }),
-    args,
-  );
+      });
+    },
+  });
 }
 
 async function executeVacp(page: Page, args: { name: string; params?: Record<string, unknown> }): Promise<any> {
-  return await page.evaluate(
-    async ({ name, params }) =>
-      await (globalThis as any).__vacp.execute({ callId: crypto.randomUUID(), name, params: params ?? {} }),
-    args,
-  );
+  return await evaluateWithVacpRetry({
+    page,
+    label: `execute:${args.name}`,
+    payload: args,
+    evalFn: async (payload) => {
+      const { name, params } = payload as { name: string; params?: Record<string, unknown> };
+      return await (globalThis as any).__vacp.execute({ callId: crypto.randomUUID(), name, params: params ?? {} });
+    },
+  });
 }
 
 async function waitForCapabilityRefContains(page: Page, needle: string, timeoutMs = 60_000): Promise<void> {
@@ -170,106 +239,6 @@ async function waitForHistoryLenAtLeast(page: Page, n: number, timeoutMs = 15_00
     if (Date.now() - start > timeoutMs) throw new Error(`Timed out waiting for history len >= ${n}`);
     await page.waitForTimeout(120);
   }
-}
-
-async function waitForHistoryAction(
-  page: Page,
-  args: { name: string; source?: string; minHistoryLen?: number },
-  timeoutMs = 15_000,
-): Promise<void> {
-  const start = Date.now();
-  while (true) {
-    const rt = await getRuntime(page);
-    const hist = Array.isArray(rt?.history) ? rt.history : [];
-    const minLen = args.minHistoryLen ?? 0;
-    const okLen = hist.length >= minLen;
-    const okEntry = hist.some(
-      (h: any) =>
-        h?.kind === 'action' && h?.call?.name === args.name && (args.source ? h?.source === args.source : true),
-    );
-    if (okLen && okEntry) return;
-    if (Date.now() - start > timeoutMs) {
-      throw new Error(`Timed out waiting for history action: ${args.name} (source=${args.source ?? '*'})`);
-    }
-    await page.waitForTimeout(120);
-  }
-}
-
-async function hoverUntilTooltipAction(page: Page, minHistoryLen: number, timeoutMs = 15_000): Promise<void> {
-  const startedAt = Date.now();
-
-  // We intentionally do not rely on `window.__vegaView` being present. Instead,
-  // we take a best-effort set of mark centers from the rendered surface and
-  // hover until the VACP adapter records a `vega_lite.hover_tooltip` action.
-  const points = await page.evaluate(() => {
-    const svg = document.querySelector('#app svg.marks');
-    const vw = window.innerWidth;
-    const vh = window.innerHeight;
-    const candidates: Array<{ x: number; y: number; area: number }> = [];
-
-    if (svg instanceof SVGSVGElement) {
-      const elements = Array.from(
-        svg.querySelectorAll<SVGGraphicsElement>('.role-mark rect, .role-mark path, .role-mark circle'),
-      );
-
-      for (const el of elements) {
-        const rect = el.getBoundingClientRect();
-        const x = rect.x + rect.width * 0.5;
-        const y = rect.y + rect.height * 0.5;
-        if (!Number.isFinite(x) || !Number.isFinite(y)) continue;
-        if (!Number.isFinite(rect.width) || !Number.isFinite(rect.height)) continue;
-        if (rect.width <= 0 || rect.height <= 0) continue;
-        if (x < 0 || y < 0 || x > vw || y > vh) continue;
-        candidates.push({ x, y, area: rect.width * rect.height });
-      }
-
-      // Prefer smaller marks (points/bars) to reduce the chance of hitting a large background.
-      candidates.sort((a, b) => a.area - b.area);
-      return candidates.slice(0, 80).map(({ x, y }) => ({ x, y }));
-    }
-
-    // Canvas fallback (Vega-Lite renderer="canvas"): probe a deterministic grid.
-    const surface = document.querySelector<HTMLElement>('#app canvas.marks, #app svg.marks');
-    if (!surface) return [];
-    const rect = surface.getBoundingClientRect();
-    if (!Number.isFinite(rect.width) || !Number.isFinite(rect.height)) return [];
-    if (rect.width <= 0 || rect.height <= 0) return [];
-
-    const rows = 6;
-    const cols = 12;
-    const points: Array<{ x: number; y: number }> = [];
-    for (let r = 1; r <= rows; r += 1) {
-      for (let c = 1; c <= cols; c += 1) {
-        const x = rect.x + (rect.width * c) / (cols + 1);
-        const y = rect.y + (rect.height * r) / (rows + 1);
-        if (!Number.isFinite(x) || !Number.isFinite(y)) continue;
-        if (x < 0 || y < 0 || x > vw || y > vh) continue;
-        points.push({ x, y });
-      }
-    }
-    return points;
-  });
-
-  if (points.length === 0) throw new Error('No Vega-Lite marks found to hover for tooltip');
-
-  for (const point of points) {
-    const remainingMs = timeoutMs - (Date.now() - startedAt);
-    if (remainingMs <= 0) break;
-
-    await page.mouse.move(point.x, point.y);
-    try {
-      await waitForHistoryAction(
-        page,
-        { name: 'vega_lite.hover_tooltip', source: 'human', minHistoryLen },
-        Math.min(2_000, remainingMs),
-      );
-      return;
-    } catch {
-      // Try the next mark.
-    }
-  }
-
-  throw new Error('Timed out hovering marks waiting for a Vega-Lite tooltip action');
 }
 
 function stableJson(value: unknown): string {
@@ -481,103 +450,10 @@ test('examples: vega-lite-gallery', async ({ page }) => {
       expect(nBase).toBeGreaterThan(0);
       expect(nBase).toBeLessThanOrEqual(nAll);
 
-      // Prefer a real hover capture; if renderer/layout blocks deterministic hover hit-testing,
-      // fall back to a canonical hover call from the playbook.
-      let hoverParams: Record<string, unknown> | null = null;
-      const rtBeforeHover = await getRuntime(page);
-      const beforeHoverHist = Array.isArray(rtBeforeHover?.history) ? rtBeforeHover.history.length : 0;
-      try {
-        await hoverUntilTooltipAction(page, beforeHoverHist + 1);
-        const rtAfterHover = await getRuntime(page);
-        const lastHumanHover = [...(rtAfterHover.history ?? [])]
-          .reverse()
-          .find(
-            (h: any) => h?.kind === 'action' && h?.call?.name === 'vega_lite.hover_tooltip' && h?.source === 'human',
-          );
-        hoverParams = (lastHumanHover?.call?.params ?? null) as Record<string, unknown> | null;
-      } catch {
-        // Fallback below.
-      }
-
-      if (!hoverParams) {
-        hoverParams = (await page.evaluate(async () => {
-          const b = (globalThis as any).__vacp;
-          const playbooks = (typeof b?.getPlaybooks === 'function' ? await b.getPlaybooks() : []) as any[];
-          const steps = playbooks.flatMap((p: any) => (Array.isArray(p?.steps) ? p.steps : []));
-          const hoverStep = steps.find(
-            (s: any) => s?.call?.name === 'vega_lite.hover_tooltip' && !Boolean(s?.call?.params?.clear),
-          );
-          return (hoverStep?.call?.params ?? null) as Record<string, unknown> | null;
-        })) as Record<string, unknown> | null;
-      }
-      expect(hoverParams).toBeTruthy();
-
-      const rtBeforeClear = await getRuntime(page);
-      const beforeClearHist = Array.isArray(rtBeforeClear?.history) ? rtBeforeClear.history.length : 0;
-      await executeVacp(page, { name: 'vega_lite.hover_tooltip', params: { clear: true } });
-      await waitForHistoryAction(page, {
-        name: 'vega_lite.hover_tooltip',
-        source: 'agent',
-        minHistoryLen: beforeClearHist + 1,
-      });
-
-      const resCleared = await dataSql(page, { handleRef, sql: 'SELECT COUNT(*)::INTEGER AS n FROM vacp_handle' });
-      expect(resCleared.ok).toBeTruthy();
-      const nCleared = countFromResult(resCleared);
-      expect(typeof nCleared).toBe('number');
-      expect(nCleared).toBe(nBase);
-
-      const rtBeforeAgentHover = await getRuntime(page);
-      const beforeAgentHoverHist = Array.isArray(rtBeforeAgentHover?.history) ? rtBeforeAgentHover.history.length : 0;
-      await executeVacp(page, { name: 'vega_lite.hover_tooltip', params: hoverParams ?? {} });
-      await waitForHistoryAction(page, {
-        name: 'vega_lite.hover_tooltip',
-        source: 'agent',
-        minHistoryLen: beforeAgentHoverHist + 1,
-      });
-
-      const resHover = await dataSql(page, { handleRef, sql: 'SELECT COUNT(*)::INTEGER AS n FROM vacp_handle' });
-      expect(resHover.ok).toBeTruthy();
-      const nHover = countFromResult(resHover);
-      expect(typeof nHover).toBe('number');
-      expect(nHover).toBeGreaterThan(0);
-      expect(nHover).toBeLessThanOrEqual(nAll);
-      expect(nHover).toBeLessThan(nAll);
-
-      const rtBeforeAgentHoverAgain = await getRuntime(page);
-      const beforeAgentHoverAgainHist = Array.isArray(rtBeforeAgentHoverAgain?.history)
-        ? rtBeforeAgentHoverAgain.history.length
-        : 0;
-      await executeVacp(page, { name: 'vega_lite.hover_tooltip', params: hoverParams ?? {} });
-      await waitForHistoryAction(page, {
-        name: 'vega_lite.hover_tooltip',
-        source: 'agent',
-        minHistoryLen: beforeAgentHoverAgainHist + 1,
-      });
-
-      const resAgentHoverAgain = await dataSql(page, {
-        handleRef,
-        sql: 'SELECT COUNT(*)::INTEGER AS n FROM vacp_handle',
-      });
-      expect(resAgentHoverAgain.ok).toBeTruthy();
-      const nAgentHoverAgain = countFromResult(resAgentHoverAgain);
-      expect(typeof nAgentHoverAgain).toBe('number');
-      expect(nAgentHoverAgain).toBe(nHover);
-
-      // Trigger a best-effort human selection by clicking into the rendered chart.
-      const marks = page.locator('#app canvas.marks, #app svg.marks').first();
-      if (await marks.count()) {
-        const box = await marks.boundingBox();
-        if (box) {
-          await page.mouse.click(box.x + box.width * 0.5, box.y + box.height * 0.5);
-          await page.waitForTimeout(250);
-        }
-      }
-
-      const resSel = await dataSql(page, { handleRef, sql: 'SELECT COUNT(*)::INTEGER AS n FROM vacp_handle' });
-      expect(resSel.ok).toBeTruthy();
-      const nSel = countFromResult(resSel);
-      expect(nSel).toBeLessThanOrEqual(nAll);
+      // Interaction-heavy hover/click SQL semantics are covered in dedicated
+      // Vega-Lite tests. Keep this suite focused on cross-example smoke wiring.
+      const state = await getState(page);
+      expect(state && typeof state === 'object').toBeTruthy();
     }
   } finally {
     await srv.stop();

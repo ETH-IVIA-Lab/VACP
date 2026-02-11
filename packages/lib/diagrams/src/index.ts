@@ -39,7 +39,16 @@ function shortRef(ref: VacpRef): string {
   const s = String(ref);
   const hashIdx = s.indexOf('#');
   const clean = hashIdx >= 0 ? s.slice(0, hashIdx) : s;
-  const parts = clean.split('/').filter(Boolean);
+  const parts = clean
+    .split('/')
+    .filter(Boolean)
+    .map((p) => {
+      try {
+        return decodeURIComponent(p);
+      } catch {
+        return p;
+      }
+    });
   return parts.slice(-2).join('/');
 }
 
