@@ -82,6 +82,31 @@ export type PromptContext = {
   tools?: Record<string, boolean>;
 };
 
+export type BeforePromptContext = Omit<PromptContext, 'opencode'> & {
+  /**
+   * Runtime context coming from the OpenCode server.
+   *
+   * `sessionID` is always available for pre-prompt setup hooks.
+   */
+  opencode: PromptContext['opencode'] & { sessionID: string };
+
+  /**
+   * Runtime lane metadata for this job execution.
+   */
+  runtime?: {
+    workerID?: number;
+    mcpServerAliases?: Record<string, string>;
+  };
+
+  /**
+   * Abort signal tied to `timeouts.setupMs`.
+   *
+   * Long-running setup code should pass this signal to subprocesses/network calls
+   * when supported.
+   */
+  abortSignal?: AbortSignal;
+};
+
 export type FinishedContext = PromptContext & {
   /**
    * The final outcome for this run (success/failure + session id when available).
@@ -191,6 +216,14 @@ export type ArenaJob = {
   titleTemplate?: (ctx: PromptContext) => string;
 
   /**
+   * Optional hook called after session creation and before prompting the model.
+   *
+   * Use this to do deterministic environment setup outside model turns
+   * (e.g. pre-open URLs, wait for chart readiness).
+   */
+  onBeforePrompt?: (ctx: BeforePromptContext) => void | Promise<void>;
+
+  /**
    * Optional hook called after the run finishes (success, error, or timeout).
    *
    * Prefer this for deterministic cleanup (e.g. closing external processes).
@@ -296,6 +329,11 @@ export type ArenaConfig = {
 
   timeouts?: {
     /**
+     * Max time to wait for pre-prompt setup hooks (`onBeforePrompt`) to finish.
+     */
+    setupMs?: number;
+
+    /**
      * Max time to wait for a scenario's prompt to complete before aborting the session.
      */
     promptMs?: number;
@@ -342,6 +380,11 @@ export type ArenaConfig = {
   titleTemplate?: (ctx: PromptContext) => string;
 
   /**
+   * Default `onBeforePrompt` hook applied unless overridden per job.
+   */
+  onBeforePrompt?: (ctx: BeforePromptContext) => void | Promise<void>;
+
+  /**
    * Default `onFinished` hook applied unless overridden per job.
    */
   onFinished?: (ctx: FinishedContext) => void | Promise<void>;
@@ -372,6 +415,18 @@ export type ArenaRunResult = {
    * Whether the run completed successfully.
    */
   ok: boolean;
+
+  /**
+   * Optional pre-prompt setup phase metadata.
+   */
+  setup?: {
+    ok: boolean;
+    hook: 'job' | 'config';
+    startedAt: string;
+    finishedAt: string;
+    durationMs: number;
+    error?: { message: string; stack?: string };
+  };
 
   /**
    * Error payload when `ok: false`.

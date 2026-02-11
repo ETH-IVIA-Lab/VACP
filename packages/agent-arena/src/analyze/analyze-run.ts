@@ -118,6 +118,16 @@ export async function analyzeArenaRun(args: AnalyzeRunArgs) {
     const startedAt = typeof run?.startedAt === 'string' ? String(run.startedAt) : '';
     const finishedAt = typeof run?.finishedAt === 'string' ? String(run.finishedAt) : '';
     const durationMs = computeDurationMs({ startedAt, finishedAt });
+    const setupOk = typeof run?.setup?.ok === 'boolean' ? Boolean(run.setup.ok) : null;
+    const setupHook = typeof run?.setup?.hook === 'string' ? String(run.setup.hook) : null;
+    const setupStartedAt = typeof run?.setup?.startedAt === 'string' ? String(run.setup.startedAt) : '';
+    const setupFinishedAt = typeof run?.setup?.finishedAt === 'string' ? String(run.setup.finishedAt) : '';
+    const setupDurationMs =
+      typeof run?.setup?.durationMs === 'number' && Number.isFinite(run.setup.durationMs)
+        ? Math.max(0, Number(run.setup.durationMs))
+        : computeDurationMs({ startedAt: setupStartedAt, finishedAt: setupFinishedAt });
+    const setupErrorMessage =
+      typeof run?.setup?.error?.message === 'string' ? clampField(String(run.setup.error.message), maxFieldChars) : null;
 
     const screenshotStats = await computeScreenshotStats(jobDirAbs);
 
@@ -197,6 +207,12 @@ export async function analyzeArenaRun(args: AnalyzeRunArgs) {
       started_at: startedAt,
       finished_at: finishedAt,
       duration_ms: durationMs,
+      setup_ok: setupOk,
+      setup_hook: setupHook,
+      setup_started_at: setupStartedAt,
+      setup_finished_at: setupFinishedAt,
+      setup_duration_ms: setupDurationMs,
+      setup_error_message: setupErrorMessage,
       opencode_start_ms: sessionMetrics.startMs,
       opencode_end_ms: sessionMetrics.endMs,
       opencode_duration_ms: sessionMetrics.durationMs,

@@ -1,6 +1,6 @@
 import path from 'node:path';
 import { consola } from 'consola';
-import type { ArenaConfig, ArenaJob, ArenaRunResult } from '../types.js';
+import type { ArenaConfig, ArenaJob, ArenaRunResult, BeforePromptContext } from '../types.js';
 import { createClient } from '../opencode.js';
 import { buildPrompt, buildTitle, logScenarioStarted } from './helpers.js';
 import { rewritePromptForLane, type McpServerAliases } from './mcp-lane.js';
@@ -32,10 +32,12 @@ export async function runScenario(args: {
   const initialTitle = buildTitle(args.config, baseCtx);
 
   const requestTimeoutMs = 60_000;
+  const setupTimeoutMs = args.config.timeouts?.setupMs ?? 120_000;
   const promptTimeoutMs = args.config.timeouts?.promptMs ?? 10 * 60_000;
   const summarizeTimeoutMs = Math.min(promptTimeoutMs, 3 * 60_000);
 
   let sessionID: string | undefined;
+  let setup: ArenaRunResult['setup'] | undefined;
 
   try {
     const created = requireData(
@@ -62,6 +64,47 @@ export async function runScenario(args: {
         );
       } catch (error) {
         consola.warn('Failed to update session title', { sessionID: created.id, error });
+      }
+    }
+
+    const setupHook = args.job.onBeforePrompt ?? args.config.onBeforePrompt;
+    const setupHookSource = args.job.onBeforePrompt ? 'job' : 'config';
+    if (setupHook) {
+      const setupStartedAt = new Date();
+      const runtimeMeta =
+        args.workerID !== undefined || args.mcpServerAliases
+          ? {
+              ...(args.workerID !== undefined ? { workerID: args.workerID } : {}),
+              ...(args.mcpServerAliases ? { mcpServerAliases: args.mcpServerAliases } : {}),
+            }
+          : undefined;
+      const setupCtx: BeforePromptContext = {
+        ...ctxWithSession,
+        ...(runtimeMeta ? { runtime: runtimeMeta } : {}),
+      };
+      try {
+        await withTimeout(setupTimeoutMs, 'onBeforePrompt', async (signal) => {
+          await setupHook({ ...setupCtx, abortSignal: signal });
+        });
+        const setupFinishedAt = new Date();
+        setup = {
+          ok: true,
+          hook: setupHookSource,
+          startedAt: setupStartedAt.toISOString(),
+          finishedAt: setupFinishedAt.toISOString(),
+          durationMs: Math.max(0, setupFinishedAt.getTime() - setupStartedAt.getTime()),
+        };
+      } catch (error) {
+        const setupFinishedAt = new Date();
+        setup = {
+          ok: false,
+          hook: setupHookSource,
+          startedAt: setupStartedAt.toISOString(),
+          finishedAt: setupFinishedAt.toISOString(),
+          durationMs: Math.max(0, setupFinishedAt.getTime() - setupStartedAt.getTime()),
+          error: toErrorPayload(error),
+        };
+        throw error;
       }
     }
 
@@ -92,6 +135,11 @@ export async function runScenario(args: {
       runtime: {
         workerID: args.workerID ?? null,
         mcpServerAliases: args.mcpServerAliases ?? null,
+      },
+      setup: {
+        timeoutMs: setupTimeoutMs,
+        hook: setupHook ? setupHookSource : null,
+        result: setup ?? null,
       },
       title,
       prompt,
@@ -148,6 +196,7 @@ export async function runScenario(args: {
       projectID: args.projectID,
       sessionID,
       ok: true,
+      ...(setup ? { setup } : {}),
       startedAt: startedAt.toISOString(),
       finishedAt: new Date().toISOString(),
     };
@@ -169,6 +218,7 @@ export async function runScenario(args: {
       projectID: args.projectID,
       sessionID,
       ok: false,
+      ...(setup ? { setup } : {}),
       error: toErrorPayload(error),
       startedAt: startedAt.toISOString(),
       finishedAt: new Date().toISOString(),

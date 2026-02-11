@@ -40,3 +40,33 @@ def test_parse_args_browser_tools_flag_defaults_off() -> None:
 def test_parse_args_browser_tools_flag_enables() -> None:
     args = parse_args(['--enable-browser-tools'])
     assert args.enable_browser_tools is True
+
+
+def test_parse_args_startup_wait_defaults() -> None:
+    args = parse_args([])
+    assert args.startup_wait_for_bridge is False
+    assert args.startup_ready_timeout_ms == 30_000
+    assert args.startup_wait_for_selector is None
+    assert args.startup_selector_timeout_ms == 30_000
+    assert args.startup_selector_state == 'visible'
+
+
+def test_parse_args_startup_wait_options() -> None:
+    args = parse_args(
+        [
+            '--startup-wait-for-bridge',
+            '--startup-ready-timeout-ms',
+            '45000',
+            '--startup-wait-for-selector',
+            '#chart svg',
+            '--startup-selector-timeout-ms',
+            '12000',
+            '--startup-selector-state',
+            'attached',
+        ]
+    )
+    assert args.startup_wait_for_bridge is True
+    assert args.startup_ready_timeout_ms == 45_000
+    assert args.startup_wait_for_selector == '#chart svg'
+    assert args.startup_selector_timeout_ms == 12_000
+    assert args.startup_selector_state == 'attached'

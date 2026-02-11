@@ -10,7 +10,7 @@ from fastapi import FastAPI
 
 from vacp_mcp_server.bridge import PlaywrightVacpBridgeClient
 from vacp_mcp_server.browser import BrowserConfig, BrowserManager
-from vacp_mcp_server.server import create_mcp
+from vacp_mcp_server.server import _wait_for_bridge_ready, create_mcp
 
 """
 VACP MCP server entrypoint (project concepts).
@@ -118,7 +118,59 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         default=False,
         help='Expose additional browser-control MCP tools (screenshot/eval/etc). Off by default.',
     )
+    p.add_argument(
+        '--startup-wait-for-bridge',
+        action='store_true',
+        default=False,
+        help='Before exposing MCP, wait for VACP bridge readiness on the initial page.',
+    )
+    p.add_argument(
+        '--startup-ready-timeout-ms',
+        type=int,
+        default=30_000,
+        help='Timeout in ms for --startup-wait-for-bridge (default: 30000).',
+    )
+    p.add_argument(
+        '--startup-wait-for-selector',
+        type=str,
+        default=None,
+        help='Before exposing MCP, wait for this selector on the initial page.',
+    )
+    p.add_argument(
+        '--startup-selector-timeout-ms',
+        type=int,
+        default=30_000,
+        help='Timeout in ms for --startup-wait-for-selector (default: 30000).',
+    )
+    p.add_argument(
+        '--startup-selector-state',
+        type=str,
+        choices=['attached', 'detached', 'visible', 'hidden'],
+        default='visible',
+        help='Optional state for --startup-wait-for-selector (default: visible).',
+    )
     return p.parse_args(argv)
+
+
+async def _wait_for_startup_ready(
+    *,
+    browser: BrowserManager,
+    global_key: str,
+    wait_for_bridge: bool,
+    ready_timeout_ms: int,
+    wait_for_selector: str | None,
+    selector_timeout_ms: int,
+    selector_state: str | None,
+) -> None:
+    if wait_for_bridge:
+        client = PlaywrightVacpBridgeClient(browser.page, global_key=global_key)
+        await _wait_for_bridge_ready(client, ready_timeout_ms)
+    if wait_for_selector:
+        await browser.page.wait_for_selector(
+            wait_for_selector,
+            timeout=max(0, selector_timeout_ms),
+            state=selector_state,
+        )
 
 
 async def _run_stdio(
@@ -128,8 +180,22 @@ async def _run_stdio(
     show_banner: bool,
     mcp_log_level: str | None,
     enable_browser_tools: bool,
+    startup_wait_for_bridge: bool,
+    startup_ready_timeout_ms: int,
+    startup_wait_for_selector: str | None,
+    startup_selector_timeout_ms: int,
+    startup_selector_state: str | None,
 ) -> None:
     await browser.start()
+    await _wait_for_startup_ready(
+        browser=browser,
+        global_key=global_key,
+        wait_for_bridge=startup_wait_for_bridge,
+        ready_timeout_ms=startup_ready_timeout_ms,
+        wait_for_selector=startup_wait_for_selector,
+        selector_timeout_ms=startup_selector_timeout_ms,
+        selector_state=startup_selector_state,
+    )
     info = await browser.get_page_info()
     log(f'Browser ready: {info}')
 
@@ -169,6 +235,11 @@ def main() -> None:
                 show_banner=bool(args.show_banner),
                 mcp_log_level=args.mcp_log_level,
                 enable_browser_tools=bool(args.enable_browser_tools),
+                startup_wait_for_bridge=bool(args.startup_wait_for_bridge),
+                startup_ready_timeout_ms=max(0, int(args.startup_ready_timeout_ms)),
+                startup_wait_for_selector=args.startup_wait_for_selector,
+                startup_selector_timeout_ms=max(0, int(args.startup_selector_timeout_ms)),
+                startup_selector_state=args.startup_selector_state,
             )
         )
         return
@@ -179,6 +250,15 @@ def main() -> None:
     async def lifespan(app: FastAPI):
         nonlocal mcp_app
         await browser.start()
+        await _wait_for_startup_ready(
+            browser=browser,
+            global_key=args.global_key,
+            wait_for_bridge=bool(args.startup_wait_for_bridge),
+            ready_timeout_ms=max(0, int(args.startup_ready_timeout_ms)),
+            wait_for_selector=args.startup_wait_for_selector,
+            selector_timeout_ms=max(0, int(args.startup_selector_timeout_ms)),
+            selector_state=args.startup_selector_state,
+        )
         info = await browser.get_page_info()
         log(f'Browser ready: {info}')
 

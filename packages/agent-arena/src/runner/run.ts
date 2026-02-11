@@ -73,6 +73,7 @@ export async function runArena(input: ArenaRunInput): Promise<ArenaRunResult[]> 
       mcpServers: Object.keys(job.mcp?.servers ?? {}),
       mcpAllow: job.mcp?.allow ?? null,
       tools: computeTools(job.toolPolicy, job) ?? null,
+      hasOnBeforePrompt: Boolean(job.onBeforePrompt ?? input.config.onBeforePrompt),
       scenario: { id: job.scenario.id, url: job.scenario.url, task: job.scenario.task },
     })),
   });

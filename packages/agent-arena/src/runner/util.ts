@@ -42,13 +42,23 @@ export class TimeoutError extends Error {
 
 export async function withTimeout<T>(timeoutMs: number, label: string, fn: (signal: AbortSignal) => Promise<T>) {
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  const timeoutError = new TimeoutError(`${label} timed out after ${timeoutMs}ms`);
+  const timer = setTimeout(() => controller.abort(timeoutError), timeoutMs);
   (timer as any).unref?.();
 
   try {
-    return await fn(controller.signal);
+    const timeoutPromise = new Promise<T>((_, reject) => {
+      controller.signal.addEventListener(
+        'abort',
+        () => {
+          reject(timeoutError);
+        },
+        { once: true },
+      );
+    });
+    return await Promise.race([fn(controller.signal), timeoutPromise]);
   } catch (error) {
-    if (controller.signal.aborted) throw new TimeoutError(`${label} timed out after ${timeoutMs}ms`);
+    if (controller.signal.aborted) throw timeoutError;
     throw error;
   } finally {
     clearTimeout(timer);

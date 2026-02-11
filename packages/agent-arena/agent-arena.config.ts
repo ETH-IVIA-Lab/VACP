@@ -2,7 +2,7 @@ import path from 'node:path';
 import { execFile, execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { promisify } from 'node:util';
-import type { ArenaConfig, ArenaJob, PromptContext } from './src/types';
+import type { ArenaConfig, ArenaJob, BeforePromptContext, PromptContext } from './src/types';
 import { mcpToolId } from './src/opencode-ids';
 import { SCENARIO_BASES } from './agent-arena.scenarios';
 
@@ -30,6 +30,10 @@ const DEFAULT_MCP_TIMEOUT_MS = 120_000;
 const AGENT_BROWSER = 'agent-browser';
 const CHART_READY_SELECTOR = '#app canvas, #app svg, #chart canvas, #chart svg';
 const CHART_READY_SCREENSHOT_NAME = 'step-00.jpg';
+const CHART_READY_WAIT_TIMEOUT_MS = Number(process.env.VACP_ARENA_CHART_READY_WAIT_TIMEOUT_MS ?? 45_000);
+const AGENT_BROWSER_SETUP_OPEN_TIMEOUT_MS = Number(process.env.VACP_ARENA_SETUP_OPEN_TIMEOUT_MS ?? 30_000);
+const AGENT_BROWSER_SETUP_WAIT_TIMEOUT_MS = Number(process.env.VACP_ARENA_SETUP_WAIT_TIMEOUT_MS ?? 45_000);
+const VACP_MCP_STARTUP_READY_TIMEOUT_MS = Number(process.env.VACP_ARENA_MCP_READY_TIMEOUT_MS ?? 45_000);
 
 const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 
@@ -41,15 +45,20 @@ const OPENCODE_ATTACH_DIRECTORY = (() => {
 
 assertBaseUrlReachableSync(BASE_URL);
 
-function agentBrowserEfficiencyGuidance(ctx: PromptContext): string[] {
+function agentBrowserEfficiencyGuidance(ctx: PromptContext, options?: { preopened?: boolean }): string[] {
+  const preopened = options?.preopened ?? false;
   return [
     'agent-browser usage:',
     `- Always pass \`--session ${ctx.opencode.sessionID}\` to \`${AGENT_BROWSER}\` commands.`,
     '- Do NOT run `agent-browser --help`.',
     '- Keep command outputs small. Avoid large DOM/text dumps.',
-    '- Open the URL once; do not repeat `open` unless the page clearly failed to load.',
+    ...(preopened
+      ? [
+          '- The scenario URL is already open and chart-ready before your turn. Do not call `open` unless recovery is necessary.',
+        ]
+      : ['- Open the URL once; do not repeat `open` unless the page clearly failed to load.']),
     '- Use these exact command forms. Do not use `--url` or `--path` variants:',
-    `- \`${AGENT_BROWSER} open \"<url>\" --session ${ctx.opencode.sessionID}\``,
+    ...(preopened ? [] : [`- \`${AGENT_BROWSER} open \"<url>\" --session ${ctx.opencode.sessionID}\``]),
     `- \`${AGENT_BROWSER} wait <ms> --session ${ctx.opencode.sessionID}\``,
     `- \`${AGENT_BROWSER} screenshot \"<path>\" --session ${ctx.opencode.sessionID}\``,
     `- \`${AGENT_BROWSER} eval '<js>' --session ${ctx.opencode.sessionID}\``,
@@ -165,16 +174,14 @@ function finalAnswerFormatBlock(ctx: PromptContext): string[] {
 function fullToolkitScreenshotGuidance(args: {
   runOutDir: string;
   screenshotTool: string;
-  sleepTool: string;
-  waitForSelectorTool: string;
   capabilitiesTool: string;
   stateTool: string;
 }): string[] {
   return [
     'Screenshot policy:',
     `- Use only screenshot paths under "${args.runOutDir}/step-*.jpg". Use two-digit sequence names such as step-00, step-01, and step-02.`,
-    `- Chart-ready sentinel: \`${args.sleepTool}\` with ms=5000 -> \`${args.waitForSelectorTool}\` with selector "${CHART_READY_SELECTOR}" -> \`${args.screenshotTool}\` to "${args.runOutDir}/${CHART_READY_SCREENSHOT_NAME}" -> \`read\` step-00.`,
-    `- If step-00 is not visibly ready, repeat sleep + wait and overwrite "${args.runOutDir}/${CHART_READY_SCREENSHOT_NAME}". Do not reload or re-open the page.`,
+    '- The scenario URL is already open and chart-ready before your turn starts.',
+    `- First action: call \`${args.screenshotTool}\` to "${args.runOutDir}/${CHART_READY_SCREENSHOT_NAME}" and \`read\` step-00.`,
     `- Once visible, call \`${args.capabilitiesTool}\` and \`${args.stateTool}\` before solving.`,
     '- After each meaningful state change, capture the next step image and read it for visual grounding.',
     '- Avoid redundant screenshots for repeated/failed attempts.',
@@ -203,21 +210,98 @@ const VACP_MCP_BASE_COMMAND = [
 ];
 
 function buildVacpMcpServerConfig(url: string) {
+  const readyTimeoutMs = String(positiveIntOr(VACP_MCP_STARTUP_READY_TIMEOUT_MS, 45_000));
   return {
     type: 'local',
-    command: [...VACP_MCP_BASE_COMMAND, '--url', url],
+    command: [...VACP_MCP_BASE_COMMAND, '--url', url, '--startup-wait-for-bridge', '--startup-ready-timeout-ms', readyTimeoutMs],
     timeout: DEFAULT_MCP_TIMEOUT_MS,
     environment: { PYTHONUNBUFFERED: '1' },
   } as const;
 }
 
 function buildVacpToolkitMcpServerConfig(url: string) {
+  const readyTimeoutMs = String(positiveIntOr(VACP_MCP_STARTUP_READY_TIMEOUT_MS, 45_000));
+  const selectorTimeoutMs = String(positiveIntOr(CHART_READY_WAIT_TIMEOUT_MS, 45_000));
   return {
     type: 'local',
-    command: [...VACP_MCP_BASE_COMMAND, '--url', url, '--enable-browser-tools'],
+    command: [
+      ...VACP_MCP_BASE_COMMAND,
+      '--url',
+      url,
+      '--enable-browser-tools',
+      '--startup-wait-for-bridge',
+      '--startup-ready-timeout-ms',
+      readyTimeoutMs,
+      '--startup-wait-for-selector',
+      CHART_READY_SELECTOR,
+      '--startup-selector-state',
+      'visible',
+      '--startup-selector-timeout-ms',
+      selectorTimeoutMs,
+    ],
     timeout: DEFAULT_MCP_TIMEOUT_MS,
     environment: { PYTHONUNBUFFERED: '1' },
   } as const;
+}
+
+type SetupCommand = {
+  label: string;
+  command: string;
+  args: string[];
+  timeoutMs: number;
+  signal?: AbortSignal;
+};
+
+function positiveIntOr(value: number, fallback: number) {
+  return Number.isFinite(value) && value > 0 ? Math.floor(value) : fallback;
+}
+
+async function runSetupCommand(cmd: SetupCommand) {
+  try {
+    await execFileAsync(cmd.command, cmd.args, {
+      timeout: positiveIntOr(cmd.timeoutMs, 30_000),
+      maxBuffer: 1024 * 1024,
+      ...(cmd.signal ? { signal: cmd.signal } : {}),
+    });
+  } catch (error) {
+    const message = formatExecError(error);
+    throw new Error(`Setup step failed (${cmd.label}): ${message}`);
+  }
+}
+
+function formatExecError(error: unknown) {
+  if (!(error instanceof Error)) return String(error);
+  const stdout = typeof (error as any).stdout === 'string' ? String((error as any).stdout).trim() : '';
+  const stderr = typeof (error as any).stderr === 'string' ? String((error as any).stderr).trim() : '';
+  const detail = [stderr, stdout].filter(Boolean).join('\n').trim();
+  return detail ? `${error.message}\n${detail}` : error.message;
+}
+
+async function preopenScenarioWithAgentBrowser(ctx: BeforePromptContext) {
+  const sessionID = ctx.opencode.sessionID;
+  const openTimeoutMs = positiveIntOr(AGENT_BROWSER_SETUP_OPEN_TIMEOUT_MS, 30_000);
+  const readyTimeoutMs = positiveIntOr(AGENT_BROWSER_SETUP_WAIT_TIMEOUT_MS, 45_000);
+
+  await runSetupCommand({
+    label: 'agent-browser open',
+    command: AGENT_BROWSER,
+    args: ['open', ctx.scenario.url, '--session', sessionID],
+    timeoutMs: openTimeoutMs,
+    signal: ctx.abortSignal,
+  });
+  await runSetupCommand({
+    label: 'agent-browser wait chart selector',
+    command: AGENT_BROWSER,
+    args: ['wait', CHART_READY_SELECTOR, '--session', sessionID],
+    timeoutMs: readyTimeoutMs,
+    signal: ctx.abortSignal,
+  });
+}
+
+async function onBeforePromptSetup(ctx: BeforePromptContext) {
+  if (ctx.job.experiment === 'baseline' || ctx.job.experiment === 'with-snapshot') {
+    await preopenScenarioWithAgentBrowser(ctx);
+  }
 }
 
 function buildBaselineJobs() {
@@ -238,6 +322,7 @@ function buildBaselineJobs() {
           responseFormat: scenario.responseFormat,
         },
         toolPolicy: { mode: 'allow', ids: ['functions.bash', 'functions.read'] },
+        onBeforePrompt: onBeforePromptSetup,
         promptTemplate: (ctx) =>
           [
             'Use the `bash` tool to run the `agent-browser` CLI. This is your browser access for this run.',
@@ -245,12 +330,13 @@ function buildBaselineJobs() {
             `Task: ${ctx.scenario.task}`,
             '',
             `Session: ${ctx.opencode.sessionID}`,
-            `URL: ${ctx.scenario.url}`,
+            `Scenario URL (already opened): ${ctx.scenario.url}`,
             '',
             'Boundaries you must follow:',
             '- Use only tools: `bash` + `read`.',
             `- \`bash\` may run only \`${AGENT_BROWSER} ...\` commands. Do not run other shell commands or scripting.`,
             `- \`read\` may open only screenshots you create for this run under "${ctx.run.outDir}/step-*.png".`,
+            '- The page is already opened and chart-ready before this turn starts. Do not spend turns on setup dance.',
             '- Treat the repository, local filesystem, and run artifacts as off-limits.',
             '- Finish by producing the "Final answer" section below. Answer can be `null`.',
             '- If you are stuck, output `null` early rather than waiting for timeout.',
@@ -259,7 +345,7 @@ function buildBaselineJobs() {
             '',
             ...humanTraceabilityGuidance(),
             '',
-            ...agentBrowserEfficiencyGuidance(ctx),
+            ...agentBrowserEfficiencyGuidance(ctx, { preopened: true }),
             '',
             ...finalAnswerFormatBlock(ctx),
           ].join('\n'),
@@ -287,6 +373,7 @@ function buildSnapshotInjectedJobs() {
           responseFormat: scenario.responseFormat,
         },
         toolPolicy: { mode: 'allow', ids: ['functions.bash', 'functions.read'] },
+        onBeforePrompt: onBeforePromptSetup,
         promptTemplate: (ctx) =>
           [
             'Use the `bash` tool to run the `agent-browser` CLI. This is your browser access for this run.',
@@ -294,12 +381,13 @@ function buildSnapshotInjectedJobs() {
             `Task: ${ctx.scenario.task}`,
             '',
             `Session: ${ctx.opencode.sessionID}`,
-            `URL: ${ctx.scenario.url}`,
+            `Scenario URL (already opened): ${ctx.scenario.url}`,
             '',
             'Boundaries you must follow:',
             '- Use only tools: `bash` + `read`.',
             `- \`bash\` may run only \`${AGENT_BROWSER} ...\` commands. Do not run other shell commands or scripting.`,
             `- \`read\` may open only screenshots you create for this run under "${ctx.run.outDir}/step-*.png".`,
+            '- The page is already opened and chart-ready before this turn starts. Do not spend turns on setup dance.',
             '- Treat the repository, local filesystem, and run artifacts as off-limits.',
             '- Finish by producing the "Final answer" section below. Answer can be `null`.',
             '- If you are stuck, output `null` early rather than waiting for timeout.',
@@ -308,7 +396,7 @@ function buildSnapshotInjectedJobs() {
             '',
             ...humanTraceabilityGuidance(),
             '',
-            ...agentBrowserEfficiencyGuidance(ctx),
+            ...agentBrowserEfficiencyGuidance(ctx, { preopened: true }),
             '',
             ...snapshotDomEfficiencyGuidance(),
             '',
@@ -364,9 +452,10 @@ function buildPureVACPJobs() {
             '- Use only the VACP tools provided by the MCP server to interact with the app; do not rely on any other context.',
             '',
             'Important:',
-            '- Do not start solving until the app is ready. In this run, you cannot take screenshots.',
-            '- Do NOT spam/retry `vacp_open_url` in a loop because it reloads. Call it once with `wait_for_bridge=true` and a sufficiently large `timeout_ms`.',
-            '- Verify readiness by successfully calling `vacp_open_url` and then reading both `vacp_capabilities` and `vacp_state` before any actions.',
+            '- The scenario URL is already open and VACP bridge readiness is handled before your turn starts.',
+            '- In this run, you cannot take screenshots.',
+            '- Do not spend tokens on setup dance. Call `vacp_open_url` only if recovery is necessary after an explicit navigation failure.',
+            '- Start solving by reading both `vacp_capabilities` and `vacp_state` before any actions.',
             '',
             ...dataProvenanceGuardrails(),
             '',
@@ -384,8 +473,6 @@ function buildPureVACPJobs() {
             '- Do NOT jump straight to computations/data extraction before you have set the relevant params/selections in the app.',
             '- If capabilities expose a SQL/data action such as `vacp.data_sql`, use it only after the app state matches the question, for example year=2000 with selection applied, and primarily to confirm or format the final answer.',
             `- Use \`${tools.state}\` to verify key state transitions and to track progress toward the answer.`,
-            '',
-            `Start by calling \`${tools.openUrl}\` with: ${ctx.scenario.url}`,
             '',
             'Then:',
             `- Call \`${tools.capabilities}\` and use it as the source of truth for actions and schemas.`,
@@ -484,13 +571,13 @@ function buildFullToolkitJobs() {
             `- Keep \`${tools.eval}\` outputs tiny; never dump large DOM/snapshot JSON.`,
             `- Keep \`${tools.state}\` token-efficient: baseline once, then use \`mode:\"delta\"\` with \`since=<latest token>\` and rely on \`changedRefs\` and \`removedRefs\`.`,
             '',
-            `Start by calling \`${tools.openUrl}\` with: ${ctx.scenario.url}`,
+            'Important:',
+            '- The scenario URL is already open and chart-ready before your turn starts.',
+            `- Do not call \`${tools.openUrl}\` unless recovery is necessary after an explicit navigation failure.`,
             '',
             ...fullToolkitScreenshotGuidance({
               runOutDir: ctx.run.outDir,
               screenshotTool: tools.screenshot,
-              sleepTool: tools.sleep,
-              waitForSelectorTool: tools.waitForSelector,
               capabilitiesTool: tools.capabilities,
               stateTool: tools.state,
             }),
@@ -640,7 +727,10 @@ export const config: ArenaConfig = {
   autoApprove: 'always',
   autoQuestion: 'reject',
   concurrency: { runs: 8 },
-  timeouts: { promptMs: 30 * 60_000 },
+  timeouts: {
+    setupMs: positiveIntOr(AGENT_BROWSER_SETUP_OPEN_TIMEOUT_MS + AGENT_BROWSER_SETUP_WAIT_TIMEOUT_MS + 10_000, 90_000),
+    promptMs: 30 * 60_000,
+  },
   server: {
     mode: 'connect',
   },

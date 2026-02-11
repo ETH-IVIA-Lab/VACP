@@ -91,3 +91,7 @@ If no existing tab matches, the server will open a new page and navigate to `--u
 - `--url http://localhost:<vite-port>/`: point at the running app you want to expose
 - `--headless`: run the embedded browser in headless mode (useful for CI/servers)
 - `--screen-width/--screen-height`: in headless mode, also sets the Playwright viewport
+- `--startup-wait-for-bridge`: block startup until `window.__vacp` responds
+- `--startup-ready-timeout-ms <ms>`: timeout for bridge readiness wait
+- `--startup-wait-for-selector "<css>"`: block startup until selector is present
+- `--startup-selector-timeout-ms <ms>` + `--startup-selector-state visible|attached|hidden|detached`
