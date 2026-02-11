@@ -1,5 +1,6 @@
 import path from 'node:path';
 import { execFile, execFileSync } from 'node:child_process';
+import fs from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { promisify } from 'node:util';
 import type { ArenaConfig, ArenaJob, BeforePromptContext, PromptContext } from './src/types';
@@ -29,10 +30,17 @@ const MODELS = [
 const DEFAULT_MCP_TIMEOUT_MS = 120_000;
 const AGENT_BROWSER = 'agent-browser';
 const CHART_READY_SELECTOR = '#app canvas, #app svg, #chart canvas, #chart svg';
-const CHART_READY_SCREENSHOT_NAME = 'step-00.jpg';
+const CHART_READY_SCREENSHOT_NAME = 'step-00.png';
 const CHART_READY_WAIT_TIMEOUT_MS = Number(process.env.VACP_ARENA_CHART_READY_WAIT_TIMEOUT_MS ?? 45_000);
 const AGENT_BROWSER_SETUP_OPEN_TIMEOUT_MS = Number(process.env.VACP_ARENA_SETUP_OPEN_TIMEOUT_MS ?? 30_000);
 const AGENT_BROWSER_SETUP_WAIT_TIMEOUT_MS = Number(process.env.VACP_ARENA_SETUP_WAIT_TIMEOUT_MS ?? 45_000);
+const AGENT_BROWSER_SETUP_RELOAD_TIMEOUT_MS = Number(process.env.VACP_ARENA_SETUP_RELOAD_TIMEOUT_MS ?? 20_000);
+const AGENT_BROWSER_SETUP_RETRY_SLEEP_MS = Number(process.env.VACP_ARENA_SETUP_RETRY_SLEEP_MS ?? 800);
+const AGENT_BROWSER_SETUP_MAX_ATTEMPTS = Number(process.env.VACP_ARENA_SETUP_MAX_ATTEMPTS ?? 5);
+const AGENT_BROWSER_SETUP_STEP0_MIN_BYTES = Number(process.env.VACP_ARENA_SETUP_STEP0_MIN_BYTES ?? 1_500);
+const AGENT_BROWSER_SETUP_MIN_NON_WHITE_FRACTION = Number(
+  process.env.VACP_ARENA_SETUP_MIN_NON_WHITE_FRACTION ?? 0.005,
+);
 const VACP_MCP_STARTUP_READY_TIMEOUT_MS = Number(process.env.VACP_ARENA_MCP_READY_TIMEOUT_MS ?? 45_000);
 
 const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
@@ -42,6 +50,7 @@ const OPENCODE_ATTACH_DIRECTORY = (() => {
   if (!raw) return path.join(path.dirname(fileURLToPath(import.meta.url)), '.agent-arena');
   return path.isAbsolute(raw) ? raw : path.resolve(REPO_ROOT, raw);
 })();
+const DEFAULT_RUN_OUT_DIR = path.join(OPENCODE_ATTACH_DIRECTORY, 'runs', buildRunStamp());
 
 assertBaseUrlReachableSync(BASE_URL);
 
@@ -179,7 +188,7 @@ function fullToolkitScreenshotGuidance(args: {
 }): string[] {
   return [
     'Screenshot policy:',
-    `- Use only screenshot paths under "${args.runOutDir}/step-*.jpg". Use two-digit sequence names such as step-00, step-01, and step-02.`,
+    `- Use only screenshot paths under "${args.runOutDir}/step-*.png". Use two-digit sequence names such as step-00, step-01, and step-02.`,
     '- The scenario URL is already open and chart-ready before your turn starts.',
     `- First action: call \`${args.screenshotTool}\` to "${args.runOutDir}/${CHART_READY_SCREENSHOT_NAME}" and \`read\` step-00.`,
     `- Once visible, call \`${args.capabilitiesTool}\` and \`${args.stateTool}\` before solving.`,
@@ -193,6 +202,10 @@ function buildScenarioUrl(args: { route: string; hash?: string; query?: Record<s
   for (const [k, v] of Object.entries(args.query ?? {})) u.searchParams.set(k, v);
   if (args.hash) u.hash = args.hash.startsWith('#') ? args.hash : `#${args.hash}`;
   return u.toString();
+}
+
+function buildRunStamp() {
+  return new Date().toISOString().replace(/[:.]/g, '-');
 }
 
 const VACP_MCP_SERVER_NAME = 'arena_vacp';
@@ -257,12 +270,20 @@ function positiveIntOr(value: number, fallback: number) {
 }
 
 async function runSetupCommand(cmd: SetupCommand) {
+  await runSetupCommandDetailed(cmd);
+}
+
+async function runSetupCommandDetailed(cmd: SetupCommand): Promise<{ stdout: string; stderr: string }> {
   try {
-    await execFileAsync(cmd.command, cmd.args, {
+    const result = await execFileAsync(cmd.command, cmd.args, {
       timeout: positiveIntOr(cmd.timeoutMs, 30_000),
       maxBuffer: 1024 * 1024,
       ...(cmd.signal ? { signal: cmd.signal } : {}),
     });
+    return {
+      stdout: String(result.stdout ?? ''),
+      stderr: String(result.stderr ?? ''),
+    };
   } catch (error) {
     const message = formatExecError(error);
     throw new Error(`Setup step failed (${cmd.label}): ${message}`);
@@ -281,6 +302,11 @@ async function preopenScenarioWithAgentBrowser(ctx: BeforePromptContext) {
   const sessionID = ctx.opencode.sessionID;
   const openTimeoutMs = positiveIntOr(AGENT_BROWSER_SETUP_OPEN_TIMEOUT_MS, 30_000);
   const readyTimeoutMs = positiveIntOr(AGENT_BROWSER_SETUP_WAIT_TIMEOUT_MS, 45_000);
+  const reloadTimeoutMs = positiveIntOr(AGENT_BROWSER_SETUP_RELOAD_TIMEOUT_MS, 20_000);
+  const retrySleepMs = positiveIntOr(AGENT_BROWSER_SETUP_RETRY_SLEEP_MS, 800);
+  const maxAttempts = positiveIntOr(AGENT_BROWSER_SETUP_MAX_ATTEMPTS, 5);
+  const step00Path = resolveRunArtifactPath(ctx, CHART_READY_SCREENSHOT_NAME);
+  const attemptNotes: string[] = [];
 
   await runSetupCommand({
     label: 'agent-browser open',
@@ -289,13 +315,196 @@ async function preopenScenarioWithAgentBrowser(ctx: BeforePromptContext) {
     timeoutMs: openTimeoutMs,
     signal: ctx.abortSignal,
   });
-  await runSetupCommand({
-    label: 'agent-browser wait chart selector',
-    command: AGENT_BROWSER,
-    args: ['wait', CHART_READY_SELECTOR, '--session', sessionID],
-    timeoutMs: readyTimeoutMs,
-    signal: ctx.abortSignal,
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+    try {
+      await runSetupCommand({
+        label: `agent-browser wait chart selector (attempt ${attempt})`,
+        command: AGENT_BROWSER,
+        args: ['wait', CHART_READY_SELECTOR, '--session', sessionID],
+        timeoutMs: readyTimeoutMs,
+        signal: ctx.abortSignal,
+      });
+      await runSetupCommand({
+        label: `agent-browser screenshot ${CHART_READY_SCREENSHOT_NAME} (attempt ${attempt})`,
+        command: AGENT_BROWSER,
+        args: ['screenshot', step00Path, '--session', sessionID],
+        timeoutMs: readyTimeoutMs,
+        signal: ctx.abortSignal,
+      });
+
+      const shotCheck = await validateStep00Screenshot({
+        sessionID,
+        screenshotPath: step00Path,
+        timeoutMs: readyTimeoutMs,
+        signal: ctx.abortSignal,
+      });
+      if (shotCheck.ok) return;
+
+      attemptNotes.push(`attempt ${attempt}: ${shotCheck.reason}`);
+    } catch (error) {
+      attemptNotes.push(`attempt ${attempt}: ${error instanceof Error ? error.message : String(error)}`);
+    }
+
+    if (attempt >= maxAttempts) break;
+
+    await runSetupCommand({
+      label: `agent-browser reload (attempt ${attempt + 1})`,
+      command: AGENT_BROWSER,
+      args: ['reload', '--session', sessionID],
+      timeoutMs: reloadTimeoutMs,
+      signal: ctx.abortSignal,
+    });
+    await sleepMs(retrySleepMs);
+  }
+
+  throw new Error(
+    [
+      `Failed to prepare chart-ready ${CHART_READY_SCREENSHOT_NAME} after ${maxAttempts} attempts.`,
+      ...attemptNotes,
+    ].join('\n'),
+  );
+}
+
+async function validateStep00Screenshot(args: {
+  sessionID: string;
+  screenshotPath: string;
+  timeoutMs: number;
+  signal?: AbortSignal;
+}): Promise<{ ok: boolean; reason: string }> {
+  const minBytes = positiveIntOr(AGENT_BROWSER_SETUP_STEP0_MIN_BYTES, 1_500);
+  let st: { size: number } | null = null;
+  try {
+    st = await fs.stat(args.screenshotPath);
+  } catch {
+    return { ok: false, reason: `missing_screenshot:${args.screenshotPath}` };
+  }
+  if (!st || st.size < minBytes) {
+    return { ok: false, reason: `screenshot_too_small:${st?.size ?? 0}B` };
+  }
+
+  const visual = await evaluateChartVisualReadiness(args);
+  if (!visual.ok) return visual;
+  return { ok: true, reason: `ok:size=${st.size}` };
+}
+
+async function evaluateChartVisualReadiness(args: {
+  sessionID: string;
+  timeoutMs: number;
+  signal?: AbortSignal;
+}): Promise<{ ok: boolean; reason: string }> {
+  const threshold = AGENT_BROWSER_SETUP_MIN_NON_WHITE_FRACTION;
+  const script = `
+(() => {
+  const selector = ${JSON.stringify(CHART_READY_SELECTOR)};
+  const threshold = ${Number.isFinite(threshold) ? threshold : 0.005};
+  const root = document.querySelector(selector);
+  if (!root) return { ok: false, reason: 'selector_missing' };
+
+  const canvas = root instanceof HTMLCanvasElement ? root : root.querySelector('canvas');
+  if (canvas instanceof HTMLCanvasElement) {
+    const w = Math.max(1, canvas.width | 0);
+    const h = Math.max(1, canvas.height | 0);
+    if (w < 2 || h < 2) return { ok: false, reason: 'canvas_too_small', width: w, height: h };
+    try {
+      const ctx = canvas.getContext('2d', { willReadFrequently: true });
+      if (!ctx) return { ok: false, reason: 'canvas_no_context' };
+      const data = ctx.getImageData(0, 0, w, h).data;
+      const maxSamples = 5000;
+      const stride = Math.max(1, Math.floor((w * h) / maxSamples));
+      let sampled = 0;
+      let nonWhite = 0;
+      for (let p = 0; p < w * h; p += stride) {
+        const i = p * 4;
+        const r = data[i];
+        const g = data[i + 1];
+        const b = data[i + 2];
+        const a = data[i + 3];
+        if (a > 0 && (r < 245 || g < 245 || b < 245)) nonWhite += 1;
+        sampled += 1;
+      }
+      const frac = sampled > 0 ? nonWhite / sampled : 0;
+      return {
+        ok: frac >= threshold,
+        reason: frac >= threshold ? 'canvas_non_white_ok' : 'canvas_too_white',
+        nonWhiteFraction: frac,
+        sampled,
+      };
+    } catch (error) {
+      return { ok: false, reason: 'canvas_read_error', error: String(error) };
+    }
+  }
+
+  const svg = root instanceof SVGElement ? root : root.querySelector('svg');
+  if (svg instanceof SVGElement) {
+    const painted = svg.querySelectorAll(
+      '[fill]:not([fill="none"]):not([fill="white"]):not([fill="#fff"]):not([fill="#ffffff"]),[stroke]:not([stroke="none"]):not([stroke="white"]):not([stroke="#fff"]):not([stroke="#ffffff"])',
+    ).length;
+    const text = (svg.textContent || '').replace(/\\s+/g, '').length;
+    let area = 0;
+    try {
+      if (typeof svg.getBBox === 'function') {
+        const box = svg.getBBox();
+        area = Number(box.width || 0) * Number(box.height || 0);
+      }
+    } catch {}
+    const ok = painted > 2 || text > 8 || area > 5000;
+    return { ok, reason: ok ? 'svg_content_ok' : 'svg_low_content', painted, text, area };
+  }
+
+  return { ok: false, reason: 'no_canvas_or_svg' };
+})()
+`.trim();
+
+  const value = await runAgentBrowserJson({
+    sessionID: args.sessionID,
+    commandArgs: ['eval', script],
+    timeoutMs: args.timeoutMs,
+    signal: args.signal,
   });
+  if (!value || typeof value !== 'object') return { ok: false, reason: 'visual_eval_invalid' };
+  const ok = Boolean((value as any).ok);
+  const reason = String((value as any).reason ?? 'visual_eval_failed');
+  return { ok, reason };
+}
+
+function resolveRunArtifactPath(ctx: BeforePromptContext, fileName: string) {
+  const runDir = path.isAbsolute(ctx.run.outDir)
+    ? path.resolve(ctx.run.outDir)
+    : path.resolve(ctx.opencode.directory, ctx.run.outDir);
+  return path.join(runDir, fileName);
+}
+
+async function runAgentBrowserJson(args: {
+  sessionID: string;
+  commandArgs: string[];
+  timeoutMs: number;
+  signal?: AbortSignal;
+}) {
+  const res = await runSetupCommandDetailed({
+    label: `agent-browser ${args.commandArgs.join(' ')}`,
+    command: AGENT_BROWSER,
+    args: ['--json', '--session', args.sessionID, ...args.commandArgs],
+    timeoutMs: args.timeoutMs,
+    signal: args.signal,
+  });
+  const raw = (res.stdout || '').trim();
+  if (!raw) throw new Error('agent-browser returned empty JSON output');
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    throw new Error(`agent-browser returned non-JSON output: ${raw.slice(0, 300)}`);
+  }
+
+  if (parsed && typeof parsed === 'object' && (parsed as any).success === false) {
+    throw new Error(String((parsed as any).error ?? 'agent-browser JSON command failed'));
+  }
+
+  if (parsed && typeof parsed === 'object' && 'data' in (parsed as any)) {
+    return (parsed as any).data;
+  }
+  return parsed;
 }
 
 async function onBeforePromptSetup(ctx: BeforePromptContext) {
@@ -549,7 +758,7 @@ function buildFullToolkitJobs() {
             '',
             'Hard constraints you must follow:',
             '- Treat the repository, local filesystem, and run artifacts as off-limits.',
-            `- Do NOT use the \`read\` tool on anything except screenshots you create for this run under "${ctx.run.outDir}/step-*.jpg".`,
+            `- Do NOT use the \`read\` tool on anything except screenshots you create for this run under "${ctx.run.outDir}/step-*.png".`,
             '- Do NOT try to solve by inspecting source files, configs, logs, or `.agent-arena/**` outputs.',
             '',
             ...dataProvenanceGuardrails(),
@@ -723,6 +932,7 @@ const runs: ArenaJob[] = [
 
 export const config: ArenaConfig = {
   directory: OPENCODE_ATTACH_DIRECTORY,
+  outDir: DEFAULT_RUN_OUT_DIR,
   worktreeRoot: false,
   autoApprove: 'always',
   autoQuestion: 'reject',
