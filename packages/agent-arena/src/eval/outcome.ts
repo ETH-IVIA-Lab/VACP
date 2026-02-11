@@ -10,6 +10,9 @@ export type EvalOutcome =
 export type PlumbingFailure =
   | 'err_connection_refused'
   | 'chrome_webdata'
+  | 'assistant_api_error'
+  | 'question_pending'
+  | 'permission_rule_denied'
   | 'session_prompt_timeout'
   | 'session_create_timeout'
   | 'session_prompt_async_timeout'
@@ -21,6 +24,9 @@ export type PlumbingFailure =
 export function detectPlumbingFailure(args: {
   ok: boolean;
   runErrorMessage: string | null;
+  hasAssistantError?: boolean;
+  hasQuestionPending?: boolean;
+  hasPermissionRuleDenied?: boolean;
   hasErrConnectionRefused?: boolean;
   hasChromeWebdata?: boolean;
 }): PlumbingFailure | null {
@@ -36,6 +42,10 @@ export function detectPlumbingFailure(args: {
     if (msg.includes('econnrefused')) return 'econnrefused';
     return args.runErrorMessage ? 'run_error' : 'run_failed';
   }
+
+  if (args.hasQuestionPending) return 'question_pending';
+  if (args.hasPermissionRuleDenied) return 'permission_rule_denied';
+  if (args.hasAssistantError) return 'assistant_api_error';
 
   return null;
 }

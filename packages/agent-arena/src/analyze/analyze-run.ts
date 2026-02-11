@@ -13,7 +13,7 @@ import {
 } from './opencode-storage.js';
 import { ensureOpencodeEvidenceSnapshot } from './opencode-evidence.js';
 import { classifyEvalOutcome, detectPlumbingFailure } from '../eval/outcome.js';
-import { hasAnswerAnchor, parseAnswerFromText } from './score.js';
+import { parseAnswerFromText } from './score.js';
 
 export type AnalyzeRunArgs = {
   runDir: string;
@@ -126,11 +126,16 @@ export async function analyzeArenaRun(args: AnalyzeRunArgs) {
 
     const toolCalls = sessionID ? await extractToolCalls(storage, sessionMessages, maxFieldChars) : [];
     const toolSummary = summarizeToolCalls(toolCalls);
+    const assistantError = extractAssistantError(sessionMessages);
 
     const answerCandidate = sessionID ? await findBestAnswer(storage, sessionMessages) : null;
     const parsed = answerCandidate?.text
       ? parseAnswerFromText(answerCandidate.text)
-      : { parseStatus: 'no_final_assistant' as const, answerJson: null as null };
+      : {
+          parseStatus: 'no_final_assistant' as const,
+          parseDetail: 'no_final_assistant' as const,
+          answerJson: null as null,
+        };
     const judge = judgeByScenarioId.get(scenarioId);
     const score = await evaluateScenario({
       judge,
@@ -153,10 +158,17 @@ export async function analyzeArenaRun(args: AnalyzeRunArgs) {
         /chrome-error:\/\/chromewebdata/.test(t.outputPreview ?? '') ||
         /chrome-error:\/\/chromewebdata/.test(t.errorPreview ?? ''),
     );
+    const hasQuestionPending = toolCalls.some((t) => t.tool === 'question' && t.status === 'running');
+    const hasPermissionRuleDenied = toolCalls.some(
+      (t) => /rule which prevents you from using this specific tool call/i.test(t.errorPreview ?? ''),
+    );
 
     const plumbingFailure = detectPlumbingFailure({
       ok,
       runErrorMessage,
+      hasAssistantError: Boolean(assistantError),
+      hasQuestionPending,
+      hasPermissionRuleDenied,
       hasErrConnectionRefused: hasErrConnRefused,
       hasChromeWebdata,
     });
@@ -208,8 +220,11 @@ export async function analyzeArenaRun(args: AnalyzeRunArgs) {
       screenshots_bytes: screenshotStats.totalBytes,
       answer_message_id: answerCandidate?.messageID ?? '',
       answer_parse_status: parsed.parseStatus,
+      answer_parse_detail: parsed.parseDetail ?? '',
       answer_json: parsed.answerJson,
       answer_json_raw: parsed.answerJsonRaw ?? '',
+      assistant_error_message: clampField(assistantError?.message ?? null, maxFieldChars),
+      assistant_error_kind: assistantError?.kind ?? null,
       score_ok: score.ok,
       score_label: score.label,
       score_json: score.result,
@@ -222,6 +237,8 @@ export async function analyzeArenaRun(args: AnalyzeRunArgs) {
       has_read_enoent: hasReadEnoent,
       has_err_connection_refused: hasErrConnRefused,
       has_chrome_webdata: hasChromeWebdata,
+      has_question_pending: hasQuestionPending,
+      has_permission_rule_denied: hasPermissionRuleDenied,
     };
 
     allJobRows.push(row);
@@ -518,6 +535,26 @@ function computeSessionMetrics(messages: OpencodeMessageInfo[]) {
   };
 }
 
+function extractAssistantError(messages: OpencodeMessageInfo[]) {
+  for (let i = messages.length - 1; i >= 0; i -= 1) {
+    const message = messages[i];
+    if (message.role !== 'assistant') continue;
+    const raw = typeof message.errorMessage === 'string' ? message.errorMessage.trim() : '';
+    if (!raw) continue;
+    return { message: raw, kind: classifyAssistantErrorKind(raw) };
+  }
+  return null;
+}
+
+function classifyAssistantErrorKind(message: string) {
+  const lower = message.toLowerCase();
+  if (lower.includes('image does not match the provided media type')) return 'image_media_type_mismatch';
+  if (lower.includes('missing a `thought_signature`')) return 'missing_thought_signature';
+  if (lower.includes('ai_jsonparseerror')) return 'provider_json_parse_error';
+  if (lower.includes('operation was aborted')) return 'operation_aborted';
+  return 'assistant_error';
+}
+
 async function readAssistantMessageText(storage: { storageDir: string }, messageID: string) {
   const parts = await readMessageParts(storage, messageID);
   const texts = parts.filter((p) => p.type === 'text' && typeof p.text === 'string').map((p) => String(p.text));
@@ -533,7 +570,6 @@ async function findBestAnswer(storage: { storageDir: string }, messages: Opencod
     const m = assistants[i];
     const text = await readAssistantMessageText(storage, m.id);
     if (!text) continue;
-    if (!hasAnswerAnchor(text)) return null;
     return { messageID: m.id, text };
   }
 

@@ -109,6 +109,41 @@ export function startAutoApprove(args: {
   })();
 }
 
+export function startAutoRejectQuestions(args: {
+  client: ReturnType<typeof createClient>;
+  directory: string;
+  enabled: boolean;
+  signal: AbortSignal;
+}) {
+  if (!args.enabled) return Promise.resolve();
+
+  return (async () => {
+    const handled = new Set<string>();
+    while (!args.signal.aborted) {
+      const pending = await withAbortTimeout(
+        args.signal,
+        2000,
+        'question.list',
+        (signal) => args.client.question.list({ directory: args.directory }, { signal }),
+        undefined,
+      );
+      const requests = pending ? requireData(pending) : [];
+      for (const req of requests as Array<{ id: string }>) {
+        if (!req?.id || handled.has(req.id)) continue;
+        handled.add(req.id);
+        await withAbortTimeout(
+          args.signal,
+          2000,
+          'question.reject',
+          (signal) => args.client.question.reject({ directory: args.directory, requestID: req.id }, { signal }),
+          undefined,
+        );
+      }
+      await sleep(300, args.signal);
+    }
+  })();
+}
+
 async function withAbortTimeout<T>(
   parentSignal: AbortSignal,
   timeoutMs: number,

@@ -54,7 +54,7 @@ function agentBrowserEfficiencyGuidance(ctx: PromptContext): string[] {
     `- \`${AGENT_BROWSER} screenshot \"<path>\" --session ${ctx.opencode.sessionID}\``,
     `- \`${AGENT_BROWSER} eval '<js>' --session ${ctx.opencode.sessionID}\``,
     `- \`${AGENT_BROWSER} select <selector-or-@ref> <value> --session ${ctx.opencode.sessionID}\``,
-    `- Save screenshots only under "${ctx.run.outDir}/step-XX.jpg". Use step-00 for the initial screenshot.`,
+    `- Save screenshots only under "${ctx.run.outDir}/step-XX.png". Use step-00 for the initial screenshot.`,
     '- Take screenshots only after meaningful state changes; avoid redundant screenshots.',
     '- Read only screenshots you rely on for the final answer.',
     '- `eval`: pass JS in SINGLE quotes; avoid backticks and `${...}` to prevent shell expansion.',
@@ -250,7 +250,7 @@ function buildBaselineJobs() {
             'Boundaries you must follow:',
             '- Use only tools: `bash` + `read`.',
             `- \`bash\` may run only \`${AGENT_BROWSER} ...\` commands. Do not run other shell commands or scripting.`,
-            `- \`read\` may open only screenshots you create for this run under "${ctx.run.outDir}/step-*.jpg".`,
+            `- \`read\` may open only screenshots you create for this run under "${ctx.run.outDir}/step-*.png".`,
             '- Treat the repository, local filesystem, and run artifacts as off-limits.',
             '- Finish by producing the "Final answer" section below. Answer can be `null`.',
             '- If you are stuck, output `null` early rather than waiting for timeout.',
@@ -299,7 +299,7 @@ function buildSnapshotInjectedJobs() {
             'Boundaries you must follow:',
             '- Use only tools: `bash` + `read`.',
             `- \`bash\` may run only \`${AGENT_BROWSER} ...\` commands. Do not run other shell commands or scripting.`,
-            `- \`read\` may open only screenshots you create for this run under "${ctx.run.outDir}/step-*.jpg".`,
+            `- \`read\` may open only screenshots you create for this run under "${ctx.run.outDir}/step-*.png".`,
             '- Treat the repository, local filesystem, and run artifacts as off-limits.',
             '- Finish by producing the "Final answer" section below. Answer can be `null`.',
             '- If you are stuck, output `null` early rather than waiting for timeout.',
@@ -340,10 +340,18 @@ function buildPureVACPJobs() {
         experiment: 'pure-vacp',
         model,
         scenario: { id: scenario.id, url, task: scenario.task, responseFormat: scenario.responseFormat },
-        toolPolicy: { mode: 'allow', ids: [] },
+        toolPolicy: {
+          mode: 'allow',
+          ids: [
+            `functions.${tools.openUrl}`,
+            `functions.${tools.capabilities}`,
+            `functions.${tools.state}`,
+            `functions.${tools.execute}`,
+          ],
+        },
         mcp: {
           servers: { [VACP_MCP_SERVER_NAME]: buildVacpMcpServerConfig(url) },
-          allow: [VACP_MCP_SERVER_NAME],
+          allow: [],
         },
         promptTemplate: (ctx) =>
           [
@@ -423,12 +431,28 @@ function buildFullToolkitJobs() {
         experiment: 'full-toolkit',
         model,
         scenario: { id: scenario.id, url, task: scenario.task, responseFormat: scenario.responseFormat },
-        toolPolicy: { mode: 'allow', ids: ['functions.read'] },
+        toolPolicy: {
+          mode: 'allow',
+          ids: [
+            'functions.read',
+            `functions.${tools.openUrl}`,
+            `functions.${tools.capabilities}`,
+            `functions.${tools.state}`,
+            `functions.${tools.execute}`,
+            `functions.${tools.screenshot}`,
+            `functions.${tools.eval}`,
+            `functions.${tools.waitForSelector}`,
+            `functions.${tools.click}`,
+            `functions.${tools.fill}`,
+            `functions.${tools.press}`,
+            `functions.${tools.sleep}`,
+          ],
+        },
         mcp: {
           servers: {
             [VACP_TOOLKIT_MCP_SERVER_NAME]: buildVacpToolkitMcpServerConfig(url),
           },
-          allow: [VACP_TOOLKIT_MCP_SERVER_NAME],
+          allow: [],
         },
         promptTemplate: (ctx) =>
           [
@@ -614,8 +638,9 @@ export const config: ArenaConfig = {
   directory: OPENCODE_ATTACH_DIRECTORY,
   worktreeRoot: false,
   autoApprove: 'always',
+  autoQuestion: 'reject',
   concurrency: { runs: 8 },
-  timeouts: { promptMs: 10 * 60_000 },
+  timeouts: { promptMs: 30 * 60_000 },
   server: {
     mode: 'connect',
   },

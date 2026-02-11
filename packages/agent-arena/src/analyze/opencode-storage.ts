@@ -11,6 +11,8 @@ export type OpencodeMessageInfo = {
   id: string;
   sessionID: string;
   role: string;
+  errorName?: string;
+  errorMessage?: string;
   timeCreated?: number;
   timeCompleted?: number;
   cost?: number;
@@ -98,10 +100,15 @@ export async function readSessionMessages(
     const role = typeof (parsed as any).role === 'string' ? String((parsed as any).role) : '';
     if (!id || !role) continue;
     const time = (parsed as any).time ?? {};
+    const error = (parsed as any).error ?? {};
+    const errorData = typeof error?.data === 'object' && error?.data ? error.data : {};
+    const errorMessageRaw = errorData?.message ?? error?.message;
     out.push({
       id,
       sessionID: sid,
       role,
+      ...(typeof error?.name === 'string' ? { errorName: String(error.name) } : {}),
+      ...(typeof errorMessageRaw === 'string' ? { errorMessage: String(errorMessageRaw) } : {}),
       ...(typeof time.created === 'number' ? { timeCreated: time.created } : {}),
       ...(typeof time.completed === 'number' ? { timeCompleted: time.completed } : {}),
       ...(typeof (parsed as any).cost === 'number' ? { cost: (parsed as any).cost } : {}),

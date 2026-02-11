@@ -8,7 +8,14 @@ import { createClient, startServer } from '../opencode.js';
 import { computeTools } from './helpers.js';
 import { createLaneRuntimeJob, type McpServerAliases } from './mcp-lane.js';
 import { runScenario } from './scenario.js';
-import { portablePathWithin, requireData, startAutoApprove, toErrorPayload, writeJson } from './util.js';
+import {
+  portablePathWithin,
+  requireData,
+  startAutoApprove,
+  startAutoRejectQuestions,
+  toErrorPayload,
+  writeJson,
+} from './util.js';
 import { archiveJobArtifacts, computeJobArtifactPaths, inspectJob, type ResumeReuseMode } from './job-state.js';
 
 export type ArenaRunInput = {
@@ -48,11 +55,13 @@ export async function runArena(input: ArenaRunInput): Promise<ArenaRunResult[]> 
   const server = await startServer(input.config, { arenaStateDir: outDir });
   let approvalsAbort: AbortController | undefined;
   let approvals: Promise<void> | undefined;
+  let questions: Promise<void> | undefined;
 
   await writeJson(path.join(outDir, 'inputs.json'), {
     startedAt: startedAt.toISOString(),
     worktreeRoot: input.config.worktreeRoot ?? true,
     autoApprove: input.config.autoApprove ?? 'always',
+    autoQuestion: input.config.autoQuestion ?? 'reject',
     concurrency: input.config.concurrency ?? {},
     timeouts: input.config.timeouts ?? {},
     runs: jobs.map((job) => ({
@@ -98,6 +107,12 @@ export async function runArena(input: ArenaRunInput): Promise<ArenaRunResult[]> 
       mode: input.config.autoApprove ?? 'always',
       signal: approvalsAbort.signal,
     });
+    questions = startAutoRejectQuestions({
+      client,
+      directory,
+      enabled: input.config.autoQuestion !== 'off',
+      signal: approvalsAbort.signal,
+    });
 
     const uiBase = `${server.url}/${base64UrlEncode(directory)}`;
     const projectID = await resolveProjectID(client, directory);
@@ -138,6 +153,9 @@ export async function runArena(input: ArenaRunInput): Promise<ArenaRunResult[]> 
     } catch {}
     try {
       await approvals;
+    } catch {}
+    try {
+      await questions;
     } catch {}
     await server.close();
   }
@@ -272,8 +290,10 @@ async function runJob(args: {
   const startedAt = new Date();
 
   let result: ArenaRunResult;
+  let mcpConnected = false;
   try {
     await ensureMcpServersForJob(args.client, args.directory, runtimeJob);
+    mcpConnected = true;
     result = await runScenario({
       config: args.config,
       job: runtimeJob,
@@ -297,6 +317,10 @@ async function runJob(args: {
       startedAt: startedAt.toISOString(),
       finishedAt: new Date().toISOString(),
     };
+  } finally {
+    if (mcpConnected) {
+      await disconnectMcpServersForJob(args.client, args.directory, runtimeJob);
+    }
   }
 
   try {
@@ -444,6 +468,24 @@ async function ensureMcpServersForJob(client: ReturnType<typeof createClient>, d
       }
     })();
     throw new Error(`Failed to start MCP server "${name}": ${detail}`);
+  }
+}
+
+async function disconnectMcpServersForJob(client: ReturnType<typeof createClient>, directory: string, job: ArenaJob) {
+  const servers = job.mcp?.servers;
+  if (!servers || Object.keys(servers).length === 0) return;
+
+  for (const name of Object.keys(servers)) {
+    try {
+      await client.mcp.disconnect({ directory, name });
+    } catch (error) {
+      consola.warn('Failed to disconnect MCP server after run', {
+        experiment: job.experiment,
+        scenario: job.scenario.id,
+        name,
+        error,
+      });
+    }
   }
 }
 

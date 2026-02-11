@@ -320,6 +320,12 @@ export type ArenaConfig = {
   autoApprove?: 'off' | 'once' | 'always' | 'reject';
 
   /**
+   * Whether to auto-reject interactive model questions during runs.
+   * Default is enabled to keep benchmark runs non-interactive.
+   */
+  autoQuestion?: 'off' | 'reject';
+
+  /**
    * Flat list of jobs to execute. Each job already binds an experiment (model/tools)
    * to a scenario (URL + task). Define whatever combinations you want in your config file.
    */
