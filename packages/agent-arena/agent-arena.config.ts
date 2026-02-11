@@ -23,7 +23,7 @@ const MODELS = [
   { providerID: 'openai', modelID: 'gpt-5.2' },
   { providerID: 'google-vertex', modelID: 'gemini-3-pro-preview' },
   //{ providerID: 'github-copilot', modelID: 'claude-sonnet-4.5' },
-  //{ providerID: 'amazon-bedrock', modelID: 'anthropic.claude-sonnet-4-5-20250929-v1:0' },
+  { providerID: 'amazon-bedrock', modelID: 'anthropic.claude-sonnet-4-5-20250929-v1:0' },
   //{ providerID: 'amazon-bedrock', modelID: 'anthropic.claude-opus-4-6-v1' },
 ];
 
@@ -54,6 +54,7 @@ assertBaseUrlReachableSync(BASE_URL);
 
 function agentBrowserEfficiencyGuidance(ctx: PromptContext, options?: { preopened?: boolean }): string[] {
   const preopened = options?.preopened ?? false;
+  const runArtifactDir = resolvePromptRunArtifactDir(ctx);
   return [
     'agent-browser usage:',
     `- Always pass \`--session ${ctx.opencode.sessionID}\` to \`${AGENT_BROWSER}\` commands.`,
@@ -70,7 +71,11 @@ function agentBrowserEfficiencyGuidance(ctx: PromptContext, options?: { preopene
     `- \`${AGENT_BROWSER} screenshot \"<path>\" --session ${ctx.opencode.sessionID}\``,
     `- \`${AGENT_BROWSER} eval '<js>' --session ${ctx.opencode.sessionID}\``,
     `- \`${AGENT_BROWSER} select <selector-or-@ref> <value> --session ${ctx.opencode.sessionID}\``,
-    `- Save screenshots only under "${ctx.run.outDir}/step-XX.png". Use step-00 for the initial screenshot.`,
+    ...(preopened
+      ? [
+          `- Save screenshots only under "${runArtifactDir}/step-XX.png". Warmup already captured step-00; read it first and recapture only if recovery is necessary.`,
+        ]
+      : [`- Save screenshots only under "${runArtifactDir}/step-XX.png". Use step-00 for the initial screenshot.`]),
     '- Take screenshots only after meaningful state changes; avoid redundant screenshots.',
     '- Read only screenshots you rely on for the final answer.',
     '- `eval`: pass JS in SINGLE quotes; avoid backticks and `${...}` to prevent shell expansion.',
@@ -179,17 +184,18 @@ function finalAnswerFormatBlock(ctx: PromptContext): string[] {
 }
 
 function fullToolkitScreenshotGuidance(args: {
-  runOutDir: string;
+  runArtifactDir: string;
   screenshotTool: string;
   capabilitiesTool: string;
   stateTool: string;
 }): string[] {
   return [
     'Screenshot policy:',
-    `- Use only screenshot paths under "${args.runOutDir}/step-*.png". Use two-digit sequence names such as step-00, step-01, and step-02.`,
+    `- Use only screenshot paths under "${args.runArtifactDir}/step-*.png". Use two-digit sequence names such as step-00, step-01, and step-02.`,
     '- The scenario URL is already open and chart-ready before your turn starts.',
-    `- First action: call \`${args.screenshotTool}\` to "${args.runOutDir}/${CHART_READY_SCREENSHOT_NAME}" and \`read\` step-00.`,
+    `- Warmup already captured "${args.runArtifactDir}/${CHART_READY_SCREENSHOT_NAME}". First action: \`read\` step-00.`,
     `- Once visible, call \`${args.capabilitiesTool}\` and \`${args.stateTool}\` before solving.`,
+    `- Capture the next screenshot with \`${args.screenshotTool}\` only after your first meaningful state change.`,
     '- After each meaningful state change, capture the next step image and read it for visual grounding.',
     '- Avoid redundant screenshots for repeated/failed attempts.',
   ];
@@ -478,10 +484,15 @@ async function evaluateChartVisualReadiness(args: {
 }
 
 function resolveRunArtifactPath(ctx: BeforePromptContext, fileName: string) {
-  const runDir = path.isAbsolute(ctx.run.outDir)
-    ? path.resolve(ctx.run.outDir)
-    : path.resolve(ctx.opencode.directory, ctx.run.outDir);
-  return path.join(runDir, fileName);
+  return path.join(resolveRunArtifactDir({ runOutDir: ctx.run.outDir, opencodeDir: ctx.opencode.directory }), fileName);
+}
+
+function resolvePromptRunArtifactDir(ctx: PromptContext) {
+  return resolveRunArtifactDir({ runOutDir: ctx.run.outDir, opencodeDir: ctx.opencode.directory });
+}
+
+function resolveRunArtifactDir(args: { runOutDir: string; opencodeDir: string }) {
+  return path.isAbsolute(args.runOutDir) ? path.resolve(args.runOutDir) : path.resolve(args.opencodeDir, args.runOutDir);
 }
 
 async function runAgentBrowserJson(args: {
@@ -517,7 +528,7 @@ async function runAgentBrowserJson(args: {
 }
 
 async function onBeforePromptSetup(ctx: BeforePromptContext) {
-  if (ctx.job.experiment === 'baseline' || ctx.job.experiment === 'with-snapshot') {
+  if (ctx.job.experiment === 'baseline' || ctx.job.experiment === 'with-snapshot' || ctx.job.experiment === 'full-toolkit') {
     await preopenScenarioWithAgentBrowser(ctx);
   }
 }
@@ -541,8 +552,9 @@ function buildBaselineJobs() {
         },
         toolPolicy: { mode: 'allow', ids: ['functions.bash', 'functions.read'] },
         onBeforePrompt: onBeforePromptSetup,
-        promptTemplate: (ctx) =>
-          [
+        promptTemplate: (ctx) => {
+          const runArtifactDir = resolvePromptRunArtifactDir(ctx);
+          return [
             'Use the `bash` tool to run the `agent-browser` CLI. This is your browser access for this run.',
             '',
             `Task: ${ctx.scenario.task}`,
@@ -553,7 +565,7 @@ function buildBaselineJobs() {
             'Boundaries you must follow:',
             '- Use only tools: `bash` + `read`.',
             `- \`bash\` may run only \`${AGENT_BROWSER} ...\` commands. Do not run other shell commands or scripting.`,
-            `- \`read\` may open only screenshots you create for this run under "${ctx.run.outDir}/step-*.png".`,
+            `- \`read\` may open only screenshots for this run under "${runArtifactDir}/step-*.png", including warmup step-00.`,
             '- The page is already opened and chart-ready before this turn starts. Do not spend turns on setup dance.',
             '- Treat the repository, local filesystem, and run artifacts as off-limits.',
             '- Finish by producing the "Final answer" section below. Answer can be `null`.',
@@ -566,7 +578,8 @@ function buildBaselineJobs() {
             ...agentBrowserEfficiencyGuidance(ctx, { preopened: true }),
             '',
             ...finalAnswerFormatBlock(ctx),
-          ].join('\n'),
+          ].join('\n');
+        },
       });
     }
   }
@@ -592,8 +605,9 @@ function buildSnapshotInjectedJobs() {
         },
         toolPolicy: { mode: 'allow', ids: ['functions.bash', 'functions.read'] },
         onBeforePrompt: onBeforePromptSetup,
-        promptTemplate: (ctx) =>
-          [
+        promptTemplate: (ctx) => {
+          const runArtifactDir = resolvePromptRunArtifactDir(ctx);
+          return [
             'Use the `bash` tool to run the `agent-browser` CLI. This is your browser access for this run.',
             '',
             `Task: ${ctx.scenario.task}`,
@@ -604,7 +618,7 @@ function buildSnapshotInjectedJobs() {
             'Boundaries you must follow:',
             '- Use only tools: `bash` + `read`.',
             `- \`bash\` may run only \`${AGENT_BROWSER} ...\` commands. Do not run other shell commands or scripting.`,
-            `- \`read\` may open only screenshots you create for this run under "${ctx.run.outDir}/step-*.png".`,
+            `- \`read\` may open only screenshots for this run under "${runArtifactDir}/step-*.png", including warmup step-00.`,
             '- The page is already opened and chart-ready before this turn starts. Do not spend turns on setup dance.',
             '- Treat the repository, local filesystem, and run artifacts as off-limits.',
             '- Finish by producing the "Final answer" section below. Answer can be `null`.',
@@ -619,7 +633,8 @@ function buildSnapshotInjectedJobs() {
             ...snapshotDomEfficiencyGuidance(),
             '',
             ...finalAnswerFormatBlock(ctx),
-          ].join('\n'),
+          ].join('\n');
+        },
       });
     }
   }
@@ -759,15 +774,17 @@ function buildFullToolkitJobs() {
           },
           allow: [],
         },
-        promptTemplate: (ctx) =>
-          [
+        onBeforePrompt: onBeforePromptSetup,
+        promptTemplate: (ctx) => {
+          const runArtifactDir = resolvePromptRunArtifactDir(ctx);
+          return [
             'Use VACP semantic tools plus browser-control tools backed by Playwright.',
             '',
             `Task: ${ctx.scenario.task}`,
             '',
             'Hard constraints you must follow:',
             '- Treat the repository, local filesystem, and run artifacts as off-limits.',
-            `- Do NOT use the \`read\` tool on anything except screenshots you create for this run under "${ctx.run.outDir}/step-*.png".`,
+            `- Do NOT use the \`read\` tool on anything except screenshots for this run under "${runArtifactDir}/step-*.png", including warmup step-00.`,
             '- Do NOT try to solve by inspecting source files, configs, logs, or `.agent-arena/**` outputs.',
             '',
             ...dataProvenanceGuardrails(),
@@ -794,7 +811,7 @@ function buildFullToolkitJobs() {
             `- Do not call \`${tools.openUrl}\` unless recovery is necessary after an explicit navigation failure.`,
             '',
             ...fullToolkitScreenshotGuidance({
-              runOutDir: ctx.run.outDir,
+              runArtifactDir,
               screenshotTool: tools.screenshot,
               capabilitiesTool: tools.capabilities,
               stateTool: tools.state,
@@ -822,7 +839,8 @@ function buildFullToolkitJobs() {
             `- Fill: \`${tools.fill}\``,
             `- Press: \`${tools.press}\``,
             `- Sleep: \`${tools.sleep}\``,
-          ].join('\n'),
+          ].join('\n');
+        },
       });
     }
   }
