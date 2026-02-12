@@ -963,10 +963,10 @@ export const config: ArenaConfig = {
   worktreeRoot: false,
   autoApprove: 'always',
   autoQuestion: 'reject',
-  concurrency: { runs: 8 },
+  concurrency: { runs: 4 },
   timeouts: {
     setupMs: positiveIntOr(AGENT_BROWSER_SETUP_OPEN_TIMEOUT_MS + AGENT_BROWSER_SETUP_WAIT_TIMEOUT_MS + 10_000, 90_000),
-    promptMs: 30 * 60_000,
+    promptMs: 20 * 60_000,
   },
   server: {
     mode: 'connect',
