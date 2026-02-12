@@ -2,6 +2,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { consola } from 'consola';
 import type { ArenaConfig, ArenaJob, ArenaRunResult, FinishedContext } from '../types.js';
+import type { ResumeRerunOutcome } from './resume-selective.js';
 import { base64UrlEncode } from '../paths.js';
 import { mapLimit } from '../concurrency.js';
 import { createClient, startServer } from '../opencode.js';
@@ -16,7 +17,13 @@ import {
   toErrorPayload,
   writeJson,
 } from './util.js';
-import { archiveJobArtifacts, computeJobArtifactPaths, inspectJob, type ResumeReuseMode } from './job-state.js';
+import {
+  archiveJobArtifacts,
+  computeJobArtifactPaths,
+  computeJobIdentityKey,
+  inspectJob,
+  type ResumeReuseMode,
+} from './job-state.js';
 
 export type ArenaRunInput = {
   config: ArenaConfig;
@@ -29,6 +36,11 @@ export type ArenaRunInput = {
    * Default: "ok" (keeps `agent-arena run --resume` semantics).
    */
   resumeReuseMode?: ResumeReuseMode;
+  /**
+   * Optional forced-rerun map keyed by job identity (`experiment/scenario/model`).
+   * Used by `agent-arena resume --rerun-outcomes`.
+   */
+  resumeForcedRerunByJobKey?: Map<string, ResumeRerunOutcome>;
   hooks?: {
     afterJob?: (args: {
       config: ArenaConfig;
@@ -138,6 +150,7 @@ export async function runArena(input: ArenaRunInput): Promise<ArenaRunResult[]> 
         index,
         outDir,
         resumeReuseMode: input.resumeReuseMode,
+        resumeForcedRerunByJobKey: input.resumeForcedRerunByJobKey,
         client,
         directory,
         projectID,
@@ -213,6 +226,7 @@ async function runJob(args: {
   index: number;
   outDir: string;
   resumeReuseMode?: ResumeReuseMode;
+  resumeForcedRerunByJobKey?: Map<string, ResumeRerunOutcome>;
   client: ReturnType<typeof createClient>;
   directory: string;
   projectID?: string;
@@ -224,6 +238,8 @@ async function runJob(args: {
   const jobOutDir = paths.jobOutDir;
   const runJsonPath = paths.runJsonPath;
   const runtimeJob = args.runtimeJob;
+  const jobKey = computeJobIdentityKey({ job: args.job, index: args.index });
+  const forcedOutcome = args.resumeForcedRerunByJobKey?.get(jobKey);
 
   if (args.config.resume) {
     const inspection = await inspectJob({
@@ -233,7 +249,7 @@ async function runJob(args: {
       reuseMode: resumeReuseMode,
     });
 
-    if (inspection.state === 'complete' && inspection.reusable) {
+    if (inspection.state === 'complete' && inspection.reusable && !forcedOutcome) {
       const reused = inspection.result;
       consola.info(`↷ resume ${args.job.experiment} · ${args.job.scenario.id} (${resumeReuseMode})`);
       try {
@@ -277,11 +293,17 @@ async function runJob(args: {
     if (inspection.state !== 'missing') {
       const archived = await archiveJobArtifacts({
         jobOutDir,
-        reason: inspection.reason,
+        reason: forcedOutcome ? `policy_rerun_${forcedOutcome}` : inspection.reason,
       });
       if (archived && archived.moved.length > 0) {
-        consola.warn(`↺ archived partial run artifacts (${inspection.reason}): ${relativePath(archived.archivedDir)}`);
+        const reason = forcedOutcome ? `policy_rerun_${forcedOutcome}` : inspection.reason;
+        consola.warn(`↺ archived partial run artifacts (${reason}): ${relativePath(archived.archivedDir)}`);
       }
+    }
+    if (forcedOutcome && inspection.state === 'complete' && inspection.reusable) {
+      consola.info(
+        `↺ rerun ${args.job.experiment} · ${args.job.scenario.id} (selected eval_outcome=${forcedOutcome})`,
+      );
     }
   }
 

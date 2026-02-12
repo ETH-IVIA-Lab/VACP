@@ -151,7 +151,13 @@ export const SCENARIO_BASES: ScenarioBase[] = [
     hash: 'airports',
     task: 'Find in state ND (North Dakota) the airport with the most outgoing flight connections. Which airport are the most flights to?',
     responseFormat: '{airport: string, topDestination: string}',
-    judge: makeIataIncludesJudge({ airport: 'FAR', topDestination: 'MSP' }),
+    judge: makeIataIncludesJudge(
+      { airport: 'FAR', topDestination: 'MSP' },
+      {
+        airportAliases: ['Hector International'],
+        topDestinationAliases: ['Minneapolis-St Paul Intl'],
+      },
+    ),
   },
   {
     id: 'vl-airports-t2-bangor-to-denver',
@@ -245,8 +251,14 @@ export function makeSolutionJudge(
 export function makeIataIncludesJudge(expected: {
   airport: string;
   topDestination: string;
+},
+opts?: {
+  airportAliases?: string[];
+  topDestinationAliases?: string[];
 }): (input: ScenarioJudgeInput) => ScenarioJudgeResult {
   const strictJudge = makeSolutionJudge(expected, { accept: 'strict' });
+  const airportAliases = uniqueNormalizedAliases([expected.airport, ...(opts?.airportAliases ?? [])]);
+  const topDestinationAliases = uniqueNormalizedAliases([expected.topDestination, ...(opts?.topDestinationAliases ?? [])]);
 
   return ({ answer, parseStatus }: ScenarioJudgeInput): ScenarioJudgeResult => {
     if (parseStatus !== 'ok') return strictJudge({ scenarioId: '', answer, parseStatus });
@@ -258,8 +270,8 @@ export function makeIataIncludesJudge(expected: {
     const airport = typeof a.airport === 'string' ? a.airport : '';
     const topDestination = typeof a.topDestination === 'string' ? a.topDestination : '';
     const semanticOk =
-      airport.toUpperCase().includes(expected.airport.toUpperCase()) &&
-      topDestination.toUpperCase().includes(expected.topDestination.toUpperCase());
+      matchesIataOrAlias(airport, expected.airport, airportAliases) &&
+      matchesIataOrAlias(topDestination, expected.topDestination, topDestinationAliases);
     const strictOk = strictJudge({ scenarioId: '', answer, parseStatus }).ok;
 
     return {
@@ -269,9 +281,46 @@ export function makeIataIncludesJudge(expected: {
       semanticOk,
       expected,
       actual: answer,
-      metrics: { method: 'includes_iata' },
+      metrics: {
+        method: 'includes_iata_or_alias',
+        airportAliases: opts?.airportAliases ?? [],
+        topDestinationAliases: opts?.topDestinationAliases ?? [],
+      },
     };
   };
+}
+
+function matchesIataOrAlias(actualRaw: string, expectedIataRaw: string, normalizedAliases: string[]) {
+  const actual = normalizeIataAliasText(actualRaw);
+  const expectedIata = normalizeIataAliasText(expectedIataRaw);
+  if (!actual || !expectedIata) return false;
+  if (actual.includes(expectedIata)) return true;
+  for (const alias of normalizedAliases) {
+    if (!alias) continue;
+    if (actual.includes(alias)) return true;
+    if (alias.includes(actual)) return true;
+  }
+  return false;
+}
+
+function uniqueNormalizedAliases(values: string[]) {
+  const out: string[] = [];
+  const seen = new Set<string>();
+  for (const raw of values) {
+    const value = normalizeIataAliasText(raw);
+    if (!value || seen.has(value)) continue;
+    seen.add(value);
+    out.push(value);
+  }
+  return out;
+}
+
+function normalizeIataAliasText(value: string) {
+  return value
+    .toUpperCase()
+    .replace(/[^A-Z0-9]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
 }
 
 function deepEqual(

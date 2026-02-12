@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { makeSolutionJudge } from '../agent-arena.scenarios.ts';
+import { makeIataIncludesJudge, makeSolutionJudge } from '../agent-arena.scenarios.ts';
 
 const monthRangeJudge = makeSolutionJudge(
   {
@@ -131,5 +131,52 @@ const nestedPathWrong = nestedPathJudge({
 
 assert.equal(nestedPathWrong.semanticOk, false);
 assert.equal(nestedPathWrong.strictOk, false);
+
+const iataAliasJudge = makeIataIncludesJudge(
+  { airport: 'FAR', topDestination: 'MSP' },
+  {
+    airportAliases: ['Hector International'],
+    topDestinationAliases: ['Minneapolis-St Paul Intl'],
+  },
+);
+
+const iataAliasNameOnly = iataAliasJudge({
+  scenarioId: 'vl-airports-t1-nd-most-outgoing-top-destination',
+  parseStatus: 'ok',
+  answer: {
+    airport: 'Hector International',
+    topDestination: 'Minneapolis-St Paul Intl',
+  },
+});
+
+assert.equal(iataAliasNameOnly.semanticOk, true);
+assert.equal(iataAliasNameOnly.strictOk, false);
+assert.equal(iataAliasNameOnly.ok, true);
+
+const iataAliasMixedWithCodes = iataAliasJudge({
+  scenarioId: 'vl-airports-t1-nd-most-outgoing-top-destination',
+  parseStatus: 'ok',
+  answer: {
+    airport: 'Hector International (FAR)',
+    topDestination: 'MSP - Minneapolis-St Paul Intl',
+  },
+});
+
+assert.equal(iataAliasMixedWithCodes.semanticOk, true);
+assert.equal(iataAliasMixedWithCodes.strictOk, false);
+assert.equal(iataAliasMixedWithCodes.ok, true);
+
+const iataAliasWrongDestination = iataAliasJudge({
+  scenarioId: 'vl-airports-t1-nd-most-outgoing-top-destination',
+  parseStatus: 'ok',
+  answer: {
+    airport: 'Hector International',
+    topDestination: "Chicago O'Hare International",
+  },
+});
+
+assert.equal(iataAliasWrongDestination.semanticOk, false);
+assert.equal(iataAliasWrongDestination.strictOk, false);
+assert.equal(iataAliasWrongDestination.ok, false);
 
 console.log('judge-semantic-equivalence: ok');

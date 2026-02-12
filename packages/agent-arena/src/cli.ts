@@ -17,7 +17,12 @@ import {
 } from './report/index.js';
 import { loadArenaAnalysis } from './report/load-analysis.js';
 import { runArena } from './runner/index.js';
-import { inspectJob, type ResumeReuseMode } from './runner/job-state.js';
+import { computeJobIdentityKey, inspectJob, type ResumeReuseMode } from './runner/job-state.js';
+import {
+  buildResumeOutcomeSelection,
+  parseResumeRerunOutcomesCsv,
+  type ResumeOutcomeSelection,
+} from './runner/resume-selective.js';
 
 const program = new Command()
   .name('agent-arena')
@@ -118,6 +123,11 @@ program
   .option('--only <substring>', 'Only run entries whose experiment includes this substring')
   .option('--dry-run', 'Plan only; do not execute any runs')
   .option('--rerun-failed', 'Rerun jobs that finished with ok=false (default: reuse finished results)')
+  .option(
+    '--rerun-outcomes <list>',
+    'Comma-separated eval outcomes to rerun (supported: protocol_failure, plumbing_failure)',
+  )
+  .option('--analysis <dir>', 'Analysis directory used for --rerun-outcomes (default: <runDir>/analysis)')
   .option('--export-logs', 'Export OpenCode session messages/tool calls + metrics into each job folder')
   .option('--write-metrics', 'Write aggregated metrics.json and tool_calls.json into the output directory')
   .addOption(
@@ -139,6 +149,11 @@ program
         ? { ...cfg, runs: cfg.runs.filter((r) => r.experiment.toLowerCase().includes(String(raw.only).toLowerCase())) }
         : cfg;
 
+      const rerunOutcomes = parseResumeRerunOutcomesCsv(raw.rerunOutcomes);
+      if (raw.rerunFailed && rerunOutcomes?.length) {
+        throw new Error(`--rerun-failed and --rerun-outcomes are mutually exclusive`);
+      }
+
       const resumeReuseMode: ResumeReuseMode = raw.rerunFailed ? 'ok' : 'finished';
       const runConfig = {
         ...filtered,
@@ -146,9 +161,29 @@ program
         autoApprove: raw.autoApprove ?? filtered.autoApprove,
         resume: true,
       };
+      const analysisDir = rerunOutcomes?.length
+        ? raw.analysis
+          ? resolveFromCwd(raw.analysis)
+          : path.join(runDir, 'analysis')
+        : null;
+      const resumeOutcomeSelection =
+        rerunOutcomes?.length && analysisDir
+          ? await buildResumeOutcomeSelection({
+              runDir,
+              analysisDir,
+              jobs: runConfig.runs,
+              selectedOutcomes: rerunOutcomes,
+            })
+          : null;
 
       const outDir = runDir;
-      await logResumePlan({ config: runConfig, outDir, configPath, resumeReuseMode });
+      await logResumePlan({
+        config: runConfig,
+        outDir,
+        configPath,
+        resumeReuseMode,
+        resumeOutcomeSelection,
+      });
       if (raw.dryRun) return;
 
       // Preserve the original manifest/context for postmortems; `runArena` will rewrite these.
@@ -162,6 +197,13 @@ program
         config: runConfig,
         outDir,
         resumeReuseMode,
+        ...(resumeOutcomeSelection
+          ? {
+              resumeForcedRerunByJobKey: new Map(
+                Array.from(resumeOutcomeSelection.forcedByJobKey.entries()).map(([k, v]) => [k, v.outcome] as const),
+              ),
+            }
+          : {}),
         ...(exportLogs
           ? {
               hooks: {
@@ -521,6 +563,7 @@ async function logResumePlan(args: {
   outDir: string;
   configPath: string;
   resumeReuseMode: ResumeReuseMode;
+  resumeOutcomeSelection?: ResumeOutcomeSelection | null;
 }) {
   const manifest = await readJsonOptional(path.join(args.outDir, 'inputs.json'));
   const manifestValue =
@@ -535,37 +578,55 @@ async function logResumePlan(args: {
       inspectJob({ arenaOutDir: args.outDir, job, index, reuseMode: args.resumeReuseMode }),
     ),
   );
+  const forcedByJobKey = args.resumeOutcomeSelection?.forcedByJobKey ?? new Map();
+  const hasOutcomeSelection = Boolean(args.resumeOutcomeSelection);
 
-  const done = inspections.filter((i) => i.state === 'complete' && i.reusable).length;
-  const partial = inspections.filter((i) => i.state === 'partial').length;
-  const missing = inspections.filter((i) => i.state === 'missing').length;
-  const rerunFailed = inspections.filter((i) => i.state === 'complete' && !i.reusable).length;
-  const toRun = partial + missing + rerunFailed;
+  let done = 0;
+  let partial = 0;
+  let missing = 0;
+  let rerunFailed = 0;
+  let rerunOutcome = 0;
 
   const byExperiment = new Map<
     string,
-    { total: number; done: number; partial: number; missing: number; rerunFailed: number }
+    { total: number; done: number; partial: number; missing: number; rerunFailed: number; rerunOutcome: number }
   >();
+
   for (let i = 0; i < args.config.runs.length; i++) {
     const job = args.config.runs[i];
     const insp = inspections[i];
+    const forced = forcedByJobKey.get(computeJobIdentityKey({ job, index: i }));
+
+    if (insp.state === 'complete' && insp.reusable && !forced) done += 1;
+    else if (insp.state === 'partial') partial += 1;
+    else if (insp.state === 'missing') missing += 1;
+    else if (forced) rerunOutcome += 1;
+    else rerunFailed += 1;
+
     const ex = job.experiment;
-    const row = byExperiment.get(ex) ?? { total: 0, done: 0, partial: 0, missing: 0, rerunFailed: 0 };
+    const row = byExperiment.get(ex) ?? { total: 0, done: 0, partial: 0, missing: 0, rerunFailed: 0, rerunOutcome: 0 };
     row.total += 1;
-    if (insp.state === 'complete' && insp.reusable) row.done += 1;
+    if (insp.state === 'complete' && insp.reusable && !forced) row.done += 1;
     else if (insp.state === 'partial') row.partial += 1;
     else if (insp.state === 'missing') row.missing += 1;
+    else if (forced) row.rerunOutcome += 1;
     else row.rerunFailed += 1;
     byExperiment.set(ex, row);
+  }
+  const toRun = partial + missing + rerunFailed + rerunOutcome;
+
+  const outcomeCounts = new Map<string, number>();
+  for (const forced of forcedByJobKey.values()) {
+    outcomeCounts.set(forced.outcome, (outcomeCounts.get(forced.outcome) ?? 0) + 1);
   }
 
   const sortedExperiments = Array.from(byExperiment.entries()).sort((a, b) => a[0].localeCompare(b[0]));
   const expLines = sortedExperiments.map(([ex, r]) => {
     const toRun = r.total - r.done;
-    const parts =
-      args.resumeReuseMode === 'ok'
-        ? `done ${r.done}/${r.total}, to run ${toRun} (missing ${r.missing}, partial ${r.partial}, rerunFailed ${r.rerunFailed})`
-        : `done ${r.done}/${r.total}, to run ${toRun} (missing ${r.missing}, partial ${r.partial})`;
+    const detailParts = [`missing ${r.missing}`, `partial ${r.partial}`];
+    if (r.rerunFailed > 0) detailParts.push(`rerunFailed ${r.rerunFailed}`);
+    if (r.rerunOutcome > 0) detailParts.push(`rerunOutcome ${r.rerunOutcome}`);
+    const parts = `done ${r.done}/${r.total}, to run ${toRun} (${detailParts.join(', ')})`;
     return `- ${ex}: ${parts}`;
   });
 
@@ -601,6 +662,27 @@ async function logResumePlan(args: {
     args.resumeReuseMode === 'ok' && rerunFailed > rerunFailedItems.length
       ? `(+${rerunFailed - rerunFailedItems.length} more)`
       : null;
+  const rerunOutcomeRows = hasOutcomeSelection
+    ? args.config.runs
+        .map((job, idx) => ({
+          job,
+          forced: forcedByJobKey.get(computeJobIdentityKey({ job, index: idx })),
+          scenarioId: job.scenario.id ?? `s${idx + 1}`,
+        }))
+        .filter((x) => Boolean(x.forced))
+    : [];
+  const rerunOutcomeItems = rerunOutcomeRows
+    .slice(0, 12)
+    .map(
+      (x) =>
+        `- ${x.job.experiment} · ${x.scenarioId} · ${x.job.model.providerID}/${x.job.model.modelID} (${x.forced?.outcome ?? 'unknown'})`,
+    );
+  const rerunOutcomeExtra =
+    hasOutcomeSelection && rerunOutcome > rerunOutcomeItems.length
+      ? `(+${rerunOutcome - rerunOutcomeItems.length} more)`
+      : null;
+  const selectedOutcomes = args.resumeOutcomeSelection?.selectedOutcomes ?? [];
+  const selectedOutcomeLines = selectedOutcomes.map((outcome) => `  - ${outcome}: ${outcomeCounts.get(outcome) ?? 0}`);
 
   consola.box(
     [
@@ -610,6 +692,8 @@ async function logResumePlan(args: {
       `Config:    ${args.configPath}`,
       `Directory: ${args.config.directory ?? '(auto)'}`,
       `Reuse:     ${args.resumeReuseMode === 'finished' ? 'finished (ok+failed)' : 'ok only (rerun failed)'}`,
+      hasOutcomeSelection ? `Analysis:  ${args.resumeOutcomeSelection?.analysisDir}` : null,
+      hasOutcomeSelection ? `Outcomes:  ${selectedOutcomes.join(', ')}` : null,
       manifestStartedAt
         ? `Prev run:  startedAt=${manifestStartedAt}${manifestRuns ? ` runs=${manifestRuns}` : ''}`
         : null,
@@ -621,6 +705,12 @@ async function logResumePlan(args: {
       `  - missing:      ${missing}`,
       `  - partial:      ${partial}`,
       args.resumeReuseMode === 'ok' ? `  - rerun failed: ${rerunFailed}` : null,
+      hasOutcomeSelection ? `  - rerun outcomes: ${rerunOutcome}` : null,
+      hasOutcomeSelection ? `  - matched completed jobs in analysis: ${args.resumeOutcomeSelection?.matchedJobs}` : null,
+      hasOutcomeSelection ? `  - complete jobs in run dir: ${args.resumeOutcomeSelection?.completeJobs}` : null,
+      hasOutcomeSelection ? `  - analysis runs file: ${args.resumeOutcomeSelection?.analysisRunsPath}` : null,
+      hasOutcomeSelection ? `  - selected-outcome counts:` : null,
+      ...(hasOutcomeSelection ? selectedOutcomeLines : []),
       ``,
       `By experiment:`,
       ...expLines,
@@ -632,6 +722,10 @@ async function logResumePlan(args: {
       rerunFailedItems.length ? `Rerun failed jobs (showing up to ${rerunFailedItems.length}):` : null,
       ...rerunFailedItems,
       rerunFailedItems.length ? rerunFailedExtra : null,
+      rerunOutcomeItems.length ? `` : null,
+      rerunOutcomeItems.length ? `Rerun outcome jobs (showing up to ${rerunOutcomeItems.length}):` : null,
+      ...rerunOutcomeItems,
+      rerunOutcomeItems.length ? rerunOutcomeExtra : null,
     ]
       .filter(Boolean)
       .join('\n'),

@@ -348,6 +348,8 @@ export type ArenaConfig = {
    * Notes:
    * - `agent-arena run --resume` reuses only `ok: true` results (reruns failures).
    * - `agent-arena resume` reuses any finished results (ok or failed) and runs only missing/unfinished jobs.
+   * - `agent-arena resume --rerun-outcomes ...` can additionally rerun selected
+   *   analysis outcomes (currently `protocol_failure`, `plumbing_failure`).
    */
   resume?: boolean;
 

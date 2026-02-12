@@ -4,6 +4,12 @@ import { sanitizeSegment } from '../paths.js';
 import type { ArenaJob, ArenaRunResult } from '../types.js';
 
 export type ResumeReuseMode = 'ok' | 'finished';
+export type JobIdentity = {
+  experiment: string;
+  scenarioId: string;
+  modelProvider: string;
+  modelName: string;
+};
 
 export type JobArtifactPaths = {
   jobOutDir: string;
@@ -11,8 +17,29 @@ export type JobArtifactPaths = {
   runJsonPath: string;
 };
 
+export function scenarioIdForJob(args: { job: ArenaJob; index: number }) {
+  return args.job.scenario.id ?? `s${args.index + 1}`;
+}
+
+export function computeJobIdentity(args: { job: ArenaJob; index: number }): JobIdentity {
+  return {
+    experiment: args.job.experiment,
+    scenarioId: scenarioIdForJob(args),
+    modelProvider: args.job.model.providerID,
+    modelName: args.job.model.modelID,
+  };
+}
+
+export function jobIdentityKey(identity: JobIdentity) {
+  return [identity.experiment, identity.scenarioId, identity.modelProvider, identity.modelName].join('__');
+}
+
+export function computeJobIdentityKey(args: { job: ArenaJob; index: number }) {
+  return jobIdentityKey(computeJobIdentity(args));
+}
+
 export function computeJobArtifactPaths(args: { arenaOutDir: string; job: ArenaJob; index: number }): JobArtifactPaths {
-  const scenarioId = args.job.scenario.id ?? `s${args.index + 1}`;
+  const scenarioId = scenarioIdForJob({ job: args.job, index: args.index });
   const jobOutDir = path.join(
     args.arenaOutDir,
     'runs',
@@ -128,8 +155,8 @@ export async function inspectJob(args: {
   }
 
   // Defensive: ensure we don't accidentally reuse a run.json from a different job.
-  const expectedScenarioId = args.job.scenario.id ?? `s${args.index + 1}`;
-  const identityOk = result.experiment === args.job.experiment && result.scenario.id === expectedScenarioId;
+  const identity = computeJobIdentity({ job: args.job, index: args.index });
+  const identityOk = result.experiment === identity.experiment && result.scenario.id === identity.scenarioId;
   if (!identityOk) {
     return {
       state: 'partial',
