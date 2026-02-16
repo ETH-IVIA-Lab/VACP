@@ -7,6 +7,7 @@ import type { ArenaConfig, ArenaJob } from '../src/types.ts';
 
 async function main() {
   await testBeforePromptRunsBeforePromptAsync();
+  await testPromptWaitsForSessionIdleWhenStatusIsBusyFirst();
   await testBeforePromptTimeoutFailsWithoutPrompt();
   console.log('scenario-before-prompt: ok');
 }
@@ -96,6 +97,42 @@ async function testBeforePromptTimeoutFailsWithoutPrompt() {
   assert.match(String(res.error?.message ?? ''), /onBeforePrompt timed out/i);
 }
 
+async function testPromptWaitsForSessionIdleWhenStatusIsBusyFirst() {
+  const tmp = await fs.mkdtemp(path.join(os.tmpdir(), 'arena-before-prompt-busy-first-'));
+  const outDir = path.join(tmp, 'run-3');
+  await fs.mkdir(outDir, { recursive: true });
+
+  let statusCalls = 0;
+  const client = mockClient({
+    status() {
+      statusCalls += 1;
+      if (statusCalls === 1) {
+        return { 'session-1': { type: 'retry', next: Date.now() + 10 } };
+      }
+      return { 'session-1': { type: 'idle' } };
+    },
+  });
+
+  const job = baseJob();
+  const config: ArenaConfig = {
+    runs: [],
+    timeouts: { setupMs: 1000, promptMs: 4000 },
+    promptTemplate: () => 'test prompt',
+  };
+
+  const res = await runScenario({
+    config,
+    job,
+    client: client as any,
+    directory: process.cwd(),
+    tools: undefined,
+    outDir,
+  });
+
+  assert.equal(res.ok, true);
+  assert.ok(statusCalls >= 2);
+}
+
 function baseJob(): ArenaJob {
   return {
     experiment: 'baseline',
@@ -109,7 +146,7 @@ function baseJob(): ArenaJob {
   };
 }
 
-function mockClient(args?: { onPromptAsync?: () => void }) {
+function mockClient(args?: { onPromptAsync?: () => void; status?: () => Record<string, unknown> }) {
   return {
     session: {
       async create() {
@@ -123,7 +160,7 @@ function mockClient(args?: { onPromptAsync?: () => void }) {
         return { data: {} };
       },
       async status() {
-        return { data: { 'session-1': { type: 'idle' } } };
+        return { data: args?.status ? args.status() : { 'session-1': { type: 'idle' } } };
       },
       async summarize() {
         return { data: {} };

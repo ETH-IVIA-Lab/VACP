@@ -192,15 +192,19 @@ async function waitForHealth(url: string, timeoutMs: number, proc?: ReturnType<t
 function sleep(ms: number, signal: AbortSignal) {
   if (signal.aborted) return Promise.resolve();
   return new Promise<void>((resolve) => {
-    const t = setTimeout(resolve, ms);
-    signal.addEventListener(
-      'abort',
-      () => {
-        clearTimeout(t);
-        resolve();
-      },
-      { once: true },
-    );
+    const cleanup = () => {
+      signal.removeEventListener('abort', onAbort);
+    };
+    const onAbort = () => {
+      clearTimeout(t);
+      cleanup();
+      resolve();
+    };
+    const t = setTimeout(() => {
+      cleanup();
+      resolve();
+    }, ms);
+    signal.addEventListener('abort', onAbort, { once: true });
   });
 }
 

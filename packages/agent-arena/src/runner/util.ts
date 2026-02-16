@@ -66,18 +66,30 @@ export async function withTimeout<T>(timeoutMs: number, label: string, fn: (sign
 }
 
 export function sleep(ms: number, signal?: AbortSignal) {
+  return sleepImpl(ms, signal, false);
+}
+
+export function sleepUnref(ms: number, signal?: AbortSignal) {
+  return sleepImpl(ms, signal, true);
+}
+
+function sleepImpl(ms: number, signal: AbortSignal | undefined, unref: boolean) {
   if (signal?.aborted) return Promise.resolve();
   return new Promise<void>((resolve) => {
-    const timer = setTimeout(resolve, ms);
-    (timer as any).unref?.();
-    signal?.addEventListener(
-      'abort',
-      () => {
-        clearTimeout(timer);
-        resolve();
-      },
-      { once: true },
-    );
+    const cleanup = () => {
+      signal?.removeEventListener('abort', onAbort);
+    };
+    const onAbort = () => {
+      clearTimeout(timer);
+      cleanup();
+      resolve();
+    };
+    const timer = setTimeout(() => {
+      cleanup();
+      resolve();
+    }, ms);
+    if (unref) (timer as any).unref?.();
+    signal?.addEventListener('abort', onAbort, { once: true });
   });
 }
 
@@ -114,7 +126,7 @@ export function startAutoApprove(args: {
           undefined,
         );
       }
-      await sleep(300, args.signal);
+      await sleepUnref(300, args.signal);
     }
   })();
 }
@@ -149,7 +161,7 @@ export function startAutoRejectQuestions(args: {
           undefined,
         );
       }
-      await sleep(300, args.signal);
+      await sleepUnref(300, args.signal);
     }
   })();
 }
