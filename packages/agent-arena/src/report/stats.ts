@@ -25,6 +25,10 @@ export type NormalizedRun = {
   evalOutcome: string | null;
 
   durationS: number | null;
+  costProviderUsd: number | null;
+  costEstimatedUsd: number | null;
+  costUsd: number | null;
+  costBasis: string | null;
   tokensInput: number | null;
   tokensOutput: number | null;
   tokensReasoning: number | null;
@@ -56,6 +60,8 @@ export type ExperimentSummary = {
   solvedStrictRate: number | null;
   solvedSemanticRate: number | null;
   durationMedianS: number | null;
+  costTotalUsd: number | null;
+  costMedianUsd: number | null;
   tokensMedianNoCache: number | null;
   tokensMedianWithCacheRead: number | null;
   tokensMedianWithCacheAll: number | null;
@@ -96,6 +102,8 @@ export type ScenarioExperimentSummary = {
   solvedStrictRate: number | null;
   solvedSemanticRate: number | null;
   durationMedianS: number | null;
+  costTotalUsd: number | null;
+  costMedianUsd: number | null;
   tokensMedianNoCache: number | null;
   tokensMedianWithCacheRead: number | null;
   tokensMedianWithCacheAll: number | null;
@@ -125,6 +133,22 @@ export function normalizeRuns(rows: ArenaRunRow[]): NormalizedRun[] {
 
     const durationMs = pickNumber((row as any).opencode_duration_ms, (row as any).duration_ms);
     const durationS = typeof durationMs === 'number' ? durationMs / 1000 : null;
+    const costProviderUsd = asNumber((row as any).cost_provider_usd) ?? asNumber((row as any).cost);
+    const costEstimatedUsd = asNumber((row as any).cost_estimated_usd);
+    const costUsd =
+      asNumber((row as any).cost_usd) ??
+      (typeof costProviderUsd === 'number'
+        ? costProviderUsd
+        : typeof costEstimatedUsd === 'number'
+          ? costEstimatedUsd
+          : null);
+    const costBasis =
+      asOptionalString((row as any).cost_basis) ??
+      (typeof costUsd === 'number' && typeof costProviderUsd === 'number' && costUsd === costProviderUsd
+        ? 'provider_reported'
+        : typeof costUsd === 'number' && typeof costEstimatedUsd === 'number' && costUsd === costEstimatedUsd
+          ? 'model_pricing'
+          : null);
 
     const tokensInput = asNumber((row as any).tokens_input);
     const tokensOutput = asNumber((row as any).tokens_output);
@@ -170,6 +194,10 @@ export function normalizeRuns(rows: ArenaRunRow[]): NormalizedRun[] {
       answerJsonRaw,
       evalOutcome,
       durationS,
+      costProviderUsd,
+      costEstimatedUsd,
+      costUsd,
+      costBasis,
       tokensInput,
       tokensOutput,
       tokensReasoning,
@@ -206,6 +234,9 @@ export function computeExperimentSummaries(runs: NormalizedRun[]): ExperimentSum
     const solvedStrictRate = fraction(rows.map((r) => r.solvedStrict));
     const solvedSemanticRate = fraction(rows.map((r) => r.solvedSemantic));
     const durationMedianS = median(rows.flatMap((r) => (typeof r.durationS === 'number' ? [r.durationS] : [])));
+    const costValues = rows.flatMap((r) => (typeof r.costUsd === 'number' ? [r.costUsd] : []));
+    const costTotalUsd = sum(costValues);
+    const costMedianUsd = median(costValues);
     const tokensMedianNoCache = median(
       rows.flatMap((r) => (typeof r.tokensTotalNoCache === 'number' ? [r.tokensTotalNoCache] : [])),
     );
@@ -244,6 +275,8 @@ export function computeExperimentSummaries(runs: NormalizedRun[]): ExperimentSum
       solvedStrictRate,
       solvedSemanticRate,
       durationMedianS,
+      costTotalUsd,
+      costMedianUsd,
       tokensMedianNoCache,
       tokensMedianWithCacheRead,
       tokensMedianWithCacheAll,
@@ -369,6 +402,9 @@ export function computeScenarioExperimentSummaries(runs: NormalizedRun[]): Scena
     const solvedStrictRate = fraction(rows.map((r) => r.solvedStrict));
     const solvedSemanticRate = fraction(rows.map((r) => r.solvedSemantic));
     const durationMedianS = median(rows.flatMap((r) => (typeof r.durationS === 'number' ? [r.durationS] : [])));
+    const costValues = rows.flatMap((r) => (typeof r.costUsd === 'number' ? [r.costUsd] : []));
+    const costTotalUsd = sum(costValues);
+    const costMedianUsd = median(costValues);
     const tokensMedianNoCache = median(
       rows.flatMap((r) => (typeof r.tokensTotalNoCache === 'number' ? [r.tokensTotalNoCache] : [])),
     );
@@ -398,6 +434,8 @@ export function computeScenarioExperimentSummaries(runs: NormalizedRun[]): Scena
       solvedStrictRate,
       solvedSemanticRate,
       durationMedianS,
+      costTotalUsd,
+      costMedianUsd,
       tokensMedianNoCache,
       tokensMedianWithCacheRead,
       tokensMedianWithCacheAll,
@@ -510,6 +548,11 @@ function sumNumbers(...values: unknown[]) {
 function mean(values: number[]) {
   if (!values.length) return null;
   return values.reduce((a, b) => a + b, 0) / values.length;
+}
+
+function sum(values: number[]) {
+  if (!values.length) return null;
+  return values.reduce((a, b) => a + b, 0);
 }
 
 function median(values: number[]) {

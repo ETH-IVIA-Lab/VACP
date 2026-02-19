@@ -74,6 +74,10 @@ Evaluation notes:
   - `no-cache = input + output + reasoning`
   - `with-cache(read) = no-cache + cache_read`
   - `with-cache(read+write) = no-cache + cache_read + cache_write`
+- Cost accounting is shown in USD per run:
+  - primary `cost_usd`: provider-reported session cost when available and non-zero,
+  - fallback: estimated from `model.pricing` in `MODELS` (or run model config),
+  - strict mode: if fallback is required but no pricing exists for that model, `agent-arena analyze` fails with a clear error.
 - Report summaries/charts now treat **with-cache(read+write)** as the primary token metric.
 - The report includes a dedicated **Token Accounting** section and separate median charts for:
   - **Median Token Accounting by Experiment (No Cache)**
@@ -87,6 +91,9 @@ The datasets export writes:
 - includes token-accounting tables:
   - `analysis/datasets/token_accounting_by_experiment.json`
   - `analysis/datasets/token_accounting_by_task.json`
+- run and summary datasets include cost fields:
+  - run-level: `cost_provider_usd`, `cost_estimated_usd`, `cost_usd`, `cost_basis`
+  - summary/task-level: `cost_median_usd`
 
 Implementation notes (for maintainers):
 
@@ -171,7 +178,12 @@ const scenarios = [
 const experiments = [
   {
     experiment: 'openai/gpt-5.2 (default tools)',
-    model: { providerID: 'openai', modelID: 'gpt-5.2' },
+    model: {
+      providerID: 'openai',
+      modelID: 'gpt-5.2',
+      // USD per 1M tokens; used by analysis fallback when provider cost is missing/zero.
+      pricing: { input: 1.75, output: 14.0, cacheRead: 0.175, cacheWrite: 0.0 },
+    },
     toolPolicy: { mode: 'all' },
     summarize: true,
   },

@@ -44,9 +44,7 @@ export function parseResumeRerunOutcomesCsv(value: unknown): ResumeRerunOutcome[
     .map((s) => s.trim())
     .filter(Boolean);
   if (!rawItems.length) {
-    throw new Error(
-      `--rerun-outcomes requires at least one value (${SUPPORTED_RESUME_RERUN_OUTCOMES.join(', ')})`,
-    );
+    throw new Error(`--rerun-outcomes requires at least one value (${SUPPORTED_RESUME_RERUN_OUTCOMES.join(', ')})`);
   }
 
   const unknown = rawItems.filter((item) => !isResumeRerunOutcome(item));
@@ -80,17 +78,13 @@ export async function buildResumeOutcomeSelection(args: {
   const runId = path.basename(runDir);
   const selectedOutcomes = uniqueOutcomes(args.selectedOutcomes);
   if (!selectedOutcomes.length) {
-    throw new Error(
-      `--rerun-outcomes requires at least one value (${SUPPORTED_RESUME_RERUN_OUTCOMES.join(', ')})`,
-    );
+    throw new Error(`--rerun-outcomes requires at least one value (${SUPPORTED_RESUME_RERUN_OUTCOMES.join(', ')})`);
   }
 
   const analysisRunsPath = await resolveAnalysisRunsPath(analysisDir);
   const [analysis, inspections, analysisRunsStat] = await Promise.all([
     loadArenaAnalysis(analysisDir),
-    Promise.all(
-      args.jobs.map((job, index) => inspectJob({ arenaOutDir: runDir, job, index, reuseMode: 'finished' })),
-    ),
+    Promise.all(args.jobs.map((job, index) => inspectJob({ arenaOutDir: runDir, job, index, reuseMode: 'finished' }))),
     fs.stat(analysisRunsPath),
   ]);
 
@@ -255,7 +249,9 @@ function assertAnalysisTargetsRun(args: {
   throw new Error(
     [
       `analysis/runs.json does not match run ${args.runId}.`,
-      `Found run_id values: ${Array.from(runIds).sort((a, b) => a.localeCompare(b)).join(', ')}`,
+      `Found run_id values: ${Array.from(runIds)
+        .sort((a, b) => a.localeCompare(b))
+        .join(', ')}`,
       `Refresh analysis first: pnpm -C packages/agent-arena start -- analyze --run ${args.runDir}`,
     ].join('\n'),
   );
@@ -301,7 +297,10 @@ function groupBy<T>(rows: T[], toKey: (row: T) => string) {
   return out;
 }
 
-function matchRowToRunResult(rows: IndexedRunRow[], result: { sessionID?: string; startedAt: string; finishedAt: string }) {
+function matchRowToRunResult(
+  rows: IndexedRunRow[],
+  result: { sessionID?: string; startedAt: string; finishedAt: string },
+) {
   const sessionID = asString(result.sessionID);
   const bySession = rows.filter((row) => row.sessionID === sessionID);
   if (bySession.length === 1) return bySession[0];

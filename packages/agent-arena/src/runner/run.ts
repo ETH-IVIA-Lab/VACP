@@ -301,9 +301,7 @@ async function runJob(args: {
       }
     }
     if (forcedOutcome && inspection.state === 'complete' && inspection.reusable) {
-      consola.info(
-        `↺ rerun ${args.job.experiment} · ${args.job.scenario.id} (selected eval_outcome=${forcedOutcome})`,
-      );
+      consola.info(`↺ rerun ${args.job.experiment} · ${args.job.scenario.id} (selected eval_outcome=${forcedOutcome})`);
     }
   }
 

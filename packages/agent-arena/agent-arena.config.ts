@@ -20,11 +20,25 @@ try {
 const BASE_URL = 'http://127.0.0.1:5173';
 
 const MODELS = [
-  { providerID: 'openai', modelID: 'gpt-5.2' },
-  { providerID: 'google-vertex', modelID: 'gemini-3-pro-preview' },
-  //{ providerID: 'github-copilot', modelID: 'claude-sonnet-4.5' },
-  //{ providerID: 'amazon-bedrock', modelID: 'anthropic.claude-sonnet-4-5-20250929-v1:0' },
-  //{ providerID: 'amazon-bedrock', modelID: 'anthropic.claude-opus-4-6-v1' },
+  {
+    providerID: 'openai',
+    modelID: 'gpt-5.2',
+    // Source: https://openai.com/api/pricing/
+    pricing: { input: 1.75, output: 14, cacheRead: 0.175, cacheWrite: 0 },
+  },
+  {
+    providerID: 'google-vertex',
+    modelID: 'gemini-3-pro-preview',
+    // Vertex Gemini 3 Pro Preview standard <=200K tier.
+    pricing: { input: 2, output: 12, cacheRead: 0.2, cacheWrite: 0 },
+  },
+  {
+    providerID: 'amazon-bedrock',
+    modelID: 'anthropic.claude-sonnet-4-5-20250929-v1:0',
+    // Bedrock Sonnet 4.5 regional endpoint pricing (10% over global).
+    // Cache write uses default 5-minute prompt-cache write pricing.
+    pricing: { input: 3.3, output: 16.5, cacheRead: 0.33, cacheWrite: 4.125 },
+  },
 ];
 
 const DEFAULT_MCP_TIMEOUT_MS = 120_000;
@@ -492,7 +506,9 @@ function resolvePromptRunArtifactDir(ctx: PromptContext) {
 }
 
 function resolveRunArtifactDir(args: { runOutDir: string; opencodeDir: string }) {
-  return path.isAbsolute(args.runOutDir) ? path.resolve(args.runOutDir) : path.resolve(args.opencodeDir, args.runOutDir);
+  return path.isAbsolute(args.runOutDir)
+    ? path.resolve(args.runOutDir)
+    : path.resolve(args.opencodeDir, args.runOutDir);
 }
 
 async function runAgentBrowserJson(args: {
@@ -528,7 +544,11 @@ async function runAgentBrowserJson(args: {
 }
 
 async function onBeforePromptSetup(ctx: BeforePromptContext) {
-  if (ctx.job.experiment === 'baseline' || ctx.job.experiment === 'with-snapshot' || ctx.job.experiment === 'full-toolkit') {
+  if (
+    ctx.job.experiment === 'baseline' ||
+    ctx.job.experiment === 'with-snapshot' ||
+    ctx.job.experiment === 'full-toolkit'
+  ) {
     await preopenScenarioWithAgentBrowser(ctx);
   }
 }

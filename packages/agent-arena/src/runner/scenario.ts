@@ -4,7 +4,15 @@ import type { ArenaConfig, ArenaJob, ArenaRunResult, BeforePromptContext } from 
 import { createClient } from '../opencode.js';
 import { buildPrompt, buildTitle, logScenarioStarted } from './helpers.js';
 import { rewritePromptForLane, type McpServerAliases } from './mcp-lane.js';
-import { portablePathWithin, TimeoutError, requireData, sleep, toErrorPayload, withTimeout, writeJson } from './util.js';
+import {
+  portablePathWithin,
+  TimeoutError,
+  requireData,
+  sleep,
+  toErrorPayload,
+  withTimeout,
+  writeJson,
+} from './util.js';
 
 export async function runScenario(args: {
   config: ArenaConfig;

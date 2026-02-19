@@ -248,17 +248,22 @@ export function makeSolutionJudge(
   };
 }
 
-export function makeIataIncludesJudge(expected: {
-  airport: string;
-  topDestination: string;
-},
-opts?: {
-  airportAliases?: string[];
-  topDestinationAliases?: string[];
-}): (input: ScenarioJudgeInput) => ScenarioJudgeResult {
+export function makeIataIncludesJudge(
+  expected: {
+    airport: string;
+    topDestination: string;
+  },
+  opts?: {
+    airportAliases?: string[];
+    topDestinationAliases?: string[];
+  },
+): (input: ScenarioJudgeInput) => ScenarioJudgeResult {
   const strictJudge = makeSolutionJudge(expected, { accept: 'strict' });
   const airportAliases = uniqueNormalizedAliases([expected.airport, ...(opts?.airportAliases ?? [])]);
-  const topDestinationAliases = uniqueNormalizedAliases([expected.topDestination, ...(opts?.topDestinationAliases ?? [])]);
+  const topDestinationAliases = uniqueNormalizedAliases([
+    expected.topDestination,
+    ...(opts?.topDestinationAliases ?? []),
+  ]);
 
   return ({ answer, parseStatus }: ScenarioJudgeInput): ScenarioJudgeResult => {
     if (parseStatus !== 'ok') return strictJudge({ scenarioId: '', answer, parseStatus });

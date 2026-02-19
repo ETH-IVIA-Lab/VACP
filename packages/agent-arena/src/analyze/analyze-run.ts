@@ -23,6 +23,13 @@ export type AnalyzeRunArgs = {
   maxFieldChars?: number;
 };
 
+type ModelPricing = {
+  input: number;
+  output: number;
+  cacheRead: number;
+  cacheWrite: number;
+};
+
 export async function analyzeArenaRun(args: AnalyzeRunArgs) {
   const runDir = path.resolve(args.runDir);
   const outDir = path.resolve(args.outDir ?? path.join(runDir, 'analysis'));
@@ -57,6 +64,7 @@ export async function analyzeArenaRun(args: AnalyzeRunArgs) {
   const scenariosPath = scoring?.scenariosPath ?? null;
   const scenariosHash = scoring?.scenariosHash ?? null;
   const judgeByScenarioId = scoring?.judges ?? new Map<string, unknown>();
+  const pricingByModel = scoring?.pricingByModel ?? new Map<string, ModelPricing>();
 
   const runId = path.basename(runDir);
 
@@ -108,6 +116,8 @@ export async function analyzeArenaRun(args: AnalyzeRunArgs) {
     const scenarioUrl = String(input?.scenario?.url ?? '');
     const modelProvider = String(input?.model?.providerID ?? '');
     const modelName = String(input?.model?.modelID ?? '');
+    const modelPricing =
+      normalizeModelPricing(input?.model?.pricing) ?? pricingByModel.get(pricingKey(modelProvider, modelName));
 
     const ok = Boolean(run?.ok);
     const runErrorMessage = typeof run?.error?.message === 'string' ? String(run.error.message) : null;
@@ -134,7 +144,17 @@ export async function analyzeArenaRun(args: AnalyzeRunArgs) {
     const screenshotStats = await computeScreenshotStats(jobDirAbs);
 
     const sessionMessages = sessionID ? await readSessionMessages(storage, sessionID) : [];
-    const sessionMetrics = computeSessionMetrics(sessionMessages);
+    const sessionMetrics = computeSessionMetrics({
+      messages: sessionMessages,
+      pricing: modelPricing ?? null,
+      context: {
+        sessionID,
+        experiment,
+        scenarioID: scenarioId,
+        modelProvider,
+        modelName,
+      },
+    });
 
     const toolCalls = sessionID ? await extractToolCalls(storage, sessionMessages, maxFieldChars) : [];
     const toolSummary = summarizeToolCalls(toolCalls);
@@ -219,6 +239,10 @@ export async function analyzeArenaRun(args: AnalyzeRunArgs) {
       opencode_end_ms: sessionMetrics.endMs,
       opencode_duration_ms: sessionMetrics.durationMs,
       cost: sessionMetrics.cost,
+      cost_provider_usd: sessionMetrics.costProviderUsd,
+      cost_estimated_usd: sessionMetrics.costEstimatedUsd,
+      cost_usd: sessionMetrics.costUsd,
+      cost_basis: sessionMetrics.costBasis,
       tokens_input: sessionMetrics.tokensInput,
       tokens_output: sessionMetrics.tokensOutput,
       tokens_reasoning: sessionMetrics.tokensReasoning,
@@ -497,8 +521,18 @@ async function safeReaddir(p: string) {
   }
 }
 
-function computeSessionMetrics(messages: OpencodeMessageInfo[]) {
-  let cost = 0;
+function computeSessionMetrics(args: {
+  messages: OpencodeMessageInfo[];
+  pricing: ModelPricing | null;
+  context: {
+    sessionID: string;
+    experiment: string;
+    scenarioID: string;
+    modelProvider: string;
+    modelName: string;
+  };
+}) {
+  let costProvider = 0;
   let tokensInput = 0;
   let tokensOutput = 0;
   let tokensReasoning = 0;
@@ -509,13 +543,13 @@ function computeSessionMetrics(messages: OpencodeMessageInfo[]) {
   const createdTimes: number[] = [];
   const completedTimes: number[] = [];
 
-  for (const m of messages) {
+  for (const m of args.messages) {
     if (typeof m.timeCreated === 'number') createdTimes.push(m.timeCreated);
     if (m.role === 'user') userMessages += 1;
     if (m.role === 'assistant') {
       assistantMessages += 1;
       if (typeof m.timeCompleted === 'number') completedTimes.push(m.timeCompleted);
-      cost += typeof m.cost === 'number' ? m.cost : 0;
+      costProvider += typeof m.cost === 'number' ? m.cost : 0;
       tokensInput += typeof m.tokens?.input === 'number' ? m.tokens.input : 0;
       tokensOutput += typeof m.tokens?.output === 'number' ? m.tokens.output : 0;
       tokensReasoning += typeof m.tokens?.reasoning === 'number' ? m.tokens.reasoning : 0;
@@ -534,12 +568,53 @@ function computeSessionMetrics(messages: OpencodeMessageInfo[]) {
 
   const tokensTotalNoCache = tokensInput + tokensOutput + tokensReasoning;
   const tokensTotalWithCache = tokensTotalNoCache + tokensCacheRead;
+  const hasTokenActivity = tokensTotalNoCache + tokensCacheRead + tokensCacheWrite > 0;
+  const costEstimated =
+    args.pricing === null
+      ? null
+      : (tokensInput / 1_000_000) * args.pricing.input +
+        ((tokensOutput + tokensReasoning) / 1_000_000) * args.pricing.output +
+        (tokensCacheRead / 1_000_000) * args.pricing.cacheRead +
+        (tokensCacheWrite / 1_000_000) * args.pricing.cacheWrite;
+  const providerUsable = costProvider > 0;
+
+  if (!providerUsable && hasTokenActivity && costEstimated === null) {
+    const { sessionID, experiment, scenarioID, modelProvider, modelName } = args.context;
+    throw new Error(
+      [
+        `Missing model pricing for cost estimation.`,
+        `Fallback estimation is required because provider-reported cost is missing/zero.`,
+        `Session: ${sessionID || '(none)'}`,
+        `Experiment: ${experiment || '(unknown)'}`,
+        `Scenario: ${scenarioID || '(unknown)'}`,
+        `Model: ${modelProvider || '(unknown)'}/${modelName || '(unknown)'}`,
+        `Configure pricing under MODELS in packages/agent-arena/agent-arena.config.ts (model.pricing).`,
+      ].join('\n'),
+    );
+  }
+
+  const costUsd =
+    providerUsable || (!hasTokenActivity && costProvider >= 0)
+      ? costProvider
+      : typeof costEstimated === 'number'
+        ? costEstimated
+        : null;
+  const costBasis =
+    providerUsable || (!hasTokenActivity && costProvider >= 0)
+      ? ('provider_reported' as const)
+      : typeof costEstimated === 'number'
+        ? ('model_pricing' as const)
+        : null;
 
   return {
     startMs,
     endMs,
     durationMs,
-    cost,
+    cost: costProvider,
+    costProviderUsd: costProvider,
+    costEstimatedUsd: costEstimated,
+    costUsd,
+    costBasis,
     tokensInput,
     tokensOutput,
     tokensReasoning,
@@ -547,7 +622,7 @@ function computeSessionMetrics(messages: OpencodeMessageInfo[]) {
     tokensCacheWrite,
     tokensTotalNoCache,
     tokensTotalWithCache,
-    messagesTotal: messages.length,
+    messagesTotal: args.messages.length,
     userMessages,
     assistantMessages,
   };
@@ -788,8 +863,11 @@ async function loadScenarioJudges(configPathRaw?: string) {
       scenariosPath: rawScenarios ? scenariosPath : null,
       scenariosHash,
       judges: new Map<string, unknown>(),
+      pricingByModel: new Map<string, ModelPricing>(),
     };
   }
+
+  const pricingByModel = collectModelPricing(mod);
 
   const bases = (mod as any)?.SCENARIO_BASES;
   if (!Array.isArray(bases)) {
@@ -799,6 +877,7 @@ async function loadScenarioJudges(configPathRaw?: string) {
       scenariosPath: rawScenarios ? scenariosPath : null,
       scenariosHash,
       judges: new Map<string, unknown>(),
+      pricingByModel,
     };
   }
 
@@ -811,7 +890,50 @@ async function loadScenarioJudges(configPathRaw?: string) {
     if (typeof judge === 'function') judges.set(id, judge);
   }
 
-  return { configPath, configHash, scenariosPath: rawScenarios ? scenariosPath : null, scenariosHash, judges };
+  return {
+    configPath,
+    configHash,
+    scenariosPath: rawScenarios ? scenariosPath : null,
+    scenariosHash,
+    judges,
+    pricingByModel,
+  };
+}
+
+function collectModelPricing(mod: unknown) {
+  const cfg = (mod as any)?.default ?? (mod as any)?.config ?? mod;
+  const runs = Array.isArray((cfg as any)?.runs) ? ((cfg as any).runs as unknown[]) : [];
+  const out = new Map<string, ModelPricing>();
+  for (const run of runs) {
+    if (!run || typeof run !== 'object') continue;
+    const providerID =
+      typeof (run as any).model?.providerID === 'string' ? String((run as any).model.providerID).trim() : '';
+    const modelID = typeof (run as any).model?.modelID === 'string' ? String((run as any).model.modelID).trim() : '';
+    if (!providerID || !modelID) continue;
+    const pricing = normalizeModelPricing((run as any).model?.pricing);
+    if (!pricing) continue;
+    out.set(pricingKey(providerID, modelID), pricing);
+  }
+  return out;
+}
+
+function pricingKey(providerID: string, modelID: string) {
+  return `${providerID.trim().toLowerCase()}::${modelID.trim().toLowerCase()}`;
+}
+
+function normalizeModelPricing(value: unknown): ModelPricing | null {
+  if (!value || typeof value !== 'object') return null;
+  const input = asFiniteNumber((value as any).input);
+  const output = asFiniteNumber((value as any).output);
+  const cacheRead = asFiniteNumber((value as any).cacheRead);
+  const cacheWrite = asFiniteNumber((value as any).cacheWrite);
+  if (input === null || output === null || cacheRead === null || cacheWrite === null) return null;
+  if (input < 0 || output < 0 || cacheRead < 0 || cacheWrite < 0) return null;
+  return { input, output, cacheRead, cacheWrite };
+}
+
+function asFiniteNumber(value: unknown) {
+  return typeof value === 'number' && Number.isFinite(value) ? value : null;
 }
 
 async function resolveDefaultConfigPath(raw?: string) {

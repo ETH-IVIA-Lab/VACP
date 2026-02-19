@@ -10,6 +10,8 @@ export type ArenaReportIndexModelRow = {
   gradeableRate: number | null;
   solvedSemanticRate: number | null;
   durationMedianS: number | null;
+  costTotalUsd: number | null;
+  costMedianUsd: number | null;
   tokensMedianNoCache: number | null;
   tokensMedianWithCacheRead: number | null;
   tokensMedianWithCacheAll: number | null;
@@ -49,6 +51,8 @@ export function renderArenaReportIndexHtml(ctx: ArenaReportIndexHtmlContext) {
         `<td class="num">${m.gradeableRate === null ? 'n/a' : fmtPct(m.gradeableRate)}</td>`,
         `<td class="num">${m.solvedSemanticRate === null ? 'n/a' : fmtPct(m.solvedSemanticRate)}</td>`,
         `<td class="num">${m.durationMedianS === null ? 'n/a' : fmtInt(Math.round(m.durationMedianS))}</td>`,
+        `<td class="num">${m.costTotalUsd === null ? 'n/a' : fmtUsd(m.costTotalUsd)}</td>`,
+        `<td class="num">${m.costMedianUsd === null ? 'n/a' : fmtUsd(m.costMedianUsd)}</td>`,
         `<td class="num">${m.tokensMedianWithCacheAll === null ? 'n/a' : fmtInt(Math.round(m.tokensMedianWithCacheAll))}</td>`,
         `<td class="num">${m.tokensMedianWithCacheRead === null ? 'n/a' : fmtInt(Math.round(m.tokensMedianWithCacheRead))}</td>`,
         `<td class="num">${m.tokensMedianNoCache === null ? 'n/a' : fmtInt(Math.round(m.tokensMedianNoCache))}</td>`,
@@ -91,13 +95,15 @@ export function renderArenaReportIndexHtml(ctx: ArenaReportIndexHtmlContext) {
     '              <th class="num">Gradeable</th>',
     '              <th class="num">Solved</th>',
     '              <th class="num">Median s</th>',
+    '              <th class="num">Total $</th>',
+    '              <th class="num">Median $</th>',
     '              <th class="num">Median tokens (with cache)</th>',
     '              <th class="num">Median tokens (with cache read)</th>',
     '              <th class="num">Median tokens (no cache)</th>',
     '            </tr>',
     '          </thead>',
     '          <tbody>',
-    tableRows || '<tr><td colspan="14" class="muted">No runs found.</td></tr>',
+    tableRows || '<tr><td colspan="16" class="muted">No runs found.</td></tr>',
     '          </tbody>',
     '        </table>',
     '      </div>',
@@ -277,6 +283,10 @@ button:focus-visible {
 
 function fmtInt(value: number) {
   return new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 }).format(value);
+}
+
+function fmtUsd(value: number) {
+  return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 2 }).format(value);
 }
 
 function fmtPct(value: number) {

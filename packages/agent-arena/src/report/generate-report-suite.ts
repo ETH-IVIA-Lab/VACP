@@ -178,6 +178,8 @@ function buildIndexModelRows(
       ),
       solvedSemanticRate: fractionOrNull(modelRuns.map((r) => r.solvedSemantic)),
       durationMedianS: median(modelRuns.flatMap((r) => (typeof r.durationS === 'number' ? [r.durationS] : []))),
+      costTotalUsd: sum(modelRuns.flatMap((r) => (typeof r.costUsd === 'number' ? [r.costUsd] : []))),
+      costMedianUsd: median(modelRuns.flatMap((r) => (typeof r.costUsd === 'number' ? [r.costUsd] : []))),
       tokensMedianNoCache: median(
         modelRuns.flatMap((r) => (typeof r.tokensTotalNoCache === 'number' ? [r.tokensTotalNoCache] : [])),
       ),
@@ -206,4 +208,9 @@ function median(values: number[]) {
   const sorted = [...values].sort((a, b) => a - b);
   const mid = Math.floor(sorted.length / 2);
   return sorted.length % 2 === 0 ? (sorted[mid - 1] + sorted[mid]) / 2 : sorted[mid];
+}
+
+function sum(values: number[]) {
+  if (!values.length) return null;
+  return values.reduce((acc, value) => acc + value, 0);
 }

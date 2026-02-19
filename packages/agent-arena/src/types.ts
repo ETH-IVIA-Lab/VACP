@@ -28,6 +28,39 @@ export type Scenario = {
   tags?: string[];
 };
 
+export type ArenaModelPricing = {
+  /**
+   * USD per 1M input tokens.
+   */
+  input: number;
+
+  /**
+   * USD per 1M output tokens.
+   */
+  output: number;
+
+  /**
+   * USD per 1M cache read tokens.
+   */
+  cacheRead: number;
+
+  /**
+   * USD per 1M cache write tokens.
+   */
+  cacheWrite: number;
+};
+
+export type ArenaModel = {
+  providerID: string;
+  modelID: string;
+
+  /**
+   * Optional manual pricing used for analysis-time cost estimation when provider-reported
+   * session cost is missing or zero.
+   */
+  pricing?: ArenaModelPricing;
+};
+
 export type PromptContext = {
   /**
    * The scenario being executed (URL + task).
@@ -199,7 +232,7 @@ export type ArenaJob = {
   /**
    * The LLM used for this run.
    */
-  model: { providerID: string; modelID: string };
+  model: ArenaModel;
 
   /**
    * Prompt for this run.
@@ -258,7 +291,7 @@ export type ArenaJob = {
   /**
    * Optional model used for summarization (defaults to `model`).
    */
-  summarizeModel?: { providerID: string; modelID: string };
+  summarizeModel?: ArenaModel;
 };
 
 export type ArenaConfig = {

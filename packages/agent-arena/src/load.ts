@@ -1,7 +1,7 @@
 import path from 'node:path';
 import { createJiti } from 'jiti';
 import { resolveFromCwd } from './paths.js';
-import type { ArenaConfig, ArenaJob, Scenario } from './types.js';
+import type { ArenaConfig, ArenaJob, ArenaModelPricing, Scenario } from './types.js';
 
 export async function loadArenaConfig(filePath: string): Promise<ArenaConfig> {
   const resolved = resolveFromCwd(filePath);
@@ -68,10 +68,30 @@ function normalizeRun(input: any, index: number, source: string): ArenaJob {
     throw new Error(`Run at index ${index} is missing 'model.modelID': ${source}`);
   }
   const scenario = normalizeScenario(input.scenario, index, source);
+  const pricing = normalizeModelPricing(input.model.pricing);
   return {
     ...input,
     experiment: input.experiment.trim(),
-    model: { providerID: input.model.providerID, modelID: input.model.modelID },
+    model: {
+      providerID: input.model.providerID,
+      modelID: input.model.modelID,
+      ...(pricing ? { pricing } : {}),
+    },
     scenario,
   } as ArenaJob;
+}
+
+function normalizeModelPricing(value: unknown): ArenaModelPricing | null {
+  if (!value || typeof value !== 'object') return null;
+  const input = asFiniteNumber((value as any).input);
+  const output = asFiniteNumber((value as any).output);
+  const cacheRead = asFiniteNumber((value as any).cacheRead);
+  const cacheWrite = asFiniteNumber((value as any).cacheWrite);
+  if (input === null || output === null || cacheRead === null || cacheWrite === null) return null;
+  if (input < 0 || output < 0 || cacheRead < 0 || cacheWrite < 0) return null;
+  return { input, output, cacheRead, cacheWrite };
+}
+
+function asFiniteNumber(value: unknown) {
+  return typeof value === 'number' && Number.isFinite(value) ? value : null;
 }

@@ -12,6 +12,8 @@ export type ArenaReportSummaryRow = {
   solvedStrictRate: number | null;
   solvedSemanticRate: number | null;
   durationMedianS: number | null;
+  costTotalUsd: number | null;
+  costMedianUsd: number | null;
   tokensMedianNoCache: number | null;
   tokensMedianWithCacheRead: number | null;
   tokensMedianWithCacheAll: number | null;
@@ -40,6 +42,8 @@ export type ArenaReportTaskSummaryRow = {
   solvedStrictRate: number | null;
   solvedSemanticRate: number | null;
   durationMedianS: number | null;
+  costTotalUsd: number | null;
+  costMedianUsd: number | null;
   tokensMedianNoCache: number | null;
   tokensMedianWithCacheRead: number | null;
   tokensMedianWithCacheAll: number | null;
@@ -219,6 +223,8 @@ function renderOverviewSection(ctx: ArenaReportHtmlContext) {
             : [],
     ),
   );
+  const costMedian = medianNumber(ctx.runs.flatMap((r) => (typeof r.costUsd === 'number' ? [r.costUsd] : [])));
+  const costTotal = sumNumber(ctx.runs.flatMap((r) => (typeof r.costUsd === 'number' ? [r.costUsd] : [])));
 
   const semanticUsable = ctx.runs.filter((r) => typeof r.solvedSemantic === 'boolean');
   const semanticSolved = semanticUsable.filter((r) => r.solvedSemantic === true).length;
@@ -243,6 +249,16 @@ function renderOverviewSection(ctx: ArenaReportHtmlContext) {
       label: 'Median Duration',
       value: durationMedian === null ? 'n/a' : `${fmtInt(Math.round(durationMedian))}s`,
       meta: 'Per run',
+    },
+    {
+      label: 'Median Cost',
+      value: costMedian === null ? 'n/a' : fmtUsd(costMedian),
+      meta: 'USD per run',
+    },
+    {
+      label: 'Total Cost',
+      value: costTotal === null ? 'n/a' : fmtUsd(costTotal),
+      meta: 'USD across selected runs',
     },
     {
       label: 'Solved Semantic',
@@ -300,6 +316,11 @@ function medianNumber(values: number[]) {
   const sorted = [...values].sort((a, b) => a - b);
   const mid = Math.floor(sorted.length / 2);
   return sorted.length % 2 === 0 ? (sorted[mid - 1] + sorted[mid]) / 2 : sorted[mid];
+}
+
+function sumNumber(values: number[]) {
+  if (!values.length) return null;
+  return values.reduce((acc, value) => acc + value, 0);
 }
 
 function groupFigures(figures: ArenaFigure[]) {
@@ -387,6 +408,8 @@ function renderSummarySection(ctx: ArenaReportHtmlContext) {
         `<td class="num">${s.solvedSemanticRate === null ? 'n/a' : fmtPct(s.solvedSemanticRate)}</td>`,
         `<td class="num">${s.solvedStrictRate === null ? 'n/a' : fmtPct(s.solvedStrictRate)}</td>`,
         `<td class="num">${s.durationMedianS === null ? 'n/a' : fmtInt(Math.round(s.durationMedianS))}</td>`,
+        `<td class="num">${s.costTotalUsd === null ? 'n/a' : fmtUsd(s.costTotalUsd)}</td>`,
+        `<td class="num">${s.costMedianUsd === null ? 'n/a' : fmtUsd(s.costMedianUsd)}</td>`,
         `<td class="num">${s.tokensMedianWithCacheAll === null ? 'n/a' : fmtInt(Math.round(s.tokensMedianWithCacheAll))}</td>`,
         `<td class="num">${s.toolCallsMean === null ? 'n/a' : fmt1(s.toolCallsMean)}</td>`,
         `<td class="num">${s.toolErrorsMean === null ? 'n/a' : fmt2(s.toolErrorsMean)}</td>`,
@@ -412,13 +435,15 @@ function renderSummarySection(ctx: ArenaReportHtmlContext) {
     '              <th class="num">Solved semantic</th>',
     '              <th class="num">Solved strict</th>',
     '              <th class="num">Median s</th>',
+    '              <th class="num">Total $</th>',
+    '              <th class="num">Median $</th>',
     '              <th class="num">Median tokens with cache</th>',
     '              <th class="num">Mean tool calls</th>',
     '              <th class="num">Mean tool errors</th>',
     '            </tr>',
     '          </thead>',
     '          <tbody>',
-    tableRows || '<tr><td colspan="12" class="muted">No runs found.</td></tr>',
+    tableRows || '<tr><td colspan="14" class="muted">No runs found.</td></tr>',
     '          </tbody>',
     '        </table>',
     '      </div>',
@@ -433,6 +458,8 @@ function renderTokenAccountingSection(ctx: ArenaReportHtmlContext) {
         `<tr>`,
         `<td class="exp">${escapeHtml(s.experiment)}</td>`,
         `<td class="num">${fmtInt(s.n)}</td>`,
+        `<td class="num">${s.costTotalUsd === null ? 'n/a' : fmtUsd(s.costTotalUsd)}</td>`,
+        `<td class="num">${s.costMedianUsd === null ? 'n/a' : fmtUsd(s.costMedianUsd)}</td>`,
         `<td class="num">${s.tokensMedianWithCacheAll === null ? 'n/a' : fmtInt(Math.round(s.tokensMedianWithCacheAll))}</td>`,
         `<td class="num">${s.tokensMedianWithCacheRead === null ? 'n/a' : fmtInt(Math.round(s.tokensMedianWithCacheRead))}</td>`,
         `<td class="num">${s.tokensMedianNoCache === null ? 'n/a' : fmtInt(Math.round(s.tokensMedianNoCache))}</td>`,
@@ -448,13 +475,15 @@ function renderTokenAccountingSection(ctx: ArenaReportHtmlContext) {
   return [
     '    <section class="section panelSection" id="section-token-accounting">',
     '      <h2>Token Accounting</h2>',
-    '      <p class="sectionIntro muted small">Main metric is with-cache read + write. Supporting columns show with-cache read-only and no-cache totals. Ratios are explicit formulas: with-cache(all)/no-cache and with-cache(read)/no-cache.</p>',
+    '      <p class="sectionIntro muted small">Main metric is with-cache read + write. Supporting columns show with-cache read-only and no-cache totals. Both total and median cost are shown. Ratios are explicit formulas: with-cache(all)/no-cache and with-cache(read)/no-cache.</p>',
     '      <div class="tableWrap">',
     '        <table>',
     '          <thead>',
     '            <tr>',
     '              <th>Experiment</th>',
     '              <th class="num">n</th>',
+    '              <th class="num">Total cost (USD)</th>',
+    '              <th class="num">Median cost (USD)</th>',
     '              <th class="num">Median with-cache read + write</th>',
     '              <th class="num">Median with-cache read</th>',
     '              <th class="num">Median no-cache</th>',
@@ -465,7 +494,7 @@ function renderTokenAccountingSection(ctx: ArenaReportHtmlContext) {
     '            </tr>',
     '          </thead>',
     '          <tbody>',
-    tableRows || '<tr><td colspan="9" class="muted">No runs found.</td></tr>',
+    tableRows || '<tr><td colspan="11" class="muted">No runs found.</td></tr>',
     '          </tbody>',
     '        </table>',
     '      </div>',
@@ -587,6 +616,50 @@ function renderTaskBreakdownSection(ctx: ArenaReportHtmlContext) {
     })
     .join('\n');
 
+  const taskCostColgroup = [
+    `<colgroup>`,
+    `<col style="width: 44px" />`,
+    `<col style="width: 680px" />`,
+    ...ctx.experiments.flatMap(() => [`<col style="width: 116px" />`, `<col style="width: 116px" />`]),
+    `</colgroup>`,
+  ].join('\n');
+
+  const taskCostHeader = [
+    `<thead>`,
+    `<tr>`,
+    `<th rowspan="2" class="num">#</th>`,
+    `<th rowspan="2">Task</th>`,
+    ...ctx.experiments.map((exp) => `<th colspan="2" class="group">${escapeHtml(exp)}</th>`),
+    `</tr>`,
+    `<tr>`,
+    ...ctx.experiments.flatMap(() => [`<th class="num">Total $</th>`, `<th class="num">Median $</th>`]),
+    `</tr>`,
+    `</thead>`,
+  ].join('\n');
+
+  const taskCostRows = ctx.taskIndex
+    .map((t) => {
+      const cells = ctx.experiments
+        .flatMap((exp) => {
+          const s = byTaskKey.get(`${t.scenarioId}__${exp}`) ?? null;
+          if (!s) return [`<td class="num muted">—</td>`, `<td class="num muted">—</td>`];
+          return [
+            `<td class="num">${s.costTotalUsd === null ? 'n/a' : fmtUsd(s.costTotalUsd)}</td>`,
+            `<td class="num">${s.costMedianUsd === null ? 'n/a' : fmtUsd(s.costMedianUsd)}</td>`,
+          ];
+        })
+        .join('');
+
+      return [
+        `<tr>`,
+        `<td class="num">${fmtInt(t.index)}</td>`,
+        `<td class="taskText">${t.task ? escapeHtml(t.task) : '<span class="muted">n/a</span>'}</td>`,
+        cells,
+        `</tr>`,
+      ].join('');
+    })
+    .join('\n');
+
   return [
     '    <section class="section panelSection" id="section-task-breakdown">',
     '      <h2>Task Breakdown</h2>',
@@ -597,6 +670,17 @@ function renderTaskBreakdownSection(ctx: ArenaReportHtmlContext) {
     taskTableHeader,
     '          <tbody>',
     taskTableRows || `<tr><td colspan="${2 + ctx.experiments.length * 4}" class="muted">No tasks found.</td></tr>`,
+    '          </tbody>',
+    '        </table>',
+    '      </div>',
+    '      <h3 class="subsectionTitle">Per-Setup × Per-Task Cost</h3>',
+    '      <p class="sectionIntro muted small">Cost analysis by task and experiment, showing total USD and median USD per setup-task cell.</p>',
+    '      <div class="tableWrap">',
+    '        <table class="tasks">',
+    taskCostColgroup,
+    taskCostHeader,
+    '          <tbody>',
+    taskCostRows || `<tr><td colspan="${2 + ctx.experiments.length * 2}" class="muted">No tasks found.</td></tr>`,
     '          </tbody>',
     '        </table>',
     '      </div>',
@@ -1524,6 +1608,10 @@ function fmt1(value: number) {
 
 function fmt2(value: number) {
   return new Intl.NumberFormat('en-US', { maximumFractionDigits: 2 }).format(value);
+}
+
+function fmtUsd(value: number) {
+  return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 2 }).format(value);
 }
 
 function fmtPct(value: number) {

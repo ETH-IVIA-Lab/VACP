@@ -214,12 +214,7 @@ async function testBuildSelectionFailsWhenAnalysisIsStale() {
   );
 }
 
-function job(args: {
-  experiment: string;
-  scenarioId: string;
-  provider: string;
-  model: string;
-}): ArenaJob {
+function job(args: { experiment: string; scenarioId: string; provider: string; model: string }): ArenaJob {
   return {
     experiment: args.experiment,
     model: { providerID: args.provider, modelID: args.model },

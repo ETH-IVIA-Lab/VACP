@@ -93,6 +93,7 @@ export async function exportArenaDatasets(args: ExportArenaDatasetsArgs) {
   await writeJson(path.join(outDir, 'runs_normalized.json'), exportNormalizedRuns(prepared.runs));
   await writeJson(path.join(outDir, 'experiment_summaries.json'), exportExperimentSummaries(prepared.summaries));
   await writeJson(path.join(outDir, 'task_summaries.json'), exportTaskSummaries(prepared.taskSummaries));
+  await writeJson(path.join(outDir, 'cost_by_task_setup.json'), exportCostByTaskSetup(prepared.taskSummaries));
   await writeJson(
     path.join(outDir, 'token_accounting_by_experiment.json'),
     exportTokenAccountingByExperiment(prepared.summaries),
@@ -130,6 +131,10 @@ function exportNormalizedRuns(runs: NormalizedRun[]) {
     answer_parse_status: r.answerParseStatus,
     eval_outcome: r.evalOutcome,
     duration_s: r.durationS,
+    cost_provider_usd: r.costProviderUsd,
+    cost_estimated_usd: r.costEstimatedUsd,
+    cost_usd: r.costUsd,
+    cost_basis: r.costBasis,
     tokens_input: r.tokensInput,
     tokens_output: r.tokensOutput,
     tokens_reasoning: r.tokensReasoning,
@@ -161,6 +166,8 @@ function exportExperimentSummaries(summaries: ExperimentSummary[]) {
     solved_strict_rate: s.solvedStrictRate,
     solved_semantic_rate: s.solvedSemanticRate,
     duration_s_median: s.durationMedianS,
+    cost_total_usd: s.costTotalUsd,
+    cost_median_usd: s.costMedianUsd,
     tokens_total_no_cache_median: s.tokensMedianNoCache,
     tokens_total_with_cache_read_median: s.tokensMedianWithCacheRead,
     tokens_total_with_cache_all_median: s.tokensMedianWithCacheAll,
@@ -185,6 +192,8 @@ function exportTaskSummaries(summaries: ScenarioExperimentSummary[]) {
     solved_strict_rate: s.solvedStrictRate,
     solved_semantic_rate: s.solvedSemanticRate,
     duration_s_median: s.durationMedianS,
+    cost_total_usd: s.costTotalUsd,
+    cost_median_usd: s.costMedianUsd,
     tokens_total_no_cache_median: s.tokensMedianNoCache,
     tokens_total_with_cache_read_median: s.tokensMedianWithCacheRead,
     tokens_total_with_cache_all_median: s.tokensMedianWithCacheAll,
@@ -199,6 +208,8 @@ function exportTokenAccountingByExperiment(summaries: ExperimentSummary[]) {
   return summaries.map((s) => ({
     experiment: s.experiment,
     n: s.n,
+    cost_total_usd: s.costTotalUsd,
+    cost_median_usd: s.costMedianUsd,
     tokens_total_no_cache_median: s.tokensMedianNoCache,
     tokens_total_with_cache_read_median: s.tokensMedianWithCacheRead,
     tokens_total_with_cache_all_median: s.tokensMedianWithCacheAll,
@@ -214,11 +225,26 @@ function exportTokenAccountingByTask(summaries: ScenarioExperimentSummary[]) {
     scenario_id: s.scenarioId,
     experiment: s.experiment,
     n: s.n,
+    cost_total_usd: s.costTotalUsd,
+    cost_median_usd: s.costMedianUsd,
     tokens_total_no_cache_median: s.tokensMedianNoCache,
     tokens_total_with_cache_read_median: s.tokensMedianWithCacheRead,
     tokens_total_with_cache_all_median: s.tokensMedianWithCacheAll,
     tokens_cache_read_median: s.tokensMedianCacheRead,
     tokens_cache_write_median: s.tokensMedianCacheWrite,
+  }));
+}
+
+function exportCostByTaskSetup(summaries: ScenarioExperimentSummary[]) {
+  return summaries.map((s) => ({
+    scenario_id: s.scenarioId,
+    experiment: s.experiment,
+    n: s.n,
+    cost_total_usd: s.costTotalUsd,
+    cost_median_usd: s.costMedianUsd,
+    duration_s_median: s.durationMedianS,
+    tokens_total_with_cache_all_median: s.tokensMedianWithCacheAll,
+    tokens_total_no_cache_median: s.tokensMedianNoCache,
   }));
 }
 

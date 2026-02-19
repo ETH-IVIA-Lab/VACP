@@ -372,7 +372,7 @@ program
       consola.success(`Wrote datasets to: ${res.outDir}`);
       consola.info(`- charts: ${path.join(res.outDir, 'charts')}`);
       consola.info(
-        `- tables: runs_normalized.json, experiment_summaries.json, task_summaries.json, token_accounting_by_experiment.json, token_accounting_by_task.json, task_index.json, tool_by_experiment.json, tool_by_scenario.json`,
+        `- tables: runs_normalized.json, experiment_summaries.json, task_summaries.json, cost_by_task_setup.json, token_accounting_by_experiment.json, token_accounting_by_task.json, task_index.json, tool_by_experiment.json, tool_by_scenario.json`,
       );
     } catch (error) {
       consola.error(error);
@@ -706,7 +706,9 @@ async function logResumePlan(args: {
       `  - partial:      ${partial}`,
       args.resumeReuseMode === 'ok' ? `  - rerun failed: ${rerunFailed}` : null,
       hasOutcomeSelection ? `  - rerun outcomes: ${rerunOutcome}` : null,
-      hasOutcomeSelection ? `  - matched completed jobs in analysis: ${args.resumeOutcomeSelection?.matchedJobs}` : null,
+      hasOutcomeSelection
+        ? `  - matched completed jobs in analysis: ${args.resumeOutcomeSelection?.matchedJobs}`
+        : null,
       hasOutcomeSelection ? `  - complete jobs in run dir: ${args.resumeOutcomeSelection?.completeJobs}` : null,
       hasOutcomeSelection ? `  - analysis runs file: ${args.resumeOutcomeSelection?.analysisRunsPath}` : null,
       hasOutcomeSelection ? `  - selected-outcome counts:` : null,
