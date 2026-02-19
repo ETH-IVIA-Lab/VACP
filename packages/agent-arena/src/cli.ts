@@ -270,6 +270,7 @@ program
       consola.info(`- runs:       ${res.runsJsonPath}`);
       consola.info(`- tool calls:  ${res.toolCallsJsonPath}`);
       consola.info(`- meta:       ${res.metaPath}`);
+      consola.info(`- transcripts: ${res.transcriptsWritten} (runs/**/transcript.md)`);
       consola.info(`- evidence:   ${res.evidenceDir}`);
       consola.info(`- manifest:   ${res.evidenceManifestPath}`);
     } catch (error) {

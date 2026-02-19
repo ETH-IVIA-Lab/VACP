@@ -48,6 +48,8 @@ pnpm start -- report --analysis .agent-arena/runs/<runId>/analysis
 
 You can also pass `--opencode-root <dir>` to `analyze`, `report`, or `datasets` when OpenCode storage is not in a default location.
 
+`analyze` also writes `transcript.md` into every per-job run folder under `runs/**`, reconstructing session conversation text (including tool context) from the run-local evidence snapshot. Jobs without a session ID or without messages still get a placeholder transcript with an explicit status note.
+
 The report writes a small multi-page suite (one page per model, plus an index):
 
 - `analysis/report/index.html` (model index + links)

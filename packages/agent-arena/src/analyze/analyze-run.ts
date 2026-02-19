@@ -11,6 +11,7 @@ import {
   relPathFromStorage,
   type OpencodeMessageInfo,
 } from './opencode-storage.js';
+import { writeJobTranscript } from './transcript.js';
 import { ensureOpencodeEvidenceSnapshot } from './opencode-evidence.js';
 import { classifyEvalOutcome, detectPlumbingFailure } from '../eval/outcome.js';
 import { parseAnswerFromText } from './score.js';
@@ -103,6 +104,7 @@ export async function analyzeArenaRun(args: AnalyzeRunArgs) {
   const toolCallsJson = new JsonArrayWriter(toolCallsJsonPath);
 
   const allJobRows: any[] = [];
+  let transcriptsWritten = 0;
 
   for (const jobDirAbs of jobDirs) {
     const inputPath = path.join(jobDirAbs, 'input.json');
@@ -144,6 +146,16 @@ export async function analyzeArenaRun(args: AnalyzeRunArgs) {
     const screenshotStats = await computeScreenshotStats(jobDirAbs);
 
     const sessionMessages = sessionID ? await readSessionMessages(storage, sessionID) : [];
+    await writeJobTranscript({
+      runID: runId,
+      runDir,
+      jobDirAbs,
+      sessionID,
+      messages: sessionMessages,
+      storage,
+    });
+    transcriptsWritten += 1;
+
     const sessionMetrics = computeSessionMetrics({
       messages: sessionMessages,
       pricing: modelPricing ?? null,
@@ -329,6 +341,7 @@ export async function analyzeArenaRun(args: AnalyzeRunArgs) {
     metaPath,
     evidenceDir: evidence.evidenceDir,
     evidenceManifestPath: evidence.manifestPath,
+    transcriptsWritten,
     rows: allJobRows,
   };
 }

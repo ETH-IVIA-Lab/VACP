@@ -31,6 +31,7 @@ export type OpencodePart = {
   type: string;
   tool?: string;
   callID?: string;
+  reason?: string;
   text?: string;
   state?: any;
   time?: { start?: number; end?: number };
@@ -143,6 +144,7 @@ export async function readMessageParts(storage: OpencodeStorageRoot, messageID: 
       type,
       ...(typeof (parsed as any).tool === 'string' ? { tool: String((parsed as any).tool) } : {}),
       ...(typeof (parsed as any).callID === 'string' ? { callID: String((parsed as any).callID) } : {}),
+      ...(typeof (parsed as any).reason === 'string' ? { reason: String((parsed as any).reason) } : {}),
       ...(typeof (parsed as any).text === 'string' ? { text: String((parsed as any).text) } : {}),
       ...(typeof (parsed as any).state === 'object' && (parsed as any).state ? { state: (parsed as any).state } : {}),
       ...(typeof (parsed as any).time === 'object' && (parsed as any).time ? { time: (parsed as any).time } : {}),
