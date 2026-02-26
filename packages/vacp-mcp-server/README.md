@@ -4,7 +4,11 @@ An MCP server that exposes a VACP-enabled web page to an agent via Playwright.
 
 This server calls the in-page `window.__vacp` bridge (fast, stable, no DOM scraping).
 
-MCP is only a transport. The VACP protocol and runtime live inside the app.
+MCP is only one transport. The VACP protocol and runtime live inside the app.
+
+Sibling transport implementation in this repo:
+
+- `@vacp/agent-client` (TypeScript): direct in-page AI SDK tool loop used by the debug-ui Chat tab.
 
 ## Run
 
@@ -31,11 +35,19 @@ Notes:
 
 ## MCP tools
 
-- `vacp_capabilities()` → VACP capabilities snapshot (graph + actions)
+- `vacp_capabilities(options?)` → VACP capabilities snapshot (graph + actions), optionally scoped
 - `vacp_state(options?)` → VACP state snapshot or token-efficient update envelope
 - `vacp_execute(name, params?, call_id?)` → run a semantic action via the bridge
 - `vacp_open_url(url, wait_for_bridge?, timeout_ms?)` → navigate the existing page to a scenario URL
 - `vacp_page_info()` → page URL + title
+
+`vacp_capabilities(options?)` supports optional scoped retrieval:
+
+- `options.refs`: include explicit refs
+- `options.prefixes`: include ref subtrees
+- `options.kinds`: filter by node kind
+- `options.layers`: filter by semantic layer
+- `options.includeActions` / `options.includeEdges` / `options.includeNodeData`: include controls
 
 `vacp_state(options?)` supports optional progressive retrieval:
 

@@ -5,15 +5,17 @@ from fastmcp.tools.tool import FunctionTool
 from pydantic import ValidationError
 
 from vacp_mcp_server.bridge import ActionCall, ActionResult, VacpBridgeClient
-from vacp_mcp_server.models import VacpStateRequestOptions
+from vacp_mcp_server.models import VacpCapabilitiesRequestOptions, VacpStateRequestOptions
 from vacp_mcp_server.server import create_mcp
 
 
 class _FakeClient(VacpBridgeClient):
     def __init__(self) -> None:
+        self.last_capabilities_request: VacpCapabilitiesRequestOptions | None = None
         self.last_state_request: VacpStateRequestOptions | None = None
 
-    async def get_capabilities(self) -> dict:
+    async def get_capabilities(self, request: VacpCapabilitiesRequestOptions | None = None) -> dict:
+        self.last_capabilities_request = request
         return {'graph': {'nodes': [], 'edges': [], 'actions': []}}
 
     async def get_state(self, request: VacpStateRequestOptions | None = None) -> dict:
@@ -73,6 +75,56 @@ async def test_create_mcp_registers_expected_tools() -> None:
     mcp = create_mcp(_FakeClient())
     tools = await mcp.get_tools()
     assert set(tools.keys()) == {'vacp_capabilities', 'vacp_state', 'vacp_execute'}
+
+
+@pytest.mark.asyncio
+async def test_vacp_capabilities_full_shape_when_options_omitted() -> None:
+    client = _FakeClient()
+    mcp = create_mcp(client)
+    tool = await mcp.get_tool('vacp_capabilities')
+    assert isinstance(tool, FunctionTool)
+    res = await tool.fn()
+    assert res == {'graph': {'nodes': [], 'edges': [], 'actions': []}}
+    assert client.last_capabilities_request is None
+
+
+@pytest.mark.asyncio
+async def test_vacp_capabilities_forwards_scoping_options() -> None:
+    client = _FakeClient()
+    mcp = create_mcp(client)
+    tool = await mcp.get_tool('vacp_capabilities')
+    assert isinstance(tool, FunctionTool)
+    await tool.fn(
+        options={
+            'prefixes': ['vacp://app/view'],
+            'includeNodeData': False,
+            'kinds': ['View', 'Visualization'],
+        }
+    )
+    assert client.last_capabilities_request == {
+        'prefixes': ['vacp://app/view'],
+        'includeNodeData': False,
+        'kinds': ['View', 'Visualization'],
+    }
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    'options',
+    [
+        {'bogus': 1},
+        {'kinds': ['BogusKind']},
+        {'layers': ['bogusLayer']},
+        {'refs': ['   ']},
+        {'includeNodeData': 'nope'},
+    ],
+)
+async def test_vacp_capabilities_rejects_invalid_options(options: object) -> None:
+    mcp = create_mcp(_FakeClient())
+    tool = await mcp.get_tool('vacp_capabilities')
+    assert isinstance(tool, FunctionTool)
+    with pytest.raises(ValidationError):
+        await tool.fn(options=options)
 
 
 @pytest.mark.asyncio

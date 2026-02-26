@@ -8,7 +8,7 @@ from typing import Any, Protocol
 from fastmcp import FastMCP
 
 from vacp_mcp_server.bridge import ActionCall, VacpBridgeClient
-from vacp_mcp_server.models import normalize_state_request_options
+from vacp_mcp_server.models import normalize_capabilities_request_options, normalize_state_request_options
 
 """
 MCP adapter layer (project concepts).
@@ -110,7 +110,7 @@ Use it for interactive visual analytics:
 - perform small semantic steps and confirm each step before the next.
 
 Efficient defaults:
-1) Call `vacp_capabilities()` once initially (re-read only if needed).
+1) Call `vacp_capabilities()` once initially (re-read only if needed); use scoped options when the task is localized.
 2) Call `vacp_state()` once for baseline.
 3) Then prefer `vacp_state(options={mode:"delta", since:"<token>"})`.
 4) Add `refs` once target refs are known; set `includeSummary=false` unless needed.
@@ -122,7 +122,7 @@ Efficient defaults:
         title='VACP Capabilities Snapshot',
         annotations={'readOnlyHint': True},
     )
-    async def vacp_capabilities() -> dict[str, object]:
+    async def vacp_capabilities(options: dict[str, object] | None = None) -> dict[str, object]:
         """
         Fetch the VACP capabilities snapshot from the page's in-window bridge.
 
@@ -137,12 +137,18 @@ Efficient defaults:
         - `graph.actions[].parameters`: JSON-schema-like parameter shape
         - `graph.actions[].targetRef`: target node for the action when present
 
+        Optional `options` can scope the graph:
+        - `refs` / `prefixes`
+        - `kinds` / `layers`
+        - `includeActions` / `includeEdges` / `includeNodeData`
+
         Returns a JSON object like:
         `{ version, createdAt, graph: { version, nodes, edges, actions } }`.
 
         Side effects: none (read-only). Fails if the VACP bridge is not installed on the page.
         """
-        return await client.get_capabilities()
+        request = normalize_capabilities_request_options(options)
+        return await client.get_capabilities(request)
 
     @mcp.tool(
         title='VACP State Snapshot',
