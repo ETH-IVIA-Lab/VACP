@@ -1,6 +1,7 @@
 import type {
   VacpActionCall,
   VacpActionResult,
+  VacpCapabilitiesRequest,
   VacpCapabilitiesSnapshot,
   VacpChangeSource,
   VacpHistoryEntry,
@@ -15,6 +16,7 @@ import { nowIso, VACP_APPLY_STATE_ACTION, VACP_SCHEMA_VERSION } from '@vacp/core
 import { VacpActionRegistry } from '../action-registry';
 import { createStateObserver } from './observer';
 import type { VacpSnapshotProvider, VacpUpdatableRuntimeBridge } from './types';
+import { scopeCapabilitiesSnapshot } from './capabilities-scope';
 import { buildStateUpdate, computeStateToken, scopeStateSnapshot } from './state-update';
 import {
   entryMessage,
@@ -329,9 +331,11 @@ export function createRuntimeBridge(args: {
   const bridge: VacpUpdatableRuntimeBridge = {
     version: VACP_SCHEMA_VERSION,
 
-    getCapabilities: async () => {
+    getCapabilities: async (request?: VacpCapabilitiesRequest) => {
       await ensureLive();
-      return liveCapabilities as VacpCapabilitiesSnapshot;
+      const capabilities = liveCapabilities as VacpCapabilitiesSnapshot;
+      if (!request) return capabilities;
+      return scopeCapabilitiesSnapshot(capabilities, request);
     },
 
     getState,

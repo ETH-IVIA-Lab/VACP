@@ -271,6 +271,23 @@ export interface VacpCapabilitiesSnapshot {
   graph: VacpGraph;
 }
 
+export interface VacpCapabilitiesRequest {
+  /** Include explicit refs (and optionally intersect with kinds/layers). */
+  refs?: VacpRef[];
+  /** Include refs that match any stable prefix (e.g. view/viz subtree). */
+  prefixes?: VacpRef[];
+  /** Optional node-kind filter. */
+  kinds?: VacpNodeKind[];
+  /** Optional semantic-layer filter. */
+  layers?: VacpLayer[];
+  /** Include action descriptors in the scoped graph (default: true). */
+  includeActions?: boolean;
+  /** Include edges where both endpoints survive scoping (default: true). */
+  includeEdges?: boolean;
+  /** Include node `data` payloads (default: true). */
+  includeNodeData?: boolean;
+}
+
 /**
  * State snapshot: current values keyed by stable node refs.
  *
@@ -357,6 +374,7 @@ export type VacpActionResult =
  */
 export interface VacpWindowBridge {
   version: VacpSchemaVersion;
+  getCapabilities(request: VacpCapabilitiesRequest): Promise<VacpCapabilitiesSnapshot> | VacpCapabilitiesSnapshot;
   getCapabilities(): Promise<VacpCapabilitiesSnapshot> | VacpCapabilitiesSnapshot;
   getState(request: VacpStateRequest): Promise<VacpStateUpdate>;
   getState(): Promise<VacpStateSnapshot>;

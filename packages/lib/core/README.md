@@ -12,6 +12,7 @@ This package is intentionally dependency-free. It defines the stable JSON shapes
 
 - `VacpGraph`: nodes/edges that describe “what exists” in the UI.
 - `VacpActionDescriptor`: semantic actions an agent can call (not DOM events).
+- `VacpCapabilitiesRequest`: optional graph-scoping request (`refs/prefixes/kinds/layers`) for efficient capability reads.
 - `VacpStateSnapshot`: current values keyed by stable `vacp://...` refs.
 - `VacpStateRequest` / `VacpStateUpdate`: optional partial/delta state retrieval contract.
 - `VacpWindowBridge`: the in-page API contract (typically installed as `window.__vacp`).
