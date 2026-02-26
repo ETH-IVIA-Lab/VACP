@@ -1,0 +1,28 @@
+{
+  "name": "@vacp/agent-client",
+  "version": "0.0.0",
+  "private": true,
+  "files": [
+    "dist"
+  ],
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -b",
+    "lint": "oxlint src",
+    "typecheck": "tsc -b",
+    "test": "pnpm exec tsx --test test/*.test.ts"
+  },
+  "dependencies": {
+    "@ai-sdk/google": "^2.0.47",
+    "@ai-sdk/openai-compatible": "^2.0.30",
+    "@vacp/core": "workspace:*",
+    "ai": "^6.0.99",
+    "zod": "^3.25.76"
+  }
+}
