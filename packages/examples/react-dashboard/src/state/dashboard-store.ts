@@ -69,7 +69,13 @@ export const useDashboardStore = create<DashboardState>((set, get) => ({
       try {
         const dataset = await loadDataset(id);
         if (seq !== loadSeq) return;
-        set({ dataset, loading: false });
+        set({
+          dataset,
+          loading: false,
+          encoding: { ...dataset.defaultEncoding },
+          selectedIds: [],
+          brush2d: null,
+        });
       } catch (err) {
         if (seq !== loadSeq) return;
         set({ loading: false, error: err instanceof Error ? err.message : String(err) });

@@ -18,6 +18,10 @@ type Props = {
 
 const datasetOptions = listDatasets();
 const chartPanelHeight = 'h-[340px] min-h-0 md:h-[380px]';
+const DATASET_UNSET = '__unset_dataset__';
+const X_UNSET = '__unset_x__';
+const Y_UNSET = '__unset_y__';
+const COLOR_NONE = '__none__';
 
 export default function App({ onInteraction }: Props) {
   const { datasetId, dataset, encoding, selectedIds, brush2d, loading, error, actions } = useDashboardStore();
@@ -119,11 +123,20 @@ export default function App({ onInteraction }: Props) {
                     <X className="h-4 w-4" />
                   </Button>
                 </div>
-                <Select value={datasetId ?? undefined} onValueChange={(v) => onSetDataset(v as DatasetId)}>
+                <Select
+                  value={datasetId ?? DATASET_UNSET}
+                  onValueChange={(v) => {
+                    if (v === DATASET_UNSET) return;
+                    onSetDataset(v as DatasetId);
+                  }}
+                >
                   <SelectTrigger className={!datasetId ? 'border-primary/40 ring-1 ring-primary/20' : undefined}>
                     <SelectValue placeholder="Select dataset" />
                   </SelectTrigger>
                   <SelectContent>
+                    <SelectItem value={DATASET_UNSET} disabled>
+                      Select dataset
+                    </SelectItem>
                     {datasetOptions.map((d) => (
                       <SelectItem key={d.id} value={d.id}>
                         {d.title}
@@ -154,8 +167,11 @@ export default function App({ onInteraction }: Props) {
                     </Button>
                   </div>
                   <Select
-                    value={encoding.x ?? undefined}
-                    onValueChange={(v) => onSetEncoding({ x: v })}
+                    value={encoding.x ?? X_UNSET}
+                    onValueChange={(v) => {
+                      if (v === X_UNSET) return;
+                      onSetEncoding({ x: v });
+                    }}
                     disabled={!numericColumns.length}
                   >
                     <SelectTrigger
@@ -166,6 +182,9 @@ export default function App({ onInteraction }: Props) {
                       <SelectValue placeholder="Select x field" />
                     </SelectTrigger>
                     <SelectContent>
+                      <SelectItem value={X_UNSET} disabled>
+                        Select x field
+                      </SelectItem>
                       {numericColumns.map((k) => (
                         <SelectItem key={k} value={k}>
                           {k}
@@ -195,8 +214,11 @@ export default function App({ onInteraction }: Props) {
                     </Button>
                   </div>
                   <Select
-                    value={encoding.y ?? undefined}
-                    onValueChange={(v) => onSetEncoding({ y: v })}
+                    value={encoding.y ?? Y_UNSET}
+                    onValueChange={(v) => {
+                      if (v === Y_UNSET) return;
+                      onSetEncoding({ y: v });
+                    }}
                     disabled={!numericColumns.length}
                   >
                     <SelectTrigger
@@ -207,6 +229,9 @@ export default function App({ onInteraction }: Props) {
                       <SelectValue placeholder="Select y field" />
                     </SelectTrigger>
                     <SelectContent>
+                      <SelectItem value={Y_UNSET} disabled>
+                        Select y field
+                      </SelectItem>
                       {numericColumns.map((k) => (
                         <SelectItem key={k} value={k}>
                           {k}
@@ -219,15 +244,15 @@ export default function App({ onInteraction }: Props) {
                 <div className="flex flex-col gap-2">
                   <div className="text-xs font-medium text-muted-foreground">Color</div>
                   <Select
-                    value={encoding.color ?? '__none__'}
-                    onValueChange={(v) => onSetEncoding({ color: v === '__none__' ? null : v })}
+                    value={encoding.color ?? COLOR_NONE}
+                    onValueChange={(v) => onSetEncoding({ color: v === COLOR_NONE ? null : v })}
                     disabled={!allColumns.length}
                   >
                     <SelectTrigger>
                       <SelectValue placeholder="color" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="__none__">(none)</SelectItem>
+                      <SelectItem value={COLOR_NONE}>(none)</SelectItem>
                       {allColumns
                         .filter((k) => k !== encoding.x && k !== encoding.y && k.toLowerCase() !== 'id')
                         .map((k) => (

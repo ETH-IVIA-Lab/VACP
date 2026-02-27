@@ -25,7 +25,7 @@ import { createDuckDbWasmClient, getDuckDbTableMetadata, type VacpDuckDbTableMet
 import { VACP_SCHEMA_VERSION, type VacpRef } from '@vacp/core';
 
 import type { Dataset, DatasetId, Encoding } from '@/datasets/registry';
-import { isDatasetId } from '@/datasets/registry';
+import { isDatasetId, listDatasets } from '@/datasets/registry';
 
 export type ReactDashboardModel = {
   ensureDataset: () => Promise<void>;
@@ -76,15 +76,42 @@ function getEffectiveSelectedIds(model: ReactDashboardModel): { ids: string[]; m
   return { ids: [], meaning: 'no selection (fallback: all rows)' };
 }
 
+function quantile(sorted: number[], q: number): number {
+  if (!sorted.length) return NaN;
+  const clamped = Math.max(0, Math.min(1, q));
+  const idx = (sorted.length - 1) * clamped;
+  const lo = Math.floor(idx);
+  const hi = Math.ceil(idx);
+  if (lo === hi) return sorted[lo] ?? NaN;
+  const loVal = sorted[lo] ?? NaN;
+  const hiVal = sorted[hi] ?? NaN;
+  const t = idx - lo;
+  return loVal + (hiVal - loVal) * t;
+}
+
+function numericValues(dataset: Dataset, key: string): number[] {
+  return dataset.rows
+    .map((row) => Number(row[key]))
+    .filter((value) => Number.isFinite(value))
+    .sort((a, b) => a - b);
+}
+
 export function installVacpForReactDashboard(args: { globalKey?: string; title?: string; model: ReactDashboardModel }) {
   const appId = 'vacp-examples';
   const viewId = 'react/dashboard';
   const vizId = 'recharts';
 
   const title = args.title ?? 'React dashboard';
+  const datasetCatalog = listDatasets().map((entry) => ({
+    id: entry.id,
+    title: entry.title,
+    description: entry.description,
+  }));
+  const datasetIds = datasetCatalog.map((entry) => entry.id);
 
   const viewRefs = createVacpRefBuilder({ appId, viewId });
   const vizRefs = createVacpRefBuilder({ appId, viewId, vizId });
+  const appRef = `vacp://${appId}` as VacpRef;
   const viewRef = viewRefs.root;
   const vizRef = vizRefs.root;
 
@@ -106,9 +133,16 @@ export function installVacpForReactDashboard(args: { globalKey?: string; title?:
   const actions = createVacpActions();
 
   actions
-    .action('dashboard.set_dataset', 'Set the active dataset (loads JSON rows and rebuilds the DuckDB table).')
+    .action(
+      'dashboard.set_dataset',
+      `Set the active dataset (loads JSON rows and rebuilds the DuckDB table). Valid ids: ${datasetIds.join(', ')}.`,
+    )
     .target(handleRef)
-    .params({ type: 'object', properties: { id: { type: 'string' } }, required: ['id'] })
+    .params({
+      type: 'object',
+      properties: { id: { type: 'string', enum: datasetIds } },
+      required: ['id'],
+    })
     .handle(async (params) => {
       const id = getPropString(asRecord(params), 'id') ?? '';
       if (!isDatasetId(id)) throw new Error(`Unknown dataset id: ${id}`);
@@ -170,6 +204,50 @@ export function installVacpForReactDashboard(args: { globalKey?: string; title?:
       if (![x0, x1, y0, y1].every((v) => Number.isFinite(v))) throw new Error('Expected numeric x0/x1/y0/y1');
       args.model.setBrush2d({ x0, x1, y0, y1 });
       return { brush2d: args.model.getBrush2d(), selectedCount: args.model.getSelectedIds().length };
+    });
+
+  actions
+    .action(
+      'dashboard.select_by_quantiles',
+      'Select points within x/y quantile bounds of the current encoding. Useful for compact subset selection without hand-picking raw ranges.',
+    )
+    .target(selectionRef)
+    .params({
+      type: 'object',
+      properties: {
+        xMinQ: { type: 'number', minimum: 0, maximum: 1 },
+        xMaxQ: { type: 'number', minimum: 0, maximum: 1 },
+        yMinQ: { type: 'number', minimum: 0, maximum: 1 },
+        yMaxQ: { type: 'number', minimum: 0, maximum: 1 },
+      },
+    })
+    .handle((params) => {
+      const dataset = args.model.getDataset();
+      const encoding = args.model.getEncoding();
+      if (!dataset) throw new Error('No dataset loaded');
+      if (!encoding.x || !encoding.y) throw new Error('Set x and y encoding before quantile selection');
+
+      const p = asRecord(params) ?? {};
+      const xMinQ = Number.isFinite(Number(p.xMinQ)) ? Number(p.xMinQ) : 0;
+      const xMaxQ = Number.isFinite(Number(p.xMaxQ)) ? Number(p.xMaxQ) : 0.35;
+      const yMinQ = Number.isFinite(Number(p.yMinQ)) ? Number(p.yMinQ) : 0;
+      const yMaxQ = Number.isFinite(Number(p.yMaxQ)) ? Number(p.yMaxQ) : 0.35;
+
+      const xVals = numericValues(dataset, encoding.x);
+      const yVals = numericValues(dataset, encoding.y);
+      if (!xVals.length || !yVals.length) throw new Error('Current encoding fields are not numeric');
+
+      const x0 = quantile(xVals, Math.min(xMinQ, xMaxQ));
+      const x1 = quantile(xVals, Math.max(xMinQ, xMaxQ));
+      const y0 = quantile(yVals, Math.min(yMinQ, yMaxQ));
+      const y1 = quantile(yVals, Math.max(yMinQ, yMaxQ));
+      args.model.setBrush2d({ x0, x1, y0, y1 });
+
+      return {
+        brush2d: args.model.getBrush2d(),
+        selectedCount: args.model.getSelectedIds().length,
+        quantiles: { xMinQ, xMaxQ, yMinQ, yMaxQ },
+      };
     });
 
   actions
@@ -360,6 +438,7 @@ export function installVacpForReactDashboard(args: { globalKey?: string; title?:
   const graph: VacpGraphBase = {
     version: VACP_SCHEMA_VERSION,
     nodes: [
+      { ref: appRef, kind: 'App', layer: 'ViewLayer', title: 'VACP examples' },
       { ref: viewRef, kind: 'View', layer: 'ViewLayer', title },
       { ref: vizRef, kind: 'Visualization', layer: 'VisualizationLayer', title },
       {
@@ -449,6 +528,7 @@ export function installVacpForReactDashboard(args: { globalKey?: string; title?:
       },
     ],
     edges: [
+      { from: appRef, to: viewRef, kind: 'contains' },
       { from: viewRef, to: vizRef, kind: 'contains' },
       { from: vizRef, to: scatterVizRef, kind: 'contains' },
       { from: vizRef, to: distributionVizRef, kind: 'contains' },
@@ -473,10 +553,8 @@ export function installVacpForReactDashboard(args: { globalKey?: string; title?:
     actions: actions.registry,
     getState: () => {
       const datasetId = args.model.getDatasetId();
-      const dataset = args.model.getDataset();
       const encoding = args.model.getEncoding();
       const selectedIds = args.model.getSelectedIds();
-      const { ids, meaning } = getEffectiveSelectedIds(args.model);
       const brush2d = args.model.getBrush2d();
       return {
         [scatterRef]: { kind: 'Mark', datasetId, x: encoding.x, y: encoding.y, color: encoding.color },
@@ -497,6 +575,62 @@ export function installVacpForReactDashboard(args: { globalKey?: string; title?:
           kind: 'DataHandle',
           tableName,
           datasetId,
+        },
+      };
+    },
+    getSummary: () => {
+      const dataset = args.model.getDataset();
+      const datasetId = args.model.getDatasetId();
+      const encoding = args.model.getEncoding();
+      const { ids, meaning } = getEffectiveSelectedIds(args.model);
+      const xStats =
+        dataset && encoding.x
+          ? (() => {
+              const vals = numericValues(dataset, encoding.x);
+              if (!vals.length) return undefined;
+              return {
+                field: encoding.x,
+                min: vals[0],
+                max: vals[vals.length - 1],
+                q1: quantile(vals, 0.25),
+                median: quantile(vals, 0.5),
+                q3: quantile(vals, 0.75),
+              };
+            })()
+          : undefined;
+      const yStats =
+        dataset && encoding.y
+          ? (() => {
+              const vals = numericValues(dataset, encoding.y);
+              if (!vals.length) return undefined;
+              return {
+                field: encoding.y,
+                min: vals[0],
+                max: vals[vals.length - 1],
+                q1: quantile(vals, 0.25),
+                median: quantile(vals, 0.5),
+                q3: quantile(vals, 0.75),
+              };
+            })()
+          : undefined;
+
+      return {
+        [viewRef]: {
+          availableDatasets: datasetCatalog,
+          activeDatasetId: datasetId,
+          activeEncoding: encoding,
+          selectionHint:
+            xStats && yStats
+              ? {
+                  strategy: 'lower-quartile-cluster',
+                  x0: xStats.min,
+                  x1: xStats.q1,
+                  y0: yStats.min,
+                  y1: yStats.q1,
+                }
+              : undefined,
+        },
+        [handleRef]: {
           allCount: dataset?.rows.length ?? 0,
           selectedCount: ids.length,
           selectedMeaning: meaning,
@@ -528,6 +662,7 @@ export function installVacpForReactDashboard(args: { globalKey?: string; title?:
   return {
     ...vacp,
     refs: {
+      appRef,
       viewRef,
       vizRef,
       scatterVizRef,
