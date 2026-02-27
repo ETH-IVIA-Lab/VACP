@@ -16,9 +16,16 @@ export type JsonViewerProps = {
   className?: string;
   emptyText?: string;
   expandDepth?: number;
+  scrollable?: boolean;
 };
 
-export function JsonViewer({ value, className, emptyText = '', expandDepth = 2 }: JsonViewerProps): ReactElement {
+export function JsonViewer({
+  value,
+  className,
+  emptyText = '',
+  expandDepth = 2,
+  scrollable = true,
+}: JsonViewerProps): ReactElement {
   const data = useMemo(() => normalizeJsonViewerData(value), [value]);
   const shouldExpandNode = useMemo(() => (level: number) => level < expandDepth, [expandDepth]);
   const style = useMemo(() => ({ ...darkStyles, container: cn(darkStyles.container, 'vacp-json-viewer-tree') }), []);
@@ -26,7 +33,8 @@ export function JsonViewer({ value, className, emptyText = '', expandDepth = 2 }
   return (
     <div
       className={cn(
-        'min-h-0 w-full overflow-auto rounded-lg border border-white/10 bg-black/20 p-3 text-[12px] leading-5 text-slate-100/85',
+        'min-h-0 w-full rounded-lg border border-white/10 bg-black/20 p-3 text-[12px] leading-5 text-slate-100/85',
+        scrollable ? 'overflow-auto' : 'overflow-visible overflow-x-hidden',
         className,
       )}
       data-vacp-json-viewer="1"

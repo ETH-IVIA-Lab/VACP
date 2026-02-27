@@ -1,6 +1,9 @@
 @config "../tailwind.config.ts";
 @import 'tailwindcss';
 @import 'react-json-view-lite/dist/index.css';
+@import 'streamdown/styles.css';
+@source "../../../../node_modules/streamdown/dist/*.js";
+@source "../../../../node_modules/@streamdown/code/dist/*.js";
 
 /* Host apps may ship global `button { ... }` rules. Because Tailwind utilities are in cascade layers,
    those unlayered host rules would otherwise win and break the debug UI. `revert-layer` restores the
@@ -57,6 +60,73 @@
 /* react-json-view-lite ships themed backgrounds; let the debug UI panel control backgrounds. */
 #vacp-debug-ui-panel .vacp-json-viewer-tree {
   background: transparent !important;
+}
+
+#vacp-debug-ui-panel .vacp-chat-streamdown {
+  color: rgba(241, 245, 249, 0.9);
+}
+
+#vacp-debug-ui-panel .vacp-chat-reasoning {
+  color: rgba(226, 232, 240, 0.82);
+}
+
+#vacp-debug-ui-panel .vacp-chat-streamdown p,
+#vacp-debug-ui-panel .vacp-chat-streamdown ul,
+#vacp-debug-ui-panel .vacp-chat-streamdown ol,
+#vacp-debug-ui-panel .vacp-chat-streamdown pre,
+#vacp-debug-ui-panel .vacp-chat-streamdown blockquote {
+  margin: 0.25rem 0;
+  overflow-wrap: anywhere;
+}
+
+#vacp-debug-ui-panel .vacp-chat-streamdown pre {
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  background: rgba(2, 6, 23, 0.75);
+  padding: 0.6rem 0.75rem;
+  white-space: pre-wrap;
+  word-break: break-word;
+  overflow-x: hidden;
+  overflow-y: visible;
+}
+
+#vacp-debug-ui-panel .vacp-chat-streamdown code:not(pre code) {
+  background: rgba(15, 23, 42, 0.78);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 6px;
+  padding: 0 0.35rem;
+  font-size: 11px;
+}
+
+#vacp-debug-ui-panel .vacp-chat-json-view .vacp-json-viewer-tree {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+#vacp-debug-ui-panel .vacp-chat-scroll {
+  scrollbar-gutter: stable;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(126, 152, 183, 0.52) rgba(15, 23, 42, 0.42);
+}
+
+#vacp-debug-ui-panel .vacp-chat-scroll::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+#vacp-debug-ui-panel .vacp-chat-scroll::-webkit-scrollbar-track {
+  background: rgba(15, 23, 42, 0.32);
+  border-radius: 999px;
+}
+
+#vacp-debug-ui-panel .vacp-chat-scroll::-webkit-scrollbar-thumb {
+  background: rgba(126, 152, 183, 0.48);
+  border: 2px solid rgba(15, 23, 42, 0.3);
+  border-radius: 999px;
+}
+
+#vacp-debug-ui-panel .vacp-chat-scroll::-webkit-scrollbar-thumb:hover {
+  background: rgba(148, 182, 220, 0.62);
 }
 
 /* When a diagram is being refreshed, soften the existing one briefly. */
