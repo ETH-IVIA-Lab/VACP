@@ -24,10 +24,18 @@ next to the pill and stays within the viewport.
 - **Actions**: manual dispatch (no pixel automation)
 - **History**: runtime controls + timeline + time travel (inspect cursor) + apply-to-live (“rewind”)
 - **Playbook**: provider-supplied scripted stepper (shows “agent-like” sequences)
+- **Chat**: AI SDK-powered client agent loop (direct transport to `window.__vacp`, OpenAI-compatible config)
 - **JSON**: inspection overrides + opt-in apply-to-live
 
 The overlay works best when the bridge supports `getRuntime()` and `getPlaybooks()`, but it
 still functions with the minimal bridge (`getCapabilities/getState/execute`).
+
+The Chat tab uses `@vacp/agent-client` and should be read as a second transport implementation:
+
+- MCP transport: Python server + Playwright (`vacp-mcp-server`)
+- Direct transport: in-page AI SDK tool loop (`@vacp/agent-client`)
+
+Both call the same semantic VACP contract.
 
 For a runnable reference, see any of the example apps under `packages/examples/*`.
 

@@ -2,7 +2,7 @@ import { create } from 'zustand';
 
 import type { VacpRef } from '@vacp/core';
 
-export type VacpDebugModuleId = 'graph' | 'data' | 'actions' | 'history' | 'playbook' | 'json';
+export type VacpDebugModuleId = 'graph' | 'data' | 'actions' | 'history' | 'playbook' | 'chat' | 'json';
 
 export type VacpDebugUiState = {
   includeActionsDefault: boolean;
@@ -70,6 +70,7 @@ const readInitialModule = (): VacpDebugModuleId => {
       raw === 'actions' ||
       raw === 'history' ||
       raw === 'playbook' ||
+      raw === 'chat' ||
       raw === 'json'
     ) {
       return raw;

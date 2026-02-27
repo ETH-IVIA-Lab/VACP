@@ -11,6 +11,7 @@ import { GraphModule } from '@vacp/debug-ui/overlay/modules/graph-module';
 import { HistoryModule } from '@vacp/debug-ui/overlay/modules/history-module';
 import { JsonModule } from '@vacp/debug-ui/overlay/modules/json-module';
 import { PlaybookModule } from '@vacp/debug-ui/overlay/modules/playbook-module';
+import { ChatModule } from '@vacp/debug-ui/overlay/modules/chat/chat-module';
 import {
   useVacpBridge,
   useVacpBridgePresence,
@@ -148,7 +149,7 @@ export function VacpDebugUiApp(props: { globalKey: string; includeActions: boole
 
       const n = Number(ev.key);
       if (!Number.isFinite(n) || n <= 0) return;
-      const ids: VacpDebugModuleId[] = ['graph', 'data', 'actions', 'history', 'playbook', 'json'];
+      const ids: VacpDebugModuleId[] = ['graph', 'data', 'actions', 'history', 'playbook', 'chat', 'json'];
       const id = ids[n - 1];
       if (!id) return;
       ev.preventDefault();
@@ -238,6 +239,7 @@ export function VacpDebugUiApp(props: { globalKey: string; includeActions: boole
     if (id === 'actions') return <ActionsModule {...ctx} />;
     if (id === 'history') return <HistoryModule {...ctx} />;
     if (id === 'playbook') return <PlaybookModule {...ctx} />;
+    if (id === 'chat') return <ChatModule {...ctx} />;
     return <JsonModule {...ctx} />;
   };
 

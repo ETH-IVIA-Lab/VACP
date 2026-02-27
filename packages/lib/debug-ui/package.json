@@ -29,6 +29,7 @@
     "typecheck": "tsc -b"
   },
   "dependencies": {
+    "@ai-sdk/react": "^3.0.101",
     "@codemirror/autocomplete": "^6.20.0",
     "@codemirror/commands": "^6.10.2",
     "@codemirror/lang-sql": "^6.10.0",
@@ -39,10 +40,12 @@
     "@radix-ui/react-slot": "^1.2.4",
     "@radix-ui/react-tabs": "^1.1.13",
     "@radix-ui/react-tooltip": "^1.2.8",
+    "@streamdown/code": "^1.0.3",
     "@tabler/icons-react": "^3.36.1",
     "@tanstack/react-query": "^5.90.20",
     "@tanstack/react-table": "^8.21.3",
     "@uiw/react-codemirror": "^4.25.4",
+    "@vacp/agent-client": "workspace:*",
     "@vacp/core": "workspace:*",
     "@vacp/diagrams": "workspace:*",
     "apache-arrow": "^19.0.1",
@@ -53,6 +56,7 @@
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
     "react-json-view-lite": "^2.5.0",
+    "streamdown": "^2.3.0",
     "tailwind-merge": "^3.4.0",
     "zustand": "^5.0.11"
   },

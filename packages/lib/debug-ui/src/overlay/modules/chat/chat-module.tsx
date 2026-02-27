@@ -1,0 +1,483 @@
+import type { UIMessage } from '@ai-sdk/react';
+import {
+  clearVacpLLMConfig,
+  listVacpLLMModels,
+  loadVacpLLMConfig,
+  saveVacpLLMConfig,
+  type VacpAgentToolEvent,
+  type VacpLLMConfig,
+  type VacpLLMModelOption,
+} from '@vacp/agent-client';
+import { History, MessageSquarePlus, MoreHorizontal, Settings2, Trash2 } from 'lucide-react';
+import type { ReactElement } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+
+import { useElementSize } from '@vacp/debug-ui/overlay/hooks/use-element-size';
+import { Button } from '@vacp/debug-ui/ui/components/ui/button';
+import { Card, CardDescription, CardHeader, CardTitle } from '@vacp/debug-ui/ui/components/ui/card';
+import { cn } from '@vacp/debug-ui/ui/lib/utils';
+
+import type { VacpDebugModuleProps } from '../module-types';
+import { ChatConfigPanel } from './chat-config-panel';
+import { ConfiguredChat } from './configured-chat';
+import { createVacpChatSessionCacheKey, clearVacpChatSession } from './chat-session-registry';
+import { deriveVacpChatScope } from './chat-scope';
+import { readThreadDraft, useVacpChatStore } from './chat-store';
+
+const DEFAULT_CONFIG: VacpLLMConfig = {
+  provider: 'openai-compatible',
+  providerName: 'openai-compatible',
+  baseURL: 'https://api.openai.com/v1',
+  apiKey: '',
+  model: 'gpt-5.2',
+  maxSteps: 10,
+  maxOutputTokens: 900,
+  temperature: 0.2,
+};
+
+function isConfigReady(config: VacpLLMConfig): boolean {
+  const baseFieldsReady = Boolean(config.apiKey.trim() && config.model.trim());
+  if (!baseFieldsReady) return false;
+  if (config.provider === 'gemini') return true;
+  return Boolean(config.providerName.trim() && config.baseURL.trim());
+}
+
+function canListModels(config: VacpLLMConfig): boolean {
+  if (!config.apiKey.trim()) return false;
+  if (config.provider === 'gemini') return true;
+  return Boolean(config.baseURL.trim() && config.providerName.trim());
+}
+
+function threadSubtitle(messages: UIMessage[]): string {
+  if (messages.length === 0) return 'Empty';
+  const last = messages[messages.length - 1];
+  const role = last.role === 'assistant' ? 'Agent' : last.role === 'user' ? 'You' : 'System';
+  return `${messages.length} message${messages.length === 1 ? '' : 's'} • last: ${role}`;
+}
+
+export function ChatModule(props: VacpDebugModuleProps): ReactElement {
+  const rootRef = useRef<HTMLDivElement | null>(null);
+  const headerRef = useRef<HTMLDivElement | null>(null);
+  const rootSize = useElementSize(rootRef);
+  const headerSize = useElementSize(headerRef);
+  const wide = rootSize.width >= 960;
+  const compactActions = rootSize.width < 860;
+  const narrow = rootSize.width < 760;
+
+  const initialConfig = useMemo(() => loadVacpLLMConfig() ?? DEFAULT_CONFIG, []);
+  const [config, setConfig] = useState<VacpLLMConfig>(initialConfig);
+  const [showApiKey, setShowApiKey] = useState(false);
+  const [threadPickerOpen, setThreadPickerOpen] = useState(false);
+  const [actionsMenuOpen, setActionsMenuOpen] = useState(false);
+  const [availableModels, setAvailableModels] = useState<VacpLLMModelOption[]>([]);
+  const [modelsLoading, setModelsLoading] = useState(false);
+  const [modelsError, setModelsError] = useState<string | null>(null);
+  const [modelRefreshSeq, setModelRefreshSeq] = useState(0);
+  const actionsMenuRef = useRef<HTMLDivElement | null>(null);
+
+  const ensureScope = useVacpChatStore((s) => s.ensureScope);
+  const createThread = useVacpChatStore((s) => s.createThread);
+  const clearThread = useVacpChatStore((s) => s.clearThread);
+  const setActiveThread = useVacpChatStore((s) => s.setActiveThread);
+  const setThreadMessages = useVacpChatStore((s) => s.setThreadMessages);
+  const appendToolEvent = useVacpChatStore((s) => s.appendToolEvent);
+  const setDraft = useVacpChatStore((s) => s.setDraft);
+  const setActivityOpen = useVacpChatStore((s) => s.setActivityOpen);
+  const setSettingsOpen = useVacpChatStore((s) => s.setSettingsOpen);
+
+  const scopeMeta = useMemo(() => deriveVacpChatScope(props.runtime), [props.runtime]);
+  const scopeId = scopeMeta.scopeId;
+  const scope = useVacpChatStore((s) => s.scopes[scopeId]);
+  const showActivity = useVacpChatStore((s) => s.activityOpenByScope[scopeId] ?? false);
+  const settingsOpen = useVacpChatStore((s) => s.settingsOpenByScope[scopeId] ?? false);
+  const activeThreadId = scope?.activeThreadId ?? null;
+  const activeThread = activeThreadId ? (scope?.threads[activeThreadId] ?? null) : null;
+  const draft = useVacpChatStore((s) => {
+    const threadId = s.scopes[scopeId]?.activeThreadId;
+    if (!threadId) return '';
+    return readThreadDraft(s, scopeId, threadId);
+  });
+
+  useEffect(() => {
+    saveVacpLLMConfig(config);
+  }, [config]);
+
+  useEffect(() => {
+    ensureScope(scopeMeta);
+  }, [ensureScope, scopeMeta]);
+
+  const configReady = isConfigReady(config);
+  const modelLookupKey = useMemo(
+    () => [config.provider, config.providerName.trim(), config.baseURL.trim(), config.apiKey.trim()].join('::'),
+    [config.provider, config.providerName, config.baseURL, config.apiKey],
+  );
+  const [debouncedModelLookupKey, setDebouncedModelLookupKey] = useState(modelLookupKey);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => setDebouncedModelLookupKey(modelLookupKey), 320);
+    return () => window.clearTimeout(timer);
+  }, [modelLookupKey]);
+
+  useEffect(() => {
+    if (!configReady) setSettingsOpen(scopeId, true);
+  }, [configReady, scopeId, setSettingsOpen]);
+
+  useEffect(() => {
+    if (!settingsOpen) return;
+    if (debouncedModelLookupKey !== modelLookupKey) return;
+    if (!canListModels(config)) {
+      setAvailableModels([]);
+      setModelsError(null);
+      setModelsLoading(false);
+      return;
+    }
+
+    const abortController = new AbortController();
+    setModelsLoading(true);
+    setModelsError(null);
+
+    void listVacpLLMModels(config, { signal: abortController.signal })
+      .then((models) => {
+        if (abortController.signal.aborted) return;
+        setAvailableModels(models);
+      })
+      .catch((error: unknown) => {
+        if (abortController.signal.aborted) return;
+        setAvailableModels([]);
+        setModelsError(error instanceof Error ? error.message : 'Unable to load models');
+      })
+      .finally(() => {
+        if (!abortController.signal.aborted) setModelsLoading(false);
+      });
+
+    return () => abortController.abort();
+  }, [config, debouncedModelLookupKey, modelLookupKey, modelRefreshSeq, settingsOpen]);
+
+  useEffect(() => {
+    setThreadPickerOpen(false);
+    setActionsMenuOpen(false);
+  }, [scopeId]);
+
+  useEffect(() => {
+    if (!compactActions) setActionsMenuOpen(false);
+  }, [compactActions]);
+
+  useEffect(() => {
+    if (!actionsMenuOpen) return;
+    const onPointerDown = (event: PointerEvent) => {
+      const menuNode = actionsMenuRef.current;
+      if (!menuNode) return;
+      if (event.target instanceof Node && !menuNode.contains(event.target)) setActionsMenuOpen(false);
+    };
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setActionsMenuOpen(false);
+    };
+
+    window.addEventListener('pointerdown', onPointerDown);
+    window.addEventListener('keydown', onKeyDown);
+    return () => {
+      window.removeEventListener('pointerdown', onPointerDown);
+      window.removeEventListener('keydown', onKeyDown);
+    };
+  }, [actionsMenuOpen]);
+
+  const threadItems = useMemo(() => {
+    if (!scope) return [];
+    return scope.threadOrder
+      .map((id) => scope.threads[id])
+      .filter((thread): thread is NonNullable<typeof thread> => Boolean(thread));
+  }, [scope]);
+
+  const onToolEvent = useCallback(
+    (event: VacpAgentToolEvent) => {
+      if (!activeThreadId) return;
+      appendToolEvent(scopeId, activeThreadId, event);
+    },
+    [activeThreadId, appendToolEvent, scopeId],
+  );
+
+  const sessionCacheKey = useMemo(() => {
+    if (!activeThreadId) return null;
+    return createVacpChatSessionCacheKey({
+      scopeId,
+      threadId: activeThreadId,
+      runtimeId: props.runtime.runtimeId,
+      config,
+    });
+  }, [scopeId, activeThreadId, props.runtime.runtimeId, config]);
+
+  const floatingPanelTop = Math.max(56, headerSize.height + 8);
+
+  return (
+    <div ref={rootRef} className="h-full min-h-0">
+      <Card className="relative flex h-full min-h-0 flex-col overflow-hidden">
+        <div ref={headerRef}>
+          <CardHeader className="flex-col items-stretch gap-2 border-b border-white/10 pb-3">
+            <div className="min-w-0">
+              <CardTitle>Chat</CardTitle>
+              <CardDescription>
+                {scopeMeta.label} • ask questions, run actions, and inspect tool traces in one place.
+              </CardDescription>
+            </div>
+            <div data-vacp-chat-actions="1" className="flex max-w-full flex-wrap items-center gap-2">
+              <Button
+                size="sm"
+                className="shrink-0"
+                data-vacp-chat-thread-trigger="1"
+                aria-label="Open chat history"
+                title="Open chat history"
+                aria-pressed={threadPickerOpen}
+                onClick={() => {
+                  setThreadPickerOpen((v) => {
+                    const next = !v;
+                    if (next) setSettingsOpen(scopeId, false);
+                    return next;
+                  });
+                  setActionsMenuOpen(false);
+                }}
+              >
+                <History className="h-4 w-4 text-slate-100/90" />
+                History
+              </Button>
+              <Button
+                size="sm"
+                className="shrink-0"
+                data-vacp-chat-new-thread="1"
+                aria-label="New chat"
+                title="Start a new chat thread"
+                onClick={() => {
+                  const nextId = createThread(scopeId);
+                  if (nextId) setActiveThread(scopeId, nextId);
+                  setThreadPickerOpen(false);
+                  setActionsMenuOpen(false);
+                }}
+              >
+                <MessageSquarePlus className="h-4 w-4 text-slate-100/90" />
+                New
+              </Button>
+              <Button
+                size="sm"
+                className="shrink-0"
+                data-vacp-chat-clear-thread="1"
+                aria-label="Clear active thread"
+                title="Clear active thread"
+                disabled={!activeThreadId}
+                onClick={() => {
+                  if (!activeThreadId || !sessionCacheKey) return;
+                  clearThread(scopeId, activeThreadId);
+                  clearVacpChatSession(sessionCacheKey);
+                  setActionsMenuOpen(false);
+                }}
+              >
+                <Trash2 className="h-4 w-4 text-slate-100/90" />
+                Clear
+              </Button>
+
+              {compactActions ? (
+                <div ref={actionsMenuRef} className="relative shrink-0">
+                  <Button
+                    size="sm"
+                    className="shrink-0"
+                    data-vacp-chat-actions-more="1"
+                    aria-label="More chat actions"
+                    title="More chat actions"
+                    aria-expanded={actionsMenuOpen}
+                    onClick={() => setActionsMenuOpen((v) => !v)}
+                  >
+                    <MoreHorizontal className="h-4 w-4 text-slate-100/90" />
+                    More
+                  </Button>
+                  {actionsMenuOpen ? (
+                    <div
+                      data-vacp-chat-actions-menu="1"
+                      className="absolute right-0 top-9 z-30 grid min-w-[152px] gap-1 rounded-xl border border-white/10 bg-slate-950/95 p-1.5 shadow-[0_16px_36px_rgba(0,0,0,0.45)] backdrop-blur-sm"
+                    >
+                      <Button
+                        size="sm"
+                        className="justify-start"
+                        aria-label="Toggle activity panel"
+                        title="Toggle activity panel"
+                        aria-pressed={showActivity}
+                        onClick={() => {
+                          setActivityOpen(scopeId, !showActivity);
+                          setActionsMenuOpen(false);
+                        }}
+                      >
+                        Activity
+                      </Button>
+                      <Button
+                        size="sm"
+                        className="justify-start"
+                        data-vacp-chat-settings-toggle="1"
+                        aria-label="Toggle settings"
+                        title="Toggle settings"
+                        aria-pressed={settingsOpen}
+                        onClick={() => {
+                          setThreadPickerOpen(false);
+                          setSettingsOpen(scopeId, !settingsOpen);
+                          setActionsMenuOpen(false);
+                        }}
+                      >
+                        <Settings2 className="h-4 w-4 text-slate-100/90" />
+                        Settings
+                      </Button>
+                    </div>
+                  ) : null}
+                </div>
+              ) : (
+                <>
+                  <Button
+                    size="sm"
+                    className="shrink-0"
+                    aria-label="Toggle activity panel"
+                    title="Toggle activity panel"
+                    aria-pressed={showActivity}
+                    onClick={() => setActivityOpen(scopeId, !showActivity)}
+                  >
+                    Activity
+                  </Button>
+                  <Button
+                    size="sm"
+                    className="shrink-0"
+                    data-vacp-chat-settings-toggle="1"
+                    aria-label="Toggle settings"
+                    title="Toggle settings"
+                    aria-pressed={settingsOpen}
+                    onClick={() => {
+                      setThreadPickerOpen(false);
+                      setSettingsOpen(scopeId, !settingsOpen);
+                    }}
+                  >
+                    <Settings2 className="h-4 w-4 text-slate-100/90" />
+                    Settings
+                  </Button>
+                </>
+              )}
+            </div>
+          </CardHeader>
+        </div>
+
+        <div className="min-h-0 flex-1">
+          {!configReady ? (
+            <div className="grid h-full min-h-0 place-items-center rounded-lg border border-dashed border-white/20 bg-white/5 p-6 text-center">
+              <div>
+                <div className="text-sm font-semibold text-slate-100/90">Add provider settings to start chatting.</div>
+                <div className="mt-1 text-[11px] text-slate-100/70">
+                  Provider, API key, and model are required. Base URL is required for OpenAI-compatible endpoints.
+                </div>
+                <Button
+                  size="sm"
+                  variant="primary"
+                  className="mt-3"
+                  data-vacp-chat-open-settings="1"
+                  onClick={() => {
+                    setThreadPickerOpen(false);
+                    setSettingsOpen(scopeId, true);
+                  }}
+                >
+                  Open settings
+                </Button>
+              </div>
+            </div>
+          ) : activeThreadId && activeThread ? (
+            <ConfiguredChat
+              bridge={props.bridge}
+              runtimeId={props.runtime.runtimeId}
+              scopeId={scopeId}
+              threadId={activeThreadId}
+              config={config}
+              initialMessages={activeThread.messages}
+              toolEvents={activeThread.toolEvents}
+              draft={draft}
+              onDraftChange={(value) => setDraft(scopeId, activeThreadId, value)}
+              onMessagesChange={(messages) => setThreadMessages(scopeId, activeThreadId, messages)}
+              onToolEvent={onToolEvent}
+              onRegenerate={() => setThreadPickerOpen(false)}
+              showActivity={showActivity}
+              wide={wide}
+            />
+          ) : (
+            <div className="grid h-full place-items-center text-[12px] text-slate-100/70">Preparing chat session…</div>
+          )}
+        </div>
+
+        {threadPickerOpen ? (
+          <div
+            data-vacp-chat-thread-popover="1"
+            className={cn(
+              'absolute z-20 rounded-xl border border-white/10 bg-slate-950/95 p-2 shadow-[0_18px_38px_rgba(0,0,0,0.45)] backdrop-blur-sm',
+              narrow ? 'left-3 right-3' : 'left-3 w-[min(360px,calc(100%-24px))]',
+            )}
+            style={{ top: `${floatingPanelTop}px` }}
+          >
+            <div className="px-2 pb-2 pt-1 text-[11px] font-semibold uppercase text-slate-100/70">
+              Conversation history
+            </div>
+            <div
+              data-vacp-chat-thread-list="1"
+              className="vacp-chat-scroll grid max-h-[260px] gap-1 overflow-y-auto overflow-x-hidden"
+            >
+              {threadItems.length === 0 ? (
+                <div className="rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-[11px] text-slate-100/70">
+                  No history for this view yet.
+                </div>
+              ) : null}
+              {threadItems.map((thread) => (
+                <button
+                  key={thread.id}
+                  type="button"
+                  data-vacp-chat-thread-item="1"
+                  className={cn(
+                    'min-w-0 rounded-lg border px-2 py-2 text-left transition-colors',
+                    thread.id === activeThreadId
+                      ? 'border-sky-300/35 bg-sky-500/10'
+                      : 'border-white/10 bg-white/5 hover:border-white/20 hover:bg-white/10',
+                  )}
+                  onClick={() => {
+                    setActiveThread(scopeId, thread.id);
+                    setThreadPickerOpen(false);
+                  }}
+                >
+                  <div className="truncate text-[12px] font-semibold text-slate-100/90 [overflow-wrap:anywhere]">
+                    {thread.title}
+                  </div>
+                  <div className="mt-1 text-[10px] text-slate-100/65">{threadSubtitle(thread.messages)}</div>
+                </button>
+              ))}
+            </div>
+          </div>
+        ) : null}
+
+        {settingsOpen ? (
+          <div
+            data-vacp-chat-settings-popover="1"
+            className={cn('absolute z-20', narrow ? 'left-3 right-3' : 'right-3 w-[min(390px,calc(100%-24px))]')}
+            style={{ top: `${floatingPanelTop}px` }}
+          >
+            <ChatConfigPanel
+              config={config}
+              onConfigChange={setConfig}
+              showApiKey={showApiKey}
+              onToggleApiKey={() => setShowApiKey((v) => !v)}
+              availableModels={availableModels}
+              loadingModels={modelsLoading}
+              modelsError={modelsError}
+              onRefreshModels={() => setModelRefreshSeq((seq) => seq + 1)}
+              onClose={() => setSettingsOpen(scopeId, false)}
+              onClearConfig={() => {
+                clearVacpLLMConfig();
+                setConfig(DEFAULT_CONFIG);
+                setAvailableModels([]);
+                setModelsError(null);
+                setModelsLoading(false);
+                if (activeThreadId) clearThread(scopeId, activeThreadId);
+                if (sessionCacheKey) clearVacpChatSession(sessionCacheKey);
+                setActivityOpen(scopeId, false);
+              }}
+            />
+          </div>
+        ) : null}
+      </Card>
+    </div>
+  );
+}

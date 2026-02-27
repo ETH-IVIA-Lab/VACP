@@ -1,4 +1,16 @@
-import { Braces, Clock, Database, GitGraph, History, ListOrdered, Minus, Plus, X, Zap } from 'lucide-react';
+import {
+  Braces,
+  Clock,
+  Database,
+  GitGraph,
+  History,
+  ListOrdered,
+  MessageSquare,
+  Minus,
+  Plus,
+  X,
+  Zap,
+} from 'lucide-react';
 import type { ReactElement, ReactNode, RefObject } from 'react';
 import { useMemo } from 'react';
 
@@ -47,6 +59,7 @@ export function DebugUiView(props: {
       { id: 'actions', title: 'Actions', icon: <Zap className="h-4 w-4 text-slate-100/85" /> },
       { id: 'history', title: 'History', icon: <History className="h-4 w-4 text-slate-100/85" /> },
       { id: 'playbook', title: 'Playbook', icon: <ListOrdered className="h-4 w-4 text-slate-100/85" /> },
+      { id: 'chat', title: 'Chat', icon: <MessageSquare className="h-4 w-4 text-slate-100/85" /> },
       { id: 'json', title: 'JSON', icon: <Braces className="h-4 w-4 text-slate-100/85" /> },
     ],
     [],
