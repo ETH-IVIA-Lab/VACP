@@ -12,7 +12,7 @@ Agents, humans, and debugging tools all interact with the same contract.
 
 ## Core idea
 
-Instead of clicking pixels, an agent calls `window.__vacp.execute({ callId, name, params })` (usually via MCP), and the app runs the _same_ semantic interactions a human would.
+Instead of clicking pixels, an agent calls `window.__vacp.execute({ callId, name, params })` (via MCP or direct in-page transport), and the app runs the _same_ semantic interactions a human would.
 
 ## What's in this repo
 
@@ -21,7 +21,9 @@ Instead of clicking pixels, an agent calls `window.__vacp.execute({ callId, name
   - Mosaic/vgplot (`@vacp/vgplot`)
   - Vega-Lite/Vega params (`@vacp/vega-lite`)
   - a “BYO provider” kit (`@vacp/kit`) used by the example apps
-- **Transport (Python)**: `vacp-mcp-server` (Playwright + MCP), which lets an agent reach `window.__vacp`.
+- **Transport (Python + TypeScript)**:
+  - `vacp-mcp-server` (Playwright + MCP)
+  - `@vacp/agent-client` (AI SDK direct in-page tool loop, used by debug-ui Chat)
 - **Examples**: runnable example apps that double as smoke tests (`pnpm test:examples`).
 
 ## Quick start
@@ -109,8 +111,9 @@ VACP has two layers:
    - `@vacp/debug-ui`: optional in-page overlay (inspects `window.__vacp`)
 2. **Transport (optional)** — ways to reach the app from an agent:
    - `vacp-mcp-server`: exposes the protocol over MCP by driving a browser via Playwright
+   - `@vacp/agent-client`: exposes the same protocol as direct in-page AI SDK tools (used in debug-ui Chat)
 
-MCP is “just a wire”. The protocol lives in the app.
+MCP and direct in-page AI SDK transport are both “just wires”. The protocol lives in the app.
 
 ## Where To Read Next
 

@@ -163,47 +163,42 @@ Control parallelism by setting:
 You can generate the `runs` array programmatically (nested loops, filtering, custom combinations).
 
 ```ts
-import type { ArenaConfig } from "@vacp/agent-arena";
+import type { ArenaConfig } from '@vacp/agent-arena';
 
 // Define scenarios once...
 const scenarios = [
   {
-    id: "weather-jacket",
-    url: "http://127.0.0.1:5173/mosaic/#weather",
-    task: "In summer, how many days would I probably need a jacket (rain/drizzle/snow), and what percent of summer days is that?",
+    id: 'weather-jacket',
+    url: 'http://127.0.0.1:5173/mosaic/#weather',
+    task: 'In summer, how many days would I probably need a jacket (rain/drizzle/snow), and what percent of summer days is that?',
   },
 ];
 
 // ...and define experiment variants...
 const experiments = [
   {
-    experiment: "openai/gpt-5.2 (default tools)",
+    experiment: 'openai/gpt-5.2 (default tools)',
     model: {
-      providerID: "openai",
-      modelID: "gpt-5.2",
+      providerID: 'openai',
+      modelID: 'gpt-5.2',
       // USD per 1M tokens; used by analysis fallback when provider cost is missing/zero.
       pricing: { input: 1.75, output: 14.0, cacheRead: 0.175, cacheWrite: 0.0 },
     },
-    toolPolicy: { mode: "all" },
+    toolPolicy: { mode: 'all' },
     summarize: true,
   },
 ];
 
 const config: ArenaConfig = {
   worktreeRoot: true,
-  autoApprove: "always",
+  autoApprove: 'always',
   concurrency: { runs: 2 },
   timeouts: { promptMs: 10 * 60_000 },
 
   // Rendered right before prompting, so it can include run folder etc.
   // Available in `run`: `outDir`, `slug`. Available in `opencode`: `projectID`, `sessionID`.
   promptTemplate: ({ scenario, run }) =>
-    [
-      `URL: ${scenario.url}`,
-      `Artifacts directory: ${run.outDir}`,
-      ``,
-      `Task: ${scenario.task}`,
-    ].join("\\n"),
+    [`URL: ${scenario.url}`, `Artifacts directory: ${run.outDir}`, ``, `Task: ${scenario.task}`].join('\\n'),
 
   // Finally, flatten to runs (this is what the runner consumes).
   runs: experiments.flatMap((exp) =>

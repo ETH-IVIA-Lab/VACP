@@ -17,6 +17,7 @@ This document describes the system design and the VACP protocol implemented in t
 ```mermaid
 flowchart LR
   Agent["Agent / LLM client"] -->|MCP tools| MCP["vacp-mcp-server (Playwright + MCP)"]
+  DebugChat["Debug UI Chat (AI SDK)"] -->|Direct transport| ClientAgent["@vacp/agent-client"]
 
   subgraph Browser["Browser (Playwright-launched or external Chrome via CDP)"]
     App["Visualization app (Mosaic / Vega-Lite / D3 / …)"]
@@ -30,9 +31,10 @@ flowchart LR
   end
 
   MCP -->|evaluate| Bridge
+  ClientAgent -->|in-page tool loop| Bridge
 ```
 
-Key idea: **the protocol lives inside the app**. MCP is only one transport.
+Key idea: **the protocol lives inside the app**. MCP is one transport implementation; the debug-ui chat's direct in-page agent is another.
 
 ---
 
@@ -64,7 +66,7 @@ This repo implements VACP as a small set of JSON messages plus an in-page RPC in
 
 An implementation is “VACP-conformant” if it:
 
-- **MUST** provide `getCapabilities()`, `getState()`, and `execute(call)` via a stable bridge object (typically `window.__vacp`).
+- **MUST** provide `getCapabilities(request?)`, `getState()`, and `execute(call)` via a stable bridge object (typically `window.__vacp`).
 - **MUST** use stable `ref` strings as identifiers (not DOM position).
 - **MUST** return versioned snapshots with ISO timestamps.
 - **SHOULD** ensure actions are safe and validated (reject invalid params; do not rely on pixel events).
@@ -127,6 +129,7 @@ Providers install a bridge (usually) at `window.__vacp`:
 
 ```ts
 interface VacpWindowBridge {
+  getCapabilities(request: VacpCapabilitiesRequest): Promise<VacpCapabilitiesSnapshot>;
   getCapabilities(): Promise<VacpCapabilitiesSnapshot>;
   getState(request: VacpStateRequest): Promise<VacpStateUpdate>;
   getState(): Promise<VacpStateSnapshot>;
@@ -149,6 +152,33 @@ These invariants are what make the protocol useful for mixed-initiative systems:
 - **Semantic actions**: actions describe intent (e.g. “set interval selection”), not “click this DOM node”.
 - **Bidirectionality**: human input and agent calls produce compatible state snapshots.
 - **Transport-agnostic**: MCP, WebSocket, or any other wire can carry the same messages.
+
+### Transport abstraction and implementations
+
+VACP transport adapters should expose the same semantic envelope:
+
+- `vacp_capabilities(options?)`
+- `vacp_state(options?)`
+- `vacp_execute(name, params?, call_id?)`
+
+Current implementations in this repo:
+
+- **MCP transport** (`vacp-mcp-server`, Python): Playwright + MCP tool endpoint.
+- **Direct client transport** (`@vacp/agent-client`, TypeScript): AI SDK `ToolLoopAgent` running in-page and calling `window.__vacp` directly.
+
+Both map to the same protocol contract and are interchangeable at the semantic layer.
+
+### Scoped capabilities for token efficiency
+
+`getCapabilities(request?)` supports optional graph scoping:
+
+- `refs` / `prefixes`: include explicit refs or ref subtrees.
+- `kinds` / `layers`: intersect with semantic node filters.
+- `includeEdges`: include only edges whose endpoints survive node filtering (default: true).
+- `includeActions`: include actions with surviving targets (default: true).
+- `includeNodeData`: include/exclude `node.data` payloads (default: true).
+
+When omitted, callers receive the full capabilities snapshot (backward-compatible behavior).
 
 ### State tokens and token-efficient state retrieval
 
@@ -259,7 +289,7 @@ The in-page overlay (`@vacp/debug-ui`) is intentionally opt-in:
 
 The Python `vacp-mcp-server` maps the bridge to MCP tools:
 
-- `vacp_capabilities()` → `window.__vacp.getCapabilities()`
+- `vacp_capabilities(options?)` → `window.__vacp.getCapabilities(options?)`
 - `vacp_state(options?)` → `window.__vacp.getState(options?)`
 - `vacp_execute(name, params?, call_id?)` → `window.__vacp.execute({callId, name, params})`
 
@@ -308,6 +338,7 @@ TypeScript (pnpm):
 - `@vacp/kit`: helpers for “bring-your-own-provider” integrations (see `packages/examples/cars-parallel-coords` and `packages/examples/react-dashboard`).
 - `@vacp/diagrams`: Mermaid source generation for graphs.
 - `@vacp/debug-ui`: in-page overlay that inspects `window.__vacp`.
+- `@vacp/agent-client`: client-side AI SDK transport adapter + tool loop agent for direct in-page chat.
 - `@vacp/vgplot`: provider for Mosaic/vgplot.
 - `@vacp/vega-lite`: provider for Vega-Lite/Vega views.
 
