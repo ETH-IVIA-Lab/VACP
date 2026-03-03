@@ -95,9 +95,9 @@ export default function App({ onInteraction }: Props) {
   }, [actions, dataset, onInteraction]);
 
   return (
-    <div className="h-screen overflow-hidden bg-muted/30">
-      <div className="mx-auto flex h-full w-full max-w-[1800px] flex-col gap-4 p-4 lg:flex-row lg:gap-6 lg:p-6">
-        <aside className="w-full lg:h-full lg:w-[360px] lg:shrink-0 lg:overflow-auto">
+    <div className="h-full min-h-0 overflow-hidden bg-transparent">
+      <div className="mx-auto flex h-full min-h-0 w-full max-w-[1800px] flex-col gap-4 p-4 lg:flex-row lg:gap-6 lg:overflow-hidden lg:p-6">
+        <aside className="w-full lg:h-full lg:w-[340px] lg:shrink-0 lg:overflow-auto">
           <Card>
             <CardHeader className="pb-3">
               <CardTitle>Controls</CardTitle>
@@ -292,14 +292,7 @@ export default function App({ onInteraction }: Props) {
           </Card>
         </aside>
 
-        <main className="min-w-0 flex-1 flex min-h-0 flex-col">
-          <header className="flex flex-col gap-1 pb-3">
-            <h1 className="text-xl font-semibold tracking-tight">React dashboard (recharts)</h1>
-            <p className="text-sm text-muted-foreground">
-              Linked views via shared selection (point toggle, PDF bin, 2D brush). Double-click a chart to clear.
-            </p>
-          </header>
-
+        <main className="min-w-0 flex-1 flex min-h-0 flex-col overflow-auto pr-1">
           <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
             <Card className="flex flex-col">
               <CardHeader>
