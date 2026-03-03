@@ -3,18 +3,14 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "dev": "pnpm --filter vacp-example-gallery dev:full",
+    "docs:dev": "pnpm --filter @vacp/docs dev",
+    "docs:build": "pnpm --filter @vacp/docs build",
+    "docs:preview": "pnpm --filter @vacp/docs preview",
     "build": "pnpm -r build",
-    "postinstall": "pnpm -r --filter @vacp/* build",
-    "build:examples-hub": "node scripts/examples-hub-build.mjs",
-    "dev:mosaic": "pnpm --filter vacp-example-mosaic-gallery dev:full",
-    "dev:vega-lite": "pnpm --filter vacp-example-vega-lite-gallery dev:full",
-    "dev:cars": "pnpm --filter vacp-example-cars-parallel-coords dev:full",
-    "dev:react-dashboard": "pnpm --filter vacp-example-react-dashboard dev:full",
-    "dev:examples": "node scripts/examples-hub-dev.mjs",
-    "dev:examples:posthog": "VACP_POSTHOG_API_KEY=phc_As2BokbYu2gzwe652nE0TlyFNbrB3XmWcyPiPET22VK VACP_POSTHOG_API_HOST=https://ivia-vcap-ph-01.inf.ethz.ch VACP_POSTHOG_DEFAULTS=2025-11-30 VACP_POSTHOG_CAPTURE_SNAPSHOTS=0 pnpm dev:examples",
-    "start:examples": "pnpm build:examples-hub && node scripts/examples-hub-start.mjs",
     "lint": "pnpm -r lint",
     "typecheck": "pnpm -r typecheck",
+    "test": "pnpm test:examples && pnpm test:server",
     "test:examples": "pnpm -r --filter @vacp/* build && pnpm exec playwright test",
     "test:server": "cd packages/vacp-mcp-server && uv run pytest",
     "format": "oxfmt --config .oxfmtrc.json .",
@@ -22,13 +18,12 @@
   },
   "devDependencies": {
     "@playwright/test": "^1.58.2",
-    "@types/node": "^24.10.12",
+    "@types/node": "^24.11.0",
     "concurrently": "^9.2.1",
-    "http-proxy": "^1.18.1",
     "oxfmt": "^0.24.0",
-    "oxlint": "^1.43.0",
+    "oxlint": "^1.51.0",
     "tsup": "^8.5.1",
     "typescript": "^5.9.3"
   },
-  "packageManager": "pnpm@10.28.2+sha512.41872f037ad22f7348e3b1debbaf7e867cfd448f2726d9cf74c08f19507c31d2c8e7a11525b983febc2df640b5438dee6023ebb1f84ed43cc2d654d2bc326264"
+  "packageManager": "pnpm@10.30.3+sha512.c961d1e0a2d8e354ecaa5166b822516668b7f44cb5bd95122d590dd81922f606f5473b6d23ec4a5be05e7fcd18e8488d47d978bbe981872f1145d06e9a740017"
 }

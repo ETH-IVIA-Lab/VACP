@@ -914,7 +914,7 @@ socket.once('error', (err) => finish(1, err && err.message ? err.message : Strin
       `[agent-arena] Preflight failed: BASE_URL is not reachable (${u.origin}).`,
       detail ? `[agent-arena] Details: ${detail}` : undefined,
       '[agent-arena] Fix:',
-      '- Start the local server (e.g. `pnpm dev:examples`) or update `BASE_URL` in agent-arena.config.ts.',
+      '- Start the local server (e.g. `pnpm dev`) or update `BASE_URL` in agent-arena.config.ts.',
       '- Or skip this check by setting `VACP_ARENA_SKIP_PREFLIGHT=1`.',
     ]
       .filter(Boolean)

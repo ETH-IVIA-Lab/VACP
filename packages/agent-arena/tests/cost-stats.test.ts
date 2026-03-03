@@ -56,7 +56,7 @@ function main() {
       answer_parse_status: 'no_json_fence',
       solved_strict: null,
       solved_semantic: null,
-      // Legacy analyses only had `cost`.
+      // Earlier analysis exports only had `cost`.
       cost: 3.6,
       tokens_input: 5,
       tokens_output: 5,

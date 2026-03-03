@@ -5,7 +5,7 @@ import { normalizeVacpGeminiConfig } from '../src/create-gemini-model';
 import { listVacpLLMModels, normalizeVacpLLMConfig } from '../src/create-llm-model';
 import { normalizeVacpOpenAICompatibleConfig } from '../src/create-openai-compatible-model';
 
-test('normalizeVacpLLMConfig infers gemini provider from legacy provider name', () => {
+test('normalizeVacpLLMConfig infers provider from providerName when provider is missing', () => {
   const normalized = normalizeVacpLLMConfig({
     provider: undefined as unknown as 'gemini',
     providerName: 'google.generative-ai',

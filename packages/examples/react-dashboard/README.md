@@ -18,8 +18,7 @@ Example React dashboard wired to VACP via `@vacp/kit`.
 
 From the repo root:
 
-- `pnpm dev:react-dashboard`
-- or `pnpm -C packages/examples/react-dashboard dev`
+- `pnpm -C packages/examples/react-dashboard dev`
 
 ## Try
 

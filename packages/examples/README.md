@@ -1,59 +1,35 @@
 # Examples
 
+## Purpose
+
 Runnable example apps used for development and Playwright smoke tests (`pnpm test:examples`).
 
-- `mosaic-gallery`: Mosaic spec gallery (YAML in `src/specs/`) installed via `@vacp/vgplot`
-- `vega-lite-gallery`: Vega-Lite spec gallery (`*.vl.json` in `src/specs/`) installed via `@vacp/vega-lite`
-- `cars-parallel-coords`: D3 parallel coordinates demo (brush + reorder) using `@vacp/kit`
-- `react-dashboard`: React dashboard demo using `@vacp/kit`
+## When to use
 
-Each example package has its own tutorial README:
+- You want a concrete reference for how VACP integrates with different visualization stacks.
+- You want stable demo routes for evaluation and regression tests.
 
-- `packages/examples/mosaic-gallery/README.md`
-- `packages/examples/vega-lite-gallery/README.md`
-- `packages/examples/cars-parallel-coords/README.md`
-- `packages/examples/react-dashboard/README.md`
+## Conceptual model
 
-All examples include the optional `@vacp/debug-ui` overlay:
+- Each example is independently runnable.
+- The unified gallery serves all examples from one base URL with stable routes.
+- The gallery is declarative via `packages/examples/gallery/examples.manifest.json`.
 
-- Enable: set `VACP_DEBUG_UI=1` or add `?vacp-debug=1` to the URL (or set localStorage `vacp:debug=1`)
-- Click the “VACP” button to inspect:
-  - **Graph** (Mermaid → SVG)
-  - **Data** (query `vacp_all` / `vacp_handle` via DuckDB)
-  - **Actions** (manual dispatch)
-  - **History** (time travel)
-  - **Playbook** (scripted stepper)
-  - **JSON** (inspection overrides + opt-in apply-to-live)
+## Minimal usage
 
-From the repo root:
+From repo root:
 
-- Install: `pnpm install`
-- Build libs (examples depend on workspace `dist/`): `pnpm build`
-- Run (shortcut):
-  - `pnpm dev:mosaic`
-  - `pnpm dev:vega-lite`
-  - `pnpm dev:cars`
-  - `pnpm dev:react-dashboard`
-- Run all (hub, one port): `pnpm dev:examples`
-  - `http://127.0.0.1:5173/mosaic/`
-  - `http://127.0.0.1:5173/vega-lite/`
-  - `http://127.0.0.1:5173/react-dashboard/`
-  - `http://127.0.0.1:5173/cars-parcoords/`
-- Run (direct): `pnpm -C packages/examples/<example> dev` (see folder names above)
+- Start unified gallery: `pnpm dev`
 
-### Why the hub exists
+Individual examples:
 
-`pnpm dev:examples` serves all examples under one base URL (`http://127.0.0.1:5173/`) with stable routes.
+- `pnpm -C packages/examples/mosaic-gallery dev`
+- `pnpm -C packages/examples/vega-lite-gallery dev`
+- `pnpm -C packages/examples/cars-parallel-coords dev`
+- `pnpm -C packages/examples/react-dashboard dev`
 
-This makes it easier to run automated evaluation across multiple demos without managing per-example ports.
+## Related docs
 
-### Config knobs
-
-- Overlay: `VACP_DEBUG_UI=0|1` or `?vacp-debug=0|1` (also supports localStorage `vacp:debug=1`).
-- Bridge exposure (controls whether `window.__vacp` exists at all): `VACP_EXPOSE_BRIDGE=0|1` or `?expose-bridge=0|1`.
-- DOM snapshot injection: `VACP_DOM_SNAPSHOT=0|1` or `?vacp-dom-snapshot=0|1`.
-- Analytics (optional, PostHog):
-  - Enable: set `VACP_POSTHOG_API_KEY=...` (uses `posthog-js` and defaults `api_host` to `https://us.i.posthog.com`).
-  - Self-hosted: set `VACP_POSTHOG_API_HOST=https://your-posthog.example.com`.
-  - Optional: set `VACP_POSTHOG_DEFAULTS=2025-11-30` to pass `defaults` through to `posthog.init`.
-  - Optional: set `VACP_POSTHOG_CAPTURE_SNAPSHOTS=1` to include state snapshots (throttled to ~1/sec to avoid brush spam).
+- [Examples](../../docs/examples/index.md)
+- [Get started](../../docs/get-started/index.md)
+- [Providers](../../docs/providers/index.md)
