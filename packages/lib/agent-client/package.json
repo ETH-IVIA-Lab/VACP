@@ -19,10 +19,10 @@
     "test": "pnpm exec tsx --test test/*.test.ts"
   },
   "dependencies": {
-    "@ai-sdk/google": "^2.0.47",
-    "@ai-sdk/openai-compatible": "^2.0.30",
+    "@ai-sdk/google": "^2.0.56",
+    "@ai-sdk/openai-compatible": "^2.0.31",
     "@vacp/core": "workspace:*",
-    "ai": "^6.0.99",
+    "ai": "^6.0.105",
     "zod": "^3.25.76"
   }
 }

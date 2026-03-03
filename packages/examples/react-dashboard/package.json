@@ -27,16 +27,16 @@
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
     "recharts": "^2.15.4",
-    "tailwind-merge": "^3.4.0",
+    "tailwind-merge": "^3.5.0",
     "tailwindcss-animate": "^1.0.7",
     "zustand": "^5.0.11"
   },
   "devDependencies": {
-    "@tailwindcss/vite": "^4.1.18",
-    "@types/react": "^19.2.13",
+    "@tailwindcss/vite": "^4.2.1",
+    "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^5.1.4",
-    "tailwindcss": "^4.1.18",
+    "tailwindcss": "^4.2.1",
     "vite": "^7.3.1"
   }
 }
