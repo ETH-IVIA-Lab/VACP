@@ -1,42 +1,31 @@
 # @vacp/core
 
+## Purpose
+
 Protocol types for VACP.
 
-This package is intentionally dependency-free. It defines the stable JSON shapes that:
+This package is intentionally dependency-free. It defines the stable JSON shapes that apps produce and tools/transports consume.
 
-- apps produce (capabilities + state snapshots),
-- tools consume (debug UI, tests),
-- transports forward (e.g. MCP).
+## When to use
 
-## Concepts
+- You are implementing a VACP provider or integration and want the canonical types.
+- You are building tooling around VACP (debug UI, transports, tests).
 
-- `VacpGraph`: nodes/edges that describe “what exists” in the UI.
-- `VacpActionDescriptor`: semantic actions an agent can call (not DOM events).
-- `VacpCapabilitiesRequest`: optional graph-scoping request (`refs/prefixes/kinds/layers`) for efficient capability reads.
-- `VacpStateSnapshot`: current values keyed by stable `vacp://...` refs.
-- `VacpStateRequest` / `VacpStateUpdate`: optional partial/delta state retrieval contract.
-- `VacpWindowBridge`: the in-page API contract (typically installed as `window.__vacp`).
+## Conceptual model
 
-If you are building a new provider, start by choosing stable refs, then emit a graph + state around them.
+- **Capabilities**: a semantic graph (nodes/edges) plus action descriptors.
+- **State**: current values keyed by stable semantic refs.
+- **Actions**: named operations with validated parameters.
 
-## Configuration (“hyper params”)
+The in-page bridge is typically installed as `window.__vacp`.
 
-Apps and tooling in this repo support a small set of runtime knobs that can be set via:
+## Minimal usage
 
-- URL params (kebab-case), e.g. `?vacp-debug=1`
-- environment variables, e.g. `VACP_DEBUG_UI=1`
+`@vacp/core` does not install a bridge by itself. Most apps use `@vacp/gateway` (directly or through a provider) to install the runtime bridge.
 
-The resolver lives in this package:
+## Related docs
 
-- `getVacpHyperParams()` / `resolveVacpHyperParams()` (see `packages/lib/core/src/hyperparams.ts`)
-
-Currently supported:
-
-- `debugUi`: show/hide the in-page overlay (`VACP_DEBUG_UI`, `vacp-debug`, localStorage `vacp:debug`)
-- `exposeBridge`: expose/remove the JS bridge at `window.__vacp` (`VACP_EXPOSE_BRIDGE`, `expose-bridge`)
-- `domSnapshot`: inject/remove the JSON DOM snapshot `<script>` (`VACP_DOM_SNAPSHOT`, `vacp-dom-snapshot`)
-
-### Bundler note
-
-In browser builds, env vars only exist if your bundler injects them. For Vite apps, set `envPrefix: ['VITE_', 'VACP_']`
-so `import.meta.env.VACP_*` is available at runtime.
+- [What is VACP?](../../../docs/what-is-vacp/index.md)
+- [Core runtime](../../../docs/core-runtime/index.md)
+- [Tool Contract](../../../docs/reference/tool-contract.md)
+- [Glossary](../../../docs/reference/glossary.md)

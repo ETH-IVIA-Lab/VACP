@@ -1,27 +1,31 @@
 # Contributing
 
-This repo is a pnpm TypeScript workspace plus a Python MCP server.
-
-## Getting set up
+## Setup
 
 From the repo root:
 
 1. Install JS deps: `pnpm install`
-2. Build TS packages (workspace libs export `dist/`): `pnpm build` (also runs automatically on install via `postinstall`)
+2. Build workspace packages: `pnpm build`
 3. Install Python env: `uv sync`
-4. Install Playwright browsers:
+4. Install browsers:
    - JS tests: `pnpm exec playwright install chromium`
-   - Python server: `uv run playwright install chromium`
+   - Python transport tests: `uv run playwright install chromium`
 
-## Common commands
+## Quality Gates
 
+- Format check: `pnpm format:check`
 - Lint: `pnpm lint`
 - Typecheck: `pnpm typecheck`
-- Format: `pnpm format` (or `pnpm format:check`)
-- Web smoke tests (runs the examples): `pnpm test:examples`
+- Web smoke tests: `pnpm test:examples`
 - MCP server tests: `pnpm test:server`
 
-## Code style
+## Code Style
 
-- TypeScript: formatted with `oxfmt`; linted with Oxlint.
-- Python: formatted/linted with Ruff (`uv run ruff check .` in `packages/vacp-mcp-server/`).
+- TypeScript formatting: `oxfmt`
+- TypeScript linting: `oxlint`
+- Python linting/formatting: `uv run ruff check .` (in `packages/vacp-mcp-server/`)
+
+## Documentation
+
+- Canonical run/setup commands: `docs/get-started/index.md`
+- Runtime knobs and precedence: `docs/reference/configuration.md`

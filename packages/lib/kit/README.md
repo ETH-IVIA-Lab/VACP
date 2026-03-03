@@ -1,29 +1,35 @@
 # @vacp/kit
 
+## Purpose
+
 Helpers for bring-your-own-provider VACP integrations.
 
-This package is intended for apps that already have their own visualization/runtime logic (React, vanilla DOM, D3, etc.)
-and want to layer VACP on top without committing to a first-class provider like `@vacp/vgplot` or `@vacp/vega-lite`.
+`@vacp/kit` is intended for apps that already have their own visualization/runtime logic (React, vanilla DOM, D3, etc.) and want to layer VACP on top without committing to a first-class provider.
 
-## What it provides
+## When to use
 
-- `createVacpRefBuilder`: generate stable `vacp://...` refs for a view/viz namespace.
-- `createVacpActions`: ergonomics for defining/registering actions (incl. standard `vacp.apply_state` and `vacp.data_sql`).
-- `installVacp` / `createVacpLayer`: installer that creates snapshots and installs the stable runtime bridge (`window.__vacp`).
-- DuckDB helpers: `createDuckDbSqlRouter`, `makeVacpDuckDbTableName`.
-- Devtools helpers:
-  - `installVacpDebugUI` (lazy-load `@vacp/debug-ui` when `?vacp-debug=1` / `VACP_DEBUG_UI=1`)
-- SQL helpers (re-exported from `@vacp/duckdb`): `sqlIdentifier`, `sqlStringLiteral`.
+- Your app has custom interactions and you want semantic actions/state without pixel automation.
+- You are integrating VACP into a non-vgplot / non-Vega-Lite visualization stack.
 
-## Minimal pattern
+## Conceptual model
 
-1. Pick stable ids (`appId`, `viewId`, optional `vizId`) and refs.
-2. Define a `VacpGraphBase` (nodes/edges).
-3. Register actions using `createVacpActions()`.
-4. Provide `getState()` (and optional `getSummary()`).
-5. Install via `installVacp({ graph, actions: actions.registry, getState })`.
+- Generate stable refs for semantic entities.
+- Define a capabilities graph and state snapshot keyed by refs.
+- Register semantic actions that match user intent.
+- Install the runtime bridge (via `@vacp/gateway`).
 
-For runnable references, see:
+## Minimal usage
 
-- `packages/examples/cars-parallel-coords`
-- `packages/examples/react-dashboard`
+Most integrations follow this pattern:
+
+1. Define stable ids and refs for your app.
+2. Build a graph (nodes/edges/actions).
+3. Implement `getState()`.
+4. Register semantic actions.
+5. Install the bridge.
+
+## Related docs
+
+- [Core runtime](../../../docs/core-runtime/index.md)
+- [Providers](../../../docs/providers/index.md)
+- [Configuration](../../../docs/reference/configuration.md)

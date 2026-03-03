@@ -1,21 +1,27 @@
 # @vacp/duckdb
 
+## Purpose
+
 DuckDB helpers for VACP providers and examples.
 
-This package standardizes how examples/providers in this repo expose data access through the `vacp.data_sql` action:
+This package standardizes how apps expose semantic data access through the `vacp.data_sql` action.
 
-- apps provide one or more `DataHandle` refs in the VACP graph
-- agents/tools call `vacp.data_sql` against those handles
-- the handler runs DuckDB queries and returns rows/Arrow IPC
+## When to use
 
-## What it provides
+- You want tools/agents to query the app’s dataset through a stable semantic action.
+- You want to back `vacp.data_sql` with DuckDB (WASM or server-side).
 
-- `createDuckDbWasmClient`: in-browser DuckDB WASM client implementing `VacpDuckDbClient`.
-- `createDuckDbDataSqlHandler`: implementation of the `vacp.data_sql` action over DuckDB.
-- Metadata helpers: `getDuckDbTableMetadata`, `formatDuckDbTableMetadataSummary`.
-- Naming: `makeVacpDuckDbTableName`.
+## Conceptual model
 
-## References
+- Apps expose one or more dataset handles in the VACP graph.
+- Tools/agents call `vacp.data_sql` against those handles.
+- The handler executes DuckDB queries and returns results.
 
-- Used by the BYO-provider kit (`@vacp/kit`) and the examples under `packages/examples/*`.
-- The debug overlay (`@vacp/debug-ui`) includes a **Data** module that can call `vacp.data_sql`.
+## Minimal usage
+
+Install a `vacp.data_sql` handler during integration (often via `@vacp/kit` or a provider).
+
+## Related docs
+
+- [Core runtime](../../../docs/core-runtime/index.md)
+- [Tool Contract](../../../docs/reference/tool-contract.md)

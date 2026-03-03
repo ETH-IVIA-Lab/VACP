@@ -1,12 +1,22 @@
 # @vacp/gateway
 
-In-page runtime for VACP: action execution + optional history/time travel.
+## Purpose
 
-This is what turns “protocol types” into a practical app integration:
+In-page runtime for VACP.
 
-- register and validate semantic actions (`VacpActionRegistry`)
-- install a stable bridge (`installVacpRuntimeBridge`)
-- optionally keep a timeline of snapshots/actions for debugging (`getRuntime`, `undo`, `redo`, overrides)
+This package installs the stable bridge (typically `window.__vacp`), validates action calls, and can optionally record history for debugging.
+
+## When to use
+
+- You want to expose a VACP bridge from an app.
+- You are writing a provider that installs/updates `window.__vacp`.
+
+## Conceptual model
+
+- **Snapshots**: you provide functions that return capabilities and state.
+- **Registry**: you register semantic actions with parameter validation.
+- **Bridge**: the runtime exposes `getCapabilities`, `getState`, and `execute`.
+- **Optional runtime**: history/time travel and other debug endpoints.
 
 ## Minimal usage
 
@@ -19,11 +29,9 @@ actions.register({ name: 'app.ping', description: 'Ping', parameters: {} }, asyn
 installVacpRuntimeBridge({ snapshots: { getCapabilities, getState }, actions });
 ```
 
-By default this exposes a bridge at `window.__vacp` (disable via `VACP_EXPOSE_BRIDGE=0` / `?expose-bridge=0`).
+## Related docs
 
-By default, `installVacpRuntimeBridge` also injects a `type="application/json"` `<script>` tag
-(`id="__vacp_snapshot"`) whose text content is a compact manifest (`vacp.dom_snapshot`) that points to
-graph/state-index/state-catalog/per-ref JSON scripts for progressive DOM-only access.
-Disable via `injectDomSnapshot: false` (or set `VACP_DOM_SNAPSHOT=0` / `?vacp-dom-snapshot=0`).
-
-If you pass `injectDomSnapshot`, it takes precedence over env/URL config.
+- [Core runtime](../../../docs/core-runtime/index.md)
+- [Tool Contract](../../../docs/reference/tool-contract.md)
+- [Configuration](../../../docs/reference/configuration.md)
+- [Debug overlay](../../../docs/debug/index.md)

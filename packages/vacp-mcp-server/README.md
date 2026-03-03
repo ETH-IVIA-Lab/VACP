@@ -1,109 +1,76 @@
 # vacp-mcp-server
 
-An MCP server that exposes a VACP-enabled web page to an agent via Playwright.
+## Purpose
 
-This server calls the in-page `window.__vacp` bridge (fast, stable, no DOM scraping).
+An MCP server that exposes a VACP-enabled web page to an external agent by driving a browser via Playwright.
 
-MCP is only one transport. The VACP protocol and runtime live inside the app.
+This is a transport adapter: it calls the in-page bridge (`window.__vacp`) and returns semantic capabilities/state/action results.
 
-Sibling transport implementation in this repo:
+## When to use
 
-- `@vacp/agent-client` (TypeScript): direct in-page AI SDK tool loop used by the debug-ui Chat tab.
+- You want to control or observe a VACP-enabled app from outside the browser process.
+- You want an MCP tool surface (`vacp_capabilities`, `vacp_state`, `vacp_execute`) instead of DOM automation.
 
-## Run
+## Conceptual model
+
+- The protocol lives inside the app (`window.__vacp`).
+- The MCP server is one transport implementation that forwards the same semantic contract.
+- Optional Playwright-backed tools can be enabled for screenshots and DOM-level helpers.
+
+## Minimal usage
 
 From the repo root:
 
-- `uv sync`
-- Install Playwright browser: `uv run playwright install chromium`
-- HTTP mode (default): `uv run vacp-mcp-server --url http://localhost:<vite-port>/`
+```bash
+uv sync
+uv run playwright install chromium
+uv run vacp-mcp-server --url http://localhost:<vite-port>/
+```
 
-MCP endpoint defaults to `http://localhost:8000/mcp`.
+Default MCP endpoint: `http://localhost:8000/mcp`.
 
-### Stdio MCP mode
+## Core MCP tools
 
-Some MCP hosts (e.g. desktop apps) expect MCP servers to speak over stdin/stdout.
+- `vacp_capabilities(options?)`
+- `vacp_state(options?)`
+- `vacp_execute(name, params?, call_id?)`
+- `vacp_open_url(url, wait_for_bridge?, timeout_ms?)`
+- `vacp_page_info()`
 
-Run:
+## Stdio transport
 
-- `uv run vacp-mcp-server --transport stdio --url http://localhost:<vite-port>/`
+Some MCP hosts expect stdin/stdout transport:
+
+```bash
+uv run vacp-mcp-server --transport stdio --url http://localhost:<vite-port>/
+```
 
 Notes:
 
-- In stdio mode, `--host/--port` are ignored (there is no HTTP server).
-- Keep stdout clean; all logs go to stderr.
+- In stdio mode, `--host/--port` are ignored.
+- Keep stdout clean; logs go to stderr.
 
-## MCP tools
+## Optional browser tools
 
-- `vacp_capabilities(options?)` → VACP capabilities snapshot (graph + actions), optionally scoped
-- `vacp_state(options?)` → VACP state snapshot or token-efficient update envelope
-- `vacp_execute(name, params?, call_id?)` → run a semantic action via the bridge
-- `vacp_open_url(url, wait_for_bridge?, timeout_ms?)` → navigate the existing page to a scenario URL
-- `vacp_page_info()` → page URL + title
-
-`vacp_capabilities(options?)` supports optional scoped retrieval:
-
-- `options.refs`: include explicit refs
-- `options.prefixes`: include ref subtrees
-- `options.kinds`: filter by node kind
-- `options.layers`: filter by semantic layer
-- `options.includeActions` / `options.includeEdges` / `options.includeNodeData`: include controls
-
-`vacp_state(options?)` supports optional progressive retrieval:
-
-- `options.mode`: `auto | full | delta`
-- `options.since`: previous token from a prior `vacp_state(options)` response
-- `options.refs`: limit retrieval to specific refs
-- `options.includeSummary`: include/exclude summary map
-
-## Optional browser tools (Playwright-backed)
-
-To enable DOM-level browser tooling (screenshots, JS eval, click/fill/press), start the server with:
+Start with:
 
 - `--enable-browser-tools`
 
-This exposes additional MCP tools:
-
-- `browser_screenshot(path, full_page?)`
-- `browser_eval(expression, arg?)`
-- `browser_wait_for_selector(selector, timeout_ms?, state?)`
-- `browser_click(selector)`
-- `browser_fill(selector, value)`
-- `browser_press(selector, key)`
-- `browser_sleep(ms)`
+This adds Playwright-backed helpers (screenshot/eval/click/fill/press/wait).
 
 ## External browser via CDP
 
-You can attach to an already-running Chromium browser via CDP. This is useful if:
-
-- you want to keep browser state (cookies, localStorage, open tabs),
-- you want to attach to a browser you started yourself,
-- you want to avoid the server launching its own browser window.
-
-1. Start Chrome/Chromium with remote debugging enabled, for example:
-
-```bash
-"/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" \
-  --remote-debugging-port=9222
-```
-
-2. Run the server and connect via CDP:
+You can attach to an already-running Chromium via CDP:
 
 ```bash
 uv run vacp-mcp-server \
   --cdp-url http://localhost:9222 \
-  --reuse-page-url-contains localhost:<vite-port>
+  --reuse-page-url-contains localhost:<vite-port> \
+  --url http://localhost:<vite-port>/
 ```
 
-If no existing tab matches, the server will open a new page and navigate to `--url`.
+## Related docs
 
-## Useful flags
-
-- `--global-key __vacp`: choose the bridge global name (must match the app)
-- `--url http://localhost:<vite-port>/`: point at the running app you want to expose
-- `--headless`: run the embedded browser in headless mode (useful for CI/servers)
-- `--screen-width/--screen-height`: in headless mode, also sets the Playwright viewport
-- `--startup-wait-for-bridge`: block startup until `window.__vacp` responds
-- `--startup-ready-timeout-ms <ms>`: timeout for bridge readiness wait
-- `--startup-wait-for-selector "<css>"`: block startup until selector is present
-- `--startup-selector-timeout-ms <ms>` + `--startup-selector-state visible|attached|hidden|detached`
+- [Transports](../../docs/transports/index.md)
+- [Tool Contract](../../docs/reference/tool-contract.md)
+- [Configuration](../../docs/reference/configuration.md)
