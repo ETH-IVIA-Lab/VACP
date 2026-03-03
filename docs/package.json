@@ -1,0 +1,17 @@
+{
+  "name": "@vacp/docs",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vitepress dev .",
+    "build": "vitepress build .",
+    "preview": "vitepress preview .",
+    "lint": "oxlint .vitepress",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "devDependencies": {
+    "vitepress": "2.0.0-alpha.16",
+    "vitepress-plugin-diagrams": "1.1.2"
+  }
+}

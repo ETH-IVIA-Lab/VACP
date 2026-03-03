@@ -1,4 +1,5 @@
 packages:
+  - docs
   - packages/lib/*
   - packages/examples/*
   - packages/agent-arena
