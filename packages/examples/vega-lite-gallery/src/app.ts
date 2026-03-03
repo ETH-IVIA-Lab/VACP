@@ -26,13 +26,22 @@ export async function run(): Promise<void> {
     selectEl.append(opt);
   });
 
-  const url = new URL(window.location.href);
-  const initialId = url.hash ? url.hash.slice(1) : '';
-  const normalizedInitialId = initialId.replace(/^\d+-/, '');
-  if (initialId && gallery.some((g) => g.id === initialId)) selectEl.value = initialId;
-  else if (normalizedInitialId && gallery.some((g) => g.id === normalizedInitialId))
-    selectEl.value = normalizedInitialId;
-  else selectEl.value = gallery[0]?.id ?? '';
+  const findGalleryEntry = (id: string): GalleryEntry | undefined => gallery.find((g) => g.id === id);
+
+  const selectIdFromHash = (): string | null => {
+    let rawHash = window.location.hash;
+    try {
+      rawHash = decodeURIComponent(rawHash);
+    } catch {
+      // Keep raw hash if decoding fails.
+    }
+    rawHash = rawHash.replace(/^#/, '').trim();
+    if (!rawHash) return null;
+    if (findGalleryEntry(rawHash)) return rawHash;
+    const normalizedHash = rawHash.replace(/^\d+-/, '');
+    if (findGalleryEntry(normalizedHash)) return normalizedHash;
+    return null;
+  };
 
   const render = async (entry: GalleryEntry): Promise<void> => {
     // Render: mount Vega-Lite into the page, then attach VACP on top of the Vega View.
@@ -64,17 +73,35 @@ export async function run(): Promise<void> {
     }
   };
 
+  const renderById = (id: string): void => {
+    const entry = findGalleryEntry(id);
+    if (!entry) return;
+    if (selectEl.value !== id) selectEl.value = id;
+    void render(entry).catch((err) => {
+      metaEl.textContent = `Render failed: ${String(err)}`;
+    });
+  };
+
   selectEl.addEventListener('change', () => {
     const id = selectEl.value;
-    window.location.hash = id;
-    const entry = gallery.find((g) => g.id === id);
-    if (entry) {
-      void render(entry).catch((err) => {
+    if (window.location.hash !== `#${id}`) window.location.hash = id;
+    renderById(id);
+  });
+
+  window.addEventListener('hashchange', () => {
+    const hashId = selectIdFromHash();
+    if (!hashId || hashId === selectEl.value) return;
+    renderById(hashId);
+  });
+
+  const initialId = selectIdFromHash() ?? gallery[0]?.id ?? '';
+  if (initialId) {
+    const initialEntry = findGalleryEntry(initialId);
+    if (initialEntry) {
+      if (selectEl.value !== initialId) selectEl.value = initialId;
+      await render(initialEntry).catch((err) => {
         metaEl.textContent = `Render failed: ${String(err)}`;
       });
     }
-  });
-
-  const initial = gallery.find((g) => g.id === selectEl.value);
-  if (initial) await render(initial);
+  }
 }

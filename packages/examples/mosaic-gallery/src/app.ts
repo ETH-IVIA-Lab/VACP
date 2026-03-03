@@ -5,6 +5,7 @@ import type { VacpDuckDbClient } from '@vacp/duckdb';
 import { coordinator, DuckDBWASMConnector } from '@uwdata/mosaic-core';
 import { astToDOM, parseSpec } from '@uwdata/mosaic-spec';
 import { createAPIContext } from '@uwdata/vgplot';
+import { marked } from 'marked';
 
 import type { GalleryEntry } from './gallery';
 import { loadGallery } from './gallery';
@@ -33,6 +34,18 @@ function discoverMosaicHosts(root: Element): { plotHosts: Element[]; tableHosts:
 function selectOption(selectEl: HTMLSelectElement, id: string): void {
   selectEl.value = id;
   selectEl.dispatchEvent(new Event('change', { bubbles: true }));
+}
+
+function escapeHtml(value: string): string {
+  return value.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;');
+}
+
+function renderDescriptionMarkdown(description: string): string {
+  try {
+    return marked.parse(description, { async: false }) as string;
+  } catch {
+    return `<p>${escapeHtml(description)}</p>`;
+  }
 }
 
 export async function run(): Promise<void> {
@@ -101,15 +114,25 @@ export async function run(): Promise<void> {
     selectEl.append(opt);
   });
 
-  const url = new URL(window.location.href);
-  const initialId = url.hash ? url.hash.slice(1) : '';
-  if (initialId && gallery.some((g) => g.id === initialId)) selectEl.value = initialId;
-  else selectEl.value = gallery[0]?.id ?? '';
+  const findGalleryEntry = (id: string): GalleryEntry | undefined => gallery.find((g) => g.id === id);
+
+  const selectIdFromHash = (): string | null => {
+    let rawHash = window.location.hash;
+    try {
+      rawHash = decodeURIComponent(rawHash);
+    } catch {
+      // Keep raw hash if decoding fails.
+    }
+    rawHash = rawHash.replace(/^#/, '').trim();
+    if (!rawHash) return null;
+    return findGalleryEntry(rawHash) ? rawHash : null;
+  };
 
   const render = async (entry: GalleryEntry): Promise<void> => {
     const token = (renderToken += 1);
     // Render: translate spec → vgplot DOM, then attach VACP on top of the resulting plots.
-    metaEl.textContent = entry.meta.description ?? '';
+    const description = entry.meta.description ?? '';
+    metaEl.innerHTML = description ? renderDescriptionMarkdown(description) : '';
 
     const ast = parseSpec(entry.spec);
     const api = createAPIContext({ coordinator: mc });
@@ -137,20 +160,35 @@ export async function run(): Promise<void> {
     await installVacp({ root: element, plots, tables, entry, duckdbClient });
   };
 
+  const renderById = (id: string): void => {
+    const entry = findGalleryEntry(id);
+    if (!entry) return;
+    if (selectEl.value !== id) selectEl.value = id;
+    void render(entry).catch((err) => {
+      metaEl.textContent = `Render failed: ${String(err)}`;
+    });
+  };
+
   selectEl.addEventListener('change', () => {
     const id = selectEl.value;
-    window.location.hash = id;
-    const entry = gallery.find((g) => g.id === id);
-    if (entry) {
-      void render(entry).catch((err) => {
+    if (window.location.hash !== `#${id}`) window.location.hash = id;
+    renderById(id);
+  });
+
+  window.addEventListener('hashchange', () => {
+    const hashId = selectIdFromHash();
+    if (!hashId || hashId === selectEl.value) return;
+    renderById(hashId);
+  });
+
+  const initialId = selectIdFromHash() ?? gallery[0]?.id ?? '';
+  if (initialId) {
+    const initialEntry = findGalleryEntry(initialId);
+    if (initialEntry) {
+      if (selectEl.value !== initialId) selectEl.value = initialId;
+      await render(initialEntry).catch((err) => {
         metaEl.textContent = `Render failed: ${String(err)}`;
       });
     }
-  });
-
-  const initial = gallery.find((g) => g.id === selectEl.value);
-  if (initial) await render(initial);
-  else if (gallery[0]) {
-    selectOption(selectEl, gallery[0].id);
-  }
+  } else if (gallery[0]) selectOption(selectEl, gallery[0].id);
 }

@@ -21,6 +21,7 @@
     "@vacp/duckdb": "workspace:*",
     "@vacp/kit": "workspace:*",
     "@vacp/vgplot": "workspace:*",
+    "marked": "^17.0.3",
     "yaml": "^2.8.2"
   },
   "devDependencies": {
