@@ -1,0 +1,178 @@
+import type { VacpCapabilitiesSnapshot, VacpRef, VacpStateSnapshot } from '@vacp/core';
+import { nowIso, VACP_SCHEMA_VERSION } from '@vacp/core';
+import { formatDuckDbTableMetadataSummary, getDuckDbTableMetadata, type VacpDuckDbTableMetadata } from '@vacp/duckdb';
+
+import type { CollectedInput } from './inputs';
+import { discoverPlotTables, type VgplotDataHandle } from './data-handles';
+import { whereClauseForVgplotDashboardSelection } from './duckdb-selection';
+import { makePlotRef } from './refs';
+import type { InstallVacpOnVgplotDashboardOptions, VgplotPlotLike, VgplotTableLike } from './types';
+
+type TablesById = Map<string, VgplotTableLike>;
+type PlotsById = Map<string, VgplotPlotLike>;
+
+function resolveHandleTableName(args: {
+  handle: VgplotDataHandle;
+  plotsById: PlotsById;
+  tablesById: TablesById;
+}): string | null {
+  const h = args.handle;
+  const plot = h.surfaceKind === 'plot' ? args.plotsById.get(h.surfaceId) : null;
+  const tableObj = h.surfaceKind === 'table' ? args.tablesById.get(h.surfaceId) : null;
+  return (
+    h.table ??
+    (plot ? discoverPlotTables(plot)[0] : null) ??
+    (tableObj && typeof tableObj.from === 'string' ? tableObj.from : null) ??
+    null
+  );
+}
+
+export function createVgplotDashboardSnapshots(args: {
+  graph: VacpCapabilitiesSnapshot['graph'];
+  options: InstallVacpOnVgplotDashboardOptions;
+  inputs: CollectedInput[];
+  plots: Array<{ plotId: string; plot: VgplotPlotLike }>;
+  tables: Array<{ tableId: string; table: VgplotTableLike }>;
+  dataHandles: VgplotDataHandle[];
+  plotsById: PlotsById;
+  tablesById: TablesById;
+}): { getCapabilities: () => Promise<VacpCapabilitiesSnapshot>; getState: () => Promise<VacpStateSnapshot> } {
+  const { inputs, plots, tables, options, dataHandles, plotsById, tablesById } = args;
+
+  const dataHandleNodesByRef = new Map<VacpRef, any>();
+  for (const n of args.graph.nodes) {
+    if (n.kind !== 'DataHandle') continue;
+    dataHandleNodesByRef.set(n.ref as VacpRef, n);
+  }
+
+  const duckdbMetaByTable = new Map<string, VacpDuckDbTableMetadata>();
+  let duckdbMetaPromise: Promise<void> | null = null;
+  const ensureDuckdbMeta = async () => {
+    if (!options.duckdbClient || !dataHandles.length) return;
+    if (duckdbMetaPromise) return await duckdbMetaPromise;
+    duckdbMetaPromise = (async () => {
+      for (const h of dataHandles) {
+        const tableName = resolveHandleTableName({ handle: h, plotsById, tablesById });
+        if (!tableName || duckdbMetaByTable.has(tableName)) continue;
+        try {
+          duckdbMetaByTable.set(
+            tableName,
+            await getDuckDbTableMetadata({
+              duckdb: options.duckdbClient!,
+              table: tableName,
+              sampleRows: 0,
+              maxNumericColumns: 0,
+              maxTemporalColumns: 0,
+              maxCategoricalColumns: 0,
+            }),
+          );
+        } catch {
+          // ignore: metadata is best-effort
+        }
+      }
+
+      for (const h of dataHandles) {
+        const tableName = resolveHandleTableName({ handle: h, plotsById, tablesById });
+        if (!tableName) continue;
+        const meta = duckdbMetaByTable.get(tableName);
+        if (!meta) continue;
+        const node = dataHandleNodesByRef.get(h.ref);
+        if (!node) continue;
+        const prev = node.data && typeof node.data === 'object' ? (node.data as Record<string, unknown>) : undefined;
+        node.data = { ...prev, table: tableName, duckdb: meta };
+        node.description = `DuckDB handle for "${tableName}".\n${formatDuckDbTableMetadataSummary(meta)}`;
+      }
+    })();
+    await duckdbMetaPromise;
+  };
+
+  const getCapabilities = async (): Promise<VacpCapabilitiesSnapshot> => ({
+    version: VACP_SCHEMA_VERSION,
+    createdAt: nowIso(),
+    graph: await (async () => {
+      await ensureDuckdbMeta();
+      return args.graph;
+    })(),
+  });
+
+  const getState = async (): Promise<VacpStateSnapshot> => {
+    const state: Record<VacpRef, unknown> = {};
+
+    for (const input of inputs) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const inst = input.input as any;
+      const selected =
+        typeof inst.selectedValue === 'function' ? inst.selectedValue() : inst.select ? inst.select.value : undefined;
+      const selectionValue = inst.selection?.value ?? undefined;
+      const optionCount = Array.isArray(inst.data)
+        ? inst.data.length
+        : inst.select?.options
+          ? inst.select.options.length
+          : undefined;
+      state[input.ref] = { kind: 'Widget', widgetKind: input.meta.kind, value: selected, selectionValue, optionCount };
+    }
+
+    for (const { plotId, plot } of plots) {
+      plot.interactors.forEach((interactor, i) => {
+        const interactorRef = makePlotRef({
+          appId: options.appId,
+          viewId: options.viewId,
+          plotId,
+          suffix: `/interactor/${i}`,
+        });
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const anyI = interactor as any;
+        const selectionValue = anyI.selection?.value ?? undefined;
+        const ctorName = interactor.constructor?.name ?? 'Interactor';
+        state[interactorRef] = {
+          kind: ctorName,
+          plotId,
+          value: interactor.value,
+          selectionValue,
+          ...(ctorName === 'PanZoom'
+            ? {
+                x: anyI.xsel?.value ?? null,
+                y: anyI.ysel?.value ?? null,
+                xField: anyI.xfield ?? null,
+                yField: anyI.yfield ?? null,
+              }
+            : null),
+        };
+      });
+    }
+
+    for (const { tableId, table } of tables) {
+      const tableRef = makePlotRef({ appId: options.appId, viewId: options.viewId, plotId: tableId, suffix: '' });
+      state[tableRef] = {
+        kind: 'Table',
+        tableId,
+        from: typeof table.from === 'string' ? table.from : undefined,
+        sortColumn: table.sortColumn ?? null,
+        sortDesc: Boolean(table.sortDesc),
+        offset: typeof table.offset === 'number' ? table.offset : 0,
+        limit: typeof table.limit === 'number' ? table.limit : null,
+        selectionValue: table.selection?.value ?? undefined,
+      };
+    }
+
+    if (dataHandles.length) {
+      const where = whereClauseForVgplotDashboardSelection({ plots: plots.map((p) => p.plot), inputs });
+      dataHandles.forEach((h) => {
+        const tableName = resolveHandleTableName({ handle: h, plotsById, tablesById });
+        const tableObj = h.surfaceKind === 'table' ? tablesById.get(h.surfaceId) : null;
+        state[h.ref] = {
+          kind: 'DataHandle',
+          table: tableName ?? undefined,
+          selectionWhere: where,
+          selectedMeaning: tableObj
+            ? 'rows in the current table view (filters + sort + pagination)'
+            : 'rows matching current plot selection; falls back to all rows if none',
+        };
+      });
+    }
+
+    return { version: VACP_SCHEMA_VERSION, createdAt: nowIso(), state };
+  };
+
+  return { getCapabilities, getState };
+}

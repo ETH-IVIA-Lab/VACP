@@ -18,7 +18,7 @@ VACP lives inside the app process. In this repo it is exposed as `window.__vacp`
 
 Screenshots and DOM access are still useful. They show layout and visual feedback. VACP exists for the parts that need precision: what is selected, which parameters are set, and which interactions are currently valid.
 
-Some stacks already describe intent in declarative specs like Vega-Lite. Some intent only exists in app code and design decisions. VACP is the runtime layer that exposes the semantics an agent needs.
+Some stacks already describe intent in declarative specs like [Vega-Lite](https://vega.github.io/vega-lite/) and [VGPlot](https://idl.uw.edu/mosaic/vgplot/). Some intent only exists in app code and design decisions. VACP is the runtime layer that exposes the semantics an agent needs.
 
 ## What this repo provides
 

@@ -2,21 +2,23 @@
 
 A provider maps an existing visualization runtime into VACP. It translates runtime entities like parameters, selections, and interaction primitives into stable refs, state snapshots, and actions.
 
-VACP supports two integration paths. With direct integration you define the graph, state, and actions yourself. With provider integration you reuse the semantics that already exist in a runtime like vgplot or Vega.
+VACP supports two integration paths. With direct integration you define the graph, state, and actions yourself. With provider integration you reuse semantics that already exist in a runtime.
 
 ## Providers in this repo
 
-### Mosaic vgplot
+### VGPlot
 
-The vgplot provider reads views, interactors, and selections from the vgplot runtime. It exposes them as a capabilities graph and state snapshot and registers actions that perform the same intent-level operations as a user.
+The VGPlot provider reads views, interactors, and selections from [Mosaic VGPlot](https://idl.uw.edu/mosaic/vgplot/). It exposes them as a capabilities graph and state snapshot and registers actions that perform the same intent-level operations as a user.
 
-See `packages/examples/mosaic-gallery`.
+Package: `@vacp/vgplot` in `packages/lib/providers/vgplot`.
+Example: `packages/examples/vgplot-gallery`.
 
-### Vega and Vega-Lite
+### Vega-Lite
 
-The Vega provider connects to a Vega `View`. It focuses on parameters and selections and exposes actions to set and clear them under a stable contract.
+The Vega-Lite provider targets [Vega-Lite](https://vega.github.io/vega-lite/) specs by connecting to a [Vega View](https://vega.github.io/vega/docs/api/view/). It focuses on parameters and selections and exposes actions to set and clear them under a stable contract.
 
-See `packages/examples/vega-lite-gallery`.
+Package: `@vacp/vega-lite` in `packages/lib/providers/vega-lite`.
+Example: `packages/examples/vega-lite-gallery`.
 
 ## Choosing a path
 

@@ -1,0 +1,24 @@
+{
+  "name": "@vacp/analytics",
+  "version": "0.0.0",
+  "private": true,
+  "files": [
+    "dist"
+  ],
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -b",
+    "lint": "oxlint src",
+    "typecheck": "tsc -b"
+  },
+  "dependencies": {
+    "@vacp/core": "workspace:*",
+    "posthog-js": "^1.357.1"
+  }
+}

@@ -59,8 +59,11 @@ On success it returns a structured result. On failure it returns a structured er
 ## Data access on demand
 
 Visual analytics apps often sit on large datasets. The runtime does not try to serialize raw data into the state snapshot.
-Instead, providers expose data handles and actions to inspect and query them. In this repo the standard actions are `vacp.data_schema` and `vacp.data_sql`.
+Instead, providers expose data handles and actions to inspect and query them. In this repo the standard actions are `vacp.data_schema` and `vacp.data_sql`, commonly backed by [DuckDB](https://duckdb.org/).
 
-## Packages
+## Package map
 
-`@vacp/core` defines the protocol types and shared conventions. `@vacp/gateway` installs the in-page bridge and provides helpers to register actions. `@vacp/kit` is the default starting point for custom integrations. `@vacp/duckdb` provides helpers for backing data actions with DuckDB.
+- `@vacp/core` in `packages/lib/protocol/core` defines protocol types and shared conventions.
+- `@vacp/gateway` in `packages/lib/protocol/gateway` installs the in-page bridge and action execution gateway.
+- `@vacp/kit` in `packages/lib/protocol/kit` is the default starting point for custom integrations.
+- `@vacp/duckdb` in `packages/lib/protocol/duckdb` provides helpers for data actions.

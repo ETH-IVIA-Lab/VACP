@@ -9,16 +9,19 @@ From repo root:
 - Install dependencies: `pnpm install` and `uv sync`
 - Build workspace: `pnpm build`
 - Start examples gallery: `pnpm dev`
-- Run checks: `pnpm test:examples` and `pnpm test:server`
+- Run checks: `pnpm test:e2e` and `pnpm test:mcp`
 
 For full setup and command details, use [docs/get-started/index.md](docs/get-started/index.md).
 
 ## What Is In This Repo
 
-- TypeScript protocol/runtime packages: `packages/lib/*`
-- Runnable examples and gallery host: `packages/examples/*`
-- Python MCP transport: `packages/vacp-mcp-server`
-- Arena tooling for evaluation runs: `packages/agent-arena`
+- Protocol/runtime primitives: `packages/lib/protocol/*`
+- Provider adapters: `packages/lib/providers/*`
+- Transport adapters: `packages/lib/transports/*`
+- Tooling packages: `packages/lib/tooling/*`
+- Evaluation tooling: `packages/lib/evaluation/*`
+- Runnable examples and index host: `packages/examples/*`
+- End-to-end tests: `packages/testing/e2e`
 
 ## Documentation
 

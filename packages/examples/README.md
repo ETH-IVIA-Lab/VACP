@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Runnable example apps used for development and Playwright smoke tests (`pnpm test:examples`).
+Runnable example apps used for development and Playwright smoke tests (`pnpm test:e2e`).
 
 ## When to use
 
@@ -13,7 +13,7 @@ Runnable example apps used for development and Playwright smoke tests (`pnpm tes
 
 - Each example is independently runnable.
 - The unified gallery serves all examples from one base URL with stable routes.
-- The gallery is declarative via `packages/examples/gallery/examples.manifest.json`.
+- The gallery is declarative via `packages/examples/index/examples.manifest.json`.
 
 ## Minimal usage
 
@@ -23,7 +23,7 @@ From repo root:
 
 Individual examples:
 
-- `pnpm -C packages/examples/mosaic-gallery dev`
+- `pnpm -C packages/examples/vgplot-gallery dev`
 - `pnpm -C packages/examples/vega-lite-gallery dev`
 - `pnpm -C packages/examples/cars-parallel-coords dev`
 - `pnpm -C packages/examples/react-dashboard dev`

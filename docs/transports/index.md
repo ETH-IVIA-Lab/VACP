@@ -14,8 +14,10 @@ These tools call the in-page bridge and return structured snapshots and action r
 
 ## MCP transport
 
-The MCP transport is a Python server that drives a browser through Playwright and forwards tool calls into the page. Use it when the agent runs outside the browser process.
+The MCP transport is a Python server that drives a browser through [Playwright](https://playwright.dev/) and forwards tool calls into the page. It follows [Model Context Protocol](https://modelcontextprotocol.io/) and is implemented in `packages/lib/transports/mcp-server`.
+Use it when the agent runs outside the browser process.
 
 ## In-page transport
 
-The in-page transport calls the same bridge from browser JavaScript. It is used by the debug overlay and is useful when you want an embedded tool loop.
+The in-page transport calls the same bridge from browser JavaScript. In this repo it lives in `packages/lib/transports/agent-client`.
+It is used by the debug overlay and is useful when you want an embedded tool loop.

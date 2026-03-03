@@ -1,0 +1,38 @@
+[
+  {
+    "id": "vgplot",
+    "route": "vgplot",
+    "title": "VGPlot Gallery",
+    "description": "Spec-driven examples with rich interactions powered by vgplot.",
+    "folder": "vgplot-gallery",
+    "adapterModule": "../../vgplot-gallery/src/mfe.ts",
+    "smokeSelector": "#app svg, #app canvas"
+  },
+  {
+    "id": "vega-lite",
+    "route": "vega-lite",
+    "title": "Vega-Lite Gallery",
+    "description": "Declarative Vega-Lite visualizations with parameter and selection controls.",
+    "folder": "vega-lite-gallery",
+    "adapterModule": "../../vega-lite-gallery/src/mfe.ts",
+    "smokeSelector": "#app svg, #app canvas"
+  },
+  {
+    "id": "react-dashboard",
+    "route": "react-dashboard",
+    "title": "React Dashboard",
+    "description": "Linked-view analytics dashboard with brushing, filtering, and table views.",
+    "folder": "react-dashboard",
+    "adapterModule": "../../react-dashboard/src/mfe.tsx",
+    "smokeSelector": "#root"
+  },
+  {
+    "id": "cars-parcoords",
+    "route": "cars-parcoords",
+    "title": "Cars Parallel Coordinates",
+    "description": "Parallel coordinates exploration for multivariate car performance data.",
+    "folder": "cars-parallel-coords",
+    "adapterModule": "../../cars-parallel-coords/src/mfe.ts",
+    "smokeSelector": "#chart svg"
+  }
+]

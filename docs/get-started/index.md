@@ -8,7 +8,7 @@ This repo includes runnable examples and a debug overlay. You should be able to 
 pnpm install
 pnpm build
 uv sync
-pnpm exec playwright install chromium
+pnpm --filter @vacp/e2e exec playwright install chromium
 uv run playwright install chromium
 ```
 
@@ -34,11 +34,13 @@ In another terminal, start the MCP server and point it at the running gallery:
 uv run vacp-mcp-server --url http://127.0.0.1:5173/
 ```
 
+The MCP transport implementation lives in `packages/lib/transports/mcp-server`. It uses [Model Context Protocol](https://modelcontextprotocol.io/) and [Playwright](https://playwright.dev/).
+
 ## Run checks
 
 ```bash
-pnpm test:examples
-pnpm test:server
+pnpm test:e2e
+pnpm test:mcp
 ```
 
 ## Develop an example on its own
@@ -46,8 +48,30 @@ pnpm test:server
 Use this when you want faster iteration on one app or one provider integration.
 
 ```bash
-pnpm -C packages/examples/mosaic-gallery dev
+pnpm -C packages/examples/vgplot-gallery dev
 pnpm -C packages/examples/vega-lite-gallery dev
 pnpm -C packages/examples/cars-parallel-coords dev
 pnpm -C packages/examples/react-dashboard dev
+```
+
+## Repo layout
+
+The workspace is organized by responsibility.
+
+```text
+packages/
+  lib/
+    protocol/   # contract types and runtime gateway
+    providers/  # runtime-specific semantic mappings
+    transports/ # MCP server and in-page transport client
+    tooling/    # debug overlay and analytics
+    evaluation/ # scenario runner and analysis tooling
+  testing/
+    e2e/        # Playwright end-to-end suite
+  examples/
+    index/                # static gallery host
+    vgplot-gallery/
+    vega-lite-gallery/
+    cars-parallel-coords/
+    react-dashboard/
 ```

@@ -1,15 +1,17 @@
 {
   "files": [],
   "references": [
-    { "path": "packages/lib/core" },
-    { "path": "packages/lib/analytics" },
-    { "path": "packages/lib/agent-client" },
-    { "path": "packages/lib/gateway" },
-    { "path": "packages/lib/duckdb" },
-    { "path": "packages/lib/diagrams" },
-    { "path": "packages/lib/debug-ui" },
-    { "path": "packages/lib/kit" },
-    { "path": "packages/lib/mosaic" },
-    { "path": "packages/lib/vega-lite" }
+    { "path": "packages/lib/protocol/core" },
+    { "path": "packages/lib/protocol/duckdb" },
+    { "path": "packages/lib/protocol/gateway" },
+    { "path": "packages/lib/protocol/kit" },
+    { "path": "packages/lib/protocol/diagrams" },
+    { "path": "packages/lib/providers/vgplot" },
+    { "path": "packages/lib/providers/vega-lite" },
+    { "path": "packages/lib/tooling/analytics" },
+    { "path": "packages/lib/tooling/debug-ui" },
+    { "path": "packages/lib/transports/agent-client" },
+    { "path": "packages/lib/evaluation/agent-arena" },
+    { "path": "packages/testing/e2e" }
   ]
 }

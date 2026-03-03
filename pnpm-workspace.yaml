@@ -1,8 +1,8 @@
 packages:
   - docs
-  - packages/lib/*
+  - packages/lib/*/*
   - packages/examples/*
-  - packages/agent-arena
+  - packages/testing/*
 
 onlyBuiltDependencies:
   - '@parcel/watcher'

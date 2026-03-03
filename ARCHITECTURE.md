@@ -84,8 +84,8 @@ Transport adapters should expose the same semantic envelope:
 
 Current implementations in this repo:
 
-- Python MCP adapter: `packages/vacp-mcp-server`
-- In-page AI SDK adapter: `packages/lib/agent-client`
+- Python MCP adapter: `packages/lib/transports/mcp-server`
+- In-page AI SDK adapter: `packages/lib/transports/agent-client`
 
 ## Scoped Capabilities
 
@@ -109,8 +109,8 @@ State tokens are deterministic hashes over canonicalized scoped payloads, enabli
 
 Implementation reference:
 
-- `packages/lib/gateway/src/runtime/create-runtime-bridge.ts`
-- `packages/lib/gateway/src/runtime/state-update.ts`
+- `packages/lib/protocol/gateway/src/runtime/create-runtime-bridge.ts`
+- `packages/lib/protocol/gateway/src/runtime/state-update.ts`
 
 ## Optional DOM Snapshot Channel
 
@@ -139,10 +139,10 @@ TypeScript workspace (`packages/lib/*`):
 - `@vacp/diagrams`: Mermaid graph rendering source
 - `@vacp/debug-ui`: in-page inspection overlay
 - `@vacp/agent-client`: in-page transport/tool loop
-- `@vacp/vgplot`: Mosaic/vgplot provider
+- `@vacp/vgplot`: VGPlot provider
 - `@vacp/vega-lite`: Vega-Lite provider
 
-Python transport (`packages/vacp-mcp-server`):
+Python transport (`packages/lib/transports/mcp-server`):
 
 - MCP server that calls the in-page bridge through Playwright.
 

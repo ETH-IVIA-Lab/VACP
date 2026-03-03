@@ -1,6 +1,7 @@
 # Debug overlay
 
 The debug overlay is the fastest way to validate an integration. It reads the same snapshots and executes the same actions an agent would.
+The implementation in this repo is `@vacp/debug-ui` under `packages/lib/tooling/debug-ui`.
 
 ## Enable
 

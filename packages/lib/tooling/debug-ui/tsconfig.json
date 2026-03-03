@@ -1,0 +1,23 @@
+{
+  "extends": "../../../../tsconfig.base.json",
+  "compilerOptions": {
+    "baseUrl": "./src",
+    "paths": {
+      "@vacp/debug-ui/*": ["*"]
+    },
+    "rootDir": "./src",
+    "outDir": "./dist",
+    "composite": true,
+    "jsx": "react-jsx",
+    "types": ["react", "react-dom"],
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true
+  },
+  "references": [
+    { "path": "../../protocol/core" },
+    { "path": "../../protocol/diagrams" },
+    { "path": "../../transports/agent-client" }
+  ],
+  "include": ["src"]
+}
