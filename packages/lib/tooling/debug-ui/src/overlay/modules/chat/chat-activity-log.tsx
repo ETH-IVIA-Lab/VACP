@@ -16,6 +16,10 @@ function capabilitiesScopeBadge(event: VacpAgentToolEvent): 'full' | 'scoped' | 
   return Object.keys(event.input as Record<string, unknown>).length > 0 ? 'scoped' : 'full';
 }
 
+function normalizationBadge(event: VacpAgentToolEvent): boolean {
+  return Boolean(event.requestedInput !== undefined || event.inputNote);
+}
+
 export function ChatActivityLog(props: { events: VacpAgentToolEvent[]; className?: string }): ReactElement {
   return (
     <section
@@ -54,15 +58,40 @@ export function ChatActivityLog(props: { events: VacpAgentToolEvent[]; className
                       {scope}
                     </span>
                   ) : null}
+                  {normalizationBadge(event) ? (
+                    <span className="rounded-full border border-sky-300/20 bg-sky-500/10 px-1.5 py-0.5 text-[10px] text-sky-100/80">
+                      normalized
+                    </span>
+                  ) : null}
                   <span className={cn('font-medium', eventColor(event.status))}>{event.status}</span>
                   <span className="ml-auto text-slate-100/55">{new Date(event.at).toLocaleTimeString()}</span>
                 </summary>
                 <div className="mt-2 grid gap-2">
+                  {event.inputNote ? (
+                    <div className="rounded-md border border-sky-300/20 bg-sky-500/10 px-2 py-1 text-[10px] text-sky-100/85">
+                      {event.inputNote}
+                    </div>
+                  ) : null}
                   {event.input !== undefined ? (
                     <div>
-                      <div className="text-[10px] font-semibold uppercase tracking-wide text-slate-100/65">Input</div>
+                      <div className="text-[10px] font-semibold uppercase tracking-wide text-slate-100/65">
+                        Effective input
+                      </div>
                       <JsonViewer
                         value={event.input}
+                        className="vacp-chat-json-view mt-1 p-2"
+                        expandDepth={1}
+                        scrollable={false}
+                      />
+                    </div>
+                  ) : null}
+                  {event.requestedInput !== undefined ? (
+                    <div>
+                      <div className="text-[10px] font-semibold uppercase tracking-wide text-slate-100/65">
+                        Requested input
+                      </div>
+                      <JsonViewer
+                        value={event.requestedInput}
                         className="vacp-chat-json-view mt-1 p-2"
                         expandDepth={1}
                         scrollable={false}

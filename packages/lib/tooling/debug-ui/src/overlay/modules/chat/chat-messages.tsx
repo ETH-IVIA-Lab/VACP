@@ -139,7 +139,7 @@ export function ChatMessages(props: {
         data-vacp-chat-msgs="1"
         className="vacp-chat-scroll h-full overflow-y-auto overflow-x-hidden pr-1"
       >
-        <div className="mx-auto flex min-h-0 w-full max-w-4xl flex-col gap-3">
+        <div className="mx-auto flex min-h-0 w-full max-w-4xl flex-col gap-3 pb-4">
           {props.messages.length === 0 ? (
             <div className="rounded-2xl border border-dashed border-white/15 bg-white/5 px-4 py-4 text-[12px] text-slate-100/75">
               <div className="font-medium text-slate-100/85">Start with a concrete question.</div>
@@ -182,7 +182,7 @@ export function ChatMessages(props: {
       {props.showJumpToLatest ? (
         <button
           type="button"
-          className="absolute bottom-2 right-3 rounded-md border border-sky-300/35 bg-sky-500/15 px-2 py-1 text-[11px] font-medium text-sky-100 hover:bg-sky-500/20"
+          className="absolute bottom-4 right-4 rounded-md border border-sky-300/35 bg-sky-500/15 px-2 py-1 text-[11px] font-medium text-sky-100 hover:bg-sky-500/20"
           onClick={props.onJumpToLatest}
         >
           Jump to latest

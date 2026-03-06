@@ -9,17 +9,19 @@ import {
   type VacpLLMConfig,
   type VacpTokenUsage,
 } from '@vacp/agent-client';
-import { AlertTriangle, Loader2, RefreshCw, Send, Square, X } from 'lucide-react';
+import { AlertTriangle, ClipboardCopy, Loader2, RefreshCw, Send, Square, X } from 'lucide-react';
 import type { ReactElement } from 'react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { Button } from '@vacp/debug-ui/ui/components/ui/button';
 import { Textarea } from '@vacp/debug-ui/ui/components/ui/textarea';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@vacp/debug-ui/ui/components/ui/tooltip';
+import { copyTextToClipboard } from '@vacp/debug-ui/ui/lib/clipboard';
 import { cn } from '@vacp/debug-ui/ui/lib/utils';
 
 import type { VacpDebugModuleProps } from '../module-types';
 import { ChatActivityLog } from './chat-activity-log';
+import { exportConversationAsMarkdown } from './chat-export';
 import { ChatMessages } from './chat-messages';
 import { createVacpChatSessionCacheKey, getOrCreateVacpChatSession } from './chat-session-registry';
 import { messageSyncSignature } from './message-sync-signature';
@@ -178,6 +180,7 @@ type ConfiguredChatProps = {
   bridge: VacpDebugModuleProps['bridge'];
   runtimeId: string | undefined;
   scopeId: string;
+  scopeLabel: string;
   threadId: string;
   sessionRevision?: number;
   panelWidth: number;
@@ -242,6 +245,7 @@ export function ConfiguredChat(props: ConfiguredChatProps): ReactElement {
   const autoScrollSignal = `${status}:${uiMessages.length}:${latestTextLength(uiMessages)}`;
   const { scrollRef, anchorRef, stickToBottom, jumpToLatest } = useChatAutoscroll(autoScrollSignal);
   const [policyNotice, setPolicyNotice] = useState<string | null>(null);
+  const [copyNotice, setCopyNotice] = useState<string | null>(null);
   const onMessagesChangeRef = useRef(props.onMessagesChange);
   const lastSyncedSignatureRef = useRef<string>('');
   const submitLockRef = useRef(false);
@@ -266,6 +270,12 @@ export function ConfiguredChat(props: ConfiguredChatProps): ReactElement {
   }, [status]);
 
   useEffect(() => {
+    if (!copyNotice) return;
+    const timer = window.setTimeout(() => setCopyNotice(null), 2400);
+    return () => window.clearTimeout(timer);
+  }, [copyNotice]);
+
+  useEffect(() => {
     if (status !== 'ready') return;
     const lastAssistant = [...uiMessages].reverse().find((message) => message.role === 'assistant');
     if (!lastAssistant) return;
@@ -286,14 +296,27 @@ export function ConfiguredChat(props: ConfiguredChatProps): ReactElement {
     if (busy || submitLockRef.current) return;
     const text = props.draft.trim();
     if (!text) return;
+    const previousDraft = props.draft;
     submitLockRef.current = true;
     clearError();
+    props.onDraftChange('');
     try {
       await sendMessage({ text });
-      props.onDraftChange('');
     } catch {
+      props.onDraftChange(previousDraft);
       submitLockRef.current = false;
     }
+  };
+
+  const copyConversation = async () => {
+    const markdown = exportConversationAsMarkdown({
+      scopeLabel: props.scopeLabel,
+      config: props.config,
+      messages: uiMessages,
+      toolEvents: props.toolEvents,
+    });
+    await copyTextToClipboard(markdown);
+    setCopyNotice('Conversation copied as Markdown.');
   };
 
   const statusLabel =
@@ -332,13 +355,22 @@ export function ConfiguredChat(props: ConfiguredChatProps): ReactElement {
           </div>
         ) : null}
 
-        <section className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border border-white/10 bg-slate-950/35">
+        <section className="grid min-h-0 flex-1 grid-rows-[auto_minmax(0,1fr)_auto] overflow-hidden rounded-2xl border border-white/10 bg-slate-950/35">
           <div className="flex flex-wrap items-start gap-3 border-b border-white/10 px-4 py-3">
             <div className="min-w-0 flex-1">
               <div className="text-[11px] font-semibold uppercase text-slate-100/70">Conversation</div>
               <div className="mt-1 text-pretty text-[11px] text-slate-100/62">{threadSummary}</div>
             </div>
             <div className="flex flex-wrap items-center gap-1.5">
+              <Button
+                size="sm"
+                aria-label="Copy conversation as Markdown"
+                title="Copy conversation as Markdown"
+                onClick={() => void copyConversation()}
+              >
+                <ClipboardCopy className="h-3.5 w-3.5 text-slate-100/90" />
+                Copy markdown
+              </Button>
               <TokenUsageBadge
                 label="Last"
                 usage={lastUsage}
@@ -358,7 +390,7 @@ export function ConfiguredChat(props: ConfiguredChatProps): ReactElement {
             </div>
           </div>
 
-          <div className="min-h-0 flex-1 px-3 py-3">
+          <div className="min-h-0 flex-1 overflow-hidden px-3 py-3">
             <ChatMessages
               messages={uiMessages}
               status={status}
@@ -369,13 +401,16 @@ export function ConfiguredChat(props: ConfiguredChatProps): ReactElement {
             />
           </div>
 
-          <div className="border-t border-white/10 px-3 py-3">
+          <div className="relative z-10 border-t border-white/10 bg-slate-950/85 px-3 py-3 backdrop-blur-sm">
             <div className="mb-3 flex flex-wrap items-center gap-2 rounded-xl border border-white/10 bg-black/20 px-3 py-2 text-[11px] text-slate-100/62">
               <div className="min-w-0 flex-1 text-pretty">
                 {busy
-                  ? 'The agent is still working through the current turn.'
+                  ? status === 'submitted'
+                    ? 'Request received. Preparing the next turn…'
+                    : 'Request received. The agent is working through the turn.'
                   : 'Press Enter to send or Shift+Enter for a newline.'}
               </div>
+              {copyNotice ? <div className="text-emerald-100/80">{copyNotice}</div> : null}
               {showActivitySheet ? (
                 <Button size="sm" aria-label="Hide activity" title="Hide activity" onClick={props.onCloseActivity}>
                   Hide activity

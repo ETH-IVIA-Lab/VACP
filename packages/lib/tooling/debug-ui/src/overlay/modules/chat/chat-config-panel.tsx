@@ -10,6 +10,7 @@ import { cn } from '@vacp/debug-ui/ui/lib/utils';
 export type ChatConfigPanelProps = {
   config: VacpLLMConfig;
   onConfigChange: (next: VacpLLMConfig) => void;
+  onProviderChange: (provider: VacpLLMConfig['provider']) => void;
   showApiKey: boolean;
   onToggleApiKey: () => void;
   onClearConfig: () => void;
@@ -28,29 +29,6 @@ export function ChatConfigPanel(props: ChatConfigPanelProps): ReactElement {
   const provider = props.config.provider;
   const openAICompatibleSelected = provider === 'openai-compatible';
   const currentModelInList = props.availableModels.some((item) => item.id === props.config.model);
-
-  const setProvider = (nextProvider: VacpLLMConfig['provider']) => {
-    if (nextProvider === props.config.provider) return;
-    const currentModel = props.config.model.trim();
-    if (nextProvider === 'gemini') {
-      props.onConfigChange({
-        ...props.config,
-        provider: 'gemini',
-        providerName: 'google.generative-ai',
-        baseURL: '',
-        model: currentModel.toLowerCase().startsWith('gemini') ? currentModel : 'gemini-2.5-flash',
-      });
-      return;
-    }
-
-    props.onConfigChange({
-      ...props.config,
-      provider: 'openai-compatible',
-      providerName: 'openai-compatible',
-      baseURL: props.config.baseURL.trim() || 'https://api.openai.com/v1',
-      model: currentModel.toLowerCase().startsWith('gemini') ? 'gpt-5.2' : currentModel || 'gpt-5.2',
-    });
-  };
 
   return (
     <section
@@ -97,7 +75,7 @@ export function ChatConfigPanel(props: ChatConfigPanelProps): ReactElement {
                 data-vacp-chat-provider="1"
                 className="mt-1 w-full rounded-lg border border-white/10 bg-white/5 px-2 py-2 text-xs text-slate-100 outline-none focus:ring-2 focus:ring-sky-400/40"
                 value={provider}
-                onChange={(e) => setProvider(e.target.value as VacpLLMConfig['provider'])}
+                onChange={(e) => props.onProviderChange(e.target.value as VacpLLMConfig['provider'])}
               >
                 <option value="openai-compatible">OpenAI-compatible</option>
                 <option value="gemini">Gemini</option>

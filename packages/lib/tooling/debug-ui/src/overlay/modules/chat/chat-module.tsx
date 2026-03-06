@@ -1,9 +1,12 @@
 import type { UIMessage } from '@ai-sdk/react';
 import {
   clearVacpLLMConfig,
+  defaultVacpLLMConfigForProvider,
   listVacpLLMModels,
+  loadVacpLLMActiveProvider,
   loadVacpLLMConfig,
   saveVacpLLMConfig,
+  saveVacpLLMActiveProvider,
   type VacpAgentToolEvent,
   type VacpLLMConfig,
   type VacpLLMModelOption,
@@ -24,16 +27,7 @@ import { createVacpChatSessionCacheKey, deleteVacpChatSession } from './chat-ses
 import { deriveVacpChatScope } from './chat-scope';
 import { readThreadDraft, useVacpChatStore } from './chat-store';
 
-const DEFAULT_CONFIG: VacpLLMConfig = {
-  provider: 'openai-compatible',
-  providerName: 'openai-compatible',
-  baseURL: 'https://api.openai.com/v1',
-  apiKey: '',
-  model: 'gpt-5.2',
-  maxSteps: 10,
-  maxOutputTokens: 900,
-  temperature: 0.2,
-};
+const DEFAULT_CONFIG: VacpLLMConfig = defaultVacpLLMConfigForProvider('openai-compatible');
 
 function isConfigReady(config: VacpLLMConfig): boolean {
   const baseFieldsReady = Boolean(config.apiKey.trim() && config.model.trim());
@@ -64,7 +58,10 @@ export function ChatModule(props: VacpDebugModuleProps): ReactElement {
   const compactActions = rootSize.width < 860;
   const narrow = rootSize.width < 760;
 
-  const initialConfig = useMemo(() => loadVacpLLMConfig() ?? DEFAULT_CONFIG, []);
+  const initialConfig = useMemo(() => {
+    const activeProvider = loadVacpLLMActiveProvider() ?? DEFAULT_CONFIG.provider;
+    return loadVacpLLMConfig(activeProvider) ?? defaultVacpLLMConfigForProvider(activeProvider);
+  }, []);
   const [config, setConfig] = useState<VacpLLMConfig>(initialConfig);
   const [showApiKey, setShowApiKey] = useState(false);
   const [threadPickerOpen, setThreadPickerOpen] = useState(false);
@@ -101,6 +98,20 @@ export function ChatModule(props: VacpDebugModuleProps): ReactElement {
   useEffect(() => {
     saveVacpLLMConfig(config);
   }, [config]);
+
+  const switchProvider = useCallback(
+    (nextProvider: VacpLLMConfig['provider']) => {
+      if (nextProvider === config.provider) return;
+      saveVacpLLMConfig(config);
+      saveVacpLLMActiveProvider(nextProvider);
+      const nextConfig = loadVacpLLMConfig(nextProvider) ?? defaultVacpLLMConfigForProvider(nextProvider);
+      setConfig(nextConfig);
+      setAvailableModels([]);
+      setModelsError(null);
+      setModelsLoading(false);
+    },
+    [config],
+  );
 
   useEffect(() => {
     ensureScope(scopeMeta);
@@ -388,6 +399,7 @@ export function ChatModule(props: VacpDebugModuleProps): ReactElement {
               bridge={props.bridge}
               runtimeId={props.runtime.runtimeId}
               scopeId={scopeId}
+              scopeLabel={scopeMeta.label}
               threadId={activeThreadId}
               sessionRevision={activeThread.sessionRevision}
               panelWidth={rootSize.width}
@@ -479,6 +491,7 @@ export function ChatModule(props: VacpDebugModuleProps): ReactElement {
               className="h-full max-h-none"
               config={config}
               onConfigChange={setConfig}
+              onProviderChange={switchProvider}
               showApiKey={showApiKey}
               onToggleApiKey={() => setShowApiKey((v) => !v)}
               availableModels={availableModels}
@@ -488,7 +501,7 @@ export function ChatModule(props: VacpDebugModuleProps): ReactElement {
               onClose={() => setSettingsOpen(scopeId, false)}
               onClearConfig={() => {
                 clearVacpLLMConfig();
-                setConfig(DEFAULT_CONFIG);
+                setConfig(defaultVacpLLMConfigForProvider(config.provider));
                 setAvailableModels([]);
                 setModelsError(null);
                 setModelsLoading(false);

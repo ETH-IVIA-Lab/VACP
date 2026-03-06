@@ -107,6 +107,7 @@
   scrollbar-gutter: stable;
   scrollbar-width: thin;
   scrollbar-color: rgba(126, 152, 183, 0.52) rgba(15, 23, 42, 0.42);
+  overscroll-behavior-y: contain;
 }
 
 #vacp-debug-ui-panel .vacp-chat-scroll::-webkit-scrollbar {
