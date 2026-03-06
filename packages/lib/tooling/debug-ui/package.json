@@ -26,7 +26,8 @@
     "dev:alias": "tsc-alias -p tsconfig.json -w",
     "dev:css": "pnpm exec tailwindcss -i src/style.css -o dist/style.css --watch",
     "lint": "oxlint src",
-    "typecheck": "tsc -b"
+    "typecheck": "tsc -b",
+    "test": "pnpm exec tsx --test test/*.test.ts"
   },
   "dependencies": {
     "@ai-sdk/react": "^3.0.110",
@@ -65,6 +66,7 @@
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
     "tailwindcss": "^4.2.1",
-    "tsc-alias": "^1.8.16"
+    "tsc-alias": "^1.8.16",
+    "tsx": "^4.21.0"
   }
 }

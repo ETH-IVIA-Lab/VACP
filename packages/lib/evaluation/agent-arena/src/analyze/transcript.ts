@@ -292,11 +292,14 @@ function normalizeText(value: unknown) {
   return noAnsi.trim();
 }
 
+const ESC = String.fromCharCode(0x1b);
+const BEL = String.fromCharCode(0x07);
+const ANSI_CSI_RE = new RegExp(`${ESC}\\[[0-9;?]*[ -/]*[@-~]`, 'g');
+const ANSI_OSC_BEL_RE = new RegExp(`${ESC}\\][^${BEL}]*${BEL}`, 'g');
+const ANSI_OSC_ST_RE = new RegExp(`${ESC}\\][^${ESC}]*${ESC}\\\\`, 'g');
+
 function stripAnsi(value: string) {
-  return value
-    .replace(/\u001b\[[0-9;?]*[ -/]*[@-~]/g, '')
-    .replace(/\u001b\][^\u0007]*\u0007/g, '')
-    .replace(/\u001b\][^\u001b]*\u001b\\/g, '');
+  return value.replace(ANSI_CSI_RE, '').replace(ANSI_OSC_BEL_RE, '').replace(ANSI_OSC_ST_RE, '');
 }
 
 function fenceFor(text: string) {

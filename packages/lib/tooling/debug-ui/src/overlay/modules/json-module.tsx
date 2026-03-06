@@ -64,8 +64,6 @@ export function JsonModule(props: VacpDebugModuleProps): ReactElement {
   const [probeError, setProbeError] = useState<string | null>(null);
   const [editStatus, setEditStatus] = useState<string>('');
   const [editError, setEditError] = useState<string | null>(null);
-  const inlineCodeClass =
-    'rounded-md border border-white/10 bg-slate-900/70 px-1.5 py-0.5 text-[11px] font-medium text-slate-100 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.02)]';
   const updateSummary = useMemo(() => {
     if (!isStateUpdate(updatePayload)) return null;
     if (updatePayload.mode === 'full') {
