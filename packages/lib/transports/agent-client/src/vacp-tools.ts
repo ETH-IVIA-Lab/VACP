@@ -10,6 +10,7 @@ import type {
   VacpStateOptions,
   VacpTransportContract,
 } from './types';
+import { sanitizeToolPayload } from './sanitize-tool-payload';
 
 type ToolOptions = {
   transport: VacpTransportContract;
@@ -26,7 +27,13 @@ function emit(
     at: new Date().toISOString(),
     toolName,
     status,
-    ...payload,
+    ...(payload
+      ? {
+          input: sanitizeToolPayload(payload.input),
+          output: sanitizeToolPayload(payload.output),
+          error: payload.error,
+        }
+      : {}),
   });
 }
 
@@ -105,7 +112,7 @@ export function createVacpTools(options: ToolOptions) {
         emit(onToolEvent, 'vacp_capabilities', 'started', { input });
         try {
           const options = normalizeCapabilitiesOptions(input);
-          const output = await transport.vacp_capabilities(options);
+          const output = sanitizeToolPayload(await transport.vacp_capabilities(options));
           emit(onToolEvent, 'vacp_capabilities', 'succeeded', { input, output });
           return output;
         } catch (error) {
@@ -122,7 +129,7 @@ export function createVacpTools(options: ToolOptions) {
         emit(onToolEvent, 'vacp_state', 'started', { input });
         try {
           const options = normalizeStateOptions(input);
-          const output = await transport.vacp_state(options);
+          const output = sanitizeToolPayload(await transport.vacp_state(options));
           emit(onToolEvent, 'vacp_state', 'succeeded', { input, output });
           return output;
         } catch (error) {
@@ -138,7 +145,7 @@ export function createVacpTools(options: ToolOptions) {
       execute: async (input) => {
         emit(onToolEvent, 'vacp_execute', 'started', { input });
         try {
-          const output = await transport.vacp_execute(input.name, input.params, input.call_id);
+          const output = sanitizeToolPayload(await transport.vacp_execute(input.name, input.params, input.call_id));
           emit(onToolEvent, 'vacp_execute', 'succeeded', { input, output });
           return output;
         } catch (error) {

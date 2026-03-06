@@ -1,6 +1,8 @@
 import { Chat, type UIMessage } from '@ai-sdk/react';
 import type { VacpLLMConfig } from '@vacp/agent-client';
 
+import { messageSyncSignature } from './message-sync-signature';
+
 type VacpChatSessionEntry = {
   cacheKey: string;
   chat: Chat<UIMessage>;
@@ -32,12 +34,14 @@ function pruneSessions() {
 export function createVacpChatSessionCacheKey(args: {
   scopeId: string;
   threadId: string;
+  sessionRevision?: number;
   runtimeId: string | undefined;
   config: VacpLLMConfig;
 }): string {
   return [
     args.scopeId,
     args.threadId,
+    String(args.sessionRevision ?? 0),
     args.runtimeId ?? 'unknown-runtime',
     args.config.provider,
     args.config.providerName.trim(),
@@ -51,7 +55,13 @@ export function createVacpChatSessionCacheKey(args: {
 
 export function getOrCreateVacpChatSession(args: CreateSessionArgs): Chat<UIMessage> {
   const cached = registry.get(args.cacheKey);
-  if (cached) return touch(cached).chat;
+  if (cached) {
+    if (messageSyncSignature(cached.chat.messages) !== messageSyncSignature(args.messages)) {
+      cached.chat.messages = args.messages;
+      cached.chat.clearError();
+    }
+    return touch(cached).chat;
+  }
 
   const chat = new Chat<UIMessage>({
     id: args.id,

@@ -20,7 +20,7 @@ import { cn } from '@vacp/debug-ui/ui/lib/utils';
 import type { VacpDebugModuleProps } from '../module-types';
 import { ChatConfigPanel } from './chat-config-panel';
 import { ConfiguredChat } from './configured-chat';
-import { createVacpChatSessionCacheKey, clearVacpChatSession } from './chat-session-registry';
+import { createVacpChatSessionCacheKey, deleteVacpChatSession } from './chat-session-registry';
 import { deriveVacpChatScope } from './chat-scope';
 import { readThreadDraft, useVacpChatStore } from './chat-store';
 
@@ -201,12 +201,15 @@ export function ChatModule(props: VacpDebugModuleProps): ReactElement {
     return createVacpChatSessionCacheKey({
       scopeId,
       threadId: activeThreadId,
+      sessionRevision: activeThread?.sessionRevision ?? 0,
       runtimeId: props.runtime.runtimeId,
       config,
     });
-  }, [scopeId, activeThreadId, props.runtime.runtimeId, config]);
+  }, [scopeId, activeThreadId, activeThread?.sessionRevision, props.runtime.runtimeId, config]);
 
   const floatingPanelTop = Math.max(56, headerSize.height + 8);
+  const historySheetClass = narrow ? 'left-3 right-3 bottom-3' : 'left-3 bottom-3 w-[min(392px,calc(100%-24px))]';
+  const settingsSheetClass = narrow ? 'left-3 right-3 bottom-3' : 'right-3 bottom-3 w-[min(440px,calc(100%-24px))]';
 
   return (
     <div ref={rootRef} className="h-full min-h-0">
@@ -264,8 +267,8 @@ export function ChatModule(props: VacpDebugModuleProps): ReactElement {
                 disabled={!activeThreadId}
                 onClick={() => {
                   if (!activeThreadId || !sessionCacheKey) return;
+                  deleteVacpChatSession(sessionCacheKey);
                   clearThread(scopeId, activeThreadId);
-                  clearVacpChatSession(sessionCacheKey);
                   setActionsMenuOpen(false);
                 }}
               >
@@ -381,10 +384,13 @@ export function ChatModule(props: VacpDebugModuleProps): ReactElement {
             </div>
           ) : activeThreadId && activeThread ? (
             <ConfiguredChat
+              key={`${activeThreadId}:${activeThread.sessionRevision ?? 0}`}
               bridge={props.bridge}
               runtimeId={props.runtime.runtimeId}
               scopeId={scopeId}
               threadId={activeThreadId}
+              sessionRevision={activeThread.sessionRevision}
+              panelWidth={rootSize.width}
               config={config}
               initialMessages={activeThread.messages}
               toolEvents={activeThread.toolEvents}
@@ -393,6 +399,7 @@ export function ChatModule(props: VacpDebugModuleProps): ReactElement {
               onMessagesChange={(messages) => setThreadMessages(scopeId, activeThreadId, messages)}
               onToolEvent={onToolEvent}
               onRegenerate={() => setThreadPickerOpen(false)}
+              onCloseActivity={() => setActivityOpen(scopeId, false)}
               showActivity={showActivity}
               wide={wide}
             />
@@ -403,22 +410,36 @@ export function ChatModule(props: VacpDebugModuleProps): ReactElement {
 
         {threadPickerOpen ? (
           <div
-            data-vacp-chat-thread-popover="1"
+            data-vacp-chat-thread-sheet="1"
             className={cn(
-              'absolute z-20 rounded-xl border border-white/10 bg-slate-950/95 p-2 shadow-[0_18px_38px_rgba(0,0,0,0.45)] backdrop-blur-sm',
-              narrow ? 'left-3 right-3' : 'left-3 w-[min(360px,calc(100%-24px))]',
+              'absolute z-20 rounded-2xl border border-white/10 bg-slate-950/95 p-3 shadow-[0_18px_38px_rgba(0,0,0,0.45)] backdrop-blur-sm',
+              historySheetClass,
             )}
             style={{ top: `${floatingPanelTop}px` }}
           >
-            <div className="px-2 pb-2 pt-1 text-[11px] font-semibold uppercase text-slate-100/70">
-              Conversation history
+            <div className="flex items-start justify-between gap-3 px-1 pb-3 pt-1">
+              <div className="min-w-0">
+                <div className="text-[11px] font-semibold uppercase text-slate-100/70">Conversation history</div>
+                <div className="mt-1 text-pretty text-[11px] text-slate-100/60">
+                  Reopen earlier threads without losing the current panel state.
+                </div>
+              </div>
+              <Button
+                size="sm"
+                aria-label="Close history"
+                title="Close history"
+                onClick={() => setThreadPickerOpen(false)}
+              >
+                Close
+              </Button>
             </div>
             <div
               data-vacp-chat-thread-list="1"
-              className="vacp-chat-scroll grid max-h-[260px] gap-1 overflow-y-auto overflow-x-hidden"
+              className="vacp-chat-scroll grid max-h-full gap-2 overflow-y-auto overflow-x-hidden"
+              style={{ maxHeight: `calc(100% - 56px)` }}
             >
               {threadItems.length === 0 ? (
-                <div className="rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-[11px] text-slate-100/70">
+                <div className="rounded-2xl border border-white/10 bg-white/5 px-3 py-3 text-[11px] text-slate-100/70">
                   No history for this view yet.
                 </div>
               ) : null}
@@ -428,7 +449,7 @@ export function ChatModule(props: VacpDebugModuleProps): ReactElement {
                   type="button"
                   data-vacp-chat-thread-item="1"
                   className={cn(
-                    'min-w-0 rounded-lg border px-2 py-2 text-left transition-colors',
+                    'min-w-0 rounded-xl border px-3 py-3 text-left transition-colors',
                     thread.id === activeThreadId
                       ? 'border-sky-300/35 bg-sky-500/10'
                       : 'border-white/10 bg-white/5 hover:border-white/20 hover:bg-white/10',
@@ -450,11 +471,12 @@ export function ChatModule(props: VacpDebugModuleProps): ReactElement {
 
         {settingsOpen ? (
           <div
-            data-vacp-chat-settings-popover="1"
-            className={cn('absolute z-20', narrow ? 'left-3 right-3' : 'right-3 w-[min(390px,calc(100%-24px))]')}
+            data-vacp-chat-settings-sheet="1"
+            className={cn('absolute z-20', settingsSheetClass)}
             style={{ top: `${floatingPanelTop}px` }}
           >
             <ChatConfigPanel
+              className="h-full max-h-none"
               config={config}
               onConfigChange={setConfig}
               showApiKey={showApiKey}
@@ -470,8 +492,8 @@ export function ChatModule(props: VacpDebugModuleProps): ReactElement {
                 setAvailableModels([]);
                 setModelsError(null);
                 setModelsLoading(false);
+                if (sessionCacheKey) deleteVacpChatSession(sessionCacheKey);
                 if (activeThreadId) clearThread(scopeId, activeThreadId);
-                if (sessionCacheKey) clearVacpChatSession(sessionCacheKey);
                 setActivityOpen(scopeId, false);
               }}
             />

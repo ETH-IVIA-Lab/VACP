@@ -20,6 +20,7 @@ import {
 } from '@vacp/debug-ui/overlay/bridge-queries';
 import { TooltipProvider } from '@vacp/debug-ui/ui/components/ui/tooltip';
 
+import { DEBUG_UI_PANEL_BREAKPOINTS, isDenseDebugPanel } from './debug-ui-breakpoints';
 import { DebugUiView, type VacpDebugBridgeStatus } from './debug-ui-view';
 import { useElementSize } from './hooks/use-element-size';
 import { useDebugPanelLayout } from './hooks/use-debug-panel-layout';
@@ -54,8 +55,8 @@ export function VacpDebugUiApp(props: { globalKey: string; includeActions: boole
   );
 
   const panelSize = useElementSize(panelRef);
-  const compactPanel = panelSize.width < 720;
-  const densePanel = panelSize.width < 520 || panelSize.height < 360;
+  const compactPanel = panelSize.width < DEBUG_UI_PANEL_BREAKPOINTS.compactShell;
+  const densePanel = isDenseDebugPanel(panelSize.width, panelSize.height);
 
   const bridgeRef = useRef(bridgeQuery.data ?? null);
   useEffect(() => {

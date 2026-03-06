@@ -3,6 +3,7 @@ import { Bot, Cpu, PanelRightClose, PanelRightOpen, Redo2, Undo2, User, Wrench }
 import type { ReactElement } from 'react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 
+import { DEBUG_UI_PANEL_BREAKPOINTS, isDenseDebugPanel } from '@vacp/debug-ui/overlay/debug-ui-breakpoints';
 import { IconButton } from '@vacp/debug-ui/overlay/icon-button';
 import { useVacpDebugUiStore } from '@vacp/debug-ui/overlay/debug-store';
 import { useElementSize } from '@vacp/debug-ui/overlay/hooks/use-element-size';
@@ -85,12 +86,12 @@ export function HistoryModule(props: VacpDebugModuleProps): ReactElement {
   const setDetailsOpen = useVacpDebugUiStore((s) => s.setHistoryDetailsOpen);
   const rootRef = useRef<HTMLDivElement | null>(null);
   const rootSize = useElementSize(rootRef);
-  const compactControls = rootSize.width < 520;
-  const dense = rootSize.width < 520 || rootSize.height < 360;
+  const compactControls = rootSize.width < DEBUG_UI_PANEL_BREAKPOINTS.compactControls;
+  const dense = isDenseDebugPanel(rootSize.width, rootSize.height);
   const iconButtonSize = 'iconSm';
   const effectiveDetailsOpen = detailsOpen && !dense;
-  const showSideBySide = effectiveDetailsOpen && rootSize.width >= 900;
-  const stackLegend = rootSize.width < 640;
+  const showSideBySide = effectiveDetailsOpen && rootSize.width >= DEBUG_UI_PANEL_BREAKPOINTS.splitPane;
+  const stackLegend = rootSize.width < DEBUG_UI_PANEL_BREAKPOINTS.stackLegend;
 
   useEffect(() => {
     if (!dense || !detailsOpen) return;
@@ -144,7 +145,7 @@ export function HistoryModule(props: VacpDebugModuleProps): ReactElement {
           <div className="min-w-0 flex-1">
             <CardTitle>History</CardTitle>
             <CardDescription>
-              Toggle the Mode button (top bar) to Inspect, then click an entry to move the cursor.
+              Review runtime events and, in Inspect mode, jump the cursor to replay stateful moments.
             </CardDescription>
             {dense ? (
               <details className="mt-2 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-[11px] text-slate-100/80">
@@ -174,7 +175,7 @@ export function HistoryModule(props: VacpDebugModuleProps): ReactElement {
                 )}
               >
                 <span className="inline-flex items-center rounded-md border border-white/10 bg-black/20 px-2 py-1 font-medium text-slate-100/80">
-                  Sources
+                  Event sources
                 </span>
                 {(['human', 'agent', 'debug', 'system'] as const).map((source) => {
                   const info = roleInfo(source as any);
@@ -312,7 +313,9 @@ export function HistoryModule(props: VacpDebugModuleProps): ReactElement {
             <div className="min-w-0">
               <CardTitle>Details</CardTitle>
               <CardDescription>
-                {selected ? `${selected.kind} • ${roleInfo(selected.source).label}` : 'Select an entry to inspect.'}
+                {selected
+                  ? `${selected.kind} • ${roleInfo(selected.source).label}`
+                  : 'Select an entry to inspect the recorded payload.'}
               </CardDescription>
             </div>
           </CardHeader>

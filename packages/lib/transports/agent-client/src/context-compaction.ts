@@ -1,5 +1,7 @@
 import type { UIMessage } from 'ai';
 
+import { sanitizeToolPayload } from './sanitize-tool-payload';
+
 import type { VacpContextCompactionPolicy } from './types';
 
 export const defaultVacpContextCompactionPolicy: Required<VacpContextCompactionPolicy> = {
@@ -62,6 +64,37 @@ function summarizeToolPart(part: UiPart, policy: ResolvedPolicy): string {
   ].filter(Boolean);
 
   return segments.join(' | ');
+}
+
+function sanitizeUiPart(part: UiPart): UiPart {
+  const next = { ...part } as Record<string, unknown>;
+  if ('input' in next) next.input = sanitizeToolPayload(next.input);
+  if ('output' in next) next.output = sanitizeToolPayload(next.output);
+  if ('rawInput' in next) next.rawInput = sanitizeToolPayload(next.rawInput);
+  if ('data' in next) next.data = sanitizeToolPayload(next.data);
+  if ('providerMetadata' in next) next.providerMetadata = sanitizeToolPayload(next.providerMetadata);
+  if ('callProviderMetadata' in next) next.callProviderMetadata = sanitizeToolPayload(next.callProviderMetadata);
+  if ('approval' in next) next.approval = sanitizeToolPayload(next.approval);
+  return next as UiPart;
+}
+
+function sanitizeUiMessages(messages: UIMessage[]): UIMessage[] {
+  return messages.map((message) => ({
+    ...message,
+    metadata: sanitizeToolPayload(message.metadata),
+    parts: message.parts.map((part) => sanitizeUiPart(part)),
+  }));
+}
+
+function messageSummaryForError(message: UIMessage | undefined): string {
+  if (!message) return 'missing-message';
+  const parts = message.parts
+    .map((part) => {
+      if (part.type === 'dynamic-tool' && typeof part.toolName === 'string') return `dynamic-tool:${part.toolName}`;
+      return part.type;
+    })
+    .join(',');
+  return `${message.role}:${message.id}:${parts}`;
 }
 
 function compactAssistantParts(
@@ -176,8 +209,22 @@ export function wrapTransportWithVacpContextCompaction<TTransport>(
       if (!Array.isArray(rawMessages)) return await base.sendMessages(options);
 
       const compacted = compactMessagesForModel(rawMessages as UIMessage[], resolved);
-      const nextOptions = { ...options, messages: compacted };
-      return await base.sendMessages(nextOptions);
+      const sanitized = sanitizeUiMessages(compacted);
+      const nextOptions = { ...options, messages: sanitized };
+      try {
+        return await base.sendMessages(nextOptions);
+      } catch (error) {
+        if (error instanceof Error && /ModelMessage\[\] schema|Invalid prompt/.test(error.message)) {
+          const recent = sanitized
+            .slice(-3)
+            .map((message) => messageSummaryForError(message))
+            .join(' | ');
+          throw new Error(`Chat prompt validation failed after sanitization. Recent messages: ${recent}`, {
+            cause: error,
+          });
+        }
+        throw error;
+      }
     },
   } as TTransport;
 }

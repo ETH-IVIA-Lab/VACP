@@ -4,6 +4,7 @@ import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 
 import type { VacpChatScopeMeta } from './chat-scope';
+import { messageSyncSignature } from './message-sync-signature';
 
 const STORAGE_KEY = 'vacp:debug:chat:history:v1';
 const MAX_SCOPES = 30;
@@ -50,28 +51,6 @@ function inferThreadTitle(messages: UIMessage[], fallback = 'New chat'): string 
   return normalizeTitle(text, fallback);
 }
 
-function messageSyncSignature(messages: UIMessage[]): string {
-  return messages
-    .map((message) => {
-      const partSig = message.parts
-        .map((part) => {
-          if (part.type === 'text' && typeof part.text === 'string') return `text:${part.text}`;
-          if (part.type === 'reasoning' && typeof part.text === 'string') return `reasoning:${part.text}`;
-          if ('input' in part || 'output' in part) {
-            const input = 'input' in part ? JSON.stringify(part.input ?? null) : '';
-            const output = 'output' in part ? JSON.stringify(part.output ?? null) : '';
-            const state = 'state' in part ? String(part.state ?? '') : '';
-            return `${part.type}:${state}:${input}:${output}`;
-          }
-          return part.type;
-        })
-        .join(',');
-      const metadataSig = JSON.stringify(message.metadata ?? null);
-      return `${message.role}:${metadataSig}:${partSig}`;
-    })
-    .join('|');
-}
-
 function createThread(): VacpChatThread {
   const createdAt = nowIso();
   return {
@@ -79,6 +58,7 @@ function createThread(): VacpChatThread {
     title: 'New chat',
     createdAt,
     updatedAt: createdAt,
+    sessionRevision: 0,
     messages: [],
     toolEvents: [],
   };
@@ -154,6 +134,7 @@ export type VacpChatThread = {
   title: string;
   createdAt: string;
   updatedAt: string;
+  sessionRevision?: number;
   messages: UIMessage[];
   toolEvents: VacpAgentToolEvent[];
 };
@@ -308,6 +289,7 @@ export const useVacpChatStore = create<VacpChatStoreState>()(
             ...thread,
             title: thread.title || 'New chat',
             updatedAt: nowIso(),
+            sessionRevision: (thread.sessionRevision ?? 0) + 1,
             messages: [],
             toolEvents: [],
           };

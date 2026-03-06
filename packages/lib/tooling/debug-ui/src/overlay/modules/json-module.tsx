@@ -5,6 +5,7 @@ import { useMemo, useRef, useState } from 'react';
 
 import { VACP_APPLY_STATE_ACTION } from '@vacp/core';
 
+import { DEBUG_UI_PANEL_BREAKPOINTS, isDenseDebugPanel } from '@vacp/debug-ui/overlay/debug-ui-breakpoints';
 import { IconButton } from '@vacp/debug-ui/overlay/icon-button';
 import { useElementSize } from '@vacp/debug-ui/overlay/hooks/use-element-size';
 import { Card, CardDescription, CardHeader, CardTitle } from '@vacp/debug-ui/ui/components/ui/card';
@@ -48,9 +49,9 @@ function isStateUpdate(value: unknown): value is VacpStateUpdate {
 export function JsonModule(props: VacpDebugModuleProps): ReactElement {
   const rootRef = useRef<HTMLDivElement | null>(null);
   const rootSize = useElementSize(rootRef);
-  const showTwoCols = rootSize.width >= 760;
-  const compactControls = rootSize.width < 520;
-  const dense = rootSize.width < 520 || rootSize.height < 360;
+  const showTwoCols = rootSize.width >= DEBUG_UI_PANEL_BREAKPOINTS.splitPane;
+  const compactControls = rootSize.width < DEBUG_UI_PANEL_BREAKPOINTS.compactControls;
+  const dense = isDenseDebugPanel(rootSize.width, rootSize.height);
   const iconButtonSize = 'iconSm';
   const snapshotText = useMemo(() => safeJson(props.runtime.currentState), [props.runtime.currentState]);
   const [overrideText, setOverrideText] = useState<string>(() => safeJson(props.runtime.currentState.state));
@@ -178,8 +179,10 @@ export function JsonModule(props: VacpDebugModuleProps): ReactElement {
       <Card className={cn('flex min-h-0 flex-col overflow-hidden', dense && 'p-2')}>
         <CardHeader className={cn(compactControls && 'flex-col items-stretch gap-2')}>
           <div className="min-w-0">
-            <CardTitle>State snapshot</CardTitle>
-            <CardDescription>The current VACP state snapshot from the provider.</CardDescription>
+            <CardTitle>JSON</CardTitle>
+            <CardDescription>
+              Inspect the raw provider snapshot and request explicit state update envelopes.
+            </CardDescription>
           </div>
           <div
             className={cn(
@@ -207,7 +210,7 @@ export function JsonModule(props: VacpDebugModuleProps): ReactElement {
           data-vacp-state-update="panel"
         >
           <summary className="cursor-pointer select-none text-[12px] font-semibold text-slate-100/90">
-            State update probe
+            Update probe
           </summary>
           <div className="mt-3 space-y-3">
             <div
@@ -220,7 +223,7 @@ export function JsonModule(props: VacpDebugModuleProps): ReactElement {
                 Mode
                 <select
                   data-vacp-state-update="mode"
-                  className="mt-1 w-full rounded-lg border border-white/10 bg-white/5 px-2 py-2 text-xs text-slate-100 outline-none focus:ring-2 focus:ring-sky-400/40"
+                  className="mt-1 w-full rounded-xl border border-white/10 bg-slate-900/70 px-3 py-2.5 text-xs text-slate-100 outline-none focus:ring-2 focus:ring-sky-400/40"
                   value={requestMode ?? 'delta'}
                   onChange={(e) => setRequestMode(e.target.value as VacpStateRequest['mode'])}
                 >
@@ -358,10 +361,9 @@ export function JsonModule(props: VacpDebugModuleProps): ReactElement {
       <Card className={cn('flex min-h-0 flex-col overflow-hidden', dense && 'p-2')}>
         <CardHeader className={cn(compactControls && 'flex-col items-stretch gap-2')}>
           <div className="min-w-0">
-            <CardTitle>State edit</CardTitle>
+            <CardTitle>State controls</CardTitle>
             <CardDescription>
-              Apply state for inspection (override) or execute <code className={inlineCodeClass}>vacp.apply_state</code>
-              .
+              Edit a ref-keyed state map, apply it as an inspection override, or send it to the live app.
             </CardDescription>
           </div>
           <div

@@ -16,6 +16,24 @@ function toolPartName(part: UiPart): string {
   return part.type;
 }
 
+function previewValue(value: unknown): string | null {
+  if (value === null || value === undefined) return null;
+  if (typeof value === 'string') return value;
+  try {
+    return JSON.stringify(value);
+  } catch {
+    return String(value);
+  }
+}
+
+function toolSummary(part: UiPart): string | null {
+  if (!(part.type.startsWith('tool-') || part.type === 'dynamic-tool')) return null;
+  if ('errorText' in part && typeof part.errorText === 'string' && part.errorText.length) return part.errorText;
+  if ('output' in part) return previewValue(part.output);
+  if ('input' in part) return previewValue(part.input);
+  return null;
+}
+
 function renderPart(part: UiPart, idx: number, streaming: boolean): ReactElement | null {
   if (part.type === 'text' && 'text' in part) {
     return (
@@ -59,14 +77,17 @@ function renderPart(part: UiPart, idx: number, streaming: boolean): ReactElement
         className="rounded-lg border border-white/10 bg-black/20 px-2 py-2"
         data-vacp-chat-tool-details="1"
       >
-        <summary className="flex cursor-pointer list-none flex-wrap items-center gap-2 text-[11px] text-slate-100/85">
-          <span className="font-semibold text-slate-100/90">{name}</span>
-          {state ? (
-            <span className="rounded-full border border-white/15 bg-white/10 px-2 py-0.5 text-[10px] text-slate-100/75">
-              {state}
-            </span>
-          ) : null}
-          {callId ? <span className="text-[10px] text-slate-100/55 [overflow-wrap:anywhere]">{callId}</span> : null}
+        <summary className="grid cursor-pointer list-none gap-1 text-[11px] text-slate-100/85">
+          <div className="flex min-w-0 flex-wrap items-center gap-2">
+            <span className="font-semibold text-slate-100/90">{name}</span>
+            {state ? (
+              <span className="rounded-full border border-white/15 bg-white/10 px-2 py-0.5 text-[10px] text-slate-100/75">
+                {state}
+              </span>
+            ) : null}
+            {callId ? <span className="text-[10px] text-slate-100/55 [overflow-wrap:anywhere]">{callId}</span> : null}
+          </div>
+          {toolSummary(part) ? <div className="truncate text-[10px] text-slate-100/60">{toolSummary(part)}</div> : null}
         </summary>
         <div className="mt-2 grid gap-2">
           {input !== undefined ? (
@@ -118,10 +139,13 @@ export function ChatMessages(props: {
         data-vacp-chat-msgs="1"
         className="vacp-chat-scroll h-full overflow-y-auto overflow-x-hidden pr-1"
       >
-        <div className="flex min-h-0 flex-col gap-2">
+        <div className="mx-auto flex min-h-0 w-full max-w-4xl flex-col gap-3">
           {props.messages.length === 0 ? (
-            <div className="rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-[11px] text-slate-100/75">
-              Ask a question and the agent will inspect state, run actions, and explain what changed.
+            <div className="rounded-2xl border border-dashed border-white/15 bg-white/5 px-4 py-4 text-[12px] text-slate-100/75">
+              <div className="font-medium text-slate-100/85">Start with a concrete question.</div>
+              <div className="mt-1 text-pretty">
+                The agent can inspect capabilities, read state, execute exposed actions, and explain what changed.
+              </div>
             </div>
           ) : null}
 
@@ -131,20 +155,22 @@ export function ChatMessages(props: {
               <div
                 key={message.id}
                 data-vacp-chat-message-role={message.role}
-                className={cn(
-                  'rounded-lg border px-3 py-2',
-                  message.role === 'assistant'
-                    ? 'border-sky-300/25 bg-sky-500/10'
-                    : message.role === 'user'
-                      ? 'border-white/10 bg-white/5'
-                      : 'border-slate-300/15 bg-slate-800/40',
-                )}
+                className={cn('flex', message.role === 'user' ? 'justify-end' : 'justify-start')}
               >
-                <div className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-slate-100/65">
-                  {roleLabel}
-                </div>
-                <div className="grid gap-1.5">
-                  {message.parts.map((part, idx) => renderPart(part, idx, props.status === 'streaming'))}
+                <div
+                  className={cn(
+                    'w-full max-w-[min(100%,52rem)] rounded-2xl border px-4 py-3 shadow-sm',
+                    message.role === 'assistant'
+                      ? 'border-sky-300/20 bg-sky-500/10'
+                      : message.role === 'user'
+                        ? 'border-white/10 bg-white/5'
+                        : 'border-slate-300/15 bg-slate-800/40',
+                  )}
+                >
+                  <div className="mb-2 text-[10px] font-semibold uppercase text-slate-100/60">{roleLabel}</div>
+                  <div className="grid gap-2">
+                    {message.parts.map((part, idx) => renderPart(part, idx, props.status === 'streaming'))}
+                  </div>
                 </div>
               </div>
             );

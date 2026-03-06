@@ -96,3 +96,91 @@ test('wrapTransportWithVacpContextCompaction is a no-op when disabled', async ()
   });
   assert.equal(seen, messages);
 });
+
+test('wrapTransportWithVacpContextCompaction sanitizes recent tool payloads before transport send', async () => {
+  let seen: UIMessage[] = [];
+  const transport = {
+    sendMessages: async (options: any) => {
+      seen = options.messages;
+      return new ReadableStream();
+    },
+    reconnectToStream: async () => null,
+  };
+
+  const wrapped = wrapTransportWithVacpContextCompaction(transport, {
+    enabled: true,
+    maxTurns: 8,
+    preserveFullToolPayloadTurns: 2,
+    preserveReasoningTurns: 1,
+  });
+
+  const when = new Date('2026-03-05T12:34:56.000Z');
+  const messages: UIMessage[] = [
+    { id: 'u1', role: 'user', parts: [{ type: 'text', text: 'hello' }] },
+    {
+      id: 'a1',
+      role: 'assistant',
+      parts: [
+        {
+          type: 'tool-vacp_state',
+          toolCallId: 'state-1',
+          state: 'output-available',
+          input: { at: when, skip: undefined },
+          output: { values: [1, undefined, when] },
+        },
+      ],
+    },
+  ];
+
+  await wrapped.sendMessages({
+    trigger: 'submit-message',
+    chatId: 'chat-1',
+    messageId: undefined,
+    messages,
+    abortSignal: undefined,
+  });
+
+  const toolPart = seen[1]!.parts[0] as any;
+  assert.deepEqual(toolPart.input, { at: '2026-03-05T12:34:56.000Z' });
+  assert.deepEqual(toolPart.output, { values: [1, null, '2026-03-05T12:34:56.000Z'] });
+});
+
+test('wrapTransportWithVacpContextCompaction augments invalid prompt errors with recent message summaries', async () => {
+  const transport = {
+    sendMessages: async () => {
+      throw new Error('The messages do not match the ModelMessage[] schema.');
+    },
+    reconnectToStream: async () => null,
+  };
+
+  const wrapped = wrapTransportWithVacpContextCompaction(transport, { enabled: true });
+
+  await assert.rejects(
+    wrapped.sendMessages({
+      trigger: 'submit-message',
+      chatId: 'chat-1',
+      messageId: undefined,
+      abortSignal: undefined,
+      messages: [
+        { id: 'u1', role: 'user', parts: [{ type: 'text', text: 'hello' }] },
+        {
+          id: 'a1',
+          role: 'assistant',
+          parts: [
+            {
+              type: 'tool-vacp_state',
+              toolCallId: 'state-1',
+              state: 'output-available',
+              input: { value: 1 },
+              output: { value: 2 },
+            },
+          ],
+        },
+      ] satisfies UIMessage[],
+    }),
+    (error: unknown) =>
+      error instanceof Error &&
+      error.message.includes('Chat prompt validation failed after sanitization.') &&
+      error.message.includes('assistant:a1:tool-vacp_state'),
+  );
+});

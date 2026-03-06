@@ -3,6 +3,7 @@ import { ClipboardCopy, Play, RefreshCw } from 'lucide-react';
 import type { ReactElement } from 'react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 
+import { DEBUG_UI_PANEL_BREAKPOINTS, isDenseDebugPanel } from '@vacp/debug-ui/overlay/debug-ui-breakpoints';
 import { IconButton } from '@vacp/debug-ui/overlay/icon-button';
 import { useVacpDebugUiStore } from '@vacp/debug-ui/overlay/debug-store';
 import { useElementSize } from '@vacp/debug-ui/overlay/hooks/use-element-size';
@@ -20,8 +21,8 @@ import { useSqlNamespace } from './use-sql-namespace';
 export function DataModule(props: VacpDebugModuleProps): ReactElement {
   const rootRef = useRef<HTMLDivElement | null>(null);
   const rootSize = useElementSize(rootRef);
-  const compactControls = rootSize.width < 520;
-  const dense = rootSize.width < 520 || rootSize.height < 360;
+  const compactControls = rootSize.width < DEBUG_UI_PANEL_BREAKPOINTS.compactControls;
+  const dense = isDenseDebugPanel(rootSize.width, rootSize.height);
   const iconButtonSize = 'iconSm';
   const tableRowHeight = 30;
   const tableHeaderHeight = 34;
@@ -30,7 +31,7 @@ export function DataModule(props: VacpDebugModuleProps): ReactElement {
   const inlineCodeClass =
     'rounded-md border border-white/10 bg-slate-900/70 px-1.5 py-0.5 text-[11px] font-medium text-slate-100 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.02)]';
   const selectClass =
-    'mt-1 w-full rounded-lg border border-white/10 bg-white/5 px-2 py-2 text-xs text-slate-100 outline-none focus:ring-2 focus:ring-sky-400/40';
+    'mt-1 w-full rounded-xl border border-white/10 bg-slate-900/70 px-3 py-2.5 text-xs text-slate-100 outline-none focus:ring-2 focus:ring-sky-400/40';
 
   const handles = useMemo(() => {
     const nodes = props.runtime.currentCapabilities.graph.nodes as VacpNode[];
@@ -167,9 +168,9 @@ export function DataModule(props: VacpDebugModuleProps): ReactElement {
       <Card className={cn('flex flex-col', dense ? 'gap-2 p-2' : 'gap-3')}>
         <CardHeader className={cn(compactControls && 'flex-col items-stretch gap-2')}>
           <div className="min-w-0">
-            <CardTitle>DuckDB SQL</CardTitle>
+            <CardTitle>Data</CardTitle>
             <CardDescription>
-              Query the currently selected handle with <code className={inlineCodeClass}>vacp.data_sql</code>.
+              Query the currently selected handle with DuckDB SQL and inspect the resolved query and result payload.
             </CardDescription>
           </div>
           <div
@@ -258,7 +259,8 @@ export function DataModule(props: VacpDebugModuleProps): ReactElement {
             <CardDescription>
               {selectedHandle ? (
                 <>
-                  Target: <code className={inlineCodeClass}>{selectedHandleTitle ?? shortRef(selectedHandle)}</code>{' '}
+                  Active handle:{' '}
+                  <code className={inlineCodeClass}>{selectedHandleTitle ?? shortRef(selectedHandle)}</code>{' '}
                   <span className="text-slate-100/60">({shortRef(selectedHandle)})</span>
                 </>
               ) : handles.length ? (

@@ -4,6 +4,7 @@ import type { ReactElement } from 'react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { IconButton } from '@vacp/debug-ui/overlay/icon-button';
+import { DEBUG_UI_PANEL_BREAKPOINTS, isDenseDebugPanel } from '@vacp/debug-ui/overlay/debug-ui-breakpoints';
 import { useElementSize } from '@vacp/debug-ui/overlay/hooks/use-element-size';
 import { Card, CardDescription, CardHeader, CardTitle } from '@vacp/debug-ui/ui/components/ui/card';
 import { Input } from '@vacp/debug-ui/ui/components/ui/input';
@@ -32,9 +33,9 @@ function parseJson(text: string): unknown {
 export function ActionsModule(props: VacpDebugModuleProps): ReactElement {
   const rootRef = useRef<HTMLDivElement | null>(null);
   const rootSize = useElementSize(rootRef);
-  const showTwoCols = rootSize.width >= 980;
-  const compactControls = rootSize.width < 520;
-  const dense = rootSize.width < 520 || rootSize.height < 360;
+  const showTwoCols = rootSize.width >= DEBUG_UI_PANEL_BREAKPOINTS.splitPane;
+  const compactControls = rootSize.width < DEBUG_UI_PANEL_BREAKPOINTS.compactControls;
+  const dense = isDenseDebugPanel(rootSize.width, rootSize.height);
   const iconButtonSize = 'iconSm';
   const actions = props.runtime.currentCapabilities.graph.actions ?? [];
   const [filter, setFilter] = useState('');
@@ -108,7 +109,9 @@ export function ActionsModule(props: VacpDebugModuleProps): ReactElement {
         <CardHeader className={cn(compactControls && 'flex-col items-stretch gap-2')}>
           <div className="min-w-0">
             <CardTitle>Actions</CardTitle>
-            <CardDescription>Dispatch semantic actions (human/agent parity).</CardDescription>
+            <CardDescription>
+              Browse the semantic action surface and execute the current selection with explicit JSON params.
+            </CardDescription>
           </div>
           <div
             className={cn(
@@ -137,7 +140,7 @@ export function ActionsModule(props: VacpDebugModuleProps): ReactElement {
             className="mt-1"
             value={filter}
             onChange={(e) => setFilter(e.target.value)}
-            placeholder="Search…"
+            placeholder="Search actions by name or description"
           />
         </div>
 
@@ -180,7 +183,9 @@ export function ActionsModule(props: VacpDebugModuleProps): ReactElement {
         <CardHeader className={cn(compactControls && 'flex-col items-stretch gap-2')}>
           <div className="min-w-0">
             <CardTitle>{selected ? selected.name : 'Select an action'}</CardTitle>
-            <CardDescription>{selected?.description ?? ''}</CardDescription>
+            <CardDescription>
+              {selected?.description ?? 'Choose an action from the list to inspect its parameters and latest result.'}
+            </CardDescription>
           </div>
           <div
             className={cn(

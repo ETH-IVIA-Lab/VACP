@@ -3,6 +3,7 @@ import { FastForward, PanelRightClose, PanelRightOpen, Play, RotateCcw, StepBack
 import type { ReactElement } from 'react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 
+import { DEBUG_UI_PANEL_BREAKPOINTS, isDenseDebugPanel } from '@vacp/debug-ui/overlay/debug-ui-breakpoints';
 import { IconButton } from '@vacp/debug-ui/overlay/icon-button';
 import { useVacpDebugUiStore } from '@vacp/debug-ui/overlay/debug-store';
 import { useElementSize } from '@vacp/debug-ui/overlay/hooks/use-element-size';
@@ -16,9 +17,9 @@ import type { VacpDebugModuleProps } from './module-types';
 export function PlaybookModule(props: VacpDebugModuleProps): ReactElement {
   const rootRef = useRef<HTMLDivElement | null>(null);
   const rootSize = useElementSize(rootRef);
-  const showSideBySide = rootSize.width >= 900;
-  const compactControls = rootSize.width < 640;
-  const dense = rootSize.width < 520 || rootSize.height < 360;
+  const showSideBySide = rootSize.width >= DEBUG_UI_PANEL_BREAKPOINTS.splitPane;
+  const compactControls = rootSize.width < DEBUG_UI_PANEL_BREAKPOINTS.compactControls;
+  const dense = isDenseDebugPanel(rootSize.width, rootSize.height);
   const iconButtonSize = 'iconSm';
   const playbooks = props.playbooks ?? [];
   const [playbookId, setPlaybookId] = useState<string>(playbooks[0]?.id ?? '');
@@ -64,12 +65,12 @@ export function PlaybookModule(props: VacpDebugModuleProps): ReactElement {
           <CardHeader>
             <div className="min-w-0">
               <CardTitle>Playbook</CardTitle>
-              <CardDescription>No playbooks were provided for this view/spec.</CardDescription>
+              <CardDescription>No guided playbook is available for this view.</CardDescription>
             </div>
           </CardHeader>
           <div className="mt-3 rounded-lg border border-white/10 bg-black/20 p-3 text-[12px] leading-5 text-slate-100/80">
-            This is expected for some examples. Try switching specs (in the host app) or use the other modules to
-            explore the bridge.
+            Use the other tabs to inspect the runtime directly, or switch the host view if you need a playbook-enabled
+            example.
           </div>
         </Card>
         {effectiveDetailsOpen ? (
@@ -149,7 +150,7 @@ export function PlaybookModule(props: VacpDebugModuleProps): ReactElement {
           <div className="min-w-0">
             <CardTitle>Playbook</CardTitle>
             <CardDescription>
-              Step through a guided sequence that demonstrates bidirectional interaction.
+              Step through a guided sequence and inspect each call/result without leaving the overlay.
             </CardDescription>
           </div>
           <div
@@ -220,7 +221,7 @@ export function PlaybookModule(props: VacpDebugModuleProps): ReactElement {
             </label>
             <select
               id="vacp-playbook"
-              className="mt-1 w-full rounded-lg border border-white/10 bg-white/5 px-2 py-2 text-xs text-slate-100 outline-none focus:ring-2 focus:ring-sky-400/40"
+              className="mt-1 w-full rounded-xl border border-white/10 bg-slate-900/70 px-3 py-2.5 text-xs text-slate-100 outline-none focus:ring-2 focus:ring-sky-400/40"
               value={selected?.id ?? ''}
               onChange={(e) => setPlaybookId(e.target.value)}
             >
@@ -232,16 +233,16 @@ export function PlaybookModule(props: VacpDebugModuleProps): ReactElement {
             </select>
           </div>
           <div className="rounded-lg border border-white/10 bg-black/20 px-3 py-2 text-[11px] text-slate-100/80">
-            <div className="font-semibold text-slate-100/90">Current step</div>
+            <div className="font-semibold text-slate-100/90">Next step</div>
             <div className="mt-1">
               {Math.min(stepIndex + 1, Math.max(1, steps.length))} / {Math.max(1, steps.length)} •{' '}
               <span className="font-medium text-slate-100/90">{nextStep?.title ?? '(done)'}</span>
             </div>
             {nextStep ? (
               nextStep.call ? (
-                <div className="mt-1 text-slate-100/70">This step will dispatch an action.</div>
+                <div className="mt-1 text-slate-100/70">This step executes a playbook action.</div>
               ) : (
-                <div className="mt-1 text-slate-100/70">This step is informational.</div>
+                <div className="mt-1 text-slate-100/70">This step is informational only.</div>
               )
             ) : (
               <div className="mt-1 text-slate-100/70">All steps complete.</div>

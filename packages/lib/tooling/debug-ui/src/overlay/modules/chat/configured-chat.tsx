@@ -9,7 +9,7 @@ import {
   type VacpLLMConfig,
   type VacpTokenUsage,
 } from '@vacp/agent-client';
-import { AlertTriangle, Loader2, RefreshCw, Send, Square } from 'lucide-react';
+import { AlertTriangle, Loader2, RefreshCw, Send, Square, X } from 'lucide-react';
 import type { ReactElement } from 'react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 
@@ -22,12 +22,13 @@ import type { VacpDebugModuleProps } from '../module-types';
 import { ChatActivityLog } from './chat-activity-log';
 import { ChatMessages } from './chat-messages';
 import { createVacpChatSessionCacheKey, getOrCreateVacpChatSession } from './chat-session-registry';
+import { messageSyncSignature } from './message-sync-signature';
 import { useChatAutoscroll } from './use-chat-autoscroll';
 
 const DEFAULT_POLICY: VacpAgentInteractionPolicy = {
   requireUiDemonstration: true,
-  minExecuteCallsPerTurn: 3,
-  minToolCallsPerTurn: 3,
+  minExecuteCallsPerTurn: 0,
+  minToolCallsPerTurn: 2,
 };
 
 function latestTextLength(messages: UIMessage[]): number {
@@ -40,33 +41,16 @@ function latestTextLength(messages: UIMessage[]): number {
   return 0;
 }
 
-function assistantIncludesExecuteStep(message: UIMessage | undefined): boolean {
-  if (!message || message.role !== 'assistant') return false;
-  return message.parts.some(
-    (part) => part.type === 'tool-vacp_execute' || (part.type === 'dynamic-tool' && part.toolName === 'vacp_execute'),
-  );
+function assistantToolCallCount(message: UIMessage | undefined): number {
+  if (!message || message.role !== 'assistant') return 0;
+  return message.parts.filter((part) => part.type.startsWith('tool-') || part.type === 'dynamic-tool').length;
 }
 
-function messageSyncSignature(messages: UIMessage[]): string {
-  return messages
-    .map((message) => {
-      const partSig = message.parts
-        .map((part) => {
-          if (part.type === 'text' && 'text' in part) return `text:${part.text}`;
-          if (part.type === 'reasoning' && 'text' in part) return `reasoning:${part.text}`;
-          if ('input' in part || 'output' in part) {
-            const input = 'input' in part ? JSON.stringify(part.input ?? null) : '';
-            const output = 'output' in part ? JSON.stringify(part.output ?? null) : '';
-            const state = 'state' in part ? String(part.state ?? '') : '';
-            return `${part.type}:${state}:${input}:${output}`;
-          }
-          return part.type;
-        })
-        .join(',');
-      const metadataSig = JSON.stringify(message.metadata ?? null);
-      return `${message.role}:${metadataSig}:${partSig}`;
-    })
-    .join('|');
+function assistantExecuteCallCount(message: UIMessage | undefined): number {
+  if (!message || message.role !== 'assistant') return 0;
+  return message.parts.filter(
+    (part) => part.type === 'tool-vacp_execute' || (part.type === 'dynamic-tool' && part.toolName === 'vacp_execute'),
+  ).length;
 }
 
 function normalizeTokenCount(value: unknown): number | undefined {
@@ -195,6 +179,8 @@ type ConfiguredChatProps = {
   runtimeId: string | undefined;
   scopeId: string;
   threadId: string;
+  sessionRevision?: number;
+  panelWidth: number;
   config: VacpLLMConfig;
   initialMessages: UIMessage[];
   toolEvents: VacpAgentToolEvent[];
@@ -203,6 +189,7 @@ type ConfiguredChatProps = {
   onMessagesChange: (messages: UIMessage[]) => void;
   onToolEvent: (event: VacpAgentToolEvent) => void;
   onRegenerate: () => void;
+  onCloseActivity: () => void;
   showActivity: boolean;
   wide: boolean;
 };
@@ -225,10 +212,11 @@ export function ConfiguredChat(props: ConfiguredChatProps): ReactElement {
       createVacpChatSessionCacheKey({
         scopeId: props.scopeId,
         threadId: props.threadId,
+        sessionRevision: props.sessionRevision,
         runtimeId: props.runtimeId,
         config: props.config,
       }),
-    [props.scopeId, props.threadId, props.runtimeId, props.config],
+    [props.scopeId, props.threadId, props.sessionRevision, props.runtimeId, props.config],
   );
 
   const chat = useMemo(
@@ -249,11 +237,14 @@ export function ConfiguredChat(props: ConfiguredChatProps): ReactElement {
   const lastUsage = useMemo(() => latestAssistantUsage(uiMessages), [uiMessages]);
   const totalUsage = useMemo(() => threadUsage(uiMessages), [uiMessages]);
   const busy = status === 'submitted' || status === 'streaming';
+  const showInlineActivity = props.showActivity && props.panelWidth >= 1120;
+  const showActivitySheet = props.showActivity && props.panelWidth < 1120;
   const autoScrollSignal = `${status}:${uiMessages.length}:${latestTextLength(uiMessages)}`;
   const { scrollRef, anchorRef, stickToBottom, jumpToLatest } = useChatAutoscroll(autoScrollSignal);
   const [policyNotice, setPolicyNotice] = useState<string | null>(null);
   const onMessagesChangeRef = useRef(props.onMessagesChange);
   const lastSyncedSignatureRef = useRef<string>('');
+  const submitLockRef = useRef(false);
 
   useEffect(() => {
     onMessagesChangeRef.current = props.onMessagesChange;
@@ -267,22 +258,42 @@ export function ConfiguredChat(props: ConfiguredChatProps): ReactElement {
   }, [uiMessages]);
 
   useEffect(() => {
+    if (status === 'submitted' || status === 'streaming') {
+      submitLockRef.current = true;
+      return;
+    }
+    submitLockRef.current = false;
+  }, [status]);
+
+  useEffect(() => {
     if (status !== 'ready') return;
     const lastAssistant = [...uiMessages].reverse().find((message) => message.role === 'assistant');
     if (!lastAssistant) return;
-    if (!assistantIncludesExecuteStep(lastAssistant)) {
+    const minExecutes = DEFAULT_POLICY.minExecuteCallsPerTurn ?? 0;
+    const minToolCalls = DEFAULT_POLICY.minToolCallsPerTurn ?? 0;
+    if (minExecutes > 0 && assistantExecuteCallCount(lastAssistant) < minExecutes) {
       setPolicyNotice('Ask the agent to demonstrate through UI actions for a more traceable answer.');
+      return;
+    }
+    if (minToolCalls > 0 && assistantToolCallCount(lastAssistant) < minToolCalls) {
+      setPolicyNotice('Ask the agent to ground the answer with more tool-backed evidence.');
       return;
     }
     setPolicyNotice(null);
   }, [status, uiMessages]);
 
   const submit = async () => {
+    if (busy || submitLockRef.current) return;
     const text = props.draft.trim();
     if (!text) return;
+    submitLockRef.current = true;
     clearError();
-    await sendMessage({ text });
-    props.onDraftChange('');
+    try {
+      await sendMessage({ text });
+      props.onDraftChange('');
+    } catch {
+      submitLockRef.current = false;
+    }
   };
 
   const statusLabel =
@@ -293,12 +304,16 @@ export function ConfiguredChat(props: ConfiguredChatProps): ReactElement {
         : status === 'error'
           ? 'Error'
           : 'Ready';
+  const threadSummary =
+    uiMessages.length === 0
+      ? 'Ask about the active visualization and the agent will ground its answer with tool-backed evidence.'
+      : `${uiMessages.length} message${uiMessages.length === 1 ? '' : 's'} in the active thread.`;
 
   return (
     <div
       className={cn(
-        'grid h-full min-h-0 gap-3 overflow-hidden',
-        props.showActivity && props.wide ? 'grid-cols-[minmax(0,1fr)_minmax(280px,336px)]' : 'grid-cols-1',
+        'relative grid h-full min-h-0 gap-4 overflow-hidden',
+        showInlineActivity ? 'grid-cols-[minmax(0,1fr)_minmax(320px,380px)]' : 'grid-cols-1',
       )}
     >
       <div className="flex min-h-0 flex-col gap-3">
@@ -317,24 +332,64 @@ export function ConfiguredChat(props: ConfiguredChatProps): ReactElement {
           </div>
         ) : null}
 
-        <div className="flex min-h-0 flex-1 flex-col gap-2 rounded-xl border border-white/10 bg-slate-950/35 p-2">
-          <ChatMessages
-            messages={uiMessages}
-            status={status}
-            scrollRef={scrollRef}
-            anchorRef={anchorRef}
-            showJumpToLatest={!stickToBottom}
-            onJumpToLatest={() => jumpToLatest()}
-          />
+        <section className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border border-white/10 bg-slate-950/35">
+          <div className="flex flex-wrap items-start gap-3 border-b border-white/10 px-4 py-3">
+            <div className="min-w-0 flex-1">
+              <div className="text-[11px] font-semibold uppercase text-slate-100/70">Conversation</div>
+              <div className="mt-1 text-pretty text-[11px] text-slate-100/62">{threadSummary}</div>
+            </div>
+            <div className="flex flex-wrap items-center gap-1.5">
+              <TokenUsageBadge
+                label="Last"
+                usage={lastUsage}
+                dataAttribute="data-vacp-chat-token-last"
+                align="center"
+              />
+              <TokenUsageBadge
+                label="Thread"
+                usage={totalUsage}
+                dataAttribute="data-vacp-chat-token-thread"
+                align="center"
+              />
+              <div className="inline-flex items-center gap-1 rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[10px] text-slate-100/70">
+                {busy ? <Loader2 className="h-3 w-3 animate-spin" /> : null}
+                <span data-vacp-chat-status="1">{statusLabel}</span>
+              </div>
+            </div>
+          </div>
 
-          <div className="rounded-lg border border-white/10 bg-black/25 p-2">
+          <div className="min-h-0 flex-1 px-3 py-3">
+            <ChatMessages
+              messages={uiMessages}
+              status={status}
+              scrollRef={scrollRef}
+              anchorRef={anchorRef}
+              showJumpToLatest={!stickToBottom}
+              onJumpToLatest={() => jumpToLatest()}
+            />
+          </div>
+
+          <div className="border-t border-white/10 px-3 py-3">
+            <div className="mb-3 flex flex-wrap items-center gap-2 rounded-xl border border-white/10 bg-black/20 px-3 py-2 text-[11px] text-slate-100/62">
+              <div className="min-w-0 flex-1 text-pretty">
+                {busy
+                  ? 'The agent is still working through the current turn.'
+                  : 'Press Enter to send or Shift+Enter for a newline.'}
+              </div>
+              {showActivitySheet ? (
+                <Button size="sm" aria-label="Hide activity" title="Hide activity" onClick={props.onCloseActivity}>
+                  Hide activity
+                </Button>
+              ) : null}
+            </div>
+
             <label htmlFor="vacp-chat-input" className="sr-only">
               Chat input
             </label>
             <Textarea
               id="vacp-chat-input"
               data-vacp-chat-input="1"
-              className="min-h-[86px] w-full overflow-x-hidden whitespace-pre-wrap break-words [overflow-wrap:anywhere]"
+              className="min-h-[112px] w-full overflow-x-hidden whitespace-pre-wrap break-words [overflow-wrap:anywhere]"
               wrap="soft"
               value={props.draft}
               onChange={(e) => props.onDraftChange(e.target.value)}
@@ -345,7 +400,7 @@ export function ConfiguredChat(props: ConfiguredChatProps): ReactElement {
               }}
               placeholder="Ask about the active visualization..."
             />
-            <div className="mt-2 flex flex-wrap items-center gap-2">
+            <div className="mt-3 flex flex-wrap items-center gap-2">
               <Button
                 variant="primary"
                 size="sm"
@@ -386,34 +441,32 @@ export function ConfiguredChat(props: ConfiguredChatProps): ReactElement {
                 <RefreshCw className="h-3.5 w-3.5 text-slate-100/90" />
                 Regenerate
               </Button>
-              <div className="flex min-w-0 flex-wrap items-center gap-1.5 max-sm:w-full sm:ml-auto sm:justify-end">
-                <TokenUsageBadge
-                  label="Last"
-                  usage={lastUsage}
-                  dataAttribute="data-vacp-chat-token-last"
-                  align="center"
-                />
-                <TokenUsageBadge
-                  label="Thread"
-                  usage={totalUsage}
-                  dataAttribute="data-vacp-chat-token-thread"
-                  align="center"
-                />
-                <div className="inline-flex items-center gap-1 rounded-full border border-white/10 bg-white/5 px-2 py-1 text-[10px] text-slate-100/70">
-                  {busy ? <Loader2 className="h-3 w-3 animate-spin" /> : null}
-                  <span data-vacp-chat-status="1">{statusLabel}</span>
-                </div>
-              </div>
             </div>
           </div>
-        </div>
+        </section>
       </div>
 
-      {props.showActivity ? (
-        <ChatActivityLog
-          events={props.toolEvents}
-          className={cn('min-h-0', props.wide ? 'h-full' : 'h-[240px] overflow-hidden')}
-        />
+      {showInlineActivity ? <ChatActivityLog events={props.toolEvents} className="min-h-0 h-full" /> : null}
+
+      {showActivitySheet ? (
+        <div
+          data-vacp-chat-activity-sheet="1"
+          className={cn(
+            'absolute z-20 overflow-hidden rounded-2xl border border-white/10 bg-slate-950/95 shadow-[0_18px_38px_rgba(0,0,0,0.42)] backdrop-blur-sm',
+            props.panelWidth < 720 ? 'inset-0' : 'right-0 top-0 h-full w-[min(360px,calc(100%-16px))]',
+          )}
+        >
+          <div className="flex items-center justify-between border-b border-white/10 px-3 py-2">
+            <div className="text-[11px] font-semibold uppercase text-slate-100/70">Activity</div>
+            <Button size="iconSm" aria-label="Close activity" title="Close activity" onClick={props.onCloseActivity}>
+              <X className="h-3.5 w-3.5 text-slate-100/90" />
+            </Button>
+          </div>
+          <ChatActivityLog
+            events={props.toolEvents}
+            className="h-[calc(100%-44px)] rounded-none border-0 bg-transparent p-3"
+          />
+        </div>
       ) : null}
     </div>
   );

@@ -143,7 +143,7 @@ export function DebugUiView(props: {
         <button
           ref={props.buttonRef}
           type="button"
-          className="vacp-debug-ui-button inline-flex select-none items-center gap-2 rounded-full border border-white/20 bg-slate-950 px-3 py-2 text-xs font-medium text-slate-100 shadow-[0_8px_24px_rgba(0,0,0,0.25)] cursor-grab active:cursor-grabbing focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/60"
+          className="vacp-debug-ui-button inline-flex select-none items-center gap-2 rounded-full border border-white/15 bg-slate-950/95 px-3 py-2 text-xs font-medium text-slate-100 shadow-[0_12px_28px_rgba(0,0,0,0.28)] cursor-grab active:cursor-grabbing focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/60"
           data-bridge={props.bridgeStatus}
           title={props.pillTitle}
           onClick={() => props.setOpen(!props.open)}
@@ -156,7 +156,7 @@ export function DebugUiView(props: {
       <div
         id="vacp-debug-ui-panel"
         className={cn(
-          'vacp-debug-ui-panel fixed z-[2147483001] grid h-[min(680px,calc(100vh-92px))] w-[min(980px,calc(100vw-28px))] overflow-hidden rounded-xl border border-white/20 bg-slate-950 text-slate-100 shadow-[0_16px_40px_rgba(0,0,0,0.35)]',
+          'vacp-debug-ui-panel fixed z-[2147483001] grid h-[min(680px,calc(100vh-92px))] w-[min(980px,calc(100vw-28px))] overflow-hidden rounded-2xl border border-white/15 bg-slate-950 text-slate-100 shadow-[0_20px_48px_rgba(0,0,0,0.38)]',
           'grid-rows-[auto_minmax(0,1fr)]',
           props.densePanel && 'vacp-debug-ui-dense',
         )}
@@ -173,7 +173,7 @@ export function DebugUiView(props: {
           className={cn(
             'vacp-debug-ui-topbar',
             'flex h-11 items-center gap-3 border-b border-white/10',
-            'bg-gradient-to-b from-slate-950/90 to-slate-950',
+            'bg-slate-950/98',
             'px-3 py-2',
           )}
         >
@@ -232,9 +232,9 @@ export function DebugUiView(props: {
           </div>
 
           <div id={props.titleId} className="min-w-0 flex-1">
-            <div className="vacp-debug-ui-title truncate text-xs text-slate-100/85">{props.title}</div>
+            <div className="vacp-debug-ui-title truncate text-xs font-medium text-slate-100/88">{props.title}</div>
             {props.meta ? (
-              <div className="vacp-debug-ui-meta truncate text-[10px] text-slate-100/55 [font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,'Liberation_Mono','Courier_New',monospace]">
+              <div className="vacp-debug-ui-meta truncate text-[10px] text-slate-100/52 [font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,'Liberation_Mono','Courier_New',monospace]">
                 {props.meta}
               </div>
             ) : null}
@@ -254,7 +254,7 @@ export function DebugUiView(props: {
         >
           <nav
             className={cn(
-              'min-h-0 max-w-full bg-white/5',
+              'min-h-0 max-w-full bg-slate-950/55',
               props.densePanel ? 'p-1.5' : 'p-2',
               props.compactPanel
                 ? 'overflow-x-auto border-b border-white/10'
@@ -279,7 +279,7 @@ export function DebugUiView(props: {
 
           <div
             className={cn(
-              'vacp-debug-ui-content min-h-0 min-w-0 overflow-hidden bg-slate-950',
+              'vacp-debug-ui-content min-h-0 min-w-0 overflow-hidden bg-slate-950/98',
               props.densePanel ? 'p-2' : 'p-3',
             )}
           >

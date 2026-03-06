@@ -15,6 +15,7 @@ import type { VacpDiagramRenderOptions } from '@vacp/diagrams';
 import { renderVacpDiagramMermaid } from '@vacp/diagrams';
 
 import { renderMermaidToHost } from '@vacp/debug-ui/mermaid-renderer';
+import { DEBUG_UI_PANEL_BREAKPOINTS, isDenseDebugPanel } from '@vacp/debug-ui/overlay/debug-ui-breakpoints';
 import { useVacpDebugUiStore } from '@vacp/debug-ui/overlay/debug-store';
 import { IconButton } from '@vacp/debug-ui/overlay/icon-button';
 import { useElementSize } from '@vacp/debug-ui/overlay/hooks/use-element-size';
@@ -116,14 +117,14 @@ function buildInspectorValue(runtime: VacpRuntimeSnapshot, sel: SelectedGraphIte
 export function GraphModule(props: VacpDebugModuleProps): ReactElement {
   const rootRef = useRef<HTMLDivElement | null>(null);
   const rootSize = useElementSize(rootRef);
-  const compactControls = rootSize.width < 520;
-  const dense = rootSize.width < 520 || rootSize.height < 360;
+  const compactControls = rootSize.width < DEBUG_UI_PANEL_BREAKPOINTS.compactControls;
+  const dense = isDenseDebugPanel(rootSize.width, rootSize.height);
   const iconButtonSize = 'iconSm';
   const includeActionsDefault = useVacpDebugUiStore((s) => s.includeActionsDefault);
   const inspectOpen = useVacpDebugUiStore((s) => s.graphInspectOpen);
   const setInspectOpen = useVacpDebugUiStore((s) => s.setGraphInspectOpen);
   const effectiveInspectOpen = inspectOpen && !dense;
-  const showSideBySide = effectiveInspectOpen && rootSize.width >= 900;
+  const showSideBySide = effectiveInspectOpen && rootSize.width >= DEBUG_UI_PANEL_BREAKPOINTS.splitPane;
   const [options, setOptions] = useState<Required<Pick<VacpDiagramRenderOptions, 'direction' | 'includeActions'>>>({
     direction: 'LR',
     includeActions: includeActionsDefault,

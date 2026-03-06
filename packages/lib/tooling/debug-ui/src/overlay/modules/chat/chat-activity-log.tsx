@@ -23,7 +23,7 @@ export function ChatActivityLog(props: { events: VacpAgentToolEvent[]; className
     >
       <div className="min-w-0">
         <div className="text-[11px] font-semibold uppercase text-slate-100/70">Tool calls</div>
-        <div className="mt-1 text-[11px] text-slate-100/65">Execution trace for the active thread.</div>
+        <div className="mt-1 text-pretty text-[11px] text-slate-100/65">Execution trace for the active thread.</div>
       </div>
 
       <div
