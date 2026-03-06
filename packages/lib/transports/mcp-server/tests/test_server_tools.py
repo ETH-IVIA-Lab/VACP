@@ -109,6 +109,16 @@ async def test_vacp_capabilities_forwards_scoping_options() -> None:
 
 
 @pytest.mark.asyncio
+async def test_vacp_capabilities_normalizes_bare_root_scope() -> None:
+    client = _FakeClient()
+    mcp = create_mcp(client)
+    tool = await mcp.get_tool('vacp_capabilities')
+    assert isinstance(tool, FunctionTool)
+    await tool.fn(options={'refs': ['vacp://'], 'prefixes': ['vacp://'], 'includeNodeData': False})
+    assert client.last_capabilities_request == {'includeNodeData': False}
+
+
+@pytest.mark.asyncio
 @pytest.mark.parametrize(
     'options',
     [
@@ -159,6 +169,16 @@ async def test_vacp_state_forwards_options_for_delta_requests() -> None:
         'refs': ['vacp://a', 'vacp://b'],
         'includeSummary': False,
     }
+
+
+@pytest.mark.asyncio
+async def test_vacp_state_normalizes_bare_root_scope() -> None:
+    client = _FakeClient()
+    mcp = create_mcp(client)
+    tool = await mcp.get_tool('vacp_state')
+    assert isinstance(tool, FunctionTool)
+    await tool.fn(options={'mode': 'full', 'refs': ['vacp://'], 'includeSummary': True})
+    assert client.last_state_request == {'mode': 'full', 'includeSummary': True}
 
 
 @pytest.mark.asyncio

@@ -16,17 +16,97 @@ async function ensureLiveMode(bridge: VacpBridgeLike) {
   }
 }
 
+function capabilitiesAreEmpty(snapshot: Awaited<ReturnType<VacpTransportContract['vacp_capabilities']>>): boolean {
+  return snapshot.graph.nodes.length === 0 && snapshot.graph.actions.length === 0;
+}
+
+function stateIsEmpty(snapshot: Awaited<ReturnType<VacpTransportContract['vacp_state']>>): boolean {
+  if ('snapshot' in snapshot && snapshot.snapshot && typeof snapshot.snapshot === 'object') {
+    return Object.keys(snapshot.snapshot.state ?? {}).length === 0;
+  }
+  if ('state' in snapshot && snapshot.state && typeof snapshot.state === 'object') {
+    return Object.keys(snapshot.state ?? {}).length === 0;
+  }
+  return true;
+}
+
+async function pause(ms: number) {
+  await new Promise((resolve) => globalThis.setTimeout(resolve, ms));
+}
+
+async function waitForRuntimeReadiness(bridge: VacpBridgeLike, timeoutMs = 8_000) {
+  if (typeof bridge.getRuntime !== 'function') return;
+  const startedAt = Date.now();
+  while (Date.now() - startedAt < timeoutMs) {
+    try {
+      const runtime = await bridge.getRuntime();
+      const nodeCount = runtime.currentCapabilities?.graph?.nodes?.length ?? 0;
+      const actionCount = runtime.currentCapabilities?.graph?.actions?.length ?? 0;
+      const stateCount = Object.keys(runtime.currentState?.state ?? {}).length;
+      if (nodeCount > 0 || actionCount > 0 || stateCount > 0) return;
+    } catch {
+      return;
+    }
+    await pause(500);
+  }
+}
+
+async function getCapabilitiesWithRefreshFallback(
+  bridge: VacpBridgeLike,
+  options: Parameters<VacpTransportContract['vacp_capabilities']>[0],
+) {
+  const read = async () => (!options ? await bridge.getCapabilities() : await bridge.getCapabilities(options));
+  const initial = await read();
+  if (!capabilitiesAreEmpty(initial)) {
+    return initial;
+  }
+  await waitForRuntimeReadiness(bridge);
+  let latest = initial;
+  for (let attempt = 0; attempt < 6; attempt += 1) {
+    try {
+      if (typeof bridge.refresh === 'function') {
+        await bridge.refresh({ source: 'agent', message: 'auto:refresh for capabilities' });
+      }
+      await pause(500);
+      latest = await read();
+      if (!capabilitiesAreEmpty(latest)) return latest;
+    } catch {
+      return latest;
+    }
+  }
+  return latest;
+}
+
+async function getStateWithRefreshFallback(
+  bridge: VacpBridgeLike,
+  options: Parameters<VacpTransportContract['vacp_state']>[0],
+) {
+  const read = async () => (!options ? await bridge.getState() : await bridge.getState(options));
+  const initial = await read();
+  if (!stateIsEmpty(initial)) return initial;
+
+  await waitForRuntimeReadiness(bridge);
+  let latest = initial;
+  for (let attempt = 0; attempt < 6; attempt += 1) {
+    try {
+      if (typeof bridge.refresh === 'function') {
+        await bridge.refresh({ source: 'agent', message: 'auto:refresh for state' });
+      }
+      await pause(500);
+      latest = await read();
+      if (!stateIsEmpty(latest)) return latest;
+    } catch {
+      return latest;
+    }
+  }
+  return latest;
+}
+
 export function createWindowVacpTransport(bridge: VacpBridgeLike): VacpTransportContract {
   return {
-    vacp_capabilities: async (options) => {
-      if (!options) return await bridge.getCapabilities();
-      return await bridge.getCapabilities(options);
-    },
+    vacp_capabilities: async (options) => await getCapabilitiesWithRefreshFallback(bridge, options),
 
-    vacp_state: async (options) => {
-      if (!options) return await bridge.getState();
-      return await bridge.getState(options);
-    },
+    vacp_state: async (options) => await getStateWithRefreshFallback(bridge, options),
 
     vacp_execute: async (name, params, call_id) => {
       const action = name?.trim();

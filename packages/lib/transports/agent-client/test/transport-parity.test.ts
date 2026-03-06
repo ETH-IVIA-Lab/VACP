@@ -81,6 +81,46 @@ test('createWindowVacpTransport execute uses dispatch and preserves MCP-style en
   });
 });
 
+test('createWindowVacpTransport retries empty capabilities/state after refresh', async () => {
+  let capabilityCalls = 0;
+  let stateCalls = 0;
+  let refreshCalls = 0;
+  const bridge = {
+    getCapabilities: async () => {
+      capabilityCalls += 1;
+      if (capabilityCalls === 1) {
+        return { createdAt: '', version: '1.0.0', graph: { nodes: [], edges: [], actions: [] } };
+      }
+      return {
+        createdAt: '',
+        version: '1.0.0',
+        graph: { nodes: [{ ref: 'vacp://view' }], edges: [], actions: [{ name: 'x', description: 'x' }] },
+      };
+    },
+    getState: async () => {
+      stateCalls += 1;
+      if (stateCalls === 1) {
+        return { createdAt: '', version: '1.0.0', state: {} };
+      }
+      return { createdAt: '', version: '1.0.0', state: { 'vacp://view': { ready: true } } };
+    },
+    refresh: async () => {
+      refreshCalls += 1;
+      return { createdAt: '', version: '1.0.0', state: { 'vacp://view': { ready: true } } };
+    },
+    execute: async () => ({ callId: 'unused', ok: true }),
+  } as any;
+
+  const transport = createWindowVacpTransport(bridge);
+  const caps = await transport.vacp_capabilities();
+  const state = await transport.vacp_state();
+
+  assert.equal(refreshCalls >= 2, true);
+  assert.equal(caps.graph.nodes.length, 1);
+  assert.equal(caps.graph.actions.length, 1);
+  assert.deepEqual(state.state, { 'vacp://view': { ready: true } });
+});
+
 test('createVacpTools exposes MCP-compatible names and forwards inputs', async () => {
   const calls: Array<{ tool: string; args: unknown[] }> = [];
   const transport = {
@@ -123,4 +163,73 @@ test('createVacpTools exposes MCP-compatible names and forwards inputs', async (
     { tool: 'vacp_state', args: [{ mode: 'full', refs: ['vacp://chart/a'], includeSummary: true }] },
     { tool: 'vacp_execute', args: ['vacp.data_sql', { sql: 'select 1' }, 'call-99'] },
   ]);
+});
+
+test('createVacpTools normalizes bare root scopes and logs effective inputs', async () => {
+  const calls: Array<{ tool: string; args: unknown[] }> = [];
+  const events: any[] = [];
+  const transport = {
+    vacp_capabilities: async (options?: unknown) => {
+      calls.push({ tool: 'vacp_capabilities', args: [options] });
+      return { ok: true };
+    },
+    vacp_state: async (options?: unknown) => {
+      calls.push({ tool: 'vacp_state', args: [options] });
+      return { ok: true };
+    },
+    vacp_execute: async () => ({ callId: 'unused', ok: true }),
+  };
+
+  const tools = createVacpTools({
+    transport: transport as any,
+    onToolEvent: (event) => events.push(event),
+  });
+
+  await (tools.vacp_capabilities as any).execute({
+    refs: ['vacp://'],
+    includeActions: true,
+    includeNodeData: true,
+  });
+  await (tools.vacp_state as any).execute({
+    mode: 'full',
+    refs: ['vacp://'],
+    includeSummary: true,
+  });
+
+  assert.deepEqual(calls, [
+    {
+      tool: 'vacp_capabilities',
+      args: [{ includeActions: true, includeNodeData: false }],
+    },
+    {
+      tool: 'vacp_state',
+      args: [{ mode: 'full', includeSummary: true }],
+    },
+  ]);
+
+  const capabilityStart = events.find((event) => event.toolName === 'vacp_capabilities' && event.status === 'started');
+  const stateStart = events.find((event) => event.toolName === 'vacp_state' && event.status === 'started');
+
+  assert.deepEqual(capabilityStart?.requestedInput, {
+    refs: ['vacp://'],
+    includeActions: true,
+    includeNodeData: true,
+  });
+  assert.deepEqual(capabilityStart?.input, {
+    includeActions: true,
+    includeNodeData: false,
+  });
+  assert.match(capabilityStart?.inputNote ?? '', /bare `vacp:\/\/` scope/i);
+  assert.match(capabilityStart?.inputNote ?? '', /includeNodeData/i);
+
+  assert.deepEqual(stateStart?.requestedInput, {
+    mode: 'full',
+    refs: ['vacp://'],
+    includeSummary: true,
+  });
+  assert.deepEqual(stateStart?.input, {
+    mode: 'full',
+    includeSummary: true,
+  });
+  assert.match(stateStart?.inputNote ?? '', /bare `vacp:\/\/` scope/i);
 });

@@ -2,7 +2,7 @@ import type { UIMessage } from 'ai';
 
 import { sanitizeToolPayload } from './sanitize-tool-payload';
 
-import type { VacpContextCompactionPolicy } from './types';
+import type { VacpContextCompactionOptions, VacpContextCompactionPolicy } from './types';
 
 export const defaultVacpContextCompactionPolicy: Required<VacpContextCompactionPolicy> = {
   enabled: true,
@@ -66,6 +66,19 @@ function summarizeToolPart(part: UiPart, policy: ResolvedPolicy): string {
   return segments.join(' | ');
 }
 
+function availableToolSet(options: VacpContextCompactionOptions | undefined): Set<string> | null {
+  const values = options?.availableToolNames?.filter(
+    (name): name is string => typeof name === 'string' && name.length > 0,
+  );
+  if (!values || values.length === 0) return null;
+  return new Set(values);
+}
+
+function canReplayToolPart(part: UiPart, tools: Set<string> | null): boolean {
+  if (!tools) return true;
+  return tools.has(partToolName(part));
+}
+
 function sanitizeUiPart(part: UiPart): UiPart {
   const next = { ...part } as Record<string, unknown>;
   if ('input' in next) next.input = sanitizeToolPayload(next.input);
@@ -104,6 +117,7 @@ function compactAssistantParts(
   fullToolPayloadMessageIndices: Set<number>,
   reasoningMessageIndices: Set<number>,
   isOldTurn: boolean,
+  tools: Set<string> | null,
 ): UiPart[] {
   const compacted: UiPart[] = [];
   for (const part of message.parts) {
@@ -121,7 +135,7 @@ function compactAssistantParts(
     }
 
     if (isToolPart(part)) {
-      if (!isOldTurn && fullToolPayloadMessageIndices.has(msgIndex)) {
+      if (!isOldTurn && fullToolPayloadMessageIndices.has(msgIndex) && canReplayToolPart(part, tools)) {
         compacted.push(part);
       } else {
         compacted.push({ type: 'text', text: summarizeToolPart(part, policy) });
@@ -145,9 +159,14 @@ function firstIndexToPreserve(messages: UIMessage[], maxTurns: number): number {
   return userIndices[userIndices.length - maxTurns] ?? 0;
 }
 
-function compactMessagesForModel(messages: UIMessage[], policy: ResolvedPolicy): UIMessage[] {
+function compactMessagesForModelWithOptions(
+  messages: UIMessage[],
+  policy: ResolvedPolicy,
+  options: VacpContextCompactionOptions | undefined,
+): UIMessage[] {
   if (!policy.enabled) return messages;
   if (messages.length === 0) return messages;
+  const tools = availableToolSet(options);
 
   const preserveFromIndex = firstIndexToPreserve(messages, policy.maxTurns);
   const assistantIndices = messages.reduce<number[]>((acc, message, idx) => {
@@ -182,6 +201,7 @@ function compactMessagesForModel(messages: UIMessage[], policy: ResolvedPolicy):
         fullToolPayloadMessageIndices,
         reasoningMessageIndices,
         isOldTurn,
+        tools,
       ),
     };
   });
@@ -190,6 +210,7 @@ function compactMessagesForModel(messages: UIMessage[], policy: ResolvedPolicy):
 export function wrapTransportWithVacpContextCompaction<TTransport>(
   transport: TTransport,
   policy: VacpContextCompactionPolicy | undefined,
+  compactionOptions?: VacpContextCompactionOptions,
 ): TTransport {
   const resolved = resolvePolicy(policy);
   const base = transport as {
@@ -208,7 +229,7 @@ export function wrapTransportWithVacpContextCompaction<TTransport>(
       const rawMessages = (options as { messages: unknown }).messages;
       if (!Array.isArray(rawMessages)) return await base.sendMessages(options);
 
-      const compacted = compactMessagesForModel(rawMessages as UIMessage[], resolved);
+      const compacted = compactMessagesForModelWithOptions(rawMessages as UIMessage[], resolved, compactionOptions);
       const sanitized = sanitizeUiMessages(compacted);
       const nextOptions = { ...options, messages: sanitized };
       try {

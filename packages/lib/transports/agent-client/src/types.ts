@@ -29,7 +29,9 @@ export type VacpAgentToolEvent = {
   at: string;
   toolName: VacpAgentToolName;
   status: 'started' | 'succeeded' | 'failed';
+  requestedInput?: unknown;
   input?: unknown;
+  inputNote?: string;
   output?: unknown;
   error?: string;
 };
@@ -85,6 +87,10 @@ export type VacpContextCompactionPolicy = {
   preserveReasoningTurns?: number;
   maxTextCharsPerPart?: number;
   maxToolJsonCharsPerPart?: number;
+};
+
+export type VacpContextCompactionOptions = {
+  availableToolNames?: readonly string[];
 };
 
 export type VacpAgentInteractionPolicy = {

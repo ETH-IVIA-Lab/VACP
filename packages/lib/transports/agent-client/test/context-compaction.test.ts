@@ -33,14 +33,20 @@ test('wrapTransportWithVacpContextCompaction keeps recent tool payloads and comp
     reconnectToStream: async () => null,
   };
 
-  const wrapped = wrapTransportWithVacpContextCompaction(transport, {
-    enabled: true,
-    maxTurns: 1,
-    preserveFullToolPayloadTurns: 1,
-    preserveReasoningTurns: 0,
-    maxTextCharsPerPart: 500,
-    maxToolJsonCharsPerPart: 500,
-  });
+  const wrapped = wrapTransportWithVacpContextCompaction(
+    transport,
+    {
+      enabled: true,
+      maxTurns: 1,
+      preserveFullToolPayloadTurns: 1,
+      preserveReasoningTurns: 0,
+      maxTextCharsPerPart: 500,
+      maxToolJsonCharsPerPart: 500,
+    },
+    {
+      availableToolNames: ['vacp_capabilities', 'vacp_state', 'vacp_execute'],
+    },
+  );
 
   const messages: UIMessage[] = [
     { id: 'u1', role: 'user', parts: [{ type: 'text', text: 'first question' }] },
@@ -182,5 +188,67 @@ test('wrapTransportWithVacpContextCompaction augments invalid prompt errors with
       error instanceof Error &&
       error.message.includes('Chat prompt validation failed after sanitization.') &&
       error.message.includes('assistant:a1:tool-vacp_state'),
+  );
+});
+
+test('wrapTransportWithVacpContextCompaction summarizes recent unavailable tool parts instead of replaying them', async () => {
+  let seen: UIMessage[] = [];
+  const transport = {
+    sendMessages: async (options: any) => {
+      seen = options.messages;
+      return new ReadableStream();
+    },
+    reconnectToStream: async () => null,
+  };
+
+  const wrapped = wrapTransportWithVacpContextCompaction(
+    transport,
+    {
+      enabled: true,
+      maxTurns: 8,
+      preserveFullToolPayloadTurns: 2,
+      preserveReasoningTurns: 1,
+    },
+    {
+      availableToolNames: ['vacp_capabilities', 'vacp_state', 'vacp_execute'],
+    },
+  );
+
+  const messages: UIMessage[] = [
+    { id: 'u1', role: 'user', parts: [{ type: 'text', text: 'first question' }] },
+    {
+      id: 'a1',
+      role: 'assistant',
+      parts: [
+        {
+          type: 'dynamic-tool',
+          toolName: 'vacp.data_sql',
+          toolCallId: 'sql-1',
+          state: 'output-error',
+          input: undefined,
+          errorText: "Model tried to call unavailable tool 'vacp.data_sql'.",
+        } as any,
+        { type: 'text', text: 'Fallback explanation.' },
+      ],
+    },
+    { id: 'u2', role: 'user', parts: [{ type: 'text', text: 'follow-up question' }] },
+  ];
+
+  await wrapped.sendMessages({
+    trigger: 'submit-message',
+    chatId: 'chat-1',
+    messageId: undefined,
+    messages,
+    abortSignal: undefined,
+  });
+
+  const assistant = seen[1]!;
+  assert.equal(
+    assistant.parts.some((part) => part.type === 'dynamic-tool'),
+    false,
+  );
+  assert.equal(
+    assistant.parts.some((part) => part.type === 'text' && 'text' in part && part.text.includes('Tool vacp.data_sql')),
+    true,
   );
 });

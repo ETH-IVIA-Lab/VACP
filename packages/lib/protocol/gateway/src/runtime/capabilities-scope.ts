@@ -67,7 +67,11 @@ function includeByTypeScope(node: VacpNode, scope: NormalizedScope): boolean {
 
 function scopeAction(action: VacpActionDescriptor, survivingRefs: Set<VacpRef>): boolean {
   if (!action.targetRef) return true;
-  return survivingRefs.has(action.targetRef);
+  if (survivingRefs.has(action.targetRef)) return true;
+  for (const ref of survivingRefs) {
+    if (ref.startsWith(`${action.targetRef}/`)) return true;
+  }
+  return false;
 }
 
 export function scopeCapabilitiesSnapshot(

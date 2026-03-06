@@ -9,6 +9,10 @@ function normalizeRefs(refs: VacpRef[] | undefined): VacpRef[] | undefined {
   return uniq.sort() as VacpRef[];
 }
 
+function matchesScopedRef(ref: VacpRef, scopeRefs: VacpRef[]): boolean {
+  return scopeRefs.some((scopeRef) => ref === scopeRef || ref.startsWith(`${scopeRef}/`));
+}
+
 // Apply request scope (`refs`, `includeSummary`) to a full snapshot.
 // This keeps both full and delta paths operating on the exact same scoped view.
 export function scopeStateSnapshot(
@@ -33,18 +37,18 @@ export function scopeStateSnapshot(
   }
 
   const state: Record<VacpRef, unknown> = {} as Record<VacpRef, unknown>;
-  for (const ref of refs) {
-    if (Object.prototype.hasOwnProperty.call(snapshot.state, ref)) {
-      state[ref] = snapshot.state[ref];
+  for (const [ref, value] of Object.entries(snapshot.state) as Array<[VacpRef, unknown]>) {
+    if (matchesScopedRef(ref, refs)) {
+      state[ref] = value;
     }
   }
 
   let summary: Record<VacpRef, unknown> | undefined;
   if (includeSummary && snapshot.summary) {
     summary = {} as Record<VacpRef, unknown>;
-    for (const ref of refs) {
-      if (Object.prototype.hasOwnProperty.call(snapshot.summary, ref)) {
-        summary[ref] = snapshot.summary[ref];
+    for (const [ref, value] of Object.entries(snapshot.summary) as Array<[VacpRef, unknown]>) {
+      if (matchesScopedRef(ref, refs)) {
+        summary[ref] = value;
       }
     }
     if (Object.keys(summary).length === 0) summary = undefined;
@@ -132,8 +136,9 @@ export function buildStateUpdate(args: {
   const mode = args.request.mode ?? 'auto';
   const { snapshot: scopedCurrent, refs } = scopeStateSnapshot(args.current, args.request);
   const token = computeStateToken(scopedCurrent);
+  const scopedBaseline = args.baseline ? scopeStateSnapshot(args.baseline, args.request).snapshot : undefined;
 
-  const useDelta = Boolean(args.request.since && args.baseline) && mode !== 'full';
+  const useDelta = Boolean(args.request.since && scopedBaseline) && mode !== 'full';
   if (!useDelta) {
     return {
       version: VACP_SCHEMA_VERSION,
@@ -145,8 +150,7 @@ export function buildStateUpdate(args: {
     };
   }
 
-  const baseline = args.baseline as VacpStateSnapshot;
-  const delta = diffStateSnapshots({ baseline, current: scopedCurrent });
+  const delta = diffStateSnapshots({ baseline: scopedBaseline as VacpStateSnapshot, current: scopedCurrent });
   return {
     version: VACP_SCHEMA_VERSION,
     createdAt: scopedCurrent.createdAt,

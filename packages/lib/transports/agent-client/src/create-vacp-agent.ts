@@ -93,14 +93,20 @@ export function createVacpToolLoopAgent(options: VacpAgentFactoryOptions) {
 }
 
 export function createVacpDirectChatTransport(options: VacpAgentFactoryOptions) {
+  const tools = createVacpTools({ transport: options.transport, onToolEvent: options.onToolEvent });
   const agent = createVacpToolLoopAgent(options);
   const baseTransport = new DirectChatTransport({ agent, messageMetadata: createVacpMessageMetadata(options) });
-  return wrapTransportWithVacpContextCompaction(baseTransport, options.contextCompactionPolicy);
+  return wrapTransportWithVacpContextCompaction(baseTransport, options.contextCompactionPolicy, {
+    availableToolNames: Object.keys(tools),
+  });
 }
 
 export function createVacpChatRuntime(options: VacpAgentFactoryOptions) {
+  const tools = createVacpTools({ transport: options.transport, onToolEvent: options.onToolEvent });
   const agent = createVacpToolLoopAgent(options);
   const baseTransport = new DirectChatTransport({ agent, messageMetadata: createVacpMessageMetadata(options) });
-  const transport = wrapTransportWithVacpContextCompaction(baseTransport, options.contextCompactionPolicy);
+  const transport = wrapTransportWithVacpContextCompaction(baseTransport, options.contextCompactionPolicy, {
+    availableToolNames: Object.keys(tools),
+  });
   return { agent, transport };
 }
