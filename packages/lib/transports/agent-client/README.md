@@ -18,6 +18,8 @@ For external agents, use `vacp-mcp-server` instead.
 - The protocol lives inside the app.
 - Transports are adapters that expose the same capabilities/state/execute operations.
 
+The client normalizes invalid bare-root scope (`vacp://`) to an unscoped read and records effective tool input separately from the requested input when tracing tool calls.
+
 ## Minimal usage
 
 Create a transport against the in-page bridge:

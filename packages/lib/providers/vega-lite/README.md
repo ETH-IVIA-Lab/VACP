@@ -4,24 +4,24 @@
 
 VACP provider for interactive Vega-Lite/Vega views.
 
-This provider connects to a Vega `View` and exposes a stable VACP bridge with capabilities, state, and semantic actions.
+This provider connects to a Vega _View_ and exposes a stable VACP bridge with capabilities, state, and semantic actions.
 
 ## When to use
 
 - You render Vega-Lite (or Vega) and want agent-ready semantics.
-- You want to control parameters and selections through semantic actions.
+- You want to control *Param*s and *Selection*s through semantic actions.
 
 ## Conceptual model
 
 This provider maps the Vega runtime into VACP:
 
-- views/params/selections become graph nodes with stable refs,
-- param and selection values appear in the state snapshot,
-- semantic actions set params and clear selections.
+- _View_/_Param_/_Selection_ entities become graph nodes with stable refs,
+- _Param_ and _Selection_ values appear in the state snapshot,
+- semantic actions set *Param*s and clear *Selection*s.
 
 ## Minimal usage
 
-After you have a Vega `View` (for example from `vega-embed`):
+After you have a Vega _View_ (for example from `vega-embed`):
 
 ```ts
 import { installVacpOnVegaLiteView } from '@vacp/vega-lite';

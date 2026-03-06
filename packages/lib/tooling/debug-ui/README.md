@@ -19,6 +19,8 @@ The overlay is a consumer of the VACP contract:
 - it dispatches semantic actions,
 - it can inspect optional runtime/history endpoints when available.
 
+The Chat tab records the effective tool inputs that were executed. If a request is normalized before dispatch, the trace and Markdown export preserve both the effective input and the original requested input.
+
 ## Minimal usage
 
 Enable at runtime:

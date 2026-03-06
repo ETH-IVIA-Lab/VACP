@@ -2,7 +2,7 @@
 
 ## Action
 
-A named operation with validated parameters. Example: set an interval selection.
+A named operation with validated parameters. Example: set an interval *Selection*.
 
 ## Capabilities
 
@@ -22,7 +22,7 @@ A stable identifier for a semantic entity in the app. Example: `vacp://...`.
 
 ## State
 
-A snapshot of current values keyed by refs. It includes selections, parameters, and configuration values.
+A snapshot of current values keyed by refs. It includes *Selection*s, *Param*s, and configuration values.
 
 ## Transport
 

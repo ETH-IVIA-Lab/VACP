@@ -18,6 +18,8 @@ This package installs the stable bridge (typically `window.__vacp`), validates a
 - **Bridge**: the runtime exposes `getCapabilities`, `getState`, and `execute`.
 - **Optional runtime**: history/time travel and other debug endpoints.
 
+State scoping is container-aware: reading state for a _View_ or _Visualization_ returns descendant state entries under that ref.
+
 ## Minimal usage
 
 ```ts

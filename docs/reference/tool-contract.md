@@ -12,9 +12,13 @@ vacp_execute(name, params?, call_id?)
 
 Returns a capabilities snapshot. This includes a semantic graph and action descriptors for the current interface.
 
+For a broad read, omit `refs` and `prefixes`. Do not use bare `vacp://` as a scope token.
+
 ## vacp_state
 
 Returns state keyed by stable refs. Depending on the request, the response may be a full snapshot or an incremental update.
+
+When `refs` includes a container ref such as a *View* or *Visualization*, the scoped result includes descendant state entries under that container. This lets callers read the active *Widget*, *Selection*, and *DataHandle* state for a view without enumerating every child ref first.
 
 ## vacp_execute
 

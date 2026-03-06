@@ -2,13 +2,13 @@
 
 VACP is a small in-app contract for making interactive visual analytics observable and controllable through semantic operations.
 
-Interactive visual analytics already has structure. Selections filter data. Parameters drive encodings. Views depend on each other. VACP makes this structure readable and operable without guessing from pixels or DOM shapes.
+Interactive visual analytics already has structure. *Selection*s filter data. *Param*s drive encodings. *View*s depend on each other. VACP makes this structure readable and operable without guessing from pixels or DOM shapes.
 
 ## The contract
 
 Capabilities describe the interface as a small graph of entities and relations. They also list the actions that can be executed.
 
-State is a snapshot of current values keyed by stable references. A selection, a parameter, or a data handle can be followed across rerenders.
+State is a snapshot of current values keyed by stable references. A *Selection*, a *Param*, or a *DataHandle* can be followed across rerenders.
 
 Actions are intent-level operations. They are validated and either succeed with a structured result or fail with a structured error.
 
@@ -16,7 +16,7 @@ Actions are intent-level operations. They are validated and either succeed with 
 
 VACP lives inside the app process. In this repo it is exposed as `window.__vacp`.
 
-Screenshots and DOM access are still useful. They show layout and visual feedback. VACP exists for the parts that need precision: what is selected, which parameters are set, and which interactions are currently valid.
+Screenshots and DOM access are still useful. They show layout and visual feedback. VACP exists for the parts that need precision: what is selected, which *Param*s are set, and which interactions are currently valid.
 
 Some stacks already describe intent in declarative specs like [Vega-Lite](https://vega.github.io/vega-lite/) and [VGPlot](https://idl.uw.edu/mosaic/vgplot/). Some intent only exists in app code and design decisions. VACP is the runtime layer that exposes the semantics an agent needs.
 

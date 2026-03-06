@@ -7,7 +7,7 @@ This example exposes a VGPlot dashboard through VACP by installing a bridge at `
 
 Use this example to see:
 
-- linked views (crossfilter)
+- linked *View*s (crossfilter)
 - VGPlot interactors (brushes, toggles, menus)
 - human/agent bidirectional control (mouse interactions and semantic actions produce compatible state)
 
@@ -45,7 +45,7 @@ Enable the debug overlay:
 3. `@vacp/vgplot` installs VACP:
    - **Bridge**: installs/updates `window.__vacp` (capabilities/state/execute, unless `?expose-bridge=0`)
    - **Actions**: registers semantic operations like `vgplot.set_interval_1d`, `vgplot.clear_interval_2d`, etc.
-   - **DuckDB SQL**: enables `vacp.data_sql` so agents can query the current selection
+   - **DuckDB SQL**: enables `vacp.data_sql` so agents can query the current _Selection_
 
 VACP exposes a stable, typed, app-owned API for discovery and control. It does not depend on DOM scraping or pixel-level
 automation.
@@ -54,7 +54,7 @@ automation.
 
 ### Try it: human interaction
 
-- Use a brush/interval selection on the chart.
+- Use a brush/interval _Selection_ on the chart.
 - Watch how:
   - `window.__vacp.getState()` changes
   - runtime history grows (debug overlay → **History**)
@@ -85,7 +85,7 @@ Specs live in `src/specs/*.yaml`. Each YAML file can include a top-level `meta` 
 ```yaml
 meta:
   title: Crossfilter (Flights)
-  description: Two linked histograms sharing a selection.
+  description: Two linked histograms sharing a *Selection*.
 ```
 
 Everything under `meta` is ignored by the vgplot runtime and only used by the gallery UI.
@@ -93,7 +93,7 @@ Everything under `meta` is ignored by the vgplot runtime and only used by the ga
 ## How bidirectionality is achieved
 
 - **Human** updates the vgplot interactor state (brush/toggle/menu).
-- `@vacp/vgplot` observes/reads the current selection state and exposes it via `window.__vacp.getState()`.
+- `@vacp/vgplot` observes/reads the current _Selection_ state and exposes it via `window.__vacp.getState()`.
 - **Agent** dispatches an equivalent semantic action via `window.__vacp.execute(...)` (or `dispatch(...)` when available).
 - Both paths record into the same runtime history so time travel/debugging works across both.
 

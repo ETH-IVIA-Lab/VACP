@@ -12,6 +12,8 @@ vacp_execute(name, params?, call_id?)
 
 These tools call the in-page bridge and return structured snapshots and action results. The meaning of the contract stays the same across transports.
 
+For unscoped reads, transports should omit scope fields instead of using bare `vacp://`.
+
 ## MCP transport
 
 The MCP transport is a Python server that drives a browser through [Playwright](https://playwright.dev/) and forwards tool calls into the page. It follows [Model Context Protocol](https://modelcontextprotocol.io/) and is implemented in `packages/lib/transports/mcp-server`.

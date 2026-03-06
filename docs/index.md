@@ -21,7 +21,7 @@ features:
   - title: Capabilities
     details: A structured description of what exists in the interface and what can be done.
   - title: State
-    details: Read selections and parameters as values keyed by stable refs.
+    details: Read *Selection*s and *Param*s as values keyed by stable refs.
   - title: Actions
     details: Execute intent-level interactions with validated parameters.
   - title: Transports

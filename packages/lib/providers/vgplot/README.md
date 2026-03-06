@@ -4,7 +4,7 @@
 
 First-class VACP integration for vgplot (VGPlot runtime).
 
-This provider maps vgplot’s runtime semantics (views, interactors, selections) into VACP capabilities/state/actions.
+This provider maps vgplot’s runtime semantics (*View*s, interactors, *Selection*s) into VACP capabilities/state/actions.
 
 ## When to use
 

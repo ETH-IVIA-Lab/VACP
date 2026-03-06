@@ -42,9 +42,11 @@ flowchart LR
 The runtime exposes a capabilities snapshot and a state snapshot.
 Capabilities describe the interface as a graph of semantic entities and relations. State stores the current values under stable refs.
 
-Edges can describe containment and coordination, such as when a selection in one view filters another view.
+State can also be scoped by container refs. Reading state for a *View* or *Visualization* returns the descendant state entries that live under that container, such as *Widget*, *Selection*, and *DataHandle* entries.
 
-Stable refs matter because the interface is a living document. Rendering changes, but a selection or parameter should remain the same thing across the session.
+Edges can describe containment and coordination, such as when a *Selection* in one *View* filters another *View*.
+
+Stable refs matter because the interface is a living document. Rendering changes, but a *Selection* or *Param* should remain the same thing across the session.
 
 ## Interaction surface
 
@@ -59,7 +61,7 @@ On success it returns a structured result. On failure it returns a structured er
 ## Data access on demand
 
 Visual analytics apps often sit on large datasets. The runtime does not try to serialize raw data into the state snapshot.
-Instead, providers expose data handles and actions to inspect and query them. In this repo the standard actions are `vacp.data_schema` and `vacp.data_sql`, commonly backed by [DuckDB](https://duckdb.org/).
+Instead, providers expose *DataHandle*s and actions to inspect and query them. In this repo the standard actions are `vacp.data_schema` and `vacp.data_sql`, commonly backed by [DuckDB](https://duckdb.org/).
 
 ## Package map
 
