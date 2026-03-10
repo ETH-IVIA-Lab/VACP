@@ -243,7 +243,7 @@ export function ConfiguredChat(props: ConfiguredChatProps): ReactElement {
   const showInlineActivity = props.showActivity && props.panelWidth >= 1120;
   const showActivitySheet = props.showActivity && props.panelWidth < 1120;
   const autoScrollSignal = `${status}:${uiMessages.length}:${latestTextLength(uiMessages)}`;
-  const { scrollRef, anchorRef, stickToBottom, jumpToLatest } = useChatAutoscroll(autoScrollSignal);
+  const { scrollRef, contentRef, stickToBottom, jumpToLatest } = useChatAutoscroll(autoScrollSignal);
   const [policyNotice, setPolicyNotice] = useState<string | null>(null);
   const [copyNotice, setCopyNotice] = useState<string | null>(null);
   const onMessagesChangeRef = useRef(props.onMessagesChange);
@@ -390,12 +390,12 @@ export function ConfiguredChat(props: ConfiguredChatProps): ReactElement {
             </div>
           </div>
 
-          <div className="min-h-0 flex-1 overflow-hidden px-3 py-3">
+          <div className="flex min-h-0 flex-1 overflow-hidden px-3 py-3">
             <ChatMessages
               messages={uiMessages}
               status={status}
               scrollRef={scrollRef}
-              anchorRef={anchorRef}
+              contentRef={contentRef}
               showJumpToLatest={!stickToBottom}
               onJumpToLatest={() => jumpToLatest()}
             />

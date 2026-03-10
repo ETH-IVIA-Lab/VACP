@@ -128,18 +128,18 @@ export function ChatMessages(props: {
   messages: UIMessage[];
   status: 'submitted' | 'streaming' | 'ready' | 'error';
   scrollRef: RefObject<HTMLDivElement | null>;
-  anchorRef: RefObject<HTMLDivElement | null>;
+  contentRef: RefObject<HTMLDivElement | null>;
   showJumpToLatest: boolean;
   onJumpToLatest: () => void;
 }): ReactElement {
   return (
-    <div className="relative min-h-0 flex-1">
+    <div className="relative flex min-h-0 flex-1 flex-col">
       <div
         ref={props.scrollRef}
         data-vacp-chat-msgs="1"
-        className="vacp-chat-scroll h-full overflow-y-auto overflow-x-hidden pr-1"
+        className="vacp-chat-scroll min-h-0 flex-1 overflow-y-auto overflow-x-hidden pr-1"
       >
-        <div className="mx-auto flex min-h-0 w-full max-w-4xl flex-col gap-3 pb-4">
+        <div ref={props.contentRef} className="mx-auto flex min-h-full w-full max-w-4xl flex-col gap-3 pb-4">
           {props.messages.length === 0 ? (
             <div className="rounded-2xl border border-dashed border-white/15 bg-white/5 px-4 py-4 text-[12px] text-slate-100/75">
               <div className="font-medium text-slate-100/85">Start with a concrete question.</div>
@@ -175,7 +175,6 @@ export function ChatMessages(props: {
               </div>
             );
           })}
-          <div ref={props.anchorRef} data-vacp-chat-scroll-anchor="1" />
         </div>
       </div>
 

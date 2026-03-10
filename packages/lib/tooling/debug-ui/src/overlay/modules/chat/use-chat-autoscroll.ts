@@ -2,6 +2,10 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 
 const BOTTOM_GAP_PX = 56;
 
+export function scrollTopForBottom(args: { scrollHeight: number; clientHeight: number }): number {
+  return Math.max(0, args.scrollHeight - args.clientHeight);
+}
+
 export function shouldStickToBottom(args: {
   distanceFromBottom: number;
   currentTop: number;
@@ -13,15 +17,23 @@ export function shouldStickToBottom(args: {
 
 export function useChatAutoscroll(depSignal: unknown) {
   const scrollRef = useRef<HTMLDivElement | null>(null);
-  const anchorRef = useRef<HTMLDivElement | null>(null);
+  const contentRef = useRef<HTMLDivElement | null>(null);
   const lastScrollTopRef = useRef(0);
   const [stickToBottom, setStickToBottom] = useState(true);
+
+  const scrollToBottom = useCallback((behavior: ScrollBehavior = 'auto') => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const top = scrollTopForBottom({ scrollHeight: el.scrollHeight, clientHeight: el.clientHeight });
+    el.scrollTo({ top, behavior });
+    lastScrollTopRef.current = top;
+  }, []);
 
   const updateStickState = useCallback(() => {
     const el = scrollRef.current;
     if (!el) return;
     const currentTop = el.scrollTop;
-    const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
+    const distanceFromBottom = Math.max(0, el.scrollHeight - el.scrollTop - el.clientHeight);
     const nextStick = shouldStickToBottom({
       distanceFromBottom,
       currentTop,
@@ -31,12 +43,13 @@ export function useChatAutoscroll(depSignal: unknown) {
     setStickToBottom(nextStick);
   }, []);
 
-  const jumpToLatest = useCallback((behavior: ScrollBehavior = 'smooth') => {
-    anchorRef.current?.scrollIntoView({ block: 'end', behavior });
-    const el = scrollRef.current;
-    if (el) lastScrollTopRef.current = el.scrollHeight;
-    setStickToBottom(true);
-  }, []);
+  const jumpToLatest = useCallback(
+    (behavior: ScrollBehavior = 'smooth') => {
+      scrollToBottom(behavior);
+      setStickToBottom(true);
+    },
+    [scrollToBottom],
+  );
 
   useEffect(() => {
     const el = scrollRef.current;
@@ -50,23 +63,25 @@ export function useChatAutoscroll(depSignal: unknown) {
 
   useEffect(() => {
     if (!stickToBottom) return;
-    anchorRef.current?.scrollIntoView({ block: 'end', behavior: 'auto' });
-  }, [depSignal, stickToBottom]);
+    scrollToBottom('auto');
+  }, [depSignal, scrollToBottom, stickToBottom]);
 
   useEffect(() => {
     if (!stickToBottom) return;
     if (typeof ResizeObserver === 'undefined') return;
     const scrollEl = scrollRef.current;
-    if (!scrollEl) return;
+    const contentEl = contentRef.current;
+    if (!scrollEl || !contentEl) return;
 
     const observer = new ResizeObserver(() => {
       if (!stickToBottom) return;
-      anchorRef.current?.scrollIntoView({ block: 'end', behavior: 'auto' });
+      scrollToBottom('auto');
     });
     observer.observe(scrollEl);
+    observer.observe(contentEl);
 
     return () => observer.disconnect();
-  }, [stickToBottom]);
+  }, [scrollToBottom, stickToBottom]);
 
-  return { scrollRef, anchorRef, stickToBottom, jumpToLatest };
+  return { scrollRef, contentRef, stickToBottom, jumpToLatest };
 }
