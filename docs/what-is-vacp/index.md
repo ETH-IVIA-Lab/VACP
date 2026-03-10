@@ -8,7 +8,7 @@ Interactive visual analytics already has structure. *Selection*s filter data. *P
 
 Capabilities describe the interface as a small graph of entities and relations. They also list the actions that can be executed.
 
-State is a snapshot of current values keyed by stable references. A *Selection*, a *Param*, or a *DataHandle* can be followed across rerenders.
+State is a snapshot of current values keyed by stable references. A _Selection_, a _Param_, or a _DataHandle_ can be followed across rerenders.
 
 Actions are intent-level operations. They are validated and either succeed with a structured result or fail with a structured error.
 

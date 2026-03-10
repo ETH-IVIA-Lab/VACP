@@ -15,7 +15,7 @@ Example: `packages/examples/vgplot-gallery`.
 
 ### Vega-Lite
 
-The Vega-Lite provider targets [Vega-Lite](https://vega.github.io/vega-lite/) specs by connecting to a Vega *View* ([API](https://vega.github.io/vega/docs/api/view/)). It focuses on *Param*s and *Selection*s and exposes actions to set and clear them under a stable contract.
+The Vega-Lite provider targets [Vega-Lite](https://vega.github.io/vega-lite/) specs by connecting to a Vega _View_ ([API](https://vega.github.io/vega/docs/api/view/)). It focuses on *Param*s and *Selection*s and exposes actions to set and clear them under a stable contract.
 
 Package: `@vacp/vega-lite` in `packages/lib/providers/vega-lite`.
 Example: `packages/examples/vega-lite-gallery`.

@@ -2,7 +2,7 @@
 
 ## Action
 
-A named operation with validated parameters. Example: set an interval *Selection*.
+A named operation with validated parameters. Example: set an interval _Selection_.
 
 ## Capabilities
 

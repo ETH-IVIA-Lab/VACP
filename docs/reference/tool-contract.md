@@ -18,7 +18,7 @@ For a broad read, omit `refs` and `prefixes`. Do not use bare `vacp://` as a sco
 
 Returns state keyed by stable refs. Depending on the request, the response may be a full snapshot or an incremental update.
 
-When `refs` includes a container ref such as a *View* or *Visualization*, the scoped result includes descendant state entries under that container. This lets callers read the active *Widget*, *Selection*, and *DataHandle* state for a view without enumerating every child ref first.
+When `refs` includes a container ref such as a _View_ or _Visualization_, the scoped result includes descendant state entries under that container. This lets callers read the active _Widget_, _Selection_, and _DataHandle_ state for a view without enumerating every child ref first.
 
 ## vacp_execute
 

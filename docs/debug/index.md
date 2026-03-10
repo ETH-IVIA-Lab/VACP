@@ -11,7 +11,7 @@ Add `?vacp-debug=1` to the URL. For local development you can set `VACP_DEBUG_UI
 
 Start with the capabilities graph. Nodes should correspond to real semantic entities. Actions should be named and scoped.
 
-Interact with the app and watch the state snapshot change. A *Selection* should update when you brush. A *Param* should update when you change a control.
+Interact with the app and watch the state snapshot change. A _Selection_ should update when you brush. A _Param_ should update when you change a control.
 
 Dispatch an action from the overlay and confirm the interface updates. Then read state again to verify the change.
 

@@ -42,11 +42,11 @@ flowchart LR
 The runtime exposes a capabilities snapshot and a state snapshot.
 Capabilities describe the interface as a graph of semantic entities and relations. State stores the current values under stable refs.
 
-State can also be scoped by container refs. Reading state for a *View* or *Visualization* returns the descendant state entries that live under that container, such as *Widget*, *Selection*, and *DataHandle* entries.
+State can also be scoped by container refs. Reading state for a _View_ or _Visualization_ returns the descendant state entries that live under that container, such as _Widget_, _Selection_, and _DataHandle_ entries.
 
-Edges can describe containment and coordination, such as when a *Selection* in one *View* filters another *View*.
+Edges can describe containment and coordination, such as when a _Selection_ in one _View_ filters another _View_.
 
-Stable refs matter because the interface is a living document. Rendering changes, but a *Selection* or *Param* should remain the same thing across the session.
+Stable refs matter because the interface is a living document. Rendering changes, but a _Selection_ or _Param_ should remain the same thing across the session.
 
 ## Interaction surface
 
