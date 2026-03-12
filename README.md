@@ -1,6 +1,25 @@
-# VACP
+# VACP: Visual Analytics Context Protocol
 
-VACP (Visual Analytics Context Protocol) is a small in-app contract for exposing capabilities, state snapshots, and semantic actions for interactive visual analytics.
+<!-- [![DOI:tbd](https://zenodo.org/badge/DOI/tbd.svg)](https://doi.org/tbd) -->
+<!-- [![arxiv badge](https://img.shields.io/badge/arXiv-tbd-red)](https://arxiv.org/abs/tbd) -->
+<!-- [![NPM - Downloads](https://img.shields.io/npm/dm/tbd)](https://www.npmjs.com/package/tbd) -->
+
+VACP (Visual Analytics Context Protocol) is a small in-app contract for exposing capabilities, VA interface state snapshots, and semantic actions and providing interface accessibility to AI agents for interactive Visual Analytics.
+
+[Learn more about VACP at the documentation site](https://docs.vacp.dev), or [read the VACP research paper](https://arxiv.org/abs/tbd).
+
+If referencing VACP, please use the following citation:
+<!-- , to appear in 2026 IEEE VIS Conference -->
+```bibTeX
+@article{staehle2026vacp,
+  title = {{VACP}: {Visual Analytics Context Protocol}},
+  shorttitle = {{VACP}},
+  author = {{St{\"a}hle}, Tobias and {Gyarmati}, Péter Ferenc and {Spinner}, Thilo and {Sevastjanova}, Rita and {Moritz}, Dominik and {El-Assady}, Mennatallah},
+  year = {2026},
+  journal = {arXiv preprint arXiv:tbd},
+  doi = {10.48550/arXiv.tbd} 
+}
+```
 
 ## Fast Path
 
@@ -25,6 +44,8 @@ For full setup and command details, use [docs/get-started/index.md](docs/get-sta
 
 ## Documentation
 
+Visit https://docs.vacp.dev/ to view the full documentation and https://demo.vacp.dev/ to view the demos.
+
 - Docs site entry: [docs/index.md](docs/index.md)
 - Get started: [docs/get-started/index.md](docs/get-started/index.md)
 - Overview: [docs/what-is-vacp/index.md](docs/what-is-vacp/index.md)
@@ -38,3 +59,6 @@ For full setup and command details, use [docs/get-started/index.md](docs/get-sta
 
 - Enable in-page debug overlay with `?vacp-debug=1` or `VACP_DEBUG_UI=1`.
 - Start MCP server against a running example: `uv run vacp-mcp-server --url http://localhost:<vite-port>/`.
+
+## Contact
+If you have any questions, feel free to [open an issue](https://github.com/ETH-IVIA-Lab/VACP/issues/new/choose) or contact [Tobias Stähle](https://ivia.ch/people/staehle).
