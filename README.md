@@ -44,7 +44,7 @@ For full setup and command details, use [docs/get-started/index.md](docs/get-sta
 
 ## Documentation
 
-Visit [https://docs.vacp.dev/](https://docs.vacp.dev/) to view the full documentation and [https://examples.vacp.dev/](https://examples.vacp.dev/) to view the demos.
+Visit [https://docs.vacp.dev/](https://docs.vacp.dev/) to view the full documentation and [https://examples.vacp.dev/](https://examples.vacp.dev/?vacp-debug=1) to view the demos.
 
 - Docs site entry: [docs/index.md](docs/index.md)
 - Get started: [docs/get-started/index.md](docs/get-started/index.md)
