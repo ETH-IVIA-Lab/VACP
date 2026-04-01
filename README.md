@@ -16,8 +16,8 @@ If referencing VACP, please use the following citation:
   shorttitle = {{VACP}},
   author = {{St{\"a}hle}, Tobias and {Gyarmati}, Péter Ferenc and {Spinner}, Thilo and {Sevastjanova}, Rita and {Moritz}, Dominik and {El-Assady}, Mennatallah},
   year = {2026},
-  journal = {arXiv preprint arXiv:tbd},
-  doi = {10.48550/arXiv.tbd} 
+  journal = {arXiv preprint arXiv:260.29322},
+  doi = {10.48550/arXiv.2603.29322} 
 }
 ```
 
@@ -44,7 +44,7 @@ For full setup and command details, use [docs/get-started/index.md](docs/get-sta
 
 ## Documentation
 
-Visit [https://docs.vacp.dev/](https://docs.vacp.dev/) to view the full documentation and [https://examples.vacp.dev/](https://examples.vacp.dev/?vacp-debug=1) to view the demos.
+Visit [https://docs.vacp.dev/](https://docs.vacp.dev/) to view the full documentation and [https://examples.vacp.dev/](https://examples.vacp.dev/?vacp-debug=1) to view the demos (Enable in-page chat overlay with `?vacp-debug=1`, select the Chat, enter your own api-key and task the agent to analyse or interact with the available data).
 
 - Docs site entry: [docs/index.md](docs/index.md)
 - Get started: [docs/get-started/index.md](docs/get-started/index.md)
