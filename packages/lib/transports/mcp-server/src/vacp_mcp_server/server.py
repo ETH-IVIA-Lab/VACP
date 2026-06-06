@@ -1,54 +1,31 @@
+"""FastMCP tools for the in-page VACP bridge."""
+
 from __future__ import annotations
 
 import asyncio
 import time
 from pathlib import Path
-from typing import Any, Protocol
+from typing import Any, Literal, Protocol, cast
 
 from fastmcp import FastMCP
 
 from vacp_mcp_server.bridge import ActionCall, VacpBridgeClient
 from vacp_mcp_server.models import normalize_capabilities_request_options, normalize_state_request_options
 
-"""
-MCP adapter layer (project concepts).
-
-This module maps the in-page VACP bridge (`window.__vacp`) to MCP tools.
-The goal is to give agents a deterministic, typed interface that enables a
-true human↔AI partnership inside a visual analytics (VA) app:
-
-- vacp_capabilities(): discover nodes + actions
-- vacp_state(): read current selections/params
-- vacp_execute(): request a semantic action
-
-Agents should satisfy user queries by *interacting with the app* (not by inventing answers
-or jumping straight to an imagined SQL query):
-- execute a series of human-like semantic operations (brush, toggle, filter, zoom, etc),
-- observe how the state graph changes after each operation,
-- iterate until the user's question is answered, with the user able to watch and steer.
-
-The contract is `vacp_capabilities()`: read it first, then plan actions around what the app
-explicitly exposes. If the needed operation is not available, ask the user for guidance or
-for the app to expose the missing capability rather than fabricating data access.
-
-The MCP server is intentionally thin: semantics belong to the app/provider; MCP is transport.
-"""
-
 _DEFAULT_READY_TIMEOUT_MS = 60_000
+type BrowserWaitUntil = Literal['commit', 'domcontentloaded', 'load', 'networkidle']
+type BrowserSelectorState = Literal['attached', 'detached', 'hidden', 'visible']
 
 
 class BrowserPage(Protocol):
     """
-    Minimal Playwright Page surface needed by our MCP tools.
-
-    We intentionally depend on a Protocol instead of Playwright's concrete type to:
-    - keep the adapter layer testable without launching a real browser,
-    - avoid hard-coupling the MCP layer to Playwright imports.
+    Playwright page methods used by the MCP tools.
     """
 
-    url: str
+    @property
+    def url(self) -> str: ...
 
-    async def goto(self, url: str, *, wait_until: str | None = None) -> Any: ...
+    async def goto(self, url: str, *, wait_until: BrowserWaitUntil | None = None) -> Any: ...
 
     async def title(self) -> str: ...
 
@@ -59,7 +36,7 @@ class BrowserPage(Protocol):
     async def wait_for_timeout(self, timeout: float) -> Any: ...
 
     async def wait_for_selector(
-        self, selector: str, *, timeout: float | None = None, state: str | None = None
+        self, selector: str, *, timeout: float | None = None, state: BrowserSelectorState | None = None
     ) -> Any: ...
 
     async def click(self, selector: str) -> Any: ...
@@ -99,21 +76,22 @@ def create_mcp(
     mcp = FastMCP(
         'VACP MCP Server',
         instructions="""
-VACP bridge-only MCP server.
+VACP MCP server.
 
-This server is a thin adapter over the in-page VACP bridge `window.__vacp`.
-The VACP protocol (graph/state/actions) lives inside the app; MCP is only the transport.
+Calls are forwarded to the in-page VACP bridge at `window.__vacp`. The app owns
+the capability graph, state snapshots, and action semantics.
 
-Use it for interactive visual analytics:
-- treat the task as stateful interaction in the app, not memory-based answering,
-- plan from `vacp_capabilities()`, act with `vacp_execute()`, verify with `vacp_state()`,
-- perform small semantic steps and confirm each step before the next.
+Workflow:
+1) Read `vacp_capabilities()` to discover refs, actions, and parameters.
+2) Read `vacp_state()` for the current semantic state.
+3) Call `vacp_execute()` with one action from the capabilities snapshot.
+4) Read `vacp_state()` again to verify the state change.
 
 Efficient defaults:
-1) Call `vacp_capabilities()` once initially (re-read only if needed); use scoped options when the task is localized.
-2) Call `vacp_state()` once for baseline.
-3) Then prefer `vacp_state(options={mode:"delta", since:"<token>"})`.
-4) Add `refs` once target refs are known; set `includeSummary=false` unless needed.
+1) Call `vacp_capabilities()` once initially. Use scoped options when the task is localized.
+2) Call `vacp_state()` once for a baseline.
+3) After actions, prefer `vacp_state(options={mode:"delta", since:"<token>"})`.
+4) Add `refs` once target refs are known. Set `includeSummary=false` unless summary fields are needed.
 5) If delta lineage is unclear, resync with one `mode:"full"` call.
 """.strip(),
     )
@@ -124,19 +102,9 @@ Efficient defaults:
     )
     async def vacp_capabilities(options: dict[str, object] | None = None) -> dict[str, object]:
         """
-        Fetch the VACP capabilities snapshot from the page's in-window bridge.
+        Return the VACP capabilities snapshot from `window.__vacp`.
 
-        Use this as your source of truth for what you are allowed to do in the VA app.
-        Read it before you plan actions, and refer back to it whenever you're unsure.
-        In most runs, one initial read is enough.
-
-        Use it to discover the semantic graph nodes and edges and the action catalog so you
-        can decide which human-like interaction to perform next instead of jumping to an
-        imagined direct SQL query:
-        - `graph.actions[].name`: stable action id to pass to `vacp_execute`
-        - `graph.actions[].parameters`: JSON-schema-like parameter shape
-        - `graph.actions[].targetRef`: target node for the action when present
-
+        Use `graph.actions[].name` as the action id for `vacp_execute`.
         Optional `options` can scope the graph:
         - `refs` / `prefixes`
         - `kinds` / `layers`
@@ -145,7 +113,7 @@ Efficient defaults:
         Returns a JSON object like:
         `{ version, createdAt, graph: { version, nodes, edges, actions } }`.
 
-        Side effects: none (read-only). Fails if the VACP bridge is not installed on the page.
+        Side effects: none. Raises when the VACP bridge is not installed on the page.
         """
         request = normalize_capabilities_request_options(options)
         return await client.get_capabilities(request)
@@ -156,19 +124,11 @@ Efficient defaults:
     )
     async def vacp_state(options: dict[str, object] | None = None) -> dict[str, object]:
         """
-        Fetch the current VACP state snapshot (or requested update) from the in-window bridge.
+        Return the current VACP state snapshot or update from `window.__vacp`.
 
-        This is the "what is currently true?" view of the app's semantic state. The snapshot is
-        keyed by stable `ref` strings (not DOM positions), for example selections and parameters.
-
-        Use this to:
-        - confirm that your last action actually changed the state graph,
-        - drive the next step (e.g. pick the right `ref`/category/range),
-        - keep the user and agent aligned on what the app currently shows.
-
-        For user questions/requests, prefer bringing the app into a state where the answer is
-        apparent/inspectable in the UI. Use `vacp_state()` to narrate what changed and to ensure
-        you're not skipping over necessary interaction steps.
+        State entries are keyed by stable refs, for example selections and
+        parameters. Read state after `vacp_execute()` to verify the app accepted
+        the requested action.
 
         When `options` is omitted, returns a full snapshot:
         `{ version, createdAt, state: { [ref: string]: unknown } }`.
@@ -179,18 +139,11 @@ Efficient defaults:
         - `refs`: limit to specific refs
         - `includeSummary`: include/exclude summary map
 
-        Recommended usage pattern:
-        1) Read full once to establish a token.
-        2) After each meaningful action, request `mode=delta` with `since=<last token>`.
-        3) Add `refs` when you know which nodes matter.
-        4) Keep `includeSummary=false` unless summary fields are needed.
-        5) If token lineage is uncertain, refresh once with `mode=full`.
-
         With `options`, returns an update envelope:
         - `mode=full`: `{ mode, token, snapshot, ... }`
         - `mode=delta`: `{ mode, token, baseToken, delta, ... }`
 
-        Side effects: none (read-only). Pair with `vacp_capabilities()` to interpret refs/types.
+        Side effects: none. Pair with `vacp_capabilities()` to interpret refs and action targets.
         """
         request = normalize_state_request_options(options)
         return await client.get_state(request)
@@ -204,27 +157,22 @@ Efficient defaults:
         call_id: str | None = None,
     ) -> dict[str, object]:
         """
-        Execute a named VACP action via the page's in-window bridge.
+        Execute a named VACP action through `window.__vacp`.
 
         Inputs:
         - `name`: an action id from `vacp_capabilities().graph.actions[].name`
         - `params` (optional): JSON-serializable object matching that action's `parameters` schema
         - `call_id` (optional): correlation id echoed back as `callId` in the result
 
-        Effect:
-        - Requests a semantic operation inside the app with no pixel or DOM automation.
-          Treat this as a human-like interaction primitive such as brush, toggle, pan/zoom, or reset.
-        - Actions may change the app's state; always read the updated state via `vacp_state()`
-          afterwards to verify the expected change happened.
-        - Prefer one small action per call, then verify state before the next action.
-        - Prefer chaining these app actions to reach a UI state that answers the user's question instead
-          of fabricating answers or jumping straight to imagined SQL queries.
+        Each call requests one semantic app operation. Actions may change state,
+        so read `vacp_state()` afterwards to verify the result before sending
+        the next action.
 
         Returns:
         `{ callId, ok, result?, error? }` where `ok=false` indicates a handled failure and
         `error` is a JSON object and commonly includes `{message: string}`.
 
-        Fails if the VACP bridge is not installed on the page.
+        Raises when the VACP bridge is not installed on the page.
         """
         call = ActionCall(call_id=call_id or 'call', name=name, params=params)
         res = await client.execute(call)
@@ -242,9 +190,6 @@ Efficient defaults:
         ) -> dict[str, object]:
             """
             Navigate the VACP browser page to a URL.
-
-            Use this at the start of a run to open the scenario URL before calling
-            `vacp_capabilities()` / `vacp_state()` / `vacp_execute()`.
 
             If `wait_for_bridge` is true, the tool waits until the in-page VACP bridge is ready.
             """
@@ -265,7 +210,7 @@ Efficient defaults:
         )
         async def vacp_page_info() -> dict[str, object]:
             """
-            Return basic page metadata for the VACP browser instance.
+            Return the current VACP browser page URL and title.
             """
             return {'url': page.url, 'title': await page.title()}
 
@@ -278,7 +223,7 @@ Efficient defaults:
             """
             Capture a screenshot of the current page.
 
-            The parent directory is created if it doesn't exist.
+            Creates the parent directory when it does not exist.
             """
             if not isinstance(path, str) or not path.strip():
                 raise ValueError('Expected path to be a non-empty string')
@@ -296,9 +241,8 @@ Efficient defaults:
             """
             Evaluate a JavaScript expression in the page context.
 
-            Notes:
             - `expression` can be a JS expression string or an arrow function string.
-            - `arg` (optional) is passed as the argument to the evaluated function.
+            - `arg` is passed to the evaluated function when provided.
             """
             if not isinstance(expression, str) or not expression.strip():
                 raise ValueError('Expected expression to be a non-empty string')
@@ -316,7 +260,7 @@ Efficient defaults:
             selector: str, timeout_ms: int = 15_000, state: str | None = None
         ) -> dict[str, object]:
             """
-            Wait until a selector is present in the DOM (or matches an optional state).
+            Wait until a selector reaches the requested Playwright state.
             """
             if not isinstance(selector, str) or not selector.strip():
                 raise ValueError('Expected selector to be a non-empty string')
@@ -325,7 +269,8 @@ Efficient defaults:
             if state is not None and state not in ('attached', 'detached', 'visible', 'hidden'):
                 raise ValueError('Expected state to be one of: attached, detached, visible, hidden')
 
-            await page.wait_for_selector(selector, timeout=timeout_ms, state=state)
+            selector_state = cast(BrowserSelectorState | None, state)
+            await page.wait_for_selector(selector, timeout=timeout_ms, state=selector_state)
             return {'ok': True}
 
         @mcp.tool(
@@ -333,7 +278,7 @@ Efficient defaults:
         )
         async def browser_click(selector: str) -> dict[str, object]:
             """
-            Click an element matching a selector.
+            Click the element matching `selector`.
             """
             if not isinstance(selector, str) or not selector.strip():
                 raise ValueError('Expected selector to be a non-empty string')
@@ -345,7 +290,7 @@ Efficient defaults:
         )
         async def browser_fill(selector: str, value: str) -> dict[str, object]:
             """
-            Fill an input/textarea matching a selector with the given value.
+            Fill the input or textarea matching `selector`.
             """
             if not isinstance(selector, str) or not selector.strip():
                 raise ValueError('Expected selector to be a non-empty string')
@@ -359,7 +304,7 @@ Efficient defaults:
         )
         async def browser_press(selector: str, key: str) -> dict[str, object]:
             """
-            Press a key on an element matching a selector.
+            Press `key` on the element matching `selector`.
             """
             if not isinstance(selector, str) or not selector.strip():
                 raise ValueError('Expected selector to be a non-empty string')
@@ -373,7 +318,7 @@ Efficient defaults:
         )
         async def browser_sleep(ms: int) -> dict[str, object]:
             """
-            Sleep for the given duration (milliseconds).
+            Wait for `ms` milliseconds.
             """
             if not isinstance(ms, int) or ms < 0 or ms > 120_000:
                 raise ValueError('Expected ms to be an int between 0 and 120000')

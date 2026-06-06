@@ -1,3 +1,5 @@
+"""Browser lifecycle management for VACP MCP sessions."""
+
 from __future__ import annotations
 
 import sys
@@ -7,59 +9,36 @@ from typing import Any
 
 from playwright.async_api import Browser, Page, Playwright, async_playwright
 
-"""
-Browser lifecycle layer (project concepts).
-
-The MCP server needs a *live page* to observe and control.
-This module supports two workflows:
-
-1) Embedded browser: Playwright launches a new browser instance.
-2) External browser: Playwright attaches via CDP to an existing Chromium session.
-
-External browser mode is important for flexibility:
-- reuse an already-open app tab (and its state),
-- keep cookies/localStorage/profile,
-- debug alongside normal developer tools.
-"""
-
 
 @dataclass(frozen=True)
 class BrowserConfig:
     browser_type: str = 'chromium'
     browser_path: str | None = None
     headless: bool = False
-    # Optional: explicit Playwright viewport size (useful in headless mode).
-    # If unset:
-    # - headed mode uses `no_viewport=True` to match the OS window size,
-    # - headless mode uses Playwright defaults unless `screen_width/height` are provided.
+    # Explicit Playwright viewport. Headed mode otherwise uses the OS window size.
+    # Headless mode uses Playwright defaults unless screen dimensions are provided.
     viewport_width: int | None = None
     viewport_height: int | None = None
     url: str = 'http://localhost:5173/'
-    # For embedded browsers: attempt to open the window in a large, human-usable size.
+    # Embedded browser window mode.
     # - default: Playwright defaults
     # - maximized: best-effort maximize window
     # - fullscreen: best-effort fullscreen window (Chromium only)
     window_mode: str = 'fullscreen'
-    # Optional: hint at host screen size to size the browser window.
-    # If unset, the server will try to infer it (best-effort), otherwise fall back to
-    # browser defaults.
+    # Host screen size hint for embedded browser windows.
     screen_width: int | None = None
     screen_height: int | None = None
-    # Optional: connect to an existing Chromium-based browser via CDP.
+    # Existing Chromium browser endpoint for CDP attachment.
     # Examples:
     # - http://localhost:9222
     # - ws://127.0.0.1:9222/devtools/browser/<id>
     cdp_url: str | None = None
-    # Optional: automatically attempt to attach to an already-running Chromium instance
-    # via common CDP endpoints before launching an embedded browser.
+    # Probe common CDP endpoints before launching an embedded browser.
     auto_attach_cdp: bool = False
     auto_attach_cdp_ports: tuple[int, ...] = (9222, 9223)
-    # If connecting to external browser: whether to close it on shutdown.
-    # For CDP connections, Playwright typically only disconnects, but we keep
-    # this flag for explicitness.
+    # Request remote browser close when shutting down a CDP-backed session.
     close_on_exit: bool = False
-    # If connecting to external browser, try to reuse an existing page whose URL
-    # contains this substring. If not found, a new page is created and navigated.
+    # Reuse a CDP page whose URL contains this substring before creating a page.
     reuse_page_url_contains: str | None = None
 
 
@@ -77,11 +56,7 @@ class BrowserManager:
 
     async def _best_effort_goto(self, page: Page, url: str) -> None:
         """
-        Navigate to the configured URL, but don't crash the whole MCP server if it fails.
-
-        This is important for headless / automation use where the target app may not be up
-        yet when the MCP process starts. Agents can still connect and later call
-        `vacp_open_url(...)` once the app is reachable.
+        Try the configured URL and keep the MCP server running when navigation fails.
         """
         if not url:
             return
@@ -98,12 +73,7 @@ class BrowserManager:
 
     def _infer_screen_size(self) -> tuple[int, int] | None:
         """
-        Best-effort host screen size detection.
-
-        This is intentionally dependency-free and cross-platform, but not perfect:
-        - Use explicit config if provided.
-        - Try tkinter (works on many desktop envs).
-        - On Windows, fallback to GetSystemMetrics.
+        Return configured or detected host screen size.
         """
         if self._config.screen_width and self._config.screen_height:
             return self._config.screen_width, self._config.screen_height
@@ -135,11 +105,7 @@ class BrowserManager:
 
     def _context_kwargs(self) -> dict[str, Any]:
         """
-        Compute Playwright `browser.new_context(...)` kwargs.
-
-        We keep headed mode using OS window sizing (via `no_viewport=True`) unless the
-        user explicitly requests a viewport. In headless mode, an explicit viewport is
-        often necessary to avoid responsive layouts collapsing to a small default.
+        Return Playwright context options for the configured viewport policy.
         """
         if self._config.viewport_width and self._config.viewport_height:
             return {'viewport': {'width': self._config.viewport_width, 'height': self._config.viewport_height}}
@@ -177,13 +143,11 @@ class BrowserManager:
                     if target_substring in (p.url or ''):
                         return p
 
-        # Prefer first non-empty page in external browser, if any.
         for context in self._browser.contexts:
             for p in context.pages:
                 if p.url and p.url != 'about:blank':
                     return p
 
-        # Otherwise create a new page and navigate.
         context = self._browser.contexts[0] if self._browser.contexts else await self._browser.new_context()
         p = await context.new_page()
         await self._best_effort_goto(p, self._config.url)
@@ -193,7 +157,6 @@ class BrowserManager:
         self._playwright = await async_playwright().start()
 
         if self._config.cdp_url:
-            # External browser instance (Chromium only).
             self._browser = await self._playwright.chromium.connect_over_cdp(self._config.cdp_url)
             self._launched_browser = False
             self._connected_cdp_url = self._config.cdp_url
@@ -250,7 +213,6 @@ class BrowserManager:
                     if self._config.close_on_exit:
                         await self._browser.close()
                     else:
-                        # For external browsers, prefer to just disconnect.
                         await self._browser.close()
         if self._playwright is not None:
             await self._playwright.stop()

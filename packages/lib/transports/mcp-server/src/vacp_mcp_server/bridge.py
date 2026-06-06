@@ -1,3 +1,5 @@
+"""Playwright client for the in-page VACP bridge."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -6,18 +8,6 @@ from typing import Protocol
 from playwright.async_api import Page
 
 from vacp_mcp_server.models import VacpCapabilitiesRequestOptions, VacpStateRequestOptions
-
-"""
-Bridge client (project concepts).
-
-The VACP runtime is exposed by the web app as an in-page bridge at `window.__vacp`.
-The MCP server is only a transport/proxy: it forwards calls and returns results.
-
-This module is intentionally small:
-- no DOM scanning
-- no diagram rendering
-- no app-specific semantics
-"""
 
 
 @dataclass(frozen=True)
@@ -45,7 +35,7 @@ class VacpBridgeClient(Protocol):
 
 class PlaywrightVacpBridgeClient(VacpBridgeClient):
     """
-    Bridge client backed by a Playwright Page.
+    Call `window.__vacp` through a Playwright page.
     """
 
     def __init__(self, page: Page, *, global_key: str = '__vacp'):

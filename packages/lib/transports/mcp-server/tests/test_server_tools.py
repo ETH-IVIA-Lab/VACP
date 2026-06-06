@@ -3,7 +3,6 @@ from __future__ import annotations
 import pytest
 from fastmcp.tools.function_tool import FunctionTool
 from pydantic import ValidationError
-
 from vacp_mcp_server.bridge import ActionCall, ActionResult, VacpBridgeClient
 from vacp_mcp_server.models import VacpCapabilitiesRequestOptions, VacpStateRequestOptions
 from vacp_mcp_server.server import create_mcp

@@ -1,9 +1,12 @@
+"""CLI entrypoint for serving a browser-backed VACP bridge over MCP."""
+
 from __future__ import annotations
 
 import argparse
 import asyncio
 import sys
 from contextlib import asynccontextmanager
+from typing import Literal, cast
 
 import uvicorn
 from fastapi import FastAPI
@@ -12,24 +15,16 @@ from vacp_mcp_server.bridge import PlaywrightVacpBridgeClient
 from vacp_mcp_server.browser import BrowserConfig, BrowserManager
 from vacp_mcp_server.server import _wait_for_bridge_ready, create_mcp
 
-"""
-VACP MCP server entrypoint (project concepts).
-
-This process runs a browser (either launched by Playwright or an external
-browser attached via CDP), then exposes VACP through MCP.
-
-The CLI exists to support both local dev workflows:
-- embedded browser: quick start, hermetic
-- external browser: reuse profiles/tabs/state, more flexible debugging
-"""
-
 
 def log(msg: str) -> None:
     print(msg, file=sys.stderr)
 
 
+type SelectorState = Literal['attached', 'detached', 'hidden', 'visible']
+
+
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
-    p = argparse.ArgumentParser(description='VACP MCP Server (bridge-only)')
+    p = argparse.ArgumentParser(description='VACP MCP Server')
     p.add_argument(
         '--transport',
         type=str,
@@ -48,7 +43,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         '--show-banner',
         action='store_true',
         default=False,
-        help='Show the FastMCP banner (stderr). Useful for debugging.',
+        help='Print the FastMCP banner to stderr.',
     )
     p.add_argument(
         '--mcp-log-level',
@@ -56,7 +51,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         default=None,
         help='Optional log level override for FastMCP (stdio mode).',
     )
-    p.add_argument('--url', type=str, default='http://localhost:5173/', help='URL to open')
+    p.add_argument('--url', type=str, default='http://localhost:5173/', help='URL to open.')
     p.add_argument('--host', type=str, default='0.0.0.0')
     p.add_argument('--port', type=int, default=8000)
     p.add_argument('--headless', action='store_true', default=False)
@@ -67,7 +62,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         type=str,
         choices=['default', 'maximized', 'fullscreen'],
         default='fullscreen',
-        help='For embedded browsers, best-effort initial window size (chromium only).',
+        help='Initial embedded browser window size mode. Chromium only.',
     )
     p.add_argument(
         '--screen-width',
@@ -91,7 +86,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         '--auto-attach-cdp',
         action='store_true',
         default=False,
-        help='If --cdp-url is not set, try to attach to an already-running Chromium CDP endpoint on common ports.',
+        help='If --cdp-url is not set, try common Chromium CDP endpoints before launching a browser.',
     )
     p.add_argument(
         '--auto-attach-cdp-ports',
@@ -109,7 +104,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         '--close-external-on-exit',
         action='store_true',
         default=False,
-        help='If using --cdp-url, attempt to close the remote browser on exit (usually disconnects only).',
+        help='If using --cdp-url, request remote browser close on exit.',
     )
     p.add_argument('--global-key', type=str, default='__vacp', help='Global key for window bridge (default: __vacp)')
     p.add_argument(
@@ -160,7 +155,7 @@ async def _wait_for_startup_ready(
     ready_timeout_ms: int,
     wait_for_selector: str | None,
     selector_timeout_ms: int,
-    selector_state: str | None,
+    selector_state: SelectorState | None,
 ) -> None:
     if wait_for_bridge:
         client = PlaywrightVacpBridgeClient(browser.page, global_key=global_key)
@@ -184,7 +179,7 @@ async def _run_stdio(
     startup_ready_timeout_ms: int,
     startup_wait_for_selector: str | None,
     startup_selector_timeout_ms: int,
-    startup_selector_state: str | None,
+    startup_selector_state: SelectorState | None,
 ) -> None:
     await browser.start()
     await _wait_for_startup_ready(
@@ -226,6 +221,7 @@ def main() -> None:
         reuse_page_url_contains=args.reuse_page_url_contains,
     )
     browser = BrowserManager(config)
+    startup_selector_state = cast(SelectorState | None, args.startup_selector_state)
 
     if args.transport == 'stdio':
         asyncio.run(
@@ -239,7 +235,7 @@ def main() -> None:
                 startup_ready_timeout_ms=max(0, int(args.startup_ready_timeout_ms)),
                 startup_wait_for_selector=args.startup_wait_for_selector,
                 startup_selector_timeout_ms=max(0, int(args.startup_selector_timeout_ms)),
-                startup_selector_state=args.startup_selector_state,
+                startup_selector_state=startup_selector_state,
             )
         )
         return
@@ -257,14 +253,14 @@ def main() -> None:
             ready_timeout_ms=max(0, int(args.startup_ready_timeout_ms)),
             wait_for_selector=args.startup_wait_for_selector,
             selector_timeout_ms=max(0, int(args.startup_selector_timeout_ms)),
-            selector_state=args.startup_selector_state,
+            selector_state=startup_selector_state,
         )
         info = await browser.get_page_info()
         log(f'Browser ready: {info}')
 
         client = PlaywrightVacpBridgeClient(browser.page, global_key=args.global_key)
         mcp = create_mcp(client, page=browser.page, enable_browser_tools=bool(args.enable_browser_tools))
-        # We mount the resulting ASGI app under /mcp; therefore its internal path is /.
+        # FastMCP sees / because FastAPI mounts this ASGI app at /mcp.
         mcp_app = mcp.http_app(path='/')
 
         try:
@@ -275,12 +271,10 @@ def main() -> None:
 
     app = FastAPI(title='VACP MCP Server', lifespan=lifespan)
 
-    # Mount MCP app after it is created in lifespan.
     @app.get('/healthz')
     async def healthz() -> dict[str, str]:
         return {'status': 'ok'}
 
-    # Lazy mount: the MCP ASGI app depends on the browser page and is created in lifespan.
     app.mount('/mcp', LazyMount(lambda: mcp_app))
 
     uvicorn.run(app, host=args.host, port=args.port, timeout_keep_alive=2, timeout_graceful_shutdown=10)
