@@ -35,6 +35,14 @@ Enable with `VACP_DOM_SNAPSHOT=1`. Disable with `VACP_DOM_SNAPSHOT=0`.
 
 Default is on.
 
+### Raw SQL action
+
+Enable with `?enable-sql=1`. Disable with `?enable-sql=0`.
+
+Enable with `VACP_ENABLE_SQL=1`. Disable with `VACP_ENABLE_SQL=0`.
+
+Default is on. When disabled, providers can still expose DataHandle nodes and `vacp.data_schema`, but `vacp.data_sql` is not registered or listed in capabilities.
+
 ## Optional analytics
 
 The example apps can be configured with optional PostHog settings:

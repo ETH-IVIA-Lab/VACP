@@ -31,6 +31,15 @@ export type VacpHyperParams = Readonly<{
    */
   domSnapshot: boolean;
   /**
+   * Whether to register the raw SQL DataHandle action (defaults to true).
+   *
+   * Sources (highest → lowest priority):
+   * - URL param: `?enable-sql=0|1`
+   * - env var: `VACP_ENABLE_SQL=0|1`
+   * - default: true
+   */
+  enableSql: boolean;
+  /**
    * Whether example apps should include "heavy" demo assets/specs (defaults to false).
    *
    * Sources (highest → lowest priority):
@@ -68,6 +77,11 @@ const BOOL_SPECS: Record<keyof VacpHyperParams, BooleanSpec> = {
     default: true,
     urlKeys: ['vacp-dom-snapshot'],
     envKeys: ['VACP_DOM_SNAPSHOT'],
+  },
+  enableSql: {
+    default: true,
+    urlKeys: ['enable-sql'],
+    envKeys: ['VACP_ENABLE_SQL'],
   },
   examplesHeavy: {
     default: false,
@@ -211,6 +225,11 @@ export function resolveVacpHyperParams(ctx?: {
       storage: ctx?.storage,
     }).value,
     domSnapshot: resolveBoolean(BOOL_SPECS.domSnapshot, {
+      url: ctx?.url,
+      env: ctx?.env,
+      storage: ctx?.storage,
+    }).value,
+    enableSql: resolveBoolean(BOOL_SPECS.enableSql, {
       url: ctx?.url,
       env: ctx?.env,
       storage: ctx?.storage,

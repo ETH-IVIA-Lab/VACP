@@ -1,5 +1,5 @@
 import type { VacpActionDescriptor, VacpDataSqlParams, VacpRef } from '@vacp/core';
-import { isVacpRef, VACP_DATA_SQL_ACTION } from '@vacp/core';
+import { getVacpHyperParams, isVacpRef, VACP_DATA_SQL_ACTION } from '@vacp/core';
 
 import { VacpActionRegistry } from './action-registry';
 
@@ -20,7 +20,9 @@ export function registerVacpDataSqlAction(
   registry: VacpActionRegistry,
   handler: VacpDataSqlHandler,
   options?: { targetRef?: VacpRef; description?: string },
-): VacpActionDescriptor {
+): VacpActionDescriptor | null {
+  if (!getVacpHyperParams().enableSql) return null;
+
   const descriptor: VacpActionDescriptor = {
     name: VACP_DATA_SQL_ACTION,
     description:

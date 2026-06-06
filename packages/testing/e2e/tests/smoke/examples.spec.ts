@@ -278,6 +278,55 @@ async function expectDataSchemaWorks(page: Page, handleRef?: string): Promise<vo
   expect(last?.result?.columns?.length).toBeGreaterThan(0);
 }
 
+test('examples: enable-sql query controls raw SQL action registration', async ({ page }) => {
+  const srv = await startViteDevServer({ name: 'vgplot-gallery', cwd: exampleDir('vgplot-gallery') });
+  try {
+    await page.goto(`${srv.url}?vacp-debug=1&enable-sql=0#weather`, { waitUntil: 'domcontentloaded' });
+    await expectBridge(page);
+    await waitForCapabilityRefContains(page, '/vgplot/weather');
+
+    const disabledCaps = await getCapabilities(page);
+    const disabledGraph = disabledCaps?.graph ?? {};
+    const disabledActions = disabledGraph.actions ?? [];
+    const disabledHandle = (disabledGraph.nodes ?? []).find(
+      (node: any) => node?.kind === 'DataHandle' && String(node?.ref ?? '').includes('/vgplot/weather/'),
+    );
+    expect(typeof disabledHandle?.ref).toBe('string');
+    expect(disabledActions.some((action: any) => action?.name === 'vacp.data_sql')).toBeFalsy();
+    expect(disabledActions.some((action: any) => action?.name === 'vacp.data_schema')).toBeTruthy();
+
+    const disabledSql = await dataSql(page, {
+      handleRef: disabledHandle.ref as string,
+      sql: 'SELECT COUNT(*)::INTEGER AS n FROM vacp_all',
+    });
+    expect(disabledSql.ok).toBeFalsy();
+    expect(String(disabledSql.error?.message ?? '')).toContain('Unknown action');
+    await expectDataSchemaWorks(page, disabledHandle.ref as string);
+
+    await page.goto(`${srv.url}?vacp-debug=1&enable-sql=1#weather`, { waitUntil: 'domcontentloaded' });
+    await expectBridge(page);
+    await waitForCapabilityRefContains(page, '/vgplot/weather');
+
+    const enabledCaps = await getCapabilities(page);
+    const enabledGraph = enabledCaps?.graph ?? {};
+    const enabledActions = enabledGraph.actions ?? [];
+    const enabledHandle = (enabledGraph.nodes ?? []).find(
+      (node: any) => node?.kind === 'DataHandle' && String(node?.ref ?? '').includes('/vgplot/weather/'),
+    );
+    expect(typeof enabledHandle?.ref).toBe('string');
+    expect(enabledActions.some((action: any) => action?.name === 'vacp.data_sql')).toBeTruthy();
+
+    const enabledSql = await dataSql(page, {
+      handleRef: enabledHandle.ref as string,
+      sql: 'SELECT COUNT(*)::INTEGER AS n FROM vacp_all',
+    });
+    expect(enabledSql.ok).toBeTruthy();
+    expect(typeof countFromResult(enabledSql)).toBe('number');
+  } finally {
+    await srv.stop();
+  }
+});
+
 test('examples: vgplot-gallery', async ({ page }) => {
   const srv = await startViteDevServer({ name: 'vgplot-gallery', cwd: exampleDir('vgplot-gallery') });
   try {

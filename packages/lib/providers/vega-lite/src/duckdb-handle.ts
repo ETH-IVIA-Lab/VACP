@@ -802,7 +802,7 @@ export function installVegaLiteDuckDbDataHandles(args: {
       description: 'Query the current Vega-Lite selection using DuckDB SQL.',
     },
   );
-  actionDescriptors.push(dataSqlDesc);
+  if (dataSqlDesc) actionDescriptors.push(dataSqlDesc);
 
   const dataSchemaDesc = registerVacpDataSchemaAction(
     actionRegistry,

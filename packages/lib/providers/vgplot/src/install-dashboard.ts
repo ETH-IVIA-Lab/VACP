@@ -235,7 +235,7 @@ export function installVacpOnVgplotDashboard(args: {
       }),
       { targetRef: viewRef, description: 'Query the current VGPlot selection using DuckDB SQL.' },
     );
-    actionDescriptors.push(dataSqlDesc);
+    if (dataSqlDesc) actionDescriptors.push(dataSqlDesc);
 
     const dataSchemaDesc = registerVacpDataSchemaAction(
       actionRegistry,

@@ -28,7 +28,7 @@ export type VacpActions = {
     dataSql: (
       handler: VacpDataSqlHandler,
       options?: { targetRef?: VacpRef; description?: string },
-    ) => VacpActionDescriptor;
+    ) => VacpActionDescriptor | null;
     widgetOptions: (
       handler: VacpWidgetOptionsHandler,
       options?: { targetRef?: VacpRef; description?: string },
