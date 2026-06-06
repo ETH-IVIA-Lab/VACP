@@ -18,7 +18,7 @@ RUN --mount=type=cache,id=pnpm-store,target=/pnpm/store \
 COPY tsconfig.base.json tsconfig.base.json
 COPY docs docs
 
-RUN pnpm docs:build
+RUN pnpm --filter @vacp/docs build
 
 FROM oven/bun:1-alpine AS runtime
 

@@ -16,7 +16,7 @@ COPY packages/lib packages/lib
 RUN --mount=type=cache,id=pnpm-store,target=/pnpm/store \
     pnpm install --filter 'vacp-example-index...' --frozen-lockfile
 
-RUN pnpm build:examples
+RUN pnpm --filter 'vacp-example-index...' build
 
 FROM oven/bun:1-alpine AS runtime
 
