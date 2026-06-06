@@ -1,11 +1,6 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import {
-  readMessageParts,
-  type OpencodeMessageInfo,
-  type OpencodePart,
-  type OpencodeStorageRoot,
-} from './opencode-storage.js';
+import type { OpencodeMessageInfo, OpencodePart } from './opencode-export.js';
 
 export type WriteJobTranscriptArgs = {
   runID: string;
@@ -13,7 +8,7 @@ export type WriteJobTranscriptArgs = {
   jobDirAbs: string;
   sessionID: string;
   messages: OpencodeMessageInfo[];
-  storage: OpencodeStorageRoot;
+  partsByMessageID: Map<string, OpencodePart[]>;
 };
 
 export type WriteJobTranscriptResult = {
@@ -75,16 +70,10 @@ export async function writeJobTranscript(args: WriteJobTranscriptArgs): Promise<
       jobDirRelative,
       sessionID,
       status: 'no_messages',
-      detail: 'No OpenCode messages were found in the local evidence snapshot for this session.',
+      detail: 'No OpenCode messages were found in the per-job export for this session.',
     });
     await writeTranscript(transcriptPath, markdown);
     return { transcriptPath, status: 'no_messages' };
-  }
-
-  const partsByMessageID = new Map<string, OpencodePart[]>();
-  for (const message of args.messages) {
-    const parts = await readMessageParts(args.storage, message.id);
-    partsByMessageID.set(message.id, parts);
   }
 
   const markdown = renderSessionTranscriptMarkdown({
@@ -92,7 +81,7 @@ export async function writeJobTranscript(args: WriteJobTranscriptArgs): Promise<
     jobDirRelative,
     sessionID,
     messages: args.messages,
-    partsByMessageID,
+    partsByMessageID: args.partsByMessageID,
   });
   await writeTranscript(transcriptPath, markdown);
   return { transcriptPath, status: 'ok' };

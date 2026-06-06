@@ -18,13 +18,15 @@ try {
 }
 
 const BASE_URL = 'http://127.0.0.1:5173';
+const UV_COMMAND = 'uv';
+const AGENT_BROWSER = 'agent-browser';
 
 const MODELS = [
   {
     providerID: 'openai',
-    modelID: 'gpt-5.2',
+    modelID: 'gpt-5.4',
     // Source: https://openai.com/api/pricing/
-    pricing: { input: 1.75, output: 14, cacheRead: 0.175, cacheWrite: 0 },
+    pricing: { input: 2.5, output: 15, cacheRead: 0.25, cacheWrite: 0 },
   },
   /*
   {
@@ -44,7 +46,6 @@ const MODELS = [
 ];
 
 const DEFAULT_MCP_TIMEOUT_MS = 120_000;
-const AGENT_BROWSER = 'agent-browser';
 const CHART_READY_SELECTOR = '#app canvas, #app svg, #chart canvas, #chart svg';
 const CHART_READY_SCREENSHOT_NAME = 'step-00.png';
 const CHART_READY_WAIT_TIMEOUT_MS = Number(process.env.VACP_ARENA_CHART_READY_WAIT_TIMEOUT_MS ?? 45_000);
@@ -233,7 +234,7 @@ const VACP_TOOLKIT_MCP_SERVER_NAME = 'arena_vacp_toolkit';
 
 const VACP_MCP_PROJECT_DIR = path.join(REPO_ROOT, 'packages/lib/transports/mcp-server');
 const VACP_MCP_BASE_COMMAND = [
-  'uv',
+  UV_COMMAND,
   'run',
   '--project',
   VACP_MCP_PROJECT_DIR,

@@ -65,11 +65,9 @@ export type ArenaReportHtmlContext = {
   taskIndex: ArenaReportTaskIndexRow[];
   experiments: string[];
   taskSummaries: ArenaReportTaskSummaryRow[];
-  opencodeEvidenceDir: string | null;
-  opencodeEvidenceManifest: string | null;
-  opencodeEvidenceSourceStorageDir: string | null;
-  opencodeEvidenceComplete: boolean | null;
-  opencodeEvidenceGeneratedAt: string | null;
+  opencodeLogSource: string | null;
+  opencodeExportManifest: string | null;
+  opencodeExportCounts: Record<string, unknown> | null;
 };
 
 export type ArenaReportSection = {
@@ -272,15 +270,14 @@ function renderOverviewSection(ctx: ArenaReportHtmlContext) {
     },
   ];
 
-  const evidenceLine =
-    ctx.opencodeEvidenceDir === null
-      ? 'Opencode evidence snapshot metadata is unavailable for this analysis.'
+  const exportLine =
+    ctx.opencodeLogSource === null
+      ? 'OpenCode export metadata is unavailable for this analysis.'
       : [
-          `Opencode evidence snapshot: ${ctx.opencodeEvidenceComplete === false ? 'incomplete' : 'complete'}.`,
-          `Snapshot: ${ctx.opencodeEvidenceDir}.`,
-          ctx.opencodeEvidenceManifest ? `Manifest: ${ctx.opencodeEvidenceManifest}.` : null,
-          ctx.opencodeEvidenceSourceStorageDir ? `Source storage: ${ctx.opencodeEvidenceSourceStorageDir}.` : null,
-          ctx.opencodeEvidenceGeneratedAt ? `Snapshot generated: ${ctx.opencodeEvidenceGeneratedAt}.` : null,
+          `OpenCode logs: ${ctx.opencodeLogSource}.`,
+          ctx.opencodeExportManifest ? `Manifest: ${ctx.opencodeExportManifest}.` : null,
+          ctx.opencodeExportCounts ? `Messages: ${fmtInt(Number(ctx.opencodeExportCounts.messages ?? 0))}.` : null,
+          ctx.opencodeExportCounts ? `Parts: ${fmtInt(Number(ctx.opencodeExportCounts.parts ?? 0))}.` : null,
         ]
           .filter(Boolean)
           .join(' ');
@@ -305,7 +302,7 @@ function renderOverviewSection(ctx: ArenaReportHtmlContext) {
     '        <li>Charts use the preferred-run view: one selected run per model, run_id, experiment, and scenario group.</li>',
     '        <li>Flag rates are computed over runs with available telemetry for each flag. Missing values are excluded and shown as n/a.</li>',
     '        <li>Tool heatmaps report calls per run, not raw call totals.</li>',
-    `        <li>${escapeHtml(evidenceLine)}</li>`,
+    `        <li>${escapeHtml(exportLine)}</li>`,
     '      </ul>',
     '    </section>',
   ].join('\n');

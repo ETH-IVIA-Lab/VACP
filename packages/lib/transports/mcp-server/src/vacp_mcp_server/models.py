@@ -1,7 +1,6 @@
 from __future__ import annotations
 
-from typing import Annotated, Literal
-from typing import cast
+from typing import Annotated, Literal, cast
 
 from pydantic import ConfigDict, StringConstraints, TypeAdapter, with_config
 from typing_extensions import TypedDict

@@ -18,16 +18,17 @@
     }
   },
   "scripts": {
-    "build": "node -e \"require('node:fs').rmSync('dist', { recursive: true, force: true })\" && tsc -p tsconfig.build.json",
+    "build": "rm -rf dist && tsc -p tsconfig.build.json",
     "dev": "tsx watch src/cli.ts",
     "prestart": "pnpm build",
     "start": "node dist/cli.js",
     "lint": "oxlint src",
-    "typecheck": "tsc -p tsconfig.json --noEmit"
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "pnpm exec tsx --test tests/*.test.ts"
   },
   "dependencies": {
     "@observablehq/plot": "^0.6.17",
-    "@opencode-ai/sdk": "^1.2.15",
+    "@opencode-ai/sdk": "1.16.2",
     "commander": "^12.1.0",
     "consola": "^3.4.2",
     "jiti": "^2.6.1",

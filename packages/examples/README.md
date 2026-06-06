@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Runnable example apps used for development and Playwright smoke tests (`pnpm test:e2e`).
+Runnable example apps used for development and Playwright smoke tests (`pnpm test`).
 
 ## When to use
 

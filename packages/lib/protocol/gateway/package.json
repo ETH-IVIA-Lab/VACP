@@ -15,7 +15,8 @@
   "scripts": {
     "build": "tsc -b",
     "lint": "oxlint src",
-    "typecheck": "tsc -b"
+    "typecheck": "tsc -b",
+    "test": "pnpm exec tsx --test test/*.test.ts"
   },
   "dependencies": {
     "@vacp/core": "workspace:*"

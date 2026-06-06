@@ -4,14 +4,14 @@ on:
   workflow_dispatch: {}
   push:
     paths:
-      - ".github/workflows/docs-docker-build.yml"
-      - "infra/docs.Dockerfile"
-      - ".dockerignore"
-      - "package.json"
-      - "pnpm-lock.yaml"
-      - "pnpm-workspace.yaml"
-      - "tsconfig.base.json"
-      - "docs/**"
+      - '.github/workflows/docs-docker-build.yml'
+      - 'infra/docs.Dockerfile'
+      - '.dockerignore'
+      - 'package.json'
+      - 'pnpm-lock.yaml'
+      - 'pnpm-workspace.yaml'
+      - 'tsconfig.base.json'
+      - 'docs/**'
 
 env:
   REGISTRY: harbor.ivia.ch

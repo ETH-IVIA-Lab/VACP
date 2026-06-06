@@ -14,6 +14,9 @@ importers:
       concurrently:
         specifier: ^9.2.1
         version: 9.2.1
+      node:
+        specifier: runtime:24.16.0
+        version: runtime:24.16.0
       oxfmt:
         specifier: ^0.24.0
         version: 0.24.0
@@ -242,8 +245,8 @@ importers:
         specifier: ^0.6.17
         version: 0.6.17
       '@opencode-ai/sdk':
-        specifier: ^1.2.15
-        version: 1.2.15
+        specifier: 1.16.2
+        version: 1.16.2
       commander:
         specifier: ^12.1.0
         version: 12.1.0
@@ -486,6 +489,8 @@ importers:
       zod:
         specifier: ^3.25.76
         version: 3.25.76
+
+  packages/lib/transports/mcp-server: {}
 
   packages/testing/e2e:
     devDependencies:
@@ -953,8 +958,8 @@ packages:
     resolution: {integrity: sha512-/qaXP/7mc4MUS0s4cPPFASDRjtsWp85/TbfsciqDgU1HwYixbSbbytNuInD8AcTYC3xaxACgVX06agdfQy9W+g==}
     engines: {node: '>=12'}
 
-  '@opencode-ai/sdk@1.2.15':
-    resolution: {integrity: sha512-NUJNlyBCdZ4R0EBLjJziEQOp2XbRPJosaMcTcWSWO5XJPKGUpz0u8ql+5cR8K+v2RJ+hp2NobtNwpjEYfe6BRQ==}
+  '@opencode-ai/sdk@1.16.2':
+    resolution: {integrity: sha512-Z/xZ7q79dYeE0afqIk/yFEcRNGEQFcE+H8ssYivUiy+xGZ1mGwT72jpaQZKBwPn3JH4sRCu4KA2lcktBQfcOjg==}
 
   '@opentelemetry/api-logs@0.208.0':
     resolution: {integrity: sha512-CjruKY9V6NMssL/T1kAFgzosF1v9o6oeN+aX5JB/C/xPNtmgIJqcXHG7fA82Ou1zCpWGl4lROQUKwUNE1pMCyg==}
@@ -2169,6 +2174,7 @@ packages:
 
   '@ungap/structured-clone@1.3.0':
     resolution: {integrity: sha512-WmoN8qaIAo7WTYWbAZuG8PYEhn5fkz7dZrqTBZ7dtt//lL2Gwms1IcnQ5yHqjDfX8Ft5j4YzDM23f87zBfDe9g==}
+    deprecated: Potential CWE-502 - Update to 1.3.1 or higher
 
   '@uwdata/flechette@2.3.0':
     resolution: {integrity: sha512-FdTqVEJZL4MwTv+vY1jOUMW2i5pr/G5S4BGdmQ/7wSOCtA0I74UP117kzXiKe1FrB5+ydM4tFxrCdF8Dq9WgNA==}
@@ -3407,6 +3413,127 @@ packages:
   node-releases@2.0.27:
     resolution: {integrity: sha512-nmh3lCkYZ3grZvqcCH+fjmQ7X+H0OeZgP40OierEaAptX4XofMh5kwNbWh7lBduUzCcV/8kZ+NDLCwm2iorIlA==}
 
+  node@runtime:24.16.0:
+    resolution:
+      type: variations
+      variants:
+        - resolution:
+            archive: tarball
+            bin:
+              node: bin/node
+            integrity: sha256-MN/Y5EMiwnEoE/JeFjwlPK1TvkPgmJB7i1NIvxdKSWg=
+            type: binary
+            url: https://nodejs.org/download/release/v24.16.0/node-v24.16.0-aix-ppc64.tar.gz
+          targets:
+            - cpu: ppc64
+              os: aix
+        - resolution:
+            archive: tarball
+            bin:
+              node: bin/node
+            integrity: sha256-ORidq07rFXBsQkrwrAijBEyeSPfbEqfXf2t6r8fdXfY=
+            type: binary
+            url: https://nodejs.org/download/release/v24.16.0/node-v24.16.0-darwin-arm64.tar.gz
+          targets:
+            - cpu: arm64
+              os: darwin
+        - resolution:
+            archive: tarball
+            bin:
+              node: bin/node
+            integrity: sha256-KYtMezy4B2XIcD5CuQMkpOzjtmNJR7iedpw8mAq1UYU=
+            type: binary
+            url: https://nodejs.org/download/release/v24.16.0/node-v24.16.0-darwin-x64.tar.gz
+          targets:
+            - cpu: x64
+              os: darwin
+        - resolution:
+            archive: tarball
+            bin:
+              node: bin/node
+            integrity: sha256-WJ9bbdT8/uTf2nMBOQPJZquqir2T28nUNlRORytPDnQ=
+            type: binary
+            url: https://nodejs.org/download/release/v24.16.0/node-v24.16.0-linux-arm64.tar.gz
+          targets:
+            - cpu: arm64
+              os: linux
+        - resolution:
+            archive: tarball
+            bin:
+              node: bin/node
+            integrity: sha256-JStYIFNNwDBKKFQcmkRDfPpyAufyAiXSjUk5MsWOl6o=
+            type: binary
+            url: https://nodejs.org/download/release/v24.16.0/node-v24.16.0-linux-ppc64le.tar.gz
+          targets:
+            - cpu: ppc64le
+              os: linux
+        - resolution:
+            archive: tarball
+            bin:
+              node: bin/node
+            integrity: sha256-Vnrwl1s0BVFrmx3cZEKaI+yMWi+mzwE5EmGkzHdOPt0=
+            type: binary
+            url: https://nodejs.org/download/release/v24.16.0/node-v24.16.0-linux-s390x.tar.gz
+          targets:
+            - cpu: s390x
+              os: linux
+        - resolution:
+            archive: tarball
+            bin:
+              node: bin/node
+            integrity: sha256-L69qOH6bYriI4hxU8BJJ+ydTf/7PGELyn0yRnQpZoP8=
+            type: binary
+            url: https://nodejs.org/download/release/v24.16.0/node-v24.16.0-linux-x64.tar.gz
+          targets:
+            - cpu: x64
+              os: linux
+        - resolution:
+            archive: zip
+            bin:
+              node: node.exe
+            integrity: sha256-FINGEdTGs8BgVOcAdzK5BHTBbgsy85XgW1Wlce9xxtI=
+            prefix: node-v24.16.0-win-arm64
+            type: binary
+            url: https://nodejs.org/download/release/v24.16.0/node-v24.16.0-win-arm64.zip
+          targets:
+            - cpu: arm64
+              os: win32
+        - resolution:
+            archive: zip
+            bin:
+              node: node.exe
+            integrity: sha256-7aypvVjsjpIDfaxOh31S9rj0MLgcGLV+JktOL7ERzVY=
+            prefix: node-v24.16.0-win-x64
+            type: binary
+            url: https://nodejs.org/download/release/v24.16.0/node-v24.16.0-win-x64.zip
+          targets:
+            - cpu: x64
+              os: win32
+        - resolution:
+            archive: tarball
+            bin:
+              node: bin/node
+            integrity: sha256-hd3ieqc1A7A9rfoEEKgABntOP3Avt/yqO+ryhN/Maek=
+            type: binary
+            url: https://unofficial-builds.nodejs.org/download/release/v24.16.0/node-v24.16.0-linux-arm64-musl.tar.gz
+          targets:
+            - cpu: arm64
+              os: linux
+              libc: musl
+        - resolution:
+            archive: tarball
+            bin:
+              node: bin/node
+            integrity: sha256-UN9djUdIktT3uQYWffNvd/W5OQj2PcUy3FaCGcq2WEE=
+            type: binary
+            url: https://unofficial-builds.nodejs.org/download/release/v24.16.0/node-v24.16.0-linux-x64-musl.tar.gz
+          targets:
+            - cpu: x64
+              os: linux
+              libc: musl
+    version: 24.16.0
+    hasBin: true
+
   normalize-path@3.0.0:
     resolution: {integrity: sha512-6eZs5Ls3WtCisHWp9S2GUy8dqkpGi4BVSz3GaqiE6ezub0512ESztXUwUB6C6IKbQkY2Pnb/mD4WYojCRwcwLA==}
     engines: {node: '>=0.10.0'}
@@ -3640,6 +3767,7 @@ packages:
   recharts@2.15.4:
     resolution: {integrity: sha512-UT/q6fwS3c1dHbXv2uFgYJ9BMFHu3fwnd7AYZaEQhXuYQ4hgsxLvsUXzGdKeZrW5xopzDCvuA2N41WJ88I7zIw==}
     engines: {node: '>=14'}
+    deprecated: 1.x and 2.x branches are no longer active. Bump to Recharts v3 to receive latest features and bugfixes. See https://github.com/recharts/recharts/wiki/3.0-migration-guide
     peerDependencies:
       react: ^16.0.0 || ^17.0.0 || ^18.0.0 || ^19.0.0
       react-dom: ^16.0.0 || ^17.0.0 || ^18.0.0 || ^19.0.0
@@ -4828,7 +4956,9 @@ snapshots:
       interval-tree-1d: 1.0.4
       isoformat: 0.2.1
 
-  '@opencode-ai/sdk@1.2.15': {}
+  '@opencode-ai/sdk@1.16.2':
+    dependencies:
+      cross-spawn: 7.0.6
 
   '@opentelemetry/api-logs@0.208.0':
     dependencies:
@@ -7367,6 +7497,8 @@ snapshots:
   node-addon-api@7.1.1: {}
 
   node-releases@2.0.27: {}
+
+  node@runtime:24.16.0: {}
 
   normalize-path@3.0.0: {}
 

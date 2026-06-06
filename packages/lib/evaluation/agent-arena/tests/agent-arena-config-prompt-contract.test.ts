@@ -16,7 +16,7 @@ async function main() {
   assert.equal(typeof fullToolkit.onBeforePrompt, 'function');
 
   const relativeRunOutDir =
-    'runs/2026-02-11T00-00-00-000Z/runs/experiment=full-toolkit/scenario=demo/modelProvider=openai/modelName=gpt-5-2';
+    'runs/2026-02-11T00-00-00-000Z/runs/experiment=full-toolkit/scenario=demo/modelProvider=openai/modelName=gpt-5-4';
   const opencodeDir = path.resolve('/tmp/agent-arena-opencode');
   const artifactDir = path.resolve(opencodeDir, relativeRunOutDir);
   const artifactGlob = `"${artifactDir}/step-*.png"`;

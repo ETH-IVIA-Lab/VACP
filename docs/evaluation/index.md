@@ -15,6 +15,6 @@ End-to-end browser coverage lives in `packages/testing/e2e` and is implemented w
 
 Agent Arena produces:
 
-- a run folder with evidence snapshots
+- a run folder with job-local OpenCode session exports
 - derived datasets
 - a report bundle

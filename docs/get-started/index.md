@@ -39,8 +39,7 @@ The MCP transport implementation lives in `packages/lib/transports/mcp-server`. 
 ## Run checks
 
 ```bash
-pnpm test:e2e
-pnpm test:mcp
+pnpm test
 ```
 
 ## Develop an example on its own

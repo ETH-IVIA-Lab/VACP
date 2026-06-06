@@ -4,6 +4,12 @@ packages:
   - packages/examples/*
   - packages/testing/*
 
+allowBuilds:
+  '@parcel/watcher': true
+  core-js: true
+  esbuild: true
+  protobufjs: true
+
 onlyBuiltDependencies:
   - '@parcel/watcher'
   - core-js

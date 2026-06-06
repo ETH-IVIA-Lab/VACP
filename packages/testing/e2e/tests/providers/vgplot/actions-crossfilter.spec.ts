@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
 
 import { startViteDevServer } from '../../helpers/devserver';
 import { exampleDir } from '../../helpers/paths';
@@ -9,20 +9,9 @@ test('vgplot: set_interval_1d triggers downstream crossfilters (Seattle Weather)
     await page.goto(`${srv.url}?vacp-debug=1#weather`, { waitUntil: 'domcontentloaded' });
     await page.waitForFunction(() => !!(globalThis as any).__vacp);
 
-    // Capture a stable-ish fingerprint of the *second* plot (the bar chart) before the action.
-    const before = await page.evaluate(() => {
-      const root = document.querySelector('#app');
-      if (!root) return null;
-      const all: Element[] = [root, ...Array.from(root.querySelectorAll('*'))];
-      const hosts = all.filter((el) => {
-        const v = (el as any).value;
-        return v && typeof v === 'object' && Array.isArray(v.marks) && Array.isArray(v.interactors);
-      });
-      const host = hosts[1] as Element | undefined;
-      const svg = host?.querySelector('svg');
-      return svg?.outerHTML ?? null;
-    });
-    expect(before).toBeTruthy();
+    const beforeRows = await selectedAndAllRowCounts(page);
+    expect(beforeRows.selected).toBe(beforeRows.all);
+    expect(beforeRows.all).toBeGreaterThan(0);
 
     // Programmatic brush (June-Aug) on the scatter plot should change the bottom bar chart.
     const callId = crypto.randomUUID();
@@ -44,7 +33,21 @@ test('vgplot: set_interval_1d triggers downstream crossfilters (Seattle Weather)
     );
     expect(res?.ok).toBeTruthy();
 
-    // Ensure the brush rect renders (visual parity with human brushing).
+    await expect
+      .poll(
+        async () => {
+          const rows = await selectedAndAllRowCounts(page);
+          return rows.all === beforeRows.all && rows.selected > 0 && rows.selected < rows.all;
+        },
+        { timeout: 15_000 },
+      )
+      .toBe(true);
+    const afterRows = await selectedAndAllRowCounts(page);
+    expect(afterRows.selected).toBeGreaterThan(0);
+    expect(afterRows.selected).toBeLessThan(afterRows.all);
+    expect(afterRows.selectionWhere).toMatch(/BETWEEN|>=|<=|date/i);
+
+    // Ensure the brush rect renders. Visual geometry is checked in the browser, not by snapshotting SVG markup.
     await page.waitForFunction(() => {
       const app = document.querySelector('#app');
       const svg = app?.querySelector('svg');
@@ -53,24 +56,6 @@ test('vgplot: set_interval_1d triggers downstream crossfilters (Seattle Weather)
       const b = r.getBBox();
       return b.width > 1 && b.height > 1;
     });
-
-    await page.waitForFunction(
-      ({ before }) => {
-        const root = document.querySelector('#app');
-        if (!root) return false;
-        const all: Element[] = [root, ...Array.from(root.querySelectorAll('*'))];
-        const hosts = all.filter((el) => {
-          const v = (el as any).value;
-          return v && typeof v === 'object' && Array.isArray(v.marks) && Array.isArray(v.interactors);
-        });
-        const host = hosts[1] as Element | undefined;
-        const svg = host?.querySelector('svg');
-        const now = svg?.outerHTML ?? '';
-        return !!before && now.length > 0 && now !== before;
-      },
-      { before },
-      { timeout: 15_000 },
-    );
 
     // Capture a post-action snapshot (includes the interval selection in domain units) and then
     // prove vacp.apply_state can restore it after changing the interval again.
@@ -131,3 +116,36 @@ test('vgplot: set_interval_1d triggers downstream crossfilters (Seattle Weather)
     await srv.stop();
   }
 });
+
+async function selectedAndAllRowCounts(page: Page) {
+  return await page.evaluate(async () => {
+    const vacp = (globalThis as any).__vacp;
+    const caps = await vacp.getCapabilities();
+    const handleRef = caps?.graph?.nodes?.find(
+      (node: any) => node?.kind === 'DataHandle' && String(node?.ref ?? '').includes('/vgplot/weather/'),
+    )?.ref;
+    if (!handleRef) throw new Error('Missing weather DataHandle');
+
+    const state = await vacp.getState();
+    const handleState = state?.state?.[handleRef] ?? {};
+    const selected = await vacp.execute({
+      callId: crypto.randomUUID(),
+      name: 'vacp.data_sql',
+      params: { handleRef, sql: 'SELECT COUNT(*)::INTEGER AS n FROM vacp_handle' },
+    });
+    const all = await vacp.execute({
+      callId: crypto.randomUUID(),
+      name: 'vacp.data_sql',
+      params: { handleRef, sql: 'SELECT COUNT(*)::INTEGER AS n FROM vacp_all' },
+    });
+
+    return {
+      selected: selected?.result?.rows?.[0]?.n,
+      all: all?.result?.rows?.[0]?.n,
+      selectionWhere:
+        typeof handleState === 'object' && handleState && typeof (handleState as any).selectionWhere === 'string'
+          ? (handleState as any).selectionWhere
+          : null,
+    };
+  });
+}

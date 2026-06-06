@@ -18,7 +18,7 @@ test('vgplot-gallery: playbook empty state for non-interactive spec', async ({ p
     await expect(playbookTab).toBeVisible();
     await playbookTab.click();
 
-    await expect(page.locator('.vacp-debug-ui-content')).toContainText('No playbooks were provided');
+    await expect(page.locator('.vacp-debug-ui-content')).toContainText('No guided playbook is available for this view');
   } finally {
     await srv.stop();
   }

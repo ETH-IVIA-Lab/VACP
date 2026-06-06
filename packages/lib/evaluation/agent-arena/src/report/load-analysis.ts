@@ -6,20 +6,16 @@ export type ArenaAnalysisMeta = {
   runDir?: string;
   generatedAt?: string;
   uiBase?: string | null;
-  opencodeStorageDir?: string | null;
-  opencodeEvidenceDir?: string | null;
-  opencodeEvidenceManifest?: string | null;
-  opencodeEvidenceSourceStorageDir?: string | null;
-  opencodeEvidenceComplete?: boolean | null;
-  opencodeEvidenceGeneratedAt?: string | null;
-  opencodeEvidenceCounts?: {
-    requiredSessions?: number;
-    requiredProjects?: number;
-    messageFiles?: number;
-    partFiles?: number;
-    sessionFiles?: number;
-    sessionDiffFiles?: number;
-    projectFiles?: number;
+  opencodeLogSource?: string | null;
+  opencodeExportManifest?: string | null;
+  opencodeExportCounts?: {
+    jobs?: number;
+    jobsWithSession?: number;
+    messagesJson?: number;
+    sessionJson?: number;
+    toolCallsJson?: number;
+    messages?: number;
+    parts?: number;
     [k: string]: unknown;
   } | null;
   configPath?: string | null;

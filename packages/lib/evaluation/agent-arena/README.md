@@ -7,7 +7,7 @@ Config-driven CLI for running OpenCode sessions against VACP-enabled apps and pr
 It is designed for:
 
 - running scenario suites with concurrency,
-- snapshotting evidence into portable run folders,
+- exporting OpenCode session logs into each job folder,
 - producing datasets and a report bundle for analysis.
 
 ## When to use
@@ -22,7 +22,7 @@ It is designed for:
 - **Experiment**: a model configuration and tool policy.
 - **Run**: one CLI invocation producing a timestamped folder under `.agent-arena/runs/`.
 
-`agent-arena` runs many `(scenario, experiment)` jobs, collects outcomes, and snapshots the relevant OpenCode evidence so runs are self-contained.
+`agent-arena` runs many `(scenario, experiment)` jobs, collects outcomes, and stores OpenCode session exports in the job folders when `--export-logs` is enabled.
 
 ## Minimal usage
 
@@ -101,14 +101,14 @@ pnpm start -- report --analysis .agent-arena/runs/<runId>/analysis
 
 Outputs include an HTML report bundle plus per-chart datasets.
 
-## Evidence snapshot
+## OpenCode exports
 
-Analysis and reporting expect a run-local OpenCode evidence snapshot under:
+Analysis and reporting read the OpenCode session export written for each job:
 
-- `<runDir>/evidence/opencode-storage/`
-- manifest: `<runDir>/evidence/opencode-storage/manifest.json`
+- `<jobDir>/messages.json`
+- manifest: `<runDir>/analysis/opencode-export-manifest.json`
 
-If required evidence is missing, strict flows fail with actionable errors.
+Run with `--export-logs` when a run should support later analysis. If a job has a session id but no `messages.json`, analysis fails with the missing job path.
 
 ## Scenario matrix workflow
 

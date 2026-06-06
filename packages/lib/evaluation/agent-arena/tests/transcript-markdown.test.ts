@@ -3,11 +3,11 @@ import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { renderSessionTranscriptMarkdown, writeJobTranscript } from '../src/analyze/transcript.ts';
-import type { OpencodeMessageInfo, OpencodePart } from '../src/analyze/opencode-storage.ts';
+import type { OpencodeMessageInfo, OpencodePart } from '../src/analyze/opencode-export.ts';
 
 async function main() {
   await testRenderIncludesConversationAndToolContext();
-  await testWriteJobTranscriptWritesPlaceholders();
+  await testWriteJobTranscriptWritesStatusReports();
   console.log('transcript-markdown: ok');
 }
 
@@ -113,7 +113,7 @@ async function testRenderIncludesConversationAndToolContext() {
   assert.equal(markdown.includes('✓ done'), true);
 }
 
-async function testWriteJobTranscriptWritesPlaceholders() {
+async function testWriteJobTranscriptWritesStatusReports() {
   const tmpRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'arena-transcript-test-'));
   try {
     const runDir = path.join(tmpRoot, 'run');
@@ -129,7 +129,7 @@ async function testWriteJobTranscriptWritesPlaceholders() {
       jobDirAbs: missingSessionJobDir,
       sessionID: '',
       messages: [],
-      storage: { storageDir: path.join(runDir, 'evidence', 'opencode-storage') },
+      partsByMessageID: new Map(),
     });
 
     assert.equal(missingSessionResult.status, 'missing_session_id');
@@ -142,7 +142,7 @@ async function testWriteJobTranscriptWritesPlaceholders() {
       jobDirAbs: noMessagesJobDir,
       sessionID: 'ses_test',
       messages: [],
-      storage: { storageDir: path.join(runDir, 'evidence', 'opencode-storage') },
+      partsByMessageID: new Map(),
     });
 
     assert.equal(noMessagesResult.status, 'no_messages');

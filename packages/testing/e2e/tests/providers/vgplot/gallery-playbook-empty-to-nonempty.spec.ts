@@ -31,7 +31,7 @@ test('vgplot-gallery: switching from no-playbook spec to playbook spec does not 
     await expect(playbookTab).toBeVisible();
     await playbookTab.click();
 
-    await expect(page.locator('.vacp-debug-ui-content')).toContainText('No playbooks were provided');
+    await expect(page.locator('.vacp-debug-ui-content')).toContainText('No guided playbook is available for this view');
 
     // Trigger an empty→non-empty playbook transition while the Playbook module is mounted.
     await page.locator('#spec').selectOption({ label: 'Seattle Weather' });

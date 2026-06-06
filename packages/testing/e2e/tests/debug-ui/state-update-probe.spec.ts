@@ -24,7 +24,7 @@ test('debug-ui: state update probe surfaces full and delta summaries', async ({ 
 
     const panel = page.locator('[data-vacp-state-update="panel"]');
     await expect(panel).toBeVisible();
-    await panel.locator('summary', { hasText: 'State update probe' }).click();
+    await panel.locator('summary', { hasText: 'Update probe' }).click();
 
     const seedSince = page.locator('button[aria-label="Seed since from full"]');
     await expect(seedSince).toBeVisible();

@@ -7,7 +7,6 @@ import { writeAggregatedMetrics } from './logs/aggregate.js';
 import { exportSessionLogs } from './logs/export-session.js';
 import { resolveFromCwd } from './paths.js';
 import { analyzeArenaRun } from './analyze/analyze-run.js';
-import { ensureOpencodeEvidenceSnapshot } from './analyze/opencode-evidence.js';
 import fs from 'node:fs/promises';
 import {
   DEFAULT_CHARTS,
@@ -15,7 +14,6 @@ import {
   exportArenaDatasets,
   generateArenaReportSuite,
 } from './report/index.js';
-import { loadArenaAnalysis } from './report/load-analysis.js';
 import { runArena } from './runner/index.js';
 import { computeJobIdentityKey, inspectJob, type ResumeReuseMode } from './runner/job-state.js';
 import {
@@ -245,24 +243,18 @@ program
     '--config <path>',
     'Arena config file (TS/JS). Used to load SCENARIO_BASES judge predicates for scoring. Default: ./packages/lib/evaluation/agent-arena/agent-arena.config.ts if present.',
   )
-  .option(
-    '--opencode-root <dir>',
-    'OpenCode root or storage dir. Defaults try ~/.local/share/opencode/storage then ~/.opencode/storage.',
-  )
   .option('--max-field-chars <n>', 'Max chars stored per large string field (sensitive default). Default: 500', '500')
   .action(async (raw) => {
     try {
       const runDir = resolveFromCwd(raw.run);
       const outDir = raw.out ? resolveFromCwd(raw.out) : undefined;
       const configPath = raw.config ? resolveFromCwd(raw.config) : undefined;
-      const opencodeRoot = raw.opencodeRoot ? resolveFromCwd(raw.opencodeRoot) : undefined;
       const maxFieldChars = Number(raw.maxFieldChars);
 
       const res = await analyzeArenaRun({
         runDir,
         ...(outDir ? { outDir } : {}),
         ...(configPath ? { configPath } : {}),
-        ...(opencodeRoot ? { opencodeRoot } : {}),
         ...(Number.isFinite(maxFieldChars) ? { maxFieldChars } : {}),
       });
 
@@ -271,8 +263,7 @@ program
       consola.info(`- tool calls:  ${res.toolCallsJsonPath}`);
       consola.info(`- meta:       ${res.metaPath}`);
       consola.info(`- transcripts: ${res.transcriptsWritten} (runs/**/transcript.md)`);
-      consola.info(`- evidence:   ${res.evidenceDir}`);
-      consola.info(`- manifest:   ${res.evidenceManifestPath}`);
+      consola.info(`- exports:    ${res.opencodeExportManifestPath}`);
     } catch (error) {
       consola.error(error);
       process.exitCode = 1;
@@ -284,7 +275,6 @@ program
   .description('Generate a publication-ready HTML + SVG report from an analysis folder')
   .requiredOption('--analysis <dir>', 'Analysis folder (contains meta.json + runs.*)')
   .option('--out <dir>', 'Output directory. Default: <analysisDir>/report')
-  .option('--opencode-root <dir>', 'OpenCode root or storage dir used when evidence snapshot backfill is required.')
   .option('--width <px>', 'Override figure width in px (affects all charts)')
   .option('--font-size <px>', 'Override base chart font size in px (affects all charts)')
   .option('--charts <ids>', 'Comma-separated chart ids to include (default: all)')
@@ -294,7 +284,6 @@ program
     try {
       const analysisDir = resolveFromCwd(raw.analysis);
       const outDir = raw.out ? resolveFromCwd(raw.out) : undefined;
-      const opencodeRoot = raw.opencodeRoot ? resolveFromCwd(raw.opencodeRoot) : undefined;
 
       const width = raw.width ? Number(raw.width) : undefined;
       const fontSizePx = raw.fontSize ? Number(raw.fontSize) : undefined;
@@ -307,11 +296,6 @@ program
 
       const chartConfigPath = raw.chartConfig ? resolveFromCwd(raw.chartConfig) : null;
       const chartConfigById = chartConfigPath ? await loadJsonObject(chartConfigPath) : undefined;
-
-      await ensureAnalysisEvidenceSnapshot({
-        analysisDir,
-        ...(opencodeRoot ? { opencodeRoot } : {}),
-      });
 
       const theme = {
         ...(typeof width === 'number' && Number.isFinite(width) && width > 0 ? { width } : {}),
@@ -343,25 +327,18 @@ program
   .description('Export chart-ready datasets (and derived tables) as JSON under an analysis folder')
   .requiredOption('--analysis <dir>', 'Analysis folder (contains meta.json + runs.*)')
   .option('--out <dir>', 'Output directory. Default: <analysisDir>/datasets')
-  .option('--opencode-root <dir>', 'OpenCode root or storage dir used when evidence snapshot backfill is required.')
   .option('--charts <ids>', 'Comma-separated chart ids to export (default: all)')
   .option('--chart-config <path>', 'JSON file mapping chart ids -> per-chart config (affects dataset shape)')
   .action(async (raw) => {
     try {
       const analysisDir = resolveFromCwd(raw.analysis);
       const outDir = raw.out ? resolveFromCwd(raw.out) : undefined;
-      const opencodeRoot = raw.opencodeRoot ? resolveFromCwd(raw.opencodeRoot) : undefined;
 
       const chartIds = parseCsv(raw.charts);
       const charts = chartIds ? selectById(DEFAULT_CHARTS, chartIds, 'chart') : undefined;
 
       const chartConfigPath = raw.chartConfig ? resolveFromCwd(raw.chartConfig) : null;
       const chartConfigById = chartConfigPath ? await loadJsonObject(chartConfigPath) : undefined;
-
-      await ensureAnalysisEvidenceSnapshot({
-        analysisDir,
-        ...(opencodeRoot ? { opencodeRoot } : {}),
-      });
 
       const res = await exportArenaDatasets({
         analysisDir,
@@ -449,91 +426,9 @@ async function loadJsonObject(filePath: string): Promise<Record<string, unknown>
   return parsed as Record<string, unknown>;
 }
 
-async function ensureAnalysisEvidenceSnapshot(args: { analysisDir: string; opencodeRoot?: string }) {
-  const analysis = await loadArenaAnalysis(args.analysisDir);
-  const runDir = await resolveRunDirForAnalysis({ analysisDir: analysis.analysisDir, meta: analysis.meta });
-
-  const sessionIDs = uniqueNonEmptyStrings(analysis.runs.map((row) => rowString(row, 'session_id')));
-  const projectIDs = uniqueNonEmptyStrings(analysis.runs.map((row) => rowString(row, 'project_id')));
-
-  const metaSourceStorage =
-    coerceOptionalString(analysis.meta?.opencodeEvidenceSourceStorageDir) ??
-    coerceOptionalString(analysis.meta?.opencodeStorageDir);
-
-  const snapshot = await ensureOpencodeEvidenceSnapshot({
-    runDir,
-    sessionIDs,
-    projectIDs,
-    ...(metaSourceStorage ? { sourceStorageDir: metaSourceStorage } : {}),
-    ...(args.opencodeRoot ? { opencodeRoot: args.opencodeRoot } : {}),
-  });
-
-  await writeAnalysisEvidenceMeta({ analysisDir: analysis.analysisDir, runDir, existingMeta: analysis.meta, snapshot });
-  consola.info(`[evidence] snapshot ready: ${snapshot.evidenceDir}`);
-}
-
-async function resolveRunDirForAnalysis(args: { analysisDir: string; meta: Record<string, unknown> | null }) {
-  const fromMeta = coerceOptionalString(args.meta?.runDir);
-  if (fromMeta) {
-    const resolved = path.resolve(fromMeta);
-    if (await isDirectory(resolved)) return resolved;
-  }
-
-  const analysisDirAbs = path.resolve(args.analysisDir);
-  if (path.basename(analysisDirAbs) === 'analysis') {
-    const parent = path.dirname(analysisDirAbs);
-    if (await isFile(path.join(parent, 'results.json'))) return parent;
-  }
-
-  throw new Error(
-    [
-      `Failed to resolve run directory from analysis: ${analysisDirAbs}`,
-      `Expected meta.runDir to point to a valid run folder, or analysis path to be <runDir>/analysis with results.json in parent.`,
-      `Cannot enforce self-contained Opencode evidence snapshot without run directory.`,
-    ].join('\n'),
-  );
-}
-
-async function writeAnalysisEvidenceMeta(args: {
-  analysisDir: string;
-  runDir: string;
-  existingMeta: Record<string, unknown> | null;
-  snapshot: Awaited<ReturnType<typeof ensureOpencodeEvidenceSnapshot>>;
-}) {
-  const metaPath = path.join(args.analysisDir, 'meta.json');
-  const base =
-    args.existingMeta && typeof args.existingMeta === 'object' && !Array.isArray(args.existingMeta)
-      ? args.existingMeta
-      : {};
-
-  const next = {
-    ...base,
-    runDir: args.runDir,
-    ...(args.snapshot.sourceStorageDir ? { opencodeStorageDir: args.snapshot.sourceStorageDir } : {}),
-    opencodeEvidenceDir: args.snapshot.evidenceDir,
-    opencodeEvidenceManifest: args.snapshot.manifestPath,
-    opencodeEvidenceSourceStorageDir: args.snapshot.sourceStorageDir,
-    opencodeEvidenceComplete: args.snapshot.complete,
-    opencodeEvidenceGeneratedAt: args.snapshot.generatedAt,
-    opencodeEvidenceCounts: args.snapshot.counts,
-  };
-
-  await fs.writeFile(metaPath, JSON.stringify(next, null, 2) + '\n', 'utf8');
-}
-
 async function assertIsDirectory(p: string) {
   const st = await fs.stat(p).catch(() => null);
   if (!st || !st.isDirectory()) throw new Error(`Not a directory: ${p}`);
-}
-
-async function isDirectory(p: string) {
-  const st = await fs.stat(p).catch(() => null);
-  return Boolean(st?.isDirectory());
-}
-
-async function isFile(p: string) {
-  const st = await fs.stat(p).catch(() => null);
-  return Boolean(st?.isFile());
 }
 
 async function inferConfigPath(args: { explicit?: string; runDir: string; fallback: string }) {
@@ -753,27 +648,4 @@ async function backupIfPresent(filePath: string) {
   const stamp = new Date().toISOString().replace(/[:.]/g, '-');
   const out = path.join(dir, `${base}.pre-resume.${stamp}.bak`);
   await fs.copyFile(filePath, out);
-}
-
-function rowString(row: Record<string, unknown>, key: string) {
-  const raw = row[key];
-  return typeof raw === 'string' ? raw : raw == null ? '' : String(raw);
-}
-
-function uniqueNonEmptyStrings(values: string[]) {
-  const out: string[] = [];
-  const seen = new Set<string>();
-  for (const value of values) {
-    const trimmed = value.trim();
-    if (!trimmed || seen.has(trimmed)) continue;
-    seen.add(trimmed);
-    out.push(trimmed);
-  }
-  return out;
-}
-
-function coerceOptionalString(value: unknown): string | null {
-  if (typeof value !== 'string') return null;
-  const trimmed = value.trim();
-  return trimmed.length ? trimmed : null;
 }

@@ -4,7 +4,6 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "node -e \"console.log('No build step for @vacp/e2e')\"",
     "lint": "oxlint tests playwright.config.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "playwright test"

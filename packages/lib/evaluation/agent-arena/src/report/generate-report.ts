@@ -87,21 +87,13 @@ export async function generateArenaReport(args: GenerateArenaReportArgs, deps: G
         experiments: prepared.experimentDomain,
         taskSummaries: prepared.taskSummaries,
         scenarioDefsPath: prepared.scenarioDefsPath,
-        opencodeEvidenceDir:
-          typeof prepared.meta?.opencodeEvidenceDir === 'string' ? prepared.meta.opencodeEvidenceDir : null,
-        opencodeEvidenceManifest:
-          typeof prepared.meta?.opencodeEvidenceManifest === 'string' ? prepared.meta.opencodeEvidenceManifest : null,
-        opencodeEvidenceSourceStorageDir:
-          typeof prepared.meta?.opencodeEvidenceSourceStorageDir === 'string'
-            ? prepared.meta.opencodeEvidenceSourceStorageDir
-            : typeof prepared.meta?.opencodeStorageDir === 'string'
-              ? prepared.meta.opencodeStorageDir
-              : null,
-        opencodeEvidenceComplete:
-          typeof prepared.meta?.opencodeEvidenceComplete === 'boolean' ? prepared.meta.opencodeEvidenceComplete : null,
-        opencodeEvidenceGeneratedAt:
-          typeof prepared.meta?.opencodeEvidenceGeneratedAt === 'string'
-            ? prepared.meta.opencodeEvidenceGeneratedAt
+        opencodeLogSource:
+          typeof prepared.meta?.opencodeLogSource === 'string' ? prepared.meta.opencodeLogSource : null,
+        opencodeExportManifest:
+          typeof prepared.meta?.opencodeExportManifest === 'string' ? prepared.meta.opencodeExportManifest : null,
+        opencodeExportCounts:
+          typeof prepared.meta?.opencodeExportCounts === 'object' && prepared.meta.opencodeExportCounts
+            ? prepared.meta.opencodeExportCounts
             : null,
         figureWidthPx,
       },

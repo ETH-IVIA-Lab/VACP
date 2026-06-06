@@ -93,6 +93,9 @@ export async function runArena(input: ArenaRunInput): Promise<ArenaRunResult[]> 
   try {
     const requestedDirectory = path.resolve(input.config.directory ?? input.config.startDirectory ?? process.cwd());
     const worktreeRoot = input.config.worktreeRoot ?? true;
+    if (path.basename(requestedDirectory) === '.agent-arena') {
+      await fs.mkdir(requestedDirectory, { recursive: true });
+    }
 
     // In `connect` mode, `server.opencodeConfig` is NOT applied by `opencode serve` automatically.
     // To keep arena runs self-contained (and avoid requiring users to edit global OpenCode config),

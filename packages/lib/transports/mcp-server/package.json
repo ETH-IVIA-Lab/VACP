@@ -1,0 +1,10 @@
+{
+  "name": "@vacp/mcp-server",
+  "version": "0.0.0",
+  "private": true,
+  "scripts": {
+    "format": "uv run ruff format .",
+    "lint": "uv run ruff check .",
+    "test": "uv run pytest"
+  }
+}

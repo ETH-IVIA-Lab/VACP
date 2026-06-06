@@ -6,13 +6,12 @@ import { createJiti } from 'jiti';
 import type { Dirent } from 'node:fs';
 import { JsonArrayWriter } from './json-array.js';
 import {
-  readMessageParts,
-  readSessionMessages,
-  relPathFromStorage,
+  emptyJobOpencodeExport,
+  readJobOpencodeExport,
   type OpencodeMessageInfo,
-} from './opencode-storage.js';
+  type OpencodePart,
+} from './opencode-export.js';
 import { writeJobTranscript } from './transcript.js';
-import { ensureOpencodeEvidenceSnapshot } from './opencode-evidence.js';
 import { classifyEvalOutcome, detectPlumbingFailure } from '../eval/outcome.js';
 import { parseAnswerFromText } from './score.js';
 
@@ -20,7 +19,6 @@ export type AnalyzeRunArgs = {
   runDir: string;
   outDir?: string;
   configPath?: string;
-  opencodeRoot?: string;
   maxFieldChars?: number;
 };
 
@@ -50,16 +48,6 @@ export async function analyzeArenaRun(args: AnalyzeRunArgs) {
     throw new Error(`No job folders found under ${path.join(runDir, 'runs')} (expected runs/**/input.json).`);
   }
 
-  const sessionIDs = await collectSessionIDs(jobDirs);
-  const projectIDs = await collectProjectIDs(jobDirs);
-  const evidence = await ensureOpencodeEvidenceSnapshot({
-    runDir,
-    sessionIDs,
-    projectIDs,
-    ...(args.opencodeRoot ? { opencodeRoot: args.opencodeRoot } : {}),
-  });
-  const storage = { storageDir: evidence.evidenceDir };
-
   const scoring = await loadScenarioJudges(args.configPath);
   const configHash = scoring?.configHash ?? null;
   const scenariosPath = scoring?.scenariosPath ?? null;
@@ -71,31 +59,7 @@ export async function analyzeArenaRun(args: AnalyzeRunArgs) {
 
   const metaPath = path.join(outDir, 'meta.json');
   await fs.mkdir(outDir, { recursive: true });
-  await fs.writeFile(
-    metaPath,
-    JSON.stringify(
-      {
-        generatedAt: new Date().toISOString(),
-        runDir,
-        runId,
-        opencodeStorageDir: evidence.sourceStorageDir,
-        opencodeEvidenceDir: evidence.evidenceDir,
-        opencodeEvidenceManifest: evidence.manifestPath,
-        opencodeEvidenceSourceStorageDir: evidence.sourceStorageDir,
-        opencodeEvidenceComplete: evidence.complete,
-        opencodeEvidenceGeneratedAt: evidence.generatedAt,
-        opencodeEvidenceCounts: evidence.counts,
-        uiBase: uiBase ?? null,
-        configPath: scoring?.configPath ?? null,
-        configSha256: configHash,
-        scenariosPath,
-        scenariosSha256: scenariosHash,
-      },
-      null,
-      2,
-    ) + '\n',
-    'utf8',
-  );
+  const exportManifestPath = path.join(outDir, 'opencode-export-manifest.json');
 
   const runsJsonPath = path.join(outDir, 'runs.json');
   const toolCallsJsonPath = path.join(outDir, 'tool_calls.json');
@@ -105,6 +69,15 @@ export async function analyzeArenaRun(args: AnalyzeRunArgs) {
 
   const allJobRows: any[] = [];
   let transcriptsWritten = 0;
+  const opencodeExportCounts = {
+    jobs: jobDirs.length,
+    jobsWithSession: 0,
+    messagesJson: 0,
+    sessionJson: 0,
+    toolCallsJson: 0,
+    messages: 0,
+    parts: 0,
+  };
 
   for (const jobDirAbs of jobDirs) {
     const inputPath = path.join(jobDirAbs, 'input.json');
@@ -145,14 +118,26 @@ export async function analyzeArenaRun(args: AnalyzeRunArgs) {
 
     const screenshotStats = await computeScreenshotStats(jobDirAbs);
 
-    const sessionMessages = sessionID ? await readSessionMessages(storage, sessionID) : [];
+    const opencodeExport = sessionID
+      ? await readJobOpencodeExport({ jobDirAbs, sessionID })
+      : emptyJobOpencodeExport(jobDirAbs);
+    if (sessionID) {
+      opencodeExportCounts.jobsWithSession += 1;
+      opencodeExportCounts.messagesJson += 1;
+      opencodeExportCounts.messages += opencodeExport.counts.messages;
+      opencodeExportCounts.parts += opencodeExport.counts.parts;
+      if (await isFile(opencodeExport.paths.session)) opencodeExportCounts.sessionJson += 1;
+      if (await isFile(opencodeExport.paths.toolCalls)) opencodeExportCounts.toolCallsJson += 1;
+    }
+
+    const sessionMessages = opencodeExport.messages;
     await writeJobTranscript({
       runID: runId,
       runDir,
       jobDirAbs,
       sessionID,
       messages: sessionMessages,
-      storage,
+      partsByMessageID: opencodeExport.partsByMessageID,
     });
     transcriptsWritten += 1;
 
@@ -168,11 +153,13 @@ export async function analyzeArenaRun(args: AnalyzeRunArgs) {
       },
     });
 
-    const toolCalls = sessionID ? await extractToolCalls(storage, sessionMessages, maxFieldChars) : [];
+    const toolCalls = sessionID
+      ? extractToolCalls(opencodeExport.partsByMessageID, sessionMessages, maxFieldChars)
+      : [];
     const toolSummary = summarizeToolCalls(toolCalls);
     const assistantError = extractAssistantError(sessionMessages);
 
-    const answerCandidate = sessionID ? await findBestAnswer(storage, sessionMessages) : null;
+    const answerCandidate = sessionID ? findBestAnswer(opencodeExport.partsByMessageID, sessionMessages) : null;
     const parsed = answerCandidate?.text
       ? parseAnswerFromText(answerCandidate.text)
       : {
@@ -325,13 +312,51 @@ export async function analyzeArenaRun(args: AnalyzeRunArgs) {
         output_len: t.outputLen,
         error_preview: t.errorPreview,
         error_len: t.errorLen,
-        storage_part_path: t.storagePartPath,
+        opencode_export_ref: t.opencodeExportRef,
       };
       toolCallsJson.writeRow(toolRow);
     }
   }
 
   await Promise.all([runsJson.close(), toolCallsJson.close()]);
+  const generatedAt = new Date().toISOString();
+  await fs.writeFile(
+    exportManifestPath,
+    JSON.stringify(
+      {
+        generatedAt,
+        runDir,
+        runId,
+        source: 'per-job @opencode-ai/sdk/v2 session.messages export',
+        requiredCommand: 'agent-arena run --export-logs',
+        counts: opencodeExportCounts,
+      },
+      null,
+      2,
+    ) + '\n',
+    'utf8',
+  );
+  await fs.writeFile(
+    metaPath,
+    JSON.stringify(
+      {
+        generatedAt,
+        runDir,
+        runId,
+        opencodeLogSource: 'job_exports',
+        opencodeExportManifest: exportManifestPath,
+        opencodeExportCounts,
+        uiBase: uiBase ?? null,
+        configPath: scoring?.configPath ?? null,
+        configSha256: configHash,
+        scenariosPath,
+        scenariosSha256: scenariosHash,
+      },
+      null,
+      2,
+    ) + '\n',
+    'utf8',
+  );
 
   return {
     runId,
@@ -339,8 +364,7 @@ export async function analyzeArenaRun(args: AnalyzeRunArgs) {
     runsJsonPath,
     toolCallsJsonPath,
     metaPath,
-    evidenceDir: evidence.evidenceDir,
-    evidenceManifestPath: evidence.manifestPath,
+    opencodeExportManifestPath: exportManifestPath,
     transcriptsWritten,
     rows: allJobRows,
   };
@@ -419,28 +443,6 @@ async function evaluateScenario(args: {
   const solvedSemantic = typeof semantic === 'boolean' ? semantic : ok;
 
   return { ok, label, solvedStrict, solvedSemantic, result: res };
-}
-
-async function collectSessionIDs(jobDirsAbs: string[]) {
-  const out: string[] = [];
-  for (const jobDirAbs of jobDirsAbs) {
-    const runPath = path.join(jobDirAbs, 'run.json');
-    const run = (await readJsonOptional(runPath, `run.json (${jobDirAbs})`)) as any;
-    const sessionID = typeof run?.sessionID === 'string' ? String(run.sessionID) : '';
-    if (sessionID) out.push(sessionID);
-  }
-  return Array.from(new Set(out));
-}
-
-async function collectProjectIDs(jobDirsAbs: string[]) {
-  const out: string[] = [];
-  for (const jobDirAbs of jobDirsAbs) {
-    const runPath = path.join(jobDirAbs, 'run.json');
-    const run = (await readJsonOptional(runPath, `run.json (${jobDirAbs})`)) as any;
-    const projectID = typeof run?.projectID === 'string' ? String(run.projectID).trim() : '';
-    if (projectID) out.push(projectID);
-  }
-  return Array.from(new Set(out));
 }
 
 async function findJobDirs(runDir: string) {
@@ -532,6 +534,11 @@ async function safeReaddir(p: string) {
   } catch {
     return [];
   }
+}
+
+async function isFile(p: string) {
+  const st = await fs.stat(p).catch(() => null);
+  return Boolean(st?.isFile());
 }
 
 function computeSessionMetrics(args: {
@@ -661,20 +668,20 @@ function classifyAssistantErrorKind(message: string) {
   return 'assistant_error';
 }
 
-async function readAssistantMessageText(storage: { storageDir: string }, messageID: string) {
-  const parts = await readMessageParts(storage, messageID);
+function readAssistantMessageText(partsByMessageID: Map<string, OpencodePart[]>, messageID: string) {
+  const parts = partsByMessageID.get(messageID) ?? [];
   const texts = parts.filter((p) => p.type === 'text' && typeof p.text === 'string').map((p) => String(p.text));
   const combined = texts.join('\n').trim();
   return combined.length ? combined : null;
 }
 
-async function findBestAnswer(storage: { storageDir: string }, messages: OpencodeMessageInfo[]) {
+function findBestAnswer(partsByMessageID: Map<string, OpencodePart[]>, messages: OpencodeMessageInfo[]) {
   const assistants = messages.filter((m) => m.role === 'assistant');
   if (!assistants.length) return null;
 
   for (let i = assistants.length - 1; i >= 0; i -= 1) {
     const m = assistants[i];
-    const text = await readAssistantMessageText(storage, m.id);
+    const text = readAssistantMessageText(partsByMessageID, m.id);
     if (!text) continue;
     return { messageID: m.id, text };
   }
@@ -699,19 +706,19 @@ type ToolCallRow = {
   outputLen: number;
   errorPreview: string;
   errorLen: number;
-  storagePartPath: string;
+  opencodeExportRef: string;
   hasHttps: boolean;
 };
 
-async function extractToolCalls(
-  storage: { storageDir: string },
+function extractToolCalls(
+  partsByMessageID: Map<string, OpencodePart[]>,
   messages: OpencodeMessageInfo[],
   maxFieldChars: number,
-): Promise<ToolCallRow[]> {
+): ToolCallRow[] {
   const out: ToolCallRow[] = [];
 
   for (const m of messages) {
-    const parts = await readMessageParts(storage, m.id);
+    const parts = partsByMessageID.get(m.id) ?? [];
     for (const p of parts) {
       if (p.type !== 'tool') continue;
       const tool = typeof p.tool === 'string' ? p.tool : '';
@@ -743,7 +750,6 @@ async function extractToolCalls(
 
       const hasHttps = tool === 'bash' && /https:\/\//i.test(bashCommand);
 
-      const partAbs = path.join(storage.storageDir, 'part', p.messageID, `${p.id}.json`);
       out.push({
         messageID: p.messageID,
         partID: p.id,
@@ -761,7 +767,7 @@ async function extractToolCalls(
         outputLen: output.length,
         errorPreview,
         errorLen: error.length,
-        storagePartPath: relPathFromStorage(storage as any, partAbs),
+        opencodeExportRef: `messages.json#${p.messageID}/${p.id}`,
         hasHttps,
       });
     }
