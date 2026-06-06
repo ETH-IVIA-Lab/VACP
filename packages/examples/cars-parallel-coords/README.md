@@ -16,9 +16,9 @@ From the repo root:
 pnpm -C packages/examples/cars-parallel-coords dev
 ```
 
-Enable the debug overlay:
+Open the debug overlay:
 
-- set `VACP_DEBUG_UI=1` or add `?vacp-debug=1` to the URL, then click the floating **VACP** button
+- click the floating **VACP** button. Disable it with `?vacp-debug=0` or `VACP_DEBUG_UI=0`
 
 ## Interactions
 

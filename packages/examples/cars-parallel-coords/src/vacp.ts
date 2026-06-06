@@ -10,8 +10,6 @@ import {
 import { installVacpPosthogAnalytics } from '@vacp/analytics';
 import { createDuckDbWasmClient, getDuckDbTableMetadata, type VacpDuckDbTableMetadata } from '@vacp/duckdb';
 import { VACP_SCHEMA_VERSION, type VacpRef } from '@vacp/core';
-import type { VacpPlaybook } from '@vacp/core';
-import { playbook } from '@vacp/kit';
 
 import type { BrushRange, CarDatum, ParallelCoordsSource } from './chart';
 import type { ParallelCoordsState } from './chart';
@@ -382,69 +380,6 @@ export function installVacpForCarsParallelCoords(args: {
     ],
   };
 
-  const buildPlaybooks = (): VacpPlaybook[] => {
-    const dims = [...args.dimensions];
-    const preferOrder = (a: string, b: string): string[] => {
-      const out: string[] = [];
-      [a, b].forEach((d) => {
-        if (dims.includes(d) && !out.includes(d)) out.push(d);
-      });
-      dims.forEach((d) => {
-        if (!out.includes(d)) out.push(d);
-      });
-      return out;
-    };
-
-    return [
-      playbook({
-        id: 'cars-parcoords-cyl-4-weight-range',
-        title: 'Playbook: Cars (4 cylinders → weight range)',
-        description: 'Brush Cylinders = 4 and inspect the Weight axis range for the selected subset.',
-      })
-        .action('Reset brushes (clean slate)', { name: 'parallel_coords.reset_brushes', params: {} })
-        .action('Brush: Cylinders = 4', {
-          name: 'parallel_coords.set_brush_ranges',
-          params: { ranges: { Cylinders: [4, 4] } },
-        })
-        .build(),
-
-      playbook({
-        id: 'cars-parcoords-dim-correlation-displacement-weight',
-        title: 'Playbook: Cars (largest positive correlation)',
-        description:
-          'Reorder axes to place the strongest positively correlated dimensions adjacent (excluding discrete Cylinders).',
-      })
-        .action('Reset dimension order (clean slate)', { name: 'parallel_coords.reset_dimension_order', params: {} })
-        .action('Place Displacement next to Weight', {
-          name: 'parallel_coords.set_dimension_order',
-          params: { order: preferOrder('Displacement', 'Weight') },
-        })
-        .build(),
-
-      playbook({
-        id: 'cars-parcoords-6cyl-horsepower-outliers',
-        title: 'Playbook: Cars (6 cylinders → horsepower outliers)',
-        description:
-          'Brush Cylinders = 6 and inspect horsepower outliers; use hover (tooltip) to identify the outlier cars.',
-      })
-        .action('Reset brushes (clean slate)', { name: 'parallel_coords.reset_brushes', params: {} })
-        .action('Clear hover (clean slate)', { name: 'parallel_coords.clear_hover', params: {} })
-        .action('Brush: Cylinders = 6', {
-          name: 'parallel_coords.set_brush_ranges',
-          params: { ranges: { Cylinders: [6, 6] } },
-        })
-        .action('Hover: Ford Grenada ghia', {
-          name: 'parallel_coords.set_hover',
-          params: { car: 'Ford Grenada ghia', prefer: 'first' },
-        })
-        .action('Hover: Ford Maverick (lowest non-zero horsepower match)', {
-          name: 'parallel_coords.set_hover',
-          params: { car: 'Ford Maverick', prefer: 'min_horsepower_nonzero' },
-        })
-        .build(),
-    ];
-  };
-
   const vacp = installVacp({
     globalKey: args.globalKey,
     graph,
@@ -474,7 +409,6 @@ export function installVacpForCarsParallelCoords(args: {
         },
       } satisfies Record<VacpRef, unknown>;
     },
-    playbooks: buildPlaybooks(),
   });
 
   // Optional analytics: if PostHog is configured, stream VACP history into the session replay.

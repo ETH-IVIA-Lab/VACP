@@ -9,12 +9,7 @@ function fileIdFromPath(path: string): string {
   return name.replace(/\.ya?ml$/i, '');
 }
 
-function isHeavySpecId(id: string): boolean {
-  return /-10m$/i.test(id);
-}
-
-export function loadGallery(args?: { includeHeavy?: boolean }): GalleryEntry[] {
-  const includeHeavy = args?.includeHeavy ?? false;
+export function loadGallery(): GalleryEntry[] {
   const files = import.meta.glob('./specs/*.yaml', {
     eager: true,
     query: '?raw',
@@ -33,6 +28,5 @@ export function loadGallery(args?: { includeHeavy?: boolean }): GalleryEntry[] {
       delete specObj.meta;
       return { id: fileIdFromPath(path), meta, yaml, spec: specObj as unknown as Spec };
     })
-    .filter((entry) => includeHeavy || !isHeavySpecId(entry.id))
     .sort((a, b) => a.meta.title.localeCompare(b.meta.title));
 }

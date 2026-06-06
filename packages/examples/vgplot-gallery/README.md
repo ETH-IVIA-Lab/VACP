@@ -34,9 +34,9 @@ From the repo root:
 pnpm -C packages/examples/vgplot-gallery dev
 ```
 
-Enable the debug overlay:
+Open the debug overlay:
 
-- set `VACP_DEBUG_UI=1` or add `?vacp-debug=1` to the URL, then click the floating **VACP** button
+- click the floating **VACP** button. Disable it with `?vacp-debug=0` or `VACP_DEBUG_UI=0`
 
 ## How it works
 
@@ -60,12 +60,6 @@ automation.
   - runtime history grows (debug overlay → **History**)
 
 ### Try it: agent-style actions
-
-Use the debug overlay:
-
-- Debug overlay → **Playbook** → **Run all**
-
-That dispatches the same semantic actions an agent would call via MCP.
 
 ### Try it: manual action dispatch
 
@@ -100,5 +94,4 @@ Everything under `meta` is ignored by the vgplot runtime and only used by the ga
 ## Useful entry points
 
 - App wiring: `src/app.ts`
-- Playbook scripts: `src/playbooks.ts` (+ helpers in `src/playbooks/`)
 - Specs + metadata: `src/specs/`

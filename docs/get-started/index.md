@@ -20,9 +20,11 @@ pnpm dev
 
 Open `http://127.0.0.1:5173/`.
 
-## Enable the debug overlay
+## Open the debug overlay
 
-Add `?vacp-debug=1` to the URL. For local development you can also set `VACP_DEBUG_UI=1` when starting the dev server.
+Click the floating **VACP** control. The debug overlay is enabled by default in the example gallery.
+
+Disable it with `?vacp-debug=0` or `VACP_DEBUG_UI=0`. The Settings tab shows the active VACP flags, their source, and browser-level overrides.
 
 Interact with a chart and watch the state snapshot change. Then dispatch an action and confirm the interface updates.
 

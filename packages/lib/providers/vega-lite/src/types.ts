@@ -1,5 +1,3 @@
-import type { VacpPlaybook } from '@vacp/core';
-
 export interface VegaViewLike {
   /**
    * Vega View API: read or set a signal.
@@ -102,6 +100,4 @@ export interface InstallVacpOnVegaLiteOptions {
    * This is powerful but should be used carefully in production UIs.
    */
   includeSetSignalAction?: boolean;
-  /** Optional playbooks for debug tooling. */
-  playbooks?: VacpPlaybook[];
 }

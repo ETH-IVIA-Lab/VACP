@@ -1,12 +1,88 @@
-type DockPos = { left: number; top: number };
+type DockPos = { left: number };
+
+const DOCK_MARGIN = 14;
+const DRAG_THRESHOLD = 6;
+
+const clamp = (n: number, min: number, max: number) => Math.max(min, Math.min(max, n));
+
+function readPos(storageKey: string): DockPos | null {
+  try {
+    const raw = localStorage.getItem(storageKey);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as { left?: unknown };
+    if (typeof parsed.left !== 'number' || !Number.isFinite(parsed.left)) return null;
+    return { left: parsed.left };
+  } catch {
+    return null;
+  }
+}
+
+function savePos(storageKey: string, pos: DockPos): void {
+  try {
+    localStorage.setItem(storageKey, JSON.stringify(pos));
+  } catch {
+    // ignore
+  }
+}
+
+function dockTop(root: HTMLElement): number {
+  return window.innerHeight - root.getBoundingClientRect().height - DOCK_MARGIN;
+}
+
+function dockLeftBounds(root: HTMLElement): { min: number; max: number } {
+  const width = root.getBoundingClientRect().width;
+  return { min: DOCK_MARGIN, max: Math.max(DOCK_MARGIN, window.innerWidth - width - DOCK_MARGIN) };
+}
+
+function applyDockLeft(root: HTMLElement, left: number): DockPos {
+  const bounds = dockLeftBounds(root);
+  const next = { left: clamp(left, bounds.min, bounds.max) };
+  root.style.left = `${next.left}px`;
+  root.style.top = `${dockTop(root)}px`;
+  root.style.right = 'auto';
+  root.style.bottom = 'auto';
+  return next;
+}
+
+function nearestRailSnap(root: HTMLElement, left: number): DockPos {
+  const bounds = dockLeftBounds(root);
+  const width = root.getBoundingClientRect().width;
+  const center = clamp((window.innerWidth - width) / 2, bounds.min, bounds.max);
+  const targets = [bounds.min, center, bounds.max];
+  let best = targets[0]!;
+  let bestDistance = Number.POSITIVE_INFINITY;
+  for (const target of targets) {
+    const distance = Math.abs(target - left);
+    if (distance < bestDistance) {
+      best = target;
+      bestDistance = distance;
+    }
+  }
+  return { left: best };
+}
+
+function nearestRailSnapFromPointer(root: HTMLElement, pointerX: number): DockPos {
+  const bounds = dockLeftBounds(root);
+  const width = root.getBoundingClientRect().width;
+  const center = clamp((window.innerWidth - width) / 2, bounds.min, bounds.max);
+  const targets = [bounds.min, center, bounds.max];
+  let best = targets[0]!;
+  let bestDistance = Number.POSITIVE_INFINITY;
+  for (const target of targets) {
+    const distance = Math.abs(target + width / 2 - pointerX);
+    if (distance < bestDistance) {
+      best = target;
+      bestDistance = distance;
+    }
+  }
+  return { left: best };
+}
 
 /**
- * Floating button docking + snapping.
+ * Bottom-rail dock for the debug overlay.
  *
- * The "bar" should feel like devtools overlays:
- * - draggable but not fiddly
- * - snaps to stable anchors
- * - persists position
+ * The panel is attached to this dock, so dragging a dock handle only moves the
+ * shared anchor. The panel never stores its own independent position.
  */
 export function createVacpDebugDock(args: {
   root: HTMLElement;
@@ -15,198 +91,91 @@ export function createVacpDebugDock(args: {
   onMove?: () => void;
   onDrop?: () => void;
 }) {
-  const { root, handles, storageKey, onMove: onDockMove, onDrop } = args;
-
-  const clamp = (n: number, min: number, max: number) => Math.max(min, Math.min(max, n));
-  const DRAG_THRESHOLD = 6;
-  const prefersReducedMotion =
-    typeof window !== 'undefined' &&
-    typeof window.matchMedia === 'function' &&
-    window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-
-  const readPos = (): DockPos | null => {
-    try {
-      const raw = localStorage.getItem(storageKey);
-      if (!raw) return null;
-      const parsed = JSON.parse(raw) as { left?: unknown; top?: unknown };
-      if (typeof parsed.left !== 'number' || typeof parsed.top !== 'number') return null;
-      return { left: parsed.left, top: parsed.top };
-    } catch {
-      return null;
-    }
-  };
-
-  const savePos = (pos: DockPos) => {
-    try {
-      localStorage.setItem(storageKey, JSON.stringify(pos));
-    } catch {
-      // ignore
-    }
-  };
-
-  const applyPos = (pos: DockPos, opts?: { width?: number; height?: number }) => {
-    const margin = 10;
-    const w = opts?.width ?? root.getBoundingClientRect().width;
-    const h = opts?.height ?? root.getBoundingClientRect().height;
-    const maxLeft = window.innerWidth - w - margin;
-    const maxTop = window.innerHeight - h - margin;
-    root.style.left = `${clamp(pos.left, margin, maxLeft)}px`;
-    root.style.top = `${clamp(pos.top, margin, maxTop)}px`;
-    root.style.right = 'auto';
-    root.style.bottom = 'auto';
-  };
-
-  const snapTargets = (rect: DOMRect): DockPos[] => {
-    const margin = 10;
-    const left = margin;
-    const right = Math.max(margin, window.innerWidth - rect.width - margin);
-    const top = margin;
-    const bottom = Math.max(margin, window.innerHeight - rect.height - margin);
-    const centerX = clamp((window.innerWidth - rect.width) / 2, margin, right);
-    const centerY = clamp((window.innerHeight - rect.height) / 2, margin, bottom);
-    const xs = [left, centerX, right];
-    const ys = [top, centerY, bottom];
-    const out: DockPos[] = [];
-    ys.forEach((y) => xs.forEach((x) => out.push({ left: x, top: y })));
-    return out;
-  };
-
-  const nearestSnapPos = (pos: DockPos): DockPos => {
-    const rect = root.getBoundingClientRect();
-    const targets = snapTargets(rect);
-    let best = targets[0]!;
-    let bestD = Number.POSITIVE_INFINITY;
-    for (const t of targets) {
-      const dx = t.left - pos.left;
-      const dy = t.top - pos.top;
-      const d = dx * dx + dy * dy;
-      if (d < bestD) {
-        bestD = d;
-        best = t;
-      }
-    }
-    return best;
-  };
-
-  const snapToNearest = (opts?: { animate?: boolean }) => {
-    const rect = root.getBoundingClientRect();
-    const target = nearestSnapPos({ left: rect.left, top: rect.top });
-    const animate = !!opts?.animate && !prefersReducedMotion;
-    if (animate) root.classList.add('vacp-debug-ui-snap');
-    applyPos(target);
-    const nextRect = root.getBoundingClientRect();
-    savePos({ left: nextRect.left, top: nextRect.top });
-    onDockMove?.();
-    if (!animate) return;
-    const cleanup = () => root.classList.remove('vacp-debug-ui-snap');
-    root.addEventListener('transitionend', cleanup, { once: true });
-    window.setTimeout(cleanup, 220);
-  };
+  const { root, handles, storageKey, onMove, onDrop } = args;
 
   const applyInitialPos = () => {
-    const saved = readPos();
-    if (saved) {
-      applyPos(saved);
-    } else {
-      const margin = 14;
-      const rect = root.getBoundingClientRect();
-      applyPos({ left: window.innerWidth - rect.width - margin, top: window.innerHeight - rect.height - margin });
-    }
-    snapToNearest({ animate: false });
+    const saved = readPos(storageKey);
+    const bounds = dockLeftBounds(root);
+    const initial = saved ?? { left: bounds.max };
+    const snapped = nearestRailSnap(root, initial.left);
+    const next = applyDockLeft(root, snapped.left);
+    savePos(storageKey, next);
+    onMove?.();
+  };
+
+  const snapToNearest = (pointerX?: number) => {
+    const rect = root.getBoundingClientRect();
+    const snapped =
+      typeof pointerX === 'number' && Number.isFinite(pointerX)
+        ? nearestRailSnapFromPointer(root, pointerX)
+        : nearestRailSnap(root, rect.left);
+    const next = applyDockLeft(root, snapped.left);
+    savePos(storageKey, next);
+    onMove?.();
+    onDrop?.();
+  };
+
+  const moveTo = (left: number) => {
+    const next = applyDockLeft(root, left);
+    savePos(storageKey, next);
+    onMove?.();
   };
 
   const installDrag = (handle: HTMLElement) => {
     let dragging = false;
     let suppressClick = false;
     let startX = 0;
-    let startY = 0;
     let startLeft = 0;
-    let startTop = 0;
-    let width = 0;
-    let height = 0;
-    let lastPointerDownAt = 0;
+    let lastX = 0;
     let raf = 0;
-    let pending: { x: number; y: number } | null = null;
+    let pendingX: number | null = null;
 
     const beginDrag = () => {
       if (dragging) return;
       dragging = true;
-      root.classList.remove('vacp-debug-ui-snap');
       root.classList.add('vacp-debug-ui-dragging');
     };
 
-    const maybeMove = (x: number, y: number) => {
+    const move = (x: number) => {
       const dx = x - startX;
-      const dy = y - startY;
-      const dist = Math.abs(dx) + Math.abs(dy);
-
-      // Treat small movements as a click, not a drag, so the button remains usable.
-      if (!dragging && dist < DRAG_THRESHOLD) return;
+      if (!dragging && Math.abs(dx) < DRAG_THRESHOLD) return;
       beginDrag();
-      applyPos({ left: startLeft + dx, top: startTop + dy }, { width, height });
-      onDockMove?.();
+      moveTo(startLeft + dx);
     };
 
-    const endDrag = () => {
-      if (!dragging) return;
-      dragging = false;
-      suppressClick = true;
-      root.classList.remove('vacp-debug-ui-dragging');
-      snapToNearest({ animate: true });
-      onDrop?.();
-    };
-
-    const scheduleMove = (x: number, y: number) => {
-      pending = { x, y };
+    const scheduleMove = (x: number) => {
+      pendingX = x;
       if (raf) return;
       raf = window.requestAnimationFrame(() => {
         raf = 0;
-        if (!pending) return;
-        const p = pending;
-        pending = null;
-        maybeMove(p.x, p.y);
+        if (pendingX === null) return;
+        const next = pendingX;
+        pendingX = null;
+        move(next);
       });
     };
-
-    const onPointerMove = (ev: PointerEvent) => scheduleMove(ev.clientX, ev.clientY);
-    const onMouseMove = (ev: MouseEvent) => scheduleMove(ev.clientX, ev.clientY);
 
     const cleanupWindowListeners = () => {
       window.removeEventListener('pointermove', onPointerMove);
       window.removeEventListener('pointerup', onPointerUp);
       window.removeEventListener('pointercancel', onPointerUp);
-      window.removeEventListener('mousemove', onMouseMove);
-      window.removeEventListener('mouseup', onMouseUp);
       if (raf) window.cancelAnimationFrame(raf);
       raf = 0;
-      pending = null;
+      pendingX = null;
+    };
+
+    const onPointerMove = (ev: PointerEvent) => {
+      lastX = ev.clientX;
+      scheduleMove(ev.clientX);
     };
 
     const onPointerUp = () => {
       cleanupWindowListeners();
-      endDrag();
-    };
-
-    const onMouseUp = () => {
-      cleanupWindowListeners();
-      endDrag();
-    };
-
-    const start = (x: number, y: number) => {
-      suppressClick = false;
+      if (!dragging) return;
       dragging = false;
-      const rect = root.getBoundingClientRect();
-      startX = x;
-      startY = y;
-      startLeft = rect.left;
-      startTop = rect.top;
-      width = rect.width;
-      height = rect.height;
-      window.addEventListener('pointermove', onPointerMove);
-      window.addEventListener('pointerup', onPointerUp);
-      window.addEventListener('pointercancel', onPointerUp);
-      window.addEventListener('mousemove', onMouseMove);
-      window.addEventListener('mouseup', onMouseUp);
+      suppressClick = true;
+      root.classList.remove('vacp-debug-ui-dragging');
+      snapToNearest(lastX);
     };
 
     handle.addEventListener(
@@ -222,22 +191,31 @@ export function createVacpDebugDock(args: {
 
     handle.addEventListener('pointerdown', (ev) => {
       if (ev.button !== 0) return;
-      lastPointerDownAt = performance.now();
-      start(ev.clientX, ev.clientY);
-    });
-
-    // Fallback for environments that do not emit PointerEvents for mouse input.
-    handle.addEventListener('mousedown', (ev) => {
-      if (ev.button !== 0) return;
-      if (performance.now() - lastPointerDownAt < 40) return;
-      start(ev.clientX, ev.clientY);
+      const target = ev.target as Element | null;
+      const interactive = target?.closest('button, a, input, textarea, select, option, [role="button"]');
+      if (interactive && interactive !== handle) return;
+      const rect = root.getBoundingClientRect();
+      dragging = false;
+      suppressClick = false;
+      startX = ev.clientX;
+      lastX = ev.clientX;
+      startLeft = rect.left;
+      handle.setPointerCapture?.(ev.pointerId);
+      window.addEventListener('pointermove', onPointerMove);
+      window.addEventListener('pointerup', onPointerUp);
+      window.addEventListener('pointercancel', onPointerUp);
     });
   };
 
   const attach = () => {
-    handles.forEach((h) => installDrag(h));
+    handles.forEach((handle) => installDrag(handle));
     queueMicrotask(() => applyInitialPos());
-    window.addEventListener('resize', () => snapToNearest({ animate: false }));
+    window.addEventListener('resize', () => {
+      const rect = root.getBoundingClientRect();
+      const next = applyDockLeft(root, rect.left);
+      savePos(storageKey, next);
+      onMove?.();
+    });
   };
 
   return { attach, snapToNearest };

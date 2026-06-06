@@ -29,26 +29,26 @@ function roleInfo(source: VacpHistoryEntry['source']): {
 } {
   if (source === 'human') {
     return {
-      dotClass: 'bg-sky-300',
+      dotClass: 'bg-slate-300/70',
       label: 'Human',
       description: 'Direct user interaction (mouse/keyboard) in the host app.',
-      icon: <User className="h-3.5 w-3.5 text-sky-100/90" aria-hidden="true" />,
+      icon: <User className="h-3.5 w-3.5 text-slate-100/76" aria-hidden="true" />,
     };
   }
   if (source === 'agent') {
     return {
-      dotClass: 'bg-violet-300',
+      dotClass: 'bg-slate-300/56',
       label: 'Agent',
-      description: 'AI-driven action (playbook step or tool invocation).',
-      icon: <Bot className="h-3.5 w-3.5 text-violet-100/90" aria-hidden="true" />,
+      description: 'AI-driven action or tool invocation.',
+      icon: <Bot className="h-3.5 w-3.5 text-slate-100/72" aria-hidden="true" />,
     };
   }
   if (source === 'debug') {
     return {
-      dotClass: 'bg-amber-300',
+      dotClass: 'bg-emerald-200/72',
       label: 'Debug UI',
       description: 'Triggered by the debug overlay (History/Actions/JSON/Data modules).',
-      icon: <Wrench className="h-3.5 w-3.5 text-amber-100/90" aria-hidden="true" />,
+      icon: <Wrench className="h-3.5 w-3.5 text-emerald-50/72" aria-hidden="true" />,
     };
   }
   // `system` or unknown: runtime/provider/internal events.
@@ -148,7 +148,7 @@ export function HistoryModule(props: VacpDebugModuleProps): ReactElement {
               Review runtime events and, in Inspect mode, jump the cursor to replay stateful moments.
             </CardDescription>
             {dense ? (
-              <details className="mt-2 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-[11px] text-slate-100/80">
+              <details className="mt-2 rounded-lg border border-white/[0.075] bg-white/[0.025] px-3 py-2 text-[11px] text-slate-100/72">
                 <summary className="cursor-pointer select-none font-medium text-slate-100/85">Sources legend</summary>
                 <div className="mt-2 flex flex-wrap items-center gap-2.5">
                   {(['human', 'agent', 'debug', 'system'] as const).map((source) => {
@@ -156,7 +156,7 @@ export function HistoryModule(props: VacpDebugModuleProps): ReactElement {
                     return (
                       <span
                         key={source}
-                        className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-black/20 px-2.5 py-1.5 leading-none"
+                        className="inline-flex items-center gap-2 rounded-full border border-white/[0.075] bg-white/[0.025] px-2.5 py-1.5 leading-none"
                         title={info.description}
                       >
                         <span className={cn('h-2 w-2 rounded-full', info.dotClass)} aria-hidden="true" />
@@ -170,11 +170,11 @@ export function HistoryModule(props: VacpDebugModuleProps): ReactElement {
             ) : (
               <div
                 className={cn(
-                  'mt-2 gap-2.5 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-[11px] text-slate-100/80',
+                  'mt-2 gap-2.5 rounded-lg border border-white/[0.075] bg-white/[0.025] px-3 py-2 text-[11px] text-slate-100/72',
                   stackLegend ? 'flex flex-col items-stretch' : 'flex flex-wrap items-center',
                 )}
               >
-                <span className="inline-flex items-center rounded-md border border-white/10 bg-black/20 px-2 py-1 font-medium text-slate-100/80">
+                <span className="inline-flex items-center rounded-md border border-white/[0.075] bg-white/[0.025] px-2 py-1 font-medium text-slate-100/74">
                   Event sources
                 </span>
                 {(['human', 'agent', 'debug', 'system'] as const).map((source) => {
@@ -183,7 +183,7 @@ export function HistoryModule(props: VacpDebugModuleProps): ReactElement {
                     <span
                       key={source}
                       className={cn(
-                        'inline-flex items-center gap-2 rounded-full border border-white/10 bg-black/20 px-2.5 py-1.5 leading-none',
+                        'inline-flex items-center gap-2 rounded-full border border-white/[0.075] bg-white/[0.025] px-2.5 py-1.5 leading-none',
                         stackLegend && 'w-full',
                       )}
                       title={info.description}
@@ -240,7 +240,7 @@ export function HistoryModule(props: VacpDebugModuleProps): ReactElement {
           </div>
         </CardHeader>
 
-        <div className="mt-3 min-h-0 flex-1 overflow-auto rounded-lg border border-white/10 bg-black/20">
+        <div className="mt-3 min-h-0 flex-1 overflow-auto rounded-lg border border-white/[0.075] bg-white/[0.02]">
           <RovingFocusGroup orientation="vertical" loop asChild>
             <div className="p-1" role="listbox" aria-label="History entries">
               {history.map((h, i) => {
@@ -254,11 +254,11 @@ export function HistoryModule(props: VacpDebugModuleProps): ReactElement {
                       type="button"
                       className={cn(
                         'w-full rounded-lg border px-2 py-2 text-left text-xs transition-colors',
-                        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/60',
+                        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300/38',
                         active
-                          ? 'border-sky-300/30 bg-sky-500/10'
-                          : 'border-transparent hover:border-white/10 hover:bg-white/5',
-                        isCursor ? 'shadow-[inset_0_0_0_1px_rgba(125,211,252,0.20)]' : '',
+                          ? 'border-emerald-200/24 bg-emerald-300/[0.075]'
+                          : 'border-transparent hover:border-white/[0.08] hover:bg-white/[0.04]',
+                        isCursor ? 'shadow-[inset_0_0_0_1px_rgba(110,231,183,0.16)]' : '',
                       )}
                       aria-selected={active ? 'true' : 'false'}
                       data-role={h.source}
@@ -286,12 +286,12 @@ export function HistoryModule(props: VacpDebugModuleProps): ReactElement {
                         <div className="font-semibold text-slate-100/90">{h.kind}</div>
                         <div className="text-[11px] text-slate-100/60">{formatTime(h.at)}</div>
                         {isCursor ? (
-                          <span className="rounded-full border border-sky-300/30 bg-sky-500/10 px-2 py-0.5 text-[10px] font-semibold text-sky-100/85">
+                          <span className="rounded-full border border-emerald-200/22 bg-emerald-300/[0.075] px-2 py-0.5 text-[10px] font-semibold text-emerald-50/78">
                             cursor
                           </span>
                         ) : null}
                         {!hasState ? (
-                          <span className="rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-[10px] font-semibold text-slate-100/60">
+                          <span className="rounded-full border border-white/[0.075] bg-white/[0.025] px-2 py-0.5 text-[10px] font-semibold text-slate-100/54">
                             event
                           </span>
                         ) : null}

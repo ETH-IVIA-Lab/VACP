@@ -1,4 +1,4 @@
-import type { VacpCapabilitiesSnapshot, VacpPlaybook, VacpRuntimeBridge, VacpStateSnapshot } from '@vacp/core';
+import type { VacpCapabilitiesSnapshot, VacpRuntimeBridge, VacpStateSnapshot } from '@vacp/core';
 
 import type { VacpActionRegistry } from '../action-registry';
 
@@ -10,7 +10,6 @@ export interface VacpSnapshotProvider {
 export type VacpRuntimeBridgeUpdate = {
   snapshots: VacpSnapshotProvider;
   actions: VacpActionRegistry;
-  playbooks?: VacpPlaybook[];
   /**
    * Optional session identifier for the current attached visualization/view.
    * If this changes, tooling may treat it as a new runtime session.

@@ -8,7 +8,6 @@
 import { installVacpPosthogAnalytics } from '@vacp/analytics';
 import { installVacpOnVegaLiteView, type VegaViewLike } from '@vacp/vega-lite';
 import type { VisualizationSpec } from 'vega-embed';
-import { buildVegaLitePlaybooks } from './playbooks';
 
 import type { GalleryEntry } from './gallery';
 
@@ -33,7 +32,6 @@ export function installVacp(args: {
       title: args.entry.meta.title,
       globalKey: args.globalKey,
       includeSetSignalAction: false,
-      playbooks: buildVegaLitePlaybooks({ id: args.entry.id, meta: args.entry.meta }),
     },
   });
 

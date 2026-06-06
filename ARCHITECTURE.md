@@ -53,7 +53,7 @@ A VACP-conformant implementation:
 - **MUST** use stable `ref` identifiers rather than DOM position.
 - **MUST** return versioned snapshots with ISO timestamps.
 - **SHOULD** validate semantic action parameters and reject invalid calls.
-- **MAY** expose runtime/history APIs (`getRuntime`, `undo/redo`, playbooks, overrides) for debugging and research workflows.
+- **MAY** expose runtime/history APIs (`getRuntime`, `undo/redo`, overrides) for debugging and research workflows.
 
 ### Bridge shape
 
@@ -126,7 +126,7 @@ This channel is optional and can be disabled with `VACP_DOM_SNAPSHOT=0` or `?vac
 
 ## Debug Overlay
 
-The overlay (`@vacp/debug-ui`) is opt-in via `VACP_DEBUG_UI=1` or `?vacp-debug=1`.
+The overlay (`@vacp/debug-ui`) is enabled by default when an app installs it. Disable it with `VACP_DEBUG_UI=0` or `?vacp-debug=0`.
 
 ## Implementation Map
 

@@ -12,8 +12,8 @@ export function useElementSize<T extends HTMLElement>(ref: RefObject<T | null>):
 
     const read = () => {
       const rect = el.getBoundingClientRect();
-      const width = Math.max(0, Math.round(rect.width));
-      const height = Math.max(0, Math.round(rect.height));
+      const width = Math.max(0, Math.round(el.offsetWidth || rect.width));
+      const height = Math.max(0, Math.round(el.offsetHeight || rect.height));
       setSize((prev) => (prev.width === width && prev.height === height ? prev : { width, height }));
     };
 

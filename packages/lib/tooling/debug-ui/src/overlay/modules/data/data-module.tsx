@@ -29,9 +29,9 @@ export function DataModule(props: VacpDebugModuleProps): ReactElement {
   const tableHeight = `${tableHeaderHeight + 10 * tableRowHeight}px`;
 
   const inlineCodeClass =
-    'rounded-md border border-white/10 bg-slate-900/70 px-1.5 py-0.5 text-[11px] font-medium text-slate-100 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.02)]';
+    'rounded-md border border-white/[0.075] bg-[#101821]/70 px-1.5 py-0.5 text-[11px] font-medium text-slate-100/84 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.015)]';
   const selectClass =
-    'mt-1 w-full rounded-xl border border-white/10 bg-slate-900/70 px-3 py-2.5 text-xs text-slate-100 outline-none focus:ring-2 focus:ring-sky-400/40';
+    'mt-1 w-full rounded-lg border border-white/[0.08] bg-[#101821]/72 px-3 py-2.5 text-xs text-slate-100/90 outline-none focus:border-emerald-200/24 focus:ring-2 focus:ring-emerald-300/24';
 
   const handles = useMemo(() => {
     const nodes = props.runtime.currentCapabilities.graph.nodes as VacpNode[];
@@ -114,7 +114,7 @@ export function DataModule(props: VacpDebugModuleProps): ReactElement {
   const resultView = (() => {
     if (dataSql.status === 'running') return <div className="text-[12px] text-slate-100/80">Running…</div>;
     if (dataSql.status === 'error')
-      return <div className="text-[12px] text-rose-100/80">{dataSql.error ?? 'Query failed'}</div>;
+      return <div className="text-[12px] text-red-50/82">{dataSql.error ?? 'Query failed'}</div>;
     if (!dataSql.result) return <div className="text-[12px] text-slate-100/80">Run a query to see results.</div>;
 
     const { table, rawJsonSafe, resolvedSql } = dataSql.result;
@@ -140,12 +140,12 @@ export function DataModule(props: VacpDebugModuleProps): ReactElement {
           headerHeight={tableHeaderHeight}
         />
 
-        <details className="mt-3 rounded-lg border border-white/10 bg-black/10 px-3 py-2">
+        <details className="mt-3 rounded-lg border border-white/[0.075] bg-white/[0.02] px-3 py-2">
           <summary className="cursor-pointer text-[12px] text-slate-100/80">Raw JSON</summary>
           <JsonViewer value={rawJsonSafe} className="mt-2 max-h-[320px]" />
         </details>
 
-        <details className="mt-3 rounded-lg border border-white/10 bg-black/10 px-3 py-2">
+        <details className="mt-3 rounded-lg border border-white/[0.075] bg-white/[0.02] px-3 py-2">
           <summary className="cursor-pointer text-[12px] text-slate-100/80">Resolved SQL</summary>
           <div className="mt-2">
             <SqlEditor value={resolvedSql} readOnly autoFocus={false} height="140px" />

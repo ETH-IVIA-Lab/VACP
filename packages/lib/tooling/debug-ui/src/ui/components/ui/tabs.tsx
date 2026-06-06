@@ -25,10 +25,10 @@ export const TabsTrigger = forwardRef<
   <TabsPrimitive.Trigger
     ref={ref}
     className={cn(
-      'flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-2.5 py-2.5 text-left text-xs text-slate-100/88',
-      'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/60',
-      'hover:bg-white/8',
-      'data-[state=active]:border-sky-300/35 data-[state=active]:bg-sky-500/12 data-[state=active]:text-slate-50 data-[state=active]:shadow-[inset_0_0_0_2px_rgba(121,178,255,0.14)]',
+      'flex items-center gap-2 rounded-md bg-transparent px-2.5 py-2.5 text-left text-xs text-slate-100/76',
+      'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300/45',
+      'hover:bg-white/[0.045] hover:text-slate-100/90',
+      'data-[state=active]:bg-white/[0.065] data-[state=active]:text-slate-50',
       className,
     )}
     {...props}

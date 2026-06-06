@@ -1,8 +1,8 @@
-import type { VacpPlaybook, VacpRuntimeSnapshot } from '@vacp/core';
+import type { VacpRuntimeSnapshot } from '@vacp/core';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useRef } from 'react';
 
-import { getBridge, readPlaybooks, readRuntime } from '@vacp/debug-ui/bridge';
+import { getBridge, readRuntime } from '@vacp/debug-ui/bridge';
 import type { VacpWindowBridge } from '@vacp/debug-ui/types';
 
 // TanStack Query's default retryDelay backoff can grow large. For the overlay,
@@ -75,7 +75,6 @@ export function useVacpRuntime(globalKey: string, bridge: VacpWindowBridge | nul
       pendingRefetch.current = window.setTimeout(() => {
         pendingRefetch.current = null;
         void qc.invalidateQueries({ queryKey: ['vacp', 'runtime', globalKey] });
-        void qc.invalidateQueries({ queryKey: ['vacp', 'playbooks', globalKey] });
       }, 60);
     });
 
@@ -87,22 +86,4 @@ export function useVacpRuntime(globalKey: string, bridge: VacpWindowBridge | nul
   }, [bridge, enabled, globalKey, qc]);
 
   return q;
-}
-
-export function useVacpPlaybooks(
-  globalKey: string,
-  bridge: VacpWindowBridge | null,
-  enabled: boolean,
-  runtimeId: string | null,
-) {
-  return useQuery({
-    queryKey: ['vacp', 'playbooks', globalKey, runtimeId ?? 'unknown'],
-    enabled: enabled && Boolean(bridge),
-    retry: BRIDGE_RETRY_COUNT,
-    retryDelay: BRIDGE_RETRY_DELAY_MS,
-    queryFn: async (): Promise<VacpPlaybook[]> => {
-      if (!bridge) throw new Error('Missing VACP bridge');
-      return await withTimeout(readPlaybooks(bridge), BRIDGE_QUERY_TIMEOUT_MS, 'readPlaybooks');
-    },
-  });
 }

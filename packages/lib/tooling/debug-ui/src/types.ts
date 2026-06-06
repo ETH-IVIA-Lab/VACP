@@ -1,7 +1,6 @@
 import type {
   VacpCapabilitiesRequest,
   VacpCapabilitiesSnapshot,
-  VacpPlaybook,
   VacpStateRequest,
   VacpRuntimeBridge,
   VacpRuntimeSnapshot,
@@ -15,10 +14,10 @@ export interface VacpDebugUiOptions {
   /**
    * If `true`, always show the overlay.
    * If `false`, never show it.
-   * If `'auto'`, enable when one of these is set:
-   * - URL: `?vacp-debug=1`
-   * - env: `VACP_DEBUG_UI=1`
-   * - localStorage: `vacp:debug=1`
+   * If `'auto'`, use the VACP debug flag. The flag defaults to on and can be disabled with:
+   * - URL: `?vacp-debug=0`
+   * - env: `VACP_DEBUG_UI=0`
+   * - localStorage: `vacp:debug=0`
    */
   enabled?: VacpDebugUiEnabled;
   /** Which global bridge key to read (defaults to `__vacp`). */
@@ -37,5 +36,4 @@ export type VacpWindowBridge = VacpRuntimeBridge & {
     (request: VacpStateRequest): Promise<VacpStateUpdate>;
   };
   getRuntime?: () => Promise<VacpRuntimeSnapshot>;
-  getPlaybooks?: () => Promise<VacpPlaybook[]>;
 };

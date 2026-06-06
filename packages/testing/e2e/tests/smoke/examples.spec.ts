@@ -134,36 +134,6 @@ async function getRuntime(page: Page): Promise<any> {
   });
 }
 
-async function getPlaybooks(page: Page): Promise<any[]> {
-  await expectBridge(page);
-  return await page.evaluate(async () => {
-    const b = (globalThis as any).__vacp;
-    if (!b) return [];
-    if (typeof b.getPlaybooks === 'function') return await b.getPlaybooks();
-    return [];
-  });
-}
-
-async function tryRunFirstNonClearDemoStep(page: Page): Promise<boolean> {
-  const playbooks = await getPlaybooks(page);
-  if (!Array.isArray(playbooks) || playbooks.length === 0) return false;
-  const steps = playbooks.flatMap((d: any) => (Array.isArray(d?.steps) ? d.steps : []));
-  const candidates = steps.filter(
-    (s: any) =>
-      s?.call &&
-      typeof s.call?.name === 'string' &&
-      !/clear/i.test(String(s.call.name)) &&
-      !/clear/i.test(String(s.title ?? '')),
-  );
-  const step = candidates[0] as any;
-  if (!step?.call) return false;
-  await page.evaluate(async (call) => {
-    const b = (globalThis as any).__vacp;
-    await b.execute({ callId: crypto.randomUUID(), name: call.name, params: call.params });
-  }, step.call);
-  return true;
-}
-
 async function dataSql(page: Page, args: { handleRef: string; sql: string; maxRows?: number }): Promise<any> {
   return await evaluateWithVacpRetry({
     page,
@@ -336,19 +306,7 @@ test('examples: vgplot-gallery', async ({ page }) => {
 
     // Avoid specs that require external network to load large parquet datasets. These can be
     // flaky/slow in CI (and are not essential for validating VACP wiring).
-    const skipSpecs = new Set(['gaia', 'nyc-taxi-rides', 'observable-latency', 'linear-regression-10m', 'flights-10m']);
-
-    const supportedPlaybookSpecs = new Set([
-      'athletes',
-      'crossfilter',
-      'flights-hexbin',
-      'line-multi-series',
-      'normalize',
-      'pan-zoom',
-      'us-state-map',
-      'weather',
-      'wnba-shots',
-    ]);
+    const skipSpecs = new Set(['gaia', 'nyc-taxi-rides', 'observable-latency']);
 
     const specs = await page.evaluate(() =>
       Array.from(document.querySelectorAll<HTMLSelectElement>('#spec option')).map((o) => ({
@@ -375,27 +333,7 @@ test('examples: vgplot-gallery', async ({ page }) => {
       const nodes = graph.nodes ?? [];
       const hasDataSql = actions.some((a: any) => a?.name === 'vacp.data_sql');
 
-      const playbooks = await getPlaybooks(page);
-      if (supportedPlaybookSpecs.has(specId)) expect(playbooks.length).toBeGreaterThan(0);
-      else expect(playbooks.length).toBe(0);
-
-      if (playbooks.length) {
-        expect(
-          playbooks.every((p: any) => typeof p?.id === 'string' && String(p.id).startsWith(`${specId}-`)),
-        ).toBeTruthy();
-        expect(
-          playbooks.some(
-            (p: any) =>
-              typeof p?.title === 'string' && String(p.title).toLowerCase().includes(String(specTitle).toLowerCase()),
-          ),
-        ).toBeTruthy();
-
-        const calls = playbooks
-          .flatMap((p: any) => (Array.isArray(p?.steps) ? p.steps : []))
-          .map((s: any) => s?.call)
-          .filter(Boolean);
-        expect(calls.some((c: any) => c?.name === 'vacp.data_sql')).toBeFalsy();
-      }
+      expect(specTitle.length).toBeGreaterThan(0);
 
       const handle = nodes.find(
         (n: any) => n?.kind === 'DataHandle' && String(n?.ref ?? '').includes(`/vgplot/${specId}/`),
@@ -420,24 +358,8 @@ test('examples: vgplot-gallery', async ({ page }) => {
         await expectDataSchemaWorks(page, handleRef);
       }
 
-      const before = await getState(page);
-      const rtBefore = await getRuntime(page);
-      const beforeHist = (rtBefore.history ?? []).length;
-      const steps = playbooks.flatMap((d: any) => (Array.isArray(d?.steps) ? d.steps : []));
-      const hasNonClearPlaybookCall = steps.some(
-        (s: any) =>
-          s?.call &&
-          typeof s.call?.name === 'string' &&
-          !/clear/i.test(String(s.call.name)) &&
-          !/clear/i.test(String(s.title ?? '')),
-      );
-      const ran = await tryRunFirstNonClearDemoStep(page);
-      expect(ran).toBe(hasNonClearPlaybookCall);
-      if (ran) {
-        await waitForHistoryLenAtLeast(page, beforeHist + 1);
-        const afterSet = await getState(page);
-        expect(stableJson(before)).not.toEqual(stableJson(afterSet));
-      }
+      const rt = await getRuntime(page);
+      expect(Array.isArray(rt.history)).toBeTruthy();
     }
   } finally {
     await srv.stop();

@@ -1,6 +1,6 @@
 # Configuration
 
-VACP supports a small set of runtime toggles via URL query params and environment variables. URL params win.
+VACP supports a small set of runtime toggles via URL query params and environment variables. A URL query param for a flag always wins over environment variables, local storage, and defaults.
 
 ## Precedence
 
@@ -17,7 +17,9 @@ Enable with `?vacp-debug=1`. Disable with `?vacp-debug=0`.
 
 Enable with `VACP_DEBUG_UI=1`. Disable with `VACP_DEBUG_UI=0`.
 
-Local storage key is `vacp:debug=1`. Default is off.
+Local storage key is `vacp:debug=0|1`. Default is on.
+
+The debug overlay Settings tab shows the resolved source and can store browser-level overrides.
 
 ### Bridge exposure
 
@@ -25,7 +27,7 @@ Enable with `?expose-bridge=1`. Disable with `?expose-bridge=0`.
 
 Enable with `VACP_EXPOSE_BRIDGE=1`. Disable with `VACP_EXPOSE_BRIDGE=0`.
 
-Default is on.
+Local storage key is `vacp:expose-bridge=0|1`. Default is on.
 
 ### DOM snapshot injection
 
@@ -33,7 +35,7 @@ Enable with `?vacp-dom-snapshot=1`. Disable with `?vacp-dom-snapshot=0`.
 
 Enable with `VACP_DOM_SNAPSHOT=1`. Disable with `VACP_DOM_SNAPSHOT=0`.
 
-Default is on.
+Local storage key is `vacp:dom-snapshot=0|1`. Default is on.
 
 ### Raw SQL action
 
@@ -41,7 +43,7 @@ Enable with `?enable-sql=1`. Disable with `?enable-sql=0`.
 
 Enable with `VACP_ENABLE_SQL=1`. Disable with `VACP_ENABLE_SQL=0`.
 
-Default is on. When disabled, providers can still expose DataHandle nodes and `vacp.data_schema`, but `vacp.data_sql` is not registered or listed in capabilities.
+Local storage key is `vacp:enable-sql=0|1`. Default is on. When disabled, providers can still expose DataHandle nodes and `vacp.data_schema`, but `vacp.data_sql` is not registered or listed in capabilities.
 
 ## Optional analytics
 

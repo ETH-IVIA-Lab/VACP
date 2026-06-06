@@ -1,64 +1,64 @@
 type Size = { width: number; height: number };
-type Pos = { left: number; top: number };
+type ResizeMode = 'n' | 'e' | 'w' | 'ne' | 'nw';
+
+const clamp = (n: number, min: number, max: number) => Math.max(min, Math.min(max, n));
+
+function readSize(storageKey: string): Size | null {
+  try {
+    const raw = localStorage.getItem(storageKey);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as { width?: unknown; height?: unknown };
+    if (typeof parsed.width !== 'number' || typeof parsed.height !== 'number') return null;
+    if (!Number.isFinite(parsed.width) || !Number.isFinite(parsed.height)) return null;
+    return { width: parsed.width, height: parsed.height };
+  } catch {
+    return null;
+  }
+}
+
+function saveSize(storageKey: string, size: Size): void {
+  try {
+    localStorage.setItem(storageKey, JSON.stringify(size));
+  } catch {
+    // ignore
+  }
+}
+
+function applySize(panel: HTMLElement, size: Size): Size {
+  const maxW = Math.max(360, window.innerWidth - 28);
+  const maxH = Math.max(260, window.innerHeight - 92);
+  const next = {
+    width: clamp(size.width, 360, maxW),
+    height: clamp(size.height, 260, maxH),
+  };
+  panel.style.width = `${next.width}px`;
+  panel.style.height = `${next.height}px`;
+  return next;
+}
 
 /**
- * Panel resizing (pure UI plumbing).
+ * Attached panel resizing.
  *
- * The debug overlay is meant to be usable while developing:
- * - you often want it bigger on large screens
- * - you often want it smaller on cramped pages
- * - sizes should persist per-browser profile
+ * The panel has no independent position. Resize changes dimensions only, then
+ * asks the layout owner to reattach the panel above the dock.
  */
 export function installVacpDebugResizer(args: {
   panel: HTMLElement;
   storageKey: string;
-  positionStorageKey?: string;
+  onResize?: () => void;
   onResizeEnd?: () => void;
 }) {
-  const { panel, storageKey, positionStorageKey, onResizeEnd } = args;
+  const { panel, storageKey, onResize, onResizeEnd } = args;
 
-  const clamp = (n: number, min: number, max: number) => Math.max(min, Math.min(max, n));
-  const read = (): Size | null => {
-    try {
-      const raw = localStorage.getItem(storageKey);
-      if (!raw) return null;
-      const parsed = JSON.parse(raw) as { width?: unknown; height?: unknown };
-      if (typeof parsed.width !== 'number' || typeof parsed.height !== 'number') return null;
-      return { width: parsed.width, height: parsed.height };
-    } catch {
-      return null;
-    }
-  };
-  const save = (size: Size) => {
-    try {
-      localStorage.setItem(storageKey, JSON.stringify(size));
-    } catch {
-      // ignore
-    }
-  };
-  const savePos = (pos: Pos) => {
-    if (!positionStorageKey) return;
-    try {
-      localStorage.setItem(positionStorageKey, JSON.stringify(pos));
-    } catch {
-      // ignore
-    }
-  };
+  const initial = readSize(storageKey);
+  if (initial) {
+    queueMicrotask(() => {
+      applySize(panel, initial);
+      onResize?.();
+    });
+  }
 
-  const apply = (size: Size) => {
-    const margin = 28;
-    const maxW = Math.max(360, window.innerWidth - margin);
-    const maxH = Math.max(260, window.innerHeight - 92);
-    const w = clamp(size.width, 360, maxW);
-    const h = clamp(size.height, 260, maxH);
-    panel.style.width = `${w}px`;
-    panel.style.height = `${h}px`;
-  };
-
-  const initial = read();
-  if (initial) queueMicrotask(() => apply(initial));
-
-  const createHandle = (dir: string, cursor: string) => {
+  const createHandle = (dir: ResizeMode, cursor: string) => {
     const el = document.createElement('div');
     el.className = `vacp-debug-ui-resize-handle vacp-debug-ui-resize-${dir}`;
     el.title = 'Resize overlay panel';
@@ -66,76 +66,34 @@ export function installVacpDebugResizer(args: {
     return el;
   };
 
-  const handles = [
-    createHandle('n', 'ns-resize'),
-    createHandle('s', 'ns-resize'),
-    createHandle('e', 'ew-resize'),
-    createHandle('w', 'ew-resize'),
-    createHandle('ne', 'nesw-resize'),
-    createHandle('nw', 'nwse-resize'),
-    createHandle('se', 'nwse-resize'),
-    createHandle('sw', 'nesw-resize'),
+  const handles: Array<{ mode: ResizeMode; element: HTMLDivElement }> = [
+    { mode: 'n', element: createHandle('n', 'ns-resize') },
+    { mode: 'e', element: createHandle('e', 'ew-resize') },
+    { mode: 'w', element: createHandle('w', 'ew-resize') },
+    { mode: 'ne', element: createHandle('ne', 'nesw-resize') },
+    { mode: 'nw', element: createHandle('nw', 'nwse-resize') },
   ];
 
-  for (const h of handles) panel.append(h);
+  for (const { element } of handles) panel.append(element);
 
   let resizing = false;
-  let mode: 'n' | 's' | 'e' | 'w' | 'ne' | 'nw' | 'se' | 'sw' = 'se';
+  let mode: ResizeMode = 'n';
   let startX = 0;
   let startY = 0;
   let startW = 0;
   let startH = 0;
-  let startLeft = 0;
-  let startTop = 0;
 
   const onMove = (ev: PointerEvent) => {
     if (!resizing) return;
     const dx = ev.clientX - startX;
     const dy = ev.clientY - startY;
-
-    const margin = 10;
-    const maxW = Math.max(360, window.innerWidth - 28);
-    const maxH = Math.max(260, window.innerHeight - 92);
-
-    const rightEdge = startLeft + startW;
-    const bottomEdge = startTop + startH;
-
     const wantsW = mode.includes('w');
     const wantsE = mode.includes('e');
     const wantsN = mode.includes('n');
-    const wantsS = mode.includes('s');
-
-    let w = startW;
-    let h = startH;
-    let left = startLeft;
-    let top = startTop;
-
-    if (wantsE) w = clamp(startW + dx, 360, maxW);
-    if (wantsS) h = clamp(startH + dy, 260, maxH);
-
-    if (wantsW) {
-      w = clamp(startW - dx, 360, maxW);
-      left = rightEdge - w;
-    }
-    if (wantsN) {
-      h = clamp(startH - dy, 260, maxH);
-      top = bottomEdge - h;
-    }
-
-    left = clamp(left, margin, Math.max(margin, window.innerWidth - w - margin));
-    top = clamp(top, margin, Math.max(margin, window.innerHeight - h - margin));
-
-    // If we clamped position while resizing from the anchored side, adjust
-    // dimensions to keep the opposite edge within the viewport.
-    if (wantsW) w = clamp(rightEdge - left, 360, maxW);
-    if (wantsN) h = clamp(bottomEdge - top, 260, maxH);
-
-    panel.style.left = `${left}px`;
-    panel.style.top = `${top}px`;
-    panel.style.right = 'auto';
-    panel.style.bottom = 'auto';
-    panel.style.width = `${w}px`;
-    panel.style.height = `${h}px`;
+    const width = wantsE ? startW + dx : wantsW ? startW - dx : startW;
+    const height = wantsN ? startH - dy : startH;
+    applySize(panel, { width, height });
+    onResize?.();
   };
 
   const onUp = () => {
@@ -146,12 +104,11 @@ export function installVacpDebugResizer(args: {
     window.removeEventListener('pointercancel', onUp);
     panel.classList.remove('vacp-debug-ui-resizing');
     const rect = panel.getBoundingClientRect();
-    save({ width: rect.width, height: rect.height });
-    savePos({ left: rect.left, top: rect.top });
+    saveSize(storageKey, { width: rect.width, height: rect.height });
     onResizeEnd?.();
   };
 
-  const begin = (ev: PointerEvent, nextMode: typeof mode) => {
+  const begin = (ev: PointerEvent, nextMode: ResizeMode) => {
     if (ev.button !== 0) return;
     resizing = true;
     mode = nextMode;
@@ -161,20 +118,14 @@ export function installVacpDebugResizer(args: {
     startY = ev.clientY;
     startW = rect.width;
     startH = rect.height;
-    startLeft = rect.left;
-    startTop = rect.top;
     panel.setPointerCapture?.(ev.pointerId);
     window.addEventListener('pointermove', onMove);
     window.addEventListener('pointerup', onUp);
     window.addEventListener('pointercancel', onUp);
+    ev.preventDefault();
   };
 
-  for (const h of handles) {
-    const cls = Array.from(h.classList).find(
-      (c) => c.startsWith('vacp-debug-ui-resize-') && c !== 'vacp-debug-ui-resize-handle',
-    );
-    const dir = cls ? cls.replace('vacp-debug-ui-resize-', '') : null;
-    if (!dir) continue;
-    h.addEventListener('pointerdown', (ev) => begin(ev, dir as any));
+  for (const { mode: handleMode, element } of handles) {
+    element.addEventListener('pointerdown', (ev) => begin(ev, handleMode));
   }
 }

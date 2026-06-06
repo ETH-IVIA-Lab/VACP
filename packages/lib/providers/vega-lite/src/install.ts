@@ -419,7 +419,7 @@ export function installVacpOnVegaLiteView(args: {
       };
 
       // Best-effort: programmatically show the tooltip for a matching mark.
-      // This makes playbook-driven "hover" steps visible and stable in the UI.
+      // This keeps semantic hover actions visible and stable in the UI.
       let tooltipShown = false;
       try {
         if (typeof viewAny.tooltip !== 'function') return { fields, markName, value: valueParam ?? null, tooltipShown };
@@ -562,7 +562,6 @@ export function installVacpOnVegaLiteView(args: {
   const bridge = installVacpRuntimeBridge({
     snapshots,
     actions: actionRegistry,
-    playbooks: options.playbooks,
     globalKey: options.globalKey,
     sessionKey: `${options.viewId}/${options.vizId}`,
   });

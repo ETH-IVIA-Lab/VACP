@@ -5,7 +5,6 @@ import type {
   VacpCapabilitiesSnapshot,
   VacpChangeSource,
   VacpHistoryEntry,
-  VacpPlaybook,
   VacpRuntimeMode,
   VacpRuntimeSnapshot,
   VacpStateRequest,
@@ -36,12 +35,11 @@ const STATE_UPDATE_CACHE_LIMIT = 64;
 export function createRuntimeBridge(args: {
   snapshots: VacpSnapshotProvider;
   actions: VacpActionRegistry;
-  playbooks?: VacpPlaybook[];
   sessionKey?: string;
 }): VacpUpdatableRuntimeBridge {
-  type Adapter = { snapshots: VacpSnapshotProvider; actions: VacpActionRegistry; playbooks: VacpPlaybook[] };
+  type Adapter = { snapshots: VacpSnapshotProvider; actions: VacpActionRegistry };
   type AdapterUpdate = Adapter & { sessionKey?: string };
-  const adapter: Adapter = { snapshots: args.snapshots, actions: args.actions, playbooks: args.playbooks ?? [] };
+  const adapter: Adapter = { snapshots: args.snapshots, actions: args.actions };
   let sessionKey = typeof args.sessionKey === 'string' && args.sessionKey.length ? args.sessionKey : null;
 
   const listeners = new Set<(entry: VacpHistoryEntry) => void>();
@@ -260,7 +258,6 @@ export function createRuntimeBridge(args: {
 
     adapter.snapshots = next.snapshots;
     adapter.actions = next.actions;
-    adapter.playbooks = next.playbooks ?? [];
     sessionKey = nextSessionKey ?? sessionKey;
     bridge.__vacpSessionKey = sessionKey ?? undefined;
 
@@ -363,8 +360,6 @@ export function createRuntimeBridge(args: {
       };
     },
 
-    getPlaybooks: async () => adapter.playbooks ?? [],
-
     subscribe: (listener) => {
       listeners.add(listener);
       if (listeners.size === 1) startObserving({ source: 'system', message: 'observe' });
@@ -402,8 +397,7 @@ export function createRuntimeBridge(args: {
     stopObserving,
   };
 
-  bridge.__vacpUpdate = (next) =>
-    updateAdapters({ ...next, playbooks: next.playbooks ?? [], sessionKey: next.sessionKey }, { source: 'system' });
+  bridge.__vacpUpdate = (next) => updateAdapters({ ...next, sessionKey: next.sessionKey }, { source: 'system' });
   bridge.__vacpRuntimeId = runtimeId;
   bridge.__vacpSessionKey = sessionKey ?? undefined;
 

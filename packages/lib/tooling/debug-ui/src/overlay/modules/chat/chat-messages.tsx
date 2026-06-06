@@ -49,7 +49,7 @@ function renderPart(part: UiPart, idx: number, streaming: boolean): ReactElement
     return (
       <details
         key={`reasoning-${idx}`}
-        className="min-w-0 rounded-md border border-white/10 bg-black/20 px-2 py-1 text-[11px] text-slate-100/75"
+        className="min-w-0 rounded-md border border-white/[0.075] bg-white/[0.02] px-2 py-1 text-[11px] text-slate-100/72"
       >
         <summary className="cursor-pointer select-none font-medium text-slate-100/75">Reasoning</summary>
         <div className="vacp-chat-reasoning vacp-chat-streamdown mt-1 text-[11px] leading-5 text-slate-100/80">
@@ -74,14 +74,14 @@ function renderPart(part: UiPart, idx: number, streaming: boolean): ReactElement
       <details
         key={`tool-${idx}`}
         open={forceOpen}
-        className="rounded-lg border border-white/10 bg-black/20 px-2 py-2"
+        className="rounded-lg border border-white/[0.075] bg-white/[0.02] px-2 py-2"
         data-vacp-chat-tool-details="1"
       >
         <summary className="grid cursor-pointer list-none gap-1 text-[11px] text-slate-100/85">
           <div className="flex min-w-0 flex-wrap items-center gap-2">
             <span className="font-semibold text-slate-100/90">{name}</span>
             {state ? (
-              <span className="rounded-full border border-white/15 bg-white/10 px-2 py-0.5 text-[10px] text-slate-100/75">
+              <span className="rounded-full border border-white/[0.075] bg-white/[0.035] px-2 py-0.5 text-[10px] text-slate-100/66">
                 {state}
               </span>
             ) : null}
@@ -103,7 +103,7 @@ function renderPart(part: UiPart, idx: number, streaming: boolean): ReactElement
             </div>
           ) : null}
           {errorText ? (
-            <div className="rounded-md border border-rose-300/25 bg-rose-500/10 px-2 py-1 text-[11px] text-rose-100/90">
+            <div className="rounded-md border border-red-200/18 bg-red-300/[0.07] px-2 py-1 text-[11px] text-red-50/84">
               {errorText}
             </div>
           ) : null}
@@ -117,7 +117,7 @@ function renderPart(part: UiPart, idx: number, streaming: boolean): ReactElement
   return (
     <div
       key={`part-${idx}`}
-      className="rounded-md border border-white/10 bg-white/5 px-2 py-1 text-[11px] text-slate-100/70"
+      className="rounded-md border border-white/[0.075] bg-white/[0.025] px-2 py-1 text-[11px] text-slate-100/66"
     >
       {part.type}
     </div>
@@ -141,7 +141,7 @@ export function ChatMessages(props: {
       >
         <div ref={props.contentRef} className="mx-auto flex min-h-full w-full max-w-4xl flex-col gap-3 pb-4">
           {props.messages.length === 0 ? (
-            <div className="rounded-2xl border border-dashed border-white/15 bg-white/5 px-4 py-4 text-[12px] text-slate-100/75">
+            <div className="rounded-lg border border-white/[0.075] bg-white/[0.02] px-4 py-4 text-[12px] text-slate-100/68">
               <div className="font-medium text-slate-100/85">Start with a concrete question.</div>
               <div className="mt-1 text-pretty">
                 The agent can inspect capabilities, read state, execute exposed actions, and explain what changed.
@@ -159,12 +159,12 @@ export function ChatMessages(props: {
               >
                 <div
                   className={cn(
-                    'w-full max-w-[min(100%,52rem)] rounded-2xl border px-4 py-3 shadow-sm',
+                    'w-full max-w-[min(100%,52rem)] rounded-lg border px-4 py-3 shadow-sm',
                     message.role === 'assistant'
-                      ? 'border-sky-300/20 bg-sky-500/10'
+                      ? 'border-white/[0.075] bg-white/[0.026]'
                       : message.role === 'user'
-                        ? 'border-white/10 bg-white/5'
-                        : 'border-slate-300/15 bg-slate-800/40',
+                        ? 'border-emerald-200/18 bg-emerald-300/[0.055]'
+                        : 'border-white/[0.075] bg-white/[0.02]',
                   )}
                 >
                   <div className="mb-2 text-[10px] font-semibold uppercase text-slate-100/60">{roleLabel}</div>
@@ -181,7 +181,7 @@ export function ChatMessages(props: {
       {props.showJumpToLatest ? (
         <button
           type="button"
-          className="absolute bottom-4 right-4 rounded-md border border-sky-300/35 bg-sky-500/15 px-2 py-1 text-[11px] font-medium text-sky-100 hover:bg-sky-500/20"
+          className="absolute bottom-4 right-4 rounded-md border border-emerald-200/24 bg-emerald-300/[0.09] px-2 py-1 text-[11px] font-medium text-emerald-50/84 hover:bg-emerald-300/[0.13]"
           onClick={props.onJumpToLatest}
         >
           Jump to latest

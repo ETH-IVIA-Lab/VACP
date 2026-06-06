@@ -2,7 +2,6 @@ import type { ReactElement } from 'react';
 import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react';
 
 import { createVacpDebugDock } from '@vacp/debug-ui/dock';
-import { installVacpDebugPanelDrag } from '@vacp/debug-ui/panel-drag';
 import { installVacpDebugResizer } from '@vacp/debug-ui/resize';
 import { useVacpDebugUiStore, type VacpDebugModuleId } from '@vacp/debug-ui/overlay/debug-store';
 import { ActionsModule } from '@vacp/debug-ui/overlay/modules/actions-module';
@@ -10,14 +9,9 @@ import { DataModule } from '@vacp/debug-ui/overlay/modules/data-module';
 import { GraphModule } from '@vacp/debug-ui/overlay/modules/graph-module';
 import { HistoryModule } from '@vacp/debug-ui/overlay/modules/history-module';
 import { JsonModule } from '@vacp/debug-ui/overlay/modules/json-module';
-import { PlaybookModule } from '@vacp/debug-ui/overlay/modules/playbook-module';
+import { SettingsModule } from '@vacp/debug-ui/overlay/modules/settings-module';
 import { ChatModule } from '@vacp/debug-ui/overlay/modules/chat/chat-module';
-import {
-  useVacpBridge,
-  useVacpBridgePresence,
-  useVacpPlaybooks,
-  useVacpRuntime,
-} from '@vacp/debug-ui/overlay/bridge-queries';
+import { useVacpBridge, useVacpBridgePresence, useVacpRuntime } from '@vacp/debug-ui/overlay/bridge-queries';
 import { TooltipProvider } from '@vacp/debug-ui/ui/components/ui/tooltip';
 
 import { DEBUG_UI_PANEL_BREAKPOINTS, isDenseDebugPanel } from './debug-ui-breakpoints';
@@ -28,6 +22,7 @@ import { useDebugPanelLayout } from './hooks/use-debug-panel-layout';
 export function VacpDebugUiApp(props: { globalKey: string; includeActions: boolean }): ReactElement {
   const rootRef = useRef<HTMLDivElement | null>(null);
   const buttonRef = useRef<HTMLButtonElement | null>(null);
+  const connectorRef = useRef<HTMLDivElement | null>(null);
   const panelHeaderRef = useRef<HTMLDivElement | null>(null);
   const panelRef = useRef<HTMLDivElement | null>(null);
   const titleId = useId();
@@ -39,21 +34,31 @@ export function VacpDebugUiApp(props: { globalKey: string; includeActions: boole
   const setModuleId = useVacpDebugUiStore((s) => s.setModuleId);
 
   const [plotKey, setPlotKey] = useState(0);
+  const [panelVisible, setPanelVisible] = useState(open);
+  const [panelClosing, setPanelClosing] = useState(false);
 
   useEffect(() => {
     setIncludeActionsDefault(props.includeActions);
   }, [props.includeActions, setIncludeActionsDefault]);
 
+  useEffect(() => {
+    if (open) {
+      setPanelVisible(true);
+      setPanelClosing(false);
+      return;
+    }
+    if (!panelVisible) return;
+    setPanelClosing(true);
+    const timeout = window.setTimeout(() => {
+      setPanelVisible(false);
+      setPanelClosing(false);
+    }, 170);
+    return () => window.clearTimeout(timeout);
+  }, [open, panelVisible]);
+
   const bridgePresence = useVacpBridgePresence(props.globalKey);
   const bridgeQuery = useVacpBridge(props.globalKey, open);
   const runtimeQuery = useVacpRuntime(props.globalKey, bridgeQuery.data ?? null, open);
-  const playbooksQuery = useVacpPlaybooks(
-    props.globalKey,
-    bridgeQuery.data ?? null,
-    open,
-    runtimeQuery.data?.runtimeId ?? null,
-  );
-
   const panelSize = useElementSize(panelRef);
   const compactPanel = panelSize.width < DEBUG_UI_PANEL_BREAKPOINTS.compactShell;
   const densePanel = isDenseDebugPanel(panelSize.width, panelSize.height);
@@ -73,33 +78,40 @@ export function VacpDebugUiApp(props: { globalKey: string; includeActions: boole
     runtimeRefetchRef.current = runtimeQuery.refetch;
   }, [runtimeQuery.refetch]);
 
-  const playbooksRefetchRef = useRef(playbooksQuery.refetch);
-  useEffect(() => {
-    playbooksRefetchRef.current = playbooksQuery.refetch;
-  }, [playbooksQuery.refetch]);
-
   const bridgeStatus: VacpDebugBridgeStatus = bridgePresence.data
     ? 'ok'
     : open && (bridgeQuery.isFetching || runtimeQuery.isFetching)
       ? 'unknown'
       : 'missing';
 
-  const { maximized, panelPosition, minimize, toggleMaximize } = useDebugPanelLayout({ rootRef, panelRef, open });
+  const { maximized, panelPosition, minimize, toggleMaximize } = useDebugPanelLayout({
+    rootRef,
+    panelRef,
+    connectorRef,
+    open: panelVisible,
+  });
+
+  useLayoutEffect(() => {
+    if (!panelVisible) return;
+    panelPosition();
+  }, [panelVisible, panelPosition, panelSize.height, panelSize.width]);
 
   useLayoutEffect(() => {
     const root = rootRef.current;
     const button = buttonRef.current;
+    const header = panelHeaderRef.current;
     if (!root || !button) return;
+    const handles: HTMLElement[] = header ? [button, header] : [button];
     const dock = createVacpDebugDock({
       root,
-      handles: [button],
-      storageKey: 'vacp:debug:pos',
+      handles,
+      storageKey: 'vacp:debug:dock',
       onMove: () => panelPosition(),
       onDrop: () => panelPosition(),
     });
     dock.attach();
     // No cleanup: the overlay lives for the page lifetime.
-  }, []);
+  }, [panelPosition]);
 
   useLayoutEffect(() => {
     const panel = panelRef.current;
@@ -107,22 +119,10 @@ export function VacpDebugUiApp(props: { globalKey: string; includeActions: boole
     installVacpDebugResizer({
       panel,
       storageKey: 'vacp:debug:size',
-      positionStorageKey: 'vacp:debug:panelPos',
+      onResize: () => panelPosition(),
       onResizeEnd: () => panelPosition(),
     });
-  }, []);
-
-  useLayoutEffect(() => {
-    const panel = panelRef.current;
-    const header = panelHeaderRef.current;
-    if (!panel || !header) return;
-    installVacpDebugPanelDrag({
-      panel,
-      handle: header,
-      storageKey: 'vacp:debug:panelPos',
-      onMove: () => panelPosition(),
-    });
-  }, []);
+  }, [panelPosition]);
 
   useEffect(() => {
     const onKeyDown = (ev: KeyboardEvent) => {
@@ -144,13 +144,12 @@ export function VacpDebugUiApp(props: { globalKey: string; includeActions: boole
         const b = bridgeRef.current;
         if (b && typeof b.refresh === 'function') void b.refresh({ source: 'debug', message: 'refresh' });
         void runtimeRefetchRef.current();
-        void playbooksRefetchRef.current();
         return;
       }
 
       const n = Number(ev.key);
       if (!Number.isFinite(n) || n <= 0) return;
-      const ids: VacpDebugModuleId[] = ['graph', 'data', 'actions', 'history', 'playbook', 'chat', 'json'];
+      const ids: VacpDebugModuleId[] = ['graph', 'data', 'actions', 'history', 'chat', 'settings', 'json'];
       const id = ids[n - 1];
       if (!id) return;
       ev.preventDefault();
@@ -165,15 +164,28 @@ export function VacpDebugUiApp(props: { globalKey: string; includeActions: boole
     const pill = buttonRef.current;
     const panel = panelRef.current;
     if (open) {
-      queueMicrotask(() => {
+      const focusActiveTab = () => {
         const activeTab = panel?.querySelector<HTMLElement>('.vacp-debug-ui-module[data-state="active"]');
         (activeTab ?? panel)?.focus?.();
+      };
+      panelPosition();
+      const raf = window.requestAnimationFrame(() => {
+        panelPosition();
+        focusActiveTab();
       });
-      return;
+      const timeout = window.setTimeout(() => panelPosition(), 0);
+      queueMicrotask(() => {
+        panelPosition();
+        focusActiveTab();
+      });
+      return () => {
+        window.cancelAnimationFrame(raf);
+        window.clearTimeout(timeout);
+      };
     }
     // When closing, return focus back to the pill button for smooth keyboard operation.
     pill?.focus?.();
-  }, [open]);
+  }, [open, panelPosition]);
 
   useEffect(() => {
     const onPlotChange = () => {
@@ -181,7 +193,6 @@ export function VacpDebugUiApp(props: { globalKey: string; includeActions: boole
       useVacpDebugUiStore.getState().resetDataModule();
       void bridgeRefetchRef.current();
       void runtimeRefetchRef.current();
-      void playbooksRefetchRef.current();
     };
     window.addEventListener('hashchange', onPlotChange);
     window.addEventListener('popstate', onPlotChange);
@@ -218,9 +229,9 @@ export function VacpDebugUiApp(props: { globalKey: string; includeActions: boole
 
   const bridge = bridgeQuery.data ?? null;
   const runtime = runtimeQuery.data ?? null;
-  const playbooks = playbooksQuery.data ?? [];
-
   const renderModule = (id: VacpDebugModuleId) => {
+    if (id === 'settings') return <SettingsModule />;
+
     if (!bridge || !runtime) {
       if (!open) return null;
       if (bridgeQuery.isFetching || runtimeQuery.isFetching)
@@ -234,12 +245,11 @@ export function VacpDebugUiApp(props: { globalKey: string; includeActions: boole
       );
     }
 
-    const ctx = { bridge, runtime, playbooks };
+    const ctx = { bridge, runtime };
     if (id === 'graph') return <GraphModule {...ctx} />;
     if (id === 'data') return <DataModule key={plotKey} {...ctx} />;
     if (id === 'actions') return <ActionsModule {...ctx} />;
     if (id === 'history') return <HistoryModule {...ctx} />;
-    if (id === 'playbook') return <PlaybookModule {...ctx} />;
     if (id === 'chat') return <ChatModule {...ctx} />;
     return <JsonModule {...ctx} />;
   };
@@ -249,10 +259,13 @@ export function VacpDebugUiApp(props: { globalKey: string; includeActions: boole
       <DebugUiView
         rootRef={rootRef}
         buttonRef={buttonRef}
+        connectorRef={connectorRef}
         panelRef={panelRef}
         panelHeaderRef={panelHeaderRef}
         titleId={titleId}
         open={open}
+        panelVisible={panelVisible}
+        panelClosing={panelClosing}
         setOpen={setOpen}
         moduleId={moduleId}
         setModuleId={setModuleId}

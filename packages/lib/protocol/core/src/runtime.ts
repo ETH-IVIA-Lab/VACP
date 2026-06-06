@@ -69,33 +69,6 @@ export interface VacpRuntimeSnapshot {
 }
 
 /**
- * Playbooks (concepts).
- *
- * A playbook is a lightweight, provider-supplied sequence of steps (usually
- * actions) that can be stepped through in a debug UI. This makes it easy for
- * new users to understand what "bidirectional" interaction means in practice.
- *
- * Playbooks are optional and meant for examples / development tooling.
- */
-export type VacpPlaybookStep = {
-  id?: string;
-  title: string;
-  description?: string;
-  /**
-   * Action call template (callId will be provided by the caller).
-   * If omitted, the step is informational only.
-   */
-  call?: Omit<VacpActionCall, 'callId'>;
-};
-
-export type VacpPlaybook = {
-  id: string;
-  title: string;
-  description?: string;
-  steps: VacpPlaybookStep[];
-};
-
-/**
  * Optional extended in-page bridge contract for debugging and time travel.
  *
  * This is still VACP (protocol + snapshots + actions), but exposes runtime
@@ -103,8 +76,6 @@ export type VacpPlaybook = {
  */
 export interface VacpRuntimeBridge extends VacpWindowBridge {
   getRuntime?: () => Promise<VacpRuntimeSnapshot> | VacpRuntimeSnapshot;
-  /** Optional scripted playbooks provided by the app/provider (examples/dev only). */
-  getPlaybooks?: () => Promise<VacpPlaybook[]> | VacpPlaybook[];
   /**
    * Subscribe to runtime entries. Returns an unsubscribe function.
    * Listeners are only invoked in-page (not over MCP).

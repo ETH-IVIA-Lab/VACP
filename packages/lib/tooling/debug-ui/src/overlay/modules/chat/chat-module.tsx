@@ -130,10 +130,6 @@ export function ChatModule(props: VacpDebugModuleProps): ReactElement {
   }, [modelLookupKey]);
 
   useEffect(() => {
-    if (!configReady) setSettingsOpen(scopeId, true);
-  }, [configReady, scopeId, setSettingsOpen]);
-
-  useEffect(() => {
     if (!settingsOpen) return;
     if (debouncedModelLookupKey !== modelLookupKey) return;
     if (!canListModels(config)) {
@@ -226,7 +222,7 @@ export function ChatModule(props: VacpDebugModuleProps): ReactElement {
     <div ref={rootRef} className="h-full min-h-0">
       <Card className="relative flex h-full min-h-0 flex-col overflow-hidden">
         <div ref={headerRef}>
-          <CardHeader className="flex-col items-stretch gap-2 border-b border-white/10 pb-3">
+          <CardHeader className="flex-col items-stretch gap-2 border-b border-white/[0.075] pb-3">
             <div className="min-w-0">
               <CardTitle>Chat</CardTitle>
               <CardDescription>
@@ -304,7 +300,7 @@ export function ChatModule(props: VacpDebugModuleProps): ReactElement {
                   {actionsMenuOpen ? (
                     <div
                       data-vacp-chat-actions-menu="1"
-                      className="absolute right-0 top-9 z-30 grid min-w-[152px] gap-1 rounded-xl border border-white/10 bg-slate-950/95 p-1.5 shadow-[0_16px_36px_rgba(0,0,0,0.45)] backdrop-blur-sm"
+                      className="absolute right-0 top-9 z-30 grid min-w-[152px] gap-1 rounded-xl border border-white/[0.075] bg-[#0b1115]/96 p-1.5 shadow-[0_16px_34px_rgba(0,0,0,0.34)] backdrop-blur-sm"
                     >
                       <Button
                         size="sm"
@@ -373,7 +369,7 @@ export function ChatModule(props: VacpDebugModuleProps): ReactElement {
 
         <div className="min-h-0 flex-1">
           {!configReady ? (
-            <div className="grid h-full min-h-0 place-items-center rounded-lg border border-dashed border-white/20 bg-white/5 p-6 text-center">
+            <div className="grid h-full min-h-0 place-items-center rounded-lg border border-white/[0.075] bg-white/[0.02] p-6 text-center">
               <div>
                 <div className="text-sm font-semibold text-slate-100/90">Add provider settings to start chatting.</div>
                 <div className="mt-1 text-[11px] text-slate-100/70">
@@ -424,7 +420,7 @@ export function ChatModule(props: VacpDebugModuleProps): ReactElement {
           <div
             data-vacp-chat-thread-sheet="1"
             className={cn(
-              'absolute z-20 rounded-2xl border border-white/10 bg-slate-950/95 p-3 shadow-[0_18px_38px_rgba(0,0,0,0.45)] backdrop-blur-sm',
+              'absolute z-20 rounded-xl border border-white/[0.075] bg-[#0b1115]/96 p-3 shadow-[0_18px_34px_rgba(0,0,0,0.34)] backdrop-blur-sm',
               historySheetClass,
             )}
             style={{ top: `${floatingPanelTop}px` }}
@@ -451,7 +447,7 @@ export function ChatModule(props: VacpDebugModuleProps): ReactElement {
               style={{ maxHeight: `calc(100% - 56px)` }}
             >
               {threadItems.length === 0 ? (
-                <div className="rounded-2xl border border-white/10 bg-white/5 px-3 py-3 text-[11px] text-slate-100/70">
+                <div className="rounded-lg border border-white/[0.075] bg-white/[0.025] px-3 py-3 text-[11px] text-slate-100/64">
                   No history for this view yet.
                 </div>
               ) : null}
@@ -461,10 +457,10 @@ export function ChatModule(props: VacpDebugModuleProps): ReactElement {
                   type="button"
                   data-vacp-chat-thread-item="1"
                   className={cn(
-                    'min-w-0 rounded-xl border px-3 py-3 text-left transition-colors',
+                    'min-w-0 rounded-lg border px-3 py-3 text-left transition-colors',
                     thread.id === activeThreadId
-                      ? 'border-sky-300/35 bg-sky-500/10'
-                      : 'border-white/10 bg-white/5 hover:border-white/20 hover:bg-white/10',
+                      ? 'border-emerald-200/24 bg-emerald-300/[0.075]'
+                      : 'border-white/[0.075] bg-white/[0.025] hover:border-white/12 hover:bg-white/[0.045]',
                   )}
                   onClick={() => {
                     setActiveThread(scopeId, thread.id);

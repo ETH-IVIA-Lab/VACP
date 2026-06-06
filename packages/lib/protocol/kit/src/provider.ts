@@ -1,7 +1,6 @@
 import type {
   VacpCapabilitiesSnapshot,
   VacpGraph,
-  VacpPlaybook,
   VacpRef,
   VacpRuntimeBridge,
   VacpStateSnapshot,
@@ -55,7 +54,6 @@ export function createVacpLayer(args: {
   actions: VacpActionRegistry;
   getState: () => Record<VacpRef, unknown> | Promise<Record<VacpRef, unknown>>;
   getSummary?: () => Record<VacpRef, unknown> | Promise<Record<VacpRef, unknown> | undefined>;
-  playbooks?: VacpPlaybook[];
   /**
    * If true (default), inject a `type="application/json"` `<script>` tag whose
    * contents are pure JSON containing `{ capabilities, state }`.
@@ -78,7 +76,6 @@ export function createVacpLayer(args: {
   const bridge = installVacpRuntimeBridge({
     snapshots,
     actions: args.actions,
-    playbooks: args.playbooks,
     globalKey,
     injectDomSnapshot: args.injectDomSnapshot,
     domSnapshotScriptId: args.domSnapshotScriptId,

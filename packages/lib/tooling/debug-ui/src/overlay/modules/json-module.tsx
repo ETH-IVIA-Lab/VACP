@@ -204,7 +204,7 @@ export function JsonModule(props: VacpDebugModuleProps): ReactElement {
           className={cn(dense ? 'mt-2 max-h-[120px] flex-none p-2' : 'mt-3 max-h-[180px] flex-none')}
         />
         <details
-          className={cn('mt-3 rounded-lg border border-white/10 bg-white/5', dense ? 'p-2' : 'p-3')}
+          className={cn('mt-3 rounded-lg border border-white/[0.075] bg-white/[0.02]', dense ? 'p-2' : 'p-3')}
           data-vacp-state-update="panel"
         >
           <summary className="cursor-pointer select-none text-[12px] font-semibold text-slate-100/90">
@@ -221,7 +221,7 @@ export function JsonModule(props: VacpDebugModuleProps): ReactElement {
                 Mode
                 <select
                   data-vacp-state-update="mode"
-                  className="mt-1 w-full rounded-xl border border-white/10 bg-slate-900/70 px-3 py-2.5 text-xs text-slate-100 outline-none focus:ring-2 focus:ring-sky-400/40"
+                  className="mt-1 w-full rounded-lg border border-white/[0.08] bg-[#101821]/72 px-3 py-2.5 text-xs text-slate-100/90 outline-none focus:border-emerald-200/24 focus:ring-2 focus:ring-emerald-300/24"
                   value={requestMode ?? 'delta'}
                   onChange={(e) => setRequestMode(e.target.value as VacpStateRequest['mode'])}
                 >
@@ -288,7 +288,7 @@ export function JsonModule(props: VacpDebugModuleProps): ReactElement {
 
             {updateSummary ? (
               <div
-                className="rounded-lg border border-white/10 bg-black/25 px-3 py-2 text-[11px] leading-5 text-slate-100/85"
+                className="rounded-lg border border-white/[0.075] bg-white/[0.02] px-3 py-2 text-[11px] leading-5 text-slate-100/76"
                 data-vacp-state-update="summary"
               >
                 {updateSummary.mode === 'full' ? (
@@ -342,10 +342,10 @@ export function JsonModule(props: VacpDebugModuleProps): ReactElement {
                 )}
               </div>
             ) : null}
-            {probeStatus ? <div className="text-[11px] text-emerald-100/80">{probeStatus}</div> : null}
-            {probeError ? <div className="text-[11px] text-rose-100/80">{probeError}</div> : null}
+            {probeStatus ? <div className="text-[11px] text-emerald-50/74">{probeStatus}</div> : null}
+            {probeError ? <div className="text-[11px] text-red-50/84">{probeError}</div> : null}
             {updatePayload ? (
-              <details className="rounded-lg border border-white/10 bg-black/20 p-2">
+              <details className="rounded-lg border border-white/[0.075] bg-white/[0.02] p-2">
                 <summary className="cursor-pointer select-none text-[11px] font-medium text-slate-100/80">
                   Raw update payload
                 </summary>
@@ -419,8 +419,8 @@ export function JsonModule(props: VacpDebugModuleProps): ReactElement {
           />
         </div>
 
-        {editStatus ? <div className="mt-2 text-[11px] text-emerald-100/80">{editStatus}</div> : null}
-        {editError ? <div className="mt-2 text-[11px] text-rose-100/80">{editError}</div> : null}
+        {editStatus ? <div className="mt-2 text-[11px] text-emerald-50/74">{editStatus}</div> : null}
+        {editError ? <div className="mt-2 text-[11px] text-red-50/84">{editError}</div> : null}
       </Card>
     </div>
   );

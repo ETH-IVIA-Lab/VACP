@@ -300,7 +300,6 @@ export function installVacpOnVgplotDashboard(args: {
   const bridge = installVacpRuntimeBridge({
     snapshots,
     actions: actionRegistry,
-    playbooks: options.playbooks,
     globalKey: options.globalKey,
     sessionKey: options.viewId,
   });

@@ -148,7 +148,7 @@ function TokenUsageBadge(props: {
       <TooltipTrigger asChild>
         <div
           {...attrs}
-          className="inline-flex items-center gap-1 rounded-full border border-white/10 bg-white/5 px-2 py-1 text-[10px] text-slate-100/70"
+          className="inline-flex items-center gap-1 rounded-full border border-white/[0.075] bg-white/[0.035] px-2 py-1 text-[10px] text-slate-100/62"
         >
           <span className="text-slate-100/55">{props.label}</span>
           <span className="font-semibold text-slate-100/85">{formatTokens(total)}</span>
@@ -341,7 +341,7 @@ export function ConfiguredChat(props: ConfiguredChatProps): ReactElement {
     >
       <div className="flex min-h-0 flex-col gap-3">
         {error ? (
-          <div className="rounded-lg border border-rose-300/25 bg-rose-500/10 px-3 py-2 text-[11px] text-rose-100/90">
+          <div className="rounded-lg border border-red-200/18 bg-red-300/[0.07] px-3 py-2 text-[11px] text-red-50/84">
             <div className="flex items-start gap-2">
               <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
               <div className="min-w-0 break-words">{error.message}</div>
@@ -350,13 +350,13 @@ export function ConfiguredChat(props: ConfiguredChatProps): ReactElement {
         ) : null}
 
         {policyNotice ? (
-          <div className="rounded-lg border border-amber-300/25 bg-amber-500/10 px-3 py-2 text-[11px] text-amber-100/90">
+          <div className="rounded-lg border border-amber-100/14 bg-amber-100/[0.055] px-3 py-2 text-[11px] text-amber-50/70">
             {policyNotice}
           </div>
         ) : null}
 
-        <section className="grid min-h-0 flex-1 grid-rows-[auto_minmax(0,1fr)_auto] overflow-hidden rounded-2xl border border-white/10 bg-slate-950/35">
-          <div className="flex flex-wrap items-start gap-3 border-b border-white/10 px-4 py-3">
+        <section className="grid min-h-0 flex-1 grid-rows-[auto_minmax(0,1fr)_auto] overflow-hidden rounded-xl border border-white/[0.075] bg-white/[0.02]">
+          <div className="flex flex-wrap items-start gap-3 border-b border-white/[0.075] px-4 py-3">
             <div className="min-w-0 flex-1">
               <div className="text-[11px] font-semibold uppercase text-slate-100/70">Conversation</div>
               <div className="mt-1 text-pretty text-[11px] text-slate-100/62">{threadSummary}</div>
@@ -383,7 +383,7 @@ export function ConfiguredChat(props: ConfiguredChatProps): ReactElement {
                 dataAttribute="data-vacp-chat-token-thread"
                 align="center"
               />
-              <div className="inline-flex items-center gap-1 rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[10px] text-slate-100/70">
+              <div className="inline-flex items-center gap-1 rounded-full border border-white/[0.075] bg-white/[0.035] px-2.5 py-1 text-[10px] text-slate-100/62">
                 {busy ? <Loader2 className="h-3 w-3 animate-spin" /> : null}
                 <span data-vacp-chat-status="1">{statusLabel}</span>
               </div>
@@ -401,8 +401,8 @@ export function ConfiguredChat(props: ConfiguredChatProps): ReactElement {
             />
           </div>
 
-          <div className="relative z-10 border-t border-white/10 bg-slate-950/85 px-3 py-3 backdrop-blur-sm">
-            <div className="mb-3 flex flex-wrap items-center gap-2 rounded-xl border border-white/10 bg-black/20 px-3 py-2 text-[11px] text-slate-100/62">
+          <div className="relative z-10 border-t border-white/[0.075] bg-[#0b1115]/88 px-3 py-3 backdrop-blur-sm">
+            <div className="mb-3 flex flex-wrap items-center gap-2 rounded-lg border border-white/[0.075] bg-white/[0.02] px-3 py-2 text-[11px] text-slate-100/58">
               <div className="min-w-0 flex-1 text-pretty">
                 {busy
                   ? status === 'submitted'
@@ -410,7 +410,7 @@ export function ConfiguredChat(props: ConfiguredChatProps): ReactElement {
                     : 'Request received. The agent is working through the turn.'
                   : 'Press Enter to send or Shift+Enter for a newline.'}
               </div>
-              {copyNotice ? <div className="text-emerald-100/80">{copyNotice}</div> : null}
+              {copyNotice ? <div className="text-emerald-50/74">{copyNotice}</div> : null}
               {showActivitySheet ? (
                 <Button size="sm" aria-label="Hide activity" title="Hide activity" onClick={props.onCloseActivity}>
                   Hide activity
@@ -487,11 +487,11 @@ export function ConfiguredChat(props: ConfiguredChatProps): ReactElement {
         <div
           data-vacp-chat-activity-sheet="1"
           className={cn(
-            'absolute z-20 overflow-hidden rounded-2xl border border-white/10 bg-slate-950/95 shadow-[0_18px_38px_rgba(0,0,0,0.42)] backdrop-blur-sm',
+            'absolute z-20 overflow-hidden rounded-xl border border-white/[0.075] bg-[#0b1115]/96 shadow-[0_18px_34px_rgba(0,0,0,0.34)] backdrop-blur-sm',
             props.panelWidth < 720 ? 'inset-0' : 'right-0 top-0 h-full w-[min(360px,calc(100%-16px))]',
           )}
         >
-          <div className="flex items-center justify-between border-b border-white/10 px-3 py-2">
+          <div className="flex items-center justify-between border-b border-white/[0.075] px-3 py-2">
             <div className="text-[11px] font-semibold uppercase text-slate-100/70">Activity</div>
             <Button size="iconSm" aria-label="Close activity" title="Close activity" onClick={props.onCloseActivity}>
               <X className="h-3.5 w-3.5 text-slate-100/90" />

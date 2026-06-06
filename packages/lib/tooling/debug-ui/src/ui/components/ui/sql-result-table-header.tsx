@@ -20,8 +20,8 @@ export function SqlResultTableHeader({
   const { columnSizingInfo } = table.getState();
 
   return (
-    <div className="sticky top-0 z-10 rounded-t-lg bg-slate-950/80 backdrop-blur">
-      <div className="flex border-b border-white/10">
+    <div className="sticky top-0 z-10 rounded-t-lg bg-[#0b1115]/88 backdrop-blur">
+      <div className="flex border-b border-white/[0.07]">
         {headers.map((header, index) => {
           const isLast = index === headers.length - 1;
           const headStyles = { width: `calc(var(--header-${header.index}-size) * 1px)` };
@@ -41,7 +41,7 @@ export function SqlResultTableHeader({
               key={header.id}
               className={cn(
                 'relative flex h-[34px] items-center gap-2 px-2 text-[11px] font-semibold text-slate-100/80 select-none',
-                !isLast && 'border-r border-white/10',
+                !isLast && 'border-r border-white/[0.055]',
                 isIndex ? 'justify-end tabular-nums text-slate-100/60' : 'justify-start',
               )}
               style={headStyles}
@@ -75,8 +75,8 @@ export function SqlResultTableHeader({
                 <div
                   className={cn(
                     'absolute right-0 top-0 h-full w-[6px] cursor-col-resize',
-                    'after:absolute after:right-[2px] after:top-0 after:h-full after:w-[1px] after:bg-white/10',
-                    columnSizingInfo.isResizingColumn === header.id && 'after:bg-sky-300/60',
+                    'after:absolute after:right-[2px] after:top-0 after:h-full after:w-[1px] after:bg-white/[0.08]',
+                    columnSizingInfo.isResizingColumn === header.id && 'after:bg-emerald-200/50',
                   )}
                   onDoubleClick={() => header.column.resetSize()}
                   onMouseDown={(e) => {

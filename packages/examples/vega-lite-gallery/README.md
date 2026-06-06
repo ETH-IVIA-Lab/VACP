@@ -19,9 +19,9 @@ From the repo root:
 pnpm -C packages/examples/vega-lite-gallery dev
 ```
 
-Enable the debug overlay:
+Open the debug overlay:
 
-- set `VACP_DEBUG_UI=1` or add `?vacp-debug=1` to the URL, then click the floating **VACP** button
+- click the floating **VACP** button. Disable it with `?vacp-debug=0` or `VACP_DEBUG_UI=0`
 
 ## How it works
 
@@ -54,7 +54,6 @@ Agents can set *Param*s and clear *Selection*s through semantic actions, without
 
 Use the overlay:
 
-- Debug overlay → **Playbook** → **Run all**
 - Debug overlay → **Actions** to call `vega_lite.set_param` / `vega_lite.clear_selection` manually
 
 ## How to add or edit specs
@@ -74,6 +73,5 @@ is running.
 ## Useful entry points
 
 - App wiring: `src/app.ts`
-- Playbook scripts: `src/playbooks.ts`
 - Spec gallery loader: `src/gallery.ts`
 - Specs: `src/specs/`

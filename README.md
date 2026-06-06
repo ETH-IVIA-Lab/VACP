@@ -47,7 +47,7 @@ For full setup and command details, use [docs/get-started/index.md](docs/get-sta
 
 ## Documentation
 
-Visit [https://docs.vacp.dev/](https://docs.vacp.dev/) to view the full documentation and [https://examples.vacp.dev/](https://examples.vacp.dev/?vacp-debug=1) to view the demos (Enable in-page chat overlay with `?vacp-debug=1`, select the Chat, enter your own api-key and task the agent to analyse or interact with the available data).
+Visit [https://docs.vacp.dev/](https://docs.vacp.dev/) to view the full documentation and [https://examples.vacp.dev/](https://examples.vacp.dev/) to view the demos. Click the floating **VACP** control, select Chat, enter your own api-key and task the agent to analyse or interact with the available data.
 
 - Docs site entry: [docs/index.md](docs/index.md)
 - Get started: [docs/get-started/index.md](docs/get-started/index.md)
@@ -60,7 +60,7 @@ Visit [https://docs.vacp.dev/](https://docs.vacp.dev/) to view the full document
 
 ## Runtime Notes
 
-- Enable in-page debug overlay with `?vacp-debug=1` or `VACP_DEBUG_UI=1`.
+- The in-page debug overlay is enabled by default. Disable it with `?vacp-debug=0` or `VACP_DEBUG_UI=0`.
 - Start MCP server against a running example: `uv run vacp-mcp-server --url http://localhost:<vite-port>/`.
 
 ## Contact

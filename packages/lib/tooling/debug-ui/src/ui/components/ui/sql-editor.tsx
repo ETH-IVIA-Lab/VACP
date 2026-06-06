@@ -35,19 +35,19 @@ const MAX_HEIGHT_PX = 26 * DEFAULT_LINE_HEIGHT_PX + 16;
 
 const baseTheme = EditorView.theme({
   '&': {
-    backgroundColor: 'rgba(2, 6, 23, 0.55)', // slate-950-ish
+    backgroundColor: 'rgba(11, 17, 21, 0.72)',
     borderRadius: '0.5rem',
-    border: '1px solid rgba(255,255,255,0.10)',
+    border: '1px solid rgba(255,255,255,0.075)',
     overflow: 'hidden',
     outline: 'none',
-    color: 'rgba(226, 232, 240, 0.92)',
+    color: 'rgba(226, 232, 240, 0.88)',
     position: 'relative',
     zIndex: 0,
   },
   '.cm-gutters': {
-    backgroundColor: 'rgba(2, 6, 23, 0.55)',
-    color: 'rgba(226, 232, 240, 0.45)', // slate-200
-    borderRight: '1px solid rgba(255,255,255,0.08)',
+    backgroundColor: 'rgba(7, 11, 14, 0.5)',
+    color: 'rgba(226, 232, 240, 0.34)',
+    borderRight: '1px solid rgba(255,255,255,0.055)',
     borderTopLeftRadius: '0.5rem',
     borderBottomLeftRadius: '0.5rem',
     overflow: 'hidden',
@@ -60,20 +60,20 @@ const baseTheme = EditorView.theme({
     caretColor: 'rgba(226, 232, 240, 0.9)',
   },
   '.cm-activeLine': {
-    backgroundColor: 'rgba(255,255,255,0.03)',
+    backgroundColor: 'rgba(255,255,255,0.025)',
   },
   '.cm-activeLineGutter': {
     backgroundColor: 'transparent',
     color: 'rgba(226, 232, 240, 0.7)',
   },
   '.cm-selectionBackground': {
-    backgroundColor: 'rgba(56, 189, 248, 0.18) !important',
+    backgroundColor: 'rgba(110, 231, 183, 0.16) !important',
   },
   '&.cm-focused .cm-selectionBackground': {
-    backgroundColor: 'rgba(56, 189, 248, 0.22) !important',
+    backgroundColor: 'rgba(110, 231, 183, 0.2) !important',
   },
   '.cm-scroller': {
-    backgroundColor: 'rgba(2, 6, 23, 0.55)',
+    backgroundColor: 'rgba(11, 17, 21, 0.72)',
     overflow: 'auto',
     borderRadius: '0.5rem',
     fontFamily: "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace",
@@ -81,12 +81,12 @@ const baseTheme = EditorView.theme({
     lineHeight: '20px',
   },
   '&.cm-focused': {
-    boxShadow: 'inset 0 0 0 2px rgba(56, 189, 248, 0.35)',
+    boxShadow: 'inset 0 0 0 2px rgba(110, 231, 183, 0.22)',
   },
   '.cm-tooltip': {
-    border: '1px solid rgba(255,255,255,0.10)',
-    backgroundColor: 'rgba(2, 6, 23, 0.96)',
-    color: 'rgba(226, 232, 240, 0.92)',
+    border: '1px solid rgba(255,255,255,0.08)',
+    backgroundColor: 'rgba(9, 14, 18, 0.96)',
+    color: 'rgba(226, 232, 240, 0.9)',
     boxShadow: '0 18px 40px rgba(0,0,0,0.45)',
   },
   '.cm-tooltip-autocomplete > ul > li': {
@@ -94,7 +94,7 @@ const baseTheme = EditorView.theme({
     fontSize: '12px',
   },
   '.cm-tooltip-autocomplete > ul > li[aria-selected]': {
-    backgroundColor: 'rgba(56, 189, 248, 0.18)',
+    backgroundColor: 'rgba(110, 231, 183, 0.14)',
     color: 'rgba(226, 232, 240, 0.98)',
   },
 });
@@ -202,7 +202,7 @@ export const SqlEditor = forwardRef<ReactCodeMirrorRef, SqlEditorProps>(
           <button
             type="button"
             aria-label="Resize SQL editor"
-            className="absolute bottom-2 right-2 z-10 h-4 w-4 cursor-nwse-resize rounded-sm border border-white/10 bg-black/20 text-slate-100/60 opacity-60 hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/50"
+            className="absolute bottom-2 right-2 z-10 h-4 w-4 cursor-nwse-resize rounded-sm border border-white/[0.08] bg-black/16 text-slate-100/50 opacity-55 hover:opacity-85 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300/35"
             onMouseDown={(ev) => {
               ev.preventDefault();
               const startY = ev.clientY;

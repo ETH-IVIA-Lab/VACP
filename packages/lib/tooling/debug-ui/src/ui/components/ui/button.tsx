@@ -8,18 +8,18 @@ const buttonVariants = cva(
   cn(
     'inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-xs font-medium',
     'transition-colors',
-    'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/60',
+    'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300/45',
     'disabled:pointer-events-none disabled:opacity-50',
     '[&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0',
-    // When used as a toggle button (aria-pressed), visually indicate the active state.
-    '[aria-pressed=true]:bg-sky-500/20 [aria-pressed=true]:border-sky-300/40 [aria-pressed=true]:text-sky-100',
+    '[aria-pressed=true]:bg-emerald-300/10 [aria-pressed=true]:border-emerald-200/25 [aria-pressed=true]:text-emerald-50',
   ),
   {
     variants: {
       variant: {
-        ghost: 'bg-white/5 hover:bg-white/10 text-slate-100 border border-white/10',
-        primary: 'bg-sky-500/15 hover:bg-sky-500/25 text-sky-100 border border-sky-300/35',
-        danger: 'bg-rose-500/15 hover:bg-rose-500/25 text-rose-100 border border-rose-300/35',
+        ghost: 'border border-white/9 bg-white/[0.035] text-slate-100/86 hover:border-white/14 hover:bg-white/[0.065]',
+        primary:
+          'border border-emerald-200/28 bg-emerald-300/11 text-emerald-50 hover:border-emerald-200/38 hover:bg-emerald-300/16',
+        danger: 'border border-red-200/20 bg-red-300/8 text-red-50/88 hover:border-red-200/30 hover:bg-red-300/12',
       },
       size: {
         sm: 'h-8 px-2.5',

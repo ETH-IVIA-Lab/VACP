@@ -34,7 +34,7 @@ export function ChatConfigPanel(props: ChatConfigPanelProps): ReactElement {
     <section
       data-vacp-chat-settings-panel="1"
       className={cn(
-        'vacp-chat-scroll grid max-h-[min(74vh,560px)] gap-4 overflow-y-auto overflow-x-hidden rounded-2xl border border-white/10 bg-slate-950/95 p-4 shadow-[0_18px_38px_rgba(0,0,0,0.42)] backdrop-blur-sm',
+        'vacp-chat-scroll grid max-h-[min(74vh,560px)] gap-4 overflow-y-auto overflow-x-hidden rounded-xl border border-white/[0.075] bg-[#0b1115]/96 p-4 shadow-[0_18px_34px_rgba(0,0,0,0.34)] backdrop-blur-sm',
         props.className,
       )}
     >
@@ -61,7 +61,7 @@ export function ChatConfigPanel(props: ChatConfigPanelProps): ReactElement {
       </div>
 
       <div className="grid gap-3">
-        <section className="grid gap-3 rounded-2xl border border-white/10 bg-black/20 p-3">
+        <section className="grid gap-3 rounded-lg border border-white/[0.075] bg-white/[0.02] p-3">
           <div>
             <div className="text-[11px] font-semibold text-slate-100/85">Connection</div>
             <div className="mt-1 text-pretty text-[11px] text-slate-100/60">
@@ -73,7 +73,7 @@ export function ChatConfigPanel(props: ChatConfigPanelProps): ReactElement {
               Provider
               <select
                 data-vacp-chat-provider="1"
-                className="mt-1 w-full rounded-lg border border-white/10 bg-white/5 px-2 py-2 text-xs text-slate-100 outline-none focus:ring-2 focus:ring-sky-400/40"
+                className="mt-1 w-full rounded-lg border border-white/[0.08] bg-[#101821]/72 px-2 py-2 text-xs text-slate-100/90 outline-none focus:border-emerald-200/24 focus:ring-2 focus:ring-emerald-300/24"
                 value={provider}
                 onChange={(e) => props.onProviderChange(e.target.value as VacpLLMConfig['provider'])}
               >
@@ -86,7 +86,7 @@ export function ChatConfigPanel(props: ChatConfigPanelProps): ReactElement {
               <div className="mt-1 flex items-center gap-2">
                 <select
                   data-vacp-chat-model-select="1"
-                  className="w-full rounded-lg border border-white/10 bg-white/5 px-2 py-2 text-xs text-slate-100 outline-none focus:ring-2 focus:ring-sky-400/40"
+                  className="w-full rounded-lg border border-white/[0.08] bg-[#101821]/72 px-2 py-2 text-xs text-slate-100/90 outline-none focus:border-emerald-200/24 focus:ring-2 focus:ring-emerald-300/24"
                   value={props.config.model}
                   disabled={props.loadingModels || props.availableModels.length === 0}
                   onChange={(e) => setField('model', e.target.value)}
@@ -142,7 +142,7 @@ export function ChatConfigPanel(props: ChatConfigPanelProps): ReactElement {
           </div>
         </section>
 
-        <section className="grid gap-3 rounded-2xl border border-white/10 bg-black/20 p-3">
+        <section className="grid gap-3 rounded-lg border border-white/[0.075] bg-white/[0.02] p-3">
           <div>
             <div className="text-[11px] font-semibold text-slate-100/85">Credentials</div>
             <div className="mt-1 text-pretty text-[11px] text-slate-100/60">
@@ -175,7 +175,7 @@ export function ChatConfigPanel(props: ChatConfigPanelProps): ReactElement {
           </label>
         </section>
 
-        <details className="rounded-lg border border-white/10 bg-white/5 px-3 py-2">
+        <details className="rounded-lg border border-white/[0.075] bg-white/[0.025] px-3 py-2">
           <summary className="cursor-pointer select-none text-[11px] font-semibold text-slate-100/80">Advanced</summary>
           <div className="mt-2 grid gap-3 sm:grid-cols-3">
             {!openAICompatibleSelected ? (
@@ -252,7 +252,7 @@ export function ChatConfigPanel(props: ChatConfigPanelProps): ReactElement {
           </div>
         </details>
 
-        <div className="rounded-lg border border-emerald-300/25 bg-emerald-500/10 px-3 py-2 text-[11px] text-emerald-50/90">
+        <div className="rounded-lg border border-white/[0.075] bg-white/[0.025] px-3 py-2 text-[11px] text-slate-100/66">
           Your API key never leaves your browser except when directly sent to your selected provider endpoint. It is
           stored locally at {vacpLLMConfigStorageKey}.
         </div>

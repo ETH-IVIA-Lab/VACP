@@ -1,4 +1,4 @@
-import type { VacpPlaybook, VacpRuntimeBridge, VacpWindowBridge } from '@vacp/core';
+import type { VacpRuntimeBridge, VacpWindowBridge } from '@vacp/core';
 
 import { VacpActionRegistry } from '../action-registry';
 import { createRuntimeBridge } from './create-runtime-bridge';
@@ -16,7 +16,6 @@ import type { VacpSnapshotProvider, VacpUpdatableRuntimeBridge } from './types';
 export function createVacpWindowBridge(args: {
   snapshots: VacpSnapshotProvider;
   actions: VacpActionRegistry;
-  playbooks?: VacpPlaybook[];
 }): VacpRuntimeBridge {
   return createRuntimeBridge(args);
 }

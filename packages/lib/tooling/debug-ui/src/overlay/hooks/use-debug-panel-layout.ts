@@ -1,23 +1,66 @@
-import { useCallback, useEffect, useRef, useState, type RefObject } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type RefObject } from 'react';
 
-const PANEL_POS_KEY = 'vacp:debug:panelPos';
+const PANEL_MARGIN = 14;
+const DOCK_GAP = 8;
+const CONNECTOR_WIDTH = 4;
 
-function readPanelPos(): { left: number; top: number } | null {
-  try {
-    const raw = localStorage.getItem(PANEL_POS_KEY);
-    if (!raw) return null;
-    const parsed = JSON.parse(raw) as { left?: unknown; top?: unknown };
-    if (typeof parsed.left !== 'number' || typeof parsed.top !== 'number') return null;
-    if (!Number.isFinite(parsed.left) || !Number.isFinite(parsed.top)) return null;
-    return { left: parsed.left, top: parsed.top };
-  } catch {
-    return null;
+const clamp = (n: number, min: number, max: number) => Math.max(min, Math.min(max, n));
+
+type DockBox = {
+  left: number;
+  top: number;
+  right: number;
+  bottom: number;
+  width: number;
+  height: number;
+};
+
+function px(value: string): number | null {
+  const n = Number.parseFloat(value);
+  return Number.isFinite(n) ? n : null;
+}
+
+function readDockBox(root: HTMLElement): DockBox {
+  const dockRect = root.getBoundingClientRect();
+  const left = px(root.style.left);
+  const top = px(root.style.top);
+  if (left === null || top === null) {
+    return {
+      left: dockRect.left,
+      top: dockRect.top,
+      right: dockRect.right,
+      bottom: dockRect.bottom,
+      width: dockRect.width,
+      height: dockRect.height,
+    };
   }
+  return {
+    left,
+    top,
+    right: left + dockRect.width,
+    bottom: top + dockRect.height,
+    width: dockRect.width,
+    height: dockRect.height,
+  };
+}
+
+function maxPanelHeight(root: HTMLElement): number {
+  const dock = readDockBox(root);
+  return Math.max(260, dock.top - DOCK_GAP - PANEL_MARGIN);
+}
+
+function panelLayoutSize(panel: HTMLElement): { width: number; height: number } {
+  const rect = panel.getBoundingClientRect();
+  return {
+    width: panel.offsetWidth || rect.width,
+    height: panel.offsetHeight || rect.height,
+  };
 }
 
 export function useDebugPanelLayout(args: {
   rootRef: RefObject<HTMLDivElement | null>;
   panelRef: RefObject<HTMLDivElement | null>;
+  connectorRef?: RefObject<HTMLDivElement | null>;
   open: boolean;
 }): {
   maximized: boolean;
@@ -25,7 +68,7 @@ export function useDebugPanelLayout(args: {
   minimize: () => void;
   toggleMaximize: () => void;
 } {
-  const { rootRef, panelRef, open } = args;
+  const { rootRef, panelRef, connectorRef, open } = args;
   const [maximized, setMaximized] = useState(false);
   const sizeBeforeMaxRef = useRef<{ width: number; height: number } | null>(null);
 
@@ -33,49 +76,62 @@ export function useDebugPanelLayout(args: {
     const root = rootRef.current;
     const panel = panelRef.current;
     if (!root || !panel) return;
-    if (getComputedStyle(panel).display === 'none') return;
-
-    const clamp = (n: number, min: number, max: number) => Math.max(min, Math.min(max, n));
-    const margin = 10;
-    const gap = 10;
-    const panelRect = panel.getBoundingClientRect();
-    const w = panelRect.width;
-    const h = panelRect.height;
-
-    const stored = readPanelPos();
-    let left: number;
-    let top: number;
-    if (stored) {
-      left = stored.left;
-      top = stored.top;
-    } else {
-      const dockRect = root.getBoundingClientRect();
-      const openRight = dockRect.left < window.innerWidth / 2;
-      const openDown = dockRect.top < window.innerHeight / 2;
-      left = openRight ? dockRect.left : dockRect.right - w;
-      top = openDown ? dockRect.bottom + gap : dockRect.top - gap - h;
+    if (getComputedStyle(panel).display === 'none') {
+      const connector = connectorRef?.current;
+      if (connector) connector.style.height = '0px';
+      return;
     }
 
-    left = clamp(left, margin, Math.max(margin, window.innerWidth - w - margin));
-    top = clamp(top, margin, Math.max(margin, window.innerHeight - h - margin));
+    const dock = readDockBox(root);
+    const rect = panelLayoutSize(panel);
+    const maxWidth = Math.max(360, window.innerWidth - PANEL_MARGIN * 2);
+    const maxHeight = maxPanelHeight(root);
+    const width = clamp(rect.width, 360, maxWidth);
+    const height = clamp(rect.height, 260, maxHeight);
+    if (Math.abs(width - rect.width) > 0.5) panel.style.width = `${width}px`;
+    if (Math.abs(height - rect.height) > 0.5) panel.style.height = `${height}px`;
 
-    panel.style.left = `${left}px`;
-    panel.style.top = `${top}px`;
+    const dockCenter = dock.left + dock.width / 2;
+    const left =
+      dockCenter < window.innerWidth * 0.34
+        ? dock.left
+        : dockCenter > window.innerWidth * 0.66
+          ? dock.right - width
+          : dockCenter - width / 2;
+    const nextLeft = clamp(left, PANEL_MARGIN, Math.max(PANEL_MARGIN, window.innerWidth - width - PANEL_MARGIN));
+    const nextTop = clamp(
+      dock.top - DOCK_GAP - height,
+      PANEL_MARGIN,
+      Math.max(PANEL_MARGIN, dock.top - DOCK_GAP - height),
+    );
+
+    panel.style.left = `${nextLeft}px`;
+    panel.style.top = `${nextTop}px`;
     panel.style.right = 'auto';
     panel.style.bottom = 'auto';
-  }, [panelRef, rootRef]);
+
+    const connector = connectorRef?.current;
+    if (!connector) return;
+    const panelBottom = nextTop + height;
+    const connectorX = clamp(dockCenter, nextLeft + 20, nextLeft + width - 20);
+    connector.style.width = `${CONNECTOR_WIDTH}px`;
+    connector.style.left = `${connectorX - CONNECTOR_WIDTH / 2}px`;
+    connector.style.top = `${panelBottom}px`;
+    connector.style.height = `${Math.max(0, dock.top - panelBottom)}px`;
+  }, [connectorRef, panelRef, rootRef]);
 
   const applySize = useCallback(
     (size: { width: number; height: number }) => {
+      const root = rootRef.current;
       const panel = panelRef.current;
-      if (!panel) return;
-      const clamp = (n: number, min: number, max: number) => Math.max(min, Math.min(max, n));
-      const maxW = Math.max(360, window.innerWidth - 28);
-      const maxH = Math.max(260, window.innerHeight - 92);
+      if (!root || !panel) return;
+      const maxW = Math.max(360, window.innerWidth - PANEL_MARGIN * 2);
+      const maxH = maxPanelHeight(root);
       panel.style.width = `${clamp(size.width, 360, maxW)}px`;
       panel.style.height = `${clamp(size.height, 260, maxH)}px`;
+      panelPosition();
     },
-    [panelRef],
+    [panelPosition, panelRef, rootRef],
   );
 
   const minimize = useCallback(() => {
@@ -94,24 +150,30 @@ export function useDebugPanelLayout(args: {
   }, [panelPosition, panelRef]);
 
   const toggleMaximize = useCallback(() => {
+    const root = rootRef.current;
     const panel = panelRef.current;
-    if (!panel) return;
+    if (!root || !panel) return;
     if (!maximized) {
-      const rect = panel.getBoundingClientRect();
+      const rect = panelLayoutSize(panel);
       sizeBeforeMaxRef.current = { width: rect.width, height: rect.height };
       setMaximized(true);
-      applySize({ width: window.innerWidth - 28, height: window.innerHeight - 92 });
-      panelPosition();
+      applySize({ width: window.innerWidth - PANEL_MARGIN * 2, height: maxPanelHeight(root) });
       return;
     }
     setMaximized(false);
     if (sizeBeforeMaxRef.current) applySize(sizeBeforeMaxRef.current);
     panelPosition();
-  }, [applySize, maximized, panelPosition, panelRef]);
+  }, [applySize, maximized, panelPosition, panelRef, rootRef]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!open) return;
-    queueMicrotask(() => panelPosition());
+    panelPosition();
+    const raf = window.requestAnimationFrame(() => panelPosition());
+    const timeout = window.setTimeout(() => panelPosition(), 0);
+    return () => {
+      window.cancelAnimationFrame(raf);
+      window.clearTimeout(timeout);
+    };
   }, [open, panelPosition]);
 
   useEffect(() => {

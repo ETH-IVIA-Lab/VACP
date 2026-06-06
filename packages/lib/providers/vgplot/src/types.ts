@@ -1,5 +1,3 @@
-import type { VacpPlaybook } from '@vacp/core';
-
 /**
  * VGPlot/vgplot provider (project concepts).
  *
@@ -69,7 +67,6 @@ export interface InstallVacpOnVgplotOptions {
   title?: string;
   description?: string;
   globalKey?: string;
-  playbooks?: VacpPlaybook[];
 }
 
 export interface InstallVacpOnVgplotDashboardOptions {
@@ -78,7 +75,6 @@ export interface InstallVacpOnVgplotDashboardOptions {
   title?: string;
   description?: string;
   globalKey?: string;
-  playbooks?: VacpPlaybook[];
   /**
    * Optional DuckDB client to back the standard `vacp.data_sql` action.
    *

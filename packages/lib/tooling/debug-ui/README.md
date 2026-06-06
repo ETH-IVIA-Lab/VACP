@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Opt-in in-page debug overlay for VACP.
+In-page debug overlay for VACP.
 
 The overlay is provider-agnostic: it talks to the same in-page bridge (`window.__vacp`) that agents use.
 
@@ -23,12 +23,13 @@ The Chat tab records the effective tool inputs that were executed. If a request 
 
 ## Minimal usage
 
-Enable at runtime:
+Apps that call `installVacpDebugUI` show the floating **VACP** control by default. Disable it when needed:
 
-- URL: `?vacp-debug=1`
-- Env: `VACP_DEBUG_UI=1`
+- URL: `?vacp-debug=0`
+- Env: `VACP_DEBUG_UI=0`
+- Browser storage: `vacp:debug=0`
 
-In this repo, examples typically lazy-load the overlay when enabled.
+The Settings tab shows VACP flags, their resolved source, and browser-level overrides.
 
 ## Related docs
 

@@ -1,4 +1,4 @@
-import type { VacpPlaybook, VacpRuntimeSnapshot } from '@vacp/core';
+import type { VacpRuntimeSnapshot } from '@vacp/core';
 
 import type { VacpWindowBridge } from './types';
 
@@ -24,10 +24,4 @@ export async function readRuntime(bridge: VacpWindowBridge): Promise<VacpRuntime
     currentCapabilities: capabilities,
     currentState: state,
   };
-}
-
-export async function readPlaybooks(bridge: VacpWindowBridge): Promise<VacpPlaybook[]> {
-  const raw = typeof bridge.getPlaybooks === 'function' ? await bridge.getPlaybooks() : null;
-  if (!Array.isArray(raw)) return [];
-  return raw.filter((x): x is VacpPlaybook => Boolean(x && typeof x === 'object'));
 }

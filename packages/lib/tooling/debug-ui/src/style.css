@@ -5,6 +5,61 @@
 @source "../../../../node_modules/streamdown/dist/*.js";
 @source "../../../../node_modules/@streamdown/code/dist/*.js";
 
+@keyframes vacp-debug-panel-enter {
+  from {
+    opacity: 0;
+    transform: translateY(7px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes vacp-debug-panel-exit {
+  from {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(6px) scale(0.986);
+  }
+}
+
+@keyframes vacp-debug-connector-enter {
+  from {
+    opacity: 0;
+    transform: scaleY(0.2);
+  }
+  to {
+    opacity: 0.82;
+    transform: scaleY(1);
+  }
+}
+
+@keyframes vacp-debug-connector-exit {
+  from {
+    opacity: 0.82;
+    transform: scaleY(1);
+  }
+  to {
+    opacity: 0;
+    transform: scaleY(0.3);
+  }
+}
+
+@keyframes vacp-debug-tab-enter {
+  from {
+    opacity: 0;
+    transform: translateY(3px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 /* Host apps may ship global `button { ... }` rules. Because Tailwind utilities are in cascade layers,
    those unlayered host rules would otherwise win and break the debug UI. `revert-layer` restores the
    expected Tailwind styles within the debug overlay. */
@@ -12,7 +67,7 @@
   all: revert-layer;
 }
 
-/* Overlay animation helpers for the draggable pill. */
+/* Overlay animation helpers for the bottom dock. */
 #vacp-debug-ui-root.vacp-debug-ui-snap {
   transition:
     left 160ms cubic-bezier(0.2, 0.8, 0.2, 1),
@@ -22,6 +77,108 @@
   transition: none !important;
 }
 
+.vacp-debug-ui-connector {
+  width: 4px;
+  min-height: 0;
+  border-radius: 999px;
+  background: linear-gradient(
+    to bottom,
+    rgba(110, 231, 183, 0.88),
+    rgba(110, 231, 183, 0.34)
+  );
+  box-shadow:
+    0 0 18px rgba(110, 231, 183, 0.42),
+    0 0 0 1px rgba(8, 13, 16, 0.5);
+  opacity: 0.9;
+  transform-origin: bottom center;
+  animation: vacp-debug-connector-enter 180ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.vacp-debug-ui-connector::before,
+.vacp-debug-ui-connector::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+
+.vacp-debug-ui-connector::before {
+  top: -2px;
+  width: 18px;
+  height: 8px;
+  border-radius: 999px 999px 0 0;
+  background: radial-gradient(ellipse at center, rgba(110, 231, 183, 0.3), rgba(110, 231, 183, 0));
+}
+
+.vacp-debug-ui-connector::after {
+  bottom: -7px;
+  width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  background: radial-gradient(circle, rgba(110, 231, 183, 0.36), rgba(110, 231, 183, 0));
+}
+
+.vacp-debug-ui-connector[data-state='closing'] {
+  animation: vacp-debug-connector-exit 150ms cubic-bezier(0.4, 0, 1, 1) both;
+}
+
+#vacp-debug-ui-panel {
+  transform-origin: bottom center;
+  backdrop-filter: blur(18px) saturate(1.12);
+}
+
+#vacp-debug-ui-panel[data-state='open'] {
+  animation: vacp-debug-panel-enter 180ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+#vacp-debug-ui-panel[data-state='closing'] {
+  pointer-events: none;
+  animation: vacp-debug-panel-exit 150ms cubic-bezier(0.4, 0, 1, 1) both;
+}
+
+#vacp-debug-ui-panel .vacp-debug-ui-topbar {
+  cursor: grab;
+}
+
+#vacp-debug-ui-panel .vacp-debug-ui-topbar:active {
+  cursor: grabbing;
+}
+
+#vacp-debug-ui-panel .vacp-debug-ui-module {
+  position: relative;
+}
+
+#vacp-debug-ui-panel .vacp-debug-ui-module::before {
+  content: '';
+  position: absolute;
+  inset: 9px auto 9px 10px;
+  width: 2px;
+  border-radius: 999px;
+  background: transparent;
+  opacity: 0;
+  transition:
+    background-color 140ms ease,
+    opacity 140ms ease;
+}
+
+#vacp-debug-ui-panel .vacp-debug-ui-module[data-state='active']::before {
+  background: rgba(110, 231, 183, 0.62);
+  opacity: 1;
+}
+
+#vacp-debug-ui-panel .vacp-debug-ui-module:active {
+  transform: scale(0.985);
+}
+
+#vacp-debug-ui-panel .vacp-debug-ui-tab-content[data-state='active'] {
+  animation: vacp-debug-tab-enter 140ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+#vacp-debug-ui-panel .vacp-debug-ui-switch:not(:disabled):active {
+  transform: scale(0.985);
+}
+
 /* Mermaid output should use the full available pane size. */
 #vacp-debug-ui-panel .vacp-debug-ui-diagram svg {
   width: 100%;
@@ -29,13 +186,53 @@
   max-width: none;
   max-height: none;
   display: block;
+  background: transparent !important;
+}
+
+#vacp-debug-ui-panel .vacp-debug-ui-diagram svg g.node rect,
+#vacp-debug-ui-panel .vacp-debug-ui-diagram svg g.node polygon,
+#vacp-debug-ui-panel .vacp-debug-ui-diagram svg g.node circle,
+#vacp-debug-ui-panel .vacp-debug-ui-diagram svg g.node path {
+  fill: rgba(17, 25, 31, 0.96) !important;
+  stroke: rgba(148, 163, 184, 0.3) !important;
+}
+
+#vacp-debug-ui-panel .vacp-debug-ui-diagram svg g.node:hover rect,
+#vacp-debug-ui-panel .vacp-debug-ui-diagram svg g.node:hover polygon,
+#vacp-debug-ui-panel .vacp-debug-ui-diagram svg g.node:hover circle,
+#vacp-debug-ui-panel .vacp-debug-ui-diagram svg g.node:hover path,
+#vacp-debug-ui-panel .vacp-debug-ui-diagram svg g.node:focus rect,
+#vacp-debug-ui-panel .vacp-debug-ui-diagram svg g.node:focus polygon,
+#vacp-debug-ui-panel .vacp-debug-ui-diagram svg g.node:focus circle,
+#vacp-debug-ui-panel .vacp-debug-ui-diagram svg g.node:focus path {
+  fill: rgba(19, 32, 29, 0.98) !important;
+  stroke: rgba(110, 231, 183, 0.48) !important;
+}
+
+#vacp-debug-ui-panel .vacp-debug-ui-diagram svg text,
+#vacp-debug-ui-panel .vacp-debug-ui-diagram svg foreignObject {
+  color: rgba(226, 232, 240, 0.86) !important;
+  fill: rgba(226, 232, 240, 0.86) !important;
+}
+
+#vacp-debug-ui-panel .vacp-debug-ui-diagram svg .edgeLabel,
+#vacp-debug-ui-panel .vacp-debug-ui-diagram svg .edgeLabel p,
+#vacp-debug-ui-panel .vacp-debug-ui-diagram svg .labelBkg {
+  color: rgba(203, 213, 225, 0.75) !important;
+  fill: rgba(13, 20, 25, 0.92) !important;
+  background: rgba(13, 20, 25, 0.92) !important;
+}
+
+#vacp-debug-ui-panel .vacp-debug-ui-diagram svg .edgePath .path,
+#vacp-debug-ui-panel .vacp-debug-ui-diagram svg .flowchart-link {
+  stroke: rgba(148, 163, 184, 0.52) !important;
 }
 
 /* Host apps often set `svg { width: 100%; height: auto; }` (good for charts, bad for icons).
    We need to neutralize those unlayered host rules without clobbering Tailwind utilities.
    `revert-layer` falls back to the layered Tailwind value when present (e.g. `w-4 h-4`) or
    the UA default otherwise. */
-:where(#vacp-debug-ui-panel) svg {
+:where(#vacp-debug-ui-root, #vacp-debug-ui-panel) svg {
   width: revert-layer;
   height: revert-layer;
 }
@@ -47,9 +244,9 @@
 
 /* Ensure inline code pills are readable even if the host app styles `code`. */
 #vacp-debug-ui-panel code {
-  background: rgba(15, 23, 42, 0.85) !important;
-  color: rgba(241, 245, 249, 0.92) !important;
-  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  background: rgba(16, 24, 33, 0.7) !important;
+  color: rgba(241, 245, 249, 0.86) !important;
+  border: 1px solid rgba(255, 255, 255, 0.075) !important;
   padding: 1px 6px !important;
   border-radius: 6px !important;
   font-size: 11px !important;
@@ -106,7 +303,7 @@
 #vacp-debug-ui-panel .vacp-chat-scroll {
   scrollbar-gutter: stable;
   scrollbar-width: thin;
-  scrollbar-color: rgba(126, 152, 183, 0.52) rgba(15, 23, 42, 0.42);
+  scrollbar-color: rgba(148, 163, 184, 0.32) rgba(15, 23, 42, 0.26);
   overscroll-behavior-y: contain;
 }
 
@@ -116,18 +313,18 @@
 }
 
 #vacp-debug-ui-panel .vacp-chat-scroll::-webkit-scrollbar-track {
-  background: rgba(15, 23, 42, 0.32);
+  background: rgba(15, 23, 42, 0.24);
   border-radius: 999px;
 }
 
 #vacp-debug-ui-panel .vacp-chat-scroll::-webkit-scrollbar-thumb {
-  background: rgba(126, 152, 183, 0.48);
-  border: 2px solid rgba(15, 23, 42, 0.3);
+  background: rgba(148, 163, 184, 0.3);
+  border: 2px solid rgba(15, 23, 42, 0.24);
   border-radius: 999px;
 }
 
 #vacp-debug-ui-panel .vacp-chat-scroll::-webkit-scrollbar-thumb:hover {
-  background: rgba(148, 182, 220, 0.62);
+  background: rgba(148, 163, 184, 0.42);
 }
 
 /* When a diagram is being refreshed, soften the existing one briefly. */
@@ -137,28 +334,35 @@
 }
 
 /* Highlight selected Mermaid nodes when inspecting. */
-#vacp-debug-ui-panel .vacp-debug-ui-diagram svg g.node.vacp-selected rect {
-  stroke: rgba(121, 178, 255, 0.85) !important;
+#vacp-debug-ui-panel .vacp-debug-ui-diagram svg g.node.vacp-selected rect,
+#vacp-debug-ui-panel .vacp-debug-ui-diagram svg g.node.vacp-selected polygon,
+#vacp-debug-ui-panel .vacp-debug-ui-diagram svg g.node.vacp-selected circle,
+#vacp-debug-ui-panel .vacp-debug-ui-diagram svg g.node.vacp-selected path {
+  fill: rgba(19, 32, 29, 0.98) !important;
+  stroke: rgba(110, 231, 183, 0.72) !important;
   stroke-width: 3px !important;
 }
 
-/* Resizing handles (all edges + corners). */
+#vacp-debug-ui-panel select {
+  color-scheme: dark;
+}
+
+#vacp-debug-ui-panel .vacp-debug-ui-quiet-surface {
+  border-color: rgba(255, 255, 255, 0.075);
+  background: rgba(255, 255, 255, 0.026);
+}
+
+/* Resizing handles for the attached panel. */
 #vacp-debug-ui-panel .vacp-debug-ui-resize-handle {
   position: absolute;
   z-index: 20;
   touch-action: none;
 }
-#vacp-debug-ui-panel .vacp-debug-ui-resize-n,
-#vacp-debug-ui-panel .vacp-debug-ui-resize-s {
+#vacp-debug-ui-panel .vacp-debug-ui-resize-n {
   left: 10px;
   right: 10px;
   height: 10px;
-}
-#vacp-debug-ui-panel .vacp-debug-ui-resize-n {
   top: 0;
-}
-#vacp-debug-ui-panel .vacp-debug-ui-resize-s {
-  bottom: 0;
 }
 #vacp-debug-ui-panel .vacp-debug-ui-resize-e,
 #vacp-debug-ui-panel .vacp-debug-ui-resize-w {
@@ -173,9 +377,7 @@
   left: 0;
 }
 #vacp-debug-ui-panel .vacp-debug-ui-resize-ne,
-#vacp-debug-ui-panel .vacp-debug-ui-resize-nw,
-#vacp-debug-ui-panel .vacp-debug-ui-resize-se,
-#vacp-debug-ui-panel .vacp-debug-ui-resize-sw {
+#vacp-debug-ui-panel .vacp-debug-ui-resize-nw {
   width: 18px;
   height: 18px;
 }
@@ -187,29 +389,21 @@
   top: 0;
   left: 0;
 }
-#vacp-debug-ui-panel .vacp-debug-ui-resize-se {
-  bottom: 0;
-  right: 0;
-}
-#vacp-debug-ui-panel .vacp-debug-ui-resize-sw {
-  bottom: 0;
-  left: 0;
-}
-#vacp-debug-ui-panel .vacp-debug-ui-resize-se,
-#vacp-debug-ui-panel .vacp-debug-ui-resize-sw {
-  background:
-    linear-gradient(135deg, transparent 0 45%, rgba(231, 233, 238, 0.22) 45% 55%, transparent 55% 100%),
-    linear-gradient(135deg, transparent 0 65%, rgba(231, 233, 238, 0.14) 65% 75%, transparent 75% 100%);
-  opacity: 0.75;
-}
-#vacp-debug-ui-panel .vacp-debug-ui-resize-sw {
-  transform: scaleX(-1);
-}
 #vacp-debug-ui-panel.vacp-debug-ui-resizing {
   user-select: none;
 }
 
-/* Dragging feedback for the overlay panel. */
-#vacp-debug-ui-panel.vacp-debug-ui-panel-dragging {
-  user-select: none;
+@media (prefers-reduced-motion: reduce) {
+  .vacp-debug-ui-connector,
+  #vacp-debug-ui-panel,
+  #vacp-debug-ui-panel .vacp-debug-ui-tab-content[data-state='active'] {
+    animation: none;
+  }
+
+  #vacp-debug-ui-root.vacp-debug-ui-snap,
+  #vacp-debug-ui-panel .vacp-debug-ui-module,
+  #vacp-debug-ui-panel .vacp-debug-ui-switch,
+  #vacp-debug-ui-panel .vacp-debug-ui-module::before {
+    transition-duration: 0.001ms;
+  }
 }

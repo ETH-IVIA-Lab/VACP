@@ -1,5 +1,4 @@
 import type { VgplotPlotLike, VgplotTableLike } from '@vacp/vgplot';
-import { getVacpHyperParams } from '@vacp/core';
 import { installVacpDebugUI } from '@vacp/kit';
 import type { VacpDuckDbClient } from '@vacp/duckdb';
 import { coordinator, DuckDBWASMConnector } from '@uwdata/mosaic-core';
@@ -106,7 +105,7 @@ export async function run(): Promise<void> {
   };
 
   // Gallery UI: list all available YAML specs (mirrors VGPlot's own spec gallery idea).
-  const gallery = loadGallery({ includeHeavy: getVacpHyperParams().examplesHeavy });
+  const gallery = loadGallery();
   gallery.forEach((entry) => {
     const opt = document.createElement('option');
     opt.value = entry.id;

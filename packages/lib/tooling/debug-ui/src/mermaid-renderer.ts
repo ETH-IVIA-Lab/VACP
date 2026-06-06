@@ -15,7 +15,32 @@ export async function renderMermaidToHost(host: HTMLElement, mermaidText: string
   host.textContent = '';
   try {
     if (!mermaidInitialized) {
-      mermaid.initialize({ startOnLoad: false, securityLevel: 'strict', flowchart: { htmlLabels: true } });
+      mermaid.initialize({
+        startOnLoad: false,
+        securityLevel: 'strict',
+        theme: 'base',
+        themeVariables: {
+          background: 'transparent',
+          primaryColor: '#11191f',
+          primaryBorderColor: 'rgba(148, 163, 184, 0.32)',
+          primaryTextColor: 'rgba(241, 245, 249, 0.9)',
+          secondaryColor: '#10171d',
+          secondaryBorderColor: 'rgba(148, 163, 184, 0.26)',
+          secondaryTextColor: 'rgba(226, 232, 240, 0.82)',
+          tertiaryColor: '#0d1419',
+          tertiaryBorderColor: 'rgba(148, 163, 184, 0.22)',
+          tertiaryTextColor: 'rgba(203, 213, 225, 0.82)',
+          lineColor: 'rgba(148, 163, 184, 0.52)',
+          edgeLabelBackground: '#0d1419',
+          mainBkg: '#11191f',
+          secondBkg: '#10171d',
+          clusterBkg: '#0d1419',
+          clusterBorder: 'rgba(148, 163, 184, 0.22)',
+          fontFamily:
+            'Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+        },
+        flowchart: { htmlLabels: true },
+      });
       mermaidInitialized = true;
     }
     const id = `vacp_${Math.random().toString(16).slice(2)}`;

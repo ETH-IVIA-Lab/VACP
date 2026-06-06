@@ -238,7 +238,7 @@ export function GraphModule(props: VacpDebugModuleProps): ReactElement {
             <CardTitle>Graph</CardTitle>
             <CardDescription>
               Click nodes to inspect their state.{' '}
-              {renderError ? <span className="text-rose-100/80">({renderError})</span> : null}
+              {renderError ? <span className="text-red-50/82">({renderError})</span> : null}
             </CardDescription>
           </div>
           <div
@@ -297,7 +297,7 @@ export function GraphModule(props: VacpDebugModuleProps): ReactElement {
         <div className={cn('min-h-0 flex-1', dense ? 'mt-2' : 'mt-3')}>
           <div
             ref={diagramHostRef}
-            className="vacp-debug-ui-diagram h-full w-full min-h-0 overflow-hidden rounded-lg border border-white/10 bg-black/20"
+            className="vacp-debug-ui-diagram h-full w-full min-h-0 overflow-hidden rounded-lg border border-white/[0.075] bg-white/[0.02]"
             data-stale={stale ? '1' : '0'}
           />
         </div>

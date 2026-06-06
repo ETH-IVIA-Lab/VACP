@@ -1,4 +1,4 @@
-import { getVacpHyperParams, type VacpPlaybook, type VacpRuntimeBridge } from '@vacp/core';
+import { getVacpHyperParams, type VacpRuntimeBridge } from '@vacp/core';
 
 import { VacpActionRegistry } from '../action-registry';
 import type { VacpUpdatableRuntimeBridge } from './types';
@@ -74,7 +74,6 @@ function installDomSnapshotHooks(bridge: VacpRuntimeBridge, state: DomSnapshotSt
 export function installVacpRuntimeBridge(args: {
   snapshots: VacpSnapshotProvider;
   actions: VacpActionRegistry;
-  playbooks?: VacpPlaybook[];
   globalKey?: string;
   sessionKey?: string;
   /**
@@ -116,7 +115,6 @@ export function installVacpRuntimeBridge(args: {
     existing.__vacpUpdate?.({
       snapshots: args.snapshots,
       actions: args.actions,
-      playbooks: args.playbooks,
       sessionKey: args.sessionKey,
     });
     installDomSnapshotHooks(existing as VacpRuntimeBridge, {
@@ -130,7 +128,6 @@ export function installVacpRuntimeBridge(args: {
   const bridge = createRuntimeBridge({
     snapshots: args.snapshots,
     actions: args.actions,
-    playbooks: args.playbooks,
     sessionKey: args.sessionKey,
   });
   if (exposeBridge) {

@@ -5,9 +5,9 @@ import { JsonViewer } from '@vacp/debug-ui/ui/components/ui/json-viewer';
 import { cn } from '@vacp/debug-ui/ui/lib/utils';
 
 function eventColor(status: VacpAgentToolEvent['status']): string {
-  if (status === 'succeeded') return 'text-emerald-200/90';
-  if (status === 'failed') return 'text-rose-200/90';
-  return 'text-amber-100/90';
+  if (status === 'succeeded') return 'text-emerald-50/78';
+  if (status === 'failed') return 'text-red-50/84';
+  return 'text-amber-50/70';
 }
 
 function capabilitiesScopeBadge(event: VacpAgentToolEvent): 'full' | 'scoped' | null {
@@ -23,7 +23,7 @@ function normalizationBadge(event: VacpAgentToolEvent): boolean {
 export function ChatActivityLog(props: { events: VacpAgentToolEvent[]; className?: string }): ReactElement {
   return (
     <section
-      className={cn('grid min-h-0 gap-2 rounded-xl border border-white/10 bg-slate-950/35 p-3', props.className)}
+      className={cn('grid min-h-0 gap-2 rounded-xl border border-white/[0.075] bg-white/[0.02] p-3', props.className)}
     >
       <div className="min-w-0">
         <div className="text-[11px] font-semibold uppercase text-slate-100/70">Tool calls</div>
@@ -35,7 +35,7 @@ export function ChatActivityLog(props: { events: VacpAgentToolEvent[]; className
         className="vacp-chat-scroll grid min-h-0 gap-2 overflow-y-auto overflow-x-hidden text-[11px]"
       >
         {props.events.length === 0 ? (
-          <div className="rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-slate-100/70">
+          <div className="rounded-lg border border-white/[0.075] bg-white/[0.025] px-3 py-2 text-slate-100/64">
             No tool calls yet.
           </div>
         ) : null}
@@ -49,17 +49,17 @@ export function ChatActivityLog(props: { events: VacpAgentToolEvent[]; className
               <details
                 key={`${event.at}-${idx}`}
                 open={event.status === 'failed'}
-                className="rounded-lg border border-white/10 bg-black/20 px-3 py-2"
+                className="rounded-lg border border-white/[0.075] bg-white/[0.02] px-3 py-2"
               >
                 <summary className="flex cursor-pointer list-none items-center gap-2">
                   <span className="font-semibold text-slate-100/90">{event.toolName}</span>
                   {scope ? (
-                    <span className="rounded-full border border-white/15 bg-white/8 px-1.5 py-0.5 text-[10px] text-slate-100/70">
+                    <span className="rounded-full border border-white/[0.075] bg-white/[0.035] px-1.5 py-0.5 text-[10px] text-slate-100/62">
                       {scope}
                     </span>
                   ) : null}
                   {normalizationBadge(event) ? (
-                    <span className="rounded-full border border-sky-300/20 bg-sky-500/10 px-1.5 py-0.5 text-[10px] text-sky-100/80">
+                    <span className="rounded-full border border-emerald-200/18 bg-emerald-300/[0.06] px-1.5 py-0.5 text-[10px] text-emerald-50/72">
                       normalized
                     </span>
                   ) : null}
@@ -68,7 +68,7 @@ export function ChatActivityLog(props: { events: VacpAgentToolEvent[]; className
                 </summary>
                 <div className="mt-2 grid gap-2">
                   {event.inputNote ? (
-                    <div className="rounded-md border border-sky-300/20 bg-sky-500/10 px-2 py-1 text-[10px] text-sky-100/85">
+                    <div className="rounded-md border border-emerald-200/18 bg-emerald-300/[0.06] px-2 py-1 text-[10px] text-emerald-50/72">
                       {event.inputNote}
                     </div>
                   ) : null}
@@ -110,7 +110,7 @@ export function ChatActivityLog(props: { events: VacpAgentToolEvent[]; className
                     </div>
                   ) : null}
                   {event.error ? (
-                    <div className="rounded-md border border-rose-300/25 bg-rose-500/10 px-2 py-1 text-rose-100/90">
+                    <div className="rounded-md border border-red-200/18 bg-red-300/[0.07] px-2 py-1 text-red-50/84">
                       {event.error}
                     </div>
                   ) : null}

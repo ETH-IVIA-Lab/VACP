@@ -176,7 +176,7 @@ export function SqlResultTable({
 
   return (
     <div
-      className={cn('w-full min-w-0 rounded-lg border border-white/10 bg-white/5 overflow-hidden', className)}
+      className={cn('w-full min-w-0 overflow-hidden rounded-lg border border-white/[0.075] bg-white/[0.025]', className)}
       style={{ height, maxHeight: height }}
     >
       <div ref={scrollRef} className="h-full w-full overflow-auto">
@@ -204,8 +204,8 @@ export function SqlResultTable({
                     <div
                       key={row.id}
                       className={cn(
-                        'absolute left-0 right-0 flex border-b border-white/10',
-                        absoluteIndex % 2 === 1 && 'bg-white/[0.02]',
+                        'absolute left-0 right-0 flex border-b border-white/[0.055]',
+                        absoluteIndex % 2 === 1 && 'bg-white/[0.018]',
                       )}
                       style={{ top }}
                     >
@@ -222,7 +222,7 @@ export function SqlResultTable({
                           <div
                             className={cn(
                               'h-[30px] px-2 py-1 text-[12px] text-slate-100/85',
-                              index !== row.getVisibleCells().length - 1 && 'border-r border-white/5',
+                              index !== row.getVisibleCells().length - 1 && 'border-r border-white/[0.045]',
                               isIndex && 'text-right tabular-nums text-slate-100/55',
                               f.alignRight && 'text-right tabular-nums',
                               f.muted && 'italic text-slate-100/55',

@@ -147,8 +147,8 @@ export function ActionsModule(props: VacpDebugModuleProps): ReactElement {
         <div
           className={cn(
             dense
-              ? 'mt-2 min-h-0 flex-1 overflow-auto rounded-lg border border-white/10 bg-black/20'
-              : 'mt-3 min-h-0 flex-1 overflow-auto rounded-lg border border-white/10 bg-black/20',
+              ? 'mt-2 min-h-0 flex-1 overflow-auto rounded-lg border border-white/[0.075] bg-white/[0.02]'
+              : 'mt-3 min-h-0 flex-1 overflow-auto rounded-lg border border-white/[0.075] bg-white/[0.02]',
           )}
         >
           <RovingFocusGroup orientation="vertical" loop asChild>
@@ -161,9 +161,9 @@ export function ActionsModule(props: VacpDebugModuleProps): ReactElement {
                       type="button"
                       className={cn(
                         'w-full rounded-lg px-2 py-2 text-left text-xs transition-colors',
-                        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/60',
-                        'hover:bg-white/5',
-                        active ? 'border border-sky-300/30 bg-sky-500/10' : 'border border-transparent',
+                        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300/38',
+                        'hover:bg-white/[0.045]',
+                        active ? 'border border-emerald-200/24 bg-emerald-300/[0.075]' : 'border border-transparent',
                       )}
                       aria-selected={active ? 'true' : 'false'}
                       onClick={() => setSelectedName(a.name)}
