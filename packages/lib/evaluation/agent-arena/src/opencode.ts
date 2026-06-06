@@ -261,7 +261,6 @@ async function prepareIsolatedOpencodeEnv(arenaStateDir: string) {
       fs.rm(path.join(opencodeConfigDir, name), { force: true }).catch(() => {}),
     ),
   );
-  await fs.rm(path.join(testHome, '.opencode'), { recursive: true, force: true }).catch(() => {});
 
   return {
     ...xdg,
