@@ -34,7 +34,7 @@ export function ChatConfigPanel(props: ChatConfigPanelProps): ReactElement {
     <section
       data-vacp-chat-settings-panel="1"
       className={cn(
-        'vacp-chat-scroll grid max-h-[min(74vh,560px)] gap-4 overflow-y-auto overflow-x-hidden rounded-xl border border-white/[0.075] bg-[#0b1115]/96 p-4 shadow-[0_18px_34px_rgba(0,0,0,0.34)] backdrop-blur-sm',
+        'vacp-chat-scroll grid min-h-0 gap-4 overflow-y-auto overflow-x-hidden p-4',
         props.className,
       )}
     >
@@ -60,8 +60,8 @@ export function ChatConfigPanel(props: ChatConfigPanelProps): ReactElement {
         </div>
       </div>
 
-      <div className="grid gap-3">
-        <section className="grid gap-3 rounded-lg border border-white/[0.075] bg-white/[0.02] p-3">
+      <div className="grid gap-4">
+        <section className="grid gap-3 border-t border-white/[0.075] pt-4">
           <div>
             <div className="text-[11px] font-semibold text-slate-100/85">Connection</div>
             <div className="mt-1 text-pretty text-[11px] text-slate-100/60">
@@ -142,7 +142,7 @@ export function ChatConfigPanel(props: ChatConfigPanelProps): ReactElement {
           </div>
         </section>
 
-        <section className="grid gap-3 rounded-lg border border-white/[0.075] bg-white/[0.02] p-3">
+        <section className="grid gap-3 border-t border-white/[0.075] pt-4">
           <div>
             <div className="text-[11px] font-semibold text-slate-100/85">Credentials</div>
             <div className="mt-1 text-pretty text-[11px] text-slate-100/60">
@@ -175,7 +175,7 @@ export function ChatConfigPanel(props: ChatConfigPanelProps): ReactElement {
           </label>
         </section>
 
-        <details className="rounded-lg border border-white/[0.075] bg-white/[0.025] px-3 py-2">
+        <details className="border-t border-white/[0.075] pt-4">
           <summary className="cursor-pointer select-none text-[11px] font-semibold text-slate-100/80">Advanced</summary>
           <div className="mt-2 grid gap-3 sm:grid-cols-3">
             {!openAICompatibleSelected ? (
@@ -252,7 +252,7 @@ export function ChatConfigPanel(props: ChatConfigPanelProps): ReactElement {
           </div>
         </details>
 
-        <div className="rounded-lg border border-white/[0.075] bg-white/[0.025] px-3 py-2 text-[11px] text-slate-100/66">
+        <div className="border-t border-white/[0.075] pt-3 text-[11px] text-slate-100/60">
           Your API key never leaves your browser except when directly sent to your selected provider endpoint. It is
           stored locally at {vacpLLMConfigStorageKey}.
         </div>

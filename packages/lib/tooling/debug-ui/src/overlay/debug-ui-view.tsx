@@ -301,7 +301,7 @@ function ModuleNav(props: {
       aria-label="VACP debug modules"
     >
       <TabsList loop className={cn('vacp-debug-ui-nav-list gap-1', props.compactPanel ? 'w-max flex-row' : 'flex-col')}>
-        {props.modules.map((m, index) => (
+        {props.modules.map((m) => (
           <TabsTrigger
             key={m.id}
             value={m.id}
@@ -314,9 +314,6 @@ function ModuleNav(props: {
           >
             {m.icon}
             <span className="truncate">{m.title}</span>
-            <span className="ml-auto hidden rounded border border-white/[0.06] bg-white/[0.025] px-1.5 py-0.5 text-[9px] font-semibold text-slate-100/28 group-hover:text-slate-100/48 group-data-[state=active]:text-slate-100/50 lg:inline">
-              Alt {index + 1}
-            </span>
           </TabsTrigger>
         ))}
       </TabsList>
@@ -388,7 +385,6 @@ function ModuleTabs(props: {
 export function DebugUiView(props: {
   rootRef: RefObject<HTMLDivElement | null>;
   buttonRef: RefObject<HTMLButtonElement | null>;
-  connectorRef: RefObject<HTMLDivElement | null>;
   panelRef: RefObject<HTMLDivElement | null>;
   panelHeaderRef: RefObject<HTMLDivElement | null>;
   titleId: string;
@@ -422,16 +418,6 @@ export function DebugUiView(props: {
         pillTitle={props.pillTitle}
         open={props.open}
         setOpen={props.setOpen}
-      />
-      <div
-        ref={props.connectorRef}
-        className={cn(
-          'vacp-debug-ui-connector pointer-events-none fixed z-[2147483002]',
-          props.panelVisible ? 'block' : 'hidden',
-        )}
-        data-state={panelState}
-        data-vacp-debug-ui="1"
-        aria-hidden="true"
       />
       <div
         id="vacp-debug-ui-panel"

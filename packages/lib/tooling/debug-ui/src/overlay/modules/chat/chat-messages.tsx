@@ -141,7 +141,7 @@ export function ChatMessages(props: {
       >
         <div ref={props.contentRef} className="mx-auto flex min-h-full w-full max-w-4xl flex-col gap-3 pb-4">
           {props.messages.length === 0 ? (
-            <div className="rounded-lg border border-white/[0.075] bg-white/[0.02] px-4 py-4 text-[12px] text-slate-100/68">
+            <div className="px-1 py-4 text-[12px] text-slate-100/64">
               <div className="font-medium text-slate-100/85">Start with a concrete question.</div>
               <div className="mt-1 text-pretty">
                 The agent can inspect capabilities, read state, execute exposed actions, and explain what changed.

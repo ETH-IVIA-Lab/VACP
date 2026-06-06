@@ -44,45 +44,11 @@ function applyDockLeft(root: HTMLElement, left: number): DockPos {
   return next;
 }
 
-function nearestRailSnap(root: HTMLElement, left: number): DockPos {
-  const bounds = dockLeftBounds(root);
-  const width = root.getBoundingClientRect().width;
-  const center = clamp((window.innerWidth - width) / 2, bounds.min, bounds.max);
-  const targets = [bounds.min, center, bounds.max];
-  let best = targets[0]!;
-  let bestDistance = Number.POSITIVE_INFINITY;
-  for (const target of targets) {
-    const distance = Math.abs(target - left);
-    if (distance < bestDistance) {
-      best = target;
-      bestDistance = distance;
-    }
-  }
-  return { left: best };
-}
-
-function nearestRailSnapFromPointer(root: HTMLElement, pointerX: number): DockPos {
-  const bounds = dockLeftBounds(root);
-  const width = root.getBoundingClientRect().width;
-  const center = clamp((window.innerWidth - width) / 2, bounds.min, bounds.max);
-  const targets = [bounds.min, center, bounds.max];
-  let best = targets[0]!;
-  let bestDistance = Number.POSITIVE_INFINITY;
-  for (const target of targets) {
-    const distance = Math.abs(target + width / 2 - pointerX);
-    if (distance < bestDistance) {
-      best = target;
-      bestDistance = distance;
-    }
-  }
-  return { left: best };
-}
-
 /**
  * Bottom-rail dock for the debug overlay.
  *
- * The panel is attached to this dock, so dragging a dock handle only moves the
- * shared anchor. The panel never stores its own independent position.
+ * Dragging a dock handle moves the shared anchor. The panel derives its
+ * position from this anchor instead of storing an independent coordinate.
  */
 export function createVacpDebugDock(args: {
   root: HTMLElement;
@@ -97,28 +63,22 @@ export function createVacpDebugDock(args: {
     const saved = readPos(storageKey);
     const bounds = dockLeftBounds(root);
     const initial = saved ?? { left: bounds.max };
-    const snapped = nearestRailSnap(root, initial.left);
-    const next = applyDockLeft(root, snapped.left);
+    const next = applyDockLeft(root, initial.left);
     savePos(storageKey, next);
     onMove?.();
-  };
-
-  const snapToNearest = (pointerX?: number) => {
-    const rect = root.getBoundingClientRect();
-    const snapped =
-      typeof pointerX === 'number' && Number.isFinite(pointerX)
-        ? nearestRailSnapFromPointer(root, pointerX)
-        : nearestRailSnap(root, rect.left);
-    const next = applyDockLeft(root, snapped.left);
-    savePos(storageKey, next);
-    onMove?.();
-    onDrop?.();
   };
 
   const moveTo = (left: number) => {
     const next = applyDockLeft(root, left);
-    savePos(storageKey, next);
     onMove?.();
+    return next;
+  };
+
+  const commitPosition = () => {
+    const rect = root.getBoundingClientRect();
+    const next = moveTo(rect.left);
+    savePos(storageKey, next);
+    onDrop?.();
   };
 
   const installDrag = (handle: HTMLElement) => {
@@ -126,7 +86,6 @@ export function createVacpDebugDock(args: {
     let suppressClick = false;
     let startX = 0;
     let startLeft = 0;
-    let lastX = 0;
     let raf = 0;
     let pendingX: number | null = null;
 
@@ -165,17 +124,18 @@ export function createVacpDebugDock(args: {
     };
 
     const onPointerMove = (ev: PointerEvent) => {
-      lastX = ev.clientX;
       scheduleMove(ev.clientX);
     };
 
-    const onPointerUp = () => {
+    const onPointerUp = (ev: PointerEvent) => {
+      const finalX = pendingX ?? ev.clientX;
       cleanupWindowListeners();
       if (!dragging) return;
+      move(finalX);
       dragging = false;
       suppressClick = true;
       root.classList.remove('vacp-debug-ui-dragging');
-      snapToNearest(lastX);
+      commitPosition();
     };
 
     handle.addEventListener(
@@ -198,7 +158,6 @@ export function createVacpDebugDock(args: {
       dragging = false;
       suppressClick = false;
       startX = ev.clientX;
-      lastX = ev.clientX;
       startLeft = rect.left;
       handle.setPointerCapture?.(ev.pointerId);
       window.addEventListener('pointermove', onPointerMove);
@@ -218,5 +177,5 @@ export function createVacpDebugDock(args: {
     });
   };
 
-  return { attach, snapToNearest };
+  return { attach };
 }

@@ -2,7 +2,6 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState, type RefObje
 
 const PANEL_MARGIN = 14;
 const DOCK_GAP = 8;
-const CONNECTOR_WIDTH = 4;
 
 const clamp = (n: number, min: number, max: number) => Math.max(min, Math.min(max, n));
 
@@ -60,7 +59,6 @@ function panelLayoutSize(panel: HTMLElement): { width: number; height: number } 
 export function useDebugPanelLayout(args: {
   rootRef: RefObject<HTMLDivElement | null>;
   panelRef: RefObject<HTMLDivElement | null>;
-  connectorRef?: RefObject<HTMLDivElement | null>;
   open: boolean;
 }): {
   maximized: boolean;
@@ -68,7 +66,7 @@ export function useDebugPanelLayout(args: {
   minimize: () => void;
   toggleMaximize: () => void;
 } {
-  const { rootRef, panelRef, connectorRef, open } = args;
+  const { rootRef, panelRef, open } = args;
   const [maximized, setMaximized] = useState(false);
   const sizeBeforeMaxRef = useRef<{ width: number; height: number } | null>(null);
 
@@ -76,11 +74,7 @@ export function useDebugPanelLayout(args: {
     const root = rootRef.current;
     const panel = panelRef.current;
     if (!root || !panel) return;
-    if (getComputedStyle(panel).display === 'none') {
-      const connector = connectorRef?.current;
-      if (connector) connector.style.height = '0px';
-      return;
-    }
+    if (getComputedStyle(panel).display === 'none') return;
 
     const dock = readDockBox(root);
     const rect = panelLayoutSize(panel);
@@ -92,12 +86,7 @@ export function useDebugPanelLayout(args: {
     if (Math.abs(height - rect.height) > 0.5) panel.style.height = `${height}px`;
 
     const dockCenter = dock.left + dock.width / 2;
-    const left =
-      dockCenter < window.innerWidth * 0.34
-        ? dock.left
-        : dockCenter > window.innerWidth * 0.66
-          ? dock.right - width
-          : dockCenter - width / 2;
+    const left = dockCenter - width / 2;
     const nextLeft = clamp(left, PANEL_MARGIN, Math.max(PANEL_MARGIN, window.innerWidth - width - PANEL_MARGIN));
     const nextTop = clamp(
       dock.top - DOCK_GAP - height,
@@ -109,16 +98,7 @@ export function useDebugPanelLayout(args: {
     panel.style.top = `${nextTop}px`;
     panel.style.right = 'auto';
     panel.style.bottom = 'auto';
-
-    const connector = connectorRef?.current;
-    if (!connector) return;
-    const panelBottom = nextTop + height;
-    const connectorX = clamp(dockCenter, nextLeft + 20, nextLeft + width - 20);
-    connector.style.width = `${CONNECTOR_WIDTH}px`;
-    connector.style.left = `${connectorX - CONNECTOR_WIDTH / 2}px`;
-    connector.style.top = `${panelBottom}px`;
-    connector.style.height = `${Math.max(0, dock.top - panelBottom)}px`;
-  }, [connectorRef, panelRef, rootRef]);
+  }, [panelRef, rootRef]);
 
   const applySize = useCallback(
     (size: { width: number; height: number }) => {

@@ -22,9 +22,7 @@ function normalizationBadge(event: VacpAgentToolEvent): boolean {
 
 export function ChatActivityLog(props: { events: VacpAgentToolEvent[]; className?: string }): ReactElement {
   return (
-    <section
-      className={cn('grid min-h-0 gap-2 rounded-xl border border-white/[0.075] bg-white/[0.02] p-3', props.className)}
-    >
+    <section className={cn('grid min-h-0 gap-2 p-3', props.className)}>
       <div className="min-w-0">
         <div className="text-[11px] font-semibold uppercase text-slate-100/70">Tool calls</div>
         <div className="mt-1 text-pretty text-[11px] text-slate-100/65">Execution trace for the active thread.</div>
@@ -35,9 +33,7 @@ export function ChatActivityLog(props: { events: VacpAgentToolEvent[]; className
         className="vacp-chat-scroll grid min-h-0 gap-2 overflow-y-auto overflow-x-hidden text-[11px]"
       >
         {props.events.length === 0 ? (
-          <div className="rounded-lg border border-white/[0.075] bg-white/[0.025] px-3 py-2 text-slate-100/64">
-            No tool calls yet.
-          </div>
+          <div className="px-1 py-2 text-slate-100/58">No tool calls yet.</div>
         ) : null}
 
         {props.events
@@ -49,7 +45,7 @@ export function ChatActivityLog(props: { events: VacpAgentToolEvent[]; className
               <details
                 key={`${event.at}-${idx}`}
                 open={event.status === 'failed'}
-                className="rounded-lg border border-white/[0.075] bg-white/[0.02] px-3 py-2"
+                className="rounded-md border border-white/[0.075] bg-white/[0.02] px-3 py-2"
               >
                 <summary className="flex cursor-pointer list-none items-center gap-2">
                   <span className="font-semibold text-slate-100/90">{event.toolName}</span>

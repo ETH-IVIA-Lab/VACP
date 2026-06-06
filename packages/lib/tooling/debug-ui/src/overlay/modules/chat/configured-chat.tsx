@@ -9,7 +9,7 @@ import {
   type VacpLLMConfig,
   type VacpTokenUsage,
 } from '@vacp/agent-client';
-import { AlertTriangle, ClipboardCopy, Loader2, RefreshCw, Send, Square, X } from 'lucide-react';
+import { AlertTriangle, ClipboardCopy, Loader2, RefreshCw, Send, Square } from 'lucide-react';
 import type { ReactElement } from 'react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 
@@ -240,8 +240,7 @@ export function ConfiguredChat(props: ConfiguredChatProps): ReactElement {
   const lastUsage = useMemo(() => latestAssistantUsage(uiMessages), [uiMessages]);
   const totalUsage = useMemo(() => threadUsage(uiMessages), [uiMessages]);
   const busy = status === 'submitted' || status === 'streaming';
-  const showInlineActivity = props.showActivity && props.panelWidth >= 1120;
-  const showActivitySheet = props.showActivity && props.panelWidth < 1120;
+  const activityWide = props.panelWidth >= 1120;
   const autoScrollSignal = `${status}:${uiMessages.length}:${latestTextLength(uiMessages)}`;
   const { scrollRef, contentRef, stickToBottom, jumpToLatest } = useChatAutoscroll(autoScrollSignal);
   const [policyNotice, setPolicyNotice] = useState<string | null>(null);
@@ -335,13 +334,17 @@ export function ConfiguredChat(props: ConfiguredChatProps): ReactElement {
   return (
     <div
       className={cn(
-        'relative grid h-full min-h-0 gap-4 overflow-hidden',
-        showInlineActivity ? 'grid-cols-[minmax(0,1fr)_minmax(320px,380px)]' : 'grid-cols-1',
+        'relative grid h-full min-h-0 overflow-hidden',
+        props.showActivity
+          ? activityWide
+            ? 'grid-cols-[minmax(0,1fr)_minmax(320px,380px)]'
+            : 'grid-rows-[minmax(0,1fr)_minmax(220px,36%)]'
+          : 'grid-cols-1',
       )}
     >
-      <div className="flex min-h-0 flex-col gap-3">
+      <div className="flex min-h-0 flex-col">
         {error ? (
-          <div className="rounded-lg border border-red-200/18 bg-red-300/[0.07] px-3 py-2 text-[11px] text-red-50/84">
+          <div className="mb-2 rounded-md border border-red-200/18 bg-red-300/[0.07] px-3 py-2 text-[11px] text-red-50/84">
             <div className="flex items-start gap-2">
               <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
               <div className="min-w-0 break-words">{error.message}</div>
@@ -350,12 +353,12 @@ export function ConfiguredChat(props: ConfiguredChatProps): ReactElement {
         ) : null}
 
         {policyNotice ? (
-          <div className="rounded-lg border border-amber-100/14 bg-amber-100/[0.055] px-3 py-2 text-[11px] text-amber-50/70">
+          <div className="mb-2 rounded-md border border-amber-100/14 bg-amber-100/[0.055] px-3 py-2 text-[11px] text-amber-50/70">
             {policyNotice}
           </div>
         ) : null}
 
-        <section className="grid min-h-0 flex-1 grid-rows-[auto_minmax(0,1fr)_auto] overflow-hidden rounded-xl border border-white/[0.075] bg-white/[0.02]">
+        <section className="grid min-h-0 flex-1 grid-rows-[auto_minmax(0,1fr)_auto] overflow-hidden">
           <div className="flex flex-wrap items-start gap-3 border-b border-white/[0.075] px-4 py-3">
             <div className="min-w-0 flex-1">
               <div className="text-[11px] font-semibold uppercase text-slate-100/70">Conversation</div>
@@ -402,7 +405,7 @@ export function ConfiguredChat(props: ConfiguredChatProps): ReactElement {
           </div>
 
           <div className="relative z-10 border-t border-white/[0.075] bg-[#0b1115]/88 px-3 py-3 backdrop-blur-sm">
-            <div className="mb-3 flex flex-wrap items-center gap-2 rounded-lg border border-white/[0.075] bg-white/[0.02] px-3 py-2 text-[11px] text-slate-100/58">
+            <div className="mb-2 flex flex-wrap items-center gap-2 text-[11px] text-slate-100/56">
               <div className="min-w-0 flex-1 text-pretty">
                 {busy
                   ? status === 'submitted'
@@ -411,7 +414,7 @@ export function ConfiguredChat(props: ConfiguredChatProps): ReactElement {
                   : 'Press Enter to send or Shift+Enter for a newline.'}
               </div>
               {copyNotice ? <div className="text-emerald-50/74">{copyNotice}</div> : null}
-              {showActivitySheet ? (
+              {props.showActivity ? (
                 <Button size="sm" aria-label="Hide activity" title="Hide activity" onClick={props.onCloseActivity}>
                   Hide activity
                 </Button>
@@ -424,7 +427,7 @@ export function ConfiguredChat(props: ConfiguredChatProps): ReactElement {
             <Textarea
               id="vacp-chat-input"
               data-vacp-chat-input="1"
-              className="min-h-[112px] w-full overflow-x-hidden whitespace-pre-wrap break-words [overflow-wrap:anywhere]"
+              className="min-h-[96px] w-full overflow-x-hidden whitespace-pre-wrap break-words [overflow-wrap:anywhere]"
               wrap="soft"
               value={props.draft}
               onChange={(e) => props.onDraftChange(e.target.value)}
@@ -481,27 +484,14 @@ export function ConfiguredChat(props: ConfiguredChatProps): ReactElement {
         </section>
       </div>
 
-      {showInlineActivity ? <ChatActivityLog events={props.toolEvents} className="min-h-0 h-full" /> : null}
-
-      {showActivitySheet ? (
-        <div
-          data-vacp-chat-activity-sheet="1"
+      {props.showActivity ? (
+        <ChatActivityLog
+          events={props.toolEvents}
           className={cn(
-            'absolute z-20 overflow-hidden rounded-xl border border-white/[0.075] bg-[#0b1115]/96 shadow-[0_18px_34px_rgba(0,0,0,0.34)] backdrop-blur-sm',
-            props.panelWidth < 720 ? 'inset-0' : 'right-0 top-0 h-full w-[min(360px,calc(100%-16px))]',
+            'min-h-0 h-full bg-white/[0.014]',
+            activityWide ? 'border-l border-white/[0.075]' : 'border-t border-white/[0.075]',
           )}
-        >
-          <div className="flex items-center justify-between border-b border-white/[0.075] px-3 py-2">
-            <div className="text-[11px] font-semibold uppercase text-slate-100/70">Activity</div>
-            <Button size="iconSm" aria-label="Close activity" title="Close activity" onClick={props.onCloseActivity}>
-              <X className="h-3.5 w-3.5 text-slate-100/90" />
-            </Button>
-          </div>
-          <ChatActivityLog
-            events={props.toolEvents}
-            className="h-[calc(100%-44px)] rounded-none border-0 bg-transparent p-3"
-          />
-        </div>
+        />
       ) : null}
     </div>
   );

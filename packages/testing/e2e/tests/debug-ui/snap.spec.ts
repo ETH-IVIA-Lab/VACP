@@ -13,12 +13,13 @@ function clamp(n: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, n));
 }
 
-function expectedDock(rect: ViewRect, anchor: 'left' | 'center' | 'right'): { left: number; top: number } {
-  const maxLeft = Math.max(DOCK_MARGIN, rect.innerWidth - rect.width - DOCK_MARGIN);
-  const center = clamp((rect.innerWidth - rect.width) / 2, DOCK_MARGIN, maxLeft);
-  if (anchor === 'left') return { left: DOCK_MARGIN, top: rect.innerHeight - rect.height - DOCK_MARGIN };
-  if (anchor === 'right') return { left: maxLeft, top: rect.innerHeight - rect.height - DOCK_MARGIN };
-  return { left: center, top: rect.innerHeight - rect.height - DOCK_MARGIN };
+function dockLeftBounds(rect: ViewRect): { min: number; max: number } {
+  return { min: DOCK_MARGIN, max: Math.max(DOCK_MARGIN, rect.innerWidth - rect.width - DOCK_MARGIN) };
+}
+
+function expectedDockLeftAfterDrag(rect: ViewRect, fromX: number, toX: number): number {
+  const bounds = dockLeftBounds(rect);
+  return clamp(rect.left + toX - fromX, bounds.min, bounds.max);
 }
 
 async function getRootRect(page: Page): Promise<ViewRect> {
@@ -57,25 +58,6 @@ async function getPanelRect(page: Page): Promise<ViewRect> {
   });
 }
 
-async function getConnectorRect(page: Page): Promise<ViewRect & { display: string }> {
-  return await page.evaluate(() => {
-    const el = document.querySelector<HTMLElement>('.vacp-debug-ui-connector');
-    if (!el) throw new Error('Missing .vacp-debug-ui-connector');
-    const r = el.getBoundingClientRect();
-    return {
-      left: r.left,
-      top: r.top,
-      right: r.right,
-      bottom: r.bottom,
-      width: r.width,
-      height: r.height,
-      innerWidth: window.innerWidth,
-      innerHeight: window.innerHeight,
-      display: getComputedStyle(el).display,
-    };
-  });
-}
-
 async function dragFromTo(page: Page, from: { x: number; y: number }, to: { x: number; y: number }): Promise<void> {
   await page.mouse.move(from.x, from.y);
   await page.mouse.down();
@@ -83,46 +65,45 @@ async function dragFromTo(page: Page, from: { x: number; y: number }, to: { x: n
   await page.mouse.up();
 }
 
-async function expectDockNear(page: Page, anchor: 'left' | 'center' | 'right'): Promise<void> {
+async function expectDockNearLeft(page: Page, expectedLeft: number): Promise<void> {
   const rect = await getRootRect(page);
-  const expected = expectedDock(rect, anchor);
-  const dx = Math.abs(rect.left - expected.left);
-  const dy = Math.abs(rect.top - expected.top);
-  expect(dx, `dock left delta=${dx} expected ${expected.left} got ${rect.left}`).toBeLessThanOrEqual(14);
-  expect(dy, `dock top delta=${dy} expected ${expected.top} got ${rect.top}`).toBeLessThanOrEqual(3);
+  const expectedTop = rect.innerHeight - rect.height - DOCK_MARGIN;
+  const dx = Math.abs(rect.left - expectedLeft);
+  const dy = Math.abs(rect.top - expectedTop);
+  expect(dx, `dock left delta=${dx} expected ${expectedLeft} got ${rect.left}`).toBeLessThanOrEqual(4);
+  expect(dy, `dock top delta=${dy} expected ${expectedTop} got ${rect.top}`).toBeLessThanOrEqual(3);
 }
 
 async function expectPanelAttached(page: Page): Promise<void> {
   await page.waitForFunction(() => {
     const panel = document.getElementById('vacp-debug-ui-panel');
-    const connector = document.querySelector<HTMLElement>('.vacp-debug-ui-connector');
-    if (!panel || !connector) return false;
-    const animations = [...panel.getAnimations(), ...connector.getAnimations()];
-    return animations.every((animation) => animation.playState === 'finished' || animation.playState === 'idle');
+    if (!panel) return false;
+    return panel
+      .getAnimations()
+      .every((animation) => animation.playState === 'finished' || animation.playState === 'idle');
   });
 
-  const [dock, panel, connector] = await Promise.all([getRootRect(page), getPanelRect(page), getConnectorRect(page)]);
+  const [dock, panel] = await Promise.all([getRootRect(page), getPanelRect(page)]);
   expect(panel.left, `panel left=${panel.left}`).toBeGreaterThanOrEqual(DOCK_MARGIN - 1);
   expect(panel.top, `panel top=${panel.top}`).toBeGreaterThanOrEqual(DOCK_MARGIN - 1);
   expect(panel.right, `panel right=${panel.right}`).toBeLessThanOrEqual(panel.innerWidth - DOCK_MARGIN + 1);
   expect(panel.bottom, `panel bottom=${panel.bottom}`).toBeLessThanOrEqual(dock.top - DOCK_GAP + 2);
   expect(panel.bottom, `panel bottom=${panel.bottom}`).toBeGreaterThanOrEqual(dock.top - DOCK_GAP - 2);
 
-  const connectorCenter = connector.left + connector.width / 2;
   const dockCenter = dock.left + dock.width / 2;
-  expect(connector.display, 'connector display').toBe('block');
-  expect(connector.width, `connector width=${connector.width}`).toBeGreaterThan(0);
-  expect(connector.height, `connector height=${connector.height}`).toBeGreaterThan(0);
-  expect(connector.top, `connector top=${connector.top}`).toBeGreaterThanOrEqual(panel.bottom - 1);
-  expect(connector.bottom, `connector bottom=${connector.bottom}`).toBeLessThanOrEqual(dock.top + 1);
-  expect(connectorCenter, `connector center=${connectorCenter}`).toBeGreaterThanOrEqual(panel.left + 20);
-  expect(connectorCenter, `connector center=${connectorCenter}`).toBeLessThanOrEqual(panel.right - 20);
-  expect(Math.abs(connectorCenter - dockCenter), `connector center delta=${connectorCenter - dockCenter}`).toBeLessThanOrEqual(
-    1,
-  );
+  expect(dockCenter, `dock center=${dockCenter}`).toBeGreaterThanOrEqual(panel.left - 1);
+  expect(dockCenter, `dock center=${dockCenter}`).toBeLessThanOrEqual(panel.right + 1);
+  await expect(page.locator('.vacp-debug-ui-connector')).toHaveCount(0);
 }
 
-test('debug-ui: dock snaps on the bottom rail and keeps the panel attached', async ({ page }) => {
+async function expectNoShortcutLabels(page: Page): Promise<void> {
+  const panel = page.locator('#vacp-debug-ui-panel');
+  await expect(panel).not.toContainText(/Alt\s+\d/);
+  const navText = await page.locator('.vacp-debug-ui-nav-list').innerText();
+  expect(navText).not.toMatch(/Alt\s+\d/);
+}
+
+test('debug-ui: dock drags freely and keeps the panel attached without shortcut labels', async ({ page }) => {
   const srv = await startViteDevServer({
     name: 'cars-parallel-coords',
     cwd: exampleDir('cars-parallel-coords'),
@@ -135,37 +116,31 @@ test('debug-ui: dock snaps on the bottom rail and keeps the panel attached', asy
     await expect(pill).toBeVisible();
     await expect(pill).toHaveText('');
 
+    const startDock = await getRootRect(page);
     const pillBox = await pill.boundingBox();
     if (!pillBox) throw new Error('Missing pill bounding box');
-    await dragFromTo(
-      page,
-      { x: pillBox.x + pillBox.width / 2, y: pillBox.y + pillBox.height / 2 },
-      { x: page.viewportSize()!.width / 2, y: 10 },
-    );
-    await page.waitForTimeout(220);
-    await expectDockNear(page, 'center');
-
-    const centerBox = await pill.boundingBox();
-    if (!centerBox) throw new Error('Missing centered pill bounding box');
-    await dragFromTo(page, { x: centerBox.x + 8, y: centerBox.y + 8 }, { x: 1, y: 1 });
-    await page.waitForTimeout(220);
-    await expectDockNear(page, 'left');
+    const firstFrom = { x: pillBox.x + pillBox.width / 2, y: pillBox.y + pillBox.height / 2 };
+    const firstTo = { x: page.viewportSize()!.width * 0.43, y: firstFrom.y };
+    await dragFromTo(page, firstFrom, firstTo);
+    await page.waitForTimeout(60);
+    await expectDockNearLeft(page, expectedDockLeftAfterDrag(startDock, firstFrom.x, firstTo.x));
 
     await pill.click();
     await expect(page.locator('#vacp-debug-ui-panel')).toBeVisible();
     await expectPanelAttached(page);
+    await expectNoShortcutLabels(page);
 
     const header = page.locator('.vacp-debug-ui-topbar');
     const headerBox = await header.boundingBox();
     if (!headerBox) throw new Error('Missing panel header bounding box');
-    await dragFromTo(
-      page,
-      { x: headerBox.x + headerBox.width / 2, y: headerBox.y + headerBox.height / 2 },
-      { x: page.viewportSize()!.width - 1, y: headerBox.y + headerBox.height / 2 },
-    );
-    await page.waitForTimeout(220);
-    await expectDockNear(page, 'right');
+    const dockBeforeHeaderDrag = await getRootRect(page);
+    const secondFrom = { x: headerBox.x + headerBox.width / 2, y: headerBox.y + headerBox.height / 2 };
+    const secondTo = { x: page.viewportSize()!.width * 0.64, y: secondFrom.y };
+    await dragFromTo(page, secondFrom, secondTo);
+    await page.waitForTimeout(60);
+    await expectDockNearLeft(page, expectedDockLeftAfterDrag(dockBeforeHeaderDrag, secondFrom.x, secondTo.x));
     await expectPanelAttached(page);
+    await expectNoShortcutLabels(page);
 
     const resizeHandle = page.locator('.vacp-debug-ui-resize-n');
     const resizeBox = await resizeHandle.boundingBox();
@@ -182,7 +157,7 @@ test('debug-ui: dock snaps on the bottom rail and keeps the panel attached', asy
 
     await pill.click();
     await expect(page.locator('#vacp-debug-ui-panel')).toHaveAttribute('data-state', 'closing');
-    await expect(page.locator('.vacp-debug-ui-connector')).toHaveAttribute('data-state', 'closing');
+    await expect(page.locator('.vacp-debug-ui-connector')).toHaveCount(0);
     await expect(page.locator('#vacp-debug-ui-panel')).toBeHidden({ timeout: 1_000 });
   } finally {
     await srv.stop();

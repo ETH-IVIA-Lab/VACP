@@ -17,7 +17,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useElementSize } from '@vacp/debug-ui/overlay/hooks/use-element-size';
 import { Button } from '@vacp/debug-ui/ui/components/ui/button';
-import { Card, CardDescription, CardHeader, CardTitle } from '@vacp/debug-ui/ui/components/ui/card';
 import { cn } from '@vacp/debug-ui/ui/lib/utils';
 
 import type { VacpDebugModuleProps } from '../module-types';
@@ -51,12 +50,9 @@ function threadSubtitle(messages: UIMessage[]): string {
 
 export function ChatModule(props: VacpDebugModuleProps): ReactElement {
   const rootRef = useRef<HTMLDivElement | null>(null);
-  const headerRef = useRef<HTMLDivElement | null>(null);
   const rootSize = useElementSize(rootRef);
-  const headerSize = useElementSize(headerRef);
   const wide = rootSize.width >= 960;
   const compactActions = rootSize.width < 860;
-  const narrow = rootSize.width < 760;
 
   const initialConfig = useMemo(() => {
     const activeProvider = loadVacpLLMActiveProvider() ?? DEFAULT_CONFIG.provider;
@@ -131,6 +127,11 @@ export function ChatModule(props: VacpDebugModuleProps): ReactElement {
 
   useEffect(() => {
     if (!settingsOpen) return;
+    if (modelRefreshSeq === 0) {
+      setModelsLoading(false);
+      setModelsError(null);
+      return;
+    }
     if (debouncedModelLookupKey !== modelLookupKey) return;
     if (!canListModels(config)) {
       setAvailableModels([]);
@@ -214,141 +215,107 @@ export function ChatModule(props: VacpDebugModuleProps): ReactElement {
     });
   }, [scopeId, activeThreadId, activeThread?.sessionRevision, props.runtime.runtimeId, config]);
 
-  const floatingPanelTop = Math.max(56, headerSize.height + 8);
-  const historySheetClass = narrow ? 'left-3 right-3 bottom-3' : 'left-3 bottom-3 w-[min(392px,calc(100%-24px))]';
-  const settingsSheetClass = narrow ? 'left-3 right-3 bottom-3' : 'right-3 bottom-3 w-[min(440px,calc(100%-24px))]';
+  const sidePanelOpen = settingsOpen || threadPickerOpen;
+  const sidePanelWide = rootSize.width >= 860;
 
   return (
-    <div ref={rootRef} className="h-full min-h-0">
-      <Card className="relative flex h-full min-h-0 flex-col overflow-hidden">
-        <div ref={headerRef}>
-          <CardHeader className="flex-col items-stretch gap-2 border-b border-white/[0.075] pb-3">
-            <div className="min-w-0">
-              <CardTitle>Chat</CardTitle>
-              <CardDescription>
-                {scopeMeta.label} • ask questions, run actions, and inspect tool traces in one place.
-              </CardDescription>
-            </div>
-            <div data-vacp-chat-actions="1" className="flex max-w-full flex-wrap items-center gap-2">
-              <Button
-                size="sm"
-                className="shrink-0"
-                data-vacp-chat-thread-trigger="1"
-                aria-label="Open chat history"
-                title="Open chat history"
-                aria-pressed={threadPickerOpen}
-                onClick={() => {
-                  setThreadPickerOpen((v) => {
-                    const next = !v;
-                    if (next) setSettingsOpen(scopeId, false);
-                    return next;
-                  });
-                  setActionsMenuOpen(false);
-                }}
-              >
-                <History className="h-4 w-4 text-slate-100/90" />
-                History
-              </Button>
-              <Button
-                size="sm"
-                className="shrink-0"
-                data-vacp-chat-new-thread="1"
-                aria-label="New chat"
-                title="Start a new chat thread"
-                onClick={() => {
-                  const nextId = createThread(scopeId);
-                  if (nextId) setActiveThread(scopeId, nextId);
-                  setThreadPickerOpen(false);
-                  setActionsMenuOpen(false);
-                }}
-              >
-                <MessageSquarePlus className="h-4 w-4 text-slate-100/90" />
-                New
-              </Button>
-              <Button
-                size="sm"
-                className="shrink-0"
-                data-vacp-chat-clear-thread="1"
-                aria-label="Clear active thread"
-                title="Clear active thread"
-                disabled={!activeThreadId}
-                onClick={() => {
-                  if (!activeThreadId || !sessionCacheKey) return;
-                  deleteVacpChatSession(sessionCacheKey);
-                  clearThread(scopeId, activeThreadId);
-                  setActionsMenuOpen(false);
-                }}
-              >
-                <Trash2 className="h-4 w-4 text-slate-100/90" />
-                Clear
-              </Button>
+    <div ref={rootRef} className="flex h-full min-h-0 flex-col overflow-hidden">
+      <div className="flex shrink-0 flex-col gap-3 border-b border-white/[0.075] pb-3 sm:flex-row sm:items-start">
+        <div className="min-w-0 flex-1">
+          <div className="text-[11px] font-semibold uppercase text-slate-100/70">Chat</div>
+          <div className="mt-1 text-pretty text-[12px] text-slate-100/70">
+            {scopeMeta.label} • ask questions, run actions, and inspect tool traces.
+          </div>
+        </div>
+        <div data-vacp-chat-actions="1" className="flex max-w-full flex-wrap items-center gap-2 sm:justify-end">
+          <Button
+            size="sm"
+            className="shrink-0"
+            data-vacp-chat-thread-trigger="1"
+            aria-label="Open chat history"
+            title="Open chat history"
+            aria-pressed={threadPickerOpen}
+            onClick={() => {
+              setThreadPickerOpen((v) => {
+                const next = !v;
+                if (next) setSettingsOpen(scopeId, false);
+                return next;
+              });
+              setActionsMenuOpen(false);
+            }}
+          >
+            <History className="h-4 w-4 text-slate-100/90" />
+            History
+          </Button>
+          <Button
+            size="sm"
+            className="shrink-0"
+            data-vacp-chat-new-thread="1"
+            aria-label="New chat"
+            title="Start a new chat thread"
+            onClick={() => {
+              const nextId = createThread(scopeId);
+              if (nextId) setActiveThread(scopeId, nextId);
+              setThreadPickerOpen(false);
+              setActionsMenuOpen(false);
+            }}
+          >
+            <MessageSquarePlus className="h-4 w-4 text-slate-100/90" />
+            New
+          </Button>
+          <Button
+            size="sm"
+            className="shrink-0"
+            data-vacp-chat-clear-thread="1"
+            aria-label="Clear active thread"
+            title="Clear active thread"
+            disabled={!activeThreadId}
+            onClick={() => {
+              if (!activeThreadId || !sessionCacheKey) return;
+              deleteVacpChatSession(sessionCacheKey);
+              clearThread(scopeId, activeThreadId);
+              setActionsMenuOpen(false);
+            }}
+          >
+            <Trash2 className="h-4 w-4 text-slate-100/90" />
+            Clear
+          </Button>
 
-              {compactActions ? (
-                <div ref={actionsMenuRef} className="relative shrink-0">
+          {compactActions ? (
+            <div ref={actionsMenuRef} className="relative shrink-0">
+              <Button
+                size="sm"
+                className="shrink-0"
+                data-vacp-chat-actions-more="1"
+                aria-label="More chat actions"
+                title="More chat actions"
+                aria-expanded={actionsMenuOpen}
+                onClick={() => setActionsMenuOpen((v) => !v)}
+              >
+                <MoreHorizontal className="h-4 w-4 text-slate-100/90" />
+                More
+              </Button>
+              {actionsMenuOpen ? (
+                <div
+                  data-vacp-chat-actions-menu="1"
+                  className="absolute right-0 top-9 z-30 grid min-w-[152px] gap-1 rounded-lg border border-white/[0.075] bg-[#0b1115]/96 p-1.5 shadow-[0_16px_34px_rgba(0,0,0,0.34)] backdrop-blur-sm"
+                >
                   <Button
                     size="sm"
-                    className="shrink-0"
-                    data-vacp-chat-actions-more="1"
-                    aria-label="More chat actions"
-                    title="More chat actions"
-                    aria-expanded={actionsMenuOpen}
-                    onClick={() => setActionsMenuOpen((v) => !v)}
-                  >
-                    <MoreHorizontal className="h-4 w-4 text-slate-100/90" />
-                    More
-                  </Button>
-                  {actionsMenuOpen ? (
-                    <div
-                      data-vacp-chat-actions-menu="1"
-                      className="absolute right-0 top-9 z-30 grid min-w-[152px] gap-1 rounded-xl border border-white/[0.075] bg-[#0b1115]/96 p-1.5 shadow-[0_16px_34px_rgba(0,0,0,0.34)] backdrop-blur-sm"
-                    >
-                      <Button
-                        size="sm"
-                        className="justify-start"
-                        aria-label="Toggle activity panel"
-                        title="Toggle activity panel"
-                        aria-pressed={showActivity}
-                        onClick={() => {
-                          setActivityOpen(scopeId, !showActivity);
-                          setActionsMenuOpen(false);
-                        }}
-                      >
-                        Activity
-                      </Button>
-                      <Button
-                        size="sm"
-                        className="justify-start"
-                        data-vacp-chat-settings-toggle="1"
-                        aria-label="Toggle settings"
-                        title="Toggle settings"
-                        aria-pressed={settingsOpen}
-                        onClick={() => {
-                          setThreadPickerOpen(false);
-                          setSettingsOpen(scopeId, !settingsOpen);
-                          setActionsMenuOpen(false);
-                        }}
-                      >
-                        <Settings2 className="h-4 w-4 text-slate-100/90" />
-                        Settings
-                      </Button>
-                    </div>
-                  ) : null}
-                </div>
-              ) : (
-                <>
-                  <Button
-                    size="sm"
-                    className="shrink-0"
+                    className="justify-start"
                     aria-label="Toggle activity panel"
                     title="Toggle activity panel"
                     aria-pressed={showActivity}
-                    onClick={() => setActivityOpen(scopeId, !showActivity)}
+                    onClick={() => {
+                      setActivityOpen(scopeId, !showActivity);
+                      setActionsMenuOpen(false);
+                    }}
                   >
                     Activity
                   </Button>
                   <Button
                     size="sm"
-                    className="shrink-0"
+                    className="justify-start"
                     data-vacp-chat-settings-toggle="1"
                     aria-label="Toggle settings"
                     title="Toggle settings"
@@ -356,23 +323,63 @@ export function ChatModule(props: VacpDebugModuleProps): ReactElement {
                     onClick={() => {
                       setThreadPickerOpen(false);
                       setSettingsOpen(scopeId, !settingsOpen);
+                      setActionsMenuOpen(false);
                     }}
                   >
                     <Settings2 className="h-4 w-4 text-slate-100/90" />
                     Settings
                   </Button>
-                </>
-              )}
+                </div>
+              ) : null}
             </div>
-          </CardHeader>
+          ) : (
+            <>
+              <Button
+                size="sm"
+                className="shrink-0"
+                aria-label="Toggle activity panel"
+                title="Toggle activity panel"
+                aria-pressed={showActivity}
+                onClick={() => setActivityOpen(scopeId, !showActivity)}
+              >
+                Activity
+              </Button>
+              <Button
+                size="sm"
+                className="shrink-0"
+                data-vacp-chat-settings-toggle="1"
+                aria-label="Toggle settings"
+                title="Toggle settings"
+                aria-pressed={settingsOpen}
+                onClick={() => {
+                  setThreadPickerOpen(false);
+                  setSettingsOpen(scopeId, !settingsOpen);
+                }}
+              >
+                <Settings2 className="h-4 w-4 text-slate-100/90" />
+                Settings
+              </Button>
+            </>
+          )}
         </div>
+      </div>
 
-        <div className="min-h-0 flex-1">
+      <div
+        className={cn(
+          'grid min-h-0 flex-1 overflow-hidden',
+          sidePanelOpen
+            ? sidePanelWide
+              ? 'grid-cols-[minmax(0,1fr)_minmax(320px,390px)]'
+              : 'grid-rows-[minmax(0,1fr)_minmax(260px,44%)]'
+            : 'grid-cols-1',
+        )}
+      >
+        <main className="min-h-0 min-w-0 overflow-hidden">
           {!configReady ? (
-            <div className="grid h-full min-h-0 place-items-center rounded-lg border border-white/[0.075] bg-white/[0.02] p-6 text-center">
-              <div>
+            <div className="flex h-full min-h-0 items-center justify-center p-6 text-center">
+              <div className="max-w-sm">
                 <div className="text-sm font-semibold text-slate-100/90">Add provider settings to start chatting.</div>
-                <div className="mt-1 text-[11px] text-slate-100/70">
+                <div className="mt-1 text-[11px] text-slate-100/64">
                   Provider, API key, and model are required. Base URL is required for OpenAI-compatible endpoints.
                 </div>
                 <Button
@@ -412,76 +419,74 @@ export function ChatModule(props: VacpDebugModuleProps): ReactElement {
               wide={wide}
             />
           ) : (
-            <div className="grid h-full place-items-center text-[12px] text-slate-100/70">Preparing chat session…</div>
+            <div className="grid h-full place-items-center text-[12px] text-slate-100/70">Preparing chat session...</div>
           )}
-        </div>
+        </main>
 
         {threadPickerOpen ? (
-          <div
+          <aside
             data-vacp-chat-thread-sheet="1"
             className={cn(
-              'absolute z-20 rounded-xl border border-white/[0.075] bg-[#0b1115]/96 p-3 shadow-[0_18px_34px_rgba(0,0,0,0.34)] backdrop-blur-sm',
-              historySheetClass,
+              'min-h-0 min-w-0 overflow-hidden bg-white/[0.014]',
+              sidePanelWide ? 'border-l border-white/[0.075]' : 'border-t border-white/[0.075]',
             )}
-            style={{ top: `${floatingPanelTop}px` }}
           >
-            <div className="flex items-start justify-between gap-3 px-1 pb-3 pt-1">
-              <div className="min-w-0">
-                <div className="text-[11px] font-semibold uppercase text-slate-100/70">Conversation history</div>
-                <div className="mt-1 text-pretty text-[11px] text-slate-100/60">
-                  Reopen earlier threads without losing the current panel state.
-                </div>
-              </div>
-              <Button
-                size="sm"
-                aria-label="Close history"
-                title="Close history"
-                onClick={() => setThreadPickerOpen(false)}
-              >
-                Close
-              </Button>
-            </div>
-            <div
-              data-vacp-chat-thread-list="1"
-              className="vacp-chat-scroll grid max-h-full gap-2 overflow-y-auto overflow-x-hidden"
-              style={{ maxHeight: `calc(100% - 56px)` }}
-            >
-              {threadItems.length === 0 ? (
-                <div className="rounded-lg border border-white/[0.075] bg-white/[0.025] px-3 py-3 text-[11px] text-slate-100/64">
-                  No history for this view yet.
-                </div>
-              ) : null}
-              {threadItems.map((thread) => (
-                <button
-                  key={thread.id}
-                  type="button"
-                  data-vacp-chat-thread-item="1"
-                  className={cn(
-                    'min-w-0 rounded-lg border px-3 py-3 text-left transition-colors',
-                    thread.id === activeThreadId
-                      ? 'border-emerald-200/24 bg-emerald-300/[0.075]'
-                      : 'border-white/[0.075] bg-white/[0.025] hover:border-white/12 hover:bg-white/[0.045]',
-                  )}
-                  onClick={() => {
-                    setActiveThread(scopeId, thread.id);
-                    setThreadPickerOpen(false);
-                  }}
-                >
-                  <div className="truncate text-[12px] font-semibold text-slate-100/90 [overflow-wrap:anywhere]">
-                    {thread.title}
+            <div className="flex h-full min-h-0 flex-col p-4">
+              <div className="flex items-start justify-between gap-3 pb-3">
+                <div className="min-w-0">
+                  <div className="text-[11px] font-semibold uppercase text-slate-100/70">Conversation history</div>
+                  <div className="mt-1 text-pretty text-[11px] text-slate-100/58">
+                    Reopen earlier threads without losing the current panel state.
                   </div>
-                  <div className="mt-1 text-[10px] text-slate-100/65">{threadSubtitle(thread.messages)}</div>
-                </button>
-              ))}
+                </div>
+                <Button
+                  size="sm"
+                  aria-label="Close history"
+                  title="Close history"
+                  onClick={() => setThreadPickerOpen(false)}
+                >
+                  Close
+                </Button>
+              </div>
+              <div
+                data-vacp-chat-thread-list="1"
+                className="vacp-chat-scroll grid min-h-0 gap-2 overflow-y-auto overflow-x-hidden"
+              >
+                {threadItems.length === 0 ? (
+                  <div className="px-1 py-3 text-[11px] text-slate-100/58">No history for this view yet.</div>
+                ) : null}
+                {threadItems.map((thread) => (
+                  <button
+                    key={thread.id}
+                    type="button"
+                    data-vacp-chat-thread-item="1"
+                    className={cn(
+                      'min-w-0 rounded-md border px-3 py-3 text-left transition-colors',
+                      thread.id === activeThreadId
+                        ? 'border-emerald-200/22 bg-emerald-300/[0.065]'
+                        : 'border-white/[0.075] bg-white/[0.02] hover:border-white/12 hover:bg-white/[0.04]',
+                    )}
+                    onClick={() => {
+                      setActiveThread(scopeId, thread.id);
+                      setThreadPickerOpen(false);
+                    }}
+                  >
+                    <div className="truncate text-[12px] font-semibold text-slate-100/90 [overflow-wrap:anywhere]">
+                      {thread.title}
+                    </div>
+                    <div className="mt-1 text-[10px] text-slate-100/62">{threadSubtitle(thread.messages)}</div>
+                  </button>
+                ))}
+              </div>
             </div>
-          </div>
-        ) : null}
-
-        {settingsOpen ? (
-          <div
+          </aside>
+        ) : settingsOpen ? (
+          <aside
             data-vacp-chat-settings-sheet="1"
-            className={cn('absolute z-20', settingsSheetClass)}
-            style={{ top: `${floatingPanelTop}px` }}
+            className={cn(
+              'min-h-0 min-w-0 overflow-hidden bg-white/[0.014]',
+              sidePanelWide ? 'border-l border-white/[0.075]' : 'border-t border-white/[0.075]',
+            )}
           >
             <ChatConfigPanel
               className="h-full max-h-none"
@@ -506,9 +511,9 @@ export function ChatModule(props: VacpDebugModuleProps): ReactElement {
                 setActivityOpen(scopeId, false);
               }}
             />
-          </div>
+          </aside>
         ) : null}
-      </Card>
+      </div>
     </div>
   );
 }

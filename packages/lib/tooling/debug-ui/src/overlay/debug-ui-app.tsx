@@ -22,7 +22,6 @@ import { useDebugPanelLayout } from './hooks/use-debug-panel-layout';
 export function VacpDebugUiApp(props: { globalKey: string; includeActions: boolean }): ReactElement {
   const rootRef = useRef<HTMLDivElement | null>(null);
   const buttonRef = useRef<HTMLButtonElement | null>(null);
-  const connectorRef = useRef<HTMLDivElement | null>(null);
   const panelHeaderRef = useRef<HTMLDivElement | null>(null);
   const panelRef = useRef<HTMLDivElement | null>(null);
   const titleId = useId();
@@ -87,7 +86,6 @@ export function VacpDebugUiApp(props: { globalKey: string; includeActions: boole
   const { maximized, panelPosition, minimize, toggleMaximize } = useDebugPanelLayout({
     rootRef,
     panelRef,
-    connectorRef,
     open: panelVisible,
   });
 
@@ -144,16 +142,7 @@ export function VacpDebugUiApp(props: { globalKey: string; includeActions: boole
         const b = bridgeRef.current;
         if (b && typeof b.refresh === 'function') void b.refresh({ source: 'debug', message: 'refresh' });
         void runtimeRefetchRef.current();
-        return;
       }
-
-      const n = Number(ev.key);
-      if (!Number.isFinite(n) || n <= 0) return;
-      const ids: VacpDebugModuleId[] = ['graph', 'data', 'actions', 'history', 'chat', 'settings', 'json'];
-      const id = ids[n - 1];
-      if (!id) return;
-      ev.preventDefault();
-      useVacpDebugUiStore.getState().setModuleId(id);
     };
 
     window.addEventListener('keydown', onKeyDown);
@@ -259,7 +248,6 @@ export function VacpDebugUiApp(props: { globalKey: string; includeActions: boole
       <DebugUiView
         rootRef={rootRef}
         buttonRef={buttonRef}
-        connectorRef={connectorRef}
         panelRef={panelRef}
         panelHeaderRef={panelHeaderRef}
         titleId={titleId}
