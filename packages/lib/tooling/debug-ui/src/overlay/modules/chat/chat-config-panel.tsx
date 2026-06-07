@@ -19,6 +19,7 @@ export type ChatConfigPanelProps = {
   loadingModels: boolean;
   modelsError: string | null;
   onRefreshModels: () => void;
+  showClose?: boolean;
   className?: string;
 };
 
@@ -34,7 +35,7 @@ export function ChatConfigPanel(props: ChatConfigPanelProps): ReactElement {
     <section
       data-vacp-chat-settings-panel="1"
       className={cn(
-        'vacp-chat-scroll grid min-h-0 gap-4 overflow-y-auto overflow-x-hidden p-4',
+        'vacp-chat-scroll grid min-h-0 content-start gap-4 overflow-y-auto overflow-x-hidden p-4',
         props.className,
       )}
     >
@@ -54,9 +55,11 @@ export function ChatConfigPanel(props: ChatConfigPanelProps): ReactElement {
           >
             <Trash2 className="h-4 w-4 text-slate-100/90" />
           </Button>
-          <Button size="iconSm" aria-label="Close settings" title="Close settings" onClick={props.onClose}>
-            <X className="h-4 w-4 text-slate-100/90" />
-          </Button>
+          {props.showClose ?? true ? (
+            <Button size="iconSm" aria-label="Close settings" title="Close settings" onClick={props.onClose}>
+              <X className="h-4 w-4 text-slate-100/90" />
+            </Button>
+          ) : null}
         </div>
       </div>
 

@@ -1,5 +1,11 @@
 type Size = { width: number; height: number };
 type ResizeMode = 'n' | 'e' | 'w' | 'ne' | 'nw';
+type ResizeBounds = Partial<{
+  maxWidth: number;
+  maxHeight: number;
+}>;
+
+const PANEL_MARGIN = 14;
 
 const clamp = (n: number, min: number, max: number) => Math.max(min, Math.min(max, n));
 
@@ -24,9 +30,9 @@ function saveSize(storageKey: string, size: Size): void {
   }
 }
 
-function applySize(panel: HTMLElement, size: Size): Size {
-  const maxW = Math.max(360, window.innerWidth - 28);
-  const maxH = Math.max(260, window.innerHeight - 92);
+function applySize(panel: HTMLElement, size: Size, bounds: ResizeBounds = {}): Size {
+  const maxW = Math.max(360, bounds.maxWidth ?? window.innerWidth - PANEL_MARGIN * 2);
+  const maxH = Math.max(260, bounds.maxHeight ?? window.innerHeight - 92);
   const next = {
     width: clamp(size.width, 360, maxW),
     height: clamp(size.height, 260, maxH),
@@ -49,6 +55,8 @@ export function installVacpDebugResizer(args: {
   onResizeEnd?: () => void;
 }) {
   const { panel, storageKey, onResize, onResizeEnd } = args;
+  if (panel.dataset.vacpDebugResizer === 'installed') return;
+  panel.dataset.vacpDebugResizer = 'installed';
 
   const initial = readSize(storageKey);
   if (initial) {
@@ -82,6 +90,7 @@ export function installVacpDebugResizer(args: {
   let startY = 0;
   let startW = 0;
   let startH = 0;
+  let startMaxH = 260;
 
   const onMove = (ev: PointerEvent) => {
     if (!resizing) return;
@@ -92,7 +101,7 @@ export function installVacpDebugResizer(args: {
     const wantsN = mode.includes('n');
     const width = wantsE ? startW + dx : wantsW ? startW - dx : startW;
     const height = wantsN ? startH - dy : startH;
-    applySize(panel, { width, height });
+    applySize(panel, { width, height }, { maxHeight: startMaxH });
     onResize?.();
   };
 
@@ -108,7 +117,7 @@ export function installVacpDebugResizer(args: {
     onResizeEnd?.();
   };
 
-  const begin = (ev: PointerEvent, nextMode: ResizeMode) => {
+  const begin = (ev: PointerEvent, target: HTMLElement, nextMode: ResizeMode) => {
     if (ev.button !== 0) return;
     resizing = true;
     mode = nextMode;
@@ -118,7 +127,8 @@ export function installVacpDebugResizer(args: {
     startY = ev.clientY;
     startW = rect.width;
     startH = rect.height;
-    panel.setPointerCapture?.(ev.pointerId);
+    startMaxH = Math.max(260, rect.bottom - PANEL_MARGIN);
+    target.setPointerCapture?.(ev.pointerId);
     window.addEventListener('pointermove', onMove);
     window.addEventListener('pointerup', onUp);
     window.addEventListener('pointercancel', onUp);
@@ -126,6 +136,6 @@ export function installVacpDebugResizer(args: {
   };
 
   for (const { mode: handleMode, element } of handles) {
-    element.addEventListener('pointerdown', (ev) => begin(ev, handleMode));
+    element.addEventListener('pointerdown', (ev) => begin(ev, element, handleMode));
   }
 }

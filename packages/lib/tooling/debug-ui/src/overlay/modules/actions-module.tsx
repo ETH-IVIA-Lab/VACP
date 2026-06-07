@@ -1,5 +1,5 @@
 import type { VacpActionCall, VacpActionDescriptor, VacpActionResult } from '@vacp/core';
-import { ClipboardCopy, Play, RefreshCw } from 'lucide-react';
+import { ClipboardCopy, FileJson2, Play, RefreshCw } from 'lucide-react';
 import type { ReactElement } from 'react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 
@@ -13,7 +13,7 @@ import { Textarea } from '@vacp/debug-ui/ui/components/ui/textarea';
 import { copyTextToClipboard } from '@vacp/debug-ui/ui/lib/clipboard';
 import { cn } from '@vacp/debug-ui/ui/lib/utils';
 
-import { ModuleField, ModuleHeader, ModulePane, ModuleRoot } from './module-layout';
+import { ModuleEmptyState, ModuleField, ModuleHeader, ModulePane, ModuleRoot } from './module-layout';
 import type { VacpDebugModuleProps } from './module-types';
 
 function safeJson(value: unknown): string {
@@ -157,7 +157,7 @@ export function ActionsModule(props: VacpDebugModuleProps): ReactElement {
                       aria-selected={active ? 'true' : 'false'}
                       onClick={() => setSelectedName(a.name)}
                     >
-                      <div className="font-semibold text-slate-100/90">{a.name}</div>
+                      <div className="break-words font-semibold text-slate-100/90">{a.name}</div>
                       {a.description ? <div className="mt-1 text-[11px] text-slate-100/70">{a.description}</div> : null}
                     </button>
                   </RovingFocusGroupItem>
@@ -207,11 +207,25 @@ export function ActionsModule(props: VacpDebugModuleProps): ReactElement {
           </ModuleField>
 
           <ModuleField label="Result" className="min-h-0">
-            <JsonViewer
-              value={result}
-              emptyText={status === 'running' ? 'Running…' : status === 'error' ? (error ?? 'Action failed') : ''}
-              className="min-h-0 max-h-[360px]"
-            />
+            {result || status !== 'idle' ? (
+              <JsonViewer
+                value={result}
+                emptyText={status === 'running' ? 'Running...' : status === 'error' ? (error ?? 'Action failed') : ''}
+                className="min-h-0 max-h-[360px]"
+              />
+            ) : (
+              <ModuleEmptyState className="flex min-h-[62px] items-center justify-center gap-3 rounded-lg border border-dashed border-white/[0.08] bg-white/[0.018] px-4 py-2 text-left">
+                <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full border border-teal-200/14 bg-teal-300/[0.06] text-teal-50/72">
+                  <FileJson2 className="h-4 w-4" aria-hidden="true" />
+                </span>
+                <span className="min-w-0">
+                  <span className="block text-[12px] font-semibold text-slate-100/84">Results will appear here</span>
+                  <span className="mt-0.5 block max-w-[40ch] text-[11px] text-slate-100/56">
+                    Run the selected action to inspect returned JSON.
+                  </span>
+                </span>
+              </ModuleEmptyState>
+            )}
           </ModuleField>
         </div>
       </ModulePane>

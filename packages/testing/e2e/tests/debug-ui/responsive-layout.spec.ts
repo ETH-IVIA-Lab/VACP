@@ -210,7 +210,7 @@ test('debug-ui: resized desktop panel keeps every module tab reachable', async (
   }
 });
 
-test('debug-ui: chat settings sheet stays inside the mobile overlay', async ({ page }) => {
+test('debug-ui: chat setup settings stay inside the mobile overlay', async ({ page }) => {
   const srv = await startViteDevServer({
     name: 'vega-lite-gallery',
     cwd: exampleDir('vega-lite-gallery'),
@@ -220,14 +220,14 @@ test('debug-ui: chat settings sheet stays inside the mobile overlay', async ({ p
     await page.setViewportSize({ width: 430, height: 820 });
     await openDebugUi(page, srv.url);
     await page.getByRole('tab', { name: 'Chat' }).click();
-    await page.getByRole('button', { name: 'Open settings' }).click();
+    await expect(page.locator('[data-vacp-chat-settings-panel="1"]')).toBeVisible();
 
     const metrics = await page.evaluate(() => {
       const panel = document.getElementById('vacp-debug-ui-panel');
-      const sheet = document.querySelector('[data-vacp-chat-settings-sheet="1"]');
-      if (!panel || !sheet) throw new Error('Missing chat settings sheet');
+      const settings = document.querySelector('[data-vacp-chat-settings-panel="1"]');
+      if (!panel || !settings) throw new Error('Missing embedded chat settings');
       const panelRect = panel.getBoundingClientRect();
-      const sheetRect = sheet.getBoundingClientRect();
+      const settingsRect = settings.getBoundingClientRect();
       return {
         panel: {
           left: panelRect.left,
@@ -235,20 +235,20 @@ test('debug-ui: chat settings sheet stays inside the mobile overlay', async ({ p
           right: panelRect.right,
           bottom: panelRect.bottom,
         },
-        sheet: {
-          left: sheetRect.left,
-          top: sheetRect.top,
-          right: sheetRect.right,
-          bottom: sheetRect.bottom,
+        settings: {
+          left: settingsRect.left,
+          top: settingsRect.top,
+          right: settingsRect.right,
+          bottom: settingsRect.bottom,
         },
         panelOverflowX: panel.scrollWidth > panel.clientWidth + 1,
       };
     });
 
-    expect(metrics.sheet.left).toBeGreaterThanOrEqual(metrics.panel.left);
-    expect(metrics.sheet.right).toBeLessThanOrEqual(metrics.panel.right);
-    expect(metrics.sheet.top).toBeGreaterThanOrEqual(metrics.panel.top);
-    expect(metrics.sheet.bottom).toBeLessThanOrEqual(metrics.panel.bottom);
+    expect(metrics.settings.left).toBeGreaterThanOrEqual(metrics.panel.left);
+    expect(metrics.settings.right).toBeLessThanOrEqual(metrics.panel.right);
+    expect(metrics.settings.top).toBeGreaterThanOrEqual(metrics.panel.top);
+    expect(metrics.settings.bottom).toBeLessThanOrEqual(metrics.panel.bottom);
     expect(metrics.panelOverflowX).toBe(false);
   } finally {
     await srv.stop();

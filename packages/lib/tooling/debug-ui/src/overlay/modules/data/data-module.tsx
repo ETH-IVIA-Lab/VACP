@@ -1,5 +1,5 @@
 import type { VacpNode, VacpRef } from '@vacp/core';
-import { ClipboardCopy, Play, RefreshCw } from 'lucide-react';
+import { ClipboardCopy, Play, RefreshCw, TableProperties } from 'lucide-react';
 import type { ReactElement } from 'react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 
@@ -113,10 +113,23 @@ export function DataModule(props: VacpDebugModuleProps): ReactElement {
   };
 
   const resultView = (() => {
-    if (dataSql.status === 'running') return <ModuleEmptyState>Running…</ModuleEmptyState>;
+    if (dataSql.status === 'running') return <ModuleEmptyState>Running...</ModuleEmptyState>;
     if (dataSql.status === 'error')
       return <div className="text-[12px] text-red-50/82">{dataSql.error ?? 'Query failed'}</div>;
-    if (!dataSql.result) return <ModuleEmptyState>Run a query to see results.</ModuleEmptyState>;
+    if (!dataSql.result)
+      return (
+        <ModuleEmptyState className="flex min-h-[86px] items-center justify-center gap-3 rounded-lg border border-dashed border-white/[0.08] bg-white/[0.018] px-4 text-left">
+          <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full border border-teal-200/14 bg-teal-300/[0.06] text-teal-50/72">
+            <TableProperties className="h-5 w-5" aria-hidden="true" />
+          </span>
+          <span className="min-w-0">
+            <span className="block text-[13px] font-semibold text-slate-100/84">Results will appear here</span>
+            <span className="mt-0.5 block max-w-[42ch] text-slate-100/56">
+              Run SQL against the selected handle to preview rows, raw JSON, and the resolved query.
+            </span>
+          </span>
+        </ModuleEmptyState>
+      );
 
     const { table, rawJsonSafe, resolvedSql } = dataSql.result;
     const hasMore = table.truncated;

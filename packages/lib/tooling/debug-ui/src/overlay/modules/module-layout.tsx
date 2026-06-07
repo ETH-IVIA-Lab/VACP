@@ -54,7 +54,7 @@ export function ModuleHeader({
       {...props}
     >
       <div className="min-w-0 flex-1">
-        <div className="truncate text-[12px] font-semibold text-slate-100/86">{title}</div>
+        <div className="min-w-0 break-words text-[12px] font-semibold leading-4 text-slate-100/86">{title}</div>
         {description ? <div className="mt-0.5 text-pretty text-[11px] text-slate-100/58">{description}</div> : null}
       </div>
       {actions ? (

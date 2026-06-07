@@ -96,15 +96,18 @@ function FlagSwitch(props: {
       aria-label={props.label}
       disabled={props.disabled}
       className={cn(
-        'vacp-debug-ui-switch relative inline-flex h-7 w-12 shrink-0 items-center rounded-full border transition-[background-color,border-color,opacity]',
-        props.checked ? 'border-white/16 bg-white/[0.08]' : 'border-white/[0.075] bg-[#101821]/76',
-        props.disabled ? 'cursor-not-allowed opacity-42' : 'cursor-pointer hover:border-white/18',
+        'vacp-debug-ui-switch relative inline-flex h-7 w-12 shrink-0 items-center rounded-full border transition-[background-color,border-color,box-shadow,opacity]',
+        props.checked
+          ? 'border-teal-200/26 bg-teal-300/[0.16] shadow-[inset_0_1px_0_rgba(255,255,255,0.045),0_0_16px_rgba(45,212,191,0.08)]'
+          : 'border-white/[0.075] bg-[#101821]/76',
+        props.disabled ? 'cursor-not-allowed opacity-42' : 'cursor-pointer hover:border-teal-100/24',
       )}
       onClick={() => props.onChange(!props.checked)}
     >
       <span
         className={cn(
-          'inline-flex h-5 w-5 items-center justify-center rounded-full bg-slate-200/88 text-slate-950/70 shadow-sm transition-transform',
+          'inline-flex h-5 w-5 items-center justify-center rounded-full shadow-sm transition-[background-color,color,transform]',
+          props.checked ? 'bg-teal-50 text-teal-950/78' : 'bg-slate-200/88 text-slate-950/70',
           props.checked ? 'translate-x-[22px]' : 'translate-x-1',
         )}
       >
@@ -144,12 +147,12 @@ function FlagRow(props: {
     >
       <div className="min-w-0">
         <div className="flex min-w-0 flex-wrap items-center gap-2">
-          <h3 className="truncate text-[13px] font-semibold text-slate-50">{copy.label}</h3>
+          <h3 className="min-w-0 break-words text-[13px] font-semibold text-slate-50">{copy.label}</h3>
           <SourceBadge source={props.detail.source} />
           <span
             className={cn(
               'rounded-full px-2 py-0.5 text-[11px] font-semibold',
-              props.detail.value ? 'bg-white/[0.065] text-slate-100/72' : 'bg-white/[0.032] text-slate-100/52',
+              props.detail.value ? 'bg-teal-300/[0.10] text-teal-50/84' : 'bg-white/[0.032] text-slate-100/52',
             )}
           >
             {props.detail.value ? 'On' : 'Off'}

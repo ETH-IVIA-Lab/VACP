@@ -74,7 +74,7 @@ const modeHelp = (
 );
 
 function bridgeDotClass(status: VacpDebugBridgeStatus): string {
-  if (status === 'ok') return 'bg-teal-300/88 shadow-[0_0_0_3px_rgba(45,212,191,0.1)]';
+  if (status === 'ok') return 'bg-teal-300 shadow-[0_0_0_3px_rgba(45,212,191,0.16),0_0_14px_rgba(45,212,191,0.34)]';
   if (status === 'unknown') return 'bg-slate-100/42';
   return 'bg-slate-100/24';
 }
@@ -147,14 +147,14 @@ function BridgeBadge(props: { status: VacpDebugBridgeStatus }): ReactElement {
       className={cn(
         'hidden min-h-6 items-center gap-1.5 rounded-full border px-2 text-[10px] font-semibold sm:inline-flex',
         props.status === 'ok'
-          ? 'border-teal-200/18 bg-teal-300/[0.07] text-teal-50/86'
+          ? 'border-teal-200/26 bg-teal-300/[0.12] text-teal-50/95 shadow-[inset_0_1px_0_rgba(255,255,255,0.04),0_0_18px_rgba(45,212,191,0.08)]'
           : props.status === 'unknown'
             ? 'border-white/[0.08] bg-white/[0.035] text-slate-100/64'
             : 'border-white/[0.08] bg-white/[0.035] text-slate-100/56',
       )}
     >
       <span className={cn('h-1.5 w-1.5 rounded-full', bridgeDotClass(props.status))} aria-hidden="true" />
-      {props.status === 'ok' ? 'Active' : props.status === 'unknown' ? 'Checking' : 'No bridge'}
+      {props.status === 'ok' ? 'Bridge' : props.status === 'unknown' ? 'Checking' : 'No bridge'}
     </span>
   );
 }
@@ -201,19 +201,19 @@ function PanelTopBar(props: {
             props.compactPanel || props.showNavLabels ? 'sr-only' : 'hidden w-[188px] shrink-0 sm:block',
           )}
         >
-          <div className="vacp-debug-ui-title flex min-w-0 items-center gap-1.5 truncate text-[12px] font-semibold text-slate-100/90">
+          <div className="vacp-debug-ui-title flex min-w-0 items-center gap-1.5 text-[12px] font-semibold text-slate-100/90">
             <span className="shrink-0 text-slate-100/74" aria-hidden="true">
               {props.activeModule.icon}
             </span>
-            <span className="truncate">{props.activeModule.title}</span>
+            <span className="whitespace-nowrap">{props.activeModule.title}</span>
           </div>
-          <div className="truncate text-[10px] text-slate-100/50">{props.activeModule.description}</div>
+          <div className="text-[10px] text-slate-100/50">{props.activeModule.description}</div>
         </div>
         {props.moduleNav}
       </div>
       <div className="flex shrink-0 items-center justify-end gap-1.5">
-        {props.meta && !props.compactPanel ? (
-          <div className="vacp-debug-ui-meta hidden max-w-[220px] truncate text-[10px] text-slate-100/48 xl:block [font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,'Liberation_Mono','Courier_New',monospace]">
+        {props.meta ? (
+          <div className="vacp-debug-ui-meta sr-only" aria-live="polite">
             {props.meta}
           </div>
         ) : null}
@@ -286,7 +286,7 @@ function ModuleNav(props: {
             value={m.id}
             className={cn(
               'vacp-debug-ui-module group shrink-0 justify-center rounded-md bg-transparent text-slate-100/68 transition-[background-color,color,transform]',
-              props.showLabels ? 'h-8 min-w-0 px-2.5 py-0' : 'h-7 w-7 p-0',
+              props.showLabels ? 'h-8 min-w-0 px-1.5 py-0' : 'h-7 w-7 p-0',
             )}
             data-module-id={m.id}
             title={`${m.title}: ${m.description}`}
@@ -294,7 +294,7 @@ function ModuleNav(props: {
           >
             {m.icon}
             <span
-              className={cn('truncate text-[11px] font-semibold', !props.showLabels && 'sr-only')}
+              className={cn('min-w-0 whitespace-nowrap text-[11px] font-semibold', !props.showLabels && 'sr-only')}
               data-vacp-debug-nav-label={m.id}
             >
               {m.title}

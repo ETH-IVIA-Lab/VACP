@@ -9,15 +9,15 @@ import {
   type VacpAgentToolEvent,
   type VacpLLMConfig,
 } from '@vacp/agent-client';
-import { Activity as ActivityIcon, History, MessageSquarePlus, Settings2, Trash2 } from 'lucide-react';
-import type { ReactElement } from 'react';
+import { Activity as ActivityIcon, History, MessageSquare, MessageSquarePlus, Settings2, Trash2 } from 'lucide-react';
+import type { ReactElement, ReactNode } from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useElementSize } from '@vacp/debug-ui/overlay/hooks/use-element-size';
 import { Button } from '@vacp/debug-ui/ui/components/ui/button';
 import { cn } from '@vacp/debug-ui/ui/lib/utils';
 
-import { ModuleHeader, ModuleRoot } from '../module-layout';
+import { ModuleRoot } from '../module-layout';
 import type { VacpDebugModuleProps } from '../module-types';
 import { ChatConfigPanel } from './chat-config-panel';
 import { ConfiguredChat } from './configured-chat';
@@ -42,12 +42,83 @@ function threadSubtitle(messages: UIMessage[]): string {
   return `${messages.length} message${messages.length === 1 ? '' : 's'} / last: ${role}`;
 }
 
+function ChatModuleHeader(props: {
+  scopeLabel: string;
+  description: string;
+  status: string;
+  statusTone: 'setup' | 'ready' | 'busy';
+  compact: boolean;
+  primaryActions: ReactNode;
+  secondaryActions: ReactNode;
+}): ReactElement {
+  const statusClass =
+    props.statusTone === 'setup'
+      ? 'border-amber-100/16 bg-amber-100/[0.055] text-amber-50/72'
+      : props.statusTone === 'busy'
+        ? 'border-teal-100/18 bg-teal-300/[0.075] text-teal-50/82'
+        : 'border-white/[0.075] bg-white/[0.028] text-slate-100/56';
+
+  return (
+    <header
+      className={cn(
+        'grid shrink-0 border-b border-white/[0.075] py-2',
+        props.compact ? 'gap-2.5' : 'grid-cols-[minmax(220px,1fr)_auto] items-center gap-4',
+      )}
+    >
+      <div className="flex min-w-0 items-center gap-2.5">
+        <span className="grid h-7 w-7 shrink-0 place-items-center rounded-md border border-white/[0.075] bg-white/[0.025] text-slate-100/68">
+          <MessageSquare className="h-3.5 w-3.5" aria-hidden="true" />
+        </span>
+        <div className="min-w-0">
+          <div className="flex min-w-0 items-center gap-2">
+            <span className="min-w-0 truncate text-[13px] font-semibold leading-5 text-slate-100/90">
+              {props.scopeLabel}
+            </span>
+            <span
+              className={cn(
+                'hidden h-5 shrink-0 items-center rounded-full border px-2 text-[10px] font-medium sm:inline-flex',
+                statusClass,
+              )}
+            >
+              {props.status}
+            </span>
+          </div>
+          <div className="mt-0.5 max-w-[64ch] truncate text-[11px] leading-4 text-slate-100/56">
+            {props.description}
+          </div>
+        </div>
+      </div>
+      <div
+        data-vacp-chat-actions="1"
+        className={cn(
+          'flex max-w-full items-center gap-1.5',
+          props.compact
+            ? 'overflow-x-auto pb-0.5 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden'
+            : 'justify-end',
+        )}
+      >
+        <div className="flex shrink-0 items-center gap-1.5">{props.primaryActions}</div>
+        <div className="h-5 w-px shrink-0 bg-white/[0.075]" aria-hidden="true" />
+        <div className="flex shrink-0 items-center gap-1.5">{props.secondaryActions}</div>
+        <span
+          className={cn(
+            'inline-flex h-7 shrink-0 items-center rounded-md border px-2 text-[10px] font-medium sm:hidden',
+            statusClass,
+          )}
+        >
+          {props.status}
+        </span>
+      </div>
+    </header>
+  );
+}
+
 export function ChatModule(props: VacpDebugModuleProps): ReactElement {
   const rootRef = useRef<HTMLDivElement | null>(null);
   const rootSize = useElementSize(rootRef);
   const wide = rootSize.width >= 960;
   const iconOnlyActions = rootSize.width < 500;
-  const roomyHeader = rootSize.width >= 640;
+  const compactHeader = rootSize.width < 640;
 
   const initialConfig = useMemo(() => {
     const activeProvider = loadVacpLLMActiveProvider() ?? DEFAULT_CONFIG.provider;
@@ -164,27 +235,26 @@ export function ChatModule(props: VacpDebugModuleProps): ReactElement {
     });
   }, [scopeId, activeThreadId, activeThread?.sessionRevision, credentialRevision, props.runtime.runtimeId, config]);
 
-  const sidePanelOpen = settingsOpen || threadPickerOpen;
+  const settingsSheetOpen = configReady && settingsOpen;
+  const sidePanelOpen = settingsSheetOpen || threadPickerOpen;
   const sidePanelWide = rootSize.width >= 860;
+  const chatStatus = !configReady
+    ? 'Setup needed'
+    : activeThread
+      ? `${activeThread.messages.length} message${activeThread.messages.length === 1 ? '' : 's'}`
+      : 'Preparing';
+  const chatStatusTone = !configReady ? 'setup' : activeThread ? 'ready' : 'busy';
 
   return (
     <ModuleRoot rootRef={rootRef} className="flex flex-col overflow-hidden">
-      <ModuleHeader
-        title={scopeMeta.label}
-        description={roomyHeader ? 'Ask questions, run actions, and inspect tool traces.' : undefined}
-        compact={!roomyHeader}
-        className="pb-3"
-        commandBarProps={{
-          'data-vacp-chat-actions': '1',
-          className: cn(
-            'max-w-full',
-            roomyHeader
-              ? 'shrink-0 justify-end'
-              : 'overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden',
-          ),
-        }}
-        actions={
-          <>
+      <ChatModuleHeader
+        scopeLabel={scopeMeta.label}
+        description="Ask questions, run actions, and inspect tool traces."
+        status={chatStatus}
+        statusTone={chatStatusTone}
+        compact={compactHeader}
+        primaryActions={
+          <div className="flex items-center gap-1.5">
             <Button
               size={iconOnlyActions ? 'iconSm' : 'sm'}
               className="shrink-0"
@@ -234,7 +304,10 @@ export function ChatModule(props: VacpDebugModuleProps): ReactElement {
               <Trash2 className="h-4 w-4 text-slate-100/90" />
               <span className={iconOnlyActions ? 'sr-only' : ''}>Clear</span>
             </Button>
-
+          </div>
+        }
+        secondaryActions={
+          <div className="flex items-center gap-1.5">
             <Button
               size={iconOnlyActions ? 'iconSm' : 'sm'}
               className="shrink-0"
@@ -251,17 +324,21 @@ export function ChatModule(props: VacpDebugModuleProps): ReactElement {
               className="shrink-0"
               data-vacp-chat-settings-toggle="1"
               aria-label="Toggle settings"
-              title="Toggle settings"
-              aria-pressed={settingsOpen}
+              title={configReady ? 'Toggle settings' : 'Settings are shown in the chat tab'}
+              aria-pressed={settingsSheetOpen}
               onClick={() => {
                 setThreadPickerOpen(false);
-                setSettingsOpen(scopeId, !settingsOpen);
+                if (!configReady) {
+                  setSettingsOpen(scopeId, false);
+                  return;
+                }
+                setSettingsOpen(scopeId, !settingsSheetOpen);
               }}
             >
               <Settings2 className="h-4 w-4 text-slate-100/90" />
               <span className={iconOnlyActions ? 'sr-only' : ''}>Settings</span>
             </Button>
-          </>
+          </div>
         }
       />
 
@@ -278,30 +355,29 @@ export function ChatModule(props: VacpDebugModuleProps): ReactElement {
       >
         <main className="min-h-0 min-w-0 overflow-hidden">
           {!configReady ? (
-            <div
-              className={cn(
-                'flex h-full min-h-0 justify-center p-6 text-center',
-                rootSize.width >= 900 ? 'items-start pt-14' : 'items-center',
-              )}
-            >
-              <div className="max-w-sm rounded-lg border border-white/[0.075] bg-white/[0.022] px-5 py-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.025)]">
-                <div className="text-sm font-semibold text-slate-100/90">Add provider settings to start chatting.</div>
-                <div className="mt-1 text-[11px] text-slate-100/64">
-                  Provider, API key, and model are required. Base URL is required for OpenAI-compatible endpoints.
-                </div>
-                <Button
-                  size="sm"
-                  variant="primary"
-                  className="mt-3"
-                  data-vacp-chat-open-settings="1"
-                  onClick={() => {
-                    setThreadPickerOpen(false);
-                    setSettingsOpen(scopeId, true);
-                  }}
-                >
-                  Open settings
-                </Button>
-              </div>
+            <div className="flex h-full min-h-0 justify-center overflow-hidden">
+              <ChatConfigPanel
+                className="h-full max-h-none w-full max-w-[1180px] px-4 py-5"
+                config={config}
+                onConfigChange={updateConfig}
+                onProviderChange={switchProvider}
+                showApiKey={showApiKey}
+                onToggleApiKey={() => setShowApiKey((v) => !v)}
+                availableModels={availableModels}
+                loadingModels={modelsLoading}
+                modelsError={modelsError}
+                onRefreshModels={refreshModels}
+                showClose={false}
+                onClose={() => setSettingsOpen(scopeId, false)}
+                onClearConfig={() => {
+                  clearVacpLLMConfig();
+                  setConfig(defaultVacpLLMConfigForProvider(config.provider));
+                  resetConnectionState();
+                  if (sessionCacheKey) deleteVacpChatSession(sessionCacheKey);
+                  if (activeThreadId) clearThread(scopeId, activeThreadId);
+                  setActivityOpen(scopeId, false);
+                }}
+              />
             </div>
           ) : activeThreadId && activeThread ? (
             <ConfiguredChat
@@ -390,7 +466,7 @@ export function ChatModule(props: VacpDebugModuleProps): ReactElement {
               </div>
             </div>
           </aside>
-        ) : settingsOpen ? (
+        ) : settingsSheetOpen ? (
           <aside
             data-vacp-chat-settings-sheet="1"
             className={cn(
