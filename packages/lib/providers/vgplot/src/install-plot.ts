@@ -11,6 +11,7 @@ export function installVacpOnVgplot(plot: VgplotPlotLike, svg: SVGElement, optio
       title: options.title,
       description: options.description,
       globalKey: options.globalKey,
+      runtimeId: options.runtimeId,
     },
   });
 }

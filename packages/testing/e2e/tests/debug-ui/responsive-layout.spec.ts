@@ -2,15 +2,27 @@ import { expect, test, type Page } from '@playwright/test';
 
 import { startViteDevServer } from '../helpers/devserver';
 import { exampleDir } from '../helpers/paths';
-import { waitForVacpBridge } from './helpers';
+import { chatScrollState, runtimeId, seedDebugChatThreadOnNextLoad, waitForVacpBridge } from './helpers';
 
 const MODULES = ['Graph', 'Data', 'Actions', 'History', 'Chat', 'Settings', 'JSON'] as const;
+const COMPACT_READY_THREAD_ID = 'thread:responsive-ready-chat';
+const COMPACT_READY_QUESTION = 'summarize the active chart and cite the visible evidence';
+const COMPACT_READY_ANSWER = Array.from(
+  { length: 60 },
+  (_, idx) =>
+    `Evidence note ${idx + 1}: describe the active visualization, preserve the analytical context, and keep the transcript tall enough to exercise compact panel scrolling.`,
+).join('\n\n');
+const COMPACT_READY_VIEWPORTS = [
+  { name: 'mobile-ready', width: 430, height: 820, runtimeId: '00000000-0000-4000-8000-000000000201' },
+  { name: 'narrow-ready', width: 360, height: 800, runtimeId: '00000000-0000-4000-8000-000000000202' },
+] as const;
 
 const VIEWPORTS = [
   { name: 'desktop', width: 1440, height: 1050 },
   { name: 'laptop', width: 1280, height: 800 },
   { name: 'tablet', width: 768, height: 900 },
   { name: 'mobile', width: 430, height: 820 },
+  { name: 'narrow-mobile', width: 360, height: 800 },
 ] as const;
 
 type Rect = {
@@ -124,6 +136,34 @@ async function expectNavLabels(page: Page, expected: 'visible' | 'icon-only', sc
       expect(item.visible, `${scope}:${item.label} label hidden`).toBe(false);
     }
   }
+}
+
+async function compactReadyChatMetrics(page: Page): Promise<{
+  panel: Rect;
+  input: Rect;
+  panelOverflowX: boolean;
+  tabpanelOverflowX: boolean;
+}> {
+  return await page.evaluate(() => {
+    const panel = document.getElementById('vacp-debug-ui-panel');
+    const activeTab = panel?.querySelector<HTMLElement>('[role="tabpanel"][data-state="active"]');
+    const input = document.querySelector<HTMLElement>('[data-vacp-chat-input="1"]');
+    if (!panel || !activeTab || !input) throw new Error('Missing ready chat layout nodes');
+    const rect = (r: DOMRect): Rect => ({
+      left: r.left,
+      top: r.top,
+      right: r.right,
+      bottom: r.bottom,
+      width: r.width,
+      height: r.height,
+    });
+    return {
+      panel: rect(panel.getBoundingClientRect()),
+      input: rect(input.getBoundingClientRect()),
+      panelOverflowX: panel.scrollWidth > panel.clientWidth + 1,
+      tabpanelOverflowX: activeTab.scrollWidth > activeTab.clientWidth + 1,
+    };
+  });
 }
 
 function navLabelsMatch(labels: Awaited<ReturnType<typeof navLabelState>>, expected: 'visible' | 'icon-only'): boolean {
@@ -254,3 +294,72 @@ test('debug-ui: chat setup settings stay inside the mobile overlay', async ({ pa
     await srv.stop();
   }
 });
+
+for (const viewport of COMPACT_READY_VIEWPORTS) {
+  test(`debug-ui: compact ready chat stays usable inside the ${viewport.name} overlay`, async ({ page }) => {
+    const srv = await startViteDevServer({
+      name: 'vgplot-gallery',
+      cwd: exampleDir('vgplot-gallery'),
+    });
+
+    try {
+      await page.setViewportSize({ width: viewport.width, height: viewport.height });
+      await page.addInitScript(() => {
+        localStorage.removeItem('vacp:debug:size');
+        localStorage.removeItem('vacp:debug:dock');
+      });
+      await seedDebugChatThreadOnNextLoad(page, {
+        runtimeId: viewport.runtimeId,
+        threadId: `${COMPACT_READY_THREAD_ID}:${viewport.name}`,
+        question: COMPACT_READY_QUESTION,
+        answer: COMPACT_READY_ANSWER,
+        label: 'wnba-shots',
+        sessionKey: 'vgplot/wnba-shots',
+        viewRef: 'vacp://vacp-examples/vgplot/wnba-shots',
+        vizRef: 'vacp://vacp-examples/vgplot/wnba-shots/plot-0',
+      });
+      await page.goto(`${srv.url}?vacp-debug=1&vacp-runtime-id=${viewport.runtimeId}#wnba-shots`, {
+        waitUntil: 'domcontentloaded',
+      });
+      await waitForVacpBridge(page, { requireRuntime: true });
+      await expect.poll(async () => await runtimeId(page)).toBe(viewport.runtimeId);
+
+      const pill = page.locator('button.vacp-debug-ui-button');
+      await expect(pill).toBeVisible();
+      await pill.click();
+      await expect(page.locator('#vacp-debug-ui-panel')).toBeVisible();
+
+      await page.getByRole('tab', { name: 'Chat' }).click();
+      await expect(page.locator('[data-vacp-chat-input="1"]')).toBeVisible();
+
+      const layout = await compactReadyChatMetrics(page);
+      expect(layout.input.left).toBeGreaterThanOrEqual(layout.panel.left);
+      expect(layout.input.right).toBeLessThanOrEqual(layout.panel.right);
+      expect(layout.input.bottom).toBeLessThanOrEqual(layout.panel.bottom);
+      expect(layout.panelOverflowX).toBe(false);
+      expect(layout.tabpanelOverflowX).toBe(false);
+
+      await expect
+        .poll(async () => await chatScrollState(page))
+        .toMatchObject({ overflow: true, outerScrollMoved: false });
+
+      const scrollerBox = await page.locator('[data-vacp-chat-msgs="1"]').boundingBox();
+      if (!scrollerBox) throw new Error('Missing chat scroller box');
+      await page.mouse.move(scrollerBox.x + scrollerBox.width / 2, scrollerBox.y + scrollerBox.height / 2);
+      await page.mouse.wheel(0, -10_000);
+
+      await expect
+        .poll(async () => await chatScrollState(page))
+        .toMatchObject({ atTop: true, firstUserVisible: true, outerScrollMoved: false });
+
+      const jumpToLatest = page.getByRole('button', { name: 'Jump to latest' });
+      await expect(jumpToLatest).toBeVisible();
+      await jumpToLatest.click();
+      await expect
+        .poll(async () => await chatScrollState(page))
+        .toMatchObject({ overflow: true, atBottom: true, outerScrollMoved: false });
+    } finally {
+      await srv.stop();
+    }
+  });
+}

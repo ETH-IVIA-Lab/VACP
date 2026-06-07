@@ -73,9 +73,11 @@ export function useDebugPanelLayout(args: {
 
     const dock = readDockBox(root);
     const rect = panelLayoutSize(panel);
-    const maxWidth = Math.max(360, window.innerWidth - PANEL_MARGIN * 2);
+    const availableWidth = Math.max(1, window.innerWidth - PANEL_MARGIN * 2);
+    const minWidth = Math.min(360, availableWidth);
+    const maxWidth = Math.max(minWidth, availableWidth);
     const maxHeight = maxPanelHeight(root);
-    const width = clamp(rect.width, 360, maxWidth);
+    const width = clamp(rect.width, minWidth, maxWidth);
     const height = clamp(rect.height, 260, maxHeight);
     if (Math.abs(width - rect.width) > 0.5) panel.style.width = `${width}px`;
     if (Math.abs(height - rect.height) > 0.5) panel.style.height = `${height}px`;

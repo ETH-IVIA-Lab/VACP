@@ -21,6 +21,7 @@ export async function installVacp(args: {
 }): Promise<void> {
   const appId = 'vacp-examples';
   const viewId = `vgplot/${args.entry.id}`;
+  const runtimeId = new URLSearchParams(window.location.search).get('vacp-runtime-id')?.trim() || undefined;
 
   const bridge = installVacpOnVgplotDashboard({
     root: args.root,
@@ -31,6 +32,7 @@ export async function installVacp(args: {
       viewId,
       title: args.entry.meta.title,
       globalKey: args.globalKey,
+      runtimeId,
       duckdbClient: args.duckdbClient,
     },
   });

@@ -5,7 +5,8 @@ export const DEBUG_UI_PANEL_BREAKPOINTS = {
   compactControls: 760,
   stackLegend: 720,
   splitPane: 980,
-  chatCompactActions: 900,
+  chatCompactPanel: 520,
+  chatRoomyConversationHeader: 680,
   chatInlineActivity: 1120,
 } as const;
 

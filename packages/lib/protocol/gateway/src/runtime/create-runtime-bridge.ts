@@ -36,6 +36,7 @@ export function createRuntimeBridge(args: {
   snapshots: VacpSnapshotProvider;
   actions: VacpActionRegistry;
   sessionKey?: string;
+  runtimeId?: string;
 }): VacpUpdatableRuntimeBridge {
   type Adapter = { snapshots: VacpSnapshotProvider; actions: VacpActionRegistry };
   type AdapterUpdate = Adapter & { sessionKey?: string };
@@ -43,7 +44,7 @@ export function createRuntimeBridge(args: {
   let sessionKey = typeof args.sessionKey === 'string' && args.sessionKey.length ? args.sessionKey : null;
 
   const listeners = new Set<(entry: VacpHistoryEntry) => void>();
-  const runtimeId = makeEntryId();
+  const runtimeId = args.runtimeId?.trim() || makeEntryId();
 
   let mode: VacpRuntimeMode = 'live';
   let cursor = -1;

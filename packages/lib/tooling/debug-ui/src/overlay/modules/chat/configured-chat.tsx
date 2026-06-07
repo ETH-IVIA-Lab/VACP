@@ -13,6 +13,7 @@ import { AlertTriangle, ClipboardCopy, Loader2, RefreshCw, Send, Square } from '
 import type { ReactElement } from 'react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 
+import { DEBUG_UI_PANEL_BREAKPOINTS } from '@vacp/debug-ui/overlay/debug-ui-breakpoints';
 import { Button } from '@vacp/debug-ui/ui/components/ui/button';
 import { Textarea } from '@vacp/debug-ui/ui/components/ui/textarea';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@vacp/debug-ui/ui/components/ui/tooltip';
@@ -195,7 +196,6 @@ type ConfiguredChatProps = {
   onRegenerate: () => void;
   onCloseActivity: () => void;
   showActivity: boolean;
-  wide: boolean;
 };
 
 export function ConfiguredChat(props: ConfiguredChatProps): ReactElement {
@@ -242,9 +242,9 @@ export function ConfiguredChat(props: ConfiguredChatProps): ReactElement {
   const lastUsage = useMemo(() => latestAssistantUsage(uiMessages), [uiMessages]);
   const totalUsage = useMemo(() => threadUsage(uiMessages), [uiMessages]);
   const busy = status === 'submitted' || status === 'streaming';
-  const activityWide = props.panelWidth >= 1120;
-  const compactPanel = props.panelWidth < 520;
-  const roomyConversationHeader = props.panelWidth >= 680;
+  const activityWide = props.panelWidth >= DEBUG_UI_PANEL_BREAKPOINTS.chatInlineActivity;
+  const compactPanel = props.panelWidth < DEBUG_UI_PANEL_BREAKPOINTS.chatCompactPanel;
+  const roomyConversationHeader = props.panelWidth >= DEBUG_UI_PANEL_BREAKPOINTS.chatRoomyConversationHeader;
   const autoScrollSignal = `${status}:${uiMessages.length}:${latestTextLength(uiMessages)}`;
   const { scrollRef, contentRef, stickToBottom, jumpToLatest } = useChatAutoscroll(autoScrollSignal);
   const [policyNotice, setPolicyNotice] = useState<string | null>(null);

@@ -19,6 +19,8 @@ export type ChatConfigPanelProps = {
   loadingModels: boolean;
   modelsError: string | null;
   onRefreshModels: () => void;
+  compact?: boolean;
+  showHeading?: boolean;
   showClose?: boolean;
   className?: string;
 };
@@ -30,48 +32,65 @@ export function ChatConfigPanel(props: ChatConfigPanelProps): ReactElement {
   const provider = props.config.provider;
   const openAICompatibleSelected = provider === 'openai-compatible';
   const currentModelInList = props.availableModels.some((item) => item.id === props.config.model);
+  const compact = props.compact ?? false;
+  const showHeading = props.showHeading ?? true;
 
   return (
     <section
       data-vacp-chat-settings-panel="1"
       className={cn(
-        'vacp-chat-scroll grid min-h-0 content-start gap-4 overflow-y-auto overflow-x-hidden p-4',
+        'vacp-chat-scroll grid min-h-0 content-start overflow-y-auto overflow-x-hidden p-4',
+        compact ? 'gap-3' : 'gap-4',
         props.className,
       )}
     >
-      <div className="flex items-start gap-2">
-        <div className="min-w-0 flex-1">
-          <div className="text-[11px] font-semibold uppercase text-slate-100/75">Settings</div>
-          <div className="mt-1 text-pretty text-[11px] text-slate-100/70">
-            Configure your chat provider and model for this browser session.
-          </div>
-        </div>
-        <div className="flex items-center gap-1">
-          <Button
-            size="iconSm"
-            aria-label="Clear saved config"
-            title="Clear saved config"
-            onClick={props.onClearConfig}
-          >
-            <Trash2 className="h-4 w-4 text-slate-100/90" />
-          </Button>
-          {props.showClose ?? true ? (
-            <Button size="iconSm" aria-label="Close settings" title="Close settings" onClick={props.onClose}>
-              <X className="h-4 w-4 text-slate-100/90" />
-            </Button>
-          ) : null}
-        </div>
-      </div>
-
-      <div className="grid gap-4">
-        <section className="grid gap-3 border-t border-white/[0.075] pt-4">
-          <div>
-            <div className="text-[11px] font-semibold text-slate-100/85">Connection</div>
-            <div className="mt-1 text-pretty text-[11px] text-slate-100/60">
-              Choose the provider endpoint and the model exposed to the debug-ui chat runtime.
+      {showHeading ? (
+        <div className="flex items-start gap-2">
+          <div className="min-w-0 flex-1">
+            <div className="text-[11px] font-semibold uppercase text-slate-100/75">Settings</div>
+            <div className="mt-1 text-pretty text-[11px] text-slate-100/70">
+              Configure your chat provider and model for this browser session.
             </div>
           </div>
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <div className="flex items-center gap-1">
+            <Button
+              size="iconSm"
+              aria-label="Clear saved config"
+              title="Clear saved config"
+              onClick={props.onClearConfig}
+            >
+              <Trash2 className="h-4 w-4 text-slate-100/90" />
+            </Button>
+            {props.showClose ?? true ? (
+              <Button size="iconSm" aria-label="Close settings" title="Close settings" onClick={props.onClose}>
+                <X className="h-4 w-4 text-slate-100/90" />
+              </Button>
+            ) : null}
+          </div>
+        </div>
+      ) : null}
+
+      <div className={cn('grid', compact ? 'gap-3' : 'gap-4')}>
+        <section className={cn('grid gap-3', showHeading && 'border-t border-white/[0.075] pt-4')}>
+          <div className="flex items-start gap-2">
+            <div className="min-w-0 flex-1">
+              <div className="text-[11px] font-semibold text-slate-100/85">Connection</div>
+              <div className="mt-1 text-pretty text-[11px] text-slate-100/60">
+                Choose the provider endpoint and model exposed to the debug-ui chat runtime.
+              </div>
+            </div>
+            {!showHeading ? (
+              <Button
+                size="iconSm"
+                aria-label="Clear saved config"
+                title="Clear saved config"
+                onClick={props.onClearConfig}
+              >
+                <Trash2 className="h-4 w-4 text-slate-100/90" />
+              </Button>
+            ) : null}
+          </div>
+          <div className={cn('grid grid-cols-1 gap-3', !compact && 'sm:grid-cols-2')}>
             <label className="text-[11px] text-slate-100/80">
               Provider
               <select
@@ -96,7 +115,7 @@ export function ChatConfigPanel(props: ChatConfigPanelProps): ReactElement {
                 >
                   {props.availableModels.length === 0 ? (
                     <option value={props.config.model}>
-                      {props.loadingModels ? 'Loading models…' : 'No models loaded'}
+                      {props.loadingModels ? 'Loading models...' : 'No models loaded'}
                     </option>
                   ) : null}
                   {props.availableModels.map((model) => (
@@ -131,7 +150,7 @@ export function ChatConfigPanel(props: ChatConfigPanelProps): ReactElement {
               </div>
             </label>
             {openAICompatibleSelected ? (
-              <label className="text-[11px] text-slate-100/80">
+              <label className={cn('text-[11px] text-slate-100/80', !compact && 'sm:col-span-2')}>
                 Base URL
                 <Input
                   data-vacp-chat-baseurl="1"
@@ -180,9 +199,9 @@ export function ChatConfigPanel(props: ChatConfigPanelProps): ReactElement {
 
         <details className="border-t border-white/[0.075] pt-4">
           <summary className="cursor-pointer select-none text-[11px] font-semibold text-slate-100/80">Advanced</summary>
-          <div className="mt-2 grid gap-3 sm:grid-cols-3">
+          <div className={cn('mt-2 grid grid-cols-1 gap-3', !compact && 'sm:grid-cols-3')}>
             {!openAICompatibleSelected ? (
-              <label className="text-[11px] text-slate-100/80 sm:col-span-3">
+              <label className={cn('text-[11px] text-slate-100/80', !compact && 'sm:col-span-3')}>
                 Base URL (optional)
                 <Input
                   data-vacp-chat-baseurl="1"
@@ -193,7 +212,7 @@ export function ChatConfigPanel(props: ChatConfigPanelProps): ReactElement {
                 />
               </label>
             ) : null}
-            <label className="text-[11px] text-slate-100/80 sm:col-span-3">
+            <label className={cn('text-[11px] text-slate-100/80', !compact && 'sm:col-span-3')}>
               Manual model id
               <Input
                 data-vacp-chat-model="1"
@@ -204,7 +223,7 @@ export function ChatConfigPanel(props: ChatConfigPanelProps): ReactElement {
               />
             </label>
             {openAICompatibleSelected ? (
-              <label className="text-[11px] text-slate-100/80 sm:col-span-3">
+              <label className={cn('text-[11px] text-slate-100/80', !compact && 'sm:col-span-3')}>
                 Provider name
                 <Input
                   data-vacp-chat-provider-name="1"

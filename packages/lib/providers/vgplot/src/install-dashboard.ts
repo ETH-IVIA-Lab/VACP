@@ -302,6 +302,7 @@ export function installVacpOnVgplotDashboard(args: {
     actions: actionRegistry,
     globalKey: options.globalKey,
     sessionKey: options.viewId,
+    runtimeId: options.runtimeId,
   });
   const { notifyRuntime } = createRuntimeNotifier({
     getSource: () => lastChangeSource,

@@ -76,6 +76,7 @@ export function installVacpRuntimeBridge(args: {
   actions: VacpActionRegistry;
   globalKey?: string;
   sessionKey?: string;
+  runtimeId?: string;
   /**
    * If true (default), inject a `type="application/json"` `<script>` tag whose
    * contents are pure JSON containing `{ capabilities, state }`.
@@ -129,6 +130,7 @@ export function installVacpRuntimeBridge(args: {
     snapshots: args.snapshots,
     actions: args.actions,
     sessionKey: args.sessionKey,
+    runtimeId: args.runtimeId,
   });
   if (exposeBridge) {
     root[key] = bridge;

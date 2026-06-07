@@ -31,10 +31,12 @@ function saveSize(storageKey: string, size: Size): void {
 }
 
 function applySize(panel: HTMLElement, size: Size, bounds: ResizeBounds = {}): Size {
-  const maxW = Math.max(360, bounds.maxWidth ?? window.innerWidth - PANEL_MARGIN * 2);
+  const availableW = Math.max(1, bounds.maxWidth ?? window.innerWidth - PANEL_MARGIN * 2);
+  const minW = Math.min(360, availableW);
+  const maxW = Math.max(minW, availableW);
   const maxH = Math.max(260, bounds.maxHeight ?? window.innerHeight - 92);
   const next = {
-    width: clamp(size.width, 360, maxW),
+    width: clamp(size.width, minW, maxW),
     height: clamp(size.height, 260, maxH),
   };
   panel.style.width = `${next.width}px`;

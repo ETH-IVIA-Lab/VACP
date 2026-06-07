@@ -4,6 +4,112 @@ type DebugBridgeWaitOptions = {
   requireRuntime?: boolean;
 };
 
+type SeedDebugChatThreadOptions = {
+  runtimeId: string;
+  threadId: string;
+  question: string;
+  answer: string;
+  label?: string;
+  sessionKey?: string;
+  viewRef?: string;
+  vizRef?: string;
+  model?: string;
+};
+
+export type ChatScrollState = {
+  overflow: boolean;
+  atTop: boolean;
+  atBottom: boolean;
+  firstUserVisible: boolean;
+  outerScrollMoved: boolean;
+};
+
+function seedDebugChatThreadInBrowser(opts: SeedDebugChatThreadOptions): void {
+  const urlKey = `${location.origin}${location.pathname}${location.hash}`;
+  const scopeId = `runtime:${opts.runtimeId}:url:${urlKey}`;
+  const createdAt = '2026-03-10T00:00:00.000Z';
+  const label = opts.label ?? 'current view';
+  const sessionKey = opts.sessionKey ?? label;
+  const viewRef = opts.viewRef ?? `vacp://vacp-examples/${label}`;
+  const vizRef = opts.vizRef ?? `${viewRef}/plot-0`;
+
+  localStorage.setItem(
+    'vacp:debug:chat:llmConfig:v1',
+    JSON.stringify({
+      version: 2,
+      activeProvider: 'openai-compatible',
+      providerConfigs: {
+        'openai-compatible': {
+          provider: 'openai-compatible',
+          providerName: 'openai-compatible',
+          baseURL: 'http://localhost:8317/v1',
+          apiKey: 'default',
+          model: opts.model ?? 'gpt-5.4',
+          temperature: 0.2,
+          maxSteps: 10,
+          maxOutputTokens: 900,
+        },
+      },
+    }),
+  );
+
+  localStorage.setItem(
+    'vacp:debug:chat:history:v1',
+    JSON.stringify({
+      state: {
+        version: 1,
+        activeScopeId: scopeId,
+        scopes: {
+          [scopeId]: {
+            meta: {
+              scopeId,
+              label,
+              runtimeId: opts.runtimeId,
+              sessionKey,
+              viewRef,
+              vizRef,
+              urlKey,
+              updatedAt: createdAt,
+            },
+            activeThreadId: opts.threadId,
+            threadOrder: [opts.threadId],
+            threads: {
+              [opts.threadId]: {
+                id: opts.threadId,
+                title: opts.question,
+                createdAt,
+                updatedAt: createdAt,
+                sessionRevision: 0,
+                messages: [
+                  {
+                    id: 'message:user',
+                    role: 'user',
+                    parts: [{ type: 'text', text: opts.question }],
+                  },
+                  {
+                    id: 'message:assistant',
+                    role: 'assistant',
+                    parts: [{ type: 'text', text: opts.answer }],
+                  },
+                ],
+                toolEvents: [],
+              },
+            },
+          },
+        },
+        draftByThreadKey: {
+          [`${scopeId}::${opts.threadId}`]: '',
+        },
+        activityOpenByScope: {},
+        settingsOpenByScope: {
+          [scopeId]: false,
+        },
+      },
+      version: 1,
+    }),
+  );
+}
+
 export async function waitForVacpBridge(page: Page, options: DebugBridgeWaitOptions = {}): Promise<void> {
   await page.waitForFunction((requireRuntime) => {
     type BrowserBridge = { getRuntime?: unknown };
@@ -19,6 +125,48 @@ export async function runtimeId(page: Page): Promise<string | null> {
     const bridge = (globalThis as typeof globalThis & { __vacp?: BrowserBridge }).__vacp;
     const runtime = await bridge?.getRuntime?.();
     return runtime?.runtimeId ?? null;
+  });
+}
+
+export async function seedDebugChatThreadOnNextLoad(page: Page, options: SeedDebugChatThreadOptions): Promise<void> {
+  await page.addInitScript(seedDebugChatThreadInBrowser, options);
+}
+
+export async function seedDebugChatThread(page: Page, options: SeedDebugChatThreadOptions): Promise<void> {
+  await page.evaluate(seedDebugChatThreadInBrowser, options);
+}
+
+export async function chatScrollState(page: Page): Promise<ChatScrollState> {
+  return await page.evaluate(() => {
+    const scroller = document.querySelector('[data-vacp-chat-msgs="1"]') as HTMLDivElement | null;
+    const panel = document.getElementById('vacp-debug-ui-panel');
+    const activePanel = panel?.querySelector('[role="tabpanel"][data-state="active"]') as HTMLElement | null;
+    const firstUser = document.querySelector('[data-vacp-chat-message-role="user"]') as HTMLElement | null;
+    if (!scroller || !panel || !activePanel) {
+      return { overflow: false, atTop: false, atBottom: false, firstUserVisible: false, outerScrollMoved: false };
+    }
+
+    const maxScrollTop = Math.max(0, scroller.scrollHeight - scroller.clientHeight);
+    const scrollerRect = scroller.getBoundingClientRect();
+    const firstUserRect = firstUser?.getBoundingClientRect();
+    const firstUserVisible = Boolean(
+      firstUserRect && firstUserRect.bottom > scrollerRect.top && firstUserRect.top < scrollerRect.bottom,
+    );
+    const scrollableAncestors: HTMLElement[] = [];
+    for (let node = scroller.parentElement; node && node !== panel; node = node.parentElement) {
+      if (!activePanel.contains(node)) continue;
+      if (node.scrollHeight > node.clientHeight + 1 || Math.abs(node.scrollTop) > 1) {
+        scrollableAncestors.push(node);
+      }
+    }
+
+    return {
+      overflow: maxScrollTop > 0,
+      atTop: Math.abs(scroller.scrollTop) <= 1,
+      atBottom: maxScrollTop > 0 && Math.abs(scroller.scrollTop - maxScrollTop) <= 1,
+      firstUserVisible,
+      outerScrollMoved: scrollableAncestors.some((node) => Math.abs(node.scrollTop) > 1) || Math.abs(panel.scrollTop) > 1,
+    };
   });
 }
 
