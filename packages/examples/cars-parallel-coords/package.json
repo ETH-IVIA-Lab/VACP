@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "dev:full": "pnpm --filter @vacp/debug-ui build && pnpm exec concurrently -k -n debug-ui,vite \"pnpm --filter @vacp/debug-ui dev:watch\" \"vite\"",
+    "dev:full": "pnpm run dev",
     "build": "vite build",
     "preview": "vite preview",
     "lint": "oxlint src",
@@ -20,7 +20,8 @@
     "d3": "^7.9.0"
   },
   "devDependencies": {
+    "@tailwindcss/vite": "^4.3.0",
     "@types/d3": "^7.4.3",
-    "vite": "^7.3.1"
+    "vite": "^8.0.16"
   }
 }

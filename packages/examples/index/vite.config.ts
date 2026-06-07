@@ -4,6 +4,12 @@ import tailwind from '@tailwindcss/vite';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
 import { existsSync, readFileSync } from 'node:fs';
+import {
+  normalizeVacpBasePath,
+  vacpWorkspaceAliases,
+  vacpWorkspaceDedupe,
+  vacpWorkspaceOptimizeDeps,
+} from '../vite.workspace';
 
 type ManifestEntry = {
   id: string;
@@ -13,15 +19,6 @@ type ManifestEntry = {
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const workspaceRoot = resolve(__dirname, '../../..');
 const manifestPath = resolve(__dirname, 'examples.manifest.json');
-
-function normalizeBasePath(raw: string | undefined): string {
-  const v = String(raw ?? '').trim();
-  if (!v) return '/';
-  let base = v;
-  if (!base.startsWith('/')) base = `/${base}`;
-  if (!base.endsWith('/')) base = `${base}/`;
-  return base;
-}
 
 function readManifest(): ManifestEntry[] {
   const raw = JSON.parse(readFileSync(manifestPath, 'utf8')) as unknown;
@@ -51,7 +48,7 @@ function buildInput(): Record<string, string> {
   return inputs;
 }
 
-const base = normalizeBasePath(process.env.VACP_BASE_PATH);
+const base = normalizeVacpBasePath(process.env.VACP_BASE_PATH);
 const hmr = base !== '/' ? { path: `${base}__hmr` } : undefined;
 
 export default defineConfig({
@@ -60,17 +57,20 @@ export default defineConfig({
   envPrefix: ['VITE_', 'VACP_'],
   publicDir: '.generated-public',
   plugins: [react(), tailwind()],
+  optimizeDeps: vacpWorkspaceOptimizeDeps({ includeExampleSiblings: true }),
   server: {
     fs: { allow: [workspaceRoot] },
     ...(hmr ? { hmr } : {}),
   },
   resolve: {
-    alias: {
-      '@': resolve(__dirname, '../react-dashboard/src'),
-    },
+    alias: [
+      ...vacpWorkspaceAliases(workspaceRoot),
+      { find: '@', replacement: resolve(__dirname, '../react-dashboard/src') },
+    ],
+    dedupe: vacpWorkspaceDedupe,
   },
   build: {
-    rollupOptions: {
+    rolldownOptions: {
       input: buildInput(),
     },
   },
