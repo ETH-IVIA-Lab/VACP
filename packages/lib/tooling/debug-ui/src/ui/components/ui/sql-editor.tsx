@@ -202,7 +202,7 @@ export const SqlEditor = forwardRef<ReactCodeMirrorRef, SqlEditorProps>(
           <button
             type="button"
             aria-label="Resize SQL editor"
-            className="absolute bottom-2 right-2 z-10 h-4 w-4 cursor-nwse-resize rounded-sm border border-white/[0.08] bg-black/16 text-slate-100/50 opacity-55 hover:opacity-85 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300/35"
+            className="absolute bottom-2 right-2 z-10 h-4 w-4 cursor-nwse-resize rounded-sm border border-white/[0.08] bg-black/16 text-slate-100/50 opacity-55 hover:opacity-85 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/30"
             onMouseDown={(ev) => {
               ev.preventDefault();
               const startY = ev.clientY;

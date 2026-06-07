@@ -163,7 +163,7 @@ export function ChatMessages(props: {
                     message.role === 'assistant'
                       ? 'border-white/[0.075] bg-white/[0.026]'
                       : message.role === 'user'
-                        ? 'border-emerald-200/18 bg-emerald-300/[0.055]'
+                        ? 'border-white/12 bg-white/[0.07]'
                         : 'border-white/[0.075] bg-white/[0.02]',
                   )}
                 >
@@ -181,7 +181,7 @@ export function ChatMessages(props: {
       {props.showJumpToLatest ? (
         <button
           type="button"
-          className="absolute bottom-4 right-4 rounded-md border border-emerald-200/24 bg-emerald-300/[0.09] px-2 py-1 text-[11px] font-medium text-emerald-50/84 hover:bg-emerald-300/[0.13]"
+          className="absolute bottom-4 right-4 rounded-md border border-white/14 bg-white/[0.08] px-2 py-1 text-[11px] font-medium text-slate-50/84 hover:bg-white/[0.12]"
           onClick={props.onJumpToLatest}
         >
           Jump to latest

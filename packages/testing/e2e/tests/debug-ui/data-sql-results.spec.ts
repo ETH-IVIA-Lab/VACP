@@ -4,6 +4,7 @@ import { mkdir } from 'node:fs/promises';
 
 import { startViteDevServer } from '../helpers/devserver';
 import { artifactDir, exampleDir } from '../helpers/paths';
+import { waitForVacpBridge } from './helpers';
 
 const artifactsDir = artifactDir('playwright-debug-ui-data-sql');
 
@@ -19,7 +20,7 @@ async function openDebugUi(page: import('@playwright/test').Page): Promise<void>
 }
 
 async function runDefaultDataSqlAndExpectResults(page: import('@playwright/test').Page): Promise<void> {
-  const dataTab = page.locator('button.vacp-debug-ui-module', { hasText: 'Data' });
+  const dataTab = page.getByRole('tab', { name: 'Data' });
   await expect(dataTab).toBeVisible({ timeout: 15_000 });
   await dataTab.click();
 
@@ -59,7 +60,7 @@ for (const c of cases) {
     try {
       const targetUrl = c.hash ? `${srv.url}?vacp-debug=1${c.hash}` : `${srv.url}?vacp-debug=1`;
       await page.goto(targetUrl, { waitUntil: 'domcontentloaded' });
-      await page.waitForFunction(() => !!(globalThis as any).__vacp);
+      await waitForVacpBridge(page);
 
       await openDebugUi(page);
       await runDefaultDataSqlAndExpectResults(page);

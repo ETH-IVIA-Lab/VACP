@@ -2,6 +2,7 @@ import { expect, test } from '@playwright/test';
 
 import { startViteDevServer } from '../helpers/devserver';
 import { exampleDir } from '../helpers/paths';
+import { dispatchSwappedDimensionOrder, waitForVacpBridge } from './helpers';
 
 test('debug-ui: state update probe surfaces full and delta summaries', async ({ page }) => {
   const srv = await startViteDevServer({
@@ -11,14 +12,14 @@ test('debug-ui: state update probe surfaces full and delta summaries', async ({ 
 
   try {
     await page.goto(`${srv.url}?vacp-debug=1`, { waitUntil: 'domcontentloaded' });
-    await page.waitForFunction(() => !!(globalThis as any).__vacp);
+    await waitForVacpBridge(page);
 
     const pill = page.locator('button.vacp-debug-ui-button');
     await expect(pill).toBeVisible();
     await pill.click();
     await expect(page.locator('#vacp-debug-ui-panel')).toBeVisible();
 
-    const jsonTab = page.locator('.vacp-debug-ui-module', { hasText: 'JSON' });
+    const jsonTab = page.getByRole('tab', { name: 'JSON' });
     await expect(jsonTab).toBeVisible();
     await jsonTab.click();
 
@@ -34,27 +35,7 @@ test('debug-ui: state update probe surfaces full and delta summaries', async ({ 
     await expect.poll(async () => await sinceInput.inputValue()).toMatch(/^st_[a-f0-9]+$/);
     await expect(page.locator('[data-vacp-state-update="summary"]')).toContainText(/mode[:=]\s*full/i);
 
-    await page.evaluate(async () => {
-      const b = (globalThis as any).__vacp;
-      if (!b || typeof b.dispatch !== 'function') throw new Error('Missing bridge.dispatch');
-
-      const snap = await b.getState();
-      const st = snap && typeof snap === 'object' ? (snap as any).state : null;
-      const param = st
-        ? (Object.values(st).find(
-            (v: any) => v && typeof v === 'object' && v.kind === 'Param' && Array.isArray((v as any).value),
-          ) as any)
-        : null;
-      const base = Array.isArray(param?.value) ? param.value.map((x: any) => String(x)) : [];
-      if (base.length < 2) throw new Error('Expected dimension order with >= 2 entries');
-
-      const swapped = [...base];
-      [swapped[0], swapped[1]] = [swapped[1], swapped[0]];
-      await b.dispatch(
-        { callId: crypto.randomUUID(), name: 'parallel_coords.set_dimension_order', params: { order: swapped } },
-        { source: 'debug', message: 'state update probe delta check' },
-      );
-    });
+    await dispatchSwappedDimensionOrder(page, 'state update probe delta check');
 
     await page.selectOption('[data-vacp-state-update="mode"]', 'delta');
     await page.locator('button[aria-label="Request update"]').click();

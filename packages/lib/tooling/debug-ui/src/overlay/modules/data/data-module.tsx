@@ -7,13 +7,13 @@ import { DEBUG_UI_PANEL_BREAKPOINTS, isDenseDebugPanel } from '@vacp/debug-ui/ov
 import { IconButton } from '@vacp/debug-ui/overlay/icon-button';
 import { useVacpDebugUiStore } from '@vacp/debug-ui/overlay/debug-store';
 import { useElementSize } from '@vacp/debug-ui/overlay/hooks/use-element-size';
-import { Card, CardDescription, CardHeader, CardTitle } from '@vacp/debug-ui/ui/components/ui/card';
 import { JsonViewer } from '@vacp/debug-ui/ui/components/ui/json-viewer';
 import { SqlEditor } from '@vacp/debug-ui/ui/components/ui/sql-editor';
 import { SqlResultTable } from '@vacp/debug-ui/ui/components/ui/sql-result-table';
 import { copyTextToClipboard } from '@vacp/debug-ui/ui/lib/clipboard';
 import { cn } from '@vacp/debug-ui/ui/lib/utils';
 import type { VacpDebugModuleProps } from '../module-types';
+import { ModuleEmptyState, ModuleField, ModuleHeader, ModulePane, ModuleRoot } from '../module-layout';
 import { defaultQuery, shortRef } from './data-utils';
 import { useDataSql } from './use-data-sql';
 import { useSqlNamespace } from './use-sql-namespace';
@@ -23,6 +23,7 @@ export function DataModule(props: VacpDebugModuleProps): ReactElement {
   const rootSize = useElementSize(rootRef);
   const compactControls = rootSize.width < DEBUG_UI_PANEL_BREAKPOINTS.compactControls;
   const dense = isDenseDebugPanel(rootSize.width, rootSize.height);
+  const boundWide = rootSize.width >= DEBUG_UI_PANEL_BREAKPOINTS.splitPane;
   const iconButtonSize = 'iconSm';
   const tableRowHeight = 30;
   const tableHeaderHeight = 34;
@@ -31,7 +32,7 @@ export function DataModule(props: VacpDebugModuleProps): ReactElement {
   const inlineCodeClass =
     'rounded-md border border-white/[0.075] bg-[#101821]/70 px-1.5 py-0.5 text-[11px] font-medium text-slate-100/84 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.015)]';
   const selectClass =
-    'mt-1 w-full rounded-lg border border-white/[0.08] bg-[#101821]/72 px-3 py-2.5 text-xs text-slate-100/90 outline-none focus:border-emerald-200/24 focus:ring-2 focus:ring-emerald-300/24';
+    'w-full rounded-lg border border-white/[0.08] bg-[#101821]/72 px-3 py-2.5 text-xs text-slate-100/90 outline-none focus:border-white/22 focus:ring-2 focus:ring-white/22';
 
   const handles = useMemo(() => {
     const nodes = props.runtime.currentCapabilities.graph.nodes as VacpNode[];
@@ -112,10 +113,10 @@ export function DataModule(props: VacpDebugModuleProps): ReactElement {
   };
 
   const resultView = (() => {
-    if (dataSql.status === 'running') return <div className="text-[12px] text-slate-100/80">Running…</div>;
+    if (dataSql.status === 'running') return <ModuleEmptyState>Running…</ModuleEmptyState>;
     if (dataSql.status === 'error')
       return <div className="text-[12px] text-red-50/82">{dataSql.error ?? 'Query failed'}</div>;
-    if (!dataSql.result) return <div className="text-[12px] text-slate-100/80">Run a query to see results.</div>;
+    if (!dataSql.result) return <ModuleEmptyState>Run a query to see results.</ModuleEmptyState>;
 
     const { table, rawJsonSafe, resolvedSql } = dataSql.result;
     const hasMore = table.truncated;
@@ -140,12 +141,12 @@ export function DataModule(props: VacpDebugModuleProps): ReactElement {
           headerHeight={tableHeaderHeight}
         />
 
-        <details className="mt-3 rounded-lg border border-white/[0.075] bg-white/[0.02] px-3 py-2">
+        <details className="mt-3 border-t border-white/[0.075] pt-2">
           <summary className="cursor-pointer text-[12px] text-slate-100/80">Raw JSON</summary>
           <JsonViewer value={rawJsonSafe} className="mt-2 max-h-[320px]" />
         </details>
 
-        <details className="mt-3 rounded-lg border border-white/[0.075] bg-white/[0.02] px-3 py-2">
+        <details className="mt-3 border-t border-white/[0.075] pt-2">
           <summary className="cursor-pointer text-[12px] text-slate-100/80">Resolved SQL</summary>
           <div className="mt-2">
             <SqlEditor value={resolvedSql} readOnly autoFocus={false} height="140px" />
@@ -164,58 +165,51 @@ export function DataModule(props: VacpDebugModuleProps): ReactElement {
   const canRun = Boolean(selectedHandle);
 
   return (
-    <div ref={rootRef} className={cn('grid h-full min-h-0 grid-rows-[auto_minmax(0,1fr)]', dense ? 'gap-2' : 'gap-3')}>
-      <Card className={cn('flex flex-col', dense ? 'gap-2 p-2' : 'gap-3')}>
-        <CardHeader className={cn(compactControls && 'flex-col items-stretch gap-2')}>
-          <div className="min-w-0">
-            <CardTitle>Data</CardTitle>
-            <CardDescription>
-              Query the currently selected handle with DuckDB SQL and inspect the resolved query and result payload.
-            </CardDescription>
-          </div>
-          <div
-            className={cn(
-              'flex items-center gap-2',
-              compactControls
-                ? 'w-full flex-nowrap justify-start overflow-x-auto gap-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden'
-                : 'shrink-0',
-            )}
-          >
-            <IconButton
-              icon={<Play className="h-4 w-4 text-slate-100/90" />}
-              label="Run query"
-              title="Run the SQL query against this handle."
-              variant="primary"
-              size={iconButtonSize}
-              disabled={!canRun || dataSql.status === 'running'}
-              onMouseDown={(ev) => ev.preventDefault()}
-              onClick={() => void run()}
-            />
-            <IconButton
-              icon={<RefreshCw className="h-4 w-4 text-slate-100/90" />}
-              label="Refresh snapshots"
-              title="Ask the provider to refresh its state snapshot."
-              size={iconButtonSize}
-              onMouseDown={(ev) => ev.preventDefault()}
-              onClick={() => void refresh()}
-            />
-            <IconButton
-              icon={<ClipboardCopy className="h-4 w-4 text-slate-100/90" />}
-              label="Copy SQL"
-              title="Copy the current SQL to clipboard."
-              size={iconButtonSize}
-              disabled={!selectedSql.trim()}
-              onMouseDown={(ev) => ev.preventDefault()}
-              onClick={() => void copyTextToClipboard(selectedSql)}
-            />
-          </div>
-        </CardHeader>
+    <ModuleRoot
+      rootRef={rootRef}
+      boundWide={boundWide}
+      className={cn('grid h-full min-h-0 grid-rows-[auto_minmax(0,1fr)]', dense ? 'gap-2' : 'gap-3')}
+    >
+      <ModulePane className={cn('flex flex-col', dense ? 'gap-2' : 'gap-3')}>
+        <ModuleHeader
+          title="Query"
+          description="Run DuckDB SQL against the selected handle."
+          compact={compactControls}
+          actions={
+            <>
+              <IconButton
+                icon={<Play className="h-4 w-4 text-slate-100/90" />}
+                label="Run query"
+                title="Run the SQL query against this handle."
+                variant="primary"
+                size={iconButtonSize}
+                disabled={!canRun || dataSql.status === 'running'}
+                onMouseDown={(ev) => ev.preventDefault()}
+                onClick={() => void run()}
+              />
+              <IconButton
+                icon={<RefreshCw className="h-4 w-4 text-slate-100/90" />}
+                label="Refresh snapshots"
+                title="Ask the provider to refresh its state snapshot."
+                size={iconButtonSize}
+                onMouseDown={(ev) => ev.preventDefault()}
+                onClick={() => void refresh()}
+              />
+              <IconButton
+                icon={<ClipboardCopy className="h-4 w-4 text-slate-100/90" />}
+                label="Copy SQL"
+                title="Copy the current SQL to clipboard."
+                size={iconButtonSize}
+                disabled={!selectedSql.trim()}
+                onMouseDown={(ev) => ev.preventDefault()}
+                onClick={() => void copyTextToClipboard(selectedSql)}
+              />
+            </>
+          }
+        />
 
         <div className={cn('grid', dense ? 'gap-2' : 'gap-3')}>
-          <div>
-            <label className="text-[11px] font-medium text-slate-100/70" htmlFor="vacp-handle">
-              Handle
-            </label>
+          <ModuleField label="Handle" htmlFor="vacp-handle">
             <select
               id="vacp-handle"
               className={selectClass}
@@ -228,12 +222,9 @@ export function DataModule(props: VacpDebugModuleProps): ReactElement {
                 </option>
               ))}
             </select>
-          </div>
+          </ModuleField>
 
-          <div>
-            <label className="text-[11px] font-medium text-slate-100/70" htmlFor="vacp-sql">
-              SQL
-            </label>
+          <ModuleField label="SQL" htmlFor="vacp-sql">
             <SqlEditor
               id="vacp-sql"
               ref={editorRef}
@@ -243,36 +234,33 @@ export function DataModule(props: VacpDebugModuleProps): ReactElement {
               onRun={() => void run()}
               schema={sqlSchema}
               placeholder="DuckDB SQL (Mod+Enter to run, Ctrl/Cmd+Space to complete)"
-              className="mt-1"
             />
             <div className="mt-1 text-[11px] text-slate-100/55">
               Tip: Shift+click or double-click a cell to copy it
               {props.runtime.mode === 'inspect' ? ' (autocomplete schema is live-mode only).' : '.'}
             </div>
-          </div>
+          </ModuleField>
         </div>
-      </Card>
-      <Card className={cn('flex min-h-0 flex-col overflow-hidden', dense && 'p-2')}>
-        <CardHeader>
-          <div>
-            <CardTitle>Result</CardTitle>
-            <CardDescription>
-              {selectedHandle ? (
-                <>
-                  Active handle:{' '}
-                  <code className={inlineCodeClass}>{selectedHandleTitle ?? shortRef(selectedHandle)}</code>{' '}
-                  <span className="text-slate-100/60">({shortRef(selectedHandle)})</span>
-                </>
-              ) : handles.length ? (
-                'Select a DataHandle to query.'
-              ) : (
-                'No DataHandles available for this view.'
-              )}
-            </CardDescription>
-          </div>
-        </CardHeader>
-        <div className={cn('min-h-0 flex-1 overflow-auto', dense ? 'p-2' : 'p-3')}>{resultView}</div>
-      </Card>
-    </div>
+      </ModulePane>
+      <ModulePane className="flex min-h-0 flex-col overflow-hidden">
+        <ModuleHeader
+          title="Result"
+          description={
+            selectedHandle ? (
+              <>
+                Active handle:{' '}
+                <code className={inlineCodeClass}>{selectedHandleTitle ?? shortRef(selectedHandle)}</code>{' '}
+                <span className="text-slate-100/60">({shortRef(selectedHandle)})</span>
+              </>
+            ) : handles.length ? (
+              'Select a DataHandle to query.'
+            ) : (
+              'No DataHandles available for this view.'
+            )
+          }
+        />
+        <div className={cn('min-h-0 flex-1 overflow-auto', dense ? 'pt-2' : 'pt-3')}>{resultView}</div>
+      </ModulePane>
+    </ModuleRoot>
   );
 }

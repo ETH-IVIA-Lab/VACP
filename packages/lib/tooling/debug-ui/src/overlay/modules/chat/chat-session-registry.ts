@@ -35,6 +35,7 @@ export function createVacpChatSessionCacheKey(args: {
   scopeId: string;
   threadId: string;
   sessionRevision?: number;
+  credentialRevision?: number;
   runtimeId: string | undefined;
   config: VacpLLMConfig;
 }): string {
@@ -42,6 +43,7 @@ export function createVacpChatSessionCacheKey(args: {
     args.scopeId,
     args.threadId,
     String(args.sessionRevision ?? 0),
+    String(args.credentialRevision ?? 0),
     args.runtimeId ?? 'unknown-runtime',
     args.config.provider,
     args.config.providerName.trim(),

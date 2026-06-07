@@ -58,6 +58,7 @@ export function createVacpDebugDock(args: {
   onDrop?: () => void;
 }) {
   const { root, handles, storageKey, onMove, onDrop } = args;
+  const installedHandles: HTMLElement[] = [];
 
   const applyInitialPos = () => {
     const saved = readPos(storageKey);
@@ -81,93 +82,115 @@ export function createVacpDebugDock(args: {
     onDrop?.();
   };
 
+  let dragging = false;
+  let activeHandle: HTMLElement | null = null;
+  let suppressClickHandle: HTMLElement | null = null;
+  let startX = 0;
+  let startLeft = 0;
+  let raf = 0;
+  let pendingX: number | null = null;
+
   const installDrag = (handle: HTMLElement) => {
-    let dragging = false;
-    let suppressClick = false;
-    let startX = 0;
-    let startLeft = 0;
-    let raf = 0;
-    let pendingX: number | null = null;
+    if (installedHandles.includes(handle)) return;
+    installedHandles.push(handle);
+  };
 
-    const beginDrag = () => {
-      if (dragging) return;
-      dragging = true;
-      root.classList.add('vacp-debug-ui-dragging');
-    };
+  const handleForTarget = (target: Element | null): HTMLElement | null => {
+    if (!target) return null;
+    return installedHandles.find((handle) => handle === target || handle.contains(target)) ?? null;
+  };
 
-    const move = (x: number) => {
-      const dx = x - startX;
-      if (!dragging && Math.abs(dx) < DRAG_THRESHOLD) return;
-      beginDrag();
-      moveTo(startLeft + dx);
-    };
+  const beginDrag = () => {
+    if (dragging) return;
+    dragging = true;
+    root.classList.add('vacp-debug-ui-dragging');
+  };
 
-    const scheduleMove = (x: number) => {
-      pendingX = x;
-      if (raf) return;
-      raf = window.requestAnimationFrame(() => {
-        raf = 0;
-        if (pendingX === null) return;
-        const next = pendingX;
-        pendingX = null;
-        move(next);
-      });
-    };
+  const move = (x: number) => {
+    const dx = x - startX;
+    if (!dragging && Math.abs(dx) < DRAG_THRESHOLD) return;
+    beginDrag();
+    moveTo(startLeft + dx);
+  };
 
-    const cleanupWindowListeners = () => {
-      window.removeEventListener('pointermove', onPointerMove);
-      window.removeEventListener('pointerup', onPointerUp);
-      window.removeEventListener('pointercancel', onPointerUp);
-      if (raf) window.cancelAnimationFrame(raf);
+  const scheduleMove = (x: number) => {
+    pendingX = x;
+    if (raf) return;
+    raf = window.requestAnimationFrame(() => {
       raf = 0;
+      if (pendingX === null) return;
+      const next = pendingX;
       pendingX = null;
-    };
-
-    const onPointerMove = (ev: PointerEvent) => {
-      scheduleMove(ev.clientX);
-    };
-
-    const onPointerUp = (ev: PointerEvent) => {
-      const finalX = pendingX ?? ev.clientX;
-      cleanupWindowListeners();
-      if (!dragging) return;
-      move(finalX);
-      dragging = false;
-      suppressClick = true;
-      root.classList.remove('vacp-debug-ui-dragging');
-      commitPosition();
-    };
-
-    handle.addEventListener(
-      'click',
-      (ev) => {
-        if (!suppressClick) return;
-        suppressClick = false;
-        ev.preventDefault();
-        ev.stopPropagation();
-      },
-      { capture: true },
-    );
-
-    handle.addEventListener('pointerdown', (ev) => {
-      if (ev.button !== 0) return;
-      const target = ev.target as Element | null;
-      const interactive = target?.closest('button, a, input, textarea, select, option, [role="button"]');
-      if (interactive && interactive !== handle) return;
-      const rect = root.getBoundingClientRect();
-      dragging = false;
-      suppressClick = false;
-      startX = ev.clientX;
-      startLeft = rect.left;
-      handle.setPointerCapture?.(ev.pointerId);
-      window.addEventListener('pointermove', onPointerMove);
-      window.addEventListener('pointerup', onPointerUp);
-      window.addEventListener('pointercancel', onPointerUp);
+      move(next);
     });
+  };
+
+  const cleanupWindowListeners = () => {
+    window.removeEventListener('pointermove', onPointerMove);
+    window.removeEventListener('pointerup', onPointerUp);
+    window.removeEventListener('pointercancel', onPointerCancel);
+    if (raf) window.cancelAnimationFrame(raf);
+    raf = 0;
+    pendingX = null;
+  };
+
+  const onPointerMove = (ev: PointerEvent) => {
+    scheduleMove(ev.clientX);
+  };
+
+  const onPointerUp = (ev: PointerEvent) => {
+    const finalX = pendingX ?? ev.clientX;
+    cleanupWindowListeners();
+    if (!dragging) return;
+    move(finalX);
+    dragging = false;
+    suppressClickHandle = activeHandle;
+    activeHandle = null;
+    root.classList.remove('vacp-debug-ui-dragging');
+    commitPosition();
+  };
+
+  const onPointerCancel = () => {
+    cleanupWindowListeners();
+    dragging = false;
+    activeHandle = null;
+    suppressClickHandle = null;
+    root.classList.remove('vacp-debug-ui-dragging');
+  };
+
+  const onClick = (ev: MouseEvent) => {
+    if (!suppressClickHandle) return;
+    const target = ev.target as Element | null;
+    const shouldSuppress = Boolean(target && (suppressClickHandle === target || suppressClickHandle.contains(target)));
+    suppressClickHandle = null;
+    if (!shouldSuppress) return;
+    ev.preventDefault();
+    ev.stopPropagation();
+  };
+
+  const onPointerDown = (ev: PointerEvent) => {
+    if (ev.button !== 0) return;
+    const target = ev.target as Element | null;
+    const handle = handleForTarget(target);
+    if (!handle) return;
+    const interactive = target?.closest('button, a, input, textarea, select, option, [role="button"]');
+    if (interactive && interactive !== handle) return;
+    const rect = root.getBoundingClientRect();
+    dragging = false;
+    activeHandle = handle;
+    suppressClickHandle = null;
+    startX = ev.clientX;
+    startLeft = rect.left;
+    handle.setPointerCapture?.(ev.pointerId);
+    window.addEventListener('pointermove', onPointerMove);
+    window.addEventListener('pointerup', onPointerUp);
+    window.addEventListener('pointercancel', onPointerCancel);
   };
 
   const attach = () => {
     handles.forEach((handle) => installDrag(handle));
+    window.addEventListener('click', onClick, { capture: true });
+    window.addEventListener('pointerdown', onPointerDown, { capture: true });
     queueMicrotask(() => applyInitialPos());
     window.addEventListener('resize', () => {
       const rect = root.getBoundingClientRect();
@@ -177,5 +200,5 @@ export function createVacpDebugDock(args: {
     });
   };
 
-  return { attach };
+  return { attach, addHandle: installDrag };
 }

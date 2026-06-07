@@ -1,5 +1,5 @@
 import type { ReactElement } from 'react';
-import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useId, useLayoutEffect, useMemo, useReducer, useRef, useState } from 'react';
 
 import { createVacpDebugDock } from '@vacp/debug-ui/dock';
 import { installVacpDebugResizer } from '@vacp/debug-ui/resize';
@@ -19,11 +19,32 @@ import { DebugUiView, type VacpDebugBridgeStatus } from './debug-ui-view';
 import { useElementSize } from './hooks/use-element-size';
 import { useDebugPanelLayout } from './hooks/use-debug-panel-layout';
 
+type PanelTransition = { visible: boolean; closing: boolean };
+
+type PanelTransitionAction = { type: 'open' } | { type: 'close' } | { type: 'closed' };
+
+function panelTransitionReducer(state: PanelTransition, action: PanelTransitionAction): PanelTransition {
+  if (action.type === 'open') {
+    if (state.visible && !state.closing) return state;
+    return { visible: true, closing: false };
+  }
+
+  if (action.type === 'close') {
+    if (!state.visible) return state;
+    return { visible: true, closing: true };
+  }
+
+  if (!state.closing) return state;
+  return { visible: false, closing: false };
+}
+
 export function VacpDebugUiApp(props: { globalKey: string; includeActions: boolean }): ReactElement {
   const rootRef = useRef<HTMLDivElement | null>(null);
   const buttonRef = useRef<HTMLButtonElement | null>(null);
   const panelHeaderRef = useRef<HTMLDivElement | null>(null);
+  const compactDragRef = useRef<HTMLDivElement | null>(null);
   const panelRef = useRef<HTMLDivElement | null>(null);
+  const dockRef = useRef<ReturnType<typeof createVacpDebugDock> | null>(null);
   const titleId = useId();
 
   const open = useVacpDebugUiStore((s) => s.open);
@@ -33,27 +54,26 @@ export function VacpDebugUiApp(props: { globalKey: string; includeActions: boole
   const setModuleId = useVacpDebugUiStore((s) => s.setModuleId);
 
   const [plotKey, setPlotKey] = useState(0);
-  const [panelVisible, setPanelVisible] = useState(open);
-  const [panelClosing, setPanelClosing] = useState(false);
+  const [panelTransition, dispatchPanelTransition] = useReducer(panelTransitionReducer, {
+    visible: open,
+    closing: false,
+  });
 
   useEffect(() => {
     setIncludeActionsDefault(props.includeActions);
   }, [props.includeActions, setIncludeActionsDefault]);
 
   useEffect(() => {
-    if (open) {
-      setPanelVisible(true);
-      setPanelClosing(false);
-      return;
-    }
-    if (!panelVisible) return;
-    setPanelClosing(true);
+    dispatchPanelTransition({ type: open ? 'open' : 'close' });
+  }, [open]);
+
+  useEffect(() => {
+    if (!panelTransition.closing) return;
     const timeout = window.setTimeout(() => {
-      setPanelVisible(false);
-      setPanelClosing(false);
+      dispatchPanelTransition({ type: 'closed' });
     }, 170);
     return () => window.clearTimeout(timeout);
-  }, [open, panelVisible]);
+  }, [panelTransition.closing]);
 
   const bridgePresence = useVacpBridgePresence(props.globalKey);
   const bridgeQuery = useVacpBridge(props.globalKey, open);
@@ -83,23 +103,25 @@ export function VacpDebugUiApp(props: { globalKey: string; includeActions: boole
       ? 'unknown'
       : 'missing';
 
-  const { maximized, panelPosition, minimize, toggleMaximize } = useDebugPanelLayout({
+  const { panelPosition } = useDebugPanelLayout({
     rootRef,
     panelRef,
-    open: panelVisible,
+    open: panelTransition.visible,
   });
 
   useLayoutEffect(() => {
-    if (!panelVisible) return;
+    if (!panelTransition.visible) return;
     panelPosition();
-  }, [panelVisible, panelPosition, panelSize.height, panelSize.width]);
+  }, [panelTransition.visible, panelPosition, panelSize.height, panelSize.width]);
 
   useLayoutEffect(() => {
     const root = rootRef.current;
     const button = buttonRef.current;
     const header = panelHeaderRef.current;
+    const compactDrag = compactDragRef.current;
     if (!root || !button) return;
     const handles: HTMLElement[] = header ? [button, header] : [button];
+    if (compactDrag) handles.push(compactDrag);
     const dock = createVacpDebugDock({
       root,
       handles,
@@ -107,9 +129,20 @@ export function VacpDebugUiApp(props: { globalKey: string; includeActions: boole
       onMove: () => panelPosition(),
       onDrop: () => panelPosition(),
     });
+    dockRef.current = dock;
     dock.attach();
     // No cleanup: the overlay lives for the page lifetime.
   }, [panelPosition]);
+
+  useLayoutEffect(() => {
+    if (!panelTransition.visible) return;
+    const dock = dockRef.current;
+    if (!dock) return;
+    const header = panelHeaderRef.current;
+    const compactDrag = compactDragRef.current;
+    if (header) dock.addHandle(header);
+    if (compactDrag) dock.addHandle(compactDrag);
+  }, [compactPanel, panelTransition.visible]);
 
   useLayoutEffect(() => {
     const panel = panelRef.current;
@@ -191,8 +224,6 @@ export function VacpDebugUiApp(props: { globalKey: string; includeActions: boole
     };
   }, []);
 
-  const title = useMemo(() => `VACP Debug (${props.globalKey})`, [props.globalKey]);
-
   const meta = useMemo(() => {
     const rt = runtimeQuery.data;
     if (!rt) return '';
@@ -206,15 +237,16 @@ export function VacpDebugUiApp(props: { globalKey: string; includeActions: boole
       rid ? `runtime=${rid}` : null,
     ]
       .filter(Boolean)
-      .join(' • ');
+      .join(' / ');
   }, [runtimeQuery.data]);
 
+  const dockAction = open ? 'close debug tools' : 'open debug tools';
   const pillTitle =
     bridgeStatus === 'ok'
-      ? 'VACP bridge attached (open debug tools)'
+      ? `VACP bridge attached (${dockAction})`
       : bridgeStatus === 'unknown'
-        ? 'Checking for VACP bridge…'
-        : 'No VACP bridge found (open debug tools)';
+        ? 'Checking for VACP bridge...'
+        : `No VACP bridge found (${dockAction})`;
 
   const bridge = bridgeQuery.data ?? null;
   const runtime = runtimeQuery.data ?? null;
@@ -250,10 +282,11 @@ export function VacpDebugUiApp(props: { globalKey: string; includeActions: boole
         buttonRef={buttonRef}
         panelRef={panelRef}
         panelHeaderRef={panelHeaderRef}
+        compactDragRef={compactDragRef}
         titleId={titleId}
         open={open}
-        panelVisible={panelVisible}
-        panelClosing={panelClosing}
+        panelVisible={panelTransition.visible}
+        panelClosing={panelTransition.closing}
         setOpen={setOpen}
         moduleId={moduleId}
         setModuleId={setModuleId}
@@ -261,11 +294,7 @@ export function VacpDebugUiApp(props: { globalKey: string; includeActions: boole
         densePanel={densePanel}
         bridgeStatus={bridgeStatus}
         pillTitle={pillTitle}
-        title={title}
         meta={meta}
-        maximized={maximized}
-        minimize={minimize}
-        toggleMaximize={toggleMaximize}
         bridge={bridge}
         runtime={runtime}
         renderModule={renderModule}

@@ -2,6 +2,7 @@ import { expect, test } from '@playwright/test';
 
 import { startViteDevServer } from '../helpers/devserver';
 import { exampleDir } from '../helpers/paths';
+import { waitForVacpBridge } from './helpers';
 
 test('debug-ui: default overlay and settings browser overrides', async ({ page }) => {
   const srv = await startViteDevServer({
@@ -10,7 +11,7 @@ test('debug-ui: default overlay and settings browser overrides', async ({ page }
   });
   try {
     await page.goto(srv.url, { waitUntil: 'domcontentloaded' });
-    await page.waitForFunction(() => !!(globalThis as any).__vacp);
+    await waitForVacpBridge(page);
 
     const pill = page.locator('button.vacp-debug-ui-button');
     await expect(pill).toBeVisible();
@@ -19,8 +20,8 @@ test('debug-ui: default overlay and settings browser overrides', async ({ page }
     const panel = page.locator('#vacp-debug-ui-panel');
     await expect(panel).toBeVisible();
 
-    await page.locator('button.vacp-debug-ui-module', { hasText: 'Settings' }).click();
-    await expect(page.locator('.vacp-debug-ui-content')).toContainText('VACP Settings');
+    await page.getByRole('tab', { name: 'Settings' }).click();
+    await expect(page.locator('.vacp-debug-ui-content')).toContainText('Feature flags');
     await expect(page.locator('.vacp-debug-ui-content')).toContainText('Debug overlay');
     await expect(page.locator('.vacp-debug-ui-content')).toContainText('Bridge exposure');
     await expect(page.locator('.vacp-debug-ui-content')).toContainText('DOM snapshot');

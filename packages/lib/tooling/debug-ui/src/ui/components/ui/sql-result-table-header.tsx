@@ -76,7 +76,7 @@ export function SqlResultTableHeader({
                   className={cn(
                     'absolute right-0 top-0 h-full w-[6px] cursor-col-resize',
                     'after:absolute after:right-[2px] after:top-0 after:h-full after:w-[1px] after:bg-white/[0.08]',
-                    columnSizingInfo.isResizingColumn === header.id && 'after:bg-emerald-200/50',
+                    columnSizingInfo.isResizingColumn === header.id && 'after:bg-slate-100/42',
                   )}
                   onDoubleClick={() => header.column.resetSize()}
                   onMouseDown={(e) => {

@@ -27,17 +27,6 @@
   }
 }
 
-@keyframes vacp-debug-tab-enter {
-  from {
-    opacity: 0;
-    transform: translateY(3px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
 /* Host apps may ship global `button { ... }` rules. Because Tailwind utilities are in cascade layers,
    those unlayered host rules would otherwise win and break the debug UI. `revert-layer` restores the
    expected Tailwind styles within the debug overlay. */
@@ -52,6 +41,16 @@
 #vacp-debug-ui-panel {
   transform-origin: bottom center;
   backdrop-filter: blur(18px) saturate(1.12);
+}
+
+#vacp-debug-ui-panel::after {
+  content: '';
+  position: absolute;
+  inset: auto calc(50% - 46px) 0;
+  height: 2px;
+  border-radius: 999px 999px 0 0;
+  background: linear-gradient(90deg, transparent, rgba(226, 232, 240, 0.24), transparent);
+  pointer-events: none;
 }
 
 #vacp-debug-ui-panel[data-state='open'] {
@@ -76,29 +75,19 @@
 }
 
 #vacp-debug-ui-panel .vacp-debug-ui-module::before {
-  content: '';
-  position: absolute;
-  inset: 9px auto 9px 10px;
-  width: 2px;
-  border-radius: 999px;
-  background: transparent;
-  opacity: 0;
-  transition:
-    background-color 140ms ease,
-    opacity 140ms ease;
+  content: none;
 }
 
-#vacp-debug-ui-panel .vacp-debug-ui-module[data-state='active']::before {
-  background: rgba(110, 231, 183, 0.62);
-  opacity: 1;
+#vacp-debug-ui-panel .vacp-debug-ui-module[data-state='active'] {
+  background: rgba(255, 255, 255, 0.085);
+  color: rgba(248, 250, 252, 0.94);
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.08),
+    0 1px 0 rgba(255, 255, 255, 0.025);
 }
 
 #vacp-debug-ui-panel .vacp-debug-ui-module:active {
   transform: scale(0.985);
-}
-
-#vacp-debug-ui-panel .vacp-debug-ui-tab-content[data-state='active'] {
-  animation: vacp-debug-tab-enter 140ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 #vacp-debug-ui-panel .vacp-debug-ui-switch:not(:disabled):active {
@@ -131,8 +120,8 @@
 #vacp-debug-ui-panel .vacp-debug-ui-diagram svg g.node:focus polygon,
 #vacp-debug-ui-panel .vacp-debug-ui-diagram svg g.node:focus circle,
 #vacp-debug-ui-panel .vacp-debug-ui-diagram svg g.node:focus path {
-  fill: rgba(19, 32, 29, 0.98) !important;
-  stroke: rgba(110, 231, 183, 0.48) !important;
+  fill: rgba(23, 31, 38, 0.98) !important;
+  stroke: rgba(226, 232, 240, 0.42) !important;
 }
 
 #vacp-debug-ui-panel .vacp-debug-ui-diagram svg text,
@@ -264,8 +253,8 @@
 #vacp-debug-ui-panel .vacp-debug-ui-diagram svg g.node.vacp-selected polygon,
 #vacp-debug-ui-panel .vacp-debug-ui-diagram svg g.node.vacp-selected circle,
 #vacp-debug-ui-panel .vacp-debug-ui-diagram svg g.node.vacp-selected path {
-  fill: rgba(19, 32, 29, 0.98) !important;
-  stroke: rgba(110, 231, 183, 0.72) !important;
+  fill: rgba(23, 31, 38, 0.98) !important;
+  stroke: rgba(226, 232, 240, 0.66) !important;
   stroke-width: 3px !important;
 }
 

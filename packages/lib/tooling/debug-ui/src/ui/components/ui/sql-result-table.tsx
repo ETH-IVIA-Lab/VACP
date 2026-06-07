@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import type { CSSProperties, ReactNode } from 'react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { getCoreRowModel, useReactTable, type ColumnDef } from '@tanstack/react-table';
@@ -113,9 +113,9 @@ export function SqlResultTable({
 
   const { columnSizingInfo, columnSizing } = table.getState();
 
-  const columnSizeVars = useMemo(() => {
+  const columnSizeVars = useMemo<CSSProperties & Record<`--${string}`, number>>(() => {
     const headers = table.getFlatHeaders();
-    const vars: Record<string, number> = {};
+    const vars: Record<`--${string}`, number> = {};
 
     for (let i = 0; i < headers.length; i += 1) {
       const header = headers[i]!;
@@ -183,7 +183,7 @@ export function SqlResultTable({
         <div
           className="min-w-full"
           style={{
-            ...(columnSizeVars as any),
+            ...columnSizeVars,
             minWidth: '100%',
             width: table.getTotalSize(),
           }}

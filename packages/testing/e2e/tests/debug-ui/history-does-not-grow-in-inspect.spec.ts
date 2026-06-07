@@ -2,6 +2,7 @@ import { expect, test } from '@playwright/test';
 
 import { startViteDevServer } from '../helpers/devserver';
 import { exampleDir } from '../helpers/paths';
+import { waitForVacpBridge } from './helpers';
 
 function parseMeta(text: string): { mode: string; cursor: number; history: number } {
   const mode = text.match(/mode=(\w+)/)?.[1];
@@ -15,7 +16,7 @@ test('debug-ui: time travel does not extend history (Seattle Weather)', async ({
   const srv = await startViteDevServer({ name: 'vgplot-gallery', cwd: exampleDir('vgplot-gallery') });
   try {
     await page.goto(`${srv.url}?vacp-debug=1#weather`, { waitUntil: 'domcontentloaded' });
-    await page.waitForFunction(() => !!(globalThis as any).__vacp);
+    await waitForVacpBridge(page);
 
     const overlay = page.locator('#app svg').first().locator('rect.overlay').first();
     await expect(overlay).toBeVisible();
@@ -50,7 +51,7 @@ test('debug-ui: time travel does not extend history (Seattle Weather)', async ({
     await pill.click();
     await expect(page.locator('#vacp-debug-ui-panel')).toBeVisible();
 
-    const historyTab = page.locator('.vacp-debug-ui-module', { hasText: 'History' });
+    const historyTab = page.getByRole('tab', { name: 'History' });
     await expect(historyTab).toBeVisible();
     await historyTab.click();
 

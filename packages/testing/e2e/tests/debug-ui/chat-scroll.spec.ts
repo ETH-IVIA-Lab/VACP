@@ -1,7 +1,8 @@
-import { expect, test } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
 
 import { startViteDevServer } from '../helpers/devserver';
 import { artifactDir, exampleDir } from '../helpers/paths';
+import { runtimeId, waitForVacpBridge } from './helpers';
 
 const artifactsDir = artifactDir('playwright-debug-ui-chat-scroll');
 const SEEDED_RUNTIME_ID = '00000000-0000-4000-8000-000000000001';
@@ -13,6 +14,39 @@ const LONG_ANSWER = Array.from(
     `Paragraph ${idx + 1}: compare the shot chart context, cite the observed ranking, and keep the response verbose enough to force sustained vertical overflow in the chat transcript.`,
 ).join('\n\n');
 type UuidLike = `${string}-${string}-${string}-${string}-${string}`;
+type ChatScrollState = {
+  overflow: boolean;
+  atTop: boolean;
+  atBottom: boolean;
+  firstUserVisible: boolean;
+  wrapperTop: number | null;
+};
+
+async function chatScrollState(page: Page): Promise<ChatScrollState> {
+  return await page.evaluate(() => {
+    const scroller = document.querySelector('[data-vacp-chat-msgs="1"]') as HTMLDivElement | null;
+    const wrapper = scroller?.parentElement?.parentElement as HTMLDivElement | null;
+    const firstUser = document.querySelector('[data-vacp-chat-message-role="user"]') as HTMLElement | null;
+    if (!scroller || !wrapper) {
+      return { overflow: false, atTop: false, atBottom: false, firstUserVisible: false, wrapperTop: null };
+    }
+
+    const maxScrollTop = Math.max(0, scroller.scrollHeight - scroller.clientHeight);
+    const scrollerRect = scroller.getBoundingClientRect();
+    const firstUserRect = firstUser?.getBoundingClientRect();
+    const firstUserVisible = Boolean(
+      firstUserRect && firstUserRect.top >= scrollerRect.top && firstUserRect.bottom <= scrollerRect.bottom,
+    );
+
+    return {
+      overflow: maxScrollTop > 0,
+      atTop: Math.abs(scroller.scrollTop) <= 1,
+      atBottom: maxScrollTop > 0 && Math.abs(scroller.scrollTop - maxScrollTop) <= 1,
+      firstUserVisible,
+      wrapperTop: wrapper.scrollTop,
+    };
+  });
+}
 
 test('debug-ui: chat scroll keeps the first user turn reachable', async ({ page }) => {
   await page.addInitScript(
@@ -124,16 +158,9 @@ test('debug-ui: chat scroll keeps the first user turn reachable', async ({ page 
 
   try {
     await page.goto(`${srv.url}?vacp-debug=1#wnba-shots`, { waitUntil: 'domcontentloaded' });
-    await page.waitForFunction(() => !!(globalThis as any).__vacp?.getRuntime);
+    await waitForVacpBridge(page, { requireRuntime: true });
 
-    await expect
-      .poll(async () => {
-        return await page.evaluate(async () => {
-          const runtime = await (globalThis as any).__vacp.getRuntime();
-          return runtime?.runtimeId ?? null;
-        });
-      })
-      .toBe(SEEDED_RUNTIME_ID);
+    await expect.poll(async () => await runtimeId(page)).toBe(SEEDED_RUNTIME_ID);
 
     const pill = page.locator('button.vacp-debug-ui-button');
     await expect(pill).toBeVisible();
@@ -143,34 +170,26 @@ test('debug-ui: chat scroll keeps the first user turn reachable', async ({ page 
     await page.getByRole('tab', { name: 'Chat' }).click();
     await expect(page.locator('[data-vacp-chat-input="1"]')).toBeVisible();
 
-    await page.waitForFunction(() => {
-      const scroller = document.querySelector('[data-vacp-chat-msgs="1"]') as HTMLDivElement | null;
-      const wrapper = scroller?.parentElement?.parentElement as HTMLDivElement | null;
-      if (!scroller || !wrapper) return false;
-      return scroller.scrollHeight > scroller.clientHeight && wrapper.scrollTop === 0;
-    });
+    await expect
+      .poll(async () => await chatScrollState(page))
+      .toMatchObject({
+        overflow: true,
+        atBottom: true,
+        wrapperTop: 0,
+      });
 
-    await page.evaluate(() => {
-      const scroller = document.querySelector('[data-vacp-chat-msgs="1"]') as HTMLDivElement | null;
-      if (!scroller) throw new Error('Missing chat scroller');
-      scroller.scrollTop = 0;
-      scroller.dispatchEvent(new Event('scroll'));
-    });
+    const scrollerBox = await page.locator('[data-vacp-chat-msgs="1"]').boundingBox();
+    if (!scrollerBox) throw new Error('Missing chat scroller box');
+    await page.mouse.move(scrollerBox.x + scrollerBox.width / 2, scrollerBox.y + scrollerBox.height / 2);
+    await page.mouse.wheel(0, -10_000);
 
-    await page.waitForFunction(() => {
-      const scroller = document.querySelector('[data-vacp-chat-msgs="1"]') as HTMLDivElement | null;
-      const wrapper = scroller?.parentElement?.parentElement as HTMLDivElement | null;
-      const firstUser = document.querySelector('[data-vacp-chat-message-role="user"]') as HTMLElement | null;
-      if (!scroller || !wrapper || !firstUser) return false;
-      const scrollerRect = scroller.getBoundingClientRect();
-      const firstUserRect = firstUser.getBoundingClientRect();
-      return (
-        scroller.scrollTop === 0 &&
-        wrapper.scrollTop === 0 &&
-        firstUserRect.top >= scrollerRect.top &&
-        firstUserRect.bottom <= scrollerRect.bottom
-      );
-    });
+    await expect
+      .poll(async () => await chatScrollState(page))
+      .toMatchObject({
+        atTop: true,
+        firstUserVisible: true,
+        wrapperTop: 0,
+      });
 
     const firstUser = page.locator('[data-vacp-chat-message-role="user"]').first();
     await expect(firstUser).toContainText(QUESTION);
@@ -180,20 +199,21 @@ test('debug-ui: chat scroll keeps the first user turn reachable', async ({ page 
     await expect(jumpToLatest).toBeVisible();
 
     await page.waitForTimeout(120);
-    await page.waitForFunction(() => {
-      const scroller = document.querySelector('[data-vacp-chat-msgs="1"]') as HTMLDivElement | null;
-      const wrapper = scroller?.parentElement?.parentElement as HTMLDivElement | null;
-      return !!scroller && !!wrapper && scroller.scrollTop === 0 && wrapper.scrollTop === 0;
-    });
+    await expect
+      .poll(async () => await chatScrollState(page))
+      .toMatchObject({
+        atTop: true,
+        wrapperTop: 0,
+      });
 
     await jumpToLatest.click();
-    await page.waitForFunction(() => {
-      const scroller = document.querySelector('[data-vacp-chat-msgs="1"]') as HTMLDivElement | null;
-      const wrapper = scroller?.parentElement?.parentElement as HTMLDivElement | null;
-      if (!scroller || !wrapper) return false;
-      const maxScrollTop = scroller.scrollHeight - scroller.clientHeight;
-      return maxScrollTop > 0 && Math.abs(scroller.scrollTop - maxScrollTop) <= 1 && wrapper.scrollTop === 0;
-    });
+    await expect
+      .poll(async () => await chatScrollState(page))
+      .toMatchObject({
+        overflow: true,
+        atBottom: true,
+        wrapperTop: 0,
+      });
     await expect(jumpToLatest).toBeHidden();
   } finally {
     await srv.stop();

@@ -8,13 +8,13 @@ import { VACP_APPLY_STATE_ACTION } from '@vacp/core';
 import { DEBUG_UI_PANEL_BREAKPOINTS, isDenseDebugPanel } from '@vacp/debug-ui/overlay/debug-ui-breakpoints';
 import { IconButton } from '@vacp/debug-ui/overlay/icon-button';
 import { useElementSize } from '@vacp/debug-ui/overlay/hooks/use-element-size';
-import { Card, CardDescription, CardHeader, CardTitle } from '@vacp/debug-ui/ui/components/ui/card';
 import { Input } from '@vacp/debug-ui/ui/components/ui/input';
 import { JsonViewer } from '@vacp/debug-ui/ui/components/ui/json-viewer';
 import { Textarea } from '@vacp/debug-ui/ui/components/ui/textarea';
 import { copyTextToClipboard } from '@vacp/debug-ui/ui/lib/clipboard';
 import { cn } from '@vacp/debug-ui/ui/lib/utils';
 
+import { ModuleField, ModuleHeader, ModulePane, ModuleRoot } from './module-layout';
 import type { VacpDebugModuleProps } from './module-types';
 
 function safeJson(value: unknown): string {
@@ -52,6 +52,7 @@ export function JsonModule(props: VacpDebugModuleProps): ReactElement {
   const showTwoCols = rootSize.width >= DEBUG_UI_PANEL_BREAKPOINTS.splitPane;
   const compactControls = rootSize.width < DEBUG_UI_PANEL_BREAKPOINTS.compactControls;
   const dense = isDenseDebugPanel(rootSize.width, rootSize.height);
+  const boundWide = rootSize.width >= DEBUG_UI_PANEL_BREAKPOINTS.splitPane;
   const iconButtonSize = 'iconSm';
   const snapshotText = useMemo(() => safeJson(props.runtime.currentState), [props.runtime.currentState]);
   const [overrideText, setOverrideText] = useState<string>(() => safeJson(props.runtime.currentState.state));
@@ -173,23 +174,17 @@ export function JsonModule(props: VacpDebugModuleProps): ReactElement {
   };
 
   return (
-    <div ref={rootRef} className={cn('grid h-full min-h-0', dense ? 'gap-2' : 'gap-3', showTwoCols && 'grid-cols-2')}>
-      <Card className={cn('flex min-h-0 flex-col overflow-hidden', dense && 'p-2')}>
-        <CardHeader className={cn(compactControls && 'flex-col items-stretch gap-2')}>
-          <div className="min-w-0">
-            <CardTitle>JSON</CardTitle>
-            <CardDescription>
-              Inspect the raw provider snapshot and request explicit state update envelopes.
-            </CardDescription>
-          </div>
-          <div
-            className={cn(
-              'flex items-center gap-2',
-              compactControls
-                ? 'w-full flex-nowrap justify-start overflow-x-auto gap-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden'
-                : 'shrink-0',
-            )}
-          >
+    <ModuleRoot
+      rootRef={rootRef}
+      boundWide={boundWide}
+      className={cn('grid h-full min-h-0', dense ? 'gap-2' : 'gap-3', showTwoCols && 'grid-cols-2')}
+    >
+      <ModulePane className={cn('flex min-h-0 flex-col overflow-hidden', dense ? 'gap-2' : 'gap-3')}>
+        <ModuleHeader
+          title="Snapshot"
+          description="Inspect the raw provider snapshot."
+          compact={compactControls}
+          actions={
             <IconButton
               icon={<ClipboardCopy className="h-4 w-4 text-slate-100/90" />}
               label="Copy snapshot"
@@ -197,14 +192,14 @@ export function JsonModule(props: VacpDebugModuleProps): ReactElement {
               size={iconButtonSize}
               onClick={() => void copyTextToClipboard(snapshotText)}
             />
-          </div>
-        </CardHeader>
+          }
+        />
         <JsonViewer
           value={props.runtime.currentState}
-          className={cn(dense ? 'mt-2 max-h-[120px] flex-none p-2' : 'mt-3 max-h-[180px] flex-none')}
+          className={cn('flex-1', dense ? 'min-h-[96px] p-2' : 'min-h-[160px]')}
         />
         <details
-          className={cn('mt-3 rounded-lg border border-white/[0.075] bg-white/[0.02]', dense ? 'p-2' : 'p-3')}
+          className={cn('border-t border-white/[0.075]', dense ? 'pt-2' : 'pt-3')}
           data-vacp-state-update="panel"
         >
           <summary className="cursor-pointer select-none text-[12px] font-semibold text-slate-100/90">
@@ -221,7 +216,7 @@ export function JsonModule(props: VacpDebugModuleProps): ReactElement {
                 Mode
                 <select
                   data-vacp-state-update="mode"
-                  className="mt-1 w-full rounded-lg border border-white/[0.08] bg-[#101821]/72 px-3 py-2.5 text-xs text-slate-100/90 outline-none focus:border-emerald-200/24 focus:ring-2 focus:ring-emerald-300/24"
+                  className="mt-1 w-full rounded-lg border border-white/[0.08] bg-[#101821]/72 px-3 py-2.5 text-xs text-slate-100/90 outline-none focus:border-white/22 focus:ring-2 focus:ring-white/22"
                   value={requestMode ?? 'delta'}
                   onChange={(e) => setRequestMode(e.target.value as VacpStateRequest['mode'])}
                 >
@@ -342,10 +337,10 @@ export function JsonModule(props: VacpDebugModuleProps): ReactElement {
                 )}
               </div>
             ) : null}
-            {probeStatus ? <div className="text-[11px] text-emerald-50/74">{probeStatus}</div> : null}
+            {probeStatus ? <div className="text-[11px] text-slate-100/68">{probeStatus}</div> : null}
             {probeError ? <div className="text-[11px] text-red-50/84">{probeError}</div> : null}
             {updatePayload ? (
-              <details className="rounded-lg border border-white/[0.075] bg-white/[0.02] p-2">
+              <details className="border-t border-white/[0.075] pt-2">
                 <summary className="cursor-pointer select-none text-[11px] font-medium text-slate-100/80">
                   Raw update payload
                 </summary>
@@ -354,74 +349,65 @@ export function JsonModule(props: VacpDebugModuleProps): ReactElement {
             ) : null}
           </div>
         </details>
-      </Card>
+      </ModulePane>
 
-      <Card className={cn('flex min-h-0 flex-col overflow-hidden', dense && 'p-2')}>
-        <CardHeader className={cn(compactControls && 'flex-col items-stretch gap-2')}>
-          <div className="min-w-0">
-            <CardTitle>State controls</CardTitle>
-            <CardDescription>
-              Edit a ref-keyed state map, apply it as an inspection override, or send it to the live app.
-            </CardDescription>
-          </div>
-          <div
-            className={cn(
-              'flex items-center gap-2',
-              compactControls
-                ? 'w-full flex-nowrap justify-start overflow-x-auto gap-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden'
-                : 'shrink-0 flex-wrap justify-end',
-            )}
-          >
-            <IconButton
-              icon={<Braces className="h-4 w-4 text-slate-100/90" />}
-              label="Reset to current"
-              title="Reset the editor to the current state."
-              size={iconButtonSize}
-              onClick={() => setOverrideText(safeJson(props.runtime.currentState.state))}
-            />
-            <IconButton
-              icon={<Play className="h-4 w-4 text-slate-100/90" />}
-              label="Apply override"
-              title="Apply this state as an override for inspection (does not affect the live app)."
-              variant="primary"
-              size={iconButtonSize}
-              onClick={() => applyOverride()}
-            />
-            <IconButton
-              icon={<Play className="h-4 w-4 text-slate-100/90" />}
-              label="Apply to app"
-              title="Execute vacp.apply_state against the live app."
-              size={iconButtonSize}
-              onClick={() => void applyToApp()}
-            />
-            <IconButton
-              icon={<Eraser className="h-4 w-4 text-slate-100/90" />}
-              label="Clear overrides"
-              title="Clear any inspection overrides."
-              size={iconButtonSize}
-              onClick={() => clear()}
-            />
-          </div>
-        </CardHeader>
+      <ModulePane className={cn('flex min-h-0 flex-col overflow-hidden', dense ? 'gap-2' : 'gap-3')}>
+        <ModuleHeader
+          title="State controls"
+          description="Edit a ref-keyed state map, apply it as an inspection override, or send it to the live app."
+          compact={compactControls}
+          actions={
+            <>
+              <IconButton
+                icon={<Braces className="h-4 w-4 text-slate-100/90" />}
+                label="Reset to current"
+                title="Reset the editor to the current state."
+                size={iconButtonSize}
+                onClick={() => setOverrideText(safeJson(props.runtime.currentState.state))}
+              />
+              <IconButton
+                icon={<Play className="h-4 w-4 text-slate-100/90" />}
+                label="Apply override"
+                title="Apply this state as an override for inspection (does not affect the live app)."
+                variant="primary"
+                size={iconButtonSize}
+                onClick={() => applyOverride()}
+              />
+              <IconButton
+                icon={<Play className="h-4 w-4 text-slate-100/90" />}
+                label="Apply to app"
+                title="Execute vacp.apply_state against the live app."
+                size={iconButtonSize}
+                onClick={() => void applyToApp()}
+              />
+              <IconButton
+                icon={<Eraser className="h-4 w-4 text-slate-100/90" />}
+                label="Clear overrides"
+                title="Clear any inspection overrides."
+                size={iconButtonSize}
+                onClick={() => clear()}
+              />
+            </>
+          }
+        />
 
-        <div className={cn('min-h-0 flex-1', dense ? 'mt-2' : 'mt-3')}>
-          <label className="text-[11px] font-medium text-slate-100/70" htmlFor="vacp-state-override">
-            State map (JSON)
-          </label>
+        <ModuleField
+          label="State map (JSON)"
+          htmlFor="vacp-state-override"
+          className="flex min-h-0 flex-1 flex-col"
+          innerClassName="min-h-0 flex-1"
+        >
           <Textarea
             id="vacp-state-override"
-            className={cn(
-              'mt-1 h-full text-[12px] leading-5',
-              dense ? 'min-h-[150px] max-h-[240px]' : 'min-h-[180px] max-h-[360px]',
-            )}
+            className={cn('h-full resize-none text-[12px] leading-5', dense ? 'min-h-[150px]' : 'min-h-[220px]')}
             value={overrideText}
             onChange={(e) => setOverrideText(e.target.value)}
           />
-        </div>
+        </ModuleField>
 
-        {editStatus ? <div className="mt-2 text-[11px] text-emerald-50/74">{editStatus}</div> : null}
-        {editError ? <div className="mt-2 text-[11px] text-red-50/84">{editError}</div> : null}
-      </Card>
-    </div>
+        {editStatus ? <div className="text-[11px] text-slate-100/68">{editStatus}</div> : null}
+        {editError ? <div className="text-[11px] text-red-50/84">{editError}</div> : null}
+      </ModulePane>
+    </ModuleRoot>
   );
 }

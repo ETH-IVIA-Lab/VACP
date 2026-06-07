@@ -1,17 +1,4 @@
-import {
-  Braces,
-  Clock,
-  Database,
-  GitGraph,
-  History,
-  MessageSquare,
-  Minus,
-  Plus,
-  Radar,
-  Settings2,
-  X,
-  Zap,
-} from 'lucide-react';
+import { Braces, Clock, Database, GitGraph, History, MessageSquare, Radar, Settings2, Zap } from 'lucide-react';
 import type { ReactElement, ReactNode, RefObject } from 'react';
 
 import type { VacpRuntimeSnapshot } from '@vacp/core';
@@ -23,19 +10,54 @@ import { cn } from '@vacp/debug-ui/ui/lib/utils';
 
 export type VacpDebugBridgeStatus = 'missing' | 'unknown' | 'ok';
 
-type DebugModule = Readonly<{ id: VacpDebugModuleId; title: string; icon: ReactElement }>;
+type DebugModule = Readonly<{ id: VacpDebugModuleId; title: string; description: string; icon: ReactElement }>;
 
 const inlineCodeClass =
   'rounded-md border border-white/[0.075] bg-white/[0.035] px-1.5 py-0.5 text-[11px] font-medium text-slate-100 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.018)]';
 
 const MODULES: readonly DebugModule[] = [
-  { id: 'graph', title: 'Graph', icon: <GitGraph className="h-4 w-4 shrink-0 text-slate-100/82" /> },
-  { id: 'data', title: 'Data', icon: <Database className="h-4 w-4 shrink-0 text-slate-100/82" /> },
-  { id: 'actions', title: 'Actions', icon: <Zap className="h-4 w-4 shrink-0 text-slate-100/82" /> },
-  { id: 'history', title: 'History', icon: <History className="h-4 w-4 shrink-0 text-slate-100/82" /> },
-  { id: 'chat', title: 'Chat', icon: <MessageSquare className="h-4 w-4 shrink-0 text-slate-100/82" /> },
-  { id: 'settings', title: 'Settings', icon: <Settings2 className="h-4 w-4 shrink-0 text-slate-100/82" /> },
-  { id: 'json', title: 'JSON', icon: <Braces className="h-4 w-4 shrink-0 text-slate-100/82" /> },
+  {
+    id: 'graph',
+    title: 'Graph',
+    description: 'Capability graph and node inspector',
+    icon: <GitGraph className="h-4 w-4 shrink-0" />,
+  },
+  {
+    id: 'data',
+    title: 'Data',
+    description: 'Data handles, SQL, and result payloads',
+    icon: <Database className="h-4 w-4 shrink-0" />,
+  },
+  {
+    id: 'actions',
+    title: 'Actions',
+    description: 'Semantic actions and explicit params',
+    icon: <Zap className="h-4 w-4 shrink-0" />,
+  },
+  {
+    id: 'history',
+    title: 'History',
+    description: 'Runtime events and inspect cursor',
+    icon: <History className="h-4 w-4 shrink-0" />,
+  },
+  {
+    id: 'chat',
+    title: 'Chat',
+    description: 'Agent chat, tool traces, and sessions',
+    icon: <MessageSquare className="h-4 w-4 shrink-0" />,
+  },
+  {
+    id: 'settings',
+    title: 'Settings',
+    description: 'Debug UI flags and install behavior',
+    icon: <Settings2 className="h-4 w-4 shrink-0" />,
+  },
+  {
+    id: 'json',
+    title: 'JSON',
+    description: 'Raw snapshot and state controls',
+    icon: <Braces className="h-4 w-4 shrink-0" />,
+  },
 ];
 
 const modeHelp = (
@@ -52,9 +74,9 @@ const modeHelp = (
 );
 
 function bridgeDotClass(status: VacpDebugBridgeStatus): string {
-  if (status === 'ok') return 'bg-emerald-300';
-  if (status === 'unknown') return 'bg-slate-300/58';
-  return 'bg-white/40';
+  if (status === 'ok') return 'bg-teal-300/88 shadow-[0_0_0_3px_rgba(45,212,191,0.1)]';
+  if (status === 'unknown') return 'bg-slate-100/42';
+  return 'bg-slate-100/24';
 }
 
 function DebugDock(props: {
@@ -77,10 +99,12 @@ function DebugDock(props: {
         type="button"
         aria-label={props.pillTitle}
         className={cn(
-          'vacp-debug-ui-button relative grid h-11 w-11 select-none place-items-center rounded-full border border-white/15 bg-[#11171b]/95 text-slate-100 shadow-[0_12px_34px_rgba(0,0,0,0.28)]',
-          'cursor-grab transition-[background-color,border-color,box-shadow,transform] hover:border-white/25 hover:bg-[#151d22]/95 active:scale-[0.96] active:cursor-grabbing focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300/55',
+          'vacp-debug-ui-button relative grid h-11 w-11 select-none place-items-center rounded-full border border-white/14 bg-[#11171b]/95 text-slate-100 shadow-[0_12px_34px_rgba(0,0,0,0.28)]',
+          'cursor-grab transition-[background-color,border-color,box-shadow,transform] hover:border-white/24 hover:bg-[#151d22]/95 active:scale-[0.97] active:cursor-grabbing focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/42',
           props.open &&
-            'border-emerald-300/35 bg-[#13201d]/95 shadow-[0_15px_36px_rgba(16,185,129,0.18),0_0_0_1px_rgba(110,231,183,0.1)]',
+            'border-white/24 bg-[#151d22]/96 shadow-[0_15px_36px_rgba(0,0,0,0.3),0_0_0_1px_rgba(255,255,255,0.06)]',
+          props.bridgeStatus === 'ok' &&
+            'border-teal-200/22 shadow-[0_12px_34px_rgba(0,0,0,0.28),0_0_0_1px_rgba(45,212,191,0.08)]',
         )}
         data-bridge={props.bridgeStatus}
         data-state={props.open ? 'open' : 'closed'}
@@ -88,77 +112,9 @@ function DebugDock(props: {
         onClick={() => props.setOpen(!props.open)}
       >
         <Radar className="h-5 w-5 text-slate-50/88" strokeWidth={1.8} aria-hidden="true" />
-        <span
-          className={cn('absolute right-1 top-1 h-2.5 w-2.5 rounded-full ring-2 ring-[#11171b]', dotClass)}
-          aria-hidden="true"
-        />
+        <span className={cn('absolute bottom-1 h-1 w-4 rounded-full', dotClass)} aria-hidden="true" />
       </button>
     </div>
-  );
-}
-
-function WindowControls(props: {
-  maximized: boolean;
-  setOpen: (open: boolean) => void;
-  minimize: () => void;
-  toggleMaximize: () => void;
-}): ReactElement {
-  return (
-    <div className="group flex items-center gap-2">
-      <TrafficButton label="Close" color="bg-slate-400/46 hover:bg-red-300/58" onClick={() => props.setOpen(false)}>
-        <X
-          className="h-2.5 w-2.5 text-black/60 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100"
-          aria-hidden="true"
-        />
-      </TrafficButton>
-      <TrafficButton
-        label="Minimize"
-        title="Restore to the default panel size."
-        color="bg-slate-400/46 hover:bg-slate-300/62"
-        onClick={props.minimize}
-      >
-        <Minus
-          className="h-3 w-3 text-black/60 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100"
-          aria-hidden="true"
-        />
-      </TrafficButton>
-      <TrafficButton
-        label={props.maximized ? 'Restore size' : 'Maximize'}
-        color="bg-slate-400/46 hover:bg-emerald-300/58"
-        onClick={props.toggleMaximize}
-      >
-        <Plus
-          className="h-3 w-3 text-black/60 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100"
-          aria-hidden="true"
-        />
-      </TrafficButton>
-    </div>
-  );
-}
-
-function TrafficButton(props: {
-  label: string;
-  title?: string;
-  color: string;
-  onClick: () => void;
-  children: ReactNode;
-}): ReactElement {
-  return (
-    <button
-      type="button"
-      aria-label={props.label}
-      title={props.title ?? props.label}
-      className={cn(
-        'relative grid h-3.5 w-3.5 place-items-center rounded-full',
-        'shadow-[inset_0_0_0_1px_rgba(0,0,0,0.18)]',
-        'hover:brightness-[0.98] active:brightness-[0.96]',
-        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/35 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950',
-        props.color,
-      )}
-      onClick={props.onClick}
-    >
-      {props.children}
-    </button>
   );
 }
 
@@ -191,28 +147,28 @@ function BridgeBadge(props: { status: VacpDebugBridgeStatus }): ReactElement {
       className={cn(
         'hidden min-h-6 items-center gap-1.5 rounded-full border px-2 text-[10px] font-semibold sm:inline-flex',
         props.status === 'ok'
-          ? 'border-emerald-200/22 bg-emerald-300/9 text-emerald-50/88'
+          ? 'border-teal-200/18 bg-teal-300/[0.07] text-teal-50/86'
           : props.status === 'unknown'
             ? 'border-white/[0.08] bg-white/[0.035] text-slate-100/64'
             : 'border-white/[0.08] bg-white/[0.035] text-slate-100/56',
       )}
     >
       <span className={cn('h-1.5 w-1.5 rounded-full', bridgeDotClass(props.status))} aria-hidden="true" />
-      {props.status === 'ok' ? 'Bridge' : props.status === 'unknown' ? 'Checking' : 'No bridge'}
+      {props.status === 'ok' ? 'Active' : props.status === 'unknown' ? 'Checking' : 'No bridge'}
     </span>
   );
 }
 
 function PanelTopBar(props: {
   panelHeaderRef: RefObject<HTMLDivElement | null>;
+  compactDragRef: RefObject<HTMLDivElement | null>;
   titleId: string;
-  title: string;
   meta: string;
+  activeModule: DebugModule;
+  compactPanel: boolean;
+  showNavLabels: boolean;
+  moduleNav: ReactNode;
   bridgeStatus: VacpDebugBridgeStatus;
-  maximized: boolean;
-  setOpen: (open: boolean) => void;
-  minimize: () => void;
-  toggleMaximize: () => void;
   bridge: VacpWindowBridge | null;
   runtime: VacpRuntimeSnapshot | null;
 }): ReactElement {
@@ -221,27 +177,47 @@ function PanelTopBar(props: {
       ref={props.panelHeaderRef}
       className={cn(
         'vacp-debug-ui-topbar',
-        'flex h-12 items-center gap-3 border-b border-white/[0.075]',
+        'relative flex min-w-0 items-center border-b border-white/[0.075]',
         'bg-[#0f161a]/96',
-        'px-3 py-2',
+        props.compactPanel ? 'min-h-11 gap-1.5 px-1.5 py-1.5' : 'min-h-11 gap-2 px-2.5 py-1.5',
       )}
     >
-      <WindowControls
-        maximized={props.maximized}
-        setOpen={props.setOpen}
-        minimize={props.minimize}
-        toggleMaximize={props.toggleMaximize}
-      />
-      <div id={props.titleId} className="min-w-0 flex-1">
-        <div className="vacp-debug-ui-title truncate text-[12px] font-semibold text-slate-100/90">{props.title}</div>
-        {props.meta ? (
-          <div className="vacp-debug-ui-meta truncate text-[10px] text-slate-100/54 [font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,'Liberation_Mono','Courier_New',monospace]">
+      <div
+        ref={props.compactDragRef}
+        data-vacp-debug-drag-strip="1"
+        className={cn(
+          'vacp-debug-ui-drag-strip absolute left-1/2 top-0 z-30 flex h-2.5 w-14 -translate-x-1/2 cursor-grab justify-center pt-1 transition-opacity active:cursor-grabbing',
+          props.compactPanel ? 'opacity-80' : 'pointer-events-none opacity-0',
+        )}
+        aria-hidden="true"
+      >
+        <span className="h-1 w-10 rounded-full bg-white/12" />
+      </div>
+      <div className="flex min-w-0 flex-1 items-center gap-2">
+        <div
+          id={props.titleId}
+          className={cn(
+            'min-w-0',
+            props.compactPanel || props.showNavLabels ? 'sr-only' : 'hidden w-[188px] shrink-0 sm:block',
+          )}
+        >
+          <div className="vacp-debug-ui-title flex min-w-0 items-center gap-1.5 truncate text-[12px] font-semibold text-slate-100/90">
+            <span className="shrink-0 text-slate-100/74" aria-hidden="true">
+              {props.activeModule.icon}
+            </span>
+            <span className="truncate">{props.activeModule.title}</span>
+          </div>
+          <div className="truncate text-[10px] text-slate-100/50">{props.activeModule.description}</div>
+        </div>
+        {props.moduleNav}
+      </div>
+      <div className="flex shrink-0 items-center justify-end gap-1.5">
+        {props.meta && !props.compactPanel ? (
+          <div className="vacp-debug-ui-meta hidden max-w-[220px] truncate text-[10px] text-slate-100/48 xl:block [font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,'Liberation_Mono','Courier_New',monospace]">
             {props.meta}
           </div>
         ) : null}
-      </div>
-      <div className="ml-auto flex items-center gap-2">
-        <BridgeBadge status={props.bridgeStatus} />
+        {props.compactPanel ? null : <BridgeBadge status={props.bridgeStatus} />}
         <ModeToggle bridge={props.bridge} runtime={props.runtime} />
       </div>
     </div>
@@ -264,8 +240,8 @@ function InspectBanner(props: {
         <div className="font-semibold text-amber-50/82">Inspect mode (time travel)</div>
         <div className="text-amber-50/66">
           cursor {cursor} / {Math.max(0, rt.history.length - 1)}
-          {at ? ` • ${at}` : ''}
-          {msg ? ` • ${msg}` : ''}
+          {at ? ` / ${at}` : ''}
+          {msg ? ` / ${msg}` : ''}
         </div>
         <div className="flex-1" />
         <button
@@ -288,32 +264,41 @@ function ModuleNav(props: {
   modules: readonly DebugModule[];
   compactPanel: boolean;
   densePanel: boolean;
+  showLabels: boolean;
 }): ReactElement {
   return (
     <nav
       className={cn(
-        'vacp-debug-ui-nav min-h-0 min-w-0 max-w-full bg-[#0e1519]/72',
-        props.densePanel ? 'p-1.5' : 'p-2',
-        props.compactPanel
-          ? 'overflow-x-auto border-b border-white/[0.075]'
-          : 'overflow-y-auto border-b-0 border-r border-white/[0.075]',
+        'vacp-debug-ui-nav min-w-0 max-w-full overflow-x-auto rounded-lg border border-white/[0.075] bg-white/[0.025] p-1',
+        '[-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden',
+        props.showLabels && 'flex-1',
+        !props.showLabels && 'p-0.5',
       )}
       aria-label="VACP debug modules"
     >
-      <TabsList loop className={cn('vacp-debug-ui-nav-list gap-1', props.compactPanel ? 'w-max flex-row' : 'flex-col')}>
+      <TabsList
+        loop
+        className={cn('vacp-debug-ui-nav-list gap-1', props.showLabels ? 'grid w-full grid-cols-7' : 'w-max flex-row')}
+      >
         {props.modules.map((m) => (
           <TabsTrigger
             key={m.id}
             value={m.id}
             className={cn(
-              'vacp-debug-ui-module group min-h-9 whitespace-nowrap rounded-md bg-transparent transition-[background-color,color,transform]',
-              props.compactPanel ? 'w-auto pl-7 pr-2.5' : 'w-full justify-start pl-7 pr-2.5',
+              'vacp-debug-ui-module group shrink-0 justify-center rounded-md bg-transparent text-slate-100/68 transition-[background-color,color,transform]',
+              props.showLabels ? 'h-8 min-w-0 px-2.5 py-0' : 'h-7 w-7 p-0',
             )}
             data-module-id={m.id}
-            title={m.title}
+            title={`${m.title}: ${m.description}`}
+            aria-label={m.title}
           >
             {m.icon}
-            <span className="truncate">{m.title}</span>
+            <span
+              className={cn('truncate text-[11px] font-semibold', !props.showLabels && 'sr-only')}
+              data-vacp-debug-nav-label={m.id}
+            >
+              {m.title}
+            </span>
           </TabsTrigger>
         ))}
       </TabsList>
@@ -331,7 +316,7 @@ function ModuleContent(props: {
     <div
       className={cn(
         'vacp-debug-ui-content min-h-0 min-w-0 overflow-hidden bg-[#0b1115]',
-        props.densePanel ? 'p-2' : 'p-3',
+        props.densePanel ? 'p-1.5' : 'p-2',
       )}
     >
       <div className="flex h-full min-h-0 flex-col">
@@ -341,7 +326,7 @@ function ModuleContent(props: {
             <TabsContent
               key={m.id}
               value={m.id}
-              className="vacp-debug-ui-scroll vacp-debug-ui-tab-content h-full min-h-0 overflow-auto"
+              className="vacp-debug-ui-scroll vacp-debug-ui-tab-content h-full min-h-0 overflow-auto outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-white/28"
             >
               {props.renderModule(m.id)}
             </TabsContent>
@@ -352,26 +337,51 @@ function ModuleContent(props: {
   );
 }
 
-function ModuleTabs(props: {
+function ModuleShell(props: {
+  panelHeaderRef: RefObject<HTMLDivElement | null>;
+  compactDragRef: RefObject<HTMLDivElement | null>;
+  titleId: string;
+  meta: string;
   moduleId: VacpDebugModuleId;
   setModuleId: (id: VacpDebugModuleId) => void;
   compactPanel: boolean;
   densePanel: boolean;
+  bridgeStatus: VacpDebugBridgeStatus;
+  bridge: VacpWindowBridge | null;
+  runtime: VacpRuntimeSnapshot | null;
   inspectBanner: ReactNode;
   renderModule: (id: VacpDebugModuleId) => ReactElement | null;
 }): ReactElement {
+  const activeModule = MODULES.find((module) => module.id === props.moduleId) ?? MODULES[0]!;
+  const showNavLabels = !props.compactPanel && !props.densePanel;
   return (
     <Tabs
       value={props.moduleId}
       onValueChange={(v) => props.setModuleId(v as VacpDebugModuleId)}
-      orientation={props.compactPanel ? 'horizontal' : 'vertical'}
+      orientation="horizontal"
       activationMode="manual"
-      className={cn(
-        'grid min-h-0 w-full min-w-0 max-w-full overflow-hidden',
-        props.compactPanel ? 'grid-rows-[auto_minmax(0,1fr)]' : 'grid-cols-[180px_1fr] grid-rows-none',
-      )}
+      className="grid min-h-0 w-full min-w-0 max-w-full grid-rows-[auto_minmax(0,1fr)] overflow-hidden"
     >
-      <ModuleNav modules={MODULES} compactPanel={props.compactPanel} densePanel={props.densePanel} />
+      <PanelTopBar
+        panelHeaderRef={props.panelHeaderRef}
+        compactDragRef={props.compactDragRef}
+        titleId={props.titleId}
+        meta={props.meta}
+        activeModule={activeModule}
+        compactPanel={props.compactPanel}
+        showNavLabels={showNavLabels}
+        moduleNav={
+          <ModuleNav
+            modules={MODULES}
+            compactPanel={props.compactPanel}
+            densePanel={props.densePanel}
+            showLabels={showNavLabels}
+          />
+        }
+        bridgeStatus={props.bridgeStatus}
+        bridge={props.bridge}
+        runtime={props.runtime}
+      />
       <ModuleContent
         modules={MODULES}
         densePanel={props.densePanel}
@@ -387,6 +397,7 @@ export function DebugUiView(props: {
   buttonRef: RefObject<HTMLButtonElement | null>;
   panelRef: RefObject<HTMLDivElement | null>;
   panelHeaderRef: RefObject<HTMLDivElement | null>;
+  compactDragRef: RefObject<HTMLDivElement | null>;
   titleId: string;
   open: boolean;
   panelVisible: boolean;
@@ -398,11 +409,7 @@ export function DebugUiView(props: {
   densePanel: boolean;
   bridgeStatus: VacpDebugBridgeStatus;
   pillTitle: string;
-  title: string;
   meta: string;
-  maximized: boolean;
-  minimize: () => void;
-  toggleMaximize: () => void;
   bridge: VacpWindowBridge | null;
   runtime: VacpRuntimeSnapshot | null;
   renderModule: (id: VacpDebugModuleId) => ReactElement | null;
@@ -422,9 +429,8 @@ export function DebugUiView(props: {
       <div
         id="vacp-debug-ui-panel"
         className={cn(
-          'vacp-debug-ui-panel fixed z-[2147483001] h-[min(700px,calc(100vh-92px))] w-[min(1020px,calc(100vw-28px))] overflow-hidden rounded-xl border border-white/[0.105] bg-[#0b1115] text-slate-100 shadow-[0_24px_48px_rgba(0,0,0,0.36)]',
+          'vacp-debug-ui-panel fixed z-[2147483001] h-[min(620px,calc(100vh-92px))] w-[min(900px,calc(100vw-28px))] overflow-hidden rounded-lg border border-white/[0.105] bg-[#0b1115] text-slate-100 shadow-[0_18px_44px_rgba(0,0,0,0.34)]',
           props.panelVisible ? 'grid' : 'hidden',
-          'grid-cols-[minmax(0,1fr)] grid-rows-[auto_minmax(0,1fr)]',
           props.densePanel && 'vacp-debug-ui-dense',
         )}
         ref={props.panelRef}
@@ -436,24 +442,18 @@ export function DebugUiView(props: {
         aria-labelledby={props.titleId}
         tabIndex={-1}
       >
-        <PanelTopBar
+        <ModuleShell
           panelHeaderRef={props.panelHeaderRef}
+          compactDragRef={props.compactDragRef}
           titleId={props.titleId}
-          title={props.title}
           meta={props.meta}
-          bridgeStatus={props.bridgeStatus}
-          maximized={props.maximized}
-          setOpen={props.setOpen}
-          minimize={props.minimize}
-          toggleMaximize={props.toggleMaximize}
-          bridge={props.bridge}
-          runtime={props.runtime}
-        />
-        <ModuleTabs
           moduleId={props.moduleId}
           setModuleId={props.setModuleId}
           compactPanel={props.compactPanel}
           densePanel={props.densePanel}
+          bridgeStatus={props.bridgeStatus}
+          bridge={props.bridge}
+          runtime={props.runtime}
           inspectBanner={<InspectBanner runtime={props.runtime} setModuleId={props.setModuleId} />}
           renderModule={props.renderModule}
         />

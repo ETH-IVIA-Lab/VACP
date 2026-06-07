@@ -30,7 +30,7 @@ function isArrowResult(
   value: unknown,
 ): value is { format: 'arrow_ipc_base64'; resolvedSql: string; arrowIpcBase64: string } {
   if (!value || typeof value !== 'object') return false;
-  const v = value as any;
+  const v = value as Record<string, unknown>;
   return v.format === 'arrow_ipc_base64' && typeof v.arrowIpcBase64 === 'string' && typeof v.resolvedSql === 'string';
 }
 

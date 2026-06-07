@@ -210,14 +210,6 @@ async function waitForHistoryLenAtLeast(page: Page, n: number, timeoutMs = 15_00
   }
 }
 
-function stableJson(value: unknown): string {
-  try {
-    return JSON.stringify(value);
-  } catch {
-    return String(value);
-  }
-}
-
 function countFromResult(res: any): number {
   const rows = res?.result?.rows ?? [];
   return rows?.[0]?.n;

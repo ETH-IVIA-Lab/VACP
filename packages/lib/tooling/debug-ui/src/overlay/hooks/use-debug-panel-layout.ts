@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useRef, useState, type RefObject } from 'react';
+import { useCallback, useEffect, useLayoutEffect, type RefObject } from 'react';
 
 const PANEL_MARGIN = 14;
 const DOCK_GAP = 8;
@@ -61,14 +61,9 @@ export function useDebugPanelLayout(args: {
   panelRef: RefObject<HTMLDivElement | null>;
   open: boolean;
 }): {
-  maximized: boolean;
   panelPosition: () => void;
-  minimize: () => void;
-  toggleMaximize: () => void;
 } {
   const { rootRef, panelRef, open } = args;
-  const [maximized, setMaximized] = useState(false);
-  const sizeBeforeMaxRef = useRef<{ width: number; height: number } | null>(null);
 
   const panelPosition = useCallback(() => {
     const root = rootRef.current;
@@ -100,51 +95,6 @@ export function useDebugPanelLayout(args: {
     panel.style.bottom = 'auto';
   }, [panelRef, rootRef]);
 
-  const applySize = useCallback(
-    (size: { width: number; height: number }) => {
-      const root = rootRef.current;
-      const panel = panelRef.current;
-      if (!root || !panel) return;
-      const maxW = Math.max(360, window.innerWidth - PANEL_MARGIN * 2);
-      const maxH = maxPanelHeight(root);
-      panel.style.width = `${clamp(size.width, 360, maxW)}px`;
-      panel.style.height = `${clamp(size.height, 260, maxH)}px`;
-      panelPosition();
-    },
-    [panelPosition, panelRef, rootRef],
-  );
-
-  const minimize = useCallback(() => {
-    setMaximized(false);
-    sizeBeforeMaxRef.current = null;
-    const panel = panelRef.current;
-    if (!panel) return;
-    panel.style.width = '';
-    panel.style.height = '';
-    try {
-      localStorage.removeItem('vacp:debug:size');
-    } catch {
-      // ignore
-    }
-    panelPosition();
-  }, [panelPosition, panelRef]);
-
-  const toggleMaximize = useCallback(() => {
-    const root = rootRef.current;
-    const panel = panelRef.current;
-    if (!root || !panel) return;
-    if (!maximized) {
-      const rect = panelLayoutSize(panel);
-      sizeBeforeMaxRef.current = { width: rect.width, height: rect.height };
-      setMaximized(true);
-      applySize({ width: window.innerWidth - PANEL_MARGIN * 2, height: maxPanelHeight(root) });
-      return;
-    }
-    setMaximized(false);
-    if (sizeBeforeMaxRef.current) applySize(sizeBeforeMaxRef.current);
-    panelPosition();
-  }, [applySize, maximized, panelPosition, panelRef, rootRef]);
-
   useLayoutEffect(() => {
     if (!open) return;
     panelPosition();
@@ -162,5 +112,5 @@ export function useDebugPanelLayout(args: {
     return () => window.removeEventListener('resize', onResize);
   }, [panelPosition]);
 
-  return { maximized, panelPosition, minimize, toggleMaximize };
+  return { panelPosition };
 }

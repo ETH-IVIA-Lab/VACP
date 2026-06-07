@@ -48,7 +48,7 @@ test('vega-lite: debug-ui graph visually renders mark/channel/field nodes for al
     await page.waitForFunction(() => !!(globalThis as any).__vacp);
 
     await openDebugUi(page);
-    const graphTab = page.locator('button.vacp-debug-ui-module', { hasText: 'Graph' });
+    const graphTab = page.getByRole('tab', { name: 'Graph' });
     await expect(graphTab).toBeVisible({ timeout: 15_000 });
     await graphTab.click();
 

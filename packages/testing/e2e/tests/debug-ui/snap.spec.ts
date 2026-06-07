@@ -2,6 +2,7 @@ import { expect, test, type Page } from '@playwright/test';
 
 import { startViteDevServer } from '../helpers/devserver';
 import { exampleDir } from '../helpers/paths';
+import { waitForVacpBridge } from './helpers';
 
 type Rect = { left: number; top: number; right: number; bottom: number; width: number; height: number };
 type ViewRect = Rect & { innerWidth: number; innerHeight: number };
@@ -65,6 +66,31 @@ async function dragFromTo(page: Page, from: { x: number; y: number }, to: { x: n
   await page.mouse.up();
 }
 
+async function panelDragPoint(page: Page): Promise<{ x: number; y: number }> {
+  return await page.evaluate(() => {
+    const header = document.querySelector<HTMLElement>('.vacp-debug-ui-topbar');
+    if (!header) throw new Error('Missing panel header drag target');
+    const rect = header.getBoundingClientRect();
+    const y = rect.top + rect.height / 2;
+    const candidates = [
+      rect.right - 170,
+      rect.right - 230,
+      rect.left + rect.width / 2,
+      rect.left + 18,
+      rect.right - 18,
+    ].map((x) => ({ x, y }));
+
+    for (const point of candidates) {
+      const hit = document.elementFromPoint(point.x, point.y) as HTMLElement | null;
+      if (!hit || !(hit === header || header.contains(hit))) continue;
+      const interactive = hit.closest('button, a, input, textarea, select, option, [role="button"], [role="tab"]');
+      if (!interactive) return point;
+    }
+
+    throw new Error('No non-interactive panel header drag point found');
+  });
+}
+
 async function expectDockNearLeft(page: Page, expectedLeft: number): Promise<void> {
   const rect = await getRootRect(page);
   const expectedTop = rect.innerHeight - rect.height - DOCK_MARGIN;
@@ -93,24 +119,16 @@ async function expectPanelAttached(page: Page): Promise<void> {
   const dockCenter = dock.left + dock.width / 2;
   expect(dockCenter, `dock center=${dockCenter}`).toBeGreaterThanOrEqual(panel.left - 1);
   expect(dockCenter, `dock center=${dockCenter}`).toBeLessThanOrEqual(panel.right + 1);
-  await expect(page.locator('.vacp-debug-ui-connector')).toHaveCount(0);
 }
 
-async function expectNoShortcutLabels(page: Page): Promise<void> {
-  const panel = page.locator('#vacp-debug-ui-panel');
-  await expect(panel).not.toContainText(/Alt\s+\d/);
-  const navText = await page.locator('.vacp-debug-ui-nav-list').innerText();
-  expect(navText).not.toMatch(/Alt\s+\d/);
-}
-
-test('debug-ui: dock drags freely and keeps the panel attached without shortcut labels', async ({ page }) => {
+test('debug-ui: dock drags freely and keeps the panel attached', async ({ page }) => {
   const srv = await startViteDevServer({
     name: 'cars-parallel-coords',
     cwd: exampleDir('cars-parallel-coords'),
   });
   try {
     await page.goto(`${srv.url}?vacp-debug=1`, { waitUntil: 'domcontentloaded' });
-    await page.waitForFunction(() => !!(globalThis as any).__vacp);
+    await waitForVacpBridge(page);
 
     const pill = page.locator('button.vacp-debug-ui-button');
     await expect(pill).toBeVisible();
@@ -128,19 +146,14 @@ test('debug-ui: dock drags freely and keeps the panel attached without shortcut 
     await pill.click();
     await expect(page.locator('#vacp-debug-ui-panel')).toBeVisible();
     await expectPanelAttached(page);
-    await expectNoShortcutLabels(page);
 
-    const header = page.locator('.vacp-debug-ui-topbar');
-    const headerBox = await header.boundingBox();
-    if (!headerBox) throw new Error('Missing panel header bounding box');
     const dockBeforeHeaderDrag = await getRootRect(page);
-    const secondFrom = { x: headerBox.x + headerBox.width / 2, y: headerBox.y + headerBox.height / 2 };
+    const secondFrom = await panelDragPoint(page);
     const secondTo = { x: page.viewportSize()!.width * 0.64, y: secondFrom.y };
     await dragFromTo(page, secondFrom, secondTo);
     await page.waitForTimeout(60);
     await expectDockNearLeft(page, expectedDockLeftAfterDrag(dockBeforeHeaderDrag, secondFrom.x, secondTo.x));
     await expectPanelAttached(page);
-    await expectNoShortcutLabels(page);
 
     const resizeHandle = page.locator('.vacp-debug-ui-resize-n');
     const resizeBox = await resizeHandle.boundingBox();
@@ -157,8 +170,60 @@ test('debug-ui: dock drags freely and keeps the panel attached without shortcut 
 
     await pill.click();
     await expect(page.locator('#vacp-debug-ui-panel')).toHaveAttribute('data-state', 'closing');
-    await expect(page.locator('.vacp-debug-ui-connector')).toHaveCount(0);
     await expect(page.locator('#vacp-debug-ui-panel')).toBeHidden({ timeout: 1_000 });
+  } finally {
+    await srv.stop();
+  }
+});
+
+test('debug-ui: compact saved panel exposes a header drag target', async ({ page }) => {
+  const srv = await startViteDevServer({
+    name: 'cars-parallel-coords',
+    cwd: exampleDir('cars-parallel-coords'),
+  });
+  try {
+    await page.goto(`${srv.url}?vacp-debug=1`, { waitUntil: 'domcontentloaded' });
+    await waitForVacpBridge(page);
+    await page.evaluate(() => {
+      localStorage.removeItem('vacp:debug:dock');
+      localStorage.setItem('vacp:debug:size', JSON.stringify({ width: 360, height: 520 }));
+    });
+    await page.reload({ waitUntil: 'domcontentloaded' });
+    await waitForVacpBridge(page);
+
+    const pill = page.locator('button.vacp-debug-ui-button');
+    await expect(pill).toBeVisible();
+    await pill.click();
+    await expect(page.locator('#vacp-debug-ui-panel')).toBeVisible();
+    await expect
+      .poll(async () => {
+        return await page.locator('#vacp-debug-ui-panel').evaluate((panel) => panel.getBoundingClientRect().width);
+      })
+      .toBeLessThanOrEqual(380);
+    await expectPanelAttached(page);
+
+    const dragStrip = page.locator('[data-vacp-debug-drag-strip="1"]');
+    const stripBox = await dragStrip.boundingBox();
+    if (!stripBox) throw new Error('Missing compact drag strip bounding box');
+    const stripReceivesPointer = await page.evaluate(
+      ({ x, y }) => {
+        const strip = document.querySelector('[data-vacp-debug-drag-strip="1"]');
+        const hit = document.elementFromPoint(x, y);
+        return Boolean(strip && hit && (strip === hit || strip.contains(hit)));
+      },
+      {
+        x: stripBox.x + stripBox.width / 2,
+        y: stripBox.y + stripBox.height / 2,
+      },
+    );
+    expect(stripReceivesPointer).toBe(true);
+    const dockBeforeCompactDrag = await getRootRect(page);
+    const compactFrom = { x: stripBox.x + stripBox.width / 2, y: stripBox.y + stripBox.height / 2 };
+    const compactTo = { x: page.viewportSize()!.width * 0.36, y: compactFrom.y };
+    await dragFromTo(page, compactFrom, compactTo);
+    await page.waitForTimeout(60);
+    await expectDockNearLeft(page, expectedDockLeftAfterDrag(dockBeforeCompactDrag, compactFrom.x, compactTo.x));
+    await expectPanelAttached(page);
   } finally {
     await srv.stop();
   }

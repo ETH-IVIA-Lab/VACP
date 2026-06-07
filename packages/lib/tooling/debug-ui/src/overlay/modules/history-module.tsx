@@ -1,4 +1,4 @@
-import type { VacpHistoryEntry } from '@vacp/core';
+import type { VacpChangeSource, VacpHistoryEntry } from '@vacp/core';
 import { Bot, Cpu, PanelRightClose, PanelRightOpen, Redo2, Undo2, User, Wrench } from 'lucide-react';
 import type { ReactElement } from 'react';
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -7,12 +7,14 @@ import { DEBUG_UI_PANEL_BREAKPOINTS, isDenseDebugPanel } from '@vacp/debug-ui/ov
 import { IconButton } from '@vacp/debug-ui/overlay/icon-button';
 import { useVacpDebugUiStore } from '@vacp/debug-ui/overlay/debug-store';
 import { useElementSize } from '@vacp/debug-ui/overlay/hooks/use-element-size';
-import { Card, CardDescription, CardHeader, CardTitle } from '@vacp/debug-ui/ui/components/ui/card';
 import { JsonViewer } from '@vacp/debug-ui/ui/components/ui/json-viewer';
 import { RovingFocusGroup, RovingFocusGroupItem } from '@vacp/debug-ui/ui/components/ui/roving-focus';
 import { cn } from '@vacp/debug-ui/ui/lib/utils';
 
+import { ModuleHeader, ModulePane, ModuleRoot } from './module-layout';
 import type { VacpDebugModuleProps } from './module-types';
+
+const HISTORY_SOURCES = ['human', 'agent', 'debug', 'system'] as const satisfies readonly VacpChangeSource[];
 
 function formatTime(iso: string | undefined): string {
   if (!iso) return '';
@@ -22,42 +24,96 @@ function formatTime(iso: string | undefined): string {
 }
 
 function roleInfo(source: VacpHistoryEntry['source']): {
+  chipClass: string;
   dotClass: string;
+  rowAccentClass: string;
   label: string;
   description: string;
   icon: ReactElement;
 } {
   if (source === 'human') {
     return {
-      dotClass: 'bg-slate-300/70',
+      chipClass: 'border-cyan-200/18 bg-cyan-300/[0.045] text-cyan-50/76',
+      dotClass: 'bg-cyan-300/78',
+      rowAccentClass: 'border-l-cyan-300/42',
       label: 'Human',
       description: 'Direct user interaction (mouse/keyboard) in the host app.',
-      icon: <User className="h-3.5 w-3.5 text-slate-100/76" aria-hidden="true" />,
+      icon: <User className="h-3.5 w-3.5 text-cyan-50/72" aria-hidden="true" />,
     };
   }
   if (source === 'agent') {
     return {
-      dotClass: 'bg-slate-300/56',
+      chipClass: 'border-violet-200/18 bg-violet-300/[0.052] text-violet-50/78',
+      dotClass: 'bg-violet-300/76',
+      rowAccentClass: 'border-l-violet-300/44',
       label: 'Agent',
       description: 'AI-driven action or tool invocation.',
-      icon: <Bot className="h-3.5 w-3.5 text-slate-100/72" aria-hidden="true" />,
+      icon: <Bot className="h-3.5 w-3.5 text-violet-50/72" aria-hidden="true" />,
     };
   }
   if (source === 'debug') {
     return {
-      dotClass: 'bg-emerald-200/72',
+      chipClass: 'border-amber-200/18 bg-amber-300/[0.05] text-amber-50/76',
+      dotClass: 'bg-amber-300/78',
+      rowAccentClass: 'border-l-amber-300/44',
       label: 'Debug UI',
       description: 'Triggered by the debug overlay (History/Actions/JSON/Data modules).',
-      icon: <Wrench className="h-3.5 w-3.5 text-emerald-50/72" aria-hidden="true" />,
+      icon: <Wrench className="h-3.5 w-3.5 text-amber-50/72" aria-hidden="true" />,
     };
   }
-  // `system` or unknown: runtime/provider/internal events.
   return {
-    dotClass: 'bg-white/40',
+    chipClass: 'border-slate-200/12 bg-white/[0.032] text-slate-100/62',
+    dotClass: 'bg-slate-300/52',
+    rowAccentClass: 'border-l-slate-300/28',
     label: 'System',
     description: 'Provider/runtime/internal events (refresh, mode changes, observers).',
-    icon: <Cpu className="h-3.5 w-3.5 text-slate-100/80" aria-hidden="true" />,
+    icon: <Cpu className="h-3.5 w-3.5 text-slate-100/68" aria-hidden="true" />,
   };
+}
+
+function kindInfo(kind: VacpHistoryEntry['kind']): { chipClass: string; label: string } {
+  if (kind === 'snapshot')
+    return { chipClass: 'border-cyan-200/14 bg-cyan-300/[0.04] text-cyan-50/70', label: 'snapshot' };
+  if (kind === 'action')
+    return { chipClass: 'border-violet-200/14 bg-violet-300/[0.045] text-violet-50/72', label: 'action' };
+  if (kind === 'state_override')
+    return { chipClass: 'border-amber-200/14 bg-amber-300/[0.045] text-amber-50/72', label: 'state' };
+  if (kind === 'graph_override')
+    return { chipClass: 'border-sky-200/14 bg-sky-300/[0.04] text-sky-50/70', label: 'graph' };
+  return { chipClass: 'border-slate-200/12 bg-white/[0.032] text-slate-100/62', label: 'mode' };
+}
+
+function HistorySourceLegend(props: { stack: boolean }): ReactElement {
+  return (
+    <div
+      className={cn(
+        'flex gap-1.5 text-[11px] text-slate-100/72',
+        props.stack ? 'flex-col items-stretch' : 'flex-wrap items-center',
+      )}
+    >
+      <span className="inline-flex items-center rounded-md border border-white/[0.065] bg-white/[0.018] px-2 py-1 font-medium text-slate-100/62">
+        Sources
+      </span>
+      {HISTORY_SOURCES.map((source) => {
+        const info = roleInfo(source);
+        return (
+          <span
+            key={source}
+            className={cn(
+              'inline-flex items-center gap-2 rounded-full border px-2.5 py-1.5 leading-none',
+              info.chipClass,
+              props.stack && 'w-full',
+            )}
+            title={info.description}
+          >
+            <span className={cn('h-2 w-2 rounded-full', info.dotClass)} aria-hidden="true" />
+            {info.icon}
+            <span className="font-medium">{info.label}</span>
+          </span>
+        );
+      })}
+    </div>
+  );
 }
 
 function stateFromEntry(entry: VacpHistoryEntry): unknown {
@@ -92,6 +148,7 @@ export function HistoryModule(props: VacpDebugModuleProps): ReactElement {
   const effectiveDetailsOpen = detailsOpen && !dense;
   const showSideBySide = effectiveDetailsOpen && rootSize.width >= DEBUG_UI_PANEL_BREAKPOINTS.splitPane;
   const stackLegend = rootSize.width < DEBUG_UI_PANEL_BREAKPOINTS.stackLegend;
+  const boundWide = rootSize.width >= DEBUG_UI_PANEL_BREAKPOINTS.splitPane;
 
   useEffect(() => {
     if (!dense || !detailsOpen) return;
@@ -132,115 +189,68 @@ export function HistoryModule(props: VacpDebugModuleProps): ReactElement {
   };
 
   return (
-    <div
-      ref={rootRef}
+    <ModuleRoot
+      rootRef={rootRef}
+      boundWide={boundWide}
       className={cn(
         'h-full min-h-0',
         dense ? 'gap-2' : 'gap-3',
         showSideBySide ? 'grid grid-cols-[minmax(0,1fr)_minmax(320px,420px)]' : 'flex flex-col',
       )}
     >
-      <Card className={cn('flex min-h-0 flex-1 flex-col', dense && 'p-2')}>
-        <CardHeader className={cn('items-start', compactControls && 'flex-col items-stretch gap-2')}>
-          <div className="min-w-0 flex-1">
-            <CardTitle>History</CardTitle>
-            <CardDescription>
-              Review runtime events and, in Inspect mode, jump the cursor to replay stateful moments.
-            </CardDescription>
-            {dense ? (
-              <details className="mt-2 rounded-lg border border-white/[0.075] bg-white/[0.025] px-3 py-2 text-[11px] text-slate-100/72">
-                <summary className="cursor-pointer select-none font-medium text-slate-100/85">Sources legend</summary>
-                <div className="mt-2 flex flex-wrap items-center gap-2.5">
-                  {(['human', 'agent', 'debug', 'system'] as const).map((source) => {
-                    const info = roleInfo(source as any);
-                    return (
-                      <span
-                        key={source}
-                        className="inline-flex items-center gap-2 rounded-full border border-white/[0.075] bg-white/[0.025] px-2.5 py-1.5 leading-none"
-                        title={info.description}
-                      >
-                        <span className={cn('h-2 w-2 rounded-full', info.dotClass)} aria-hidden="true" />
-                        {info.icon}
-                        <span className="font-medium text-slate-100/80">{info.label}</span>
-                      </span>
-                    );
-                  })}
-                </div>
-              </details>
-            ) : (
-              <div
-                className={cn(
-                  'mt-2 gap-2.5 rounded-lg border border-white/[0.075] bg-white/[0.025] px-3 py-2 text-[11px] text-slate-100/72',
-                  stackLegend ? 'flex flex-col items-stretch' : 'flex flex-wrap items-center',
-                )}
-              >
-                <span className="inline-flex items-center rounded-md border border-white/[0.075] bg-white/[0.025] px-2 py-1 font-medium text-slate-100/74">
-                  Event sources
-                </span>
-                {(['human', 'agent', 'debug', 'system'] as const).map((source) => {
-                  const info = roleInfo(source as any);
-                  return (
-                    <span
-                      key={source}
-                      className={cn(
-                        'inline-flex items-center gap-2 rounded-full border border-white/[0.075] bg-white/[0.025] px-2.5 py-1.5 leading-none',
-                        stackLegend && 'w-full',
-                      )}
-                      title={info.description}
-                    >
-                      <span className={cn('h-2 w-2 rounded-full', info.dotClass)} aria-hidden="true" />
-                      {info.icon}
-                      <span className="font-medium text-slate-100/80">{info.label}</span>
-                    </span>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-          <div
-            className={cn(
-              'flex items-center gap-2',
-              compactControls
-                ? 'w-full flex-nowrap justify-start overflow-x-auto gap-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden'
-                : 'shrink-0',
-            )}
-          >
-            <IconButton
-              icon={<Undo2 className="h-4 w-4 text-slate-100/90" />}
-              size={iconButtonSize}
-              label="Undo"
-              title="Undo."
-              disabled={!canUndo}
-              onClick={() => undo()}
-            />
-            <IconButton
-              icon={<Redo2 className="h-4 w-4 text-slate-100/90" />}
-              size={iconButtonSize}
-              label="Redo"
-              title="Redo."
-              disabled={!canRedo}
-              onClick={() => redo()}
-            />
-            <IconButton
-              icon={
-                detailsOpen ? (
-                  <PanelRightClose className="h-4 w-4 text-slate-100/90" />
-                ) : (
-                  <PanelRightOpen className="h-4 w-4 text-slate-100/90" />
-                )
-              }
-              size={iconButtonSize}
-              label={detailsOpen ? 'Hide details pane' : 'Show details pane'}
-              title={
-                detailsOpen ? 'Hide the Details pane to give the history list more space.' : 'Show the Details pane.'
-              }
-              pressed={effectiveDetailsOpen}
-              onClick={() => setDetailsOpen(!detailsOpen)}
-            />
-          </div>
-        </CardHeader>
+      <ModulePane className={cn('flex min-h-0 flex-1 flex-col', dense ? 'gap-2' : 'gap-3')}>
+        <ModuleHeader
+          title="Events"
+          description="Select runtime events and replay stateful moments in Inspect mode."
+          compact={compactControls}
+          actions={
+            <>
+              <IconButton
+                icon={<Undo2 className="h-4 w-4 text-slate-100/90" />}
+                size={iconButtonSize}
+                label="Undo"
+                title="Undo."
+                disabled={!canUndo}
+                onClick={() => undo()}
+              />
+              <IconButton
+                icon={<Redo2 className="h-4 w-4 text-slate-100/90" />}
+                size={iconButtonSize}
+                label="Redo"
+                title="Redo."
+                disabled={!canRedo}
+                onClick={() => redo()}
+              />
+              <IconButton
+                icon={
+                  detailsOpen ? (
+                    <PanelRightClose className="h-4 w-4 text-slate-100/90" />
+                  ) : (
+                    <PanelRightOpen className="h-4 w-4 text-slate-100/90" />
+                  )
+                }
+                size={iconButtonSize}
+                label={detailsOpen ? 'Hide details pane' : 'Show details pane'}
+                title={
+                  detailsOpen ? 'Hide the Details pane to give the history list more space.' : 'Show the Details pane.'
+                }
+                pressed={effectiveDetailsOpen}
+                onClick={() => setDetailsOpen(!detailsOpen)}
+              />
+            </>
+          }
+        />
 
-        <div className="mt-3 min-h-0 flex-1 overflow-auto rounded-lg border border-white/[0.075] bg-white/[0.02]">
+        {dense ? (
+          <details className="text-[11px] text-slate-100/72">
+            <summary className="cursor-pointer select-none font-medium text-slate-100/78">Sources</summary>
+            <HistorySourceLegend stack={false} />
+          </details>
+        ) : (
+          <HistorySourceLegend stack={stackLegend} />
+        )}
+
+        <div className="min-h-0 flex-1 overflow-auto border-t border-white/[0.075] pt-1">
           <RovingFocusGroup orientation="vertical" loop asChild>
             <div className="p-1" role="listbox" aria-label="History entries">
               {history.map((h, i) => {
@@ -248,17 +258,19 @@ export function HistoryModule(props: VacpDebugModuleProps): ReactElement {
                 const isCursor = props.runtime.mode === 'inspect' && i === cursorIdx;
                 const hasState = Boolean(stateFromEntry(h));
                 const info = roleInfo(h.source);
+                const kind = kindInfo(h.kind);
                 return (
                   <RovingFocusGroupItem key={h.id} asChild>
                     <button
                       type="button"
                       className={cn(
-                        'w-full rounded-lg border px-2 py-2 text-left text-xs transition-colors',
-                        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300/38',
+                        'w-full rounded-md border border-l-2 px-2 py-2 text-left text-xs transition-colors',
+                        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/30',
+                        info.rowAccentClass,
                         active
-                          ? 'border-emerald-200/24 bg-emerald-300/[0.075]'
-                          : 'border-transparent hover:border-white/[0.08] hover:bg-white/[0.04]',
-                        isCursor ? 'shadow-[inset_0_0_0_1px_rgba(110,231,183,0.16)]' : '',
+                          ? 'border-y-white/12 border-r-white/12 bg-white/[0.065]'
+                          : 'border-y-transparent border-r-transparent hover:border-y-white/[0.075] hover:border-r-white/[0.075] hover:bg-white/[0.035]',
+                        isCursor ? 'shadow-[inset_0_0_0_1px_rgba(255,255,255,0.08)]' : '',
                       )}
                       aria-selected={active ? 'true' : 'false'}
                       data-role={h.source}
@@ -285,8 +297,16 @@ export function HistoryModule(props: VacpDebugModuleProps): ReactElement {
                         </span>
                         <div className="font-semibold text-slate-100/90">{h.kind}</div>
                         <div className="text-[11px] text-slate-100/60">{formatTime(h.at)}</div>
+                        <span
+                          className={cn(
+                            'rounded-full border px-2 py-0.5 text-[10px] font-semibold leading-none',
+                            kind.chipClass,
+                          )}
+                        >
+                          {kind.label}
+                        </span>
                         {isCursor ? (
-                          <span className="rounded-full border border-emerald-200/22 bg-emerald-300/[0.075] px-2 py-0.5 text-[10px] font-semibold text-emerald-50/78">
+                          <span className="rounded-full border border-white/12 bg-white/[0.06] px-2 py-0.5 text-[10px] font-semibold text-slate-100/72">
                             cursor
                           </span>
                         ) : null}
@@ -305,23 +325,23 @@ export function HistoryModule(props: VacpDebugModuleProps): ReactElement {
             </div>
           </RovingFocusGroup>
         </div>
-      </Card>
+      </ModulePane>
 
       {effectiveDetailsOpen ? (
-        <Card className={cn('flex min-h-0 flex-col', !showSideBySide && 'max-h-[45%]', dense && 'p-2')}>
-          <CardHeader>
-            <div className="min-w-0">
-              <CardTitle>Details</CardTitle>
-              <CardDescription>
-                {selected
-                  ? `${selected.kind} • ${roleInfo(selected.source).label}`
-                  : 'Select an entry to inspect the recorded payload.'}
-              </CardDescription>
-            </div>
-          </CardHeader>
+        <ModulePane
+          className={cn('flex min-h-0 flex-col', !showSideBySide && 'max-h-[45%]', dense ? 'gap-2' : 'gap-3')}
+        >
+          <ModuleHeader
+            title="Details"
+            description={
+              selected
+                ? `${selected.kind} / ${roleInfo(selected.source).label}`
+                : 'Select an entry to inspect the recorded payload.'
+            }
+          />
           <JsonViewer value={selected} className={cn('flex-1', dense && 'p-2')} />
-        </Card>
+        </ModulePane>
       ) : null}
-    </div>
+    </ModuleRoot>
   );
 }

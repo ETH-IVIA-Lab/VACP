@@ -14,7 +14,7 @@ test('vgplot-gallery: history resets when switching specs (new VACP session)', a
     await pill.click();
     await expect(page.locator('#vacp-debug-ui-panel')).toBeVisible();
 
-    const historyTab = page.locator('.vacp-debug-ui-module', { hasText: 'History' });
+    const historyTab = page.getByRole('tab', { name: 'History' });
     await expect(historyTab).toBeVisible();
     await historyTab.click();
 

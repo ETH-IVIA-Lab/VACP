@@ -19,11 +19,11 @@ import { DEBUG_UI_PANEL_BREAKPOINTS, isDenseDebugPanel } from '@vacp/debug-ui/ov
 import { useVacpDebugUiStore } from '@vacp/debug-ui/overlay/debug-store';
 import { IconButton } from '@vacp/debug-ui/overlay/icon-button';
 import { useElementSize } from '@vacp/debug-ui/overlay/hooks/use-element-size';
-import { Card, CardDescription, CardHeader, CardTitle } from '@vacp/debug-ui/ui/components/ui/card';
 import { JsonViewer } from '@vacp/debug-ui/ui/components/ui/json-viewer';
 import { copyTextToClipboard } from '@vacp/debug-ui/ui/lib/clipboard';
 import { cn } from '@vacp/debug-ui/ui/lib/utils';
 
+import { ModuleHeader, ModulePane, ModuleRoot } from './module-layout';
 import type { VacpDebugModuleProps } from './module-types';
 
 type SelectedGraphItem =
@@ -119,6 +119,7 @@ export function GraphModule(props: VacpDebugModuleProps): ReactElement {
   const rootSize = useElementSize(rootRef);
   const compactControls = rootSize.width < DEBUG_UI_PANEL_BREAKPOINTS.compactControls;
   const dense = isDenseDebugPanel(rootSize.width, rootSize.height);
+  const boundWide = rootSize.width >= DEBUG_UI_PANEL_BREAKPOINTS.splitPane;
   const iconButtonSize = 'iconSm';
   const includeActionsDefault = useVacpDebugUiStore((s) => s.includeActionsDefault);
   const inspectOpen = useVacpDebugUiStore((s) => s.graphInspectOpen);
@@ -222,8 +223,9 @@ export function GraphModule(props: VacpDebugModuleProps): ReactElement {
   }, []);
 
   return (
-    <div
-      ref={rootRef}
+    <ModuleRoot
+      rootRef={rootRef}
+      boundWide={boundWide}
       className={cn(
         'h-full min-h-0',
         dense ? 'gap-2' : 'gap-3',
@@ -232,118 +234,111 @@ export function GraphModule(props: VacpDebugModuleProps): ReactElement {
       data-vacp-graph="1"
       data-vacp-direction={options.direction}
     >
-      <Card className={cn('flex min-h-0 flex-1 flex-col', dense && 'p-2')}>
-        <CardHeader className={cn(compactControls && 'flex-col items-stretch gap-2')}>
-          <div className="min-w-0">
-            <CardTitle>Graph</CardTitle>
-            <CardDescription>
-              Click nodes to inspect their state.{' '}
+      <ModulePane className={cn('flex min-h-0 flex-1 flex-col', dense ? 'gap-2' : 'gap-3')}>
+        <ModuleHeader
+          title="Diagram"
+          description={
+            <>
+              Click nodes to inspect state.{' '}
               {renderError ? <span className="text-red-50/82">({renderError})</span> : null}
-            </CardDescription>
-          </div>
-          <div
-            className={cn(
-              'flex items-center gap-2',
-              compactControls
-                ? 'w-full flex-nowrap justify-start overflow-x-auto gap-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden'
-                : 'shrink-0 flex-wrap justify-end',
-            )}
-          >
-            <IconButton
-              icon={
-                options.direction === 'LR' ? (
-                  <ArrowLeftRight className="h-4 w-4 text-slate-100/90" />
-                ) : (
-                  <ArrowUpDown className="h-4 w-4 text-slate-100/90" />
-                )
-              }
-              label="Toggle direction"
-              title="Toggle diagram direction (left-to-right vs top-to-bottom)."
-              size={iconButtonSize}
-              onClick={() => setOptions((o) => ({ ...o, direction: o.direction === 'LR' ? 'TB' : 'LR' }))}
-            />
-            <IconButton
-              icon={<Zap className="h-4 w-4 text-slate-100/90" />}
-              label={options.includeActions ? 'Hide actions' : 'Show actions'}
-              title="Show semantic actions as nodes in the diagram."
-              pressed={options.includeActions}
-              size={iconButtonSize}
-              onClick={() => setOptions((o) => ({ ...o, includeActions: !o.includeActions }))}
-            />
-            <IconButton
-              icon={<ClipboardCopy className="h-4 w-4 text-slate-100/90" />}
-              label="Copy Mermaid"
-              title="Copy the Mermaid source for this diagram."
-              size={iconButtonSize}
-              onClick={() => void copyTextToClipboard(mermaidText)}
-            />
-            <IconButton
-              icon={
-                inspectOpen ? (
-                  <PanelRightClose className="h-4 w-4 text-slate-100/90" />
-                ) : (
-                  <PanelRightOpen className="h-4 w-4 text-slate-100/90" />
-                )
-              }
-              label={inspectOpen ? 'Hide inspect pane' : 'Show inspect pane'}
-              title={inspectOpen ? 'Hide the Inspect pane to give the diagram more space.' : 'Show the Inspect pane.'}
-              pressed={effectiveInspectOpen}
-              size={iconButtonSize}
-              onClick={() => setInspectOpen(!inspectOpen)}
-            />
-          </div>
-        </CardHeader>
-
-        <div className={cn('min-h-0 flex-1', dense ? 'mt-2' : 'mt-3')}>
-          <div
-            ref={diagramHostRef}
-            className="vacp-debug-ui-diagram h-full w-full min-h-0 overflow-hidden rounded-lg border border-white/[0.075] bg-white/[0.02]"
-            data-stale={stale ? '1' : '0'}
-          />
-        </div>
-      </Card>
-
-      {effectiveInspectOpen ? (
-        <Card className={cn('flex min-h-0 flex-col', !showSideBySide && 'max-h-[45%]', dense && 'p-2')}>
-          <CardHeader className={cn(compactControls && 'flex-col items-stretch gap-2')}>
-            <div className="min-w-0">
-              <CardTitle>Inspect</CardTitle>
-              <CardDescription>
-                {selected
-                  ? selected.kind === 'action'
-                    ? `Action #${selected.index}`
-                    : `Node #${selected.index}`
-                  : 'Select a node to see its full JSON.'}
-              </CardDescription>
-            </div>
-            <div
-              className={cn(
-                'flex items-center gap-2',
-                compactControls
-                  ? 'w-full flex-nowrap justify-start overflow-x-auto gap-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden'
-                  : 'shrink-0',
-              )}
-            >
+            </>
+          }
+          compact={compactControls}
+          actions={
+            <>
               <IconButton
-                icon={<XCircle className="h-4 w-4 text-slate-100/90" />}
-                label="Clear selection"
-                title="Clear the selected node/action."
+                icon={
+                  options.direction === 'LR' ? (
+                    <ArrowLeftRight className="h-4 w-4 text-slate-100/90" />
+                  ) : (
+                    <ArrowUpDown className="h-4 w-4 text-slate-100/90" />
+                  )
+                }
+                label="Toggle direction"
+                title="Toggle diagram direction (left-to-right vs top-to-bottom)."
                 size={iconButtonSize}
-                onClick={() => setSelected(null)}
+                onClick={() => setOptions((o) => ({ ...o, direction: o.direction === 'LR' ? 'TB' : 'LR' }))}
+              />
+              <IconButton
+                icon={<Zap className="h-4 w-4 text-slate-100/90" />}
+                label={options.includeActions ? 'Hide actions' : 'Show actions'}
+                title="Show semantic actions as nodes in the diagram."
+                pressed={options.includeActions}
+                size={iconButtonSize}
+                onClick={() => setOptions((o) => ({ ...o, includeActions: !o.includeActions }))}
               />
               <IconButton
                 icon={<ClipboardCopy className="h-4 w-4 text-slate-100/90" />}
-                label="Copy JSON"
-                title="Copy the inspected JSON to clipboard."
+                label="Copy Mermaid"
+                title="Copy the Mermaid source for this diagram."
                 size={iconButtonSize}
-                onClick={() => void copyTextToClipboard(inspectorText)}
+                onClick={() => void copyTextToClipboard(mermaidText)}
               />
-            </div>
-          </CardHeader>
+              <IconButton
+                icon={
+                  inspectOpen ? (
+                    <PanelRightClose className="h-4 w-4 text-slate-100/90" />
+                  ) : (
+                    <PanelRightOpen className="h-4 w-4 text-slate-100/90" />
+                  )
+                }
+                label={inspectOpen ? 'Hide inspect pane' : 'Show inspect pane'}
+                title={inspectOpen ? 'Hide the Inspect pane to give the diagram more space.' : 'Show the Inspect pane.'}
+                pressed={effectiveInspectOpen}
+                size={iconButtonSize}
+                onClick={() => setInspectOpen(!inspectOpen)}
+              />
+            </>
+          }
+        />
+
+        <div className="min-h-0 flex-1">
+          <ModulePane
+            paneRef={diagramHostRef}
+            tone="surface"
+            className="vacp-debug-ui-diagram h-full w-full min-h-0 overflow-hidden"
+            data-stale={stale ? '1' : '0'}
+          />
+        </div>
+      </ModulePane>
+
+      {effectiveInspectOpen ? (
+        <ModulePane
+          className={cn('flex min-h-0 flex-col', !showSideBySide && 'max-h-[45%]', dense ? 'gap-2' : 'gap-3')}
+        >
+          <ModuleHeader
+            title="Inspect"
+            description={
+              selected
+                ? selected.kind === 'action'
+                  ? `Action #${selected.index}`
+                  : `Node #${selected.index}`
+                : 'Select a node to see its full JSON.'
+            }
+            compact={compactControls}
+            actions={
+              <>
+                <IconButton
+                  icon={<XCircle className="h-4 w-4 text-slate-100/90" />}
+                  label="Clear selection"
+                  title="Clear the selected node/action."
+                  size={iconButtonSize}
+                  onClick={() => setSelected(null)}
+                />
+                <IconButton
+                  icon={<ClipboardCopy className="h-4 w-4 text-slate-100/90" />}
+                  label="Copy JSON"
+                  title="Copy the inspected JSON to clipboard."
+                  size={iconButtonSize}
+                  onClick={() => void copyTextToClipboard(inspectorText)}
+                />
+              </>
+            }
+          />
 
           <JsonViewer value={selected ? inspectorValue : null} className={cn('flex-1', dense && 'p-2')} />
-        </Card>
+        </ModulePane>
       ) : null}
-    </div>
+    </ModuleRoot>
   );
 }

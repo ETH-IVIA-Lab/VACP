@@ -2,6 +2,7 @@ import { expect, test } from '@playwright/test';
 
 import { startViteDevServer } from '../helpers/devserver';
 import { exampleDir } from '../helpers/paths';
+import { waitForVacpBridge } from './helpers';
 
 test('debug-ui: SQL editor keeps focus on run', async ({ page }) => {
   const srv = await startViteDevServer({
@@ -10,14 +11,14 @@ test('debug-ui: SQL editor keeps focus on run', async ({ page }) => {
   });
   try {
     await page.goto(`${srv.url}?vacp-debug=1`, { waitUntil: 'domcontentloaded' });
-    await page.waitForFunction(() => !!(globalThis as any).__vacp);
+    await waitForVacpBridge(page);
 
     const pill = page.locator('button.vacp-debug-ui-button');
     await expect(pill).toBeVisible();
     await pill.click();
     await expect(page.locator('.vacp-debug-ui-meta')).toContainText('mode=', { timeout: 15_000 });
 
-    const dataTab = page.locator('.vacp-debug-ui-module', { hasText: 'Data' });
+    const dataTab = page.getByRole('tab', { name: 'Data' });
     await expect(dataTab).toBeVisible();
     await dataTab.click();
 

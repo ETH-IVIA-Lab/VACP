@@ -5,7 +5,7 @@ import { JsonViewer } from '@vacp/debug-ui/ui/components/ui/json-viewer';
 import { cn } from '@vacp/debug-ui/ui/lib/utils';
 
 function eventColor(status: VacpAgentToolEvent['status']): string {
-  if (status === 'succeeded') return 'text-emerald-50/78';
+  if (status === 'succeeded') return 'text-slate-100/76';
   if (status === 'failed') return 'text-red-50/84';
   return 'text-amber-50/70';
 }
@@ -55,7 +55,7 @@ export function ChatActivityLog(props: { events: VacpAgentToolEvent[]; className
                     </span>
                   ) : null}
                   {normalizationBadge(event) ? (
-                    <span className="rounded-full border border-emerald-200/18 bg-emerald-300/[0.06] px-1.5 py-0.5 text-[10px] text-emerald-50/72">
+                    <span className="rounded-full border border-white/12 bg-white/[0.055] px-1.5 py-0.5 text-[10px] text-slate-100/70">
                       normalized
                     </span>
                   ) : null}
@@ -64,7 +64,7 @@ export function ChatActivityLog(props: { events: VacpAgentToolEvent[]; className
                 </summary>
                 <div className="mt-2 grid gap-2">
                   {event.inputNote ? (
-                    <div className="rounded-md border border-emerald-200/18 bg-emerald-300/[0.06] px-2 py-1 text-[10px] text-emerald-50/72">
+                    <div className="rounded-md border border-white/12 bg-white/[0.055] px-2 py-1 text-[10px] text-slate-100/70">
                       {event.inputNote}
                     </div>
                   ) : null}

@@ -183,6 +183,7 @@ type ConfiguredChatProps = {
   scopeLabel: string;
   threadId: string;
   sessionRevision?: number;
+  credentialRevision: number;
   panelWidth: number;
   config: VacpLLMConfig;
   initialMessages: UIMessage[];
@@ -216,10 +217,11 @@ export function ConfiguredChat(props: ConfiguredChatProps): ReactElement {
         scopeId: props.scopeId,
         threadId: props.threadId,
         sessionRevision: props.sessionRevision,
+        credentialRevision: props.credentialRevision,
         runtimeId: props.runtimeId,
         config: props.config,
       }),
-    [props.scopeId, props.threadId, props.sessionRevision, props.runtimeId, props.config],
+    [props.scopeId, props.threadId, props.sessionRevision, props.credentialRevision, props.runtimeId, props.config],
   );
 
   const chat = useMemo(
@@ -241,6 +243,8 @@ export function ConfiguredChat(props: ConfiguredChatProps): ReactElement {
   const totalUsage = useMemo(() => threadUsage(uiMessages), [uiMessages]);
   const busy = status === 'submitted' || status === 'streaming';
   const activityWide = props.panelWidth >= 1120;
+  const compactPanel = props.panelWidth < 520;
+  const roomyConversationHeader = props.panelWidth >= 680;
   const autoScrollSignal = `${status}:${uiMessages.length}:${latestTextLength(uiMessages)}`;
   const { scrollRef, contentRef, stickToBottom, jumpToLatest } = useChatAutoscroll(autoScrollSignal);
   const [policyNotice, setPolicyNotice] = useState<string | null>(null);
@@ -359,20 +363,35 @@ export function ConfiguredChat(props: ConfiguredChatProps): ReactElement {
         ) : null}
 
         <section className="grid min-h-0 flex-1 grid-rows-[auto_minmax(0,1fr)_auto] overflow-hidden">
-          <div className="flex flex-wrap items-start gap-3 border-b border-white/[0.075] px-4 py-3">
+          <div
+            className={cn(
+              'border-b border-white/[0.075]',
+              compactPanel ? 'grid gap-2 px-3 py-2.5' : 'px-4 py-3',
+              roomyConversationHeader ? 'flex items-start gap-3' : 'grid gap-2',
+            )}
+          >
             <div className="min-w-0 flex-1">
               <div className="text-[11px] font-semibold uppercase text-slate-100/70">Conversation</div>
-              <div className="mt-1 text-pretty text-[11px] text-slate-100/62">{threadSummary}</div>
+              <div className={cn('mt-1 text-[11px] text-slate-100/62', compactPanel ? 'truncate' : 'text-pretty')}>
+                {threadSummary}
+              </div>
             </div>
-            <div className="flex flex-wrap items-center gap-1.5">
+            <div
+              className={cn(
+                'flex max-w-full items-center gap-1.5',
+                roomyConversationHeader
+                  ? 'shrink-0 flex-wrap justify-end'
+                  : 'overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden',
+              )}
+            >
               <Button
-                size="sm"
+                size={compactPanel ? 'iconSm' : 'sm'}
                 aria-label="Copy conversation as Markdown"
                 title="Copy conversation as Markdown"
                 onClick={() => void copyConversation()}
               >
                 <ClipboardCopy className="h-3.5 w-3.5 text-slate-100/90" />
-                Copy markdown
+                <span className={compactPanel ? 'sr-only' : ''}>Copy</span>
               </Button>
               <TokenUsageBadge
                 label="Last"
@@ -386,14 +405,14 @@ export function ConfiguredChat(props: ConfiguredChatProps): ReactElement {
                 dataAttribute="data-vacp-chat-token-thread"
                 align="center"
               />
-              <div className="inline-flex items-center gap-1 rounded-full border border-white/[0.075] bg-white/[0.035] px-2.5 py-1 text-[10px] text-slate-100/62">
+              <div className="inline-flex h-7 shrink-0 items-center gap-1 rounded-md border border-white/[0.075] bg-white/[0.035] px-2 text-[10px] text-slate-100/62">
                 {busy ? <Loader2 className="h-3 w-3 animate-spin" /> : null}
                 <span data-vacp-chat-status="1">{statusLabel}</span>
               </div>
             </div>
           </div>
 
-          <div className="flex min-h-0 flex-1 overflow-hidden px-3 py-3">
+          <div className={cn('flex min-h-0 flex-1 overflow-hidden', compactPanel ? 'px-2.5 py-2.5' : 'px-3 py-3')}>
             <ChatMessages
               messages={uiMessages}
               status={status}
@@ -404,16 +423,21 @@ export function ConfiguredChat(props: ConfiguredChatProps): ReactElement {
             />
           </div>
 
-          <div className="relative z-10 border-t border-white/[0.075] bg-[#0b1115]/88 px-3 py-3 backdrop-blur-sm">
+          <div
+            className={cn(
+              'relative z-10 border-t border-white/[0.075] bg-[#0b1115]/88 backdrop-blur-sm',
+              compactPanel ? 'px-2.5 py-2.5' : 'px-3 py-3',
+            )}
+          >
             <div className="mb-2 flex flex-wrap items-center gap-2 text-[11px] text-slate-100/56">
-              <div className="min-w-0 flex-1 text-pretty">
+              <div className={cn('min-w-0 flex-1', compactPanel ? 'truncate' : 'text-pretty')}>
                 {busy
                   ? status === 'submitted'
                     ? 'Request received. Preparing the next turn…'
                     : 'Request received. The agent is working through the turn.'
                   : 'Press Enter to send or Shift+Enter for a newline.'}
               </div>
-              {copyNotice ? <div className="text-emerald-50/74">{copyNotice}</div> : null}
+              {copyNotice ? <div className="text-slate-100/68">{copyNotice}</div> : null}
               {props.showActivity ? (
                 <Button size="sm" aria-label="Hide activity" title="Hide activity" onClick={props.onCloseActivity}>
                   Hide activity
@@ -427,7 +451,10 @@ export function ConfiguredChat(props: ConfiguredChatProps): ReactElement {
             <Textarea
               id="vacp-chat-input"
               data-vacp-chat-input="1"
-              className="min-h-[96px] w-full overflow-x-hidden whitespace-pre-wrap break-words [overflow-wrap:anywhere]"
+              className={cn(
+                'w-full overflow-x-hidden whitespace-pre-wrap break-words [overflow-wrap:anywhere]',
+                compactPanel ? 'min-h-[74px]' : 'min-h-[96px]',
+              )}
               wrap="soft"
               value={props.draft}
               onChange={(e) => props.onDraftChange(e.target.value)}
@@ -438,10 +465,10 @@ export function ConfiguredChat(props: ConfiguredChatProps): ReactElement {
               }}
               placeholder="Ask about the active visualization..."
             />
-            <div className="mt-3 flex flex-wrap items-center gap-2">
+            <div className="mt-2 flex flex-wrap items-center gap-1.5">
               <Button
                 variant="primary"
-                size="sm"
+                size={compactPanel ? 'iconSm' : 'sm'}
                 data-vacp-chat-send="1"
                 aria-label="Send message"
                 title="Send message"
@@ -453,10 +480,10 @@ export function ConfiguredChat(props: ConfiguredChatProps): ReactElement {
                 ) : (
                   <Send className="h-4 w-4 text-slate-100/90" />
                 )}
-                Send
+                <span className={compactPanel ? 'sr-only' : ''}>Send</span>
               </Button>
               <Button
-                size="sm"
+                size={compactPanel ? 'iconSm' : 'sm'}
                 data-vacp-chat-stop="1"
                 aria-label="Stop response"
                 title="Stop response"
@@ -464,10 +491,10 @@ export function ConfiguredChat(props: ConfiguredChatProps): ReactElement {
                 onClick={() => void stop()}
               >
                 <Square className="h-3.5 w-3.5 text-slate-100/90" />
-                Stop
+                <span className={compactPanel ? 'sr-only' : ''}>Stop</span>
               </Button>
               <Button
-                size="sm"
+                size={compactPanel ? 'iconSm' : 'sm'}
                 aria-label="Regenerate response"
                 title="Regenerate response"
                 disabled={busy || uiMessages.length === 0}
@@ -477,7 +504,7 @@ export function ConfiguredChat(props: ConfiguredChatProps): ReactElement {
                 }}
               >
                 <RefreshCw className="h-3.5 w-3.5 text-slate-100/90" />
-                Regenerate
+                <span className={compactPanel ? 'sr-only' : ''}>Regenerate</span>
               </Button>
             </div>
           </div>

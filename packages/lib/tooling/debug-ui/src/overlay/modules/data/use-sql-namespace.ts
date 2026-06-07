@@ -17,7 +17,7 @@ function buildSqlSchemaNamespace(columns: { vacp_handle: string[]; vacp_all: str
 
 function isJsonSchemaResult(value: unknown): value is { format: 'json'; columns: string[] } {
   if (!value || typeof value !== 'object') return false;
-  const v = value as any;
+  const v = value as Record<string, unknown>;
   return v.format === 'json' && Array.isArray(v.columns);
 }
 

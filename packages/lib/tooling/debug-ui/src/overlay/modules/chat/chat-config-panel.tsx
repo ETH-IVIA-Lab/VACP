@@ -73,7 +73,7 @@ export function ChatConfigPanel(props: ChatConfigPanelProps): ReactElement {
               Provider
               <select
                 data-vacp-chat-provider="1"
-                className="mt-1 w-full rounded-lg border border-white/[0.08] bg-[#101821]/72 px-2 py-2 text-xs text-slate-100/90 outline-none focus:border-emerald-200/24 focus:ring-2 focus:ring-emerald-300/24"
+                className="mt-1 w-full rounded-lg border border-white/[0.08] bg-[#101821]/72 px-2 py-2 text-xs text-slate-100/90 outline-none focus:border-white/22 focus:ring-2 focus:ring-white/22"
                 value={provider}
                 onChange={(e) => props.onProviderChange(e.target.value as VacpLLMConfig['provider'])}
               >
@@ -86,7 +86,7 @@ export function ChatConfigPanel(props: ChatConfigPanelProps): ReactElement {
               <div className="mt-1 flex items-center gap-2">
                 <select
                   data-vacp-chat-model-select="1"
-                  className="w-full rounded-lg border border-white/[0.08] bg-[#101821]/72 px-2 py-2 text-xs text-slate-100/90 outline-none focus:border-emerald-200/24 focus:ring-2 focus:ring-emerald-300/24"
+                  className="w-full rounded-lg border border-white/[0.08] bg-[#101821]/72 px-2 py-2 text-xs text-slate-100/90 outline-none focus:border-white/22 focus:ring-2 focus:ring-white/22"
                   value={props.config.model}
                   disabled={props.loadingModels || props.availableModels.length === 0}
                   onChange={(e) => setField('model', e.target.value)}
