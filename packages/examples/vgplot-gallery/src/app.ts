@@ -8,7 +8,7 @@ import { marked } from 'marked';
 
 import type { GalleryEntry } from './gallery';
 import { loadGallery } from './gallery';
-import { installVacp } from './vacp';
+import { installVacp, waitForActionInteractors } from './vacp';
 import { waitForSvgMaybe } from './vgplot-helpers';
 
 function isPlotLike(value: unknown): value is VgplotPlotLike {
@@ -154,8 +154,14 @@ export async function run(): Promise<void> {
       return { tableId: `table-${idx}`, table, element: host };
     });
 
+    const interactorsReady = await waitForActionInteractors({
+      entryId: entry.id,
+      plots,
+      isStale: () => token !== renderToken,
+    });
+    if (!interactorsReady || token !== renderToken) return;
+
     // VACP layer: attaches a bridge (`window.__vacp`), actions, state snapshots, and DuckDB access.
-    if (token !== renderToken) return;
     await installVacp({ root: element, plots, tables, entry, duckdbClient });
   };
 

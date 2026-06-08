@@ -56,3 +56,70 @@ export async function installVacp(args: {
     });
   }
 }
+
+export async function waitForActionInteractors(args: {
+  entryId: string;
+  plots: Array<{ plotId: string; plot: VgplotPlotLike }>;
+  timeoutMs?: number;
+  isStale?: () => boolean;
+}): Promise<boolean> {
+  const requirements = actionInteractorRequirements(args.entryId);
+  if (!requirements.length) return true;
+
+  const timeoutMs = args.timeoutMs ?? 10_000;
+  const start = performance.now();
+  while (performance.now() - start <= timeoutMs) {
+    if (args.isStale?.()) return false;
+    if (meetsInteractorRequirements(args.plots, requirements)) return true;
+    await new Promise((resolve) => requestAnimationFrame(resolve));
+  }
+
+  if (args.isStale?.()) return false;
+
+  const expected = requirements.map((req) => `${req.minCount} ${req.name}`).join(', ');
+  throw new Error(`Timed out waiting for vgplot interactors: ${expected}`);
+}
+
+function actionInteractorRequirements(entryId: string): Array<{ name: string; minCount: number }> {
+  switch (entryId) {
+    case 'athletes':
+      return [{ name: 'Interval2D', minCount: 1 }];
+    case 'crossfilter':
+      return [{ name: 'Interval1D', minCount: 2 }];
+    case 'flights-hexbin':
+      return [{ name: 'Interval1D', minCount: 2 }];
+    case 'line-multi-series':
+      return [{ name: 'Nearest', minCount: 1 }];
+    case 'normalize':
+      return [{ name: 'Nearest', minCount: 1 }];
+    case 'nyc-taxi-rides':
+      return [
+        { name: 'Interval2D', minCount: 2 },
+        { name: 'Interval1D', minCount: 1 },
+      ];
+    case 'pan-zoom':
+      return [{ name: 'PanZoom', minCount: 1 }];
+    case 'weather':
+      return [{ name: 'Interval1D', minCount: 1 }];
+    default:
+      return [];
+  }
+}
+
+function meetsInteractorRequirements(
+  plots: Array<{ plotId: string; plot: VgplotPlotLike }>,
+  requirements: Array<{ name: string; minCount: number }>,
+): boolean {
+  const counts = new Map<string, number>();
+  for (const req of requirements) counts.set(req.name, 0);
+
+  for (const { plot } of plots) {
+    for (const interactor of plot.interactors ?? []) {
+      const name = interactor.constructor?.name ?? '';
+      if (!counts.has(name)) continue;
+      counts.set(name, (counts.get(name) ?? 0) + 1);
+    }
+  }
+
+  return requirements.every((req) => (counts.get(req.name) ?? 0) >= req.minCount);
+}
