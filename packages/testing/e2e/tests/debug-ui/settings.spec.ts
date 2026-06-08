@@ -1,10 +1,43 @@
-import { expect, test } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
 
 import { startViteDevServer } from '../helpers/devserver';
 import { exampleDir } from '../helpers/paths';
 import { waitForVacpBridge } from './helpers';
 
-test('debug-ui: default overlay and settings browser overrides', async ({ page }) => {
+const FEATURE_FLAGS = [
+  {
+    label: 'Debug overlay',
+    storageKey: 'vacp:debug',
+  },
+  {
+    label: 'Bridge exposure',
+    storageKey: 'vacp:expose-bridge',
+  },
+  {
+    label: 'DOM snapshot',
+    storageKey: 'vacp:dom-snapshot',
+  },
+  {
+    label: 'Raw SQL action',
+    storageKey: 'vacp:enable-sql',
+  },
+] as const;
+
+async function openSettings(page: Page): Promise<void> {
+  const pill = page.locator('button.vacp-debug-ui-button');
+  await expect(pill).toBeVisible();
+  await pill.click();
+
+  const panel = page.locator('#vacp-debug-ui-panel');
+  await expect(panel).toBeVisible();
+  await page.getByRole('tab', { name: 'Settings' }).click();
+}
+
+function settingSection(page: Page, label: string) {
+  return page.locator('section', { has: page.getByRole('switch', { name: `Toggle ${label}` }) });
+}
+
+test('debug-ui: settings persist browser overrides through the panel contract', async ({ page }) => {
   const srv = await startViteDevServer({
     name: 'cars-parallel-coords',
     cwd: exampleDir('cars-parallel-coords'),
@@ -12,31 +45,64 @@ test('debug-ui: default overlay and settings browser overrides', async ({ page }
   try {
     await page.goto(srv.url, { waitUntil: 'domcontentloaded' });
     await waitForVacpBridge(page);
+    await openSettings(page);
 
-    const pill = page.locator('button.vacp-debug-ui-button');
-    await expect(pill).toBeVisible();
-    await pill.click();
+    await expect(page.getByRole('dialog')).toContainText('Feature flags');
+    for (const flag of FEATURE_FLAGS) {
+      const section = settingSection(page, flag.label);
+      const flagSwitch = page.getByRole('switch', { name: `Toggle ${flag.label}` });
+      await expect(section).toContainText(flag.label);
+      await expect(section).toContainText('Default');
+      await expect(section).toContainText('On');
+      await expect(flagSwitch).toHaveAttribute('aria-checked', 'true');
 
-    const panel = page.locator('#vacp-debug-ui-panel');
-    await expect(panel).toBeVisible();
+      await flagSwitch.click();
+      await expect(section).toContainText('Browser');
+      await expect(section).toContainText('Off');
+      await expect(flagSwitch).toHaveAttribute('aria-checked', 'false');
+      await expect.poll(async () => await page.evaluate((key) => localStorage.getItem(key), flag.storageKey)).toBe('0');
 
-    await page.getByRole('tab', { name: 'Settings' }).click();
-    await expect(page.locator('.vacp-debug-ui-content')).toContainText('Feature flags');
-    await expect(page.locator('.vacp-debug-ui-content')).toContainText('Debug overlay');
-    await expect(page.locator('.vacp-debug-ui-content')).toContainText('Bridge exposure');
-    await expect(page.locator('.vacp-debug-ui-content')).toContainText('DOM snapshot');
-    await expect(page.locator('.vacp-debug-ui-content')).toContainText('Raw SQL action');
+      await page.getByRole('button', { name: `Clear ${flag.label} browser override` }).click();
+      await expect(section).toContainText('Default');
+      await expect(section).toContainText('On');
+      await expect(flagSwitch).toHaveAttribute('aria-checked', 'true');
+      await expect
+        .poll(async () => await page.evaluate((key) => localStorage.getItem(key), flag.storageKey))
+        .toBeNull();
+    }
 
-    await page.getByRole('switch', { name: 'Toggle Raw SQL action' }).click();
-    await expect(page.locator('.vacp-debug-ui-settings-row', { hasText: 'Raw SQL action' })).toContainText('Browser');
+    const rawSqlRow = settingSection(page, 'Raw SQL action');
+    const rawSqlSwitch = page.getByRole('switch', { name: 'Toggle Raw SQL action' });
+    await rawSqlSwitch.click();
+    await expect(rawSqlRow).toContainText('Browser');
+    await expect(rawSqlRow).toContainText('Off');
     await expect(page.getByRole('button', { name: 'Reload' })).toBeEnabled();
 
-    const stored = await page.evaluate(() => localStorage.getItem('vacp:enable-sql'));
-    expect(stored).toBe('0');
+    await page.reload({ waitUntil: 'domcontentloaded' });
+    await waitForVacpBridge(page);
+    const actionsAfterReload = await page.evaluate(async () => {
+      const caps = await (globalThis as any).__vacp.getCapabilities();
+      return (caps?.graph?.actions ?? []).map((action: any) => action?.name);
+    });
+    expect(actionsAfterReload).not.toContain('vacp.data_sql');
+    const disabledSql = await page.evaluate(async () => {
+      return await (globalThis as any).__vacp.execute({
+        callId: crypto.randomUUID(),
+        name: 'vacp.data_sql',
+        params: { handleRef: 'vacp://example/data/main', sql: 'SELECT 1' },
+      });
+    });
+    expect(disabledSql?.ok).toBe(false);
+    expect(String(disabledSql?.error?.message ?? '')).toContain('Unknown action');
+    await openSettings(page);
+    await expect(rawSqlRow).toContainText('Browser');
+    await expect(rawSqlRow).toContainText('Off');
+    await expect(rawSqlSwitch).toHaveAttribute('aria-checked', 'false');
 
     await page.getByRole('button', { name: 'Clear Raw SQL action browser override' }).click();
-    const cleared = await page.evaluate(() => localStorage.getItem('vacp:enable-sql'));
-    expect(cleared).toBeNull();
+    await expect(rawSqlRow).toContainText('Default');
+    await expect(rawSqlRow).toContainText('On');
+    await expect(rawSqlSwitch).toHaveAttribute('aria-checked', 'true');
   } finally {
     await srv.stop();
   }

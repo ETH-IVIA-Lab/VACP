@@ -33,8 +33,8 @@ test('scopeStateSnapshot expands container refs to descendant state and summary 
   const scoped = scopeStateSnapshot(snapshot, { mode: 'full', refs: [viewRef], includeSummary: true });
 
   assert.deepEqual(scoped.refs, [viewRef]);
-  assert.deepEqual(Object.keys(scoped.snapshot.state).sort(), [athleteRef, auxiliaryRef, dataRef, teamRef].sort());
-  assert.deepEqual(Object.keys(scoped.snapshot.summary ?? {}).sort(), [athleteRef, dataRef].sort());
+  assert.deepEqual(new Set(Object.keys(scoped.snapshot.state)), new Set([teamRef, athleteRef, dataRef, auxiliaryRef]));
+  assert.deepEqual(new Set(Object.keys(scoped.snapshot.summary ?? {})), new Set([athleteRef, dataRef]));
 });
 
 test('buildStateUpdate rescopes broader baselines before computing a narrower delta', () => {
@@ -72,7 +72,7 @@ test('buildStateUpdate rescopes broader baselines before computing a narrower de
   });
 
   assert.equal(update.mode, 'delta');
-  assert.deepEqual(update.scope, { refs: [athleteRef, dataRef, teamRef].sort() });
+  assert.deepEqual(update.scope, { refs: [dataRef, teamRef, athleteRef] });
   assert.deepEqual(update.delta.removed, []);
   assert.deepEqual(update.delta.changed, {
     [athleteRef]: { value: 'Example Item' },

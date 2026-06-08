@@ -13,11 +13,12 @@ From the repo root:
 
 ## Quality Gates
 
-- Format check: `pnpm format:check`
+- Format: `pnpm format`
 - Lint: `pnpm lint`
 - Typecheck: `pnpm typecheck`
-- Web smoke tests: `pnpm test:e2e`
-- MCP server tests: `pnpm test:mcp`
+- Workspace tests: `pnpm test`
+- Web e2e tests: `pnpm --filter @vacp/e2e test`
+- MCP server tests: `uv run pytest packages/lib/transports/mcp-server/tests`
 
 ## Code Style
 

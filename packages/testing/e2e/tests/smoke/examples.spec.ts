@@ -185,6 +185,23 @@ async function executeVacp(page: Page, args: { name: string; params?: Record<str
   });
 }
 
+async function dispatchVacp(page: Page, args: { name: string; params?: Record<string, unknown> }): Promise<any> {
+  return await evaluateWithVacpRetry({
+    page,
+    label: `dispatch:${args.name}`,
+    payload: args,
+    evalFn: async (payload) => {
+      const { name, params } = payload as { name: string; params?: Record<string, unknown> };
+      const bridge = (globalThis as any).__vacp;
+      const call = { callId: crypto.randomUUID(), name, params: params ?? {} };
+      if (typeof bridge.dispatch === 'function') {
+        return await bridge.dispatch(call, { source: 'debug', message: `smoke:${name}` });
+      }
+      return await bridge.execute(call);
+    },
+  });
+}
+
 async function waitForCapabilityRefContains(page: Page, needle: string, timeoutMs = 60_000): Promise<void> {
   const start = Date.now();
   while (true) {
@@ -215,6 +232,12 @@ function countFromResult(res: any): number {
   return rows?.[0]?.n;
 }
 
+function firstRowFromResult(res: any): Record<string, unknown> {
+  const row = res?.result?.rows?.[0];
+  expect(row && typeof row === 'object' && !Array.isArray(row)).toBeTruthy();
+  return row as Record<string, unknown>;
+}
+
 async function expectDataSchemaWorks(page: Page, handleRef?: string): Promise<void> {
   const cap = await getCapabilities(page);
   const graph = cap?.graph ?? {};
@@ -238,6 +261,116 @@ async function expectDataSchemaWorks(page: Page, handleRef?: string): Promise<vo
   expect(last?.ok).toBeTruthy();
   expect(Array.isArray(last?.result?.columns)).toBeTruthy();
   expect(last?.result?.columns?.length).toBeGreaterThan(0);
+}
+
+async function selectedCount(page: Page, handleRef: string): Promise<number> {
+  const result = await dataSql(page, { handleRef, sql: 'SELECT COUNT(*)::INTEGER AS n FROM vacp_handle' });
+  expect(result.ok).toBeTruthy();
+  const count = countFromResult(result);
+  expect(typeof count).toBe('number');
+  return count;
+}
+
+async function expectVgplotIntervalActionWorks(page: Page, graph: any, handleRef: string, allRows: number): Promise<void> {
+  const actions = graph.actions ?? [];
+  const nodes = graph.nodes ?? [];
+  const target = nodes.find(
+    (node: any) =>
+      node?.kind === 'InteractionTarget' &&
+      /Interval1D/i.test(String(node?.title ?? '')) &&
+      typeof node?.data?.plotId === 'string' &&
+      typeof node?.data?.interactorId === 'string',
+  );
+  expect(actions.some((action: any) => action?.name === 'vgplot.set_interval_1d')).toBeTruthy();
+  expect(target).toBeTruthy();
+
+  const beforeRows = await selectedCount(page, handleRef);
+  expect(beforeRows).toBe(allRows);
+  const runtimeBefore = await getRuntime(page);
+  const historyBefore = Array.isArray(runtimeBefore?.history) ? runtimeBefore.history.length : 0;
+
+  const boundsResult = await dataSql(page, {
+    handleRef,
+    sql: [
+      'SELECT',
+      '  epoch_ms(MIN(make_date(2012, month(date), day(date))))::DOUBLE AS min_ms,',
+      '  epoch_ms(MAX(make_date(2012, month(date), day(date))))::DOUBLE AS max_ms',
+      'FROM vacp_all',
+    ].join(' '),
+  });
+  expect(boundsResult.ok).toBeTruthy();
+  const bounds = firstRowFromResult(boundsResult);
+  const minMs = Number(bounds.min_ms);
+  const maxMs = Number(bounds.max_ms);
+  expect(Number.isFinite(minMs)).toBeTruthy();
+  expect(Number.isFinite(maxMs)).toBeTruthy();
+  expect(maxMs).toBeGreaterThan(minMs);
+  const span = maxMs - minMs;
+
+  const result = await dispatchVacp(page, {
+    name: 'vgplot.set_interval_1d',
+    params: {
+      plotId: target.data.plotId,
+      interactorId: target.data.interactorId,
+      min: minMs + span * 0.35,
+      max: minMs + span * 0.6,
+    },
+  });
+  expect(result.ok).toBeTruthy();
+  await waitForHistoryLenAtLeast(page, historyBefore + 1);
+
+  await expect
+    .poll(
+      async () => {
+        const count = await selectedCount(page, handleRef);
+        return count > 0 && count < allRows;
+      },
+      { timeout: 15_000 },
+    )
+    .toBe(true);
+
+  const state = await getState(page);
+  const handleState = state?.state?.[handleRef];
+  expect(String(handleState?.selectionWhere ?? '')).toMatch(/date|BETWEEN|>=|<=/i);
+}
+
+async function expectVegaLiteIntervalSelectionWorks(
+  page: Page,
+  graph: any,
+  handleRef: string,
+  allRows: number,
+): Promise<void> {
+  const actions = graph.actions ?? [];
+  const nodes = graph.nodes ?? [];
+  const brush = nodes.find(
+    (node: any) => node?.kind === 'Selection' && String(node?.ref ?? '').endsWith('/param/brush'),
+  );
+  expect(actions.map((action: any) => action?.name)).toContain('vega_lite.set_selection');
+  expect(typeof brush?.ref).toBe('string');
+
+  const intervalValue = [Date.UTC(2012, 5, 1), Date.UTC(2012, 8, 1)];
+  const result = await executeVacp(page, {
+    name: 'vega_lite.set_selection',
+    params: {
+      ref: brush.ref,
+      value: { x: intervalValue },
+    },
+  });
+  expect(result.ok).toBe(true);
+
+  await expect
+    .poll(async () => {
+      const count = await selectedCount(page, handleRef);
+      return count > 0 && count < allRows;
+    })
+    .toBe(true);
+
+  const state = await getState(page);
+  const brushState = state?.state?.[brush.ref];
+  const handleState = state?.state?.[handleRef];
+  const brushValue = brushState && typeof brushState === 'object' ? brushState.value : undefined;
+  expect(brushValue).toEqual(expect.objectContaining({ monthdate_date: intervalValue }));
+  expect(String(handleState?.selectionWhere ?? '')).toMatch(/date|monthdate|>=|<=|BETWEEN/i);
 }
 
 test('examples: enable-sql query controls raw SQL action registration', async ({ page }) => {
@@ -301,14 +434,11 @@ test('examples: vgplot-gallery', async ({ page }) => {
     const skipSpecs = new Set(['gaia', 'nyc-taxi-rides', 'observable-latency']);
 
     const specs = await page.evaluate(() =>
-      Array.from(document.querySelectorAll<HTMLSelectElement>('#spec option')).map((o) => ({
-        id: o.value,
-        title: (o.textContent ?? o.value).trim() || o.value,
-      })),
+      Array.from(document.querySelectorAll<HTMLSelectElement>('#spec option')).map((o) => o.value),
     );
     expect(specs.length).toBeGreaterThanOrEqual(2);
 
-    for (const { id: specId, title: specTitle } of specs.filter((s) => !skipSpecs.has(s.id))) {
+    for (const specId of specs.filter((id) => !skipSpecs.has(id))) {
       await page.evaluate((id) => {
         const sel = document.querySelector<HTMLSelectElement>('#spec');
         if (!sel) throw new Error('Missing #spec');
@@ -324,8 +454,6 @@ test('examples: vgplot-gallery', async ({ page }) => {
       const actions = graph.actions ?? [];
       const nodes = graph.nodes ?? [];
       const hasDataSql = actions.some((a: any) => a?.name === 'vacp.data_sql');
-
-      expect(specTitle.length).toBeGreaterThan(0);
 
       const handle = nodes.find(
         (n: any) => n?.kind === 'DataHandle' && String(n?.ref ?? '').includes(`/vgplot/${specId}/`),
@@ -350,8 +478,9 @@ test('examples: vgplot-gallery', async ({ page }) => {
         await expectDataSchemaWorks(page, handleRef);
       }
 
-      const rt = await getRuntime(page);
-      expect(Array.isArray(rt.history)).toBeTruthy();
+      if (specId === 'weather') {
+        await expectVgplotIntervalActionWorks(page, graph, handleRef, nAll);
+      }
     }
   } finally {
     await srv.stop();
@@ -407,6 +536,10 @@ test('examples: vega-lite-gallery', async ({ page }) => {
       expect(typeof nBase).toBe('number');
       expect(nBase).toBeGreaterThan(0);
       expect(nBase).toBeLessThanOrEqual(nAll);
+
+      if (specId === 'seattle-weather') {
+        await expectVegaLiteIntervalSelectionWorks(page, graph, handleRef, nAll);
+      }
 
       // Interaction-heavy hover/click SQL semantics are covered in dedicated
       // Vega-Lite tests. Keep this suite focused on cross-example smoke wiring.

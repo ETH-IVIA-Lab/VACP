@@ -14,6 +14,7 @@ type SeedDebugChatThreadOptions = {
   viewRef?: string;
   vizRef?: string;
   model?: string;
+  clearLayoutStorage?: boolean;
 };
 
 export type ChatScrollState = {
@@ -25,6 +26,11 @@ export type ChatScrollState = {
 };
 
 function seedDebugChatThreadInBrowser(opts: SeedDebugChatThreadOptions): void {
+  if (opts.clearLayoutStorage) {
+    localStorage.removeItem('vacp:debug:size');
+    localStorage.removeItem('vacp:debug:dock');
+  }
+
   const urlKey = `${location.origin}${location.pathname}${location.hash}`;
   const scopeId = `runtime:${opts.runtimeId}:url:${urlKey}`;
   const createdAt = '2026-03-10T00:00:00.000Z';
@@ -140,9 +146,17 @@ export async function chatScrollState(page: Page): Promise<ChatScrollState> {
   return await page.evaluate(() => {
     const scroller = document.querySelector('[data-vacp-chat-msgs="1"]') as HTMLDivElement | null;
     const panel = document.getElementById('vacp-debug-ui-panel');
-    const activePanel = panel?.querySelector('[role="tabpanel"][data-state="active"]') as HTMLElement | null;
-    const firstUser = document.querySelector('[data-vacp-chat-message-role="user"]') as HTMLElement | null;
-    if (!scroller || !panel || !activePanel) {
+    const selectedTab = panel?.querySelector<HTMLElement>('[role="tab"][aria-selected="true"]');
+    const controls = selectedTab?.getAttribute('aria-controls');
+    const activePanel = controls ? document.getElementById(controls) : null;
+    const firstUser = scroller?.querySelector('[data-vacp-chat-message-role="user"]') as HTMLElement | null;
+    if (
+      !scroller ||
+      !panel ||
+      !(activePanel instanceof HTMLElement) ||
+      activePanel.getAttribute('role') !== 'tabpanel' ||
+      !panel.contains(activePanel)
+    ) {
       return { overflow: false, atTop: false, atBottom: false, firstUserVisible: false, outerScrollMoved: false };
     }
 
@@ -150,7 +164,7 @@ export async function chatScrollState(page: Page): Promise<ChatScrollState> {
     const scrollerRect = scroller.getBoundingClientRect();
     const firstUserRect = firstUser?.getBoundingClientRect();
     const firstUserVisible = Boolean(
-      firstUserRect && firstUserRect.bottom > scrollerRect.top && firstUserRect.top < scrollerRect.bottom,
+      firstUserRect && firstUserRect.top >= scrollerRect.top && firstUserRect.bottom <= scrollerRect.bottom,
     );
     const scrollableAncestors: HTMLElement[] = [];
     for (let node = scroller.parentElement; node && node !== panel; node = node.parentElement) {
@@ -172,154 +186,68 @@ export async function chatScrollState(page: Page): Promise<ChatScrollState> {
 
 export async function dimensionOrder(page: Page): Promise<string[]> {
   return await page.evaluate(async () => {
-    return await readDimensionOrder();
+    const bridge = (
+      globalThis as typeof globalThis & {
+        __vacp?: { getCapabilities?: () => Promise<unknown>; getState?: () => Promise<unknown> };
+      }
+    ).__vacp;
+    if (!bridge || typeof bridge.getCapabilities !== 'function') throw new Error('Missing bridge.getCapabilities');
+    if (typeof bridge.getState !== 'function') throw new Error('Missing bridge.getState');
 
-    async function readDimensionOrder(): Promise<string[]> {
-      const bridge = bridgeWithState();
-      const snap = await bridge.getState();
-      const param = firstParamArray(snap);
-      return param.map(String);
-    }
+    const caps = await bridge.getCapabilities();
+    const actions = ((caps as { graph?: { actions?: unknown[] } } | null)?.graph?.actions ?? []) as unknown[];
+    const action = actions.find((item) => (item as { name?: unknown }).name === 'parallel_coords.set_dimension_order');
+    const ref = (action as { targetRef?: unknown } | undefined)?.targetRef;
+    if (typeof ref !== 'string' || !ref) throw new Error('Missing dimension order action targetRef');
 
-    function bridgeWithState(): { getState: () => Promise<unknown> } {
-      const bridge = (globalThis as typeof globalThis & { __vacp?: { getState?: () => Promise<unknown> } }).__vacp;
-      if (!bridge || typeof bridge.getState !== 'function') throw new Error('Missing bridge.getState');
-      return { getState: bridge.getState.bind(bridge) };
-    }
-
-    function firstParamArray(snap: unknown): unknown[] {
-      if (!snap || typeof snap !== 'object') return [];
-      const state = (snap as { state?: unknown }).state;
-      if (!state || typeof state !== 'object') return [];
-      const param = Object.values(state as Record<string, unknown>).find(isParamArray);
-      return param ? param.value : [];
-    }
-
-    function isParamArray(value: unknown): value is { kind: 'Param'; value: unknown[] } {
-      return (
-        Boolean(value) &&
-        typeof value === 'object' &&
-        (value as { kind?: unknown }).kind === 'Param' &&
-        Array.isArray((value as { value?: unknown }).value)
-      );
-    }
+    const snap = await bridge.getState();
+    const state = (snap as { state?: unknown } | null)?.state;
+    if (!state || typeof state !== 'object') return [];
+    const param = (state as Record<string, unknown>)[ref];
+    if (!param || typeof param !== 'object' || (param as { kind?: unknown }).kind !== 'Param') return [];
+    const value = (param as { value?: unknown }).value;
+    return Array.isArray(value) ? value.map(String) : [];
   });
 }
 
-export async function dispatchDimensionOrderPair(page: Page): Promise<{ orderA: string[]; orderB: string[] }> {
-  return await page.evaluate(async () => {
-    const bridge = bridgeWithStateDispatch();
-    const base = await readDimensionOrder(bridge);
-    if (base.length < 2) throw new Error('Expected dimension order with >= 2 entries');
-
-    const orderA = [...base];
-    [orderA[0], orderA[1]] = [orderA[1]!, orderA[0]!];
-
-    const orderB = [...orderA];
-    if (orderB.length >= 3) [orderB[0], orderB[1], orderB[2]] = [orderB[2]!, orderB[0]!, orderB[1]!];
-
-    await dispatchOrder(bridge, orderA, 'order A');
-    await dispatchOrder(bridge, orderB, 'order B');
-    return { orderA, orderB };
-
-    async function readDimensionOrder(bridge: { getState: () => Promise<unknown> }): Promise<string[]> {
-      const snap = await bridge.getState();
-      const param = firstParamArray(snap);
-      return param.map(String);
-    }
-
-    async function dispatchOrder(
-      bridge: { dispatch: (call: unknown, options: unknown) => Promise<unknown> },
-      order: string[],
-      message: string,
-    ): Promise<void> {
+async function dispatchDimensionOrder(page: Page, order: string[], message: string): Promise<void> {
+  await page.evaluate(
+    async ({ order, message }) => {
+      const bridge = (
+        globalThis as typeof globalThis & {
+          __vacp?: { dispatch?: (call: unknown, options: unknown) => Promise<unknown> };
+        }
+      ).__vacp;
+      if (!bridge || typeof bridge.dispatch !== 'function') throw new Error('Missing bridge.dispatch');
       await bridge.dispatch(
         { callId: crypto.randomUUID(), name: 'parallel_coords.set_dimension_order', params: { order } },
         { source: 'debug', message },
       );
-    }
+    },
+    { order, message },
+  );
+}
 
-    function bridgeWithStateDispatch(): {
-      getState: () => Promise<unknown>;
-      dispatch: (call: unknown, options: unknown) => Promise<unknown>;
-    } {
-      const bridge = (
-        globalThis as typeof globalThis & {
-          __vacp?: { getState?: () => Promise<unknown>; dispatch?: (call: unknown, options: unknown) => Promise<unknown> };
-        }
-      ).__vacp;
-      if (!bridge || typeof bridge.getState !== 'function') throw new Error('Missing bridge.getState');
-      if (typeof bridge.dispatch !== 'function') throw new Error('Missing bridge.dispatch');
-      return { getState: bridge.getState.bind(bridge), dispatch: bridge.dispatch.bind(bridge) };
-    }
+export async function dispatchDimensionOrderPair(page: Page): Promise<{ orderA: string[]; orderB: string[] }> {
+  const base = await dimensionOrder(page);
+  if (base.length < 2) throw new Error('Expected dimension order with >= 2 entries');
 
-    function firstParamArray(snap: unknown): unknown[] {
-      if (!snap || typeof snap !== 'object') return [];
-      const state = (snap as { state?: unknown }).state;
-      if (!state || typeof state !== 'object') return [];
-      const param = Object.values(state as Record<string, unknown>).find(isParamArray);
-      return param ? param.value : [];
-    }
+  const orderA = [...base];
+  [orderA[0], orderA[1]] = [orderA[1]!, orderA[0]!];
 
-    function isParamArray(value: unknown): value is { kind: 'Param'; value: unknown[] } {
-      return (
-        Boolean(value) &&
-        typeof value === 'object' &&
-        (value as { kind?: unknown }).kind === 'Param' &&
-        Array.isArray((value as { value?: unknown }).value)
-      );
-    }
-  });
+  const orderB = [...orderA];
+  if (orderB.length >= 3) [orderB[0], orderB[1], orderB[2]] = [orderB[2]!, orderB[0]!, orderB[1]!];
+
+  await dispatchDimensionOrder(page, orderA, 'order A');
+  await dispatchDimensionOrder(page, orderB, 'order B');
+  return { orderA, orderB };
 }
 
 export async function dispatchSwappedDimensionOrder(page: Page, message: string): Promise<void> {
-  await page.evaluate(async (dispatchMessage) => {
-    const bridge = bridgeWithStateDispatch();
-    const base = await readDimensionOrder(bridge);
-    if (base.length < 2) throw new Error('Expected dimension order with >= 2 entries');
+  const base = await dimensionOrder(page);
+  if (base.length < 2) throw new Error('Expected dimension order with >= 2 entries');
 
-    const swapped = [...base];
-    [swapped[0], swapped[1]] = [swapped[1]!, swapped[0]!];
-    await bridge.dispatch(
-      { callId: crypto.randomUUID(), name: 'parallel_coords.set_dimension_order', params: { order: swapped } },
-      { source: 'debug', message: dispatchMessage },
-    );
-
-    async function readDimensionOrder(bridge: { getState: () => Promise<unknown> }): Promise<string[]> {
-      const snap = await bridge.getState();
-      const param = firstParamArray(snap);
-      return param.map(String);
-    }
-
-    function bridgeWithStateDispatch(): {
-      getState: () => Promise<unknown>;
-      dispatch: (call: unknown, options: unknown) => Promise<unknown>;
-    } {
-      const bridge = (
-        globalThis as typeof globalThis & {
-          __vacp?: { getState?: () => Promise<unknown>; dispatch?: (call: unknown, options: unknown) => Promise<unknown> };
-        }
-      ).__vacp;
-      if (!bridge || typeof bridge.getState !== 'function') throw new Error('Missing bridge.getState');
-      if (typeof bridge.dispatch !== 'function') throw new Error('Missing bridge.dispatch');
-      return { getState: bridge.getState.bind(bridge), dispatch: bridge.dispatch.bind(bridge) };
-    }
-
-    function firstParamArray(snap: unknown): unknown[] {
-      if (!snap || typeof snap !== 'object') return [];
-      const state = (snap as { state?: unknown }).state;
-      if (!state || typeof state !== 'object') return [];
-      const param = Object.values(state as Record<string, unknown>).find(isParamArray);
-      return param ? param.value : [];
-    }
-
-    function isParamArray(value: unknown): value is { kind: 'Param'; value: unknown[] } {
-      return (
-        Boolean(value) &&
-        typeof value === 'object' &&
-        (value as { kind?: unknown }).kind === 'Param' &&
-        Array.isArray((value as { value?: unknown }).value)
-      );
-    }
-  }, message);
+  const swapped = [...base];
+  [swapped[0], swapped[1]] = [swapped[1]!, swapped[0]!];
+  await dispatchDimensionOrder(page, swapped, message);
 }

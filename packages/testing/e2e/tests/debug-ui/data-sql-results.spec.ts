@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
 import { resolve } from 'node:path';
 import { mkdir } from 'node:fs/promises';
 
@@ -12,14 +12,14 @@ async function ensureArtifactsDir(): Promise<void> {
   await mkdir(artifactsDir, { recursive: true });
 }
 
-async function openDebugUi(page: import('@playwright/test').Page): Promise<void> {
+async function openDebugUi(page: Page): Promise<void> {
   const pill = page.locator('button.vacp-debug-ui-button');
   await expect(pill).toBeVisible({ timeout: 15_000 });
   await pill.click();
   await expect(page.locator('#vacp-debug-ui-panel')).toBeVisible({ timeout: 15_000 });
 }
 
-async function runDefaultDataSqlAndExpectResults(page: import('@playwright/test').Page): Promise<void> {
+async function runDefaultDataSqlAndExpectResults(page: Page): Promise<void> {
   const dataTab = page.getByRole('tab', { name: 'Data' });
   await expect(dataTab).toBeVisible({ timeout: 15_000 });
   await dataTab.click();
@@ -34,23 +34,50 @@ async function runDefaultDataSqlAndExpectResults(page: import('@playwright/test'
   await expect(run).toBeVisible({ timeout: 45_000 });
   await run.click();
 
-  const panel = page.locator('.vacp-debug-ui-panel');
-  await expect(panel).toContainText('n_selected', { timeout: 20_000 });
-  await expect(panel).toContainText('n_all', { timeout: 20_000 });
+  const results = page.getByRole('table', { name: 'SQL query results' });
+  await expect(results).toBeVisible({ timeout: 20_000 });
+  await expect(results.getByRole('columnheader', { name: /n_selected/ })).toBeVisible();
+  await expect(results.getByRole('columnheader', { name: /n_all/ })).toBeVisible();
 
-  const hasAnyNumber = await page.evaluate(() => {
-    const panelEl = document.querySelector('.vacp-debug-ui-panel');
-    const txt = panelEl?.textContent ?? '';
-    return /\b\d+\b/.test(txt);
+  const resultRow = await results.evaluate((table) => {
+    const headers = [...table.querySelectorAll<HTMLElement>('[role="columnheader"]')].map(
+      (header) => header.textContent ?? '',
+    );
+    const selectedIndex = headers.findIndex((header) => header.includes('n_selected'));
+    const allIndex = headers.findIndex((header) => header.includes('n_all'));
+    if (selectedIndex === -1 || allIndex === -1) return null;
+
+    for (const row of table.querySelectorAll<HTMLElement>('[role="row"]')) {
+      const cells = [...row.querySelectorAll<HTMLElement>('[role="cell"], [role="rowheader"]')];
+      const nSelected = Number(cells[selectedIndex]?.textContent?.trim());
+      const nAll = Number(cells[allIndex]?.textContent?.trim());
+      if (Number.isInteger(nSelected) && Number.isInteger(nAll)) return { nSelected, nAll };
+    }
+
+    return null;
   });
-  expect(hasAnyNumber).toBeTruthy();
+  expect(resultRow).toEqual(
+    expect.objectContaining({
+      nSelected: expect.any(Number),
+      nAll: expect.any(Number),
+    }),
+  );
+  expect(resultRow!.nSelected).toBeGreaterThanOrEqual(0);
+  expect(resultRow!.nAll).toBeGreaterThan(0);
+  expect(resultRow!.nSelected).toBeLessThanOrEqual(resultRow!.nAll);
 }
 
-const cases: Array<{ name: string; cwd: string; hash?: string }> = [
+async function selectReactDashboardDataset(page: Page): Promise<void> {
+  await page.getByRole('button', { name: 'Iris' }).click();
+  await expect(page.getByText('Showing 150 rows. Click')).toBeVisible({ timeout: 15_000 });
+  await waitForVacpBridge(page);
+}
+
+const cases: Array<{ name: string; cwd: string; hash?: string; prepare?: (page: Page) => Promise<void> }> = [
   { name: 'cars-parallel-coords', cwd: exampleDir('cars-parallel-coords') },
   { name: 'vgplot-gallery', cwd: exampleDir('vgplot-gallery'), hash: '#weather' },
   { name: 'vega-lite-gallery', cwd: exampleDir('vega-lite-gallery'), hash: '#seattle-weather' },
-  { name: 'react-dashboard', cwd: exampleDir('react-dashboard') },
+  { name: 'react-dashboard', cwd: exampleDir('react-dashboard'), prepare: selectReactDashboardDataset },
 ];
 
 for (const c of cases) {
@@ -61,6 +88,7 @@ for (const c of cases) {
       const targetUrl = c.hash ? `${srv.url}?vacp-debug=1${c.hash}` : `${srv.url}?vacp-debug=1`;
       await page.goto(targetUrl, { waitUntil: 'domcontentloaded' });
       await waitForVacpBridge(page);
+      await c.prepare?.(page);
 
       await openDebugUi(page);
       await runDefaultDataSqlAndExpectResults(page);

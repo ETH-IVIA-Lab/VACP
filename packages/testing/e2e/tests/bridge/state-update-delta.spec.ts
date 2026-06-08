@@ -48,12 +48,11 @@ test('window.__vacp.getState(request) supports full/delta and stale-token fallba
     expect(typeof result.full.token).toBe('string');
     expect(result.delta.mode).toBe('delta');
     expect(result.delta.baseToken).toBe(result.full.token);
-    expect(result.delta.delta).toBeTruthy();
-    expect(Object.prototype.hasOwnProperty.call(result.delta.delta.changed ?? {}, result.paramRef)).toBeTruthy();
+    expect(result.delta.delta.changed).toHaveProperty(result.paramRef);
     expect(result.stale.mode).toBe('full');
     expect(result.noop.mode).toBe('delta');
-    expect(Object.keys(result.noop.delta.changed ?? {})).toHaveLength(0);
-    expect(Array.isArray(result.noop.delta.removed)).toBeTruthy();
+    expect(result.noop.delta.changed ?? {}).toEqual({});
+    expect(result.noop.delta.removed).toEqual([]);
   } finally {
     await srv.stop();
   }

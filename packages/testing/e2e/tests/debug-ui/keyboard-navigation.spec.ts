@@ -29,7 +29,8 @@ test('debug-ui: keyboard navigation (compact module nav + roving focus)', async 
     await page.keyboard.press('ArrowRight');
     await expect(dataTab).toBeFocused();
     await page.keyboard.press('Enter');
-    await expect(dataTab).toHaveAttribute('data-state', 'active');
+    await expect(dataTab).toHaveAttribute('aria-selected', 'true');
+    await expect(page.getByRole('tabpanel', { name: 'Data' })).toBeVisible();
 
     // History list should support roving focus via ArrowUp/ArrowDown.
     const historyTab = page.getByRole('tab', { name: 'History' });
