@@ -14,7 +14,7 @@ export function installVacpDebugUi(options?: VacpDebugUiOptions): void {
   if (document.getElementById('vacp-debug-ui-react-root')) return;
 
   const globalKey = options?.globalKey ?? '__vacp';
-  const includeActions = options?.includeActions ?? true;
+  const includeActions = options?.includeActions ?? false;
 
   const container = document.createElement('div');
   container.id = 'vacp-debug-ui-react-root';

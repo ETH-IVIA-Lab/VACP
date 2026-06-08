@@ -136,7 +136,7 @@ TypeScript workspace (`packages/lib/*`):
 - `@vacp/gateway`: runtime bridge + history
 - `@vacp/kit`: provider integration helpers
 - `@vacp/duckdb`: SQL helpers for data actions
-- `@vacp/diagrams`: Mermaid graph rendering source
+- `@vacp/diagrams`: Mermaid graph source generation
 - `@vacp/debug-ui`: in-page inspection overlay
 - `@vacp/agent-client`: in-page transport/tool loop
 - `@vacp/vgplot`: VGPlot provider

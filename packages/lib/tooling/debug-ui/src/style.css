@@ -2,6 +2,7 @@
 @import 'tailwindcss';
 @import 'react-json-view-lite/dist/index.css';
 @import 'streamdown/styles.css';
+@import '@xyflow/react/dist/style.css';
 @source "../../../../node_modules/streamdown/dist/*.js";
 @source "../../../../node_modules/@streamdown/code/dist/*.js";
 
@@ -94,53 +95,37 @@
   transform: scale(0.985);
 }
 
-/* Mermaid output should use the full available pane size. */
-#vacp-debug-ui-panel .vacp-debug-ui-diagram svg {
-  width: 100%;
-  height: 100%;
-  max-width: none;
-  max-height: none;
-  display: block;
-  background: transparent !important;
+#vacp-debug-ui-panel .vacp-debug-ui-copy-action {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
 }
 
-#vacp-debug-ui-panel .vacp-debug-ui-diagram svg g.node rect,
-#vacp-debug-ui-panel .vacp-debug-ui-diagram svg g.node polygon,
-#vacp-debug-ui-panel .vacp-debug-ui-diagram svg g.node circle,
-#vacp-debug-ui-panel .vacp-debug-ui-diagram svg g.node path {
-  fill: rgba(17, 25, 31, 0.96) !important;
-  stroke: rgba(148, 163, 184, 0.3) !important;
+#vacp-debug-ui-panel .vacp-debug-ui-copy-feedback {
+  max-width: 0;
+  overflow: hidden;
+  padding: 3px 0;
+  border: 1px solid rgba(52, 211, 153, 0.2);
+  border-radius: 6px;
+  background: rgba(10, 31, 25, 0.92);
+  color: rgba(209, 250, 229, 0.92);
+  font-size: 10px;
+  font-weight: 650;
+  line-height: 1;
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  transition:
+    max-width 140ms ease,
+    opacity 120ms ease,
+    padding 140ms ease;
 }
 
-#vacp-debug-ui-panel .vacp-debug-ui-diagram svg g.node:hover rect,
-#vacp-debug-ui-panel .vacp-debug-ui-diagram svg g.node:hover polygon,
-#vacp-debug-ui-panel .vacp-debug-ui-diagram svg g.node:hover circle,
-#vacp-debug-ui-panel .vacp-debug-ui-diagram svg g.node:hover path,
-#vacp-debug-ui-panel .vacp-debug-ui-diagram svg g.node:focus rect,
-#vacp-debug-ui-panel .vacp-debug-ui-diagram svg g.node:focus polygon,
-#vacp-debug-ui-panel .vacp-debug-ui-diagram svg g.node:focus circle,
-#vacp-debug-ui-panel .vacp-debug-ui-diagram svg g.node:focus path {
-  fill: rgba(23, 31, 38, 0.98) !important;
-  stroke: rgba(226, 232, 240, 0.42) !important;
-}
-
-#vacp-debug-ui-panel .vacp-debug-ui-diagram svg text,
-#vacp-debug-ui-panel .vacp-debug-ui-diagram svg foreignObject {
-  color: rgba(226, 232, 240, 0.86) !important;
-  fill: rgba(226, 232, 240, 0.86) !important;
-}
-
-#vacp-debug-ui-panel .vacp-debug-ui-diagram svg .edgeLabel,
-#vacp-debug-ui-panel .vacp-debug-ui-diagram svg .edgeLabel p,
-#vacp-debug-ui-panel .vacp-debug-ui-diagram svg .labelBkg {
-  color: rgba(203, 213, 225, 0.75) !important;
-  fill: rgba(13, 20, 25, 0.92) !important;
-  background: rgba(13, 20, 25, 0.92) !important;
-}
-
-#vacp-debug-ui-panel .vacp-debug-ui-diagram svg .edgePath .path,
-#vacp-debug-ui-panel .vacp-debug-ui-diagram svg .flowchart-link {
-  stroke: rgba(148, 163, 184, 0.52) !important;
+#vacp-debug-ui-panel .vacp-debug-ui-copy-feedback-visible {
+  max-width: 64px;
+  padding: 3px 6px;
+  opacity: 1;
 }
 
 /* Host apps often set `svg { width: 100%; height: auto; }` (good for charts, bad for icons).
@@ -150,6 +135,197 @@
 :where(#vacp-debug-ui-root, #vacp-debug-ui-panel) svg {
   width: revert-layer;
   height: revert-layer;
+}
+
+#vacp-debug-ui-panel .vacp-debug-ui-flow {
+  isolation: isolate;
+  container-type: inline-size;
+}
+
+#vacp-debug-ui-panel .vacp-debug-ui-flow .react-flow {
+  color: rgba(226, 232, 240, 0.86);
+  background:
+    radial-gradient(circle at 18% 12%, rgba(148, 163, 184, 0.04), transparent 26%),
+    rgba(7, 12, 16, 0.18);
+}
+
+#vacp-debug-ui-panel .vacp-debug-ui-flow .react-flow__background,
+#vacp-debug-ui-panel .vacp-debug-ui-flow .react-flow__edges,
+#vacp-debug-ui-panel .vacp-debug-ui-flow .react-flow__edgelabel-renderer,
+#vacp-debug-ui-panel .vacp-debug-ui-flow .react-flow__minimap svg {
+  width: 100%;
+  height: 100%;
+}
+
+#vacp-debug-ui-panel .vacp-debug-ui-flow .react-flow__pane {
+  cursor: grab;
+}
+
+#vacp-debug-ui-panel .vacp-debug-ui-flow .react-flow__pane:active {
+  cursor: grabbing;
+}
+
+#vacp-debug-ui-panel .vacp-debug-ui-flow .react-flow__node {
+  color: inherit;
+}
+
+#vacp-debug-ui-panel .vacp-debug-ui-flow .react-flow__node:focus-visible .vacp-debug-ui-flow-node {
+  outline: 2px solid rgba(226, 232, 240, 0.5);
+  outline-offset: 3px;
+}
+
+#vacp-debug-ui-panel .vacp-debug-ui-flow-node {
+  transition:
+    border-color 140ms ease,
+    background-color 140ms ease,
+    box-shadow 140ms ease,
+    transform 140ms ease;
+}
+
+#vacp-debug-ui-panel .vacp-debug-ui-flow-node:hover {
+  border-color: rgba(226, 232, 240, 0.2);
+  background-color: rgba(21, 31, 38, 0.96);
+}
+
+#vacp-debug-ui-panel .vacp-debug-ui-flow-node-action:hover {
+  border-color: rgba(245, 158, 11, 0.3);
+  background-color: rgba(245, 158, 11, 0.065);
+}
+
+#vacp-debug-ui-panel .vacp-debug-ui-flow-node-selected {
+  border-color: rgba(226, 232, 240, 0.44);
+  box-shadow:
+    0 0 0 1px rgba(226, 232, 240, 0.22),
+    0 10px 32px rgba(0, 0, 0, 0.26);
+}
+
+#vacp-debug-ui-panel .vacp-debug-ui-flow-handle {
+  width: 7px;
+  height: 7px;
+  border: 0;
+  background: transparent;
+  opacity: 0;
+  pointer-events: none;
+}
+
+#vacp-debug-ui-panel .vacp-debug-ui-flow-edge .react-flow__edge-path {
+  stroke: rgba(148, 163, 184, 0.46);
+  stroke-width: 1.45;
+}
+
+#vacp-debug-ui-panel .vacp-debug-ui-flow-edge-contains .react-flow__edge-path {
+  stroke: rgba(94, 234, 212, 0.44);
+}
+
+#vacp-debug-ui-panel .vacp-debug-ui-flow-edge-controls .react-flow__edge-path {
+  stroke: rgba(125, 211, 252, 0.46);
+}
+
+#vacp-debug-ui-panel .vacp-debug-ui-flow-edge-derivedFrom .react-flow__edge-path {
+  stroke: rgba(196, 181, 253, 0.42);
+}
+
+#vacp-debug-ui-panel .vacp-debug-ui-flow-edge-targets .react-flow__edge-path {
+  stroke: rgba(245, 158, 11, 0.52);
+  stroke-dasharray: 5 5;
+}
+
+#vacp-debug-ui-panel .vacp-debug-ui-flow .react-flow__edge.selected .react-flow__edge-path,
+#vacp-debug-ui-panel .vacp-debug-ui-flow .react-flow__edge:focus-visible .react-flow__edge-path {
+  stroke-width: 2.1;
+}
+
+#vacp-debug-ui-panel .vacp-debug-ui-flow .react-flow__edge-text {
+  fill: rgba(226, 232, 240, 0.72);
+  font-size: 10px;
+  font-weight: 650;
+}
+
+#vacp-debug-ui-panel .vacp-debug-ui-flow .react-flow__edge-textbg {
+  fill: rgba(7, 12, 16, 0.82);
+}
+
+#vacp-debug-ui-panel .vacp-debug-ui-flow-controls {
+  display: inline-flex;
+  gap: 1px;
+  align-items: center;
+  overflow: hidden;
+  padding: 3px;
+  border: 1px solid rgba(255, 255, 255, 0.085);
+  border-radius: 9px;
+  background: rgba(12, 19, 25, 0.84);
+  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.22);
+  backdrop-filter: blur(12px);
+}
+
+#vacp-debug-ui-panel .vacp-debug-ui-flow-control {
+  display: grid;
+  width: 30px;
+  height: 30px;
+  place-items: center;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: rgba(226, 232, 240, 0.74);
+  cursor: pointer;
+  transition:
+    background-color 120ms ease,
+    color 120ms ease,
+    transform 120ms ease;
+}
+
+#vacp-debug-ui-panel .vacp-debug-ui-flow-control:hover {
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(248, 250, 252, 0.95);
+}
+
+#vacp-debug-ui-panel .vacp-debug-ui-flow-control:active {
+  transform: scale(0.96);
+}
+
+#vacp-debug-ui-panel .vacp-debug-ui-flow-control:focus-visible {
+  outline: 2px solid rgba(125, 211, 252, 0.55);
+  outline-offset: 2px;
+}
+
+#vacp-debug-ui-panel .vacp-debug-ui-flow-control svg {
+  width: 14px;
+  height: 14px;
+  stroke-width: 2;
+}
+
+#vacp-debug-ui-panel .vacp-debug-ui-flow .react-flow__minimap {
+  overflow: hidden;
+  width: 124px;
+  height: 84px;
+  border: 1px solid rgba(255, 255, 255, 0.085);
+  border-radius: 8px;
+  background: rgba(12, 19, 25, 0.82);
+}
+
+#vacp-debug-ui-panel .vacp-debug-ui-flow .react-flow__minimap-mask {
+  fill: rgba(15, 23, 42, 0.55);
+}
+
+@container (max-width: 820px) {
+  #vacp-debug-ui-panel .vacp-debug-ui-flow .react-flow__minimap {
+    display: none;
+  }
+}
+
+#vacp-debug-ui-panel .vacp-debug-ui-flow-panel {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+  padding: 4px 6px;
+  border: 1px solid rgba(255, 255, 255, 0.075);
+  border-radius: 7px;
+  background: rgba(9, 15, 20, 0.72);
+  color: rgba(226, 232, 240, 0.62);
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 1;
+  backdrop-filter: blur(12px);
 }
 
 /* Keep scrollbar presence from shifting panel layout (important for inspectors). */
@@ -240,22 +416,6 @@
 
 #vacp-debug-ui-panel .vacp-chat-scroll::-webkit-scrollbar-thumb:hover {
   background: rgba(148, 163, 184, 0.42);
-}
-
-/* When a diagram is being refreshed, soften the existing one briefly. */
-#vacp-debug-ui-panel .vacp-debug-ui-diagram[data-stale='1'] {
-  opacity: 0.72;
-  filter: grayscale(0.15) saturate(0.75);
-}
-
-/* Highlight selected Mermaid nodes when inspecting. */
-#vacp-debug-ui-panel .vacp-debug-ui-diagram svg g.node.vacp-selected rect,
-#vacp-debug-ui-panel .vacp-debug-ui-diagram svg g.node.vacp-selected polygon,
-#vacp-debug-ui-panel .vacp-debug-ui-diagram svg g.node.vacp-selected circle,
-#vacp-debug-ui-panel .vacp-debug-ui-diagram svg g.node.vacp-selected path {
-  fill: rgba(23, 31, 38, 0.98) !important;
-  stroke: rgba(226, 232, 240, 0.66) !important;
-  stroke-width: 3px !important;
 }
 
 #vacp-debug-ui-panel select {

@@ -52,7 +52,7 @@ function channelName(raw: unknown, fallback: string): string {
 function fieldNameFromDescriptor(raw: unknown): string | null {
   if (typeof raw === 'string' && raw.length) return raw;
   if (Array.isArray(raw)) {
-    // Best-effort: common shorthand encodings like ["field", "col"] or ["col", ...].
+    // VGPlot shorthand encodings often use ["field", "col"] or ["col", ...].
     const a0 = raw[0];
     const a1 = raw[1];
     if (typeof a1 === 'string' && typeof a0 === 'string' && a0.toLowerCase() === 'field' && a1.length) return a1;
@@ -66,6 +66,14 @@ function fieldNameFromDescriptor(raw: unknown): string | null {
     if (typeof v === 'string' && v.length) return v;
   }
   return null;
+}
+
+function markBaseId(mark: { index?: unknown }, markIdx: number): string {
+  return typeof mark.index === 'number' ? String(mark.index) : `implicit-${markIdx}`;
+}
+
+function markRefSegment(baseId: string, occurrence: number, total: number): string {
+  return total > 1 ? `${baseId}/occurrence/${occurrence}` : baseId;
 }
 
 export function buildDashboardGraph(args: {
@@ -139,8 +147,16 @@ export function buildDashboardGraph(args: {
     });
     edges.push({ from: viewRef, to: plotRef, kind: 'contains' });
 
+    const markBaseIds = plot.marks.map((mark, markIdx) => markBaseId(mark, markIdx));
+    const markBaseCounts = new Map<string, number>();
+    markBaseIds.forEach((baseId) => markBaseCounts.set(baseId, (markBaseCounts.get(baseId) ?? 0) + 1));
+    const markBaseOccurrences = new Map<string, number>();
+
     plot.marks.forEach((mark, markIdx) => {
-      const idxLabel = typeof mark.index === 'number' ? String(mark.index) : `implicit-${markIdx}`;
+      const baseId = markBaseIds[markIdx] ?? `implicit-${markIdx}`;
+      const occurrence = markBaseOccurrences.get(baseId) ?? 0;
+      markBaseOccurrences.set(baseId, occurrence + 1);
+      const idxLabel = markRefSegment(baseId, occurrence, markBaseCounts.get(baseId) ?? 1);
       const markRef = makePlotRef({
         appId: args.options.appId,
         viewId: args.options.viewId,
@@ -164,6 +180,7 @@ export function buildDashboardGraph(args: {
           type: mark.type,
           index: typeof mark.index === 'number' ? mark.index : undefined,
           implicitIndex: typeof mark.index === 'number' ? undefined : markIdx,
+          occurrence: (markBaseCounts.get(baseId) ?? 1) > 1 ? occurrence : undefined,
           table: markTable,
           plotId,
         },
@@ -173,7 +190,7 @@ export function buildDashboardGraph(args: {
       const channels = Array.isArray(mark.channels) ? mark.channels : [];
       channels.forEach((ch, channelIdx) => {
         const rawField = (ch as any)?.field;
-        // Skip channels that don't encode a data field/expression to avoid polluting the graph.
+        // Channels without a data field or expression do not produce graph nodes.
         if (rawField == null) return;
 
         const chName = channelName((ch as any)?.channel, `channel-${channelIdx}`);
@@ -193,6 +210,7 @@ export function buildDashboardGraph(args: {
             plotId,
             markIndex: typeof mark.index === 'number' ? mark.index : undefined,
             markImplicitIndex: typeof mark.index === 'number' ? undefined : markIdx,
+            markOccurrence: (markBaseCounts.get(baseId) ?? 1) > 1 ? occurrence : undefined,
             channel: chName,
             as: typeof (ch as any)?.as === 'string' ? (ch as any).as : undefined,
             field: safeJsonValue(rawField),
@@ -226,6 +244,7 @@ export function buildDashboardGraph(args: {
             plotId,
             markIndex: typeof mark.index === 'number' ? mark.index : undefined,
             markImplicitIndex: typeof mark.index === 'number' ? undefined : markIdx,
+            markOccurrence: (markBaseCounts.get(baseId) ?? 1) > 1 ? occurrence : undefined,
             channel: chName,
             as: typeof (ch as any)?.as === 'string' ? (ch as any).as : undefined,
             table: markTable,

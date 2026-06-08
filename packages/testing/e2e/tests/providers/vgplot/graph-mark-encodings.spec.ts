@@ -37,11 +37,32 @@ test('vgplot: capability graph includes mark encoding channels + fields (Seattle
 
     const field = nodeByRef.get(channelToField.to);
     expect(field?.data?.field).toBeDefined();
-    // At least one encoded field should expose a concrete field name string.
     const hasNamedField = nodes.some(
       (n) => n.kind === 'EncodedField' && typeof n.data?.fieldName === 'string' && n.data.fieldName.length > 0,
     );
     expect(hasNamedField).toBeTruthy();
+  } finally {
+    await srv.stop();
+  }
+});
+
+test('vgplot: capability graph keeps refs unique when marks share a runtime index (Axes)', async ({ page }) => {
+  const srv = await startViteDevServer({ name: 'vgplot-gallery', cwd: exampleDir('vgplot-gallery') });
+  try {
+    await page.goto(`${srv.url}?vacp-debug=1#axes`, { waitUntil: 'domcontentloaded' });
+    await page.waitForFunction(() => !!(globalThis as any).__vacp);
+
+    const nodes = await page.evaluate(async () => {
+      const cap = await (globalThis as any).__vacp.getCapabilities?.();
+      return cap?.graph?.nodes ?? [];
+    });
+
+    const refs = nodes.map((node: any) => String(node.ref));
+    expect(new Set(refs).size).toBe(refs.length);
+
+    const duplicateRuntimeMarks = nodes.filter((node: any) => node.kind === 'Mark' && node.data?.index === -1);
+    expect(duplicateRuntimeMarks.length).toBeGreaterThanOrEqual(2);
+    expect(duplicateRuntimeMarks.every((node: any) => String(node.ref).includes('/mark/-1/occurrence/'))).toBeTruthy();
   } finally {
     await srv.stop();
   }

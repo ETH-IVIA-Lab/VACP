@@ -1,20 +1,20 @@
-import type { VacpNode, VacpRef, VacpRuntimeSnapshot } from '@vacp/core';
+import type { VacpRef } from '@vacp/core';
 import {
   ArrowLeftRight,
   ArrowUpDown,
+  Check,
   ClipboardCopy,
   PanelRightClose,
   PanelRightOpen,
+  Workflow,
   XCircle,
   Zap,
 } from 'lucide-react';
 import type { ReactElement } from 'react';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import type { VacpDiagramRenderOptions } from '@vacp/diagrams';
 import { renderVacpDiagramMermaid } from '@vacp/diagrams';
 
-import { renderMermaidToHost } from '@vacp/debug-ui/mermaid-renderer';
 import { DEBUG_UI_PANEL_BREAKPOINTS, isDenseDebugPanel } from '@vacp/debug-ui/overlay/debug-ui-breakpoints';
 import { useVacpDebugUiStore } from '@vacp/debug-ui/overlay/debug-store';
 import { IconButton } from '@vacp/debug-ui/overlay/icon-button';
@@ -25,93 +25,25 @@ import { cn } from '@vacp/debug-ui/ui/lib/utils';
 
 import { ModuleHeader, ModulePane, ModuleRoot } from './module-layout';
 import type { VacpDebugModuleProps } from './module-types';
+import { VacpGraphFlow } from './graph/graph-flow';
+import {
+  buildInspectorValue,
+  buildVacpFlowGraph,
+  safeJson,
+  selectedGraphItemKey,
+  shortRef,
+} from './graph/graph-model';
+import type { GraphDirection, SelectedGraphItem } from './graph/graph-types';
 
-type SelectedGraphItem =
-  | { kind: 'node'; mermaidId: string; index: number }
-  | { kind: 'action'; mermaidId: string; index: number }
-  | null;
+type GraphOptions = {
+  direction: GraphDirection;
+  includeActions: boolean;
+};
 
-function safeJson(value: unknown): string {
-  try {
-    return JSON.stringify(value, null, 2);
-  } catch {
-    return String(value);
-  }
-}
-
-function shortRef(ref: VacpRef): string {
-  const s = String(ref);
-  const hashIdx = s.indexOf('#');
-  const clean = hashIdx >= 0 ? s.slice(0, hashIdx) : s;
-  const parts = clean
-    .split('/')
-    .filter(Boolean)
-    .map((p) => {
-      try {
-        return decodeURIComponent(p);
-      } catch {
-        return p;
-      }
-    })
-    .filter((p) => p !== 'vacp:');
-  return parts.slice(-3).join('/');
-}
-
-function parseMermaidNodeId(
-  svgNodeId: string | null,
-): { mermaidId: string; index: number; kind: 'node' | 'action' } | null {
-  if (!svgNodeId) return null;
-  const m = svgNodeId.match(/flowchart-([na]\d+)-/);
-  if (!m) return null;
-  const mermaidId = m[1]!;
-  const kind = mermaidId.startsWith('a') ? 'action' : 'node';
-  const n = Number.parseInt(mermaidId.slice(1), 10);
-  if (!Number.isFinite(n) || n < 0) return null;
-  return { mermaidId, index: n, kind };
-}
-
-function updateSelectedHighlight(host: HTMLElement, sel: SelectedGraphItem) {
-  const svg = host.querySelector('svg');
-  if (!svg) return;
-  svg.querySelectorAll('g.node.vacp-selected').forEach((g) => g.classList.remove('vacp-selected'));
-  if (!sel) return;
-  const prefix = `flowchart-${sel.mermaidId}-`;
-  const target = Array.from(svg.querySelectorAll('g.node')).find((g) =>
-    (g.getAttribute('id') ?? '').startsWith(prefix),
-  );
-  if (target) target.classList.add('vacp-selected');
-}
-
-function buildInspectorValue(runtime: VacpRuntimeSnapshot, sel: SelectedGraphItem): unknown {
-  if (!sel) return null;
-  if (sel.kind === 'action') {
-    const a = runtime.currentCapabilities.graph.actions?.[sel.index];
-    return a
-      ? {
-          kind: 'action',
-          name: a.name,
-          description: a.description ?? null,
-          targetRef: a.targetRef ?? null,
-          parameters: a.parameters ?? {},
-        }
-      : { error: 'Unknown action index', index: sel.index };
-  }
-
-  const node = runtime.currentCapabilities.graph.nodes?.[sel.index] as VacpNode | undefined;
-  if (!node) return { error: 'Unknown node index', index: sel.index };
-  const stateValue = (runtime.currentState.state as Record<string, unknown>)[node.ref];
-  const targeting = (runtime.currentCapabilities.graph.actions ?? []).filter((a) => a.targetRef === node.ref);
-  return {
-    kind: 'node',
-    ref: node.ref,
-    shortRef: shortRef(node.ref),
-    nodeKind: node.kind,
-    title: node.title ?? null,
-    description: node.description ?? null,
-    data: node.data ?? null,
-    state: stateValue ?? null,
-    actions: targeting.map((a) => a.name),
-  };
+function selectedDescription(selected: SelectedGraphItem): string {
+  if (!selected) return 'Select a node or action to see its full JSON.';
+  if (selected.kind === 'action') return `Action ${selected.name}`;
+  return `Node ${shortRef(selected.ref)}`;
 }
 
 export function GraphModule(props: VacpDebugModuleProps): ReactElement {
@@ -126,22 +58,59 @@ export function GraphModule(props: VacpDebugModuleProps): ReactElement {
   const setInspectOpen = useVacpDebugUiStore((s) => s.setGraphInspectOpen);
   const effectiveInspectOpen = inspectOpen && !dense;
   const showSideBySide = effectiveInspectOpen && rootSize.width >= DEBUG_UI_PANEL_BREAKPOINTS.splitPane;
-  const [options, setOptions] = useState<Required<Pick<VacpDiagramRenderOptions, 'direction' | 'includeActions'>>>({
+  const [options, setOptions] = useState<GraphOptions>({
     direction: 'LR',
     includeActions: includeActionsDefault,
   });
   const [selected, setSelected] = useState<SelectedGraphItem>(null);
-  const [stale, setStale] = useState(false);
-  const [renderError, setRenderError] = useState<string | null>(null);
+  const [collapsedRefs, setCollapsedRefs] = useState<ReadonlySet<VacpRef>>(() => new Set());
+  const [mermaidCopied, setMermaidCopied] = useState(false);
 
-  const diagramHostRef = useRef<HTMLDivElement | null>(null);
+  const graph = props.runtime.currentCapabilities.graph;
 
-  const mermaidText = useMemo(() => {
-    return renderVacpDiagramMermaid({ capabilities: props.runtime.currentCapabilities, options });
-  }, [props.runtime.currentCapabilities, options]);
+  const selectGraphItem = useCallback((next: SelectedGraphItem) => {
+    setSelected((current) => (selectedGraphItemKey(current) === selectedGraphItemKey(next) ? current : next));
+  }, []);
+
+  const toggleCollapse = useCallback((ref: VacpRef) => {
+    setCollapsedRefs((current) => {
+      const next = new Set(current);
+      if (next.has(ref)) next.delete(ref);
+      else next.add(ref);
+      return next;
+    });
+  }, []);
+
+  const flow = useMemo(
+    () =>
+      buildVacpFlowGraph({
+        graph,
+        direction: options.direction,
+        includeActions: options.includeActions,
+        collapsedRefs,
+        selected,
+        onToggleCollapse: toggleCollapse,
+      }),
+    [collapsedRefs, graph, options.direction, options.includeActions, selected, toggleCollapse],
+  );
+
+  const mermaidText = useMemo(
+    () => renderVacpDiagramMermaid({ capabilities: props.runtime.currentCapabilities, options }),
+    [props.runtime.currentCapabilities, options],
+  );
 
   const inspectorValue = useMemo(() => buildInspectorValue(props.runtime, selected), [props.runtime, selected]);
   const inspectorText = useMemo(() => (selected ? safeJson(inspectorValue) : ''), [inspectorValue, selected]);
+  const copyMermaid = useCallback(async () => {
+    await copyTextToClipboard(mermaidText);
+    setMermaidCopied(true);
+  }, [mermaidText]);
+
+  useEffect(() => {
+    if (!mermaidCopied) return;
+    const id = window.setTimeout(() => setMermaidCopied(false), 1600);
+    return () => window.clearTimeout(id);
+  }, [mermaidCopied]);
 
   useEffect(() => {
     if (!dense || !inspectOpen) return;
@@ -149,78 +118,20 @@ export function GraphModule(props: VacpDebugModuleProps): ReactElement {
   }, [dense, inspectOpen, setInspectOpen]);
 
   useEffect(() => {
-    const host = diagramHostRef.current;
-    if (!host) return;
-
-    let cancelled = false;
-    setStale(true);
-    setRenderError(null);
-
-    const t = window.setTimeout(() => {
-      void (async () => {
-        try {
-          await renderMermaidToHost(host, mermaidText);
-          if (cancelled) return;
-          updateSelectedHighlight(host, selected);
-        } catch (err) {
-          if (cancelled) return;
-          setRenderError(String(err));
-        } finally {
-          if (!cancelled) setStale(false);
-        }
-      })();
-    }, 140);
-
-    return () => {
-      cancelled = true;
-      window.clearTimeout(t);
-    };
-  }, [mermaidText]);
+    const refs = new Set(graph.nodes.map((node) => node.ref));
+    setCollapsedRefs((current) => {
+      const next = new Set([...current].filter((ref) => refs.has(ref)));
+      return next.size === current.size ? current : next;
+    });
+  }, [graph.nodes]);
 
   useEffect(() => {
-    const host = diagramHostRef.current;
-    if (!host) return;
-    updateSelectedHighlight(host, selected);
-  }, [selected]);
-
-  useEffect(() => {
-    const host = diagramHostRef.current;
-    if (!host) return;
-    const onClick = (ev: MouseEvent) => {
-      const target = ev.target;
-      if (!(target instanceof Element)) return;
-      const g = target.closest?.('g.node');
-      if (!g) return;
-      const parsed = parseMermaidNodeId(g.getAttribute('id'));
-      if (!parsed) return;
-      setSelected(
-        parsed.kind === 'node'
-          ? { kind: 'node', mermaidId: parsed.mermaidId, index: parsed.index }
-          : { kind: 'action', mermaidId: parsed.mermaidId, index: parsed.index },
-      );
-    };
-    const onKeyDown = (ev: KeyboardEvent) => {
-      if (ev.key !== 'Enter' && ev.key !== ' ' && ev.key !== 'Spacebar') return;
-      const target = ev.target;
-      if (!(target instanceof Element)) return;
-      const g = target.closest?.('g.node');
-      if (!g) return;
-      const parsed = parseMermaidNodeId(g.getAttribute('id'));
-      if (!parsed) return;
-      ev.preventDefault();
-      setSelected(
-        parsed.kind === 'node'
-          ? { kind: 'node', mermaidId: parsed.mermaidId, index: parsed.index }
-          : { kind: 'action', mermaidId: parsed.mermaidId, index: parsed.index },
-      );
-    };
-    host.addEventListener('click', onClick);
-    host.addEventListener('keydown', onKeyDown);
-    return () => {
-      host.removeEventListener('click', onClick);
-      host.removeEventListener('keydown', onKeyDown);
-    };
-  }, []);
+    setSelected((current) => {
+      const currentKey = selectedGraphItemKey(current);
+      if (!currentKey) return current;
+      return flow.nodes.some((node) => node.id === currentKey) ? current : null;
+    });
+  }, [flow.nodes]);
 
   return (
     <ModuleRoot
@@ -233,16 +144,12 @@ export function GraphModule(props: VacpDebugModuleProps): ReactElement {
       )}
       data-vacp-graph="1"
       data-vacp-direction={options.direction}
+      data-vacp-graph-renderer="xyflow"
     >
       <ModulePane className={cn('flex min-h-0 flex-1 flex-col', dense ? 'gap-2' : 'gap-3')}>
         <ModuleHeader
-          title="Diagram"
-          description={
-            <>
-              Click nodes to inspect state.{' '}
-              {renderError ? <span className="text-red-50/82">({renderError})</span> : null}
-            </>
-          }
+          title="Graph"
+          description="Pan, zoom, fit, and select VACP nodes. Mermaid source is available from the copy action."
           compact={compactControls}
           actions={
             <>
@@ -255,25 +162,41 @@ export function GraphModule(props: VacpDebugModuleProps): ReactElement {
                   )
                 }
                 label="Toggle direction"
-                title="Toggle diagram direction (left-to-right vs top-to-bottom)."
+                title="Toggle graph direction."
                 size={iconButtonSize}
-                onClick={() => setOptions((o) => ({ ...o, direction: o.direction === 'LR' ? 'TB' : 'LR' }))}
+                onClick={() => setOptions((current) => ({ ...current, direction: current.direction === 'LR' ? 'TB' : 'LR' }))}
               />
               <IconButton
                 icon={<Zap className="h-4 w-4 text-slate-100/90" />}
                 label={options.includeActions ? 'Hide actions' : 'Show actions'}
-                title="Show semantic actions as nodes in the diagram."
+                title="Show semantic actions as graph nodes."
                 pressed={options.includeActions}
                 size={iconButtonSize}
-                onClick={() => setOptions((o) => ({ ...o, includeActions: !o.includeActions }))}
+                onClick={() => setOptions((current) => ({ ...current, includeActions: !current.includeActions }))}
               />
-              <IconButton
-                icon={<ClipboardCopy className="h-4 w-4 text-slate-100/90" />}
-                label="Copy Mermaid"
-                title="Copy the Mermaid source for this diagram."
-                size={iconButtonSize}
-                onClick={() => void copyTextToClipboard(mermaidText)}
-              />
+              <div className="vacp-debug-ui-copy-action">
+                <IconButton
+                  icon={
+                    mermaidCopied ? (
+                      <Check className="h-4 w-4 text-emerald-100/90" />
+                    ) : (
+                      <Workflow className="h-4 w-4 text-slate-100/90" />
+                    )
+                  }
+                  label="Copy Mermaid"
+                  title={mermaidCopied ? 'Mermaid source copied.' : 'Copy Mermaid graph source.'}
+                  pressed={mermaidCopied}
+                  size={iconButtonSize}
+                  onClick={() => void copyMermaid()}
+                />
+                <span
+                  className={cn('vacp-debug-ui-copy-feedback', mermaidCopied && 'vacp-debug-ui-copy-feedback-visible')}
+                  role="status"
+                  aria-live="polite"
+                >
+                  Copied
+                </span>
+              </div>
               <IconButton
                 icon={
                   inspectOpen ? (
@@ -283,7 +206,7 @@ export function GraphModule(props: VacpDebugModuleProps): ReactElement {
                   )
                 }
                 label={inspectOpen ? 'Hide inspect pane' : 'Show inspect pane'}
-                title={inspectOpen ? 'Hide the Inspect pane to give the diagram more space.' : 'Show the Inspect pane.'}
+                title={inspectOpen ? 'Hide the Inspect pane.' : 'Show the Inspect pane.'}
                 pressed={effectiveInspectOpen}
                 size={iconButtonSize}
                 onClick={() => setInspectOpen(!inspectOpen)}
@@ -292,14 +215,9 @@ export function GraphModule(props: VacpDebugModuleProps): ReactElement {
           }
         />
 
-        <div className="min-h-0 flex-1">
-          <ModulePane
-            paneRef={diagramHostRef}
-            tone="surface"
-            className="vacp-debug-ui-diagram h-full w-full min-h-0 overflow-hidden"
-            data-stale={stale ? '1' : '0'}
-          />
-        </div>
+        <ModulePane tone="surface" className="vacp-debug-ui-flow h-full min-h-0 w-full overflow-hidden">
+          <VacpGraphFlow nodes={flow.nodes} edges={flow.edges} counts={flow.counts} onSelect={selectGraphItem} />
+        </ModulePane>
       </ModulePane>
 
       {effectiveInspectOpen ? (
@@ -308,22 +226,16 @@ export function GraphModule(props: VacpDebugModuleProps): ReactElement {
         >
           <ModuleHeader
             title="Inspect"
-            description={
-              selected
-                ? selected.kind === 'action'
-                  ? `Action #${selected.index}`
-                  : `Node #${selected.index}`
-                : 'Select a node to see its full JSON.'
-            }
+            description={selectedDescription(selected)}
             compact={compactControls}
             actions={
               <>
                 <IconButton
                   icon={<XCircle className="h-4 w-4 text-slate-100/90" />}
                   label="Clear selection"
-                  title="Clear the selected node/action."
+                  title="Clear the selected node or action."
                   size={iconButtonSize}
-                  onClick={() => setSelected(null)}
+                  onClick={() => selectGraphItem(null)}
                 />
                 <IconButton
                   icon={<ClipboardCopy className="h-4 w-4 text-slate-100/90" />}

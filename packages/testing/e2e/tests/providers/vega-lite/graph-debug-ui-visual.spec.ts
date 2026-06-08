@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
 import { resolve } from 'node:path';
 import { mkdir } from 'node:fs/promises';
 
@@ -11,7 +11,7 @@ async function ensureArtifactsDir(): Promise<void> {
   await mkdir(artifactsDir, { recursive: true });
 }
 
-async function openDebugUi(page: import('@playwright/test').Page): Promise<void> {
+async function openDebugUi(page: Page): Promise<void> {
   const pill = page.locator('button.vacp-debug-ui-button');
   await expect(pill).toBeVisible({ timeout: 15_000 });
   await pill.click();
@@ -19,7 +19,7 @@ async function openDebugUi(page: import('@playwright/test').Page): Promise<void>
 }
 
 async function waitForCapabilityRefContains(
-  page: import('@playwright/test').Page,
+  page: Page,
   needle: string,
   timeoutMs = 60_000,
 ): Promise<void> {
@@ -36,8 +36,19 @@ async function waitForCapabilityRefContains(
   }
 }
 
-test('vega-lite: debug-ui graph visually renders mark/channel/field nodes for all gallery specs', async ({ page }) => {
+function trackPageErrors(page: Page): () => void {
+  const messages: string[] = [];
+  page.on('pageerror', (error) => {
+    messages.push(error.message);
+  });
+  return () => {
+    expect(messages.length, `graph interactions should not throw page errors:\n${messages.join('\n')}`).toBe(0);
+  };
+}
+
+test('vega-lite: debug-ui graph renders and selects mark/channel/field nodes for all gallery specs', async ({ page }) => {
   await ensureArtifactsDir();
+  const expectNoPageErrors = trackPageErrors(page);
   const srv = await startViteDevServer({
     name: 'vega-lite-gallery',
     cwd: exampleDir('vega-lite-gallery'),
@@ -45,6 +56,7 @@ test('vega-lite: debug-ui graph visually renders mark/channel/field nodes for al
   });
   try {
     await page.goto(`${srv.url}?vacp-debug=1`, { waitUntil: 'domcontentloaded' });
+    await page.context().grantPermissions(['clipboard-read', 'clipboard-write'], { origin: srv.url });
     await page.waitForFunction(() => !!(globalThis as any).__vacp);
 
     await openDebugUi(page);
@@ -67,15 +79,36 @@ test('vega-lite: debug-ui graph visually renders mark/channel/field nodes for al
 
       await page.waitForSelector('#app canvas.marks, #app svg.marks', { timeout: 30_000 });
       await waitForCapabilityRefContains(page, `/vega-lite/${specId}/${specId}`);
-      await expect(page.locator('.vacp-debug-ui-diagram svg')).toBeVisible({ timeout: 15_000 });
+      await expect(page.locator('[data-vacp-graph-flow="1"] .react-flow__node').first()).toBeVisible({
+        timeout: 15_000,
+      });
 
       await page.waitForFunction(() => {
-        const svg = document.querySelector('.vacp-debug-ui-diagram svg');
-        if (!svg) return false;
-        const text = svg.textContent ?? '';
+        const flow = document.querySelector('[data-vacp-graph-flow="1"]');
+        if (!flow) return false;
+        const text = flow.textContent ?? '';
         if (!text.includes('Mark') || !text.includes('EncodingChannel') || !text.includes('EncodedField')) return false;
         return !text.includes('%2F') && !text.includes('%5B') && !text.includes('%5D');
       });
+
+      const firstNode = page.locator('[data-vacp-graph-flow="1"] .react-flow__node').first();
+      await firstNode.click();
+      await expect(page.locator('#vacp-debug-ui-panel')).toBeVisible();
+      await expect(page.locator('[data-vacp-graph-flow="1"] .vacp-debug-ui-flow-node-selected')).toBeVisible();
+      expectNoPageErrors();
+
+      const secondNode = page.locator('[data-vacp-graph-flow="1"] .react-flow__node').nth(1);
+      await secondNode.press('Enter');
+      await expect(secondNode.locator('.vacp-debug-ui-flow-node-selected')).toBeVisible();
+      expectNoPageErrors();
+
+      if (specId === specIds[0]) {
+        await page.getByRole('button', { name: 'Copy Mermaid' }).click();
+        const copied = await page.evaluate(() => navigator.clipboard.readText());
+        expect(copied).toContain('flowchart LR');
+        expect(copied).toContain('Mark');
+        expect(copied).toContain('EncodingChannel');
+      }
 
       await page.locator('#vacp-debug-ui-panel').screenshot({
         path: resolve(artifactsDir, `vega-lite-${specId}-graph.png`),

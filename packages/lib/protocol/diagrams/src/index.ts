@@ -1,15 +1,10 @@
 import type { VacpCapabilitiesSnapshot, VacpGraph, VacpRef } from '@vacp/core';
 
 /**
- * Diagram rendering (project concepts).
+ * Mermaid source generation for VACP graphs.
  *
- * VACP is meant to be inspectable and debuggable. A diagram view helps validate:
- * - whether the provider emitted the expected nodes/edges
- * - whether refs are stable and traversable
- * - whether actions target the intended parts of the UI
- *
- * This module provides a pluggable renderer interface:
- * - Mermaid is implemented (text-first and widely supported).
+ * The output is stable text for copy/export workflows. Consumers can paste it
+ * into Markdown Mermaid blocks, Mermaid Live Editor, or another renderer.
  */
 
 export interface VacpDiagramRenderInput {
@@ -35,7 +30,7 @@ export function renderVacpDiagramMermaid({
 }
 
 function shortRef(ref: VacpRef): string {
-  // Keep a readable suffix for labels: last path segment if possible.
+  // Labels use a decoded ref suffix so pasted Mermaid stays readable.
   const s = String(ref);
   const hashIdx = s.indexOf('#');
   const clean = hashIdx >= 0 ? s.slice(0, hashIdx) : s;
@@ -66,11 +61,8 @@ function actionIdForIndex(i: number): string {
 }
 
 function escapeMermaidLabel(s: string): string {
-  // We want readable multi-line labels in Mermaid. Mermaid flowcharts support
-  // HTML labels (including `<br/>`) when `htmlLabels` is enabled.
-  //
-  // We also want this renderer to be safe with untrusted titles: escape HTML by
-  // default and explicitly re-allow only a tiny whitelist used for formatting.
+  // Escape untrusted titles before restoring the HTML tags that Mermaid labels
+  // need for line breaks and compact emphasis.
   const BR = '__VACP_BR__';
   const B0 = '__VACP_B0__';
   const B1 = '__VACP_B1__';
@@ -102,16 +94,12 @@ function escapeMermaidLabel(s: string): string {
 }
 
 function escapeMermaidEdgeLabel(s: string): string {
-  // Edge labels are *not* quoted (they sit between `|...|`), so keep them very
-  // conservative to avoid parse errors.
+  // Edge labels are not quoted between pipes, so keep their content conservative.
   return s.replaceAll('|', '/').replaceAll('\r', '').replaceAll('\n', ' ');
 }
 
 /**
- * Mermaid renderer (first-class).
- *
- * We keep the diagram text-only and dependency-free: consumers can paste the
- * output into Markdown Mermaid blocks or Mermaid Live Editor.
+ * Return Mermaid source for a VACP graph.
  */
 export function renderVacpGraphMermaid(input: VacpDiagramRenderInput, options?: VacpDiagramRenderOptions): string {
   const direction = options?.direction ?? 'LR';

@@ -26,9 +26,10 @@ test('debug-ui: history undo/redo updates time travel cursor', async ({ page }) 
     await pill.click();
     await expect(page.locator('#vacp-debug-ui-panel')).toBeVisible();
 
-    // Mermaid graph should default to left-to-right.
     await expect(page.locator('[data-vacp-graph="1"]')).toHaveAttribute('data-vacp-direction', 'LR');
-    await expect(page.locator('.vacp-debug-ui-diagram svg')).toBeVisible({ timeout: 15_000 });
+    await expect(page.locator('[data-vacp-graph-flow="1"] .react-flow__node').first()).toBeVisible({
+      timeout: 15_000,
+    });
 
     const orders = await dispatchDimensionOrderPair(page);
     const { orderA, orderB } = orders;
@@ -73,7 +74,6 @@ test('debug-ui: history undo/redo updates time travel cursor', async ({ page }) 
     }
     await expect.poll(async () => await dimensionOrder(page)).toEqual(orderB);
 
-    // Time travel by clicking a snapshot entry while in inspect mode.
     await page.waitForFunction(() => {
       const t = document.querySelector('.vacp-debug-ui-meta')?.textContent ?? '';
       return /mode=inspect/.test(t);

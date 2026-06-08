@@ -87,7 +87,7 @@ const saveModule = (id: VacpDebugModuleId) => {
 };
 
 export const useVacpDebugUiStore = create<VacpDebugUiState>((set) => ({
-  includeActionsDefault: true,
+  includeActionsDefault: false,
 
   open: false,
   moduleId: readInitialModule(),

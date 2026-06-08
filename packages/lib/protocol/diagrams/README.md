@@ -1,14 +1,14 @@
 # @vacp/diagrams
 
-Render VACP graphs to Mermaid (for debugging).
+Generate Mermaid source for VACP graphs.
 
-This package is intentionally “text-first”: it outputs Mermaid source that you can:
+This package outputs Mermaid text that you can:
 
 - paste into a Markdown Mermaid block,
-- render in a debug UI overlay,
+- copy from the debug UI Graph tab,
 - copy into Mermaid Live Editor.
 
 ## API
 
-- `renderVacpDiagramMermaid({ capabilities, state?, options? })`
-- `renderVacpGraphMermaid({ graph, state? }, options?)`
+- `renderVacpDiagramMermaid({ capabilities, options? })`
+- `renderVacpGraphMermaid({ graph }, options?)`
