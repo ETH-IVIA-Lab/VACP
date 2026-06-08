@@ -16,6 +16,7 @@ import type {
   VacpFlowNode,
   VacpGraphCounts,
 } from './graph-types';
+import { containsChildrenByParent, descendantsFor, hiddenRefsForCollapse } from './graph-collapse';
 
 const NODE_WIDTH = 280;
 const NODE_HEIGHT = 112;
@@ -70,74 +71,6 @@ export function actionId(index: number, actionName: string): string {
 
 function displayTitle(node: VacpNode): string {
   return node.title || shortRef(node.ref) || node.kind;
-}
-
-function childrenByParent(edges: VacpEdge[]): Map<VacpRef, VacpRef[]> {
-  const children = new Map<VacpRef, VacpRef[]>();
-  for (const edge of edges) {
-    if (edge.kind !== 'contains') continue;
-    const refs = children.get(edge.from) ?? [];
-    refs.push(edge.to);
-    children.set(edge.from, refs);
-  }
-  return children;
-}
-
-function refsWithContainsParent(children: Map<VacpRef, VacpRef[]>): Set<VacpRef> {
-  const childRefs = new Set<VacpRef>();
-  for (const refs of children.values()) {
-    for (const ref of refs) childRefs.add(ref);
-  }
-  return childRefs;
-}
-
-function descendantsFor(parent: VacpRef, children: Map<VacpRef, VacpRef[]>): Set<VacpRef> {
-  const descendants = new Set<VacpRef>();
-  const stack = [...(children.get(parent) ?? [])];
-  while (stack.length > 0) {
-    const ref = stack.pop();
-    if (!ref || descendants.has(ref)) continue;
-    descendants.add(ref);
-    stack.push(...(children.get(ref) ?? []));
-  }
-  return descendants;
-}
-
-function visibleRefsForCollapse(args: {
-  nodes: VacpNode[];
-  children: Map<VacpRef, VacpRef[]>;
-  collapsedRefs: ReadonlySet<VacpRef>;
-}): Set<VacpRef> {
-  const { nodes, children, collapsedRefs } = args;
-  const allRefs = new Set(nodes.map((node) => node.ref));
-  const containedRefs = refsWithContainsParent(children);
-  const roots = nodes.filter((node) => !containedRefs.has(node.ref)).map((node) => node.ref);
-  const queue = roots.length > 0 ? [...roots] : nodes.map((node) => node.ref);
-  const visible = new Set<VacpRef>();
-
-  for (let i = 0; i < queue.length; i++) {
-    const ref = queue[i]!;
-    if (!allRefs.has(ref) || visible.has(ref)) continue;
-    visible.add(ref);
-    if (collapsedRefs.has(ref)) continue;
-    queue.push(...(children.get(ref) ?? []));
-  }
-
-  return visible;
-}
-
-function hiddenRefsFor(
-  nodes: VacpNode[],
-  collapsedRefs: ReadonlySet<VacpRef>,
-  children: Map<VacpRef, VacpRef[]>,
-): Set<VacpRef> {
-  if (collapsedRefs.size === 0) return new Set();
-  const visibleRefs = visibleRefsForCollapse({ nodes, children, collapsedRefs });
-  const hidden = new Set<VacpRef>();
-  for (const node of nodes) {
-    if (!visibleRefs.has(node.ref)) hidden.add(node.ref);
-  }
-  return hidden;
 }
 
 function visibleGraphEdges(
@@ -233,6 +166,11 @@ function graphEdge(edge: VacpEdge, index: number, direction: GraphDirection): Va
     data: { kind: edge.kind },
     className: edgeClass(edge.kind),
     markerEnd: { type: MarkerType.ArrowClosed },
+    selectable: false,
+    focusable: false,
+    interactionWidth: 0,
+    ariaRole: 'presentation',
+    domAttributes: { 'aria-hidden': true },
   };
 }
 
@@ -249,6 +187,11 @@ function actionEdge(action: VacpActionDescriptor, index: number, direction: Grap
     data: { kind: 'targets' },
     className: edgeClass('targets'),
     markerEnd: { type: MarkerType.ArrowClosed },
+    selectable: false,
+    focusable: false,
+    interactionWidth: 0,
+    ariaRole: 'presentation',
+    domAttributes: { 'aria-hidden': true },
   };
 }
 
@@ -259,10 +202,11 @@ export function buildVacpFlowGraph(args: {
   collapsedRefs: ReadonlySet<VacpRef>;
   selected: SelectedGraphItem;
   onToggleCollapse: (ref: VacpRef) => void;
+  onSelect: (item: Exclude<SelectedGraphItem, null>) => void;
 }): { nodes: VacpFlowNode[]; edges: VacpFlowEdge[]; counts: VacpGraphCounts } {
-  const { graph, direction, includeActions, collapsedRefs, selected, onToggleCollapse } = args;
-  const children = childrenByParent(graph.edges);
-  const hiddenRefs = hiddenRefsFor(graph.nodes, collapsedRefs, children);
+  const { graph, direction, includeActions, collapsedRefs, selected, onToggleCollapse, onSelect } = args;
+  const children = containsChildrenByParent(graph.edges);
+  const hiddenRefs = hiddenRefsForCollapse(graph.nodes, collapsedRefs, children);
   const nodes = visibleGraphNodes(graph.nodes, hiddenRefs);
   const edges = visibleGraphEdges(graph.edges, hiddenRefs, collapsedRefs);
   const depth = graphLayers(nodes, edges);
@@ -308,6 +252,7 @@ export function buildVacpFlowGraph(args: {
           collapsed: collapsedRefs.has(node.ref),
           collapsedCount,
           onToggleCollapse,
+          onSelect,
         },
       });
     });
@@ -350,6 +295,7 @@ export function buildVacpFlowGraph(args: {
           collapsed: false,
           collapsedCount: 0,
           onToggleCollapse: null,
+          onSelect,
         },
       });
 

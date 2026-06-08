@@ -16,7 +16,7 @@ import {
   Zap,
   type LucideIcon,
 } from 'lucide-react';
-import type { ReactElement } from 'react';
+import type { KeyboardEvent, ReactElement } from 'react';
 
 import { Handle, Position, type NodeProps } from '@xyflow/react';
 
@@ -56,21 +56,47 @@ const HANDLE_POSITIONS = [
 export function VacpGraphNode(props: NodeProps<VacpFlowNode>): ReactElement {
   const { data } = props;
 
+  const selectNode = (): void => {
+    data.onSelect(data.item);
+  };
+
+  const toggleCollapse = (): void => {
+    if (data.item.kind === 'node') data.onToggleCollapse?.(data.item.ref);
+  };
+
+  const selectNodeFromKeyboard = (event: KeyboardEvent<HTMLDivElement>): void => {
+    if (event.key !== 'Enter' && event.key !== ' ' && event.key !== 'Spacebar') return;
+    const target = event.target instanceof HTMLElement ? event.target : null;
+    if (target?.closest('button,a,input,select,textarea,[contenteditable="true"]')) return;
+    event.preventDefault();
+    selectNode();
+  };
+
   return (
     <div
       className={cn(
         'vacp-debug-ui-flow-node relative flex h-full w-full flex-col gap-1.5 overflow-hidden rounded-md border px-3 py-2.5 text-left shadow-[0_8px_28px_rgba(0,0,0,0.18)]',
+        'cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/32',
         data.graphKind === 'action'
           ? 'vacp-debug-ui-flow-node-action border-amber-200/18 bg-amber-200/[0.045]'
           : 'vacp-debug-ui-flow-node-state border-white/[0.09] bg-[#111b21]/94',
         data.selected && 'vacp-debug-ui-flow-node-selected',
       )}
       title={data.description ? `${data.title}\n${data.description}` : data.title}
+      role="group"
+      tabIndex={0}
+      aria-label={`${data.graphKind === 'action' ? 'Action' : data.nodeKind} ${data.title}`}
       data-vacp-flow-node-kind={data.graphKind}
+      data-vacp-graph-selected={data.selected ? 'true' : 'false'}
       data-vacp-graph-node-kind={data.graphKind === 'node' ? data.nodeKind : undefined}
       data-vacp-graph-node-ref={data.item.kind === 'node' ? data.item.ref : undefined}
       data-vacp-graph-node-collapsed={data.collapsed ? 'true' : undefined}
       data-vacp-graph-action-name={data.item.kind === 'action' ? data.item.name : undefined}
+      onClick={selectNode}
+      onFocus={(event) => {
+        if (event.currentTarget === event.target) selectNode();
+      }}
+      onKeyDown={selectNodeFromKeyboard}
     >
       {HANDLE_POSITIONS.map(([name, position]) => (
         <Handle
@@ -79,6 +105,8 @@ export function VacpGraphNode(props: NodeProps<VacpFlowNode>): ReactElement {
           type="target"
           position={position}
           className="vacp-debug-ui-flow-handle"
+          aria-hidden="true"
+          tabIndex={-1}
         />
       ))}
       {HANDLE_POSITIONS.map(([name, position]) => (
@@ -88,6 +116,8 @@ export function VacpGraphNode(props: NodeProps<VacpFlowNode>): ReactElement {
           type="source"
           position={position}
           className="vacp-debug-ui-flow-handle"
+          aria-hidden="true"
+          tabIndex={-1}
         />
       ))}
 
@@ -112,11 +142,17 @@ export function VacpGraphNode(props: NodeProps<VacpFlowNode>): ReactElement {
         {data.hasChildren && data.onToggleCollapse ? (
           <button
             type="button"
-            className="nodrag nopan grid h-6 w-6 shrink-0 place-items-center rounded-md border border-white/[0.08] bg-white/[0.035] text-slate-100/68 transition hover:border-white/[0.14] hover:bg-white/[0.06] hover:text-slate-100"
+            className="nodrag nopan grid h-6 w-6 shrink-0 place-items-center rounded-md border border-white/[0.08] bg-white/[0.035] text-slate-100/68 transition-[background-color,border-color,color,transform] enabled:active:scale-[0.97] hover:border-white/[0.14] hover:bg-white/[0.06] hover:text-slate-100"
             aria-label={data.collapsed ? `Expand ${data.title} one level` : `Collapse ${data.title}`}
             onClick={(event) => {
               event.stopPropagation();
-              if (data.item.kind === 'node') data.onToggleCollapse?.(data.item.ref);
+              toggleCollapse();
+            }}
+            onKeyDown={(event) => {
+              if (event.key !== 'Enter' && event.key !== ' ' && event.key !== 'Spacebar') return;
+              event.preventDefault();
+              event.stopPropagation();
+              toggleCollapse();
             }}
           >
             {data.collapsed ? <ChevronRight className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}

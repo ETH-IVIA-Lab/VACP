@@ -52,10 +52,9 @@ export function GraphModule(props: VacpDebugModuleProps): ReactElement {
   const inspectOpen = useVacpDebugUiStore((s) => s.graphInspectOpen);
   const setInspectOpen = useVacpDebugUiStore((s) => s.setGraphInspectOpen);
   const direction = useVacpGraphUiStore((s) => s.direction);
-  const includeActions = useVacpGraphUiStore((s) => s.includeActions);
+  const includeActionsOverride = useVacpGraphUiStore((s) => s.includeActionsOverride);
   const selected = useVacpGraphUiStore((s) => s.selected);
   const collapsedRefs = useVacpGraphUiStore((s) => s.collapsedRefs);
-  const syncIncludeActionsDefault = useVacpGraphUiStore((s) => s.syncIncludeActionsDefault);
   const toggleDirection = useVacpGraphUiStore((s) => s.toggleDirection);
   const toggleIncludeActions = useVacpGraphUiStore((s) => s.toggleIncludeActions);
   const selectGraphItem = useVacpGraphUiStore((s) => s.selectGraphItem);
@@ -67,6 +66,7 @@ export function GraphModule(props: VacpDebugModuleProps): ReactElement {
   const [mermaidCopied, setMermaidCopied] = useState(false);
 
   const graph = props.runtime.currentCapabilities.graph;
+  const includeActions = includeActionsOverride ?? includeActionsDefault;
 
   const toggleCollapse = useCallback((ref: VacpRef) => toggleCollapsedRef(graph, ref), [graph, toggleCollapsedRef]);
 
@@ -79,8 +79,9 @@ export function GraphModule(props: VacpDebugModuleProps): ReactElement {
         collapsedRefs,
         selected,
         onToggleCollapse: toggleCollapse,
+        onSelect: selectGraphItem,
       }),
-    [collapsedRefs, direction, graph, includeActions, selected, toggleCollapse],
+    [collapsedRefs, direction, graph, includeActions, selectGraphItem, selected, toggleCollapse],
   );
 
   const mermaidText = useMemo(
@@ -100,15 +101,6 @@ export function GraphModule(props: VacpDebugModuleProps): ReactElement {
     const id = window.setTimeout(() => setMermaidCopied(false), 1600);
     return () => window.clearTimeout(id);
   }, [mermaidCopied]);
-
-  useEffect(() => {
-    if (!dense || !inspectOpen) return;
-    setInspectOpen(false);
-  }, [dense, inspectOpen, setInspectOpen]);
-
-  useEffect(() => {
-    syncIncludeActionsDefault(includeActionsDefault);
-  }, [includeActionsDefault, syncIncludeActionsDefault]);
 
   useEffect(() => {
     pruneCollapsedRefs(graph);
@@ -157,45 +149,41 @@ export function GraphModule(props: VacpDebugModuleProps): ReactElement {
                 title="Show semantic actions as graph nodes."
                 pressed={includeActions}
                 size={iconButtonSize}
-                onClick={toggleIncludeActions}
+                onClick={() => toggleIncludeActions(includeActionsDefault)}
               />
-              <div className="vacp-debug-ui-copy-action">
-                <IconButton
-                  icon={
-                    mermaidCopied ? (
-                      <Check className="h-4 w-4 text-emerald-100/90" />
-                    ) : (
-                      <Workflow className="h-4 w-4 text-slate-100/90" />
-                    )
-                  }
-                  label="Copy Mermaid"
-                  title={mermaidCopied ? 'Mermaid source copied.' : 'Copy Mermaid graph source.'}
-                  pressed={mermaidCopied}
-                  size={iconButtonSize}
-                  onClick={() => void copyMermaid()}
-                />
-                <span
-                  className={cn('vacp-debug-ui-copy-feedback', mermaidCopied && 'vacp-debug-ui-copy-feedback-visible')}
-                  role="status"
-                  aria-live="polite"
-                >
-                  Copied
-                </span>
-              </div>
               <IconButton
                 icon={
-                  inspectOpen ? (
-                    <PanelRightClose className="h-4 w-4 text-slate-100/90" />
+                  mermaidCopied ? (
+                    <Check className="h-4 w-4 text-emerald-100/90" />
                   ) : (
-                    <PanelRightOpen className="h-4 w-4 text-slate-100/90" />
+                    <Workflow className="h-4 w-4 text-slate-100/90" />
                   )
                 }
-                label={inspectOpen ? 'Hide inspect pane' : 'Show inspect pane'}
-                title={inspectOpen ? 'Hide the Inspect pane.' : 'Show the Inspect pane.'}
-                pressed={effectiveInspectOpen}
+                label={mermaidCopied ? 'Copied Mermaid' : 'Copy Mermaid'}
+                title={mermaidCopied ? 'Mermaid source copied.' : 'Copy Mermaid graph source.'}
+                pressed={mermaidCopied}
                 size={iconButtonSize}
-                onClick={() => setInspectOpen(!inspectOpen)}
+                onClick={() => void copyMermaid()}
               />
+              <span className="sr-only" role="status" aria-live="polite">
+                {mermaidCopied ? 'Mermaid source copied.' : ''}
+              </span>
+              {dense ? null : (
+                <IconButton
+                  icon={
+                    inspectOpen ? (
+                      <PanelRightClose className="h-4 w-4 text-slate-100/90" />
+                    ) : (
+                      <PanelRightOpen className="h-4 w-4 text-slate-100/90" />
+                    )
+                  }
+                  label={inspectOpen ? 'Hide inspect pane' : 'Show inspect pane'}
+                  title={inspectOpen ? 'Hide the Inspect pane.' : 'Show the Inspect pane.'}
+                  pressed={effectiveInspectOpen}
+                  size={iconButtonSize}
+                  onClick={() => setInspectOpen(!inspectOpen)}
+                />
+              )}
             </>
           }
         />

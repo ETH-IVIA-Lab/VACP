@@ -4,11 +4,13 @@ import test from 'node:test';
 import type { VacpGraph, VacpRef } from '@vacp/core';
 
 import { buildVacpFlowGraph, nodeId } from '../src/overlay/modules/graph/graph-model';
-import { nextCollapsedRefsForToggle } from '../src/overlay/modules/graph/graph-state';
+import { nextCollapsedRefsForToggle } from '../src/overlay/modules/graph/graph-collapse';
 
 function ref(value: string): VacpRef {
   return value as VacpRef;
 }
+
+function noopSelect(): void {}
 
 test('graph collapse keeps shared children visible through expanded parents', () => {
   const root = ref('vacp://example/root');
@@ -38,6 +40,7 @@ test('graph collapse keeps shared children visible through expanded parents', ()
     collapsedRefs: new Set([plotA]),
     selected: null,
     onToggleCollapse: () => {},
+    onSelect: noopSelect,
   });
 
   const nodeIds = new Set(flow.nodes.map((node) => node.id));
@@ -74,6 +77,7 @@ test('graph model marks the selected node in rendered node data', () => {
     collapsedRefs: new Set(),
     selected: { kind: 'node', ref: plot },
     onToggleCollapse: () => {},
+    onSelect: noopSelect,
   });
 
   const rootNode = flow.nodes.find((node) => node.id === nodeId(root));
@@ -111,6 +115,7 @@ test('graph expansion reveals a collapsed branch one level at a time', () => {
     collapsedRefs,
     selected: null,
     onToggleCollapse: () => {},
+    onSelect: noopSelect,
   });
   let nodeIds = new Set(flow.nodes.map((node) => node.id));
   assert.equal(nodeIds.has(nodeId(root)), true);
@@ -125,6 +130,7 @@ test('graph expansion reveals a collapsed branch one level at a time', () => {
     collapsedRefs,
     selected: null,
     onToggleCollapse: () => {},
+    onSelect: noopSelect,
   });
   nodeIds = new Set(flow.nodes.map((node) => node.id));
   assert.equal(nodeIds.has(nodeId(root)), true);
@@ -140,6 +146,7 @@ test('graph expansion reveals a collapsed branch one level at a time', () => {
     collapsedRefs,
     selected: null,
     onToggleCollapse: () => {},
+    onSelect: noopSelect,
   });
   nodeIds = new Set(flow.nodes.map((node) => node.id));
   assert.equal(nodeIds.has(nodeId(mark)), true);
@@ -154,6 +161,7 @@ test('graph expansion reveals a collapsed branch one level at a time', () => {
     collapsedRefs,
     selected: null,
     onToggleCollapse: () => {},
+    onSelect: noopSelect,
   });
   nodeIds = new Set(flow.nodes.map((node) => node.id));
   assert.equal(nodeIds.has(nodeId(field)), true);

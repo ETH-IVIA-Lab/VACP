@@ -6,6 +6,12 @@ import { VACP_DATA_SQL_ACTION } from '@vacp/core';
 
 import type { VacpWindowBridge } from '@vacp/debug-ui/types';
 
+import { executeDebugAction } from '../action-execution';
+
+function emptySqlColumns(): { vacp_handle: string[]; vacp_all: string[] } {
+  return { vacp_handle: [], vacp_all: [] };
+}
+
 function buildSqlSchemaNamespace(columns: { vacp_handle: string[]; vacp_all: string[] }): SQLNamespace {
   const table = (name: string) => ({ label: name, type: 'table' as const, boost: 99 });
   const col = (name: string) => ({ label: name, type: 'column' as const, boost: 1 });
@@ -29,28 +35,31 @@ export function useSqlNamespace(args: {
 }): SQLNamespace {
   const { bridge, selectedHandle, runtimeMode, resetKey } = args;
   const cacheRef = useRef(new Map<string, { vacp_handle: string[]; vacp_all: string[] }>());
-  const [schemaColumns, setSchemaColumns] = useState<{ vacp_handle: string[]; vacp_all: string[] }>({
-    vacp_handle: [],
-    vacp_all: [],
-  });
+  const [schemaColumns, setSchemaColumns] = useState<{ vacp_handle: string[]; vacp_all: string[] }>(emptySqlColumns);
 
   useEffect(() => {
     cacheRef.current.clear();
-    setSchemaColumns({ vacp_handle: [], vacp_all: [] });
+    setSchemaColumns(emptySqlColumns());
   }, [resetKey]);
 
   useEffect(() => {
-    if (!selectedHandle) return;
+    if (!selectedHandle) {
+      setSchemaColumns(emptySqlColumns());
+      return;
+    }
     if (runtimeMode === 'inspect') {
-      setSchemaColumns({ vacp_handle: [], vacp_all: [] });
+      setSchemaColumns(emptySqlColumns());
       return;
     }
 
-    const cached = cacheRef.current.get(selectedHandle);
+    const cacheKey = `${resetKey}:${selectedHandle}`;
+    const cached = cacheRef.current.get(cacheKey);
     if (cached) {
       setSchemaColumns(cached);
       return;
     }
+
+    setSchemaColumns(emptySqlColumns());
 
     let cancelled = false;
     const exec = async (sql: string) => {
@@ -59,10 +68,7 @@ export function useSqlNamespace(args: {
         name: VACP_DATA_SQL_ACTION,
         params: { handleRef: selectedHandle, sql, format: 'json', maxRows: 0 },
       };
-      const res =
-        typeof bridge.dispatch === 'function'
-          ? await bridge.dispatch(call, { source: 'debug', message: 'schema' })
-          : await bridge.execute(call);
+      const res = await executeDebugAction(bridge, call, { source: 'debug', message: 'schema' });
       if (!res.ok) throw new Error(res.error?.message ?? 'Schema query failed');
       return res.result as unknown;
     };
@@ -77,17 +83,17 @@ export function useSqlNamespace(args: {
         const handleCols = isJsonSchemaResult(handleRes) ? handleRes.columns : [];
         const allCols = isJsonSchemaResult(allRes) ? allRes.columns : [];
         const next = { vacp_handle: handleCols, vacp_all: allCols };
-        cacheRef.current.set(selectedHandle, next);
+        cacheRef.current.set(cacheKey, next);
         setSchemaColumns(next);
       } catch {
-        if (!cancelled) setSchemaColumns({ vacp_handle: [], vacp_all: [] });
+        if (!cancelled) setSchemaColumns(emptySqlColumns());
       }
     })();
 
     return () => {
       cancelled = true;
     };
-  }, [bridge, runtimeMode, selectedHandle]);
+  }, [bridge, resetKey, runtimeMode, selectedHandle]);
 
   return useMemo(() => buildSqlSchemaNamespace(schemaColumns), [schemaColumns]);
 }

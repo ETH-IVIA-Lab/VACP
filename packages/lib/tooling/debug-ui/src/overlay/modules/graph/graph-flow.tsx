@@ -1,4 +1,4 @@
-import type { KeyboardEvent, ReactElement } from 'react';
+import type { ReactElement } from 'react';
 import { useEffect, useMemo, useRef } from 'react';
 import { Maximize2, Minus, Plus } from 'lucide-react';
 
@@ -22,6 +22,8 @@ const nodeTypes = {
   vacpGraphNode: VacpGraphNode,
 } satisfies NodeTypes;
 
+const MIN_GRAPH_ZOOM = 0.04;
+
 function FlowCanvas(props: {
   nodes: VacpFlowNode[];
   edges: VacpFlowEdge[];
@@ -34,7 +36,6 @@ function FlowCanvas(props: {
     () => props.nodes.map((node) => `${node.id}:${node.position.x}:${node.position.y}`).join('|'),
     [props.nodes],
   );
-  const nodeById = useMemo(() => new Map(props.nodes.map((node) => [node.id, node])), [props.nodes]);
 
   useEffect(() => {
     if (props.nodes.length === 0) return;
@@ -49,19 +50,6 @@ function FlowCanvas(props: {
     void fitView({ padding: 0.18, duration: 160, includeHiddenNodes: false });
   };
 
-  const selectFocusedNode = (event: KeyboardEvent<HTMLDivElement>): void => {
-    if (event.key !== 'Enter' && event.key !== ' ' && event.key !== 'Spacebar') return;
-    const target = event.target instanceof HTMLElement ? event.target : null;
-    if (!target || target.closest('button,a,input,select,textarea,[contenteditable="true"]')) return;
-    const nodeElement = target.closest<HTMLElement>('.react-flow__node[data-id]');
-    const id = nodeElement?.dataset.id;
-    if (!id) return;
-    const node = nodeById.get(id);
-    if (!node) return;
-    event.preventDefault();
-    props.onSelect(node.data.item);
-  };
-
   return (
     <ReactFlow<VacpFlowNode, VacpFlowEdge>
       nodes={props.nodes}
@@ -69,11 +57,12 @@ function FlowCanvas(props: {
       nodeTypes={nodeTypes}
       fitView
       fitViewOptions={{ padding: 0.18, includeHiddenNodes: false }}
-      minZoom={0.04}
+      minZoom={MIN_GRAPH_ZOOM}
       maxZoom={1.85}
       nodesDraggable={false}
       nodesConnectable={false}
-      nodesFocusable
+      nodesFocusable={false}
+      edgesFocusable={false}
       elementsSelectable={false}
       selectNodesOnDrag={false}
       panOnDrag
@@ -81,8 +70,8 @@ function FlowCanvas(props: {
       zoomOnScroll
       zoomOnPinch
       onNodeClick={(_, node) => props.onSelect(node.data.item)}
-      onKeyDown={selectFocusedNode}
       onPaneClick={() => props.onSelect(null)}
+      disableKeyboardA11y
       proOptions={{ hideAttribution: true }}
       data-vacp-graph-flow="1"
     >

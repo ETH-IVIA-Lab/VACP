@@ -176,6 +176,31 @@ export function ChatModule(props: VacpDebugModuleProps): ReactElement {
     : activeThread
       ? `${activeThread.messages.length} message${activeThread.messages.length === 1 ? '' : 's'}`
       : 'Preparing';
+  const settingsPanel = (
+    <ChatConfigPanel
+      className="h-full max-h-none"
+      compact={true}
+      config={config}
+      onConfigChange={updateConfig}
+      onProviderChange={switchProvider}
+      showApiKey={showApiKey}
+      onToggleApiKey={() => setShowApiKey((v) => !v)}
+      availableModels={availableModels}
+      loadingModels={modelsLoading}
+      modelsError={modelsError}
+      onRefreshModels={refreshModels}
+      onClose={() => setSettingsOpen(scopeId, false)}
+      onClearConfig={() => {
+        clearVacpLLMConfig();
+        setConfig(defaultVacpLLMConfigForProvider(config.provider));
+        resetConnectionState();
+        if (sessionCacheKey) deleteVacpChatSession(sessionCacheKey);
+        if (activeThreadId) clearThread(scopeId, activeThreadId);
+        setActivityOpen(scopeId, false);
+        setSettingsOpen(scopeId, true);
+      }}
+    />
+  );
 
   return (
     <ModuleRoot
@@ -378,29 +403,7 @@ export function ChatModule(props: VacpDebugModuleProps): ReactElement {
           data-vacp-chat-settings-sheet="1"
           className={cn('min-h-0 min-w-0 overflow-hidden bg-white/[0.014]', !showSideBySide && 'max-h-[45%]')}
         >
-          <ChatConfigPanel
-            className="h-full max-h-none"
-            compact={true}
-            config={config}
-            onConfigChange={updateConfig}
-            onProviderChange={switchProvider}
-            showApiKey={showApiKey}
-            onToggleApiKey={() => setShowApiKey((v) => !v)}
-            availableModels={availableModels}
-            loadingModels={modelsLoading}
-            modelsError={modelsError}
-            onRefreshModels={refreshModels}
-            onClose={() => setSettingsOpen(scopeId, false)}
-            onClearConfig={() => {
-              clearVacpLLMConfig();
-              setConfig(defaultVacpLLMConfigForProvider(config.provider));
-              resetConnectionState();
-              if (sessionCacheKey) deleteVacpChatSession(sessionCacheKey);
-              if (activeThreadId) clearThread(scopeId, activeThreadId);
-              setActivityOpen(scopeId, false);
-              setSettingsOpen(scopeId, true);
-            }}
-          />
+          {settingsPanel}
         </ModulePane>
       ) : null}
     </ModuleRoot>

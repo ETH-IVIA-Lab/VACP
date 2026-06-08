@@ -118,13 +118,14 @@ export function ModulePane({ paneRef, tone = 'plain', className, ...props }: Mod
 export function ModuleField(props: {
   label: ReactNode;
   htmlFor?: string;
+  labelId?: string;
   children: ReactNode;
   className?: string;
   innerClassName?: string;
 }): ReactElement {
   return (
     <div className={props.className}>
-      <label className="text-[11px] font-medium text-slate-100/70" htmlFor={props.htmlFor}>
+      <label id={props.labelId} className="text-[11px] font-medium text-slate-100/70" htmlFor={props.htmlFor}>
         {props.label}
       </label>
       <div className={cn('mt-1', props.innerClassName)}>{props.children}</div>

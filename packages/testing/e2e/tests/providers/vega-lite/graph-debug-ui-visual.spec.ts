@@ -79,7 +79,7 @@ test('vega-lite: debug-ui graph renders and selects mark/channel/field nodes for
 
       await page.waitForSelector('#app canvas.marks, #app svg.marks', { timeout: 30_000 });
       await waitForCapabilityRefContains(page, `/vega-lite/${specId}/${specId}`);
-      await expect(page.locator('[data-vacp-graph-flow="1"] .react-flow__node').first()).toBeVisible({
+      await expect(page.locator('[data-vacp-graph-flow="1"] [data-vacp-flow-node-kind]').first()).toBeVisible({
         timeout: 15_000,
       });
 
@@ -91,9 +91,17 @@ test('vega-lite: debug-ui graph renders and selects mark/channel/field nodes for
         return !text.includes('%2F') && !text.includes('%5B') && !text.includes('%5D');
       });
 
+      const graphNodeBodies = page.locator('[data-vacp-graph-flow="1"] [data-vacp-flow-node-kind]');
+      const firstNode = graphNodeBodies.first();
+      await firstNode.focus();
+      await firstNode.press('Enter');
+      await expect(page.locator('#vacp-debug-ui-panel')).toBeVisible();
+      await expect(firstNode).toHaveAttribute('data-vacp-graph-selected', 'true');
+      expectNoPageErrors();
+
       if (specId === specIds[0]) {
         const rootNode = page.locator('[data-vacp-graph-node-kind="Visualization"]').first();
-        await rootNode.getByRole('button', { name: /^Collapse / }).click();
+        await rootNode.getByRole('button', { name: /^Collapse / }).press('Enter');
         await expect(page.locator('[data-vacp-graph-node-kind="Mark"]')).toHaveCount(0);
         await expect(page.locator('[data-vacp-graph-node-kind="EncodingChannel"]')).toHaveCount(0);
 
@@ -109,22 +117,6 @@ test('vega-lite: debug-ui graph renders and selects mark/channel/field nodes for
         const channelNode = page.locator('[data-vacp-graph-node-kind="EncodingChannel"]').first();
         await channelNode.getByRole('button', { name: /^Expand .* one level$/ }).click();
         await expect(page.locator('[data-vacp-graph-node-kind="EncodedField"]').first()).toBeVisible();
-
-        const graphNodeBodies = page.locator('[data-vacp-graph-flow="1"] [data-vacp-flow-node-kind]');
-        const graphNodeWrappers = page
-          .locator('[data-vacp-graph-flow="1"] .react-flow__node')
-          .filter({ has: page.locator('[data-vacp-flow-node-kind]') });
-
-        const firstNode = graphNodeBodies.first();
-        await firstNode.click();
-        await expect(page.locator('#vacp-debug-ui-panel')).toBeVisible();
-        await expect(firstNode).toHaveClass(/vacp-debug-ui-flow-node-selected/);
-        expectNoPageErrors();
-
-        const secondNode = graphNodeWrappers.nth(1);
-        await secondNode.press('Enter');
-        await expect(secondNode.locator('.vacp-debug-ui-flow-node-selected')).toBeVisible();
-        expectNoPageErrors();
 
         await page.getByRole('button', { name: 'Copy Mermaid' }).click();
         const copied = await page.evaluate(() => navigator.clipboard.readText());

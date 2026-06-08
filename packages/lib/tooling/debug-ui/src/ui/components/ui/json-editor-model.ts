@@ -39,7 +39,6 @@ export function parseJsonEditorPath(input: string): JsonPath {
   return trimmed
     .slice(1)
     .split('/')
-    .filter((segment) => segment.length > 0)
     .map(parsePointerSegment);
 }
 

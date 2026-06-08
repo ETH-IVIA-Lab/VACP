@@ -14,6 +14,8 @@ import {
 import { normalizeSingleStatementSql } from '@vacp/debug-ui/ui/sql/sql';
 import type { SqlResultTableModel } from '@vacp/debug-ui/ui/sql/types';
 
+import { executeDebugAction } from '../action-execution';
+
 export type DataSqlStatus = 'idle' | 'running' | 'error';
 
 export type DataSqlOk = {
@@ -65,10 +67,7 @@ async function fetchDataSqlPage(args: {
     },
   };
 
-  const res =
-    typeof bridge.dispatch === 'function'
-      ? await bridge.dispatch(call, { source: 'debug' })
-      : await bridge.execute(call);
+  const res = await executeDebugAction(bridge, call, { source: 'debug' });
   if (!res.ok) throw new Error(res.error?.message ?? 'Query failed');
 
   const raw = res.result as unknown;
@@ -157,7 +156,6 @@ export function useDataSql(args: {
 
   const run = useCallback(
     async (handleRef: VacpRef, sql: string) => {
-      if (runtimeMode === 'inspect') setModeToLive?.();
       setValidationError(null);
 
       let baseSql: string;
@@ -168,6 +166,7 @@ export function useDataSql(args: {
         return;
       }
 
+      if (runtimeMode === 'inspect') setModeToLive?.();
       const next: ActiveQuery = { runId: crypto.randomUUID(), handleRef, baseSql };
       setActive(next);
 

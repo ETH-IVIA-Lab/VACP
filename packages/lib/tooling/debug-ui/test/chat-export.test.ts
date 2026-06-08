@@ -71,5 +71,15 @@ test('exportConversationAsMarkdown includes user text, assistant text, reasoning
   assert.match(markdown, /Requested Input/);
   assert.match(markdown, /Normalized bare `vacp:\/\/` scope/i);
   assert.match(markdown, /includeNodeData\": false/i);
-  assert.equal(markdown.includes('#### Requested Input\n\n```json\n{\n  "name": "vgplot.set_input_value"'), false);
+
+  const messageToolBlock = markdown.slice(
+    markdown.indexOf('### Tool: vacp_execute'),
+    markdown.indexOf('## Tool Event Timeline'),
+  );
+  assert.match(messageToolBlock, /#### Input/);
+  assert.match(messageToolBlock, /#### Output/);
+  assert.equal([...messageToolBlock.matchAll(/^#### Requested Input$/gm)].length, 0);
+
+  const timelineBlock = markdown.slice(markdown.indexOf('## Tool Event Timeline'));
+  assert.equal([...timelineBlock.matchAll(/^#### Requested Input$/gm)].length, 1);
 });

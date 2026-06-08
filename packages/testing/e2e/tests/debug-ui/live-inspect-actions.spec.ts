@@ -1,15 +1,8 @@
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test } from '@playwright/test';
 
 import { startViteDevServer } from '../helpers/devserver';
 import { exampleDir } from '../helpers/paths';
-import { dimensionOrder, waitForVacpBridge } from './helpers';
-
-async function waitForMode(page: Page, mode: 'live' | 'inspect'): Promise<void> {
-  await page.waitForFunction(async (expected) => {
-    const runtime = await (globalThis as any).__vacp?.getRuntime?.();
-    return runtime?.mode === expected;
-  }, mode);
-}
+import { dimensionOrder, waitForRuntimeMode, waitForVacpBridge } from './helpers';
 
 test('debug-ui: running an action while inspecting returns to live mode', async ({ page }) => {
   const srv = await startViteDevServer({
@@ -36,7 +29,7 @@ test('debug-ui: running an action while inspecting returns to live mode', async 
     await expect(page.locator('#vacp-debug-ui-panel')).toBeVisible();
 
     await page.getByRole('button', { name: 'Toggle live/inspect mode' }).click();
-    await waitForMode(page, 'inspect');
+    await waitForRuntimeMode(page, 'inspect');
 
     await page.getByRole('tab', { name: 'Actions' }).click();
     await page.getByRole('button', { name: /parallel_coords\.set_dimension_order/ }).click();
@@ -44,23 +37,23 @@ test('debug-ui: running an action while inspecting returns to live mode', async 
     const rawParams = paramsEditor.locator('[data-vacp-json-editor-raw="vacp-action-params"]');
     await paramsEditor.getByRole('button', { name: 'Raw' }).click();
     await rawParams.fill('"scalar-param"');
-    await expect(paramsEditor.locator('.vacp-json-editor-error')).toHaveCount(0);
+    await expect(paramsEditor.locator('[data-vacp-json-editor-error]')).toHaveCount(0);
     await rawParams.fill('{ "order": ');
-    await expect(paramsEditor.locator('.vacp-json-editor-error')).toContainText('Unexpected end of JSON input');
+    await expect(paramsEditor.getByRole('alert')).toBeVisible();
     await page.getByRole('button', { name: 'Run action' }).click();
     await expect(page.getByText(/Invalid JSON params/)).toBeVisible();
 
     await page.getByRole('button', { name: /parallel_coords\.reset_brushes/ }).click();
     await expect(rawParams).toHaveValue('{}');
-    await expect(paramsEditor.locator('.vacp-json-editor-error')).toHaveCount(0);
+    await expect(paramsEditor.locator('[data-vacp-json-editor-error]')).toHaveCount(0);
 
     await page.getByRole('button', { name: /parallel_coords\.set_dimension_order/ }).click();
     await expect(rawParams).toHaveValue('{}');
     await rawParams.fill(JSON.stringify({ order: nextOrder }, null, 2));
-    await expect(paramsEditor.locator('.vacp-json-editor-error')).toHaveCount(0);
+    await expect(paramsEditor.locator('[data-vacp-json-editor-error]')).toHaveCount(0);
     await page.getByRole('button', { name: 'Run action' }).click();
 
-    await waitForMode(page, 'live');
+    await waitForRuntimeMode(page, 'live');
     await expect.poll(async () => await dimensionOrder(page)).toEqual(nextOrder);
   } finally {
     await srv.stop();

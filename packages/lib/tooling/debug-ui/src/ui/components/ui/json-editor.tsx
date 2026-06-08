@@ -40,33 +40,54 @@ type JsonSectionRenderResult = {
   keys?: JsonPath;
 };
 
-export type JsonEditorProps = {
+type JsonRootPolicy = 'object' | 'container' | 'any';
+
+type JsonEditorBaseProps = {
   id?: string;
   value: unknown;
   onChange: (value: unknown) => void;
   className?: string;
   disabled?: boolean;
-  allowScalarRoot?: boolean;
   expandDepth?: number;
   minHeightClassName?: string;
   onValidityChange?: (error: string | null) => void;
-  resetSignal?: unknown;
+  documentKey?: string;
+  valueRevision?: string | number;
+  labelledBy?: string;
 };
 
-export function JsonEditor({
+export type JsonObjectEditorProps = JsonEditorBaseProps;
+export type JsonContainerEditorProps = JsonEditorBaseProps;
+export type JsonValueEditorProps = JsonEditorBaseProps;
+
+export function JsonObjectEditor(props: JsonObjectEditorProps): ReactElement {
+  return <JsonEditorBase {...props} rootPolicy="object" />;
+}
+
+export function JsonContainerEditor(props: JsonContainerEditorProps): ReactElement {
+  return <JsonEditorBase {...props} rootPolicy="container" />;
+}
+
+export function JsonValueEditor(props: JsonValueEditorProps): ReactElement {
+  return <JsonEditorBase {...props} rootPolicy="any" />;
+}
+
+function JsonEditorBase({
   id,
   value,
   onChange,
   className,
   disabled,
-  allowScalarRoot = false,
   expandDepth = 2,
   minHeightClassName = 'min-h-[180px]',
   onValidityChange,
-  resetSignal,
-}: JsonEditorProps): ReactElement {
+  documentKey,
+  valueRevision,
+  labelledBy,
+  rootPolicy,
+}: JsonEditorBaseProps & { rootPolicy: JsonRootPolicy }): ReactElement {
   const [mode, setMode] = useState<JsonEditorMode>('tree');
-  const editorValue = allowScalarRoot ? value : toJsonContainer(value);
+  const editorValue = normalizeRootValue(rootPolicy, value);
   const [rawText, setRawText] = useState(() => stringifyJson(editorValue));
   const [rawError, setRawError] = useState<string | null>(null);
   const [treeError, setTreeError] = useState<string | null>(null);
@@ -76,8 +97,9 @@ export function JsonEditor({
   const [pathText, setPathText] = useState('');
   const [pathValueText, setPathValueText] = useState('null');
   const lastRawSerialized = useRef<string | null>(null);
-  const seenResetSignal = useRef(resetSignal);
-  const root = useMemo(() => (allowScalarRoot ? value : toJsonContainer(value)), [allowScalarRoot, value]);
+  const seenDocumentKey = useRef(documentKey);
+  const seenValueRevision = useRef(valueRevision);
+  const root = useMemo(() => normalizeRootValue(rootPolicy, value), [rootPolicy, value]);
   const containerRoot = useMemo(() => (isJsonContainer(root) ? root : null), [root]);
   const collapsed = useMemo(() => collapseDepthForExpandDepth(expandDepth), [expandDepth]);
   const serializedValue = useMemo(() => stringifyJson(root), [root]);
@@ -94,16 +116,18 @@ export function JsonEditor({
   }, [mode, serializedValue]);
 
   useEffect(() => {
-    if (typeof resetSignal === 'undefined') return;
-    if (Object.is(seenResetSignal.current, resetSignal)) return;
-    seenResetSignal.current = resetSignal;
+    const documentChanged = !Object.is(seenDocumentKey.current, documentKey);
+    const revisionChanged = !Object.is(seenValueRevision.current, valueRevision);
+    if (!documentChanged && !revisionChanged) return;
+    seenDocumentKey.current = documentKey;
+    seenValueRevision.current = valueRevision;
     setRawText(serializedValue);
     setRawError(null);
     setTreeError(null);
     setStructureError(null);
     setStructureStatus(null);
     lastRawSerialized.current = serializedValue;
-  }, [resetSignal, serializedValue]);
+  }, [documentKey, serializedValue, valueRevision]);
 
   useEffect(() => {
     if (!copyStatus) return;
@@ -146,6 +170,7 @@ export function JsonEditor({
         children={nodeProps.children as ReactNode}
         path={result.keys ?? (typeof result.keyName === 'undefined' ? [] : [result.keyName])}
         keyName={result.keyName ?? ''}
+        canRename={Boolean(result.parentValue) && typeof result.parentValue === 'object' && !Array.isArray(result.parentValue)}
         disabled={disabled}
         onRename={renameKey}
         onError={setTreeError}
@@ -200,8 +225,10 @@ export function JsonEditor({
     try {
       const path = parseJsonEditorPath(pathText);
       const parsed = parseJsonLiteral(pathValueText);
-      const nextRoot = path.length === 0 && allowScalarRoot ? parsed : setJsonPath(root, path, parsed);
+      const nextRoot = path.length === 0 && rootPolicy === 'any' ? parsed : setJsonPath(root, path, parsed);
+      assertRootValue(rootPolicy, nextRoot);
       onChange(nextRoot);
+      setTreeError(null);
       setStructureError(null);
       setStructureStatus(path.length === 0 ? 'Root replaced.' : `Set ${pathLabel(path)}.`);
     } catch (err) {
@@ -215,6 +242,7 @@ export function JsonEditor({
       const path = parseJsonEditorPath(pathText);
       const nextRoot = deleteJsonPath(root, path);
       onChange(nextRoot);
+      setTreeError(null);
       setStructureError(null);
       setStructureStatus(`Deleted ${pathLabel(path)}.`);
     } catch (err) {
@@ -227,7 +255,7 @@ export function JsonEditor({
     setRawText(nextText);
     try {
       const parsed = parseJsonLiteral(nextText);
-      if (!allowScalarRoot && !isJsonContainer(parsed)) throw new Error('Expected a JSON object or array.');
+      assertRootValue(rootPolicy, parsed);
       lastRawSerialized.current = stringifyJson(parsed);
       onChange(parsed);
       setRawError(null);
@@ -257,6 +285,8 @@ export function JsonEditor({
       )}
       data-vacp-json-editor={id ?? 'json-editor'}
       data-vacp-json-editor-mode={mode}
+      role="group"
+      aria-labelledby={labelledBy}
     >
       <div className="vacp-json-editor-toolbar">
         <div className="vacp-json-editor-mode-group" role="group" aria-label="JSON editor mode">
@@ -365,14 +395,42 @@ export function JsonEditor({
           disabled={disabled}
           spellCheck={false}
           data-vacp-json-editor-raw={id ?? 'json-editor'}
-          aria-label="Raw JSON"
+          aria-label={labelledBy ? undefined : 'Raw JSON'}
+          aria-labelledby={labelledBy}
           onChange={(event) => handleRawChange(event.target.value)}
         />
       )}
 
-      {blockingError ? <div className="vacp-json-editor-error">{blockingError}</div> : null}
-      {structureError ? <div className="vacp-json-editor-error">{structureError}</div> : null}
+      {blockingError ? (
+        <div className="vacp-json-editor-error" role="alert" data-vacp-json-editor-error="validation">
+          {blockingError}
+        </div>
+      ) : null}
+      {structureError ? (
+        <div className="vacp-json-editor-error" role="alert" data-vacp-json-editor-error="structure">
+          {structureError}
+        </div>
+      ) : null}
       {structureStatus ? <div className="vacp-json-editor-status">{structureStatus}</div> : null}
     </div>
   );
+}
+
+function isJsonObject(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
+}
+
+function normalizeRootValue(policy: JsonRootPolicy, value: unknown): unknown {
+  if (policy === 'any') return value;
+  if (policy === 'object') return isJsonObject(value) ? value : {};
+  return toJsonContainer(value);
+}
+
+function assertRootValue(policy: JsonRootPolicy, value: unknown): void {
+  if (policy === 'any') return;
+  if (policy === 'object') {
+    if (!isJsonObject(value)) throw new Error('Expected a JSON object.');
+    return;
+  }
+  if (!isJsonContainer(value)) throw new Error('Expected a JSON object or array.');
 }

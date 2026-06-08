@@ -90,13 +90,13 @@ export function JsonKeyEditor(props: {
   children: ReactNode;
   path: JsonPath;
   keyName: string | number;
+  canRename: boolean;
   disabled?: boolean;
   onRename: (path: JsonPath, nextKey: string) => void;
   onError: (error: string | null) => void;
 }): ReactElement {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(() => String(props.keyName));
-  const isArrayIndex = typeof props.keyName === 'number';
 
   useEffect(() => {
     if (!editing) setDraft(String(props.keyName));
@@ -112,7 +112,7 @@ export function JsonKeyEditor(props: {
     }
   };
 
-  if (isArrayIndex || props.disabled) {
+  if (!props.canRename || props.disabled) {
     return <span className="vacp-json-editor-key-readonly">{props.children}</span>;
   }
 

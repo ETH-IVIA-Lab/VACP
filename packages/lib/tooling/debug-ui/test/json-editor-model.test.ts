@@ -25,6 +25,13 @@ test('json editor paths allow exact root keys for ref-shaped state maps', () => 
   });
 });
 
+test('json editor paths preserve JSON Pointer empty segments', () => {
+  const next = setJsonPath({}, parseJsonEditorPath('/'), 'empty key');
+
+  assert.deepEqual(parseJsonEditorPath('/params//name'), ['params', '', 'name']);
+  assert.deepEqual(next, { '': 'empty key' });
+});
+
 test('json editor paths reject sparse array writes', () => {
   const source = { params: { order: ['A'] } };
 

@@ -9,12 +9,13 @@ import { DEBUG_UI_PANEL_BREAKPOINTS, isDenseDebugPanel } from '@vacp/debug-ui/ov
 import { IconButton } from '@vacp/debug-ui/overlay/icon-button';
 import { useElementSize } from '@vacp/debug-ui/overlay/hooks/use-element-size';
 import { Input } from '@vacp/debug-ui/ui/components/ui/input';
-import { JsonEditor } from '@vacp/debug-ui/ui/components/ui/json-editor';
+import { JsonObjectEditor } from '@vacp/debug-ui/ui/components/ui/json-editor';
 import { stringifyJson } from '@vacp/debug-ui/ui/components/ui/json-theme';
 import { JsonViewer } from '@vacp/debug-ui/ui/components/ui/json-viewer';
 import { copyTextToClipboard } from '@vacp/debug-ui/ui/lib/clipboard';
 import { cn } from '@vacp/debug-ui/ui/lib/utils';
 
+import { executeDebugAction } from './action-execution';
 import { ModuleField, ModuleHeader, ModulePane, ModuleRoot } from './module-layout';
 import type { VacpDebugModuleProps } from './module-types';
 
@@ -37,6 +38,7 @@ export function JsonModule(props: VacpDebugModuleProps): ReactElement {
   const rootRef = useRef<HTMLDivElement | null>(null);
   const rootSize = useElementSize(rootRef);
   const showTwoCols = rootSize.width >= DEBUG_UI_PANEL_BREAKPOINTS.splitPane;
+  const stacked = !showTwoCols;
   const compactControls = rootSize.width < DEBUG_UI_PANEL_BREAKPOINTS.compactControls;
   const dense = isDenseDebugPanel(rootSize.width, rootSize.height);
   const boundWide = rootSize.width >= DEBUG_UI_PANEL_BREAKPOINTS.splitPane;
@@ -125,20 +127,20 @@ export function JsonModule(props: VacpDebugModuleProps): ReactElement {
       setEditError('This provider does not support state overrides.');
       return;
     }
-    props.bridge.setStateOverride(overrideValue as Record<VacpRef, unknown>, {
-      source: 'debug',
-      message: 'override state',
-    });
-    setEditStatus('Override applied.');
+    try {
+      props.bridge.setStateOverride(overrideValue as Record<VacpRef, unknown>, {
+        source: 'debug',
+        message: 'override state',
+      });
+      setEditStatus('Override applied.');
+    } catch (err) {
+      setEditStatus('');
+      setEditError(String(err));
+    }
   };
 
   const applyToApp = async () => {
     setEditError(null);
-    setEditStatus('Applying…');
-    // Applying to the app mutates live state; keep the debug UI in live mode so changes are visible.
-    if (props.runtime.mode === 'inspect' && typeof props.bridge.setMode === 'function') {
-      props.bridge.setMode('live', { source: 'debug', message: 'auto: back to live for apply_state' });
-    }
     if (overrideEditorError) {
       setEditStatus('');
       setEditError(overrideEditorError);
@@ -155,10 +157,12 @@ export function JsonModule(props: VacpDebugModuleProps): ReactElement {
       params: { state: overrideValue },
     };
     try {
-      const res =
-        typeof props.bridge.dispatch === 'function'
-          ? await props.bridge.dispatch(call, { source: 'debug' })
-          : await props.bridge.execute(call);
+      // Applying to the app mutates live state, keep the debug UI in live mode so changes are visible.
+      if (props.runtime.mode === 'inspect' && typeof props.bridge.setMode === 'function') {
+        props.bridge.setMode('live', { source: 'debug', message: 'auto: back to live for apply_state' });
+      }
+      setEditStatus('Applying…');
+      const res = await executeDebugAction(props.bridge, call, { source: 'debug' });
       setEditStatus(res.ok ? 'Applied.' : (res.error?.message ?? 'Apply failed'));
       if (!res.ok) setEditError(res.error?.message ?? 'Apply failed');
     } catch (err) {
@@ -176,9 +180,19 @@ export function JsonModule(props: VacpDebugModuleProps): ReactElement {
     <ModuleRoot
       rootRef={rootRef}
       boundWide={boundWide}
-      className={cn('grid h-full min-h-0', dense ? 'gap-2' : 'gap-3', showTwoCols && 'grid-cols-2')}
+      className={cn(
+        'h-full min-h-0 min-w-0',
+        dense ? 'gap-2' : 'gap-3',
+        showTwoCols ? 'grid grid-cols-2 overflow-hidden' : 'flex flex-col overflow-y-auto',
+      )}
     >
-      <ModulePane className={cn('flex min-h-0 flex-col overflow-hidden', dense ? 'gap-2' : 'gap-3')}>
+      <ModulePane
+        className={cn(
+          'flex min-h-0 flex-col',
+          showTwoCols ? 'overflow-hidden' : 'shrink-0 overflow-visible',
+          dense ? 'gap-2' : 'gap-3',
+        )}
+      >
         <ModuleHeader
           title="Snapshot"
           description="Inspect the raw provider snapshot."
@@ -195,7 +209,7 @@ export function JsonModule(props: VacpDebugModuleProps): ReactElement {
         />
         <JsonViewer
           value={props.runtime.currentState}
-          className={cn('flex-1', dense ? 'min-h-[96px] p-2' : 'min-h-[160px]')}
+          className={cn(showTwoCols ? 'flex-1' : 'max-h-[170px]', dense ? 'min-h-[88px] p-2' : 'min-h-[150px]')}
         />
         <details
           className={cn('border-t border-white/[0.075]', dense ? 'pt-2' : 'pt-3')}
@@ -350,7 +364,13 @@ export function JsonModule(props: VacpDebugModuleProps): ReactElement {
         </details>
       </ModulePane>
 
-      <ModulePane className={cn('flex min-h-0 flex-col overflow-hidden', dense ? 'gap-2' : 'gap-3')}>
+      <ModulePane
+        className={cn(
+          'flex min-h-0 flex-col',
+          showTwoCols ? 'overflow-hidden' : 'shrink-0 overflow-visible',
+          dense ? 'gap-2' : 'gap-3',
+        )}
+      >
         <ModuleHeader
           title="State controls"
           description="Edit a ref-keyed state map, apply it as an inspection override, or send it to the live app."
@@ -396,18 +416,19 @@ export function JsonModule(props: VacpDebugModuleProps): ReactElement {
 
         <ModuleField
           label="State map (JSON)"
-          htmlFor="vacp-state-override"
+          labelId="vacp-state-override-label"
           className="flex min-h-0 flex-1 flex-col"
           innerClassName="min-h-0 flex-1"
         >
-          <JsonEditor
+          <JsonObjectEditor
             id="vacp-state-override"
+            labelledBy="vacp-state-override-label"
             className="h-full"
-            minHeightClassName={dense ? 'min-h-[180px]' : 'min-h-[260px]'}
+            minHeightClassName={stacked ? 'min-h-[118px]' : dense ? 'min-h-[160px]' : 'min-h-[260px]'}
             value={overrideValue}
             onChange={setOverrideValue}
             onValidityChange={setOverrideEditorError}
-            resetSignal={overrideResetSignal}
+            valueRevision={overrideResetSignal}
           />
         </ModuleField>
 

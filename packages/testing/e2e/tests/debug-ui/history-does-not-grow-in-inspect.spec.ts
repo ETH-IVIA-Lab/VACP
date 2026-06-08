@@ -2,15 +2,7 @@ import { expect, test } from '@playwright/test';
 
 import { startViteDevServer } from '../helpers/devserver';
 import { exampleDir } from '../helpers/paths';
-import { waitForVacpBridge } from './helpers';
-
-function parseMeta(text: string): { mode: string; cursor: number; history: number } {
-  const mode = text.match(/mode=(\w+)/)?.[1];
-  const cursor = text.match(/cursor=(-?\d+)/)?.[1];
-  const history = text.match(/history=(\d+)/)?.[1];
-  if (!mode || !cursor || !history) throw new Error(`Could not parse debug-ui meta: ${text}`);
-  return { mode, cursor: Number(cursor), history: Number(history) };
-}
+import { debugRuntimeState, waitForRuntimeMode, waitForVacpBridge } from './helpers';
 
 test('debug-ui: time travel does not extend history (Seattle Weather)', async ({ page }) => {
   const srv = await startViteDevServer({ name: 'vgplot-gallery', cwd: exampleDir('vgplot-gallery') });
@@ -61,35 +53,34 @@ test('debug-ui: time travel does not extend history (Seattle Weather)', async ({
     });
 
     await page.locator('button[aria-label="Undo"]').click();
-    await page.waitForFunction(() => {
-      const t = document.querySelector('.vacp-debug-ui-meta')?.textContent ?? '';
-      return /mode=inspect/.test(t);
-    });
+    await waitForRuntimeMode(page, 'inspect');
 
-    const meta = page.locator('.vacp-debug-ui-meta');
-    const entry = page.locator('[data-vacp-row="history-entry"][data-has-state="true"]').first();
-    await expect(entry).toBeVisible();
-    const idxText = await entry.getAttribute('data-index');
-    const idx = Number(idxText);
-    expect(Number.isFinite(idx)).toBeTruthy();
+    const current = await debugRuntimeState(page);
+    await expect(
+      page.locator(`[data-vacp-row="history-entry"][data-index="${current.cursor}"]`).getByText('cursor'),
+    ).toBeVisible();
+    const stateEntries = page.locator('[data-vacp-row="history-entry"][data-has-state="true"]');
+    let targetOrdinal = -1;
+    let targetIdx = -1;
+    const stateEntryCount = await stateEntries.count();
+    for (let i = 0; i < stateEntryCount; i++) {
+      const idx = Number(await stateEntries.nth(i).getAttribute('data-index'));
+      if (Number.isFinite(idx) && idx !== current.cursor) {
+        targetOrdinal = i;
+        targetIdx = idx;
+        break;
+      }
+    }
+    expect(targetOrdinal).toBeGreaterThanOrEqual(0);
+    await stateEntries.nth(targetOrdinal).click();
+    await expect.poll(async () => await debugRuntimeState(page)).toMatchObject({ mode: 'inspect', cursor: targetIdx });
 
-    const before = parseMeta(await meta.innerText());
-    await entry.click();
-    await page.waitForFunction(
-      ({ expectedCursor }) => {
-        const t = document.querySelector('.vacp-debug-ui-meta')?.textContent ?? '';
-        const mode = t.match(/mode=(\w+)/)?.[1];
-        const cursor = t.match(/cursor=(-?\d+)/)?.[1];
-        return mode === 'inspect' && Number(cursor) === expectedCursor;
-      },
-      { expectedCursor: idx },
-    );
-
+    const before = await debugRuntimeState(page);
     await page.waitForTimeout(700);
 
-    const after = parseMeta(await meta.innerText());
+    const after = await debugRuntimeState(page);
     expect(after.mode).toBe('inspect');
-    expect(after.history).toBe(before.history);
+    expect(after.historyLength).toBe(before.historyLength);
   } finally {
     await srv.stop();
   }

@@ -137,7 +137,7 @@ function FlagRow(props: {
         ? `Set by ${props.detail.envKeys.join(', ')}`
         : props.detail.source === 'localStorage'
           ? `Stored in ${props.detail.localStorageKey ?? 'browser storage'}`
-          : `Falls back to ${props.detail.default ? 'on' : 'off'}`;
+          : `Default is ${props.detail.default ? 'on' : 'off'}`;
   return (
     <section
       className={cn(

@@ -22,6 +22,7 @@ export type VacpGraphNodeData = Record<string, unknown> & {
   collapsed: boolean;
   collapsedCount: number;
   onToggleCollapse: ((ref: VacpRef) => void) | null;
+  onSelect: (item: Exclude<SelectedGraphItem, null>) => void;
 };
 
 export type VacpFlowNode = Node<VacpGraphNodeData, 'vacpGraphNode'>;

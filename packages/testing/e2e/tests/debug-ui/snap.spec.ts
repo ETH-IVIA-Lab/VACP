@@ -192,7 +192,7 @@ test('debug-ui: dock drags freely and keeps the panel attached', async ({ page }
     await page.waitForTimeout(120);
     await expectPanelAttached(page);
 
-    await expect(page.locator('[data-vacp-graph-flow="1"] .react-flow__node').first()).toBeVisible({
+    await expect(page.locator('[data-vacp-graph-flow="1"] [data-vacp-flow-node-kind]').first()).toBeVisible({
       timeout: 15_000,
     });
 

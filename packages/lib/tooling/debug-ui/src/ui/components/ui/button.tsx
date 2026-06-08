@@ -11,6 +11,7 @@ const buttonVariants = cva(
     'transition-[background-color,border-color,color,transform]',
     'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/36',
     'disabled:pointer-events-none disabled:opacity-50',
+    'enabled:active:scale-[0.97]',
     '[&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0',
     '[aria-pressed=true]:bg-white/[0.085] [aria-pressed=true]:border-white/14 [aria-pressed=true]:text-slate-50',
   ),
@@ -24,7 +25,6 @@ const buttonVariants = cva(
       },
       size: {
         sm: 'h-8 px-2.5',
-        // `icon` is used heavily in module toolbars; keep it compact and crisp.
         icon: 'h-8 w-8 p-0',
         iconSm: 'h-7 w-7 p-0',
       },

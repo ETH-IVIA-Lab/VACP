@@ -7,13 +7,14 @@ import { IconButton } from '@vacp/debug-ui/overlay/icon-button';
 import { DEBUG_UI_PANEL_BREAKPOINTS, isDenseDebugPanel } from '@vacp/debug-ui/overlay/debug-ui-breakpoints';
 import { useElementSize } from '@vacp/debug-ui/overlay/hooks/use-element-size';
 import { Input } from '@vacp/debug-ui/ui/components/ui/input';
-import { JsonEditor } from '@vacp/debug-ui/ui/components/ui/json-editor';
+import { JsonValueEditor } from '@vacp/debug-ui/ui/components/ui/json-editor';
 import { stringifyJson } from '@vacp/debug-ui/ui/components/ui/json-theme';
 import { JsonViewer } from '@vacp/debug-ui/ui/components/ui/json-viewer';
 import { RovingFocusGroup, RovingFocusGroupItem } from '@vacp/debug-ui/ui/components/ui/roving-focus';
 import { copyTextToClipboard } from '@vacp/debug-ui/ui/lib/clipboard';
 import { cn } from '@vacp/debug-ui/ui/lib/utils';
 
+import { executeDebugAction } from './action-execution';
 import { ModuleEmptyState, ModuleField, ModuleHeader, ModulePane, ModuleRoot } from './module-layout';
 import type { VacpDebugModuleProps } from './module-types';
 
@@ -21,8 +22,10 @@ export function ActionsModule(props: VacpDebugModuleProps): ReactElement {
   const rootRef = useRef<HTMLDivElement | null>(null);
   const rootSize = useElementSize(rootRef);
   const showTwoCols = rootSize.width >= DEBUG_UI_PANEL_BREAKPOINTS.splitPane;
+  const stacked = !showTwoCols;
   const compactControls = rootSize.width < DEBUG_UI_PANEL_BREAKPOINTS.compactControls;
   const dense = isDenseDebugPanel(rootSize.width, rootSize.height);
+  const compactHeader = compactControls && !stacked;
   const boundWide = rootSize.width >= DEBUG_UI_PANEL_BREAKPOINTS.splitPane;
   const iconButtonSize = 'iconSm';
   const actions = props.runtime.currentCapabilities.graph.actions ?? [];
@@ -57,11 +60,6 @@ export function ActionsModule(props: VacpDebugModuleProps): ReactElement {
 
   const run = async () => {
     if (!selected) return;
-    // Executing actions mutates the live app; keep the debug UI in live mode so changes are visible.
-    if (props.runtime.mode === 'inspect' && typeof props.bridge.setMode === 'function') {
-      props.bridge.setMode('live', { source: 'debug', message: 'auto: back to live for action' });
-    }
-    setStatus('running');
     setError(null);
     setResult(null);
     if (paramsError) {
@@ -72,10 +70,12 @@ export function ActionsModule(props: VacpDebugModuleProps): ReactElement {
 
     const call: VacpActionCall = { callId: crypto.randomUUID(), name: selected.name, params: paramsValue };
     try {
-      const res =
-        typeof props.bridge.dispatch === 'function'
-          ? await props.bridge.dispatch(call, { source: 'debug' })
-          : await props.bridge.execute(call);
+      // Executing actions mutates the live app, keep the debug UI in live mode so changes are visible.
+      if (props.runtime.mode === 'inspect' && typeof props.bridge.setMode === 'function') {
+        props.bridge.setMode('live', { source: 'debug', message: 'auto: back to live for action' });
+      }
+      setStatus('running');
+      const res = await executeDebugAction(props.bridge, call, { source: 'debug' });
       setResult(res);
       setStatus(res.ok ? 'idle' : 'error');
       if (!res.ok) setError(res.error?.message ?? 'Action failed');
@@ -95,16 +95,24 @@ export function ActionsModule(props: VacpDebugModuleProps): ReactElement {
       rootRef={rootRef}
       boundWide={boundWide}
       className={cn(
-        'grid h-full min-h-0 overflow-hidden',
+        'h-full min-h-0 min-w-0',
         dense ? 'gap-2' : 'gap-3',
-        showTwoCols ? 'grid-cols-2' : 'grid-rows-[minmax(150px,0.78fr)_minmax(0,1.22fr)]',
+        showTwoCols
+          ? 'grid overflow-hidden grid-cols-[minmax(260px,0.92fr)_minmax(320px,1.08fr)]'
+          : 'flex flex-col overflow-y-auto',
       )}
     >
-      <ModulePane className={cn('flex min-h-0 flex-col', dense ? 'gap-2' : 'gap-3')}>
+      <ModulePane
+        className={cn(
+          'flex min-h-0 min-w-0 overflow-hidden flex-col',
+          stacked && 'shrink-0',
+          dense ? 'gap-2' : 'gap-3',
+        )}
+      >
         <ModuleHeader
           title="Action list"
           description="Filter the semantic action surface."
-          compact={compactControls}
+          compact={compactHeader}
           actions={
             <IconButton
               icon={<RefreshCw className="h-4 w-4 text-slate-100/90" />}
@@ -125,7 +133,7 @@ export function ActionsModule(props: VacpDebugModuleProps): ReactElement {
           />
         </ModuleField>
 
-        <ModulePane tone="surface" className="min-h-0 flex-1 overflow-auto">
+        <ModulePane tone="surface" className={cn('min-h-0 overflow-auto', stacked ? 'max-h-20 shrink-0' : 'flex-1')}>
           <RovingFocusGroup orientation="vertical" loop asChild>
             <div className="p-1" role="listbox" aria-label="Actions">
               {filtered.map((a) => {
@@ -154,13 +162,19 @@ export function ActionsModule(props: VacpDebugModuleProps): ReactElement {
         </ModulePane>
       </ModulePane>
 
-      <ModulePane className={cn('flex min-h-0 flex-col', dense ? 'gap-2' : 'gap-3')}>
+      <ModulePane
+        className={cn(
+          'flex min-h-0 min-w-0 flex-col',
+          showTwoCols ? 'overflow-hidden' : 'shrink-0 overflow-visible',
+          dense ? 'gap-2' : 'gap-3',
+        )}
+      >
         <ModuleHeader
           title={selected ? selected.name : 'Select an action'}
           description={
             selected?.description ?? 'Choose an action from the list to inspect its parameters and latest result.'
           }
-          compact={compactControls}
+          compact={compactHeader}
           actions={
             <>
               <IconButton
@@ -182,42 +196,65 @@ export function ActionsModule(props: VacpDebugModuleProps): ReactElement {
           }
         />
 
-        <div className={cn('grid min-h-0 flex-1', dense ? 'gap-2' : 'gap-3')}>
-          <ModuleField label="Params (JSON)" htmlFor="vacp-action-params">
-            <JsonEditor
+        <div
+          className={cn(
+            'grid',
+            showTwoCols ? 'min-h-0 flex-1 grid-rows-[minmax(0,1fr)_auto] overflow-hidden' : 'shrink-0',
+            dense ? 'gap-2' : 'gap-3',
+          )}
+        >
+          {stacked ? <ActionResultField result={result} status={status} error={error} /> : null}
+          <ModuleField
+            label="Params (JSON)"
+            labelId="vacp-action-params-label"
+            className={cn(showTwoCols && 'flex min-h-0 flex-col')}
+            innerClassName={cn(showTwoCols && 'min-h-0 flex-1')}
+          >
+            <JsonValueEditor
               id="vacp-action-params"
+              labelledBy="vacp-action-params-label"
               value={paramsValue}
               onChange={setParamsValue}
               onValidityChange={setParamsError}
-              allowScalarRoot
-              minHeightClassName="min-h-[170px]"
-              resetSignal={selected?.name}
+              className={cn(showTwoCols && 'h-full')}
+              minHeightClassName={stacked ? 'min-h-[84px]' : dense ? 'min-h-[112px]' : 'min-h-[128px]'}
+              documentKey={selected?.name}
             />
           </ModuleField>
 
-          <ModuleField label="Result" className="min-h-0">
-            {result || status !== 'idle' ? (
-              <JsonViewer
-                value={result}
-                emptyText={status === 'running' ? 'Running...' : status === 'error' ? (error ?? 'Action failed') : ''}
-                className="min-h-0 max-h-[360px]"
-              />
-            ) : (
-              <ModuleEmptyState className="flex min-h-[62px] items-center justify-center gap-3 rounded-lg border border-dashed border-white/[0.08] bg-white/[0.018] px-4 py-2 text-left">
-                <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full border border-teal-200/14 bg-teal-300/[0.06] text-teal-50/72">
-                  <FileJson2 className="h-4 w-4" aria-hidden="true" />
-                </span>
-                <span className="min-w-0">
-                  <span className="block text-[12px] font-semibold text-slate-100/84">Results will appear here</span>
-                  <span className="mt-0.5 block max-w-[40ch] text-[11px] text-slate-100/56">
-                    Run the selected action to inspect returned JSON.
-                  </span>
-                </span>
-              </ModuleEmptyState>
-            )}
-          </ModuleField>
+          {stacked ? null : <ActionResultField result={result} status={status} error={error} />}
         </div>
       </ModulePane>
     </ModuleRoot>
+  );
+}
+
+function ActionResultField(props: {
+  result: VacpActionResult | null;
+  status: 'idle' | 'running' | 'error';
+  error: string | null;
+}): ReactElement {
+  return (
+    <ModuleField label="Result" className="min-h-0 shrink-0">
+      {props.result || props.status !== 'idle' ? (
+        <JsonViewer
+          value={props.result}
+          emptyText={props.status === 'running' ? 'Running...' : props.status === 'error' ? (props.error ?? 'Action failed') : ''}
+          className="min-h-0 max-h-[260px]"
+        />
+      ) : (
+        <ModuleEmptyState className="flex min-h-[56px] items-center justify-center gap-3 rounded-lg border border-dashed border-white/[0.08] bg-white/[0.018] px-4 py-2 text-left">
+          <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full border border-teal-200/14 bg-teal-300/[0.06] text-teal-50/72">
+            <FileJson2 className="h-3.5 w-3.5" aria-hidden="true" />
+          </span>
+          <span className="min-w-0">
+            <span className="block text-[12px] font-semibold text-slate-100/84">Results will appear here</span>
+            <span className="mt-0.5 block max-w-[40ch] text-[11px] text-slate-100/56">
+              Run the selected action to inspect returned JSON.
+            </span>
+          </span>
+        </ModuleEmptyState>
+      )}
+    </ModuleField>
   );
 }

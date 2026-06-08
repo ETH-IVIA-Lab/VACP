@@ -25,6 +25,12 @@ export type ChatScrollState = {
   outerScrollMoved: boolean;
 };
 
+export type DebugRuntimeState = {
+  mode: string;
+  cursor: number;
+  historyLength: number;
+};
+
 function seedDebugChatThreadInBrowser(opts: SeedDebugChatThreadOptions): void {
   if (opts.clearLayoutStorage) {
     localStorage.removeItem('vacp:debug:size');
@@ -132,6 +138,28 @@ export async function runtimeId(page: Page): Promise<string | null> {
     const runtime = await bridge?.getRuntime?.();
     return runtime?.runtimeId ?? null;
   });
+}
+
+export async function debugRuntimeState(page: Page): Promise<DebugRuntimeState> {
+  return await page.evaluate(async () => {
+    type BrowserBridge = {
+      getRuntime?: () => Promise<{ mode?: string; cursor?: number; history?: unknown[] } | null>;
+    };
+    const bridge = (globalThis as typeof globalThis & { __vacp?: BrowserBridge }).__vacp;
+    const runtime = await bridge?.getRuntime?.();
+    return {
+      mode: runtime?.mode ?? 'unknown',
+      cursor: Number.isFinite(runtime?.cursor) ? Number(runtime?.cursor) : -1,
+      historyLength: Array.isArray(runtime?.history) ? runtime.history.length : 0,
+    };
+  });
+}
+
+export async function waitForRuntimeMode(page: Page, mode: 'live' | 'inspect'): Promise<void> {
+  await page.waitForFunction(async (expected) => {
+    const runtime = await (globalThis as any).__vacp?.getRuntime?.();
+    return runtime?.mode === expected;
+  }, mode);
 }
 
 export async function seedDebugChatThreadOnNextLoad(page: Page, options: SeedDebugChatThreadOptions): Promise<void> {
