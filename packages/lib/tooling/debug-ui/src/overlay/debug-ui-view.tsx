@@ -141,24 +141,6 @@ function ModeToggle(props: {
   );
 }
 
-function BridgeBadge(props: { status: VacpDebugBridgeStatus }): ReactElement {
-  return (
-    <span
-      className={cn(
-        'hidden min-h-6 items-center gap-1.5 rounded-full border px-2 text-[10px] font-semibold sm:inline-flex',
-        props.status === 'ok'
-          ? 'border-teal-200/26 bg-teal-300/[0.12] text-teal-50/95 shadow-[inset_0_1px_0_rgba(255,255,255,0.04),0_0_18px_rgba(45,212,191,0.08)]'
-          : props.status === 'unknown'
-            ? 'border-white/[0.08] bg-white/[0.035] text-slate-100/64'
-            : 'border-white/[0.08] bg-white/[0.035] text-slate-100/56',
-      )}
-    >
-      <span className={cn('h-1.5 w-1.5 rounded-full', bridgeDotClass(props.status))} aria-hidden="true" />
-      {props.status === 'ok' ? 'Bridge' : props.status === 'unknown' ? 'Checking' : 'No bridge'}
-    </span>
-  );
-}
-
 function PanelTopBar(props: {
   panelHeaderRef: RefObject<HTMLDivElement | null>;
   compactDragRef: RefObject<HTMLDivElement | null>;
@@ -168,7 +150,6 @@ function PanelTopBar(props: {
   compactPanel: boolean;
   showNavLabels: boolean;
   moduleNav: ReactNode;
-  bridgeStatus: VacpDebugBridgeStatus;
   bridge: VacpWindowBridge | null;
   runtime: VacpRuntimeSnapshot | null;
 }): ReactElement {
@@ -218,7 +199,6 @@ function PanelTopBar(props: {
             {props.meta}
           </div>
         ) : null}
-        {props.compactPanel ? null : <BridgeBadge status={props.bridgeStatus} />}
         <ModeToggle bridge={props.bridge} runtime={props.runtime} />
       </div>
     </div>
@@ -347,7 +327,6 @@ function ModuleShell(props: {
   setModuleId: (id: VacpDebugModuleId) => void;
   compactPanel: boolean;
   densePanel: boolean;
-  bridgeStatus: VacpDebugBridgeStatus;
   bridge: VacpWindowBridge | null;
   runtime: VacpRuntimeSnapshot | null;
   inspectBanner: ReactNode;
@@ -379,7 +358,6 @@ function ModuleShell(props: {
             showLabels={showNavLabels}
           />
         }
-        bridgeStatus={props.bridgeStatus}
         bridge={props.bridge}
         runtime={props.runtime}
       />
@@ -452,7 +430,6 @@ export function DebugUiView(props: {
           setModuleId={props.setModuleId}
           compactPanel={props.compactPanel}
           densePanel={props.densePanel}
-          bridgeStatus={props.bridgeStatus}
           bridge={props.bridge}
           runtime={props.runtime}
           inspectBanner={<InspectBanner runtime={props.runtime} setModuleId={props.setModuleId} />}

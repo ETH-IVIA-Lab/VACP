@@ -9,27 +9,14 @@ import { DEBUG_UI_PANEL_BREAKPOINTS, isDenseDebugPanel } from '@vacp/debug-ui/ov
 import { IconButton } from '@vacp/debug-ui/overlay/icon-button';
 import { useElementSize } from '@vacp/debug-ui/overlay/hooks/use-element-size';
 import { Input } from '@vacp/debug-ui/ui/components/ui/input';
+import { JsonEditor } from '@vacp/debug-ui/ui/components/ui/json-editor';
+import { stringifyJson } from '@vacp/debug-ui/ui/components/ui/json-theme';
 import { JsonViewer } from '@vacp/debug-ui/ui/components/ui/json-viewer';
-import { Textarea } from '@vacp/debug-ui/ui/components/ui/textarea';
 import { copyTextToClipboard } from '@vacp/debug-ui/ui/lib/clipboard';
 import { cn } from '@vacp/debug-ui/ui/lib/utils';
 
 import { ModuleField, ModuleHeader, ModulePane, ModuleRoot } from './module-layout';
 import type { VacpDebugModuleProps } from './module-types';
-
-function safeJson(value: unknown): string {
-  try {
-    return JSON.stringify(value, null, 2);
-  } catch {
-    return String(value);
-  }
-}
-
-function parseJson(text: string): unknown {
-  const t = text.trim();
-  if (!t) return undefined;
-  return JSON.parse(t);
-}
 
 function parseRefs(text: string): VacpRef[] | undefined {
   const refs = text
@@ -54,8 +41,10 @@ export function JsonModule(props: VacpDebugModuleProps): ReactElement {
   const dense = isDenseDebugPanel(rootSize.width, rootSize.height);
   const boundWide = rootSize.width >= DEBUG_UI_PANEL_BREAKPOINTS.splitPane;
   const iconButtonSize = 'iconSm';
-  const snapshotText = useMemo(() => safeJson(props.runtime.currentState), [props.runtime.currentState]);
-  const [overrideText, setOverrideText] = useState<string>(() => safeJson(props.runtime.currentState.state));
+  const snapshotText = useMemo(() => stringifyJson(props.runtime.currentState), [props.runtime.currentState]);
+  const [overrideValue, setOverrideValue] = useState<unknown>(() => props.runtime.currentState.state);
+  const [overrideEditorError, setOverrideEditorError] = useState<string | null>(null);
+  const [overrideResetSignal, setOverrideResetSignal] = useState(0);
   const [requestMode, setRequestMode] = useState<VacpStateRequest['mode']>('delta');
   const [requestSince, setRequestSince] = useState<string>('');
   const [requestRefsText, setRequestRefsText] = useState<string>('');
@@ -121,17 +110,26 @@ export function JsonModule(props: VacpDebugModuleProps): ReactElement {
 
   const applyOverride = () => {
     setEditError(null);
-    try {
-      const parsed = parseJson(overrideText);
-      if (!parsed || typeof parsed !== 'object') throw new Error('Expected a JSON object keyed by vacp:// refs');
-      if (typeof props.bridge.setStateOverride !== 'function')
-        throw new Error('This provider does not support state overrides.');
-      props.bridge.setStateOverride(parsed as Record<VacpRef, unknown>, { source: 'debug', message: 'override state' });
-      setEditStatus('Override applied.');
-    } catch (err) {
+    if (overrideEditorError) {
       setEditStatus('');
-      setEditError(String(err));
+      setEditError(overrideEditorError);
+      return;
     }
+    if (!overrideValue || typeof overrideValue !== 'object' || Array.isArray(overrideValue)) {
+      setEditStatus('');
+      setEditError('Expected a JSON object keyed by vacp:// refs');
+      return;
+    }
+    if (typeof props.bridge.setStateOverride !== 'function') {
+      setEditStatus('');
+      setEditError('This provider does not support state overrides.');
+      return;
+    }
+    props.bridge.setStateOverride(overrideValue as Record<VacpRef, unknown>, {
+      source: 'debug',
+      message: 'override state',
+    });
+    setEditStatus('Override applied.');
   };
 
   const applyToApp = async () => {
@@ -141,19 +139,20 @@ export function JsonModule(props: VacpDebugModuleProps): ReactElement {
     if (props.runtime.mode === 'inspect' && typeof props.bridge.setMode === 'function') {
       props.bridge.setMode('live', { source: 'debug', message: 'auto: back to live for apply_state' });
     }
-    let parsed: unknown;
-    try {
-      parsed = parseJson(overrideText);
-      if (!parsed || typeof parsed !== 'object') throw new Error('Expected a JSON object keyed by vacp:// refs');
-    } catch (err) {
+    if (overrideEditorError) {
       setEditStatus('');
-      setEditError(String(err));
+      setEditError(overrideEditorError);
+      return;
+    }
+    if (!overrideValue || typeof overrideValue !== 'object' || Array.isArray(overrideValue)) {
+      setEditStatus('');
+      setEditError('Expected a JSON object keyed by vacp:// refs');
       return;
     }
     const call: VacpActionCall = {
       callId: crypto.randomUUID(),
       name: VACP_APPLY_STATE_ACTION,
-      params: { state: parsed },
+      params: { state: overrideValue },
     };
     try {
       const res =
@@ -277,7 +276,7 @@ export function JsonModule(props: VacpDebugModuleProps): ReactElement {
                 label="Copy update"
                 title="Copy the latest state update payload."
                 size={iconButtonSize}
-                onClick={() => void copyTextToClipboard(safeJson(updatePayload))}
+                onClick={() => void copyTextToClipboard(stringifyJson(updatePayload))}
               />
             </div>
 
@@ -363,7 +362,11 @@ export function JsonModule(props: VacpDebugModuleProps): ReactElement {
                 label="Reset to current"
                 title="Reset the editor to the current state."
                 size={iconButtonSize}
-                onClick={() => setOverrideText(safeJson(props.runtime.currentState.state))}
+                onClick={() => {
+                  setOverrideValue(props.runtime.currentState.state);
+                  setOverrideEditorError(null);
+                  setOverrideResetSignal((value) => value + 1);
+                }}
               />
               <IconButton
                 icon={<Play className="h-4 w-4 text-slate-100/90" />}
@@ -397,11 +400,14 @@ export function JsonModule(props: VacpDebugModuleProps): ReactElement {
           className="flex min-h-0 flex-1 flex-col"
           innerClassName="min-h-0 flex-1"
         >
-          <Textarea
+          <JsonEditor
             id="vacp-state-override"
-            className={cn('h-full resize-none text-[12px] leading-5', dense ? 'min-h-[150px]' : 'min-h-[220px]')}
-            value={overrideText}
-            onChange={(e) => setOverrideText(e.target.value)}
+            className="h-full"
+            minHeightClassName={dense ? 'min-h-[180px]' : 'min-h-[260px]'}
+            value={overrideValue}
+            onChange={setOverrideValue}
+            onValidityChange={setOverrideEditorError}
+            resetSignal={overrideResetSignal}
           />
         </ModuleField>
 

@@ -1,15 +1,14 @@
 import type { ReactElement } from 'react';
 import { useMemo } from 'react';
 
-import { JsonView, darkStyles } from 'react-json-view-lite';
+import JsonView from '@uiw/react-json-view';
 
+import {
+  collapseDepthForExpandDepth,
+  jsonViewTheme,
+  normalizeJsonViewerData,
+} from '@vacp/debug-ui/ui/components/ui/json-theme';
 import { cn } from '@vacp/debug-ui/ui/lib/utils';
-
-function normalizeJsonViewerData(value: unknown): Record<string, unknown> | unknown[] {
-  if (Array.isArray(value)) return value;
-  if (value && typeof value === 'object') return value as Record<string, unknown>;
-  return [value];
-}
 
 export type JsonViewerProps = {
   value: unknown;
@@ -27,8 +26,7 @@ export function JsonViewer({
   scrollable = true,
 }: JsonViewerProps): ReactElement {
   const data = useMemo(() => normalizeJsonViewerData(value), [value]);
-  const shouldExpandNode = useMemo(() => (level: number) => level < expandDepth, [expandDepth]);
-  const style = useMemo(() => ({ ...darkStyles, container: cn(darkStyles.container, 'vacp-json-viewer-tree') }), []);
+  const collapsed = useMemo(() => collapseDepthForExpandDepth(expandDepth), [expandDepth]);
 
   return (
     <div
@@ -42,7 +40,18 @@ export function JsonViewer({
       {value == null ? (
         <div className="text-slate-100/60">{emptyText}</div>
       ) : (
-        <JsonView data={data} style={style} shouldExpandNode={shouldExpandNode} />
+        <JsonView
+          className="vacp-json-viewer-tree"
+          value={data as object}
+          style={jsonViewTheme}
+          collapsed={collapsed}
+          displayDataTypes={false}
+          displayObjectSize={true}
+          enableClipboard={false}
+          highlightUpdates={false}
+          indentWidth={12}
+          shortenTextAfterLength={0}
+        />
       )}
     </div>
   );

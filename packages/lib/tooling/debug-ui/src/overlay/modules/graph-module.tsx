@@ -30,15 +30,10 @@ import {
   buildInspectorValue,
   buildVacpFlowGraph,
   safeJson,
-  selectedGraphItemKey,
   shortRef,
 } from './graph/graph-model';
-import type { GraphDirection, SelectedGraphItem } from './graph/graph-types';
-
-type GraphOptions = {
-  direction: GraphDirection;
-  includeActions: boolean;
-};
+import { useVacpGraphUiStore } from './graph/graph-state';
+import type { SelectedGraphItem } from './graph/graph-types';
 
 function selectedDescription(selected: SelectedGraphItem): string {
   if (!selected) return 'Select a node or action to see its full JSON.';
@@ -56,47 +51,41 @@ export function GraphModule(props: VacpDebugModuleProps): ReactElement {
   const includeActionsDefault = useVacpDebugUiStore((s) => s.includeActionsDefault);
   const inspectOpen = useVacpDebugUiStore((s) => s.graphInspectOpen);
   const setInspectOpen = useVacpDebugUiStore((s) => s.setGraphInspectOpen);
+  const direction = useVacpGraphUiStore((s) => s.direction);
+  const includeActions = useVacpGraphUiStore((s) => s.includeActions);
+  const selected = useVacpGraphUiStore((s) => s.selected);
+  const collapsedRefs = useVacpGraphUiStore((s) => s.collapsedRefs);
+  const syncIncludeActionsDefault = useVacpGraphUiStore((s) => s.syncIncludeActionsDefault);
+  const toggleDirection = useVacpGraphUiStore((s) => s.toggleDirection);
+  const toggleIncludeActions = useVacpGraphUiStore((s) => s.toggleIncludeActions);
+  const selectGraphItem = useVacpGraphUiStore((s) => s.selectGraphItem);
+  const pruneSelectedNodeIds = useVacpGraphUiStore((s) => s.pruneSelectedNodeIds);
+  const pruneCollapsedRefs = useVacpGraphUiStore((s) => s.pruneCollapsedRefs);
+  const toggleCollapsedRef = useVacpGraphUiStore((s) => s.toggleCollapsedRef);
   const effectiveInspectOpen = inspectOpen && !dense;
   const showSideBySide = effectiveInspectOpen && rootSize.width >= DEBUG_UI_PANEL_BREAKPOINTS.splitPane;
-  const [options, setOptions] = useState<GraphOptions>({
-    direction: 'LR',
-    includeActions: includeActionsDefault,
-  });
-  const [selected, setSelected] = useState<SelectedGraphItem>(null);
-  const [collapsedRefs, setCollapsedRefs] = useState<ReadonlySet<VacpRef>>(() => new Set());
   const [mermaidCopied, setMermaidCopied] = useState(false);
 
   const graph = props.runtime.currentCapabilities.graph;
 
-  const selectGraphItem = useCallback((next: SelectedGraphItem) => {
-    setSelected((current) => (selectedGraphItemKey(current) === selectedGraphItemKey(next) ? current : next));
-  }, []);
-
-  const toggleCollapse = useCallback((ref: VacpRef) => {
-    setCollapsedRefs((current) => {
-      const next = new Set(current);
-      if (next.has(ref)) next.delete(ref);
-      else next.add(ref);
-      return next;
-    });
-  }, []);
+  const toggleCollapse = useCallback((ref: VacpRef) => toggleCollapsedRef(graph, ref), [graph, toggleCollapsedRef]);
 
   const flow = useMemo(
     () =>
       buildVacpFlowGraph({
         graph,
-        direction: options.direction,
-        includeActions: options.includeActions,
+        direction,
+        includeActions,
         collapsedRefs,
         selected,
         onToggleCollapse: toggleCollapse,
       }),
-    [collapsedRefs, graph, options.direction, options.includeActions, selected, toggleCollapse],
+    [collapsedRefs, direction, graph, includeActions, selected, toggleCollapse],
   );
 
   const mermaidText = useMemo(
-    () => renderVacpDiagramMermaid({ capabilities: props.runtime.currentCapabilities, options }),
-    [props.runtime.currentCapabilities, options],
+    () => renderVacpDiagramMermaid({ capabilities: props.runtime.currentCapabilities, options: { direction, includeActions } }),
+    [direction, includeActions, props.runtime.currentCapabilities],
   );
 
   const inspectorValue = useMemo(() => buildInspectorValue(props.runtime, selected), [props.runtime, selected]);
@@ -118,20 +107,16 @@ export function GraphModule(props: VacpDebugModuleProps): ReactElement {
   }, [dense, inspectOpen, setInspectOpen]);
 
   useEffect(() => {
-    const refs = new Set(graph.nodes.map((node) => node.ref));
-    setCollapsedRefs((current) => {
-      const next = new Set([...current].filter((ref) => refs.has(ref)));
-      return next.size === current.size ? current : next;
-    });
-  }, [graph.nodes]);
+    syncIncludeActionsDefault(includeActionsDefault);
+  }, [includeActionsDefault, syncIncludeActionsDefault]);
 
   useEffect(() => {
-    setSelected((current) => {
-      const currentKey = selectedGraphItemKey(current);
-      if (!currentKey) return current;
-      return flow.nodes.some((node) => node.id === currentKey) ? current : null;
-    });
-  }, [flow.nodes]);
+    pruneCollapsedRefs(graph);
+  }, [graph, pruneCollapsedRefs]);
+
+  useEffect(() => {
+    pruneSelectedNodeIds(new Set(flow.nodes.map((node) => node.id)));
+  }, [flow.nodes, pruneSelectedNodeIds]);
 
   return (
     <ModuleRoot
@@ -143,7 +128,7 @@ export function GraphModule(props: VacpDebugModuleProps): ReactElement {
         showSideBySide ? 'grid grid-cols-[minmax(0,1fr)_minmax(320px,420px)]' : 'flex flex-col',
       )}
       data-vacp-graph="1"
-      data-vacp-direction={options.direction}
+      data-vacp-direction={direction}
       data-vacp-graph-renderer="xyflow"
     >
       <ModulePane className={cn('flex min-h-0 flex-1 flex-col', dense ? 'gap-2' : 'gap-3')}>
@@ -155,7 +140,7 @@ export function GraphModule(props: VacpDebugModuleProps): ReactElement {
             <>
               <IconButton
                 icon={
-                  options.direction === 'LR' ? (
+                  direction === 'LR' ? (
                     <ArrowLeftRight className="h-4 w-4 text-slate-100/90" />
                   ) : (
                     <ArrowUpDown className="h-4 w-4 text-slate-100/90" />
@@ -164,15 +149,15 @@ export function GraphModule(props: VacpDebugModuleProps): ReactElement {
                 label="Toggle direction"
                 title="Toggle graph direction."
                 size={iconButtonSize}
-                onClick={() => setOptions((current) => ({ ...current, direction: current.direction === 'LR' ? 'TB' : 'LR' }))}
+                onClick={toggleDirection}
               />
               <IconButton
                 icon={<Zap className="h-4 w-4 text-slate-100/90" />}
-                label={options.includeActions ? 'Hide actions' : 'Show actions'}
+                label={includeActions ? 'Hide actions' : 'Show actions'}
                 title="Show semantic actions as graph nodes."
-                pressed={options.includeActions}
+                pressed={includeActions}
                 size={iconButtonSize}
-                onClick={() => setOptions((current) => ({ ...current, includeActions: !current.includeActions }))}
+                onClick={toggleIncludeActions}
               />
               <div className="vacp-debug-ui-copy-action">
                 <IconButton

@@ -84,7 +84,8 @@ test('debug-ui: settings persist browser overrides through the panel contract', 
       const caps = await (globalThis as any).__vacp.getCapabilities();
       return (caps?.graph?.actions ?? []).map((action: any) => action?.name);
     });
-    expect(actionsAfterReload).not.toContain('vacp.data_sql');
+    expect(actionsAfterReload).toEqual(expect.arrayContaining(['parallel_coords.set_dimension_order']));
+    expect(actionsAfterReload.filter((name) => name === 'vacp.data_sql')).toEqual([]);
     const disabledSql = await page.evaluate(async () => {
       return await (globalThis as any).__vacp.execute({
         callId: crypto.randomUUID(),

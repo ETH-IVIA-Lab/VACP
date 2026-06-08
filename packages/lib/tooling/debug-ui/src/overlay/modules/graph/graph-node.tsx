@@ -69,6 +69,7 @@ export function VacpGraphNode(props: NodeProps<VacpFlowNode>): ReactElement {
       data-vacp-flow-node-kind={data.graphKind}
       data-vacp-graph-node-kind={data.graphKind === 'node' ? data.nodeKind : undefined}
       data-vacp-graph-node-ref={data.item.kind === 'node' ? data.item.ref : undefined}
+      data-vacp-graph-node-collapsed={data.collapsed ? 'true' : undefined}
       data-vacp-graph-action-name={data.item.kind === 'action' ? data.item.name : undefined}
     >
       {HANDLE_POSITIONS.map(([name, position]) => (
@@ -112,7 +113,7 @@ export function VacpGraphNode(props: NodeProps<VacpFlowNode>): ReactElement {
           <button
             type="button"
             className="nodrag nopan grid h-6 w-6 shrink-0 place-items-center rounded-md border border-white/[0.08] bg-white/[0.035] text-slate-100/68 transition hover:border-white/[0.14] hover:bg-white/[0.06] hover:text-slate-100"
-            aria-label={data.collapsed ? `Expand ${data.title}` : `Collapse ${data.title}`}
+            aria-label={data.collapsed ? `Expand ${data.title} one level` : `Collapse ${data.title}`}
             onClick={(event) => {
               event.stopPropagation();
               if (data.item.kind === 'node') data.onToggleCollapse?.(data.item.ref);

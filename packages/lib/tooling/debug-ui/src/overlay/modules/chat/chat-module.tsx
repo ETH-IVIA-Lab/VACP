@@ -21,6 +21,7 @@ import { cn } from '@vacp/debug-ui/ui/lib/utils';
 import { ModuleHeader, ModulePane, ModuleRoot } from '../module-layout';
 import type { VacpDebugModuleProps } from '../module-types';
 import { ChatConfigPanel } from './chat-config-panel';
+import { ChatSetupSurface } from './chat-setup-surface';
 import { ConfiguredChat } from './configured-chat';
 import { createVacpChatSessionCacheKey, deleteVacpChatSession } from './chat-session-registry';
 import { deriveVacpChatScope } from './chat-scope';
@@ -132,6 +133,10 @@ export function ChatModule(props: VacpDebugModuleProps): ReactElement {
   }, [ensureScope, scopeMeta]);
 
   useEffect(() => {
+    if (!configReady) setSettingsOpen(scopeId, true);
+  }, [configReady, scopeId, setSettingsOpen]);
+
+  useEffect(() => {
     setThreadPickerOpen(false);
   }, [scopeId]);
 
@@ -162,11 +167,10 @@ export function ChatModule(props: VacpDebugModuleProps): ReactElement {
     });
   }, [scopeId, activeThreadId, activeThread?.sessionRevision, credentialRevision, props.runtime.runtimeId, config]);
 
-  const settingsSheetOpen = configReady && settingsOpen;
+  const settingsSheetOpen = settingsOpen;
   const sidePanelOpen = settingsSheetOpen || threadPickerOpen;
   const showSideBySide = sidePanelOpen && rootSize.width >= DEBUG_UI_PANEL_BREAKPOINTS.splitPane;
   const boundWide = rootSize.width >= DEBUG_UI_PANEL_BREAKPOINTS.splitPane;
-  const inlineConfigCompact = rootSize.width < DEBUG_UI_PANEL_BREAKPOINTS.stackLegend;
   const chatStatus = !configReady
     ? 'Setup needed'
     : activeThread
@@ -255,14 +259,10 @@ export function ChatModule(props: VacpDebugModuleProps): ReactElement {
                 className="shrink-0"
                 data-vacp-chat-settings-toggle="1"
                 aria-label="Toggle settings"
-                title={configReady ? 'Toggle settings' : 'Settings are shown in the chat tab'}
+                title="Toggle settings"
                 aria-pressed={settingsSheetOpen}
                 onClick={() => {
                   setThreadPickerOpen(false);
-                  if (!configReady) {
-                    setSettingsOpen(scopeId, false);
-                    return;
-                  }
                   setSettingsOpen(scopeId, !settingsSheetOpen);
                 }}
               >
@@ -273,55 +273,44 @@ export function ChatModule(props: VacpDebugModuleProps): ReactElement {
         />
 
         <div className="min-h-0 flex-1 overflow-hidden">
-          {!configReady ? (
-            <div className="h-full min-h-0 overflow-hidden">
-              <ChatConfigPanel
-                className="h-full max-h-none w-full p-0"
-                compact={inlineConfigCompact}
-                showHeading={false}
+          {activeThreadId && activeThread ? (
+            configReady ? (
+              <ConfiguredChat
+                key={`${activeThreadId}:${activeThread.sessionRevision ?? 0}:${credentialRevision}`}
+                bridge={props.bridge}
+                runtimeId={props.runtime.runtimeId}
+                scopeId={scopeId}
+                scopeLabel={scopeMeta.label}
+                threadId={activeThreadId}
+                sessionRevision={activeThread.sessionRevision}
+                credentialRevision={credentialRevision}
+                panelWidth={rootSize.width}
                 config={config}
-                onConfigChange={updateConfig}
-                onProviderChange={switchProvider}
-                showApiKey={showApiKey}
-                onToggleApiKey={() => setShowApiKey((v) => !v)}
-                availableModels={availableModels}
-                loadingModels={modelsLoading}
-                modelsError={modelsError}
-                onRefreshModels={refreshModels}
-                showClose={false}
-                onClose={() => setSettingsOpen(scopeId, false)}
-                onClearConfig={() => {
-                  clearVacpLLMConfig();
-                  setConfig(defaultVacpLLMConfigForProvider(config.provider));
-                  resetConnectionState();
-                  if (sessionCacheKey) deleteVacpChatSession(sessionCacheKey);
-                  if (activeThreadId) clearThread(scopeId, activeThreadId);
-                  setActivityOpen(scopeId, false);
+                initialMessages={activeThread.messages}
+                toolEvents={activeThread.toolEvents}
+                draft={draft}
+                onDraftChange={(value) => setDraft(scopeId, activeThreadId, value)}
+                onMessagesChange={(messages) => setThreadMessages(scopeId, activeThreadId, messages)}
+                onToolEvent={onToolEvent}
+                onRegenerate={() => setThreadPickerOpen(false)}
+                onCloseActivity={() => setActivityOpen(scopeId, false)}
+                showActivity={showActivity}
+              />
+            ) : (
+              <ChatSetupSurface
+                scopeLabel={scopeMeta.label}
+                panelWidth={rootSize.width}
+                config={config}
+                messages={activeThread.messages}
+                toolEvents={activeThread.toolEvents}
+                draft={draft}
+                onDraftChange={(value) => setDraft(scopeId, activeThreadId, value)}
+                onOpenSettings={() => {
+                  setThreadPickerOpen(false);
+                  setSettingsOpen(scopeId, true);
                 }}
               />
-            </div>
-          ) : activeThreadId && activeThread ? (
-            <ConfiguredChat
-              key={`${activeThreadId}:${activeThread.sessionRevision ?? 0}:${credentialRevision}`}
-              bridge={props.bridge}
-              runtimeId={props.runtime.runtimeId}
-              scopeId={scopeId}
-              scopeLabel={scopeMeta.label}
-              threadId={activeThreadId}
-              sessionRevision={activeThread.sessionRevision}
-              credentialRevision={credentialRevision}
-              panelWidth={rootSize.width}
-              config={config}
-              initialMessages={activeThread.messages}
-              toolEvents={activeThread.toolEvents}
-              draft={draft}
-              onDraftChange={(value) => setDraft(scopeId, activeThreadId, value)}
-              onMessagesChange={(messages) => setThreadMessages(scopeId, activeThreadId, messages)}
-              onToolEvent={onToolEvent}
-              onRegenerate={() => setThreadPickerOpen(false)}
-              onCloseActivity={() => setActivityOpen(scopeId, false)}
-              showActivity={showActivity}
-            />
+            )
           ) : (
             <div className="grid h-full place-items-center text-[12px] text-slate-100/70">
               Preparing chat session...
@@ -409,6 +398,7 @@ export function ChatModule(props: VacpDebugModuleProps): ReactElement {
               if (sessionCacheKey) deleteVacpChatSession(sessionCacheKey);
               if (activeThreadId) clearThread(scopeId, activeThreadId);
               setActivityOpen(scopeId, false);
+              setSettingsOpen(scopeId, true);
             }}
           />
         </ModulePane>

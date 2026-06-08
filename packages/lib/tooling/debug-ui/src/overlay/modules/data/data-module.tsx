@@ -40,7 +40,7 @@ export function DataModule(props: VacpDebugModuleProps): ReactElement {
       .filter((n) => n.kind === 'DataHandle')
       .map((n) => {
         const title = n.title ?? shortRef(n.ref);
-        return { ref: n.ref, title, label: `${title} — ${shortRef(n.ref)}` };
+        return { ref: n.ref, title, label: `${title} (${shortRef(n.ref)})` };
       })
       .sort((a, b) => a.title.localeCompare(b.title));
   }, [props.runtime.currentCapabilities]);

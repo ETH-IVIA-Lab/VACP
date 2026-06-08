@@ -7,28 +7,15 @@ import { IconButton } from '@vacp/debug-ui/overlay/icon-button';
 import { DEBUG_UI_PANEL_BREAKPOINTS, isDenseDebugPanel } from '@vacp/debug-ui/overlay/debug-ui-breakpoints';
 import { useElementSize } from '@vacp/debug-ui/overlay/hooks/use-element-size';
 import { Input } from '@vacp/debug-ui/ui/components/ui/input';
+import { JsonEditor } from '@vacp/debug-ui/ui/components/ui/json-editor';
+import { stringifyJson } from '@vacp/debug-ui/ui/components/ui/json-theme';
 import { JsonViewer } from '@vacp/debug-ui/ui/components/ui/json-viewer';
 import { RovingFocusGroup, RovingFocusGroupItem } from '@vacp/debug-ui/ui/components/ui/roving-focus';
-import { Textarea } from '@vacp/debug-ui/ui/components/ui/textarea';
 import { copyTextToClipboard } from '@vacp/debug-ui/ui/lib/clipboard';
 import { cn } from '@vacp/debug-ui/ui/lib/utils';
 
 import { ModuleEmptyState, ModuleField, ModuleHeader, ModulePane, ModuleRoot } from './module-layout';
 import type { VacpDebugModuleProps } from './module-types';
-
-function safeJson(value: unknown): string {
-  try {
-    return JSON.stringify(value, null, 2);
-  } catch {
-    return String(value);
-  }
-}
-
-function parseJson(text: string): unknown {
-  const t = text.trim();
-  if (!t) return undefined;
-  return JSON.parse(t);
-}
 
 export function ActionsModule(props: VacpDebugModuleProps): ReactElement {
   const rootRef = useRef<HTMLDivElement | null>(null);
@@ -52,7 +39,8 @@ export function ActionsModule(props: VacpDebugModuleProps): ReactElement {
     [actions, selectedName],
   );
 
-  const [paramsText, setParamsText] = useState<string>('{}');
+  const [paramsValue, setParamsValue] = useState<unknown>({});
+  const [paramsError, setParamsError] = useState<string | null>(null);
   const [result, setResult] = useState<VacpActionResult | null>(null);
   const [status, setStatus] = useState<'idle' | 'running' | 'error'>('idle');
   const [error, setError] = useState<string | null>(null);
@@ -60,7 +48,8 @@ export function ActionsModule(props: VacpDebugModuleProps): ReactElement {
   useEffect(() => {
     if (!selected) return;
     setSelectedName(selected.name);
-    setParamsText('{}');
+    setParamsValue({});
+    setParamsError(null);
     setResult(null);
     setStatus('idle');
     setError(null);
@@ -75,16 +64,13 @@ export function ActionsModule(props: VacpDebugModuleProps): ReactElement {
     setStatus('running');
     setError(null);
     setResult(null);
-    let params: unknown;
-    try {
-      params = parseJson(paramsText);
-    } catch (err) {
+    if (paramsError) {
       setStatus('error');
-      setError(`Invalid JSON params: ${String(err)}`);
+      setError(`Invalid JSON params: ${paramsError}`);
       return;
     }
 
-    const call: VacpActionCall = { callId: crypto.randomUUID(), name: selected.name, params };
+    const call: VacpActionCall = { callId: crypto.randomUUID(), name: selected.name, params: paramsValue };
     try {
       const res =
         typeof props.bridge.dispatch === 'function'
@@ -190,7 +176,7 @@ export function ActionsModule(props: VacpDebugModuleProps): ReactElement {
                 label="Copy result"
                 title="Copy the last result JSON to clipboard."
                 size={iconButtonSize}
-                onClick={() => void copyTextToClipboard(safeJson(result))}
+                onClick={() => void copyTextToClipboard(stringifyJson(result))}
               />
             </>
           }
@@ -198,11 +184,14 @@ export function ActionsModule(props: VacpDebugModuleProps): ReactElement {
 
         <div className={cn('grid min-h-0 flex-1', dense ? 'gap-2' : 'gap-3')}>
           <ModuleField label="Params (JSON)" htmlFor="vacp-action-params">
-            <Textarea
+            <JsonEditor
               id="vacp-action-params"
-              className="min-h-[140px]"
-              value={paramsText}
-              onChange={(e) => setParamsText(e.target.value)}
+              value={paramsValue}
+              onChange={setParamsValue}
+              onValidityChange={setParamsError}
+              allowScalarRoot
+              minHeightClassName="min-h-[170px]"
+              resetSignal={selected?.name}
             />
           </ModuleField>
 

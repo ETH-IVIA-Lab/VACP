@@ -1,6 +1,5 @@
 @config "../tailwind.config.ts";
 @import 'tailwindcss';
-@import 'react-json-view-lite/dist/index.css';
 @import 'streamdown/styles.css';
 @import '@xyflow/react/dist/style.css';
 @source "../../../../node_modules/streamdown/dist/*.js";
@@ -345,9 +344,233 @@
   line-height: 1.35 !important;
 }
 
-/* react-json-view-lite ships themed backgrounds; let the debug UI panel control backgrounds. */
 #vacp-debug-ui-panel .vacp-json-viewer-tree {
   background: transparent !important;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+#vacp-debug-ui-panel .vacp-json-viewer-tree .w-rjv-line {
+  min-width: 0;
+  white-space: normal;
+}
+
+#vacp-debug-ui-panel .vacp-json-viewer-tree .w-rjv-object-key,
+#vacp-debug-ui-panel .vacp-json-viewer-tree .w-rjv-value {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+#vacp-debug-ui-panel .vacp-json-viewer-tree .w-rjv-arrow {
+  margin-right: 2px;
+}
+
+#vacp-debug-ui-panel .vacp-json-editor {
+  container-type: inline-size;
+  color: rgba(226, 232, 240, 0.84);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.015);
+}
+
+#vacp-debug-ui-panel .vacp-json-editor-toolbar {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+#vacp-debug-ui-panel .vacp-json-editor-mode-group,
+#vacp-debug-ui-panel .vacp-json-editor-toolbar-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+#vacp-debug-ui-panel .vacp-json-editor-copy-status {
+  color: rgba(167, 243, 208, 0.9);
+  font-size: 10px;
+  font-weight: 650;
+  line-height: 1;
+}
+
+#vacp-debug-ui-panel .vacp-json-editor-tree-shell {
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) auto;
+  min-height: 0;
+  flex: 1 1 auto;
+}
+
+#vacp-debug-ui-panel .vacp-json-editor-tree-scroll {
+  min-height: 0;
+  overflow: auto;
+  padding: 10px;
+  scrollbar-gutter: stable;
+}
+
+#vacp-debug-ui-panel .vacp-json-editor-tree {
+  min-width: 0;
+}
+
+#vacp-debug-ui-panel .vacp-json-editor-scalar-root {
+  min-height: 0;
+  overflow: auto;
+  padding: 12px;
+}
+
+#vacp-debug-ui-panel .vacp-json-editor-row {
+  display: flex;
+  min-width: 0;
+  align-items: flex-start;
+  gap: 8px;
+  border-radius: 6px;
+}
+
+#vacp-debug-ui-panel .vacp-json-editor-row-content {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+#vacp-debug-ui-panel .vacp-json-editor-row-delete {
+  display: inline-grid;
+  width: 22px;
+  height: 22px;
+  flex: 0 0 auto;
+  place-items: center;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: rgba(248, 113, 113, 0.64);
+  cursor: pointer;
+  opacity: 0;
+  transition:
+    border-color 120ms ease,
+    background-color 120ms ease,
+    color 120ms ease,
+    opacity 120ms ease;
+}
+
+#vacp-debug-ui-panel .vacp-json-editor-row:hover .vacp-json-editor-row-delete,
+#vacp-debug-ui-panel .vacp-json-editor-row-delete:focus-visible {
+  opacity: 1;
+}
+
+#vacp-debug-ui-panel .vacp-json-editor-row-delete:hover {
+  border-color: rgba(248, 113, 113, 0.18);
+  background: rgba(248, 113, 113, 0.08);
+  color: rgba(254, 202, 202, 0.9);
+}
+
+#vacp-debug-ui-panel .vacp-json-editor-row-delete svg {
+  width: 13px;
+  height: 13px;
+}
+
+#vacp-debug-ui-panel .vacp-json-editor-key,
+#vacp-debug-ui-panel .vacp-json-editor-value {
+  display: inline;
+  min-width: 0;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  line-height: inherit;
+  text-align: left;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  cursor: text;
+}
+
+#vacp-debug-ui-panel .vacp-json-editor-key:hover,
+#vacp-debug-ui-panel .vacp-json-editor-value:hover {
+  background: rgba(255, 255, 255, 0.055);
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.055);
+}
+
+#vacp-debug-ui-panel .vacp-json-editor-key:focus-visible,
+#vacp-debug-ui-panel .vacp-json-editor-value:focus-visible,
+#vacp-debug-ui-panel .vacp-json-editor-key-input:focus-visible,
+#vacp-debug-ui-panel .vacp-json-editor-inline-input:focus-visible {
+  outline: 2px solid rgba(125, 211, 252, 0.52);
+  outline-offset: 2px;
+}
+
+#vacp-debug-ui-panel .vacp-json-editor-key-input,
+#vacp-debug-ui-panel .vacp-json-editor-inline-input {
+  max-width: min(360px, 88%);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 6px;
+  background: rgba(15, 23, 32, 0.96);
+  color: rgba(248, 250, 252, 0.94);
+  font: inherit;
+  line-height: 1.45;
+  padding: 1px 6px;
+}
+
+#vacp-debug-ui-panel .vacp-json-editor-structure {
+  display: grid;
+  grid-template-columns: minmax(120px, 0.7fr) minmax(130px, 1fr) auto auto;
+  gap: 6px;
+  padding: 8px;
+  border-top: 1px solid rgba(255, 255, 255, 0.07);
+  background: rgba(7, 12, 17, 0.22);
+}
+
+#vacp-debug-ui-panel .vacp-json-editor-path-input,
+#vacp-debug-ui-panel .vacp-json-editor-path-value {
+  min-height: 32px;
+  padding-top: 0;
+  padding-bottom: 0;
+}
+
+#vacp-debug-ui-panel .vacp-json-editor-raw {
+  min-height: 0;
+  flex: 1 1 auto;
+  resize: none;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  line-height: 1.55;
+}
+
+#vacp-debug-ui-panel .vacp-json-editor-error,
+#vacp-debug-ui-panel .vacp-json-editor-status {
+  flex: 0 0 auto;
+  padding: 6px 10px 8px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+#vacp-debug-ui-panel .vacp-json-editor-error {
+  color: rgba(254, 202, 202, 0.9);
+}
+
+#vacp-debug-ui-panel .vacp-json-editor-status {
+  color: rgba(203, 213, 225, 0.7);
+}
+
+@container (max-width: 620px) {
+  #vacp-debug-ui-panel .vacp-json-editor-toolbar {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  #vacp-debug-ui-panel .vacp-json-editor-mode-group,
+  #vacp-debug-ui-panel .vacp-json-editor-toolbar-actions {
+    justify-content: space-between;
+    width: 100%;
+  }
+
+  #vacp-debug-ui-panel .vacp-json-editor-structure {
+    grid-template-columns: 1fr;
+  }
 }
 
 #vacp-debug-ui-panel .vacp-chat-streamdown {
@@ -384,11 +607,6 @@
   border-radius: 6px;
   padding: 0 0.35rem;
   font-size: 11px;
-}
-
-#vacp-debug-ui-panel .vacp-chat-json-view .vacp-json-viewer-tree {
-  overflow-wrap: anywhere;
-  word-break: break-word;
 }
 
 #vacp-debug-ui-panel .vacp-chat-scroll {

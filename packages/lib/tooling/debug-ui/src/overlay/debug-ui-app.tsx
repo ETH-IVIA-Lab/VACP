@@ -131,7 +131,7 @@ export function VacpDebugUiApp(props: { globalKey: string; includeActions: boole
     });
     dockRef.current = dock;
     dock.attach();
-    // No cleanup: the overlay lives for the page lifetime.
+    // The overlay stays mounted for the page lifetime.
   }, [panelPosition]);
 
   useLayoutEffect(() => {

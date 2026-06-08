@@ -5,7 +5,7 @@ export async function copyTextToClipboard(text: string): Promise<void> {
       await navigator.clipboard.writeText(t);
       return;
     } catch {
-      // fall back
+      // Use the textarea copy path when Clipboard API writes are blocked.
     }
   }
 
