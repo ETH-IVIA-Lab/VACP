@@ -20,6 +20,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@vacp/debug-ui/ui/compo
 import { copyTextToClipboard } from '@vacp/debug-ui/ui/lib/clipboard';
 import { cn } from '@vacp/debug-ui/ui/lib/utils';
 
+import { ModuleSubheader } from '../module-layout';
 import type { VacpDebugModuleProps } from '../module-types';
 import { ChatActivityLog } from './chat-activity-log';
 import { exportConversationAsMarkdown } from './chat-export';
@@ -244,7 +245,6 @@ export function ConfiguredChat(props: ConfiguredChatProps): ReactElement {
   const busy = status === 'submitted' || status === 'streaming';
   const activityWide = props.panelWidth >= DEBUG_UI_PANEL_BREAKPOINTS.chatInlineActivity;
   const compactPanel = props.panelWidth < DEBUG_UI_PANEL_BREAKPOINTS.chatCompactPanel;
-  const roomyConversationHeader = props.panelWidth >= DEBUG_UI_PANEL_BREAKPOINTS.chatRoomyConversationHeader;
   const autoScrollSignal = `${status}:${uiMessages.length}:${latestTextLength(uiMessages)}`;
   const { scrollRef, contentRef, stickToBottom, jumpToLatest } = useChatAutoscroll(autoScrollSignal);
   const [policyNotice, setPolicyNotice] = useState<string | null>(null);
@@ -332,7 +332,7 @@ export function ConfiguredChat(props: ConfiguredChatProps): ReactElement {
           : 'Ready';
   const threadSummary =
     uiMessages.length === 0
-      ? 'Ask about the active visualization and the agent will ground its answer with tool-backed evidence.'
+      ? 'Ask about the active visualization with tool-backed evidence.'
       : `${uiMessages.length} message${uiMessages.length === 1 ? '' : 's'} in the active thread.`;
 
   return (
@@ -357,41 +357,49 @@ export function ConfiguredChat(props: ConfiguredChatProps): ReactElement {
         ) : null}
 
         {policyNotice ? (
-          <div className="mb-2 rounded-md border border-amber-100/14 bg-amber-100/[0.055] px-3 py-2 text-[11px] text-amber-50/70">
+          <div
+            className={cn(
+              'mb-2 rounded-md border border-amber-100/14 bg-amber-100/[0.055] text-amber-50/70',
+              compactPanel ? 'truncate px-2 py-1 text-[10px]' : 'px-3 py-2 text-[11px]',
+            )}
+          >
             {policyNotice}
           </div>
         ) : null}
 
         <section className="grid min-h-0 flex-1 grid-rows-[auto_minmax(0,1fr)_auto] overflow-hidden">
-          <div
-            className={cn(
-              'border-b border-white/[0.075]',
-              compactPanel ? 'grid gap-2 px-3 py-2.5' : 'px-4 py-3',
-              roomyConversationHeader ? 'flex items-start gap-3' : 'grid gap-2',
-            )}
+          <ModuleSubheader
+            data-vacp-chat-subheader="1"
+            role="group"
+            aria-label="Conversation controls"
+            className="justify-between overflow-hidden"
           >
-            <div className="min-w-0 flex-1">
-              <div className="text-[11px] font-semibold uppercase text-slate-100/70">Conversation</div>
-              <div className={cn('mt-1 text-[11px] text-slate-100/62', compactPanel ? 'truncate' : 'text-pretty')}>
+            <div className="flex min-w-0 flex-1 items-center gap-1.5">
+              <div className="inline-flex h-7 shrink-0 items-center rounded-md border border-white/[0.065] bg-white/[0.018] px-2 text-[11px] font-semibold text-slate-100/72">
+                Conversation
+              </div>
+              <div
+                className={cn(
+                  'min-w-0 truncate text-[11px] leading-none text-slate-100/62',
+                  compactPanel ? 'sr-only' : 'text-pretty',
+                )}
+              >
                 {threadSummary}
               </div>
             </div>
             <div
               className={cn(
-                'flex max-w-full items-center gap-1.5',
-                roomyConversationHeader
-                  ? 'shrink-0 flex-wrap justify-end'
-                  : 'overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden',
+                'flex max-w-full shrink-0 items-center gap-1.5 overflow-x-auto [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden',
               )}
             >
               <Button
-                size={compactPanel ? 'iconSm' : 'sm'}
+                size="iconSm"
                 aria-label="Copy conversation as Markdown"
                 title="Copy conversation as Markdown"
                 onClick={() => void copyConversation()}
               >
                 <ClipboardCopy className="h-3.5 w-3.5 text-slate-100/90" />
-                <span className={compactPanel ? 'sr-only' : ''}>Copy</span>
+                <span className="sr-only">Copy conversation</span>
               </Button>
               <TokenUsageBadge
                 label="Last"
@@ -410,9 +418,14 @@ export function ConfiguredChat(props: ConfiguredChatProps): ReactElement {
                 <span data-vacp-chat-status="1">{statusLabel}</span>
               </div>
             </div>
-          </div>
+          </ModuleSubheader>
 
-          <div className={cn('flex min-h-0 flex-1 overflow-hidden', compactPanel ? 'px-2.5 py-2.5' : 'px-3 py-3')}>
+          <div
+            className={cn(
+              'flex min-h-0 flex-1 overflow-hidden border-t border-white/[0.075]',
+              compactPanel ? 'px-2 py-1.5' : 'px-3 py-3',
+            )}
+          >
             <ChatMessages
               messages={uiMessages}
               status={status}
@@ -420,30 +433,35 @@ export function ConfiguredChat(props: ConfiguredChatProps): ReactElement {
               contentRef={contentRef}
               showJumpToLatest={!stickToBottom}
               onJumpToLatest={() => jumpToLatest()}
+              compact={compactPanel}
             />
           </div>
 
           <div
             className={cn(
               'relative z-10 border-t border-white/[0.075] bg-[#0b1115]/88 backdrop-blur-sm',
-              compactPanel ? 'px-2.5 py-2.5' : 'px-3 py-3',
+              compactPanel ? 'px-2 py-2' : 'px-3 py-3',
             )}
           >
-            <div className="mb-2 flex flex-wrap items-center gap-2 text-[11px] text-slate-100/56">
-              <div className={cn('min-w-0 flex-1', compactPanel ? 'truncate' : 'text-pretty')}>
-                {busy
-                  ? status === 'submitted'
-                    ? 'Request received. Preparing the next turn…'
-                    : 'Request received. The agent is working through the turn.'
-                  : 'Press Enter to send or Shift+Enter for a newline.'}
+            {!compactPanel || copyNotice || props.showActivity ? (
+              <div className="mb-2 flex flex-wrap items-center gap-2 text-[11px] text-slate-100/56">
+                {!compactPanel ? (
+                  <div className="min-w-0 flex-1 text-pretty">
+                    {busy
+                      ? status === 'submitted'
+                        ? 'Request received. Preparing the next turn…'
+                        : 'Request received. The agent is working through the turn.'
+                      : 'Press Enter to send or Shift+Enter for a newline.'}
+                  </div>
+                ) : null}
+                {copyNotice ? <div className="text-slate-100/68">{copyNotice}</div> : null}
+                {props.showActivity ? (
+                  <Button size="sm" aria-label="Hide activity" title="Hide activity" onClick={props.onCloseActivity}>
+                    Hide activity
+                  </Button>
+                ) : null}
               </div>
-              {copyNotice ? <div className="text-slate-100/68">{copyNotice}</div> : null}
-              {props.showActivity ? (
-                <Button size="sm" aria-label="Hide activity" title="Hide activity" onClick={props.onCloseActivity}>
-                  Hide activity
-                </Button>
-              ) : null}
-            </div>
+            ) : null}
 
             <label htmlFor="vacp-chat-input" className="sr-only">
               Chat input
@@ -453,7 +471,7 @@ export function ConfiguredChat(props: ConfiguredChatProps): ReactElement {
               data-vacp-chat-input="1"
               className={cn(
                 'w-full overflow-x-hidden whitespace-pre-wrap break-words [overflow-wrap:anywhere]',
-                compactPanel ? 'min-h-[74px]' : 'min-h-[96px]',
+                compactPanel ? 'min-h-[54px]' : 'min-h-[96px]',
               )}
               wrap="soft"
               value={props.draft}
@@ -465,7 +483,7 @@ export function ConfiguredChat(props: ConfiguredChatProps): ReactElement {
               }}
               placeholder="Ask about the active visualization..."
             />
-            <div className="mt-2 flex flex-wrap items-center gap-1.5">
+            <div className={cn('flex flex-wrap items-center gap-1.5', compactPanel ? 'mt-1.5' : 'mt-2')}>
               <Button
                 variant="primary"
                 size={compactPanel ? 'iconSm' : 'sm'}

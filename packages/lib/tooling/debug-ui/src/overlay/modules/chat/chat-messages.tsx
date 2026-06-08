@@ -131,6 +131,7 @@ export function ChatMessages(props: {
   contentRef: RefObject<HTMLDivElement | null>;
   showJumpToLatest: boolean;
   onJumpToLatest: () => void;
+  compact?: boolean;
 }): ReactElement {
   return (
     <div className="relative flex min-h-0 flex-1 flex-col">
@@ -139,9 +140,12 @@ export function ChatMessages(props: {
         data-vacp-chat-msgs="1"
         className="vacp-chat-scroll min-h-0 flex-1 overflow-y-auto overflow-x-hidden pr-1"
       >
-        <div ref={props.contentRef} className="mx-auto flex min-h-full w-full max-w-4xl flex-col gap-3 pb-4">
+        <div
+          ref={props.contentRef}
+          className={cn('mx-auto flex min-h-full w-full max-w-4xl flex-col', props.compact ? 'gap-2 pb-2' : 'gap-3 pb-4')}
+        >
           {props.messages.length === 0 ? (
-            <div className="px-1 py-4 text-[12px] text-slate-100/64">
+            <div className={cn('px-1 text-[12px] text-slate-100/64', props.compact ? 'py-2' : 'py-4')}>
               <div className="font-medium text-slate-100/85">Start with a concrete question.</div>
               <div className="mt-1 text-pretty">
                 The agent can inspect capabilities, read state, execute exposed actions, and explain what changed.
@@ -159,7 +163,8 @@ export function ChatMessages(props: {
               >
                 <div
                   className={cn(
-                    'w-full max-w-[min(100%,52rem)] rounded-lg border px-4 py-3 shadow-sm',
+                    'w-full max-w-[min(100%,52rem)] rounded-lg border shadow-sm',
+                    props.compact ? 'px-3 py-2' : 'px-4 py-3',
                     message.role === 'assistant'
                       ? 'border-white/[0.075] bg-white/[0.026]'
                       : message.role === 'user'
@@ -167,7 +172,9 @@ export function ChatMessages(props: {
                         : 'border-white/[0.075] bg-white/[0.02]',
                   )}
                 >
-                  <div className="mb-2 text-[10px] font-semibold uppercase text-slate-100/60">{roleLabel}</div>
+                  <div className={cn('text-[10px] font-semibold uppercase text-slate-100/60', props.compact ? 'mb-1' : 'mb-2')}>
+                    {roleLabel}
+                  </div>
                   <div className="grid gap-2">
                     {message.parts.map((part, idx) => renderPart(part, idx, props.status === 'streaming'))}
                   </div>

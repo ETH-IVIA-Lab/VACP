@@ -71,6 +71,7 @@ export function installVacpDebugResizer(args: {
   const createHandle = (dir: ResizeMode, cursor: string) => {
     const el = document.createElement('div');
     el.className = `vacp-debug-ui-resize-handle vacp-debug-ui-resize-${dir}`;
+    el.dataset.vacpDebugResizeHandle = dir;
     el.title = 'Resize overlay panel';
     el.style.cursor = cursor;
     return el;

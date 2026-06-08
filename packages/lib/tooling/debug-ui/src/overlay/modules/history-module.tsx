@@ -11,7 +11,7 @@ import { JsonViewer } from '@vacp/debug-ui/ui/components/ui/json-viewer';
 import { RovingFocusGroup, RovingFocusGroupItem } from '@vacp/debug-ui/ui/components/ui/roving-focus';
 import { cn } from '@vacp/debug-ui/ui/lib/utils';
 
-import { ModuleHeader, ModulePane, ModuleRoot } from './module-layout';
+import { ModuleHeader, ModulePane, ModuleRoot, ModuleSubheader } from './module-layout';
 import type { VacpDebugModuleProps } from './module-types';
 
 const HISTORY_SOURCES = ['human', 'agent', 'debug', 'system'] as const satisfies readonly VacpChangeSource[];
@@ -241,14 +241,16 @@ export function HistoryModule(props: VacpDebugModuleProps): ReactElement {
           }
         />
 
-        {dense ? (
-          <details className="text-[11px] text-slate-100/72">
-            <summary className="cursor-pointer select-none font-medium text-slate-100/78">Sources</summary>
-            <HistorySourceLegend stack={false} />
-          </details>
-        ) : (
-          <HistorySourceLegend stack={stackLegend} />
-        )}
+        <ModuleSubheader data-vacp-history-subheader="1" role="group" aria-label="History sources">
+          {dense ? (
+            <details className="text-[11px] text-slate-100/72">
+              <summary className="cursor-pointer select-none font-medium text-slate-100/78">Sources</summary>
+              <HistorySourceLegend stack={false} />
+            </details>
+          ) : (
+            <HistorySourceLegend stack={stackLegend} />
+          )}
+        </ModuleSubheader>
 
         <div className="min-h-0 flex-1 overflow-auto border-t border-white/[0.075] pt-1">
           <RovingFocusGroup orientation="vertical" loop asChild>

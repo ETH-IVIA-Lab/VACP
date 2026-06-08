@@ -24,6 +24,8 @@ type ModulePaneProps = HTMLAttributes<HTMLDivElement> & {
   tone?: 'plain' | 'surface' | 'code';
 };
 
+type ModuleSubheaderProps = HTMLAttributes<HTMLDivElement>;
+
 export function ModuleRoot({ rootRef, boundWide, className, ...props }: ModuleRootProps): ReactElement {
   return (
     <div
@@ -85,6 +87,15 @@ export function ModuleCommandBar({
     >
       {children}
     </div>
+  );
+}
+
+export function ModuleSubheader({ className, ...props }: ModuleSubheaderProps): ReactElement {
+  return (
+    <div
+      className={cn('flex min-h-7 shrink-0 items-center gap-1.5 text-[11px] text-slate-100/72', className)}
+      {...props}
+    />
   );
 }
 

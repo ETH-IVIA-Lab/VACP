@@ -21,7 +21,7 @@ export function SqlResultTableHeader({
 
   return (
     <div className="sticky top-0 z-10 rounded-t-lg bg-[#0b1115]/88 backdrop-blur">
-      <div className="flex border-b border-white/[0.07]">
+      <div className="flex border-b border-white/[0.07]" role="row">
         {headers.map((header, index) => {
           const isLast = index === headers.length - 1;
           const headStyles = { width: `calc(var(--header-${header.index}-size) * 1px)` };
@@ -39,6 +39,7 @@ export function SqlResultTableHeader({
           return (
             <div
               key={header.id}
+              role="columnheader"
               className={cn(
                 'relative flex h-[34px] items-center gap-2 px-2 text-[11px] font-semibold text-slate-100/80 select-none',
                 !isLast && 'border-r border-white/[0.055]',

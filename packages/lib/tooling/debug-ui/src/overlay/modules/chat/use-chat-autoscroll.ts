@@ -57,9 +57,9 @@ export function useChatAutoscroll(depSignal: unknown) {
     lastScrollTopRef.current = el.scrollTop;
     const onScroll = () => updateStickState();
     el.addEventListener('scroll', onScroll, { passive: true });
-    updateStickState();
+    scrollToBottom('auto');
     return () => el.removeEventListener('scroll', onScroll);
-  }, [updateStickState]);
+  }, [scrollToBottom, updateStickState]);
 
   useEffect(() => {
     if (!stickToBottom) return;

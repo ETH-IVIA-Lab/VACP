@@ -175,6 +175,7 @@ function PanelTopBar(props: {
   return (
     <div
       ref={props.panelHeaderRef}
+      data-vacp-debug-panel-drag="1"
       className={cn(
         'vacp-debug-ui-topbar',
         'relative flex min-w-0 items-center border-b border-white/[0.075]',

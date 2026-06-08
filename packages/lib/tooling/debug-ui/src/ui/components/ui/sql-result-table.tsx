@@ -176,6 +176,8 @@ export function SqlResultTable({
 
   return (
     <div
+      role="table"
+      aria-label="SQL query results"
       className={cn('w-full min-w-0 overflow-hidden rounded-lg border border-white/[0.075] bg-white/[0.025]', className)}
       style={{ height, maxHeight: height }}
     >
@@ -203,6 +205,7 @@ export function SqlResultTable({
                   return (
                     <div
                       key={row.id}
+                      role="row"
                       className={cn(
                         'absolute left-0 right-0 flex border-b border-white/[0.055]',
                         absoluteIndex % 2 === 1 && 'bg-white/[0.018]',
@@ -220,6 +223,7 @@ export function SqlResultTable({
 
                         const cellNode = (
                           <div
+                            role={isIndex ? 'rowheader' : 'cell'}
                             className={cn(
                               'h-[30px] px-2 py-1 text-[12px] text-slate-100/85',
                               index !== row.getVisibleCells().length - 1 && 'border-r border-white/[0.045]',

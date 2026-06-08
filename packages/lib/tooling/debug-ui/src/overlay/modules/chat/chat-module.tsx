@@ -43,33 +43,6 @@ function threadSubtitle(messages: UIMessage[]): string {
   return `${messages.length} message${messages.length === 1 ? '' : 's'} / last: ${role}`;
 }
 
-function chatStatusClass(tone: 'setup' | 'ready' | 'busy'): string {
-  if (tone === 'setup') return 'border-amber-200/18 bg-amber-300/[0.05] text-amber-50/76';
-  if (tone === 'busy') return 'border-teal-200/18 bg-teal-300/[0.06] text-teal-50/80';
-  return 'border-slate-200/12 bg-white/[0.032] text-slate-100/62';
-}
-
-function ChatContextBar(props: { scopeLabel: string; status: string; statusTone: 'setup' | 'ready' | 'busy' }) {
-  return (
-    <div className="flex flex-wrap items-center gap-1.5 text-[11px] text-slate-100/72">
-      <span className="inline-flex items-center rounded-md border border-white/[0.065] bg-white/[0.018] px-2 py-1 font-medium text-slate-100/62">
-        Session
-      </span>
-      <span className="inline-flex min-w-0 items-center rounded-full border border-white/[0.075] bg-white/[0.026] px-2.5 py-1.5 font-medium leading-none text-slate-100/76">
-        <span className="max-w-[42ch] truncate">{props.scopeLabel}</span>
-      </span>
-      <span
-        className={cn(
-          'inline-flex items-center rounded-full border px-2.5 py-1.5 font-medium leading-none',
-          chatStatusClass(props.statusTone),
-        )}
-      >
-        {props.status}
-      </span>
-    </div>
-  );
-}
-
 export function ChatModule(props: VacpDebugModuleProps): ReactElement {
   const rootRef = useRef<HTMLDivElement | null>(null);
   const rootSize = useElementSize(rootRef);
@@ -199,7 +172,6 @@ export function ChatModule(props: VacpDebugModuleProps): ReactElement {
     : activeThread
       ? `${activeThread.messages.length} message${activeThread.messages.length === 1 ? '' : 's'}`
       : 'Preparing';
-  const chatStatusTone = !configReady ? 'setup' : activeThread ? 'ready' : 'busy';
 
   return (
     <ModuleRoot
@@ -218,7 +190,7 @@ export function ChatModule(props: VacpDebugModuleProps): ReactElement {
       <ModulePane className={cn('flex min-h-0 flex-1 flex-col', dense ? 'gap-2' : 'gap-3')}>
         <ModuleHeader
           title="Chat"
-          description={`${scopeMeta.label} / Ask questions, run actions, and inspect tool traces.`}
+          description={`${scopeMeta.label} / ${chatStatus} / Ask questions, run actions, and inspect tool traces.`}
           compact={compactControls}
           actions={
             <>
@@ -300,9 +272,7 @@ export function ChatModule(props: VacpDebugModuleProps): ReactElement {
           }
         />
 
-        <ChatContextBar scopeLabel={scopeMeta.label} status={chatStatus} statusTone={chatStatusTone} />
-
-        <div className="min-h-0 flex-1 overflow-hidden border-t border-white/[0.075] pt-1">
+        <div className="min-h-0 flex-1 overflow-hidden">
           {!configReady ? (
             <div className="h-full min-h-0 overflow-hidden">
               <ChatConfigPanel
