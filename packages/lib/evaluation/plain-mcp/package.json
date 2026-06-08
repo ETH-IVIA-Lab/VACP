@@ -1,0 +1,11 @@
+{
+  "name": "@vacp/plain-mcp",
+  "version": "0.0.0",
+  "private": true,
+  "scripts": {
+    "format": "uv run ruff format .",
+    "lint": "uv run ruff check .",
+    "typecheck": "uv run ty check",
+    "test": "uv run pytest"
+  }
+}
