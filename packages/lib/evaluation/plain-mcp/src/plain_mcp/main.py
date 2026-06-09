@@ -40,7 +40,12 @@ def log(msg: str) -> None:
 
 def compose_url(base_url: str, route: str) -> str:
     base_parts = urlsplit(base_url)
+    route_parts = urlsplit(route)
     base_path = base_parts.path if base_parts.path.endswith('/') else f'{base_parts.path}/'
+    route_path = route_parts.path if route_parts.path.endswith('/') else f'{route_parts.path}/'
+    if base_path == route_path:
+        fragment = base_parts.fragment or route_parts.fragment
+        return urlunsplit(base_parts._replace(path=base_path, fragment=fragment))
     base = urlunsplit(base_parts._replace(path=base_path))
     joined_parts = urlsplit(urljoin(base, route.lstrip('/')))
     query = joined_parts.query or base_parts.query

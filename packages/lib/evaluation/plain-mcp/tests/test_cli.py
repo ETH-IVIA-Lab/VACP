@@ -85,6 +85,13 @@ def test_compose_url_preserves_base_query_flags() -> None:
     )
 
 
+def test_compose_url_accepts_already_composed_scenario_url() -> None:
+    assert (
+        compose_url('http://localhost:5173/vega-lite/?vacp-debug=0&expose-bridge=1#airports', '/vega-lite/#airports')
+        == 'http://localhost:5173/vega-lite/?vacp-debug=0&expose-bridge=1#airports'
+    )
+
+
 @pytest.mark.asyncio
 async def test_ensure_target_page_navigates_wrong_attached_page() -> None:
     browser = _Browser('http://localhost:5173/vega-lite/#seattle-weather')

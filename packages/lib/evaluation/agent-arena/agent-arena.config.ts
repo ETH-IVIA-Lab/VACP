@@ -56,6 +56,11 @@ const AGENT_BROWSER_SETUP_RETRY_SLEEP_MS = Number(process.env.VACP_ARENA_SETUP_R
 const AGENT_BROWSER_SETUP_MAX_ATTEMPTS = Number(process.env.VACP_ARENA_SETUP_MAX_ATTEMPTS ?? 5);
 const AGENT_BROWSER_SETUP_STEP0_MIN_BYTES = Number(process.env.VACP_ARENA_SETUP_STEP0_MIN_BYTES ?? 1_500);
 const AGENT_BROWSER_SETUP_MIN_NON_WHITE_FRACTION = Number(process.env.VACP_ARENA_SETUP_MIN_NON_WHITE_FRACTION ?? 0.005);
+const BROWSER_VIEWPORT_WIDTH_PX = positiveIntOr(Number(process.env.VACP_ARENA_BROWSER_VIEWPORT_WIDTH ?? 1920), 1920);
+const BROWSER_VIEWPORT_HEIGHT_PX = Math.max(
+  1080,
+  positiveIntOr(Number(process.env.VACP_ARENA_BROWSER_VIEWPORT_HEIGHT ?? 1080), 1080),
+);
 const VACP_MCP_STARTUP_READY_TIMEOUT_MS = Number(process.env.VACP_ARENA_MCP_READY_TIMEOUT_MS ?? 45_000);
 
 const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..', '..', '..');
@@ -83,9 +88,9 @@ function agentBrowserEfficiencyGuidance(ctx: PromptContext, options?: { preopene
         ]
       : ['- Open the URL once; do not repeat `open` unless the page clearly failed to load.']),
     '- Use these exact command forms. Do not use `--url` or `--path` variants:',
-    ...(preopened ? [] : [`- \`${AGENT_BROWSER} open \"<url>\" --session ${ctx.opencode.sessionID}\``]),
+    ...(preopened ? [] : [`- \`${AGENT_BROWSER} open "<url>" --session ${ctx.opencode.sessionID}\``]),
     `- \`${AGENT_BROWSER} wait <ms> --session ${ctx.opencode.sessionID}\``,
-    `- \`${AGENT_BROWSER} screenshot \"<path>\" --session ${ctx.opencode.sessionID}\``,
+    `- \`${AGENT_BROWSER} screenshot "<path>" --session ${ctx.opencode.sessionID}\``,
     `- \`${AGENT_BROWSER} eval '<js>' --session ${ctx.opencode.sessionID}\``,
     `- \`${AGENT_BROWSER} select <selector-or-@ref> <value> --session ${ctx.opencode.sessionID}\``,
     ...(preopened
@@ -112,10 +117,10 @@ function snapshotDomEfficiencyGuidance(): string[] {
     '- Use state token flow (`token`, `baseToken`, `changedRefs`, `removedRefs`) to avoid re-reading unchanged refs.',
     '- Do not read all ref scripts unless absolutely necessary for the task.',
     '- Canonical access:',
-    '- `const manifest = JSON.parse(document.querySelector(\"#__vacp_snapshot\").textContent || \"{}\");`',
-    '- `const index = JSON.parse(document.getElementById(manifest.state.indexScriptId).textContent || \"{}\");`',
-    '- `const catalog = JSON.parse(document.getElementById(manifest.state.catalogScriptId).textContent || \"{}\");`',
-    '- `const refEl = document.querySelector(\'script[data-vacp=\"snapshot-ref\"][data-vacp-ref=\"<ref>\"]\');`',
+    '- `const manifest = JSON.parse(document.querySelector("#__vacp_snapshot").textContent || "{}");`',
+    '- `const index = JSON.parse(document.getElementById(manifest.state.indexScriptId).textContent || "{}");`',
+    '- `const catalog = JSON.parse(document.getElementById(manifest.state.catalogScriptId).textContent || "{}");`',
+    '- `const refEl = document.querySelector(\'script[data-vacp="snapshot-ref"][data-vacp-ref="<ref>"]\');`',
     '- Keep every `eval` result tiny. Return small objects only. Avoid broad DOM/snapshot dumps.',
     '- If two attempts on one path fail, pivot quickly.',
   ];
@@ -125,12 +130,12 @@ function vacpStateEfficiencyGuidance(stateTool: string): string[] {
   return [
     'VACP state strategy:',
     `- Call \`${stateTool}\` once without options to establish baseline context and token.`,
-    `- When you need to re-check state, prefer \`${stateTool}\` with \`options={mode:\"delta\", since:\"<token>\"}\`.`,
+    `- When you need to re-check state, prefer \`${stateTool}\` with \`options={mode:"delta", since:"<token>"}\`.`,
     '- Use the returned `token` as your next `since` value.',
     '- In delta mode, use `baseToken`, `changedRefs`, and `removedRefs` to confirm what changed without re-reading unchanged state.',
     '- Once relevant refs are known, pass `refs` to limit payload scope.',
     '- Set `includeSummary=false` unless summary fields are needed for the current step.',
-    '- If token lineage is unclear or delta data is unexpectedly uninformative, refresh with one `mode:\"full\"` call, then resume delta mode.',
+    '- If token lineage is unclear or delta data is unexpectedly uninformative, refresh with one `mode:"full"` call, then resume delta mode.',
   ];
 }
 
@@ -231,8 +236,10 @@ function buildRunStamp() {
 
 const VACP_MCP_SERVER_NAME = 'arena_vacp';
 const VACP_TOOLKIT_MCP_SERVER_NAME = 'arena_vacp_toolkit';
+const PLAIN_MCP_SERVER_NAME = 'arena_plain_mcp';
 
 const VACP_MCP_PROJECT_DIR = path.join(REPO_ROOT, 'packages/lib/transports/mcp-server');
+const PLAIN_MCP_PROJECT_DIR = path.join(REPO_ROOT, 'packages/lib/evaluation/plain-mcp');
 const VACP_MCP_BASE_COMMAND = [
   UV_COMMAND,
   'run',
@@ -243,6 +250,61 @@ const VACP_MCP_BASE_COMMAND = [
   '--headless',
 ];
 
+type PlainMcpUseCaseId = 'UC1' | 'UC2' | 'UC3' | 'UC4' | 'UC5';
+
+type PlainMcpUseCaseSpec = {
+  id: PlainMcpUseCaseId;
+  stateTool: string;
+  queryTool: string;
+  tools: readonly string[];
+};
+
+const PLAIN_MCP_USE_CASE_BY_SCENARIO = {
+  '/vega-lite/#global-development': {
+    id: 'UC1',
+    stateTool: 'get_bubble_chart_state',
+    queryTool: 'query_gapminder_data',
+    tools: ['get_bubble_chart_state', 'set_year', 'zoom_chart', 'hover_country', 'query_gapminder_data'],
+  },
+  '/vega-lite/#seattle-weather': {
+    id: 'UC2',
+    stateTool: 'get_weather_chart_state',
+    queryTool: 'query_weather_data',
+    tools: [
+      'get_weather_chart_state',
+      'brush_date_range',
+      'select_weather_category',
+      'hover_weather_point',
+      'query_weather_data',
+    ],
+  },
+  '/vgplot/#athletes': {
+    id: 'UC3',
+    stateTool: 'get_athlete_dashboard_state',
+    queryTool: 'query_athlete_data',
+    tools: [
+      'get_athlete_dashboard_state',
+      'set_sport_filter',
+      'set_gender_filter',
+      'brush_scatterplot',
+      'sort_table',
+      'query_athlete_data',
+    ],
+  },
+  '/vega-lite/#airports': {
+    id: 'UC4',
+    stateTool: 'get_flight_map_state',
+    queryTool: 'query_flight_data',
+    tools: ['get_flight_map_state', 'select_airport', 'filter_routes', 'hover_route', 'query_flight_data'],
+  },
+  '/cars-parcoords/': {
+    id: 'UC5',
+    stateTool: 'get_pcp_state',
+    queryTool: 'query_cars_data',
+    tools: ['get_pcp_state', 'set_axis_order', 'brush_axis_range', 'clear_brushes', 'query_cars_data'],
+  },
+} satisfies Record<string, PlainMcpUseCaseSpec>;
+
 function buildVacpMcpServerConfig(url: string) {
   const readyTimeoutMs = String(positiveIntOr(VACP_MCP_STARTUP_READY_TIMEOUT_MS, 45_000));
   return {
@@ -251,6 +313,7 @@ function buildVacpMcpServerConfig(url: string) {
       ...VACP_MCP_BASE_COMMAND,
       '--url',
       url,
+      ...mcpBrowserViewportArgs(),
       '--startup-wait-for-bridge',
       '--startup-ready-timeout-ms',
       readyTimeoutMs,
@@ -269,6 +332,7 @@ function buildVacpToolkitMcpServerConfig(url: string) {
       ...VACP_MCP_BASE_COMMAND,
       '--url',
       url,
+      ...mcpBrowserViewportArgs(),
       '--enable-browser-tools',
       '--startup-wait-for-bridge',
       '--startup-ready-timeout-ms',
@@ -285,6 +349,31 @@ function buildVacpToolkitMcpServerConfig(url: string) {
   } as const;
 }
 
+function buildPlainMcpServerConfig(useCase: PlainMcpUseCaseId, url: string) {
+  const readyTimeoutMs = String(positiveIntOr(VACP_MCP_STARTUP_READY_TIMEOUT_MS, 45_000));
+  return {
+    type: 'local',
+    command: [
+      UV_COMMAND,
+      'run',
+      '--project',
+      PLAIN_MCP_PROJECT_DIR,
+      'plain-mcp',
+      useCase,
+      '--stdio',
+      '--headless',
+      '--url',
+      url,
+      ...mcpBrowserViewportArgs(),
+      '--startup-wait-for-bridge',
+      '--startup-ready-timeout-ms',
+      readyTimeoutMs,
+    ],
+    timeout: DEFAULT_MCP_TIMEOUT_MS,
+    environment: { PYTHONUNBUFFERED: '1' },
+  } as const;
+}
+
 type SetupCommand = {
   label: string;
   command: string;
@@ -295,6 +384,15 @@ type SetupCommand = {
 
 function positiveIntOr(value: number, fallback: number) {
   return Number.isFinite(value) && value > 0 ? Math.floor(value) : fallback;
+}
+
+function mcpBrowserViewportArgs() {
+  return [
+    '--screen-width',
+    String(BROWSER_VIEWPORT_WIDTH_PX),
+    '--screen-height',
+    String(BROWSER_VIEWPORT_HEIGHT_PX),
+  ] as const;
 }
 
 async function runSetupCommand(cmd: SetupCommand) {
@@ -335,6 +433,21 @@ async function preopenScenarioWithAgentBrowser(ctx: BeforePromptContext) {
   const maxAttempts = positiveIntOr(AGENT_BROWSER_SETUP_MAX_ATTEMPTS, 5);
   const step00Path = resolveRunArtifactPath(ctx, CHART_READY_SCREENSHOT_NAME);
   const attemptNotes: string[] = [];
+
+  await runSetupCommand({
+    label: 'agent-browser set viewport',
+    command: AGENT_BROWSER,
+    args: [
+      'set',
+      'viewport',
+      String(BROWSER_VIEWPORT_WIDTH_PX),
+      String(BROWSER_VIEWPORT_HEIGHT_PX),
+      '--session',
+      sessionID,
+    ],
+    timeoutMs: openTimeoutMs,
+    signal: ctx.abortSignal,
+  });
 
   await runSetupCommand({
     label: 'agent-browser open',
@@ -550,6 +663,7 @@ async function onBeforePromptSetup(ctx: BeforePromptContext) {
   if (
     ctx.job.experiment === 'baseline' ||
     ctx.job.experiment === 'with-snapshot' ||
+    ctx.job.experiment === 'partial-toolkit' ||
     ctx.job.experiment === 'full-toolkit'
   ) {
     await preopenScenarioWithAgentBrowser(ctx);
@@ -568,7 +682,7 @@ function buildBaselineJobs() {
           url: buildScenarioUrl({
             route: scenario.route,
             hash: scenario.hash,
-            query: { 'expose-bridge': '0', 'vacp-dom-snapshot': '0', 'vacp-debug': '0' },
+            query: { 'expose-bridge': '0', 'vacp-dom-snapshot': '0', 'vacp-debug': '0', 'enable-sql': '1' },
           }),
           task: scenario.task,
           responseFormat: scenario.responseFormat,
@@ -621,7 +735,7 @@ function buildSnapshotInjectedJobs() {
           url: buildScenarioUrl({
             route: scenario.route,
             hash: scenario.hash,
-            query: { 'expose-bridge': '0', 'vacp-dom-snapshot': '1', 'vacp-debug': '0' },
+            query: { 'expose-bridge': '0', 'vacp-dom-snapshot': '1', 'vacp-debug': '0', 'enable-sql': '1' },
           }),
           task: scenario.task,
           responseFormat: scenario.responseFormat,
@@ -678,7 +792,7 @@ function buildPureVACPJobs() {
       const url = buildScenarioUrl({
         route: scenario.route,
         hash: scenario.hash,
-        query: { 'expose-bridge': '1', 'vacp-dom-snapshot': '0', 'vacp-debug': '0' },
+        query: { 'expose-bridge': '1', 'vacp-dom-snapshot': '0', 'vacp-debug': '0', 'enable-sql': '1' },
       });
       jobs.push({
         experiment: 'pure-vacp',
@@ -747,7 +861,87 @@ function buildPureVACPJobs() {
   return jobs;
 }
 
-function buildFullToolkitJobs() {
+function plainMcpUseCaseForScenario(scenario: (typeof SCENARIO_BASES)[number]) {
+  const key = scenario.hash ? `${scenario.route}#${scenario.hash}` : scenario.route;
+  const spec = (PLAIN_MCP_USE_CASE_BY_SCENARIO as Record<string, PlainMcpUseCaseSpec>)[key];
+  if (!spec) throw new Error(`No plain MCP use case mapped for scenario route ${key}`);
+  return spec;
+}
+
+function buildPlainMCPJobs() {
+  const jobs: ArenaJob[] = [];
+  for (const model of MODELS) {
+    for (const scenario of SCENARIO_BASES) {
+      const useCase = plainMcpUseCaseForScenario(scenario);
+      const url = buildScenarioUrl({
+        route: scenario.route,
+        hash: scenario.hash,
+        query: { 'expose-bridge': '1', 'vacp-dom-snapshot': '0', 'vacp-debug': '0', 'enable-sql': '1' },
+      });
+      const toolIds = useCase.tools.map((tool) => mcpToolId(PLAIN_MCP_SERVER_NAME, tool));
+      const stateTool = mcpToolId(PLAIN_MCP_SERVER_NAME, useCase.stateTool);
+      const queryTool = mcpToolId(PLAIN_MCP_SERVER_NAME, useCase.queryTool);
+      jobs.push({
+        experiment: 'plain-mcp',
+        model,
+        scenario: { id: scenario.id, url, task: scenario.task, responseFormat: scenario.responseFormat },
+        toolPolicy: {
+          mode: 'allow',
+          ids: toolIds.map((tool) => `functions.${tool}`),
+        },
+        mcp: {
+          servers: { [PLAIN_MCP_SERVER_NAME]: buildPlainMcpServerConfig(useCase.id, url) },
+          allow: [],
+        },
+        promptTemplate: (ctx) =>
+          [
+            'Use only the provided semantic visual analytics MCP tools. Do not use shell commands or webfetch.',
+            '',
+            `Task: ${ctx.scenario.task}`,
+            '',
+            'Hard constraints you must follow:',
+            '- Do not attempt to read any local files, repo source, configs, or run artifacts.',
+            '- Use only the provided semantic action tools to interact with the app; do not rely on any other context.',
+            '',
+            'Important:',
+            '- The scenario URL is already open and semantic action readiness is handled before your turn starts.',
+            '- In this run, you cannot take screenshots.',
+            `- Start solving by reading the current state with \`${stateTool}\` before any actions.`,
+            '',
+            ...dataProvenanceGuardrails(),
+            '',
+            ...humanTraceabilityGuidance(),
+            '',
+            'Efficiency guidance with high priority:',
+            `- Keep result sets tiny: prefer aggregations and tight limits when using \`${queryTool}\`.`,
+            '- Cast numeric-like strings when needed to avoid lexicographic mistakes and reruns.',
+            '',
+            'Interaction style you must follow:',
+            '- Solve the task by gradually changing the visualization state like a human partner would: set params, apply selections, and hover for tooltips.',
+            '- Do NOT jump straight to computations or data extraction before you have set the relevant params/selections in the app.',
+            `- Use \`${queryTool}\` only after the app state matches the question, and primarily to confirm or format the final answer.`,
+            `- Use \`${stateTool}\` to verify key state transitions and to track progress toward the answer.`,
+            '',
+            'Then:',
+            `- Call \`${stateTool}\` to understand the current semantic state.`,
+            '- Use one semantic action at a time.',
+            `- Use \`${stateTool}\` as needed after actions to confirm effects before finalizing the answer.`,
+            '',
+            'Available tools:',
+            ...toolIds.map((tool) => `- \`${tool}\``),
+            '',
+            'If the required interaction is not available via these semantic tools, state what capability is missing.',
+            '',
+            ...finalAnswerFormatBlock(ctx),
+          ].join('\n'),
+      });
+    }
+  }
+
+  return jobs;
+}
+
+function buildToolkitJobs(args: { experiment: 'full-toolkit' | 'partial-toolkit'; enableSql: '0' | '1' }) {
   const jobs: ArenaJob[] = [];
   const tools = {
     openUrl: mcpToolId(VACP_TOOLKIT_MCP_SERVER_NAME, 'vacp_open_url'),
@@ -768,10 +962,10 @@ function buildFullToolkitJobs() {
       const url = buildScenarioUrl({
         route: scenario.route,
         hash: scenario.hash,
-        query: { 'expose-bridge': '1', 'vacp-dom-snapshot': '1', 'vacp-debug': '1' },
+        query: { 'expose-bridge': '1', 'vacp-dom-snapshot': '1', 'vacp-debug': '1', 'enable-sql': args.enableSql },
       });
       jobs.push({
-        experiment: 'full-toolkit',
+        experiment: args.experiment,
         model,
         scenario: { id: scenario.id, url, task: scenario.task, responseFormat: scenario.responseFormat },
         toolPolicy: {
@@ -827,7 +1021,7 @@ function buildFullToolkitJobs() {
             `- Prefer semantic tools (\`${tools.capabilities}\`, \`${tools.state}\`, \`${tools.execute}\`) over browser tools whenever possible.`,
             `- Use browser tools only to accomplish UI interactions not exposed semantically, and keep them minimal.`,
             `- Keep \`${tools.eval}\` outputs tiny; never dump large DOM/snapshot JSON.`,
-            `- Keep \`${tools.state}\` token-efficient: baseline once, then use \`mode:\"delta\"\` with \`since=<latest token>\` and rely on \`changedRefs\` and \`removedRefs\`.`,
+            `- Keep \`${tools.state}\` token-efficient: baseline once, then use \`mode:"delta"\` with \`since=<latest token>\` and rely on \`changedRefs\` and \`removedRefs\`.`,
             '',
             'Important:',
             '- The scenario URL is already open and chart-ready before your turn starts.',
@@ -869,6 +1063,14 @@ function buildFullToolkitJobs() {
   }
 
   return jobs;
+}
+
+function buildFullToolkitJobs() {
+  return buildToolkitJobs({ experiment: 'full-toolkit', enableSql: '1' });
+}
+
+function buildPartialToolkitJobs() {
+  return buildToolkitJobs({ experiment: 'partial-toolkit', enableSql: '0' });
 }
 
 const execFileAsync = promisify(execFile);
@@ -977,6 +1179,8 @@ const runs: ArenaJob[] = [
   ...buildBaselineJobs(),
   ...buildSnapshotInjectedJobs(),
   ...buildPureVACPJobs(),
+  ...buildPlainMCPJobs(),
+  ...buildPartialToolkitJobs(),
   ...buildFullToolkitJobs(),
 ];
 
@@ -986,7 +1190,7 @@ export const config: ArenaConfig = {
   worktreeRoot: false,
   autoApprove: 'always',
   autoQuestion: 'reject',
-  concurrency: { runs: 4 },
+  concurrency: { runs: 3 },
   timeouts: {
     setupMs: positiveIntOr(AGENT_BROWSER_SETUP_OPEN_TIMEOUT_MS + AGENT_BROWSER_SETUP_WAIT_TIMEOUT_MS + 10_000, 90_000),
     promptMs: 20 * 60_000,
