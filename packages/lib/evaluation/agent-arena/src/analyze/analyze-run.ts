@@ -2,6 +2,7 @@ import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import crypto from 'node:crypto';
+import { fileURLToPath } from 'node:url';
 import { createJiti } from 'jiti';
 import type { Dirent } from 'node:fs';
 import { JsonArrayWriter } from './json-array.js';
@@ -855,7 +856,7 @@ function escapeRegExp(value: string) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
-async function loadScenarioJudges(configPathRaw?: string) {
+export async function loadScenarioJudges(configPathRaw?: string) {
   const configPath = await resolveDefaultConfigPath(configPathRaw);
   if (!configPath) return null;
 
@@ -863,8 +864,8 @@ async function loadScenarioJudges(configPathRaw?: string) {
   if (!rawConfig) return null;
   const configHash = crypto.createHash('sha256').update(rawConfig).digest('hex');
 
-  const scenariosPath = path.join(path.dirname(configPath), 'agent-arena.scenarios.ts');
-  const rawScenarios = await readFileOptional(scenariosPath);
+  const scenariosPath = await resolveScenarioFile(configPath);
+  const rawScenarios = scenariosPath ? await readFileOptional(scenariosPath) : null;
   const scenariosHash = rawScenarios ? crypto.createHash('sha256').update(rawScenarios).digest('hex') : null;
 
   // Avoid any runtime preflight checks in the arena config during analysis.
@@ -875,39 +876,24 @@ async function loadScenarioJudges(configPathRaw?: string) {
   try {
     mod = await jiti.import(configPath);
   } catch {
+    const judges = collectScenarioJudges(await importScenarioBases(jiti, scenariosPath));
     // Scoring is best-effort; allow analysis to proceed without solutions.
     return {
       configPath,
       configHash,
       scenariosPath: rawScenarios ? scenariosPath : null,
       scenariosHash,
-      judges: new Map<string, unknown>(),
+      judges,
       pricingByModel: new Map<string, ModelPricing>(),
     };
   }
 
   const pricingByModel = collectModelPricing(mod);
 
-  const bases = (mod as any)?.SCENARIO_BASES;
-  if (!Array.isArray(bases)) {
-    return {
-      configPath,
-      configHash,
-      scenariosPath: rawScenarios ? scenariosPath : null,
-      scenariosHash,
-      judges: new Map<string, unknown>(),
-      pricingByModel,
-    };
-  }
-
-  const judges = new Map<string, unknown>();
-  for (const s of bases) {
-    if (!s || typeof s !== 'object') continue;
-    const id = typeof (s as any).id === 'string' ? String((s as any).id) : '';
-    if (!id) continue;
-    const judge = (s as any).judge;
-    if (typeof judge === 'function') judges.set(id, judge);
-  }
+  const bases = Array.isArray((mod as any)?.SCENARIO_BASES)
+    ? ((mod as any).SCENARIO_BASES as unknown[])
+    : await importScenarioBases(jiti, scenariosPath);
+  const judges = collectScenarioJudges(bases);
 
   return {
     configPath,
@@ -917,6 +903,46 @@ async function loadScenarioJudges(configPathRaw?: string) {
     judges,
     pricingByModel,
   };
+}
+
+function collectScenarioJudges(bases: unknown[] | null) {
+  const judges = new Map<string, unknown>();
+  if (!Array.isArray(bases)) return judges;
+  for (const s of bases) {
+    if (!s || typeof s !== 'object') continue;
+    const id = typeof (s as any).id === 'string' ? String((s as any).id) : '';
+    if (!id) continue;
+    const judge = (s as any).judge;
+    if (typeof judge === 'function') judges.set(id, judge);
+  }
+  return judges;
+}
+
+async function importScenarioBases(jiti: ReturnType<typeof createJiti>, scenariosPath: string | null) {
+  if (!scenariosPath) return null;
+  try {
+    const mod = await jiti.import(scenariosPath);
+    const bases = (mod as any)?.SCENARIO_BASES;
+    return Array.isArray(bases) ? (bases as unknown[]) : null;
+  } catch {
+    return null;
+  }
+}
+
+async function resolveScenarioFile(configPath: string) {
+  const candidates = [
+    path.join(path.dirname(configPath), 'agent-arena.scenarios.ts'),
+    path.join(agentArenaPackageRoot(), 'agent-arena.scenarios.ts'),
+  ];
+  for (const candidate of candidates) {
+    const raw = await readFileOptional(candidate);
+    if (raw !== null) return candidate;
+  }
+  return null;
+}
+
+function agentArenaPackageRoot() {
+  return path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 }
 
 function collectModelPricing(mod: unknown) {
