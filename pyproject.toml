@@ -2,6 +2,7 @@
 members = [
     "packages/lib/transports/mcp-server",
     "packages/lib/evaluation/plain-mcp",
+    "packages/lib/evaluation/arena-analyis",
 ]
 
 [dependency-groups]

@@ -1,20 +1,7 @@
-# /// script
-# dependencies = [
-#     "altair==6.0.0",
-#     "duckdb==1.4.4",
-#     "marimo",
-#     "polars==1.38.1",
-#     "pyarrow==23.0.1",
-#     "pydantic-ai==1.62.0",
-#     "sqlglot==28.10.1",
-# ]
-# requires-python = ">=3.13"
-# ///
-
 import marimo
 
-__generated_with = "0.20.2"
-app = marimo.App(width="columns")
+__generated_with = '0.20.2'
+app = marimo.App(width='columns')
 
 
 @app.cell(column=0, hide_code=True)
@@ -27,16 +14,16 @@ def _(mo):
 
 @app.cell(hide_code=True)
 def _(mo, states_df):
-    turns = mo.sql(
-        f"""
+    mo.sql(
+        """
         SELECT
           DENSE_RANK() OVER (
-            ORDER BY runs_started_at, experiment, scenario_id, model_provider, model_name
-          ) AS run_id,
+            ORDER BY run_id, experiment, scenario_id, model_provider, model_name
+          ) AS session_id,
           *
         FROM states_df;
         """,
-        output=False
+        output=False,
     )
     return
 
@@ -50,7 +37,7 @@ def _(mo):
 
 
 @app.cell(hide_code=True)
-def _(SOLVED_LABEL_MAP, alt, markov_df, mo, pl, with_nice_labels):
+def _(SOLVED_LABEL_MAP, SOLVED_ORDER, alt, markov_df, mo, pl, with_nice_labels):
     def create_markov_chart(df: pl.DataFrame) -> alt.Chart:
         return (
             alt.Chart(with_nice_labels(df))
@@ -80,7 +67,6 @@ def _(SOLVED_LABEL_MAP, alt, markov_df, mo, pl, with_nice_labels):
             .properties(width=200, height=200)
         )
 
-
     charts = [
         mo.vstack(
             [
@@ -89,7 +75,7 @@ def _(SOLVED_LABEL_MAP, alt, markov_df, mo, pl, with_nice_labels):
             ],
             align='center',
         )
-        for solved in SOLVED_LABEL_MAP
+        for solved in SOLVED_ORDER
     ]
     mo.hstack(charts)
     return
@@ -98,18 +84,19 @@ def _(SOLVED_LABEL_MAP, alt, markov_df, mo, pl, with_nice_labels):
 @app.cell(hide_code=True)
 def _(mo, states_df):
     markov_df = mo.sql(
-        f"""
+        """
         WITH
             runs_with_id AS (
-                -- Step 1: Assign a unique run_id and carry the key partitioning columns forward.
+                -- Step 1: Assign a unique session_id and carry the key partitioning columns forward.
                 SELECT
                     DENSE_RANK () OVER (
                         ORDER BY
-                            runs_started_at,
+                            run_id,
                             experiment,
                             scenario_id,
                             model_name
-                    ) AS run_id,
+                    ) AS session_id,
+                    run_id,
                     experiment,
                     model_name,
                     turn,
@@ -118,7 +105,7 @@ def _(mo, states_df):
                     -- Propagate the 'solved' status for the entire run to each of its turns.
                     BOOL_OR(solved) OVER (
                         PARTITION BY
-                            runs_started_at,
+                            run_id,
                             experiment,
                             scenario_id,
                             model_name
@@ -127,23 +114,23 @@ def _(mo, states_df):
                     states_df -- Your flattened DataFrame
             ),
             state_transitions AS (
-                -- Step 2: Use LEAD() to find the next state, partitioned by the unique run_id.
+                -- Step 2: Use LEAD() to find the next state, partitioned by the unique session_id.
                 SELECT
-                    run_id,
+                    session_id,
                     experiment,
                     model_name,
                     solved_status,
                     stratum || '-' || phase AS current_state,
                     LEAD (stratum || '-' || phase) OVER (
                         PARTITION BY
-                            run_id
+                            session_id
                         ORDER BY
                             turn
                     ) AS next_state
                 FROM
                     runs_with_id
             )
-            -- Final Aggregation: Count transitions and calculate probabilities, now partitioned by experiment, model, and solved status.
+            -- Count transition probabilities by experiment, model, and solved status.
         SELECT
             experiment,
             model_name,
@@ -180,7 +167,7 @@ def _(mo, states_df):
             current_state,
             transition_count DESC;
         """,
-        output=False
+        output=False,
     )
     return (markov_df,)
 
@@ -222,14 +209,15 @@ def _(alt, failure_adaption_df, with_nice_labels):
 @app.cell(hide_code=True)
 def _(mo, states_df):
     failure_adaption_df = mo.sql(
-        f"""
+        """
         WITH 
             runs_with_id AS (
-                -- Step 1: Assign a unique ID to each individual experimental run. This is essential for correct window function partitioning.
+                -- Assign one ID per experimental run for window function partitioning.
                 SELECT 
                     DENSE_RANK() OVER (
-                        ORDER BY runs_started_at, experiment, scenario_id, model_name
-                    ) AS run_id,
+                        ORDER BY run_id, experiment, scenario_id, model_name
+                    ) AS session_id,
+                    run_id,
                     solved,
                     turn,
                     outcome,
@@ -241,13 +229,13 @@ def _(mo, states_df):
             failure_reactions AS (
                 -- Step 2: For each turn, find the 'shift' of the *next* turn within the same run.
                 SELECT 
-                    run_id,
+                    session_id,
                     model_name,
                     experiment,
                     solved,
                     outcome,
                     -- The 'reaction_shift' is the agent's strategic pivot on the turn immediately following a failure.
-                    LEAD(shift) OVER (PARTITION BY run_id ORDER BY turn) AS reaction_shift
+                    LEAD(shift) OVER (PARTITION BY session_id ORDER BY turn) AS reaction_shift
                 FROM runs_with_id
             )
         -- Final Aggregation: Count the types of shifts that follow failures, and partition by success status.
@@ -257,7 +245,7 @@ def _(mo, states_df):
             solved,         -- The key dimension for comparison
             reaction_shift AS shift,
             COUNT(*) AS shift_count,
-            -- Calculate the percentage of this shift type for this specific group (e.g., all SOLVED baseline GPT failures)
+            -- Calculate this shift type percentage for the current group.
             ROUND(
                 COUNT(*) * 100.0 / SUM(COUNT(*)) OVER (
                     PARTITION BY 
@@ -282,7 +270,7 @@ def _(mo, states_df):
             solved,
             shift_count DESC;
         """,
-        output=False
+        output=False,
     )
     return (failure_adaption_df,)
 
@@ -324,7 +312,7 @@ def _(alt, stratum_pct_df, with_nice_labels):
 @app.cell(hide_code=True)
 def _(mo, states_df):
     stratum_pct_df = mo.sql(
-        f"""
+        """
         SELECT 
             experiment,
             model_name,
@@ -354,7 +342,7 @@ def _(mo, states_df):
             solved,      -- Ordering by 'solved' makes the output easy to compare
             pct_in_stratum DESC;
         """,
-        output=False
+        output=False,
     )
     return (stratum_pct_df,)
 
@@ -381,30 +369,20 @@ def _(mo):
 def _(STATES_FILES, json, pl, runs_df):
     states_df = (
         pl.from_dicts(
-            [
-                {'path': str(p), 'states': json.loads(p.read_text())}
-                for p in STATES_FILES
-            ],
+            [{'path': str(p), 'states': json.loads(p.read_text())} for p in STATES_FILES],
             strict=False,
         )
         .select(
-            runs_started_at=pl.col('path')
-            .str.extract(r'(\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}-\d{3}Z)')
-            .str.replace('-\d{3}Z', '')
-            .str.to_datetime('%Y-%m-%dT%H-%M-%S', time_zone='UTC'),
+            run_id=pl.col('path').str.extract(r'/\.agent-arena/runs/([^/]+)/runs/'),
             experiment=pl.col('path').str.extract(r'/experiment=(.+)/scenario'),
-            scenario_id=pl.col('path').str.extract(
-                r'/scenario=(.+)/modelProvider'
-            ),
-            model_provider=pl.col('path').str.extract(
-                r'/modelProvider=(.+)/modelName'
-            ),
+            scenario_id=pl.col('path').str.extract(r'/scenario=(.+)/modelProvider'),
+            model_provider=pl.col('path').str.extract(r'/modelProvider=(.+)/modelName'),
             model_name=pl.col('path').str.extract(r'/modelName=(.+)/states.json'),
             states='states',
         )
         .join(
             runs_df.select(
-                'runs_started_at',
+                'run_id',
                 'experiment',
                 'scenario_id',
                 'model_provider',
@@ -412,7 +390,7 @@ def _(STATES_FILES, json, pl, runs_df):
                 'solved',
             ),
             on=[
-                'runs_started_at',
+                'run_id',
                 'experiment',
                 'scenario_id',
                 'model_provider',
@@ -422,7 +400,6 @@ def _(STATES_FILES, json, pl, runs_df):
         .explode('states')
         .unnest('states')
     )
-    states_df
     return (states_df,)
 
 
@@ -439,37 +416,26 @@ def _(mo):
 @app.cell(hide_code=True)
 def _(RUNS_ROOT, RUN_FILES, json, pl):
     runs_df = (
-        (
-            pl.from_dicts(
-                [
-                    {
-                        'path': str(p),
-                        'runs': json.loads(p.read_text()),
-                    }
-                    for p in RUN_FILES
-                ],
-                strict=False,
-            )
-            .select(
-                runs_started_at=pl.col('path')
-                .str.replace(str(RUNS_ROOT.absolute()), '')
-                .str.split('/')
-                .list.get(1)
-                .str.replace('-\d{3}Z', '')
-                .str.to_datetime('%Y-%m-%dT%H-%M-%S', time_zone='UTC'),
-                runs='runs',
-            )
-            .explode('runs')
-            .unnest('runs')
+        pl.from_dicts(
+            [
+                {
+                    'path': str(p),
+                    'runs': json.loads(p.read_text()),
+                }
+                for p in RUN_FILES
+            ],
+            strict=False,
         )
-        .with_columns(
-            model_name=pl.col('model_name').str.replace(':', '-'),
-            solved=(pl.col('solved_strict') | pl.col('solved_semantic')).fill_null(
-                False
-            ),
+        .select(
+            run_id=pl.col('path').str.replace(str(RUNS_ROOT.absolute()), '').str.split('/').list.get(1),
+            runs='runs',
         )
+        .explode('runs')
+        .unnest('runs')
+    ).with_columns(
+        model_name=pl.col('model_name').str.replace(':', '-'),
+        solved=(pl.col('solved_strict') | pl.col('solved_semantic')).fill_null(False),
     )
-    runs_df
     return (runs_df,)
 
 
@@ -479,6 +445,7 @@ def _():
         'anthropic.claude-sonnet-4-5-20250929-v1-0': 'Claude Sonnet 4.5',
         'gemini-3-pro-preview': 'Gemini 3 Pro',
         'gpt-5.2': 'GPT 5.2',
+        'gpt-5.4': 'GPT 5.4',
     }
     STRATUM_LABEL_MAP = {
         'SEM': 'Semantic',
@@ -500,6 +467,7 @@ def _():
         'true': '✅ Solved',
         'false': '❌ Failed',
     }
+    SOLVED_ORDER = [True, False]
     LABEL_MAPS = {
         'model_name': MODEL_LABEL_MAP,
         'stratum': STRATUM_LABEL_MAP,
@@ -507,7 +475,7 @@ def _():
         'shift': SHIFT_LABEL_MAP,
         'solved': SOLVED_LABEL_MAP,
     }
-    return LABEL_MAPS, SOLVED_LABEL_MAP
+    return LABEL_MAPS, SOLVED_LABEL_MAP, SOLVED_ORDER
 
 
 @app.cell(hide_code=True)
@@ -524,20 +492,8 @@ def _(LABEL_MAPS, pl):
 
 
 @app.cell(hide_code=True)
-def _(ARENA_ROOT, RUNS_ROOT):
-    RUN_PATH_MAP = {
-        '-'.join(str(d).split('/')[-1].split('-')[:-1]): str(
-            d.relative_to(ARENA_ROOT)
-        )
-        for d in RUNS_ROOT.glob('*')
-        if d.is_dir()
-    }
-    return
-
-
-@app.cell(hide_code=True)
 def _(pathlib):
-    ARENA_ROOT = pathlib.Path(__file__).parent.parent
+    ARENA_ROOT = pathlib.Path(__file__).parents[2] / 'agent-arena'
     RUNS_ROOT = ARENA_ROOT / '.agent-arena' / 'runs'
     RUN_FILES = sorted(RUNS_ROOT.glob('*/analysis/datasets/runs_normalized.json'))
     STATES_FILES = sorted(RUNS_ROOT.glob('*/runs/*/*/*/*/states.json'))
@@ -546,15 +502,15 @@ def _(pathlib):
 
 @app.cell(hide_code=True)
 def _():
+    import json
+    import pathlib
+
+    import altair as alt
     import marimo as mo
     import polars as pl
-    import pathlib
-    import json
-    import re
-    import altair as alt
 
     return alt, json, mo, pathlib, pl
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     app.run()
