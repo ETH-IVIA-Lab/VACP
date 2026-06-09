@@ -148,7 +148,7 @@ class _GapminderHoverRuntime(_StateRuntime):
 
 
 @pytest.mark.asyncio
-async def test_weather_aggregate_query_reports_all_applied_criteria() -> None:
+async def test_weather_aggregate_query_reports_all_applied_filters() -> None:
     runtime = _SqlRuntime()
     query_weather_data = make_query_weather_data(cast(PlainMcpRuntime, runtime))
 
@@ -159,12 +159,14 @@ async def test_weather_aggregate_query_reports_all_applied_criteria() -> None:
         limit=10,
     )
 
-    assert result['criteria'] == {
+    assert result['filters'] == {
         'category': 'rain',
         'minTempMax': 10,
         'aggregate': 'count_by_weather',
         'limit': 10,
     }
+    assert result['columns'] == ['weather', 'count']
+    assert result['rowCount'] == 1
     assert runtime.calls[0][0] == DATA_REF
     assert runtime.calls[0][2] == 10
 
@@ -192,7 +194,7 @@ async def test_weather_query_uses_remembered_brush_when_dates_are_omitted() -> N
 
     sql = runtime.calls[0][1]
     assert 'monthdate_date BETWEEN' in sql
-    assert as_dict(result.get('criteria')) == {
+    assert as_dict(result.get('filters')) == {
         'startDate': '02-01',
         'endDate': '04-30',
         'aggregate': 'count_by_weather',
@@ -236,7 +238,7 @@ async def test_gapminder_query_uses_current_year_when_year_is_omitted() -> None:
 
     sql = runtime.calls[0][1]
     assert 'year = 2000' in sql
-    assert as_dict(result.get('criteria')).get('year') == 2000
+    assert as_dict(result.get('filters')).get('year') == 2000
 
 
 @pytest.mark.asyncio
@@ -257,7 +259,8 @@ async def test_route_filter_preserves_zero_min_count() -> None:
 
     result = await filter_routes(min_count=0)
 
-    assert as_dict(result.get('routeFilter')) == {'minCount': 0}
+    assert result['status'] == 'ok'
+    assert as_dict(as_dict(result.get('state')).get('routeFilter')) == {'minCount': 0}
 
 
 @pytest.mark.asyncio
@@ -268,7 +271,7 @@ async def test_flight_query_uses_selected_airport_as_origin() -> None:
 
     result = await query_flight_data()
 
-    assert as_dict(result.get('criteria')).get('origin') == 'SFO'
+    assert as_dict(result.get('filters')).get('origin') == 'SFO'
     assert runtime.sql_calls[0] == (AIRPORTS_REF, 'SELECT 1 FROM vacp_all LIMIT 1', 1)
     handle_ref, sql, _max_rows = runtime.sql_calls[1]
     assert handle_ref == ROUTES_REF

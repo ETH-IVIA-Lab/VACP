@@ -7,12 +7,13 @@ from pydantic import Field
 from plain_mcp.protocol import ToolCallable, ToolSpec, UseCaseSpec
 from plain_mcp.runtime import JsonDict, PlainMcpRuntime, as_dict
 from plain_mcp.sql import (
+    action_response,
     clean_limit,
+    data_response,
     numeric_range,
     sql_literal,
     string_equals,
     where_clause,
-    with_criteria,
 )
 
 CLICK_REF = 'vacp://vacp-examples/vega-lite/seattle-weather/seattle-weather/param/click'
@@ -32,6 +33,41 @@ class DateBounds(TypedDict):
     endDateText: str
     startHasYear: bool
     endHasYear: bool
+
+
+def _selected_category(value: object, remembered: object | None) -> object | None:
+    if isinstance(remembered, str) and remembered:
+        return remembered
+    if isinstance(value, dict):
+        typed = cast(dict[str, object], value)
+        category = typed.get('weather')
+        if isinstance(category, str) and category:
+            return category
+    return None
+
+
+def _date_brush(value: object, remembered: object | None) -> JsonDict:
+    if isinstance(remembered, dict):
+        typed_remembered = cast(dict[str, object], remembered)
+        start = typed_remembered.get('startDate')
+        end = typed_remembered.get('endDate')
+        if start or end:
+            return {'startDate': start, 'endDate': end}
+    if not isinstance(value, dict):
+        return {}
+    typed = cast(dict[str, object], value)
+    raw_range = typed.get('date') or typed.get('monthdate_date') or typed.get('x')
+    if isinstance(raw_range, list) and len(raw_range) == 2:
+        return {'range': raw_range}
+    return {}
+
+
+def _hover_summary(value: object | None) -> JsonDict | None:
+    if not isinstance(value, dict):
+        return None
+    typed = cast(dict[str, object], value)
+    summary = {key: typed.get(key) for key in ('date', 'weather') if typed.get(key) is not None}
+    return summary or None
 
 
 async def _date_bounds(runtime: PlainMcpRuntime, start: str, end: str) -> DateBounds:
@@ -127,12 +163,10 @@ async def _weather_state(runtime: PlainMcpRuntime) -> JsonDict:
     snapshot = await runtime.state()
     category = runtime.state_entry(snapshot, CLICK_REF)
     brush = runtime.state_entry(snapshot, BRUSH_REF)
-    data = runtime.state_entry(snapshot, DATA_REF)
     return {
-        'category': category.get('value', {}),
-        'dateBrush': brush.get('value', {}),
-        'hover': runtime.recall('seattle_weather.hover'),
-        'data': {'selectedMeaning': data.get('selectedMeaning')},
+        'category': _selected_category(category.get('value'), runtime.recall('seattle_weather.category')),
+        'dateBrush': _date_brush(brush.get('value'), runtime.recall('seattle_weather.brush')),
+        'hover': _hover_summary(runtime.recall('seattle_weather.hover')),
     }
 
 
@@ -158,7 +192,11 @@ def make_brush_date_range(runtime: PlainMcpRuntime) -> ToolCallable:
         }
         await runtime.execute('vega_lite.set_selection', {'ref': BRUSH_REF, 'value': value})
         runtime.remember('seattle_weather.brush', {'startDate': start_date, 'endDate': end_date})
-        return await _weather_state(runtime)
+        return action_response(
+            'brush_date_range',
+            await _weather_state(runtime),
+            details={'startDate': start_date, 'endDate': end_date},
+        )
 
     return brush_date_range
 
@@ -168,7 +206,7 @@ def make_select_weather_category(runtime: PlainMcpRuntime) -> ToolCallable:
         """Select one weather category in the bar legend."""
         await runtime.execute('vega_lite.set_selection', {'ref': CLICK_REF, 'value': {'weather': category}})
         runtime.remember('seattle_weather.category', category)
-        return await _weather_state(runtime)
+        return action_response('select_weather_category', await _weather_state(runtime), details={'category': category})
 
     return select_weather_category
 
@@ -202,8 +240,8 @@ def make_hover_weather_point(runtime: PlainMcpRuntime) -> ToolCallable:
         hover = {'date': row.get('date'), 'weather': row.get('weather'), 'row': row}
         runtime.remember('seattle_weather.hover', hover)
         state = await _weather_state(runtime)
-        state['hover'] = hover
-        return state
+        state['hover'] = _hover_summary(hover)
+        return action_response('hover_weather_point', state, details={'row': row})
 
     return hover_weather_point
 
@@ -250,7 +288,7 @@ def make_query_weather_data(runtime: PlainMcpRuntime) -> ToolCallable:
             'TRY_CAST(wind AS DOUBLE) AS wind FROM vacp_all)'
         )
         max_rows = clean_limit(limit)
-        criteria = {
+        filters = {
             'category': category_value,
             'startDate': start_date_value,
             'endDate': end_date_value,
@@ -265,21 +303,21 @@ def make_query_weather_data(runtime: PlainMcpRuntime) -> ToolCallable:
                 f'GROUP BY weather ORDER BY count DESC LIMIT {max_rows}'
             )
             result = await runtime.sql(DATA_REF, sql, max_rows=max_rows)
-            return with_criteria(result, criteria)
+            return data_response(result, filters, note='Daily record counts grouped by weather category.')
         if aggregate == 'extreme_temp_max_by_weather':
             sql = (
                 f'{normalized} SELECT weather, MAX(temp_max) AS max_temp_max FROM normalized{where_clause(clauses)} '
                 f'GROUP BY weather ORDER BY max_temp_max DESC LIMIT {max_rows}'
             )
             result = await runtime.sql(DATA_REF, sql, max_rows=max_rows)
-            return with_criteria(result, criteria)
+            return data_response(result, filters, note='Maximum high temperature grouped by weather category.')
 
         sql = (
             f'{normalized}, filtered AS (SELECT * FROM normalized{where_clause(clauses)}) '
             f'SELECT * FROM filtered ORDER BY date LIMIT {max_rows}'
         )
         result = await runtime.sql(DATA_REF, sql, max_rows=max_rows)
-        return with_criteria(result, criteria)
+        return data_response(result, filters, note='Seattle weather rows matching the requested filters.')
 
     return query_weather_data
 

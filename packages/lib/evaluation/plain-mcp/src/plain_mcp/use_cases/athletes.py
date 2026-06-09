@@ -6,7 +6,15 @@ from pydantic import Field
 
 from plain_mcp.protocol import ToolCallable, ToolSpec, UseCaseSpec
 from plain_mcp.runtime import JsonDict, PlainMcpRuntime
-from plain_mcp.sql import SortDirection, lower_like, numeric_range, select_query, string_equals, with_criteria
+from plain_mcp.sql import (
+    SortDirection,
+    action_response,
+    data_response,
+    lower_like,
+    numeric_range,
+    select_query,
+    string_equals,
+)
 
 SPORT_REF = 'vacp://vacp-examples/vgplot/athletes/input/0'
 GENDER_REF = 'vacp://vacp-examples/vgplot/athletes/input/1'
@@ -25,6 +33,21 @@ def _gender_value(gender: AthleteGender) -> str:
     return '' if gender == 'all' else gender
 
 
+def _brush_summary(value: JsonDict) -> JsonDict:
+    summary: JsonDict = {}
+    for source, target in (
+        ('x0', 'minWeight'),
+        ('x1', 'maxWeight'),
+        ('y0', 'minHeight'),
+        ('y1', 'maxHeight'),
+    ):
+        if source in value:
+            summary[target] = value[source]
+    if summary:
+        return summary
+    return {key: value for key, value in value.items() if key not in {'kind', 'plotId'}}
+
+
 async def _dashboard_state(runtime: PlainMcpRuntime) -> JsonDict:
     snapshot = await runtime.state()
     sport = runtime.state_entry(snapshot, SPORT_REF)
@@ -32,21 +55,19 @@ async def _dashboard_state(runtime: PlainMcpRuntime) -> JsonDict:
     name = runtime.state_entry(snapshot, NAME_REF)
     brush = runtime.state_entry(snapshot, SCATTER_REF)
     table = runtime.state_entry(snapshot, TABLE_REF)
-    data = runtime.state_entry(snapshot, DATA_REF)
     return {
         'filters': {
             'sport': sport.get('value') or 'all',
             'gender': gender.get('value') or 'all',
             'name': name.get('value') or '',
         },
-        'brush': {key: value for key, value in brush.items() if key not in {'kind', 'plotId'}},
+        'brush': _brush_summary(brush),
         'table': {
             'sortColumn': table.get('sortColumn'),
             'sortDirection': 'desc' if table.get('sortDesc') else 'asc',
             'offset': table.get('offset'),
             'limit': table.get('limit'),
         },
-        'data': {'selectedMeaning': data.get('selectedMeaning')},
     }
 
 
@@ -65,7 +86,7 @@ def make_set_sport_filter(runtime: PlainMcpRuntime) -> ToolCallable:
         """Set the athlete sport menu."""
         value = '' if sport.strip().lower() == 'all' else sport.strip().lower()
         await runtime.execute('vgplot.set_input_value', {'ref': SPORT_REF, 'value': value})
-        return await _dashboard_state(runtime)
+        return action_response('set_sport_filter', await _dashboard_state(runtime), details={'sport': sport})
 
     return set_sport_filter
 
@@ -74,7 +95,7 @@ def make_set_gender_filter(runtime: PlainMcpRuntime) -> ToolCallable:
     async def set_gender_filter(gender: AthleteGender) -> JsonDict:
         """Set the athlete sex menu."""
         await runtime.execute('vgplot.set_input_value', {'ref': GENDER_REF, 'value': _gender_value(gender)})
-        return await _dashboard_state(runtime)
+        return action_response('set_gender_filter', await _dashboard_state(runtime), details={'gender': gender})
 
     return set_gender_filter
 
@@ -95,7 +116,11 @@ def make_brush_scatterplot(runtime: PlainMcpRuntime) -> ToolCallable:
             'vgplot.set_interval_2d',
             {'plotId': 'plot-0', 'interactorId': '0', 'x0': x0, 'x1': x1, 'y0': y0, 'y1': y1},
         )
-        return await _dashboard_state(runtime)
+        return action_response(
+            'brush_scatterplot',
+            await _dashboard_state(runtime),
+            details={'minWeight': x0, 'maxWeight': x1, 'minHeight': y0, 'maxHeight': y1},
+        )
 
     return brush_scatterplot
 
@@ -107,7 +132,9 @@ def make_sort_table(runtime: PlainMcpRuntime) -> ToolCallable:
             'vgplot.table_set_sort',
             {'tableId': 'table-0', 'column': column, 'desc': direction == 'desc'},
         )
-        return await _dashboard_state(runtime)
+        return action_response(
+            'sort_table', await _dashboard_state(runtime), details={'column': column, 'direction': direction}
+        )
 
     return sort_table
 
@@ -143,7 +170,7 @@ def make_query_athlete_data(runtime: PlainMcpRuntime) -> ToolCallable:
             limit=limit,
             source='vacp_handle',
         )
-        criteria = {
+        filters = {
             'sport': sport,
             'gender': gender,
             'nameContains': name_contains,
@@ -156,7 +183,7 @@ def make_query_athlete_data(runtime: PlainMcpRuntime) -> ToolCallable:
             'limit': limit,
         }
         result = await runtime.sql(DATA_REF, sql, max_rows=limit)
-        return with_criteria(result, criteria)
+        return data_response(result, filters, note='Athlete rows matching the requested dashboard filters.')
 
     return query_athlete_data
 

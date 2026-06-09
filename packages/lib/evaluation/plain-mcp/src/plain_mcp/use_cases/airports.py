@@ -1,13 +1,15 @@
 from __future__ import annotations
 
-from typing import Annotated
+from typing import Annotated, cast
 
 from pydantic import Field
 
 from plain_mcp.protocol import ToolCallable, ToolSpec, UseCaseSpec
 from plain_mcp.runtime import JsonDict, PlainMcpRuntime, as_dict
 from plain_mcp.sql import (
+    action_response,
     clean_limit,
+    data_response,
     lower_like,
     numeric_range,
     quote_table_ref,
@@ -15,7 +17,6 @@ from plain_mcp.sql import (
     sql_literal,
     string_equals,
     where_clause,
-    with_criteria,
 )
 
 ORG_REF = 'vacp://vacp-examples/vega-lite/airports/airports/param/org'
@@ -27,6 +28,29 @@ _ROUTE_COLUMNS = (
     'destination',
     'TRY_CAST(count AS INTEGER) AS count',
 )
+
+
+def _airport_summary(value: object, remembered: JsonDict) -> JsonDict:
+    if remembered:
+        return {
+            key: remembered.get(key)
+            for key in ('iata', 'name', 'city', 'state', 'country', 'latitude', 'longitude')
+            if remembered.get(key) is not None
+        }
+    if isinstance(value, dict):
+        typed = cast(dict[str, object], value)
+        origin = typed.get('origin')
+        if origin:
+            return {'iata': origin}
+    return {}
+
+
+def _hover_summary(value: object | None) -> JsonDict | None:
+    if not isinstance(value, dict):
+        return None
+    typed = cast(dict[str, object], value)
+    summary = {key: typed.get(key) for key in ('origin', 'destination') if typed.get(key) is not None}
+    return summary or None
 
 
 async def _airport_lookup(runtime: PlainMcpRuntime, airport: str) -> JsonDict:
@@ -54,7 +78,7 @@ async def _airport_table(runtime: PlainMcpRuntime) -> str:
     entry = runtime.state_entry(snapshot, AIRPORTS_REF)
     table = entry.get('tableName')
     if not isinstance(table, str) or not table:
-        raise RuntimeError('Airport data table is not available from the bridge state')
+        raise RuntimeError('Airport metadata is not available')
     await runtime.sql(AIRPORTS_REF, 'SELECT 1 FROM vacp_all LIMIT 1', max_rows=1)
     return quote_table_ref(table)
 
@@ -70,12 +94,10 @@ def _selected_airport(runtime: PlainMcpRuntime) -> JsonDict:
 async def _flight_state(runtime: PlainMcpRuntime) -> JsonDict:
     snapshot = await runtime.state()
     selected = runtime.state_entry(snapshot, ORG_REF)
-    routes = runtime.state_entry(snapshot, ROUTES_REF)
     return {
-        'selectedAirport': selected.get('value', {}),
+        'selectedAirport': _airport_summary(selected.get('value'), _selected_airport(runtime)),
         'routeFilter': _route_filter(runtime),
-        'hover': runtime.recall('airports.hover'),
-        'data': {'selectedMeaning': routes.get('selectedMeaning')},
+        'hover': _hover_summary(runtime.recall('airports.hover')),
     }
 
 
@@ -97,8 +119,8 @@ def make_select_airport(runtime: PlainMcpRuntime) -> ToolCallable:
         await runtime.execute('vega_lite.set_selection', {'ref': ORG_REF, 'value': {'origin': code}})
         runtime.remember('airports.selected_airport', row)
         state = await _flight_state(runtime)
-        state['selectedAirport'] = row
-        return state
+        state['selectedAirport'] = _airport_summary(None, row)
+        return action_response('select_airport', state, details={'airport': state['selectedAirport']})
 
     return select_airport
 
@@ -120,7 +142,7 @@ def make_filter_routes(runtime: PlainMcpRuntime) -> ToolCallable:
             await runtime.execute('vega_lite.set_selection', {'ref': ORG_REF, 'value': {'origin': origin.upper()}})
         state = await _flight_state(runtime)
         state['routeFilter'] = route_filter
-        return state
+        return action_response('filter_routes', state, details=route_filter)
 
     return filter_routes
 
@@ -151,8 +173,8 @@ def make_hover_route(runtime: PlainMcpRuntime) -> ToolCallable:
         hover = {'origin': row.get('origin'), 'destination': row.get('destination'), 'row': row}
         runtime.remember('airports.hover', hover)
         state = await _flight_state(runtime)
-        state['hover'] = hover
-        return state
+        state['hover'] = _hover_summary(hover)
+        return action_response('hover_route', state, details={'row': row})
 
     return hover_route
 
@@ -214,7 +236,7 @@ def make_query_flight_data(runtime: PlainMcpRuntime) -> ToolCallable:
             f'LEFT JOIN {airport_table} da ON da.iata = r.destination'
             f'{where_clause(clauses)} ORDER BY r.count DESC LIMIT {limit_value}'
         )
-        criteria = {
+        filters = {
             'origin': origin_value,
             'destination': destination_value,
             'originState': origin_state,
@@ -224,7 +246,7 @@ def make_query_flight_data(runtime: PlainMcpRuntime) -> ToolCallable:
             'limit': limit,
         }
         result = await runtime.sql(ROUTES_REF, sql, max_rows=limit_value)
-        return with_criteria(result, criteria)
+        return data_response(result, filters, note='Flight routes matching the requested map filters.')
 
     return query_flight_data
 

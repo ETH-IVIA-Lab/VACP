@@ -187,7 +187,8 @@ function humanTraceabilityGuidance(): string[] {
   ];
 }
 
-function finalAnswerFormatBlock(ctx: PromptContext): string[] {
+function finalAnswerFormatBlock(ctx: PromptContext, options?: { allowedContextLabel?: string }): string[] {
+  const allowedContextLabel = options?.allowedContextLabel ?? 'allowed capabilities';
   return [
     'Final answer format you must follow:',
     '1) Answer',
@@ -199,7 +200,7 @@ function finalAnswerFormatBlock(ctx: PromptContext): string[] {
     '3) Reflection',
     '- On its own line write `Reflection:` then 1-2 concise sentences with uncertainty/blockers.',
     'If blocked/unsolved:',
-    '- If available context or allowed capabilities are insufficient to solve reliably, do not guess.',
+    `- If available context or ${allowedContextLabel} are insufficient to solve reliably, do not guess.`,
     '- You may stop early once this is clear.',
     '- Say unsolved explicitly; set Answer JSON value to `null` inside ```json fences; explain the blocker briefly.',
   ];
@@ -895,16 +896,16 @@ function buildPlainMCPJobs() {
         },
         promptTemplate: (ctx) =>
           [
-            'Use only the provided semantic visual analytics MCP tools. Do not use shell commands or webfetch.',
+            'Use only the provided chart-specific visual analytics tools. Do not use shell commands or webfetch.',
             '',
             `Task: ${ctx.scenario.task}`,
             '',
             'Hard constraints you must follow:',
             '- Do not attempt to read any local files, repo source, configs, or run artifacts.',
-            '- Use only the provided semantic action tools to interact with the app; do not rely on any other context.',
+            '- Use only the provided state, action, and data-query tools to interact with the app; do not rely on any other context.',
             '',
             'Important:',
-            '- The scenario URL is already open and semantic action readiness is handled before your turn starts.',
+            '- The scenario URL is already open before your turn starts.',
             '- In this run, you cannot take screenshots.',
             `- Start solving by reading the current state with \`${stateTool}\` before any actions.`,
             '',
@@ -913,13 +914,13 @@ function buildPlainMCPJobs() {
             ...humanTraceabilityGuidance(),
             '',
             'Efficiency guidance with high priority:',
-            `- Keep result sets tiny: prefer aggregations and tight limits when using \`${queryTool}\`.`,
-            '- Cast numeric-like strings when needed to avoid lexicographic mistakes and reruns.',
+            `- Keep result sets tiny: use targeted filters and tight limits when using \`${queryTool}\`.`,
+            '- Use returned row counts, columns, rows, and notes as data evidence; avoid broad exploratory queries.',
             '',
             'Interaction style you must follow:',
             '- Solve the task by gradually changing the visualization state like a human partner would: set params, apply selections, and hover for tooltips.',
             '- Do NOT jump straight to computations or data extraction before you have set the relevant params/selections in the app.',
-            `- Use \`${queryTool}\` only after the app state matches the question, and primarily to confirm or format the final answer.`,
+            `- Use \`${queryTool}\` after the app state matches the question, and primarily to confirm or format the final answer.`,
             `- Use \`${stateTool}\` to verify key state transitions and to track progress toward the answer.`,
             '',
             'Then:',
@@ -930,9 +931,9 @@ function buildPlainMCPJobs() {
             'Available tools:',
             ...toolIds.map((tool) => `- \`${tool}\``),
             '',
-            'If the required interaction is not available via these semantic tools, state what capability is missing.',
+            'If the required interaction is not available through these tools, state what interaction is missing.',
             '',
-            ...finalAnswerFormatBlock(ctx),
+            ...finalAnswerFormatBlock(ctx, { allowedContextLabel: 'allowed tools' }),
           ].join('\n'),
       });
     }

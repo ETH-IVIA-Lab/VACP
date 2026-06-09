@@ -6,7 +6,7 @@ from pydantic import Field
 
 from plain_mcp.protocol import ToolCallable, ToolSpec, UseCaseSpec
 from plain_mcp.runtime import JsonDict, PlainMcpRuntime
-from plain_mcp.sql import numeric_range, select_query, with_criteria
+from plain_mcp.sql import action_response, data_response, numeric_range, select_query
 
 BRUSH_REF = 'vacp://vacp-examples/vanilla/cars-parallel-coords/parallel-coords/selection/brushes'
 ORDER_REF = 'vacp://vacp-examples/vanilla/cars-parallel-coords/parallel-coords/param/dimension_order'
@@ -31,7 +31,6 @@ async def _pcp_state(runtime: PlainMcpRuntime) -> JsonDict:
     brushes = runtime.state_entry(snapshot, BRUSH_REF)
     order = runtime.state_entry(snapshot, ORDER_REF)
     hover = runtime.state_entry(snapshot, HOVER_REF)
-    data = runtime.state_entry(snapshot, DATA_REF)
     return {
         'axisOrder': order.get('value'),
         'brushes': brushes.get('ranges', {}),
@@ -41,7 +40,6 @@ async def _pcp_state(runtime: PlainMcpRuntime) -> JsonDict:
             'id': hover.get('hoveredId'),
             'car': hover.get('hoveredCar'),
         },
-        'data': {'selectedMeaning': data.get('selectedMeaning')},
     }
 
 
@@ -61,7 +59,7 @@ def make_set_axis_order(runtime: PlainMcpRuntime) -> ToolCallable:
         if set(order) != set(_DIMENSIONS):
             raise ValueError('Axis order must contain each cars dimension exactly once')
         await runtime.execute('parallel_coords.set_dimension_order', {'order': list(order)})
-        return await _pcp_state(runtime)
+        return action_response('set_axis_order', await _pcp_state(runtime), details={'axisOrder': list(order)})
 
     return set_axis_order
 
@@ -77,7 +75,11 @@ def make_brush_axis_range(runtime: PlainMcpRuntime) -> ToolCallable:
             'parallel_coords.set_brush_ranges',
             {'ranges': {dimension: [min_value, max_value]}},
         )
-        return await _pcp_state(runtime)
+        return action_response(
+            'brush_axis_range',
+            await _pcp_state(runtime),
+            details={'dimension': dimension, 'minValue': min_value, 'maxValue': max_value},
+        )
 
     return brush_axis_range
 
@@ -86,7 +88,7 @@ def make_clear_brushes(runtime: PlainMcpRuntime) -> ToolCallable:
     async def clear_brushes() -> JsonDict:
         """Clear all active parallel coordinates brushes."""
         await runtime.execute('parallel_coords.reset_brushes', {})
-        return await _pcp_state(runtime)
+        return action_response('clear_brushes', await _pcp_state(runtime))
 
     return clear_brushes
 
@@ -112,14 +114,14 @@ def make_query_cars_data(runtime: PlainMcpRuntime) -> ToolCallable:
             limit=limit,
             source='vacp_handle',
         )
-        criteria = {
+        filters = {
             'dimension': dimension,
             'minValue': min_value,
             'maxValue': max_value,
             'limit': limit,
         }
         result = await runtime.sql(DATA_REF, sql, max_rows=limit)
-        return with_criteria(result, criteria)
+        return data_response(result, filters, note='Car rows matching the requested axis filter.')
 
     return query_cars_data
 

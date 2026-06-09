@@ -76,7 +76,12 @@ async def test_tool_function_uses_internal_bridge_action_and_arguments() -> None
 
     result = await tool.fn(year=2000)
 
-    assert isinstance(result, dict)
+    assert result == {
+        'status': 'ok',
+        'action': 'set_year',
+        'state': {'year': 1990, 'zoom': {}, 'hover': None},
+        'details': {'year': 2000},
+    }
     assert runtime.calls == [('vega_lite.set_param', {'ref': YEAR_REF, 'value': 2000})]
 
 

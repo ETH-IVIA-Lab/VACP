@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Iterable, Mapping, Sequence
-from typing import Literal
+from typing import Literal, cast
 
 from plain_mcp.runtime import JsonDict
 
@@ -94,31 +94,73 @@ def quote_table_ref(table: str) -> str:
     return '.'.join(quote_ident(part) for part in table.split('.'))
 
 
-def compact_criteria(criteria: Mapping[str, object]) -> JsonDict:
-    return {key: value for key, value in criteria.items() if value is not None}
+def _compact_mapping(values: Mapping[str, object]) -> JsonDict:
+    return {key: value for key, value in values.items() if value is not None}
 
 
-def with_criteria(result: JsonDict, criteria: Mapping[str, object]) -> JsonDict:
-    return {**result, 'criteria': compact_criteria(criteria)}
-
-
-def rows_response(rows: list[JsonDict], *, criteria: JsonDict | None = None) -> JsonDict:
-    def to_int(value: object) -> int | None:
-        if isinstance(value, int):
-            return value
-        if isinstance(value, float):
-            return int(value)
-        if isinstance(value, str) and value.isdecimal():
-            return int(value)
+def _parse_int(value: object) -> int | None:
+    if isinstance(value, bool):
         return None
+    if isinstance(value, int):
+        return value
+    if isinstance(value, float):
+        return int(value)
+    if isinstance(value, str) and value.isdecimal():
+        return int(value)
+    return None
 
-    total = 0
+
+def _clean_rows(rows: Sequence[object]) -> list[JsonDict]:
     cleaned: list[JsonDict] = []
     for row in rows:
-        next_row = dict(row)
-        raw_total = next_row.pop('__total_count', None)
-        parsed_total = to_int(raw_total)
-        if parsed_total is not None:
-            total = parsed_total
-        cleaned.append(next_row)
-    return {'total': total if rows else 0, 'rows': cleaned, 'criteria': compact_criteria(criteria or {})}
+        if not isinstance(row, dict):
+            continue
+        cleaned.append({str(key): value for key, value in row.items() if not str(key).startswith('__')})
+    return cleaned
+
+
+def _columns_from_rows(rows: Sequence[JsonDict]) -> list[str]:
+    columns: list[str] = []
+    for row in rows:
+        for key in row:
+            if key not in columns:
+                columns.append(key)
+    return columns
+
+
+def data_response(result: JsonDict, filters: Mapping[str, object], *, note: str | None = None) -> JsonDict:
+    raw_rows = result.get('rows')
+    cleaned_rows = _clean_rows(raw_rows if isinstance(raw_rows, list) else [])
+    raw_columns = result.get('columns')
+    columns = (
+        [str(column) for column in raw_columns] if isinstance(raw_columns, list) else _columns_from_rows(cleaned_rows)
+    )
+    columns = [column for column in columns if not column.startswith('__')]
+
+    total_rows = len(cleaned_rows)
+    for raw_row in raw_rows if isinstance(raw_rows, list) else []:
+        if isinstance(raw_row, dict):
+            parsed_total = _parse_int(cast(dict[str, object], raw_row).get('__total_count'))
+            if parsed_total is not None:
+                total_rows = parsed_total
+                break
+
+    response: JsonDict = {
+        'rows': cleaned_rows,
+        'columns': columns,
+        'rowCount': len(cleaned_rows),
+        'totalRows': total_rows,
+        'filters': _compact_mapping(filters),
+    }
+    if result.get('truncated') is True:
+        response['truncated'] = True
+    if note:
+        response['note'] = note
+    return response
+
+
+def action_response(action: str, state: JsonDict, *, details: Mapping[str, object] | None = None) -> JsonDict:
+    response: JsonDict = {'status': 'ok', 'action': action, 'state': state}
+    if details:
+        response['details'] = _compact_mapping(details)
+    return response

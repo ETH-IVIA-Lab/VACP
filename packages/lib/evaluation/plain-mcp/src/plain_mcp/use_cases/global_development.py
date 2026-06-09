@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Annotated, Literal
+from typing import Annotated, Literal, cast
 
 from pydantic import Field
 
@@ -8,12 +8,13 @@ from plain_mcp.protocol import ToolCallable, ToolSpec, UseCaseSpec
 from plain_mcp.runtime import JsonDict, PlainMcpRuntime
 from plain_mcp.sql import (
     SortDirection,
+    action_response,
+    data_response,
     lower_like,
     numeric_range,
     select_query,
     select_with_total,
     string_equals,
-    with_criteria,
 )
 
 YEAR_REF = 'vacp://vacp-examples/vega-lite/global-development/global-development/param/current_year'
@@ -31,6 +32,37 @@ _REGION_NAME = (
     "ELSE 'Middle East & North Africa' END AS region_name"
 )
 _COLUMNS = ('country', _REGION_NAME, 'year', 'fertility', 'life_expect', 'pop', 'cluster')
+
+
+def _domain(value: object, *keys: str) -> list[object] | None:
+    if not isinstance(value, dict):
+        return None
+    typed = cast(dict[str, object], value)
+    for key in keys:
+        raw = typed.get(key)
+        if isinstance(raw, list) and len(raw) == 2:
+            return list(raw)
+    return None
+
+
+def _zoom_summary(value: object, fallback: object | None) -> JsonDict:
+    summary: JsonDict = {}
+    source = value if isinstance(value, dict) and value else fallback
+    fertility = _domain(source, 'fertility', 'x')
+    life_expectancy = _domain(source, 'life_expect', 'lifeExpectancy', 'y')
+    if fertility:
+        summary['fertility'] = fertility
+    if life_expectancy:
+        summary['lifeExpectancy'] = life_expectancy
+    return summary
+
+
+def _hover_summary(value: object | None) -> JsonDict | None:
+    if not isinstance(value, dict):
+        return None
+    typed = cast(dict[str, object], value)
+    summary = {key: typed.get(key) for key in ('country', 'year') if typed.get(key) is not None}
+    return summary or None
 
 
 def _range_with_default(
@@ -54,12 +86,10 @@ async def _bubble_state(runtime: PlainMcpRuntime) -> JsonDict:
     snapshot = await runtime.state()
     year = runtime.state_entry(snapshot, YEAR_REF)
     zoom = runtime.state_entry(snapshot, VIEW_REF)
-    data = runtime.state_entry(snapshot, DATA_REF)
     return {
         'year': year.get('value'),
-        'zoom': zoom.get('value', {}),
-        'hover': runtime.recall('global_development.hover'),
-        'data': {'selectedMeaning': data.get('selectedMeaning')},
+        'zoom': _zoom_summary(zoom.get('value'), runtime.recall('global_development.zoom')),
+        'hover': _hover_summary(runtime.recall('global_development.hover')),
     }
 
 
@@ -81,7 +111,7 @@ def make_set_year(runtime: PlainMcpRuntime) -> ToolCallable:
     async def set_year(year: Annotated[int, Field(ge=1955, le=2005, multiple_of=5)]) -> JsonDict:
         """Set the global-development year slider."""
         await runtime.execute('vega_lite.set_param', {'ref': YEAR_REF, 'value': year})
-        return await _bubble_state(runtime)
+        return action_response('set_year', await _bubble_state(runtime), details={'year': year})
 
     return set_year
 
@@ -105,7 +135,7 @@ def make_zoom_chart(runtime: PlainMcpRuntime) -> ToolCallable:
         state = await _bubble_state(runtime)
         if not state.get('zoom'):
             state['zoom'] = runtime.recall('global_development.zoom') or {}
-        return state
+        return action_response('zoom_chart', state, details={'fertility': x_range, 'lifeExpectancy': y_range})
 
     return zoom_chart
 
@@ -138,8 +168,8 @@ def make_hover_country(runtime: PlainMcpRuntime) -> ToolCallable:
         hover = {'country': row.get('country'), 'year': row.get('year'), 'row': row}
         runtime.remember('global_development.hover', hover)
         state = await _bubble_state(runtime)
-        state['hover'] = hover
-        return state
+        state['hover'] = _hover_summary(hover)
+        return action_response('hover_country', state, details={'row': row})
 
     return hover_country
 
@@ -175,7 +205,7 @@ def make_query_gapminder_data(runtime: PlainMcpRuntime) -> ToolCallable:
             limit=limit,
         )
         result = await runtime.sql(DATA_REF, sql, max_rows=limit)
-        criteria = {
+        filters = {
             'year': year_value,
             'country': country,
             'minFertility': min_fertility,
@@ -188,7 +218,7 @@ def make_query_gapminder_data(runtime: PlainMcpRuntime) -> ToolCallable:
             'sortDirection': sort_direction,
             'limit': limit,
         }
-        return with_criteria(result, criteria)
+        return data_response(result, filters, note='Gapminder rows matching the requested chart filters.')
 
     return query_gapminder_data
 
