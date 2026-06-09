@@ -5,9 +5,9 @@ inside the server process to execute the semantic actions.
 MCP clients receive only the selected use case's predefined tools. The hidden
 runtime keeps VACP capabilities, state snapshots, action ids, refs, and browser
 primitives inside the server process. The server does not register raw VACP tools
-or generic browser tools. Data query tools call the bridge-backed
-`vacp.data_sql` action and return its JSON result shape with semantic criteria
-attached.
+or generic browser tools. Data query tools also use the bridge internally, then
+return use-case-specific query responses with bounded rows, counts, columns, and
+notes shaped for the selected chart.
 
 Run one use case against the examples host:
 

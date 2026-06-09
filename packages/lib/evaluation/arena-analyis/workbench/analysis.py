@@ -456,6 +456,8 @@ def _():
         'baseline': 'UI + DOM',
         'with-snapshot': 'UI + DOM + State',
         'pure-vacp': 'VACP',
+        'plain-mcp': 'MCP Tools (No VACP)',
+        'partial-toolkit': 'VACP + UI/DOM (No Data Query)',
         'full-toolkit': 'VACP + UI + DOM',
     }
     SHIFT_LABEL_MAP = {

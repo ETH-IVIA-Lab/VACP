@@ -995,8 +995,12 @@ function buildToolkitJobs(args: { experiment: 'full-toolkit' | 'partial-toolkit'
         onBeforePrompt: onBeforePromptSetup,
         promptTemplate: (ctx) => {
           const runArtifactDir = resolvePromptRunArtifactDir(ctx);
+          const hasSemanticDataQuery = args.enableSql === '1';
           return [
             'Use VACP semantic tools plus browser-control tools backed by Playwright.',
+            hasSemanticDataQuery
+              ? 'Semantic data-query access is available through VACP actions.'
+              : 'Semantic data-query access is disabled. Use VACP state, VACP interactions, screenshots, and DOM/browser tools to ground the answer.',
             '',
             `Task: ${ctx.scenario.task}`,
             '',

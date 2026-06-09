@@ -1,7 +1,14 @@
 import type { ArenaRunRow, ArenaToolCallRow } from './load-analysis.js';
 import { deriveEvalOutcome, isGradeable, isParseOk } from '../eval/outcome.js';
 
-const CANONICAL_EXPERIMENT_ORDER = ['baseline', 'with-snapshot', 'pure-vacp', 'full-toolkit'] as const;
+const CANONICAL_EXPERIMENT_ORDER = [
+  'baseline',
+  'with-snapshot',
+  'pure-vacp',
+  'plain-mcp',
+  'partial-toolkit',
+  'full-toolkit',
+] as const;
 const CANONICAL_EXPERIMENT_RANK = new Map<string, number>(
   CANONICAL_EXPERIMENT_ORDER.map((name, index) => [name, index] as const),
 );
