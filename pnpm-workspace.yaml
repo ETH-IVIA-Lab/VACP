@@ -10,6 +10,9 @@ allowBuilds:
   esbuild: true
   protobufjs: true
 
+minimumReleaseAgeExclude:
+  - '@opencode-ai/sdk@1.17.3'
+
 onlyBuiltDependencies:
   - '@parcel/watcher'
   - core-js

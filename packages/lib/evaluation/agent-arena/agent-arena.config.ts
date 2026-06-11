@@ -23,12 +23,30 @@ const AGENT_BROWSER = 'agent-browser';
 
 const MODELS = [
   {
+    providerID: 'google',
+    modelID: 'gemini-3.1-pro-preview',
+    // Source: https://openrouter.ai/google/gemini-3.1-pro-preview
+    pricing: { input: 2, output: 12, cacheRead: 0.2, cacheWrite: 0.375 },
+  },
+  {
     providerID: 'openai',
     modelID: 'gpt-5.4',
-    // Source: https://openai.com/api/pricing/
+    // Source: https://openrouter.ai/openai/gpt-5.4
     pricing: { input: 2.5, output: 15, cacheRead: 0.25, cacheWrite: 0 },
   },
   /*
+  {
+    providerID: 'azure-openai-foundry',
+    modelID: 'gpt-5.2-vacp',
+    // Source: https://openrouter.ai/openai/gpt-5.2
+    pricing: { input: 1.75, output: 14, cacheRead: 0.175, cacheWrite: 0 },
+  },
+  {
+    providerID: 'azure-claude-foundry',
+    modelID: 'claude-sonnet-4-5',
+    // Source: https://openrouter.ai/anthropic/claude-sonnet-4.5
+    pricing: { input: 3, output: 15, cacheRead: 0.3, cacheWrite: 3.75 },
+  },
   {
     providerID: 'google-vertex',
     modelID: 'gemini-3-pro-preview',
@@ -1189,13 +1207,84 @@ const runs: ArenaJob[] = [
   ...buildFullToolkitJobs(),
 ];
 
+function selectedExperimentRuns(allRuns: ArenaJob[]) {
+  const raw = process.env.VACP_ARENA_EXPERIMENTS?.trim();
+  if (!raw) return allRuns;
+
+  const selected = new Set(
+    raw
+      .split(',')
+      .map((name) => name.trim())
+      .filter(Boolean),
+  );
+  if (selected.size === 0) return allRuns;
+
+  const known = new Set(allRuns.map((run) => run.experiment));
+  const unknown = Array.from(selected).filter((experiment) => !known.has(experiment));
+  if (unknown.length > 0) {
+    throw new Error(
+      `Unknown VACP_ARENA_EXPERIMENTS value(s): ${unknown.join(', ')}. Known experiments: ${Array.from(known)
+        .sort()
+        .join(', ')}`,
+    );
+  }
+
+  return allRuns.filter((run) => selected.has(run.experiment));
+}
+
+function selectedModelRuns(allRuns: ArenaJob[]) {
+  const raw = process.env.VACP_ARENA_MODELS?.trim();
+  if (!raw) return allRuns;
+
+  const selected = new Set(
+    raw
+      .split(',')
+      .map((name) => name.trim())
+      .filter(Boolean),
+  );
+  if (selected.size === 0) return allRuns;
+
+  const modelLabels = new Map<string, ArenaJob[]>();
+  for (const run of allRuns) {
+    const labels = [
+      run.model.modelID,
+      `${run.model.providerID}/${run.model.modelID}`,
+      `${run.model.providerID}:${run.model.modelID}`,
+    ];
+    for (const label of labels) {
+      const list = modelLabels.get(label) ?? [];
+      list.push(run);
+      modelLabels.set(label, list);
+    }
+  }
+
+  const unknown = Array.from(selected).filter((model) => !modelLabels.has(model));
+  if (unknown.length > 0) {
+    throw new Error(
+      `Unknown VACP_ARENA_MODELS value(s): ${unknown.join(', ')}. Known models: ${Array.from(modelLabels.keys())
+        .sort()
+        .join(', ')}`,
+    );
+  }
+
+  return allRuns.filter(
+    (run) =>
+      selected.has(run.model.modelID) ||
+      selected.has(`${run.model.providerID}/${run.model.modelID}`) ||
+      selected.has(`${run.model.providerID}:${run.model.modelID}`),
+  );
+}
+
+const selectedRuns = selectedModelRuns(selectedExperimentRuns(runs));
+const runConcurrency = positiveIntOr(Number(process.env.VACP_ARENA_RUN_CONCURRENCY ?? 3), 3);
+
 export const config: ArenaConfig = {
   directory: OPENCODE_ATTACH_DIRECTORY,
   outDir: DEFAULT_RUN_OUT_DIR,
   worktreeRoot: false,
   autoApprove: 'always',
   autoQuestion: 'reject',
-  concurrency: { runs: 3 },
+  concurrency: { runs: runConcurrency },
   timeouts: {
     setupMs: positiveIntOr(AGENT_BROWSER_SETUP_OPEN_TIMEOUT_MS + AGENT_BROWSER_SETUP_WAIT_TIMEOUT_MS + 10_000, 90_000),
     promptMs: 20 * 60_000,
@@ -1204,7 +1293,7 @@ export const config: ArenaConfig = {
     mode: 'connect',
   },
   onFinished: closeAgentBrowserSession,
-  runs,
+  runs: selectedRuns,
 };
 
 export default config;
