@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
+import { JSDOM } from 'jsdom';
 import { exportArenaDatasets } from '../src/report/export-datasets.js';
 import { generateArenaReportSuite } from '../src/report/generate-report-suite.js';
 import { normalizeAnalysisDirs } from '../src/report/load-analysis.js';
@@ -26,9 +27,12 @@ async function testMergedAnalysisPreservesRunIdentity() {
     const analysisB = await writeAnalysis({
       root: tmpRoot,
       runId: 'run-b',
-      solvedSemantic: false,
+      solvedSemantic: true,
+      solvedStrict: false,
       costUsd: 0.5,
       tool: 'vacp_execute',
+      modelProvider: 'openai',
+      modelName: 'gpt-5.4',
     });
 
     const prepared = await prepareArenaAnalysis({ analysisDir: [analysisA, analysisB] });
@@ -56,8 +60,52 @@ async function testMergedAnalysisPreservesRunIdentity() {
       charts: [],
     });
     const indexHtml = await fs.readFile(report.indexHtmlPath, 'utf8');
-    assert.equal(indexHtml.includes('Sources: 2 analyses'), true);
-    assert.equal(indexHtml.includes('run-a, run-b'), true);
+    const indexText = documentText(indexHtml);
+    assert.match(indexText, /Sources: 2 analyses/);
+    assert.match(indexText, /run-a, run-b/);
+
+    assert.ok(report.allHtmlPath);
+    const allHtml = await fs.readFile(report.allHtmlPath, 'utf8');
+    const allDocument = new JSDOM(allHtml).window.document;
+    const runDetail = allDocument.querySelector('#section-run-detail');
+    assert.ok(runDetail);
+    assert.deepEqual(
+      Array.from(runDetail.querySelectorAll('h3')).map((heading) => cleanText(heading.textContent)),
+      ['Run x Experiment Matrix', 'Task Run Strip', 'Final Run Ledger'],
+    );
+    assert.equal(runDetail.querySelectorAll('article').length, 2);
+
+    const runDetailText = cleanText(runDetail.textContent);
+    assert.match(runDetailText, /run-a/);
+    assert.match(runDetailText, /run-b/);
+    assert.match(runDetailText, /google\/gemini-3\.1-pro-preview/);
+    assert.match(runDetailText, /openai\/gpt-5\.4/);
+    assert.match(runDetailText, /Strict/);
+    assert.match(runDetailText, /Semantic/);
+    assert.match(runDetailText, /\$0\.25/);
+    assert.match(runDetailText, /\$0\.50/);
+    assert.equal(runDetailText.includes(tmpRoot), false);
+    const pillTitles = Array.from(runDetail.querySelectorAll('span[title*="Model:"]')).map((span) =>
+      span.getAttribute('title'),
+    );
+    assert.equal(
+      pillTitles.some((title) => title?.includes('Model: google/gemini-3.1-pro-preview')),
+      true,
+    );
+    assert.equal(
+      pillTitles.some((title) => title?.includes('Model: openai/gpt-5.4')),
+      true,
+    );
+    const semanticOnlyTitle = pillTitles.find((title) => title?.includes('Run: run-b'));
+    assert.match(semanticOnlyTitle ?? '', /Outcome: Semantic/);
+
+    const googleReport = report.modelReports.find((modelReport) => modelReport.modelProvider === 'google');
+    assert.ok(googleReport);
+    const googleHtml = await fs.readFile(googleReport.htmlPath, 'utf8');
+    const googleRunDetail = new JSDOM(googleHtml).window.document.querySelector('#section-run-detail');
+    assert.ok(googleRunDetail);
+    assert.equal(googleRunDetail.querySelectorAll('article').length, 1);
+    assert.match(cleanText(googleRunDetail.textContent), /run-a/);
   } finally {
     await fs.rm(tmpRoot, { recursive: true, force: true });
   }
@@ -71,8 +119,11 @@ async function writeAnalysis(args: {
   root: string;
   runId: string;
   solvedSemantic: boolean;
+  solvedStrict?: boolean;
   costUsd: number;
   tool: string;
+  modelProvider?: string;
+  modelName?: string;
 }) {
   const analysisDir = path.join(args.root, args.runId, 'analysis');
   await fs.mkdir(analysisDir, { recursive: true });
@@ -96,12 +147,12 @@ async function writeAnalysis(args: {
           run_id: args.runId,
           experiment: 'baseline',
           scenario_id: 'uc1-locate',
-          model_provider: 'google',
-          model_name: 'gemini-3.1-pro-preview',
+          model_provider: args.modelProvider ?? 'google',
+          model_name: args.modelName ?? 'gemini-3.1-pro-preview',
           ok: true,
           plumbing_ok: true,
           answer_parse_status: 'ok',
-          solved_strict: args.solvedSemantic,
+          solved_strict: args.solvedStrict ?? args.solvedSemantic,
           solved_semantic: args.solvedSemantic,
           cost_usd: args.costUsd,
           tokens_input: 100,
@@ -125,8 +176,8 @@ async function writeAnalysis(args: {
           run_id: args.runId,
           experiment: 'baseline',
           scenario_id: 'uc1-locate',
-          model_provider: 'google',
-          model_name: 'gemini-3.1-pro-preview',
+          model_provider: args.modelProvider ?? 'google',
+          model_name: args.modelName ?? 'gemini-3.1-pro-preview',
           session_id: `session-${args.runId}`,
           tool: args.tool,
           status: 'completed',
@@ -138,6 +189,14 @@ async function writeAnalysis(args: {
     ) + '\n',
   );
   return analysisDir;
+}
+
+function documentText(html: string) {
+  return cleanText(new JSDOM(html).window.document.body.textContent);
+}
+
+function cleanText(text: string | null) {
+  return (text ?? '').replace(/\s+/g, ' ').trim();
 }
 
 void main();

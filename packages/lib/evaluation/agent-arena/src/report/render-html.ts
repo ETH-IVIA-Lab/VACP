@@ -1,7 +1,7 @@
 import type { ArenaFigure } from './charts/types.js';
 import type { ArenaAnalysisSource } from './load-analysis.js';
 import type { NormalizedRun } from './stats.js';
-import { deriveEvalOutcome } from '../eval/outcome.js';
+import { deriveEvalOutcome, isGradeable, isParseOk } from '../eval/outcome.js';
 
 export type ArenaReportSummaryRow = {
   experiment: string;
@@ -129,6 +129,10 @@ export const DEFAULT_REPORT_SECTIONS: ArenaReportSection[] = [
   {
     id: 'summary',
     render: renderSummarySection,
+  },
+  {
+    id: 'run-detail',
+    render: renderRunDetailSection,
   },
   {
     id: 'figures',
@@ -390,6 +394,7 @@ function renderFloatingNav(args: {
 
   if (args.enabledSections.has('overview')) links.push({ href: '#section-overview', label: 'Overview' });
   if (args.enabledSections.has('summary')) links.push({ href: '#section-summary', label: 'Summary' });
+  if (args.enabledSections.has('run-detail')) links.push({ href: '#section-run-detail', label: 'Individual Runs' });
 
   if (args.enabledSections.has('figures')) {
     for (const group of args.chartGroups) links.push({ href: `#${group.id}`, label: group.title });
@@ -470,6 +475,419 @@ function renderSummarySection(ctx: ArenaReportHtmlContext) {
     '      </div>',
     '    </section>',
   ].join('\n');
+}
+
+type RunDetailStatusKey =
+  | 'solved-strict'
+  | 'solved-semantic'
+  | 'semantic-failure'
+  | 'protocol-failure'
+  | 'plumbing-failure'
+  | 'eval-error'
+  | 'unscored';
+
+type RunDetailStatus = {
+  key: RunDetailStatusKey;
+  label: string;
+};
+
+type RunSetSummary = {
+  n: number;
+  plumbingOk: number;
+  parseOk: number;
+  gradeable: number;
+  solvedSemantic: number;
+  solvedStrict: number;
+  semanticFailures: number;
+  protocolFailures: number;
+  plumbingFailures: number;
+  evalErrors: number;
+  durationMedianS: number | null;
+  costTotalUsd: number | null;
+  tokensMedianWithCacheAll: number | null;
+};
+
+function renderRunDetailSection(ctx: ArenaReportHtmlContext) {
+  const runIds = collectRunDetailIds(ctx);
+  const showModel = ctx.modelLabel === null;
+  const taskOrder = new Map(ctx.taskIndex.map((row, index) => [row.scenarioId, index] as const));
+  const experimentOrder = new Map(ctx.experiments.map((experiment, index) => [experiment, index] as const));
+  const runOrder = new Map(runIds.map((runId, index) => [runId, index] as const));
+
+  const sourceCards = runIds
+    .map((runId) => {
+      const rows = ctx.runs.filter((run) => runDetailId(run) === runId);
+      const summary = summarizeRunSet(rows);
+
+      return [
+        '        <article class="runSourceCard">',
+        '          <div class="runSourceHead">',
+        `            <div class="runSourceTitle">${escapeHtml(shortRunId(runId))}</div>`,
+        `            <div class="runSourceMeta">${escapeHtml(runId)}</div>`,
+        '          </div>',
+        '          <dl class="runSourceStats">',
+        `            <div><dt>Rows</dt><dd>${fmtInt(summary.n)}</dd></div>`,
+        `            <div><dt>Semantic</dt><dd>${fmtInt(summary.solvedSemantic)}/${fmtInt(summary.gradeable)}</dd></div>`,
+        `            <div><dt>Strict</dt><dd>${fmtInt(summary.solvedStrict)}/${fmtInt(summary.gradeable)}</dd></div>`,
+        `            <div><dt>Failures</dt><dd>${fmtInt(summary.semanticFailures + summary.protocolFailures + summary.plumbingFailures + summary.evalErrors)}</dd></div>`,
+        `            <div><dt>Median s</dt><dd>${summary.durationMedianS === null ? 'n/a' : fmtInt(Math.round(summary.durationMedianS))}</dd></div>`,
+        `            <div><dt>Total $</dt><dd>${summary.costTotalUsd === null ? 'n/a' : fmtUsd(summary.costTotalUsd)}</dd></div>`,
+        '          </dl>',
+        '        </article>',
+      ].join('\n');
+    })
+    .join('\n');
+
+  const matrixRows = runIds
+    .map((runId) => {
+      const cells = ctx.experiments
+        .map((experiment) => {
+          const rows = ctx.runs.filter((run) => runDetailId(run) === runId && run.experiment === experiment);
+          return renderRunMatrixCell(rows);
+        })
+        .join('');
+
+      return [
+        '<tr>',
+        `<td class="runIdCell"><div>${escapeHtml(shortRunId(runId))}</div><span>${escapeHtml(runId)}</span></td>`,
+        cells,
+        '</tr>',
+      ].join('');
+    })
+    .join('\n');
+
+  const runStripRows = ctx.taskIndex
+    .map((task) => {
+      const cells = ctx.experiments
+        .map((experiment) => {
+          const rows = ctx.runs
+            .filter((run) => run.scenarioId === task.scenarioId && run.experiment === experiment)
+            .sort(compareRunsForDetail(taskOrder, experimentOrder, runOrder));
+          return renderRunStripCell(rows, { showModel });
+        })
+        .join('');
+
+      return [
+        '<tr>',
+        `<td class="num">${fmtInt(task.index)}</td>`,
+        `<td class="taskText">${task.task ? escapeHtml(task.task) : '<span class="muted">n/a</span>'}</td>`,
+        cells,
+        '</tr>',
+      ].join('');
+    })
+    .join('\n');
+
+  const ledgerRows = [...ctx.runs]
+    .sort(compareRunsForDetail(taskOrder, experimentOrder, runOrder))
+    .map((run) => {
+      const status = classifyDetailRunStatus(run);
+      const task = ctx.taskIndex.find((row) => row.scenarioId === run.scenarioId);
+      const error = summarizeRunError(run);
+
+      return [
+        '<tr>',
+        `<td class="runIdCell"><div>${escapeHtml(shortRunId(runDetailId(run)))}</div><span>${escapeHtml(runDetailId(run))}</span></td>`,
+        `<td class="num">${task ? fmtInt(task.index) : 'n/a'}</td>`,
+        `<td class="exp">${escapeHtml(run.experiment)}</td>`,
+        ...(showModel ? [`<td class="exp">${escapeHtml(formatRunModelLabel(run))}</td>`] : []),
+        `<td><span class="${escapeAttr(`statusBadge ${status.key}`)}">${escapeHtml(status.label)}</span></td>`,
+        `<td class="num">${formatNullableBoolean(run.solvedSemantic)}</td>`,
+        `<td class="num">${formatNullableBoolean(run.solvedStrict)}</td>`,
+        `<td class="num">${run.answerParseStatus ? escapeHtml(run.answerParseStatus) : 'n/a'}</td>`,
+        `<td class="num">${run.durationS === null ? 'n/a' : fmtInt(Math.round(run.durationS))}</td>`,
+        `<td class="num">${run.tokensTotalWithCacheAll === null ? 'n/a' : fmtInt(Math.round(run.tokensTotalWithCacheAll))}</td>`,
+        `<td class="num">${run.tokensTotalNoCache === null ? 'n/a' : fmtInt(Math.round(run.tokensTotalNoCache))}</td>`,
+        `<td class="num">${run.costUsd === null ? 'n/a' : fmtUsd(run.costUsd)}</td>`,
+        `<td class="num">${run.toolCalls === null ? 'n/a' : fmtInt(Math.round(run.toolCalls))}</td>`,
+        `<td class="num">${run.toolErrors === null ? 'n/a' : fmtInt(Math.round(run.toolErrors))}</td>`,
+        `<td class="runErrorCell">${error ? escapeHtml(error) : '<span class="muted">n/a</span>'}</td>`,
+        '</tr>',
+      ].join('');
+    })
+    .join('\n');
+
+  const matrixColgroup = [
+    '<colgroup>',
+    '<col style="width: 220px" />',
+    ...ctx.experiments.map(() => '<col style="width: 190px" />'),
+    '</colgroup>',
+  ].join('\n');
+
+  const stripColgroup = [
+    '<colgroup>',
+    '<col style="width: 44px" />',
+    '<col style="width: 560px" />',
+    ...ctx.experiments.map(() => '<col style="width: 240px" />'),
+    '</colgroup>',
+  ].join('\n');
+
+  return [
+    '    <section class="section panelSection" id="section-run-detail">',
+    '      <h2>Individual Runs</h2>',
+    '      <p class="sectionIntro muted small">Individual Runs lists every retained row behind the merged charts. Source cards summarize each analysis folder, the run x experiment matrix groups rows by retained run, task strips show each repeated outcome, and the ledger keeps row-level status, token, cost, and error fields.</p>',
+    '      <div class="runLegend" aria-label="Run status legend">',
+    ...renderRunStatusLegend().map((entry) => `        ${entry}`),
+    '      </div>',
+    '      <div class="runSourceGrid">',
+    sourceCards || '        <div class="muted small">No analysis sources found.</div>',
+    '      </div>',
+    '      <h3 class="subsectionTitle">Run x Experiment Matrix</h3>',
+    '      <p class="sectionIntro muted small">Each cell summarizes all task rows for one retained run and one experiment.</p>',
+    '      <div class="tableWrap">',
+    '        <table class="runMatrix">',
+    matrixColgroup,
+    '          <thead>',
+    '            <tr>',
+    '              <th>Run</th>',
+    ...ctx.experiments.map((experiment) => `              <th class="group">${escapeHtml(experiment)}</th>`),
+    '            </tr>',
+    '          </thead>',
+    '          <tbody>',
+    matrixRows || `<tr><td colspan="${1 + ctx.experiments.length}" class="muted">No runs found.</td></tr>`,
+    '          </tbody>',
+    '        </table>',
+    '      </div>',
+    '      <h3 class="subsectionTitle">Task Run Strip</h3>',
+    '      <p class="sectionIntro muted small">Every pill is one retained run result for that task and experiment. Hover a pill for run id, outcome, tokens, cost, and error context.</p>',
+    '      <div class="tableWrap">',
+    '        <table class="runStrips">',
+    stripColgroup,
+    '          <thead>',
+    '            <tr>',
+    '              <th class="num">#</th>',
+    '              <th>Task</th>',
+    ...ctx.experiments.map((experiment) => `              <th class="group">${escapeHtml(experiment)}</th>`),
+    '            </tr>',
+    '          </thead>',
+    '          <tbody>',
+    runStripRows || `<tr><td colspan="${2 + ctx.experiments.length}" class="muted">No tasks found.</td></tr>`,
+    '          </tbody>',
+    '        </table>',
+    '      </div>',
+    '      <h3 class="subsectionTitle">Final Run Ledger</h3>',
+    '      <p class="sectionIntro muted small">One row per retained run result after analysis loading and preferred-row normalization. Use this table to inspect exact failures and cost outliers.</p>',
+    '      <div class="tableWrap">',
+    '        <table class="runLedger">',
+    '          <thead>',
+    '            <tr>',
+    '              <th>Run</th>',
+    '              <th class="num">Task</th>',
+    '              <th>Experiment</th>',
+    ...(showModel ? ['              <th>Model</th>'] : []),
+    '              <th>Status</th>',
+    '              <th class="num">Semantic</th>',
+    '              <th class="num">Strict</th>',
+    '              <th class="num">Parse</th>',
+    '              <th class="num">s</th>',
+    '              <th class="num">Tokens with cache</th>',
+    '              <th class="num">Tokens no cache</th>',
+    '              <th class="num">$</th>',
+    '              <th class="num">Tools</th>',
+    '              <th class="num">Tool errors</th>',
+    '              <th>Error</th>',
+    '            </tr>',
+    '          </thead>',
+    '          <tbody>',
+    ledgerRows || `<tr><td colspan="${showModel ? 15 : 14}" class="muted">No runs found.</td></tr>`,
+    '          </tbody>',
+    '        </table>',
+    '      </div>',
+    '    </section>',
+  ].join('\n');
+}
+
+function renderRunStatusLegend() {
+  const statuses: RunDetailStatus[] = [
+    { key: 'solved-strict', label: 'Strict' },
+    { key: 'solved-semantic', label: 'Semantic' },
+    { key: 'semantic-failure', label: 'Wrong' },
+    { key: 'protocol-failure', label: 'Protocol' },
+    { key: 'plumbing-failure', label: 'Plumbing' },
+    { key: 'eval-error', label: 'Eval error' },
+    { key: 'unscored', label: 'Unscored' },
+  ];
+
+  return statuses.map(
+    (status) => `<span class="${escapeAttr(`statusBadge ${status.key}`)}">${escapeHtml(status.label)}</span>`,
+  );
+}
+
+function renderRunMatrixCell(rows: NormalizedRun[]) {
+  if (!rows.length) return '<td class="muted">Not run</td>';
+  const summary = summarizeRunSet(rows);
+  const failureCount =
+    summary.semanticFailures + summary.protocolFailures + summary.plumbingFailures + summary.evalErrors;
+  const models = collectRunModelLabels(rows);
+  const title = [
+    `Rows: ${summary.n}`,
+    ...(models.length > 1 ? [`Models: ${models.join(', ')}`] : []),
+    `Plumbing OK: ${summary.plumbingOk}/${summary.n}`,
+    `Parsed OK: ${summary.parseOk}/${summary.n}`,
+    `Gradeable: ${summary.gradeable}/${summary.n}`,
+    `Semantic solved: ${summary.solvedSemantic}/${summary.gradeable}`,
+    `Strict solved: ${summary.solvedStrict}/${summary.gradeable}`,
+    `Failures: ${failureCount}`,
+    `Median seconds: ${summary.durationMedianS === null ? 'n/a' : fmtInt(Math.round(summary.durationMedianS))}`,
+    `Total cost: ${summary.costTotalUsd === null ? 'n/a' : fmtUsd(summary.costTotalUsd)}`,
+    `Median tokens with cache: ${summary.tokensMedianWithCacheAll === null ? 'n/a' : fmtInt(Math.round(summary.tokensMedianWithCacheAll))}`,
+  ].join('\n');
+
+  return [
+    `<td class="runMatrixCell" title="${escapeAttr(title)}">`,
+    '  <div class="runCellTop">',
+    `    <span>${fmtInt(summary.n)} rows</span>`,
+    `    <span>${fmtInt(summary.solvedSemantic)} sem</span>`,
+    '  </div>',
+    `  <div class="runCellCounts">strict ${fmtInt(summary.solvedStrict)}/${fmtInt(summary.gradeable)} · failures ${fmtInt(failureCount)}</div>`,
+    `  <div class="runCellMeta">${summary.durationMedianS === null ? 'n/a' : fmtInt(Math.round(summary.durationMedianS)) + 's'} · ${summary.costTotalUsd === null ? 'n/a' : fmtUsd(summary.costTotalUsd)} · ${summary.tokensMedianWithCacheAll === null ? 'n/a' : fmtInt(Math.round(summary.tokensMedianWithCacheAll)) + ' tok'}</div>`,
+    '</td>',
+  ].join('');
+}
+
+function renderRunStripCell(rows: NormalizedRun[], options: { showModel: boolean }) {
+  if (!rows.length) return '<td class="muted">Not run</td>';
+  const summary = summarizeRunSet(rows);
+  const pills = rows.map((run) => renderRunPill(run, options)).join('');
+  return [
+    '<td class="runStripCell">',
+    `  <div class="runStrip">${pills}</div>`,
+    `  <div class="runStripMeta">sem ${fmtInt(summary.solvedSemantic)}/${fmtInt(summary.gradeable)} · strict ${fmtInt(summary.solvedStrict)}/${fmtInt(summary.gradeable)} · ${summary.durationMedianS === null ? 'n/a' : fmtInt(Math.round(summary.durationMedianS)) + 's'}</div>`,
+    '</td>',
+  ].join('');
+}
+
+function renderRunPill(run: NormalizedRun, options: { showModel: boolean }) {
+  const status = classifyDetailRunStatus(run);
+  const title = [
+    `Run: ${runDetailId(run)}`,
+    ...(options.showModel ? [`Model: ${formatRunModelLabel(run)}`] : []),
+    `Experiment: ${run.experiment}`,
+    `Scenario: ${run.scenarioId}`,
+    `Outcome: ${status.label}`,
+    `Parse: ${run.answerParseStatus ?? 'n/a'}`,
+    `Semantic: ${formatNullableBoolean(run.solvedSemantic)}`,
+    `Strict: ${formatNullableBoolean(run.solvedStrict)}`,
+    `Seconds: ${run.durationS === null ? 'n/a' : fmtInt(Math.round(run.durationS))}`,
+    `Tokens with cache: ${run.tokensTotalWithCacheAll === null ? 'n/a' : fmtInt(Math.round(run.tokensTotalWithCacheAll))}`,
+    `Cost: ${run.costUsd === null ? 'n/a' : fmtUsd(run.costUsd)}`,
+    `Tools: ${run.toolCalls === null ? 'n/a' : fmtInt(Math.round(run.toolCalls))}`,
+    summarizeRunError(run) ? `Error: ${summarizeRunError(run)}` : null,
+  ]
+    .filter(Boolean)
+    .join('\n');
+
+  return `<span class="${escapeAttr(`runPill ${status.key}`)}" title="${escapeAttr(title)}">${escapeHtml(shortRunId(runDetailId(run)))}</span>`;
+}
+
+function summarizeRunSet(rows: NormalizedRun[]): RunSetSummary {
+  const statuses = rows.map(classifyDetailRunStatus);
+  return {
+    n: rows.length,
+    plumbingOk: rows.filter((row) => row.plumbingOk === true).length,
+    parseOk: rows.filter((row) => isParseOk(row.answerParseStatus) === true).length,
+    gradeable: rows.filter((row) =>
+      isGradeable({
+        plumbingOk: row.plumbingOk,
+        parseStatus: row.answerParseStatus,
+        solvedStrict: row.solvedStrict,
+        solvedSemantic: row.solvedSemantic,
+      }),
+    ).length,
+    solvedSemantic: rows.filter((row) => row.solvedSemantic === true).length,
+    solvedStrict: rows.filter((row) => row.solvedStrict === true).length,
+    semanticFailures: statuses.filter((status) => status.key === 'semantic-failure').length,
+    protocolFailures: statuses.filter((status) => status.key === 'protocol-failure').length,
+    plumbingFailures: statuses.filter((status) => status.key === 'plumbing-failure').length,
+    evalErrors: statuses.filter((status) => status.key === 'eval-error').length,
+    durationMedianS: medianNumber(rows.flatMap((row) => (typeof row.durationS === 'number' ? [row.durationS] : []))),
+    costTotalUsd: sumNumber(rows.flatMap((row) => (typeof row.costUsd === 'number' ? [row.costUsd] : []))),
+    tokensMedianWithCacheAll: medianNumber(
+      rows.flatMap((row) => (typeof row.tokensTotalWithCacheAll === 'number' ? [row.tokensTotalWithCacheAll] : [])),
+    ),
+  };
+}
+
+function classifyDetailRunStatus(run: NormalizedRun): RunDetailStatus {
+  const outcome = resolveRunEvalOutcome(run);
+  if (outcome === 'plumbing_failure') return { key: 'plumbing-failure', label: 'Plumbing' };
+  if (outcome === 'protocol_failure') return { key: 'protocol-failure', label: 'Protocol' };
+  if (outcome === 'eval_error') return { key: 'eval-error', label: 'Eval error' };
+  if (run.solvedStrict === true || outcome === 'solved_strict') return { key: 'solved-strict', label: 'Strict' };
+  if (run.solvedSemantic === true || outcome === 'solved_semantic') {
+    return { key: 'solved-semantic', label: 'Semantic' };
+  }
+  if (outcome === 'semantic_failure') return { key: 'semantic-failure', label: 'Wrong' };
+  return { key: 'unscored', label: 'Unscored' };
+}
+
+function collectRunDetailIds(ctx: ArenaReportHtmlContext) {
+  const ids = new Set<string>();
+  for (const run of ctx.runs) ids.add(runDetailId(run));
+  return Array.from(ids).sort((a, b) => compareRunDetailIds(a, b));
+}
+
+function collectRunModelLabels(rows: NormalizedRun[]) {
+  return Array.from(new Set(rows.map(formatRunModelLabel))).sort((a, b) => a.localeCompare(b));
+}
+
+function formatRunModelLabel(run: NormalizedRun) {
+  return `${run.modelProvider || 'unknown'}/${run.modelName || 'unknown'}`;
+}
+
+function compareRunsForDetail(
+  taskOrder: Map<string, number>,
+  experimentOrder: Map<string, number>,
+  runOrder: Map<string, number>,
+) {
+  return (a: NormalizedRun, b: NormalizedRun) => {
+    const taskDiff =
+      (taskOrder.get(a.scenarioId) ?? Number.MAX_SAFE_INTEGER) -
+      (taskOrder.get(b.scenarioId) ?? Number.MAX_SAFE_INTEGER);
+    if (taskDiff !== 0) return taskDiff;
+    const experimentDiff =
+      (experimentOrder.get(a.experiment) ?? Number.MAX_SAFE_INTEGER) -
+      (experimentOrder.get(b.experiment) ?? Number.MAX_SAFE_INTEGER);
+    if (experimentDiff !== 0) return experimentDiff;
+    const runDiff =
+      (runOrder.get(runDetailId(a)) ?? Number.MAX_SAFE_INTEGER) -
+      (runOrder.get(runDetailId(b)) ?? Number.MAX_SAFE_INTEGER);
+    if (runDiff !== 0) return runDiff;
+    return `${a.modelProvider}/${a.modelName}`.localeCompare(`${b.modelProvider}/${b.modelName}`);
+  };
+}
+
+function runDetailId(run: NormalizedRun) {
+  return run.runId || 'unlabeled-run';
+}
+
+function shortRunId(runId: string) {
+  const match = /(?:^|-)r(\d+)$/i.exec(runId);
+  if (match) return `r${match[1]}`;
+  const compact = runId.replace(/^gemini31-full-battery-\d+-/i, '');
+  return compact.length <= 16 ? compact : `${compact.slice(0, 12)}...`;
+}
+
+function compareRunDetailIds(a: string, b: string) {
+  const aMatch = /(?:^|-)r(\d+)$/i.exec(a);
+  const bMatch = /(?:^|-)r(\d+)$/i.exec(b);
+  if (aMatch && bMatch) return Number(aMatch[1]) - Number(bMatch[1]);
+  if (aMatch) return -1;
+  if (bMatch) return 1;
+  return a.localeCompare(b);
+}
+
+function formatNullableBoolean(value: boolean | null) {
+  if (value === true) return 'yes';
+  if (value === false) return 'no';
+  return 'n/a';
+}
+
+function summarizeRunError(run: NormalizedRun) {
+  if (run.plumbingFailure || run.runErrorMessage) return run.plumbingFailure || run.runErrorMessage;
+  const status = classifyDetailRunStatus(run);
+  if (status.key === 'solved-strict' || status.key === 'solved-semantic') return null;
+  const outcome = resolveRunEvalOutcome(run);
+  return outcome.startsWith('solved_') ? null : outcome;
 }
 
 function renderTokenAccountingSection(ctx: ArenaReportHtmlContext) {
@@ -787,12 +1205,12 @@ function renderModelResponsesSection(ctx: ArenaReportHtmlContext) {
 function renderJsonCell(runs: NormalizedRun[]) {
   const status = summarizeJsonCellStatus(runs);
   const summaryBase = runs.length > 1 ? `View JSON (${runs.length})` : 'View JSON';
-  const summary = `${status.icon} ${status.label} - ${summaryBase}`;
+  const summary = `${status.label} - ${summaryBase}`;
   const bodies = runs
     .map((r, i) => {
       const runStatus = classifyRunStatus(r);
       const metaParts = [
-        `${runStatus.icon} ${runStatus.label}`,
+        runStatus.label,
         r.runId ? `run: ${r.runId}` : null,
         r.answerParseStatus ? `parse: ${r.answerParseStatus}` : null,
         typeof r.solvedSemantic === 'boolean' ? `semantic: ${r.solvedSemantic ? 'yes' : 'no'}` : null,
@@ -827,13 +1245,13 @@ function resolveRunEvalOutcome(run: NormalizedRun) {
   });
 }
 
-function classifyRunStatus(run: NormalizedRun): { key: JsonCellStatusKey; label: string; icon: string } {
+function classifyRunStatus(run: NormalizedRun): { key: JsonCellStatusKey; label: string } {
   const outcome = resolveRunEvalOutcome(run);
-  if (outcome === 'plumbing_failure') return { key: 'timeout', label: 'Timeout', icon: '⚪' };
+  if (outcome === 'plumbing_failure') return { key: 'timeout', label: 'Timeout' };
   if (run.solvedSemantic === true || outcome === 'solved_semantic' || outcome === 'solved_strict') {
-    return { key: 'correct_solution', label: 'Correct Solution', icon: '🟢' };
+    return { key: 'correct_solution', label: 'Correct Solution' };
   }
-  return { key: 'incorrect_solution', label: 'Incorrect Solution', icon: '🔴' };
+  return { key: 'incorrect_solution', label: 'Incorrect Solution' };
 }
 
 function summarizeJsonCellStatus(runs: NormalizedRun[]) {
@@ -860,9 +1278,9 @@ function summarizeJsonCellStatus(runs: NormalizedRun[]) {
     }
   }
 
-  if (best === 'timeout') return { key: best, label: 'Timeout', icon: '⚪' };
-  if (best === 'correct_solution') return { key: best, label: 'Correct Solution', icon: '🟢' };
-  return { key: best, label: 'Incorrect Solution', icon: '🔴' };
+  if (best === 'timeout') return { key: best, label: 'Timeout' };
+  if (best === 'correct_solution') return { key: best, label: 'Correct Solution' };
+  return { key: best, label: 'Incorrect Solution' };
 }
 
 function formatAnswerJson(run: NormalizedRun) {
@@ -1134,6 +1552,197 @@ body {
   font-size: 11px;
 }
 
+.subsectionTitle {
+  margin-top: 24px;
+}
+
+.runLegend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 4px 0 14px;
+}
+
+.runSourceGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin: 14px 0 18px;
+}
+
+.runSourceCard {
+  background: var(--surface);
+  border-left: 2px solid var(--grid-strong);
+  padding: 12px 13px;
+  min-width: 0;
+}
+
+.runSourceHead {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  align-items: baseline;
+}
+
+.runSourceTitle {
+  font-size: 18px;
+  font-weight: 650;
+}
+
+.runSourceMeta {
+  color: var(--muted);
+  font-size: 11px;
+  overflow-wrap: anywhere;
+}
+
+.runSourceStats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px 10px;
+  margin: 12px 0 0;
+}
+
+.runSourceStats div {
+  min-width: 0;
+}
+
+.runSourceStats dt {
+  margin: 0;
+  color: var(--muted);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.runSourceStats dd {
+  margin: 1px 0 0;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.statusBadge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 18px;
+  border: 1px solid transparent;
+  padding: 2px 7px;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1.2;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.statusBadge.solved-strict,
+.runPill.solved-strict {
+  color: #064e3b;
+  background: #d1fae5;
+  border-color: #86efac;
+}
+
+.statusBadge.solved-semantic,
+.runPill.solved-semantic {
+  color: #155e75;
+  background: #cffafe;
+  border-color: #67e8f9;
+}
+
+.statusBadge.semantic-failure,
+.runPill.semantic-failure {
+  color: #7f1d1d;
+  background: #fee2e2;
+  border-color: #fca5a5;
+}
+
+.statusBadge.protocol-failure,
+.runPill.protocol-failure {
+  color: #713f12;
+  background: #fef3c7;
+  border-color: #facc15;
+}
+
+.statusBadge.plumbing-failure,
+.runPill.plumbing-failure {
+  color: #1f2937;
+  background: #e5e7eb;
+  border-color: #9ca3af;
+}
+
+.statusBadge.eval-error,
+.runPill.eval-error {
+  color: #581c87;
+  background: #f3e8ff;
+  border-color: #c084fc;
+}
+
+.statusBadge.unscored,
+.runPill.unscored {
+  color: #374151;
+  background: #f3f4f6;
+  border-color: #d1d5db;
+}
+
+.runIdCell {
+  min-width: 160px;
+}
+
+.runIdCell div {
+  font-weight: 650;
+}
+
+.runIdCell span {
+  display: block;
+  color: var(--muted);
+  font-size: 11px;
+  overflow-wrap: anywhere;
+}
+
+.runMatrixCell {
+  min-width: 180px;
+}
+
+.runCellTop {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  font-weight: 650;
+}
+
+.runCellCounts,
+.runCellMeta,
+.runStripMeta {
+  margin-top: 3px;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.runStrip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  min-width: 0;
+}
+
+.runPill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 24px;
+  height: 22px;
+  border: 1px solid transparent;
+  padding: 0 6px;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.runErrorCell {
+  max-width: 420px;
+  overflow-wrap: anywhere;
+}
+
 .chartGroup {
   margin-top: 34px;
 }
@@ -1300,6 +1909,18 @@ table.responses {
   min-width: 2360px;
 }
 
+table.runMatrix {
+  min-width: 1180px;
+}
+
+table.runStrips {
+  min-width: 1720px;
+}
+
+table.runLedger {
+  min-width: 2180px;
+}
+
 .jsonCell {
   min-width: 360px;
 }
@@ -1416,6 +2037,10 @@ summary:focus-visible {
     border-bottom: 0;
   }
 
+  .runSourceGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .metricCard {
     border-top: 1px solid var(--grid);
     border-left: 0;
@@ -1424,14 +2049,24 @@ summary:focus-visible {
 
 @media (max-width: 640px) {
   body {
-    padding: 12px calc(var(--nav-w) + 12px) 28px 8px;
+    padding: 12px 8px 28px;
     font-size: 13px;
   }
 
   .floatingNav {
-    right: 4px;
-    top: 8px;
-    padding-left: 8px;
+    position: static;
+    width: auto;
+    max-height: none;
+    overflow: visible;
+    border-left: 0;
+    border-bottom: 1px solid var(--grid-strong);
+    padding: 0 0 10px;
+    margin: 0 0 16px;
+  }
+
+  .floatingNavList {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 3px 10px;
   }
 
   .floatingNavList a {
@@ -1440,6 +2075,10 @@ summary:focus-visible {
   }
 
   .overviewGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .runSourceGrid {
     grid-template-columns: 1fr;
   }
 

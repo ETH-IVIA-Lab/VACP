@@ -109,7 +109,9 @@ pnpm start -- report \
   --out .agent-arena/reports/<studyId>
 ```
 
-The report loader merges rows at analysis time. Each run keeps its `run_id`, and charts use one preferred row per `(model, run_id, experiment, scenario)` group.
+The report loader merges rows at analysis time. Each run keeps its `run_id`. Charts use one preferred row per `(model, run_id, experiment, scenario)` group.
+
+Merged HTML reports include an Individual Runs section with source summaries, a run x experiment matrix, task-level run strips, and the final retained-row ledger.
 
 ## OpenCode exports
 
