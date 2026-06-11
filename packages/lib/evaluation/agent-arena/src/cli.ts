@@ -272,8 +272,8 @@ program
 
 program
   .command('report')
-  .description('Generate a publication-ready HTML + SVG report from an analysis folder')
-  .requiredOption('--analysis <dir>', 'Analysis folder (contains meta.json + runs.*)')
+  .description('Generate a publication-ready HTML + SVG report from one or more analysis folders')
+  .requiredOption('--analysis <dirs...>', 'Analysis folder(s), each containing meta.json + runs.*')
   .option('--out <dir>', 'Output directory. Default: <analysisDir>/report')
   .option('--width <px>', 'Override figure width in px (affects all charts)')
   .option('--font-size <px>', 'Override base chart font size in px (affects all charts)')
@@ -282,7 +282,7 @@ program
   .option('--chart-config <path>', 'JSON file mapping chart ids -> per-chart config (layout + chart-specific options)')
   .action(async (raw) => {
     try {
-      const analysisDir = resolveFromCwd(raw.analysis);
+      const analysisDirs = parseAnalysisDirs(raw.analysis);
       const outDir = raw.out ? resolveFromCwd(raw.out) : undefined;
 
       const width = raw.width ? Number(raw.width) : undefined;
@@ -303,7 +303,7 @@ program
       };
 
       const res = await generateArenaReportSuite({
-        analysisDir,
+        analysisDir: analysisDirs,
         ...(outDir ? { outDir } : {}),
         ...(Object.keys(theme).length ? { theme } : {}),
         ...(charts ? { charts } : {}),
@@ -324,14 +324,14 @@ program
 
 program
   .command('datasets')
-  .description('Export chart-ready datasets (and derived tables) as JSON under an analysis folder')
-  .requiredOption('--analysis <dir>', 'Analysis folder (contains meta.json + runs.*)')
+  .description('Export chart-ready datasets from one or more analysis folders')
+  .requiredOption('--analysis <dirs...>', 'Analysis folder(s), each containing meta.json + runs.*')
   .option('--out <dir>', 'Output directory. Default: <analysisDir>/datasets')
   .option('--charts <ids>', 'Comma-separated chart ids to export (default: all)')
   .option('--chart-config <path>', 'JSON file mapping chart ids -> per-chart config (affects dataset shape)')
   .action(async (raw) => {
     try {
-      const analysisDir = resolveFromCwd(raw.analysis);
+      const analysisDirs = parseAnalysisDirs(raw.analysis);
       const outDir = raw.out ? resolveFromCwd(raw.out) : undefined;
 
       const chartIds = parseCsv(raw.charts);
@@ -341,7 +341,7 @@ program
       const chartConfigById = chartConfigPath ? await loadJsonObject(chartConfigPath) : undefined;
 
       const res = await exportArenaDatasets({
-        analysisDir,
+        analysisDir: analysisDirs,
         ...(outDir ? { outDir } : {}),
         ...(charts ? { charts } : {}),
         ...(chartConfigById ? { chartConfigById } : {}),
@@ -394,6 +394,16 @@ function parseCsv(value: unknown): string[] | null {
     .map((s) => s.trim())
     .filter(Boolean);
   return items.length ? items : null;
+}
+
+function parseAnalysisDirs(value: unknown): string[] {
+  const values = Array.isArray(value) ? value : typeof value === 'string' ? [value] : [];
+  const dirs = values
+    .map((item) => String(item).trim())
+    .filter(Boolean)
+    .map((item) => resolveFromCwd(item));
+  if (!dirs.length) throw new Error('Expected at least one --analysis directory.');
+  return dirs;
 }
 
 function selectById<T extends { id: string }>(items: T[], ids: string[], kind: string) {

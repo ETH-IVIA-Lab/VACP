@@ -2,7 +2,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 
 export type ArenaAnalysisMeta = {
-  runId?: string;
+  runId?: string | null;
   runDir?: string;
   generatedAt?: string;
   uiBase?: string | null;
@@ -22,7 +22,17 @@ export type ArenaAnalysisMeta = {
   configSha256?: string | null;
   scenariosPath?: string | null;
   scenariosSha256?: string | null;
+  analysisSources?: ArenaAnalysisSource[];
   [k: string]: unknown;
+};
+
+export type ArenaAnalysisSource = {
+  analysisDir: string;
+  runId: string | null;
+  runDir: string | null;
+  generatedAt: string | null;
+  runs: number;
+  toolCalls: number;
 };
 
 export type ArenaRunRow = Record<string, unknown> & {
@@ -40,12 +50,33 @@ export type ArenaToolCallRow = Record<string, unknown> & {
 
 export type ArenaAnalysis = {
   analysisDir: string;
+  analysisDirs: string[];
   meta: ArenaAnalysisMeta | null;
   runs: ArenaRunRow[];
   toolCalls: ArenaToolCallRow[];
 };
 
-export async function loadArenaAnalysis(analysisDirRaw: string): Promise<ArenaAnalysis> {
+export type ArenaAnalysisInput = string | readonly string[];
+
+export async function loadArenaAnalysis(analysisInput: ArenaAnalysisInput): Promise<ArenaAnalysis> {
+  const analysisDirs = normalizeAnalysisDirs(analysisInput);
+  if (analysisDirs.length === 1) return loadSingleArenaAnalysis(analysisDirs[0]);
+
+  const analyses = await Promise.all(analysisDirs.map((analysisDir) => loadSingleArenaAnalysis(analysisDir)));
+  return mergeArenaAnalyses(analyses);
+}
+
+export function normalizeAnalysisDirs(analysisInput: ArenaAnalysisInput): string[] {
+  const values = Array.isArray(analysisInput) ? analysisInput : [analysisInput];
+  const dirs = values
+    .map((value) => value.trim())
+    .filter(Boolean)
+    .map((value) => path.resolve(value));
+  if (!dirs.length) throw new Error('Expected at least one analysis directory.');
+  return dirs;
+}
+
+async function loadSingleArenaAnalysis(analysisDirRaw: string): Promise<ArenaAnalysis> {
   const analysisDir = path.resolve(analysisDirRaw);
   const metaPath = path.join(analysisDir, 'meta.json');
   const meta = (await readJsonOptional(metaPath)) as ArenaAnalysisMeta | null;
@@ -54,7 +85,64 @@ export async function loadArenaAnalysis(analysisDirRaw: string): Promise<ArenaAn
   const toolCallsPath = await resolveAnyOptional(analysisDir, ['tool_calls.json', 'tool_calls.jsonl']);
   const toolCalls = toolCallsPath ? ((await readRows(toolCallsPath)) as ArenaToolCallRow[]) : [];
 
-  return { analysisDir, meta, runs, toolCalls };
+  return { analysisDir, analysisDirs: [analysisDir], meta, runs, toolCalls };
+}
+
+function mergeArenaAnalyses(analyses: ArenaAnalysis[]): ArenaAnalysis {
+  const analysisDirs = analyses.flatMap((analysis) => analysis.analysisDirs);
+  const analysisDir = commonParent(analysisDirs);
+  const sources = analyses.map((analysis) => analysisSource(analysis));
+
+  const runs = analyses.flatMap((analysis, index) =>
+    analysis.runs.map((row) => ({
+      ...row,
+      analysis_source_dir: analysis.analysisDir,
+      analysis_source_index: index,
+    })),
+  );
+  const toolCalls = analyses.flatMap((analysis, index) =>
+    analysis.toolCalls.map((row) => ({
+      ...row,
+      analysis_source_dir: analysis.analysisDir,
+      analysis_source_index: index,
+    })),
+  );
+
+  const primaryMeta = analyses.find((analysis) => analysis.meta)?.meta ?? null;
+  const runIds = Array.from(new Set(sources.flatMap((source) => (source.runId ? [source.runId] : []))));
+  const generatedAtValues = sources.flatMap((source) => (source.generatedAt ? [source.generatedAt] : []));
+  const generatedAt = generatedAtValues.length ? generatedAtValues.sort()[generatedAtValues.length - 1] : undefined;
+
+  const meta: ArenaAnalysisMeta = {
+    ...primaryMeta,
+    runId: runIds.length === 1 ? runIds[0] : null,
+    ...(generatedAt ? { generatedAt } : {}),
+    analysisSources: sources,
+  };
+
+  return { analysisDir, analysisDirs, meta, runs, toolCalls };
+}
+
+function analysisSource(analysis: ArenaAnalysis): ArenaAnalysisSource {
+  return {
+    analysisDir: analysis.analysisDir,
+    runId: typeof analysis.meta?.runId === 'string' ? analysis.meta.runId : null,
+    runDir: typeof analysis.meta?.runDir === 'string' ? analysis.meta.runDir : null,
+    generatedAt: typeof analysis.meta?.generatedAt === 'string' ? analysis.meta.generatedAt : null,
+    runs: analysis.runs.length,
+    toolCalls: analysis.toolCalls.length,
+  };
+}
+
+function commonParent(paths: string[]) {
+  if (paths.length === 1) return paths[0];
+  const split = paths.map((p) => path.resolve(p).split(path.sep).filter(Boolean));
+  const first = split[0] ?? [];
+  let i = 0;
+  while (i < first.length && split.every((parts) => parts[i] === first[i])) i += 1;
+  const prefix = first.slice(0, i);
+  if (!prefix.length) return path.parse(paths[0]).root;
+  return `${path.sep}${prefix.join(path.sep)}`;
 }
 
 async function resolveAny(dir: string, names: string[]) {

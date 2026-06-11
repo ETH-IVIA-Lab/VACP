@@ -2,6 +2,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { base64UrlEncode, sanitizeSegment } from '../paths.js';
 import { generateArenaReport, type GenerateArenaReportArgs } from './generate-report.js';
+import { normalizeAnalysisDirs } from './load-analysis.js';
 import { renderArenaReportIndexHtml, type ArenaReportIndexModelRow } from './render-index.js';
 import { prepareArenaAnalysis } from './prepare.js';
 import type { NormalizedRun } from './stats.js';
@@ -33,10 +34,12 @@ export type GenerateArenaReportSuiteResult = {
 export async function generateArenaReportSuite(
   args: GenerateArenaReportSuiteArgs,
 ): Promise<GenerateArenaReportSuiteResult> {
-  const analysisDir = path.resolve(args.analysisDir);
-  const outDir = path.resolve(args.outDir ?? path.join(analysisDir, 'report'));
+  const analysisDirs = normalizeAnalysisDirs(args.analysisDir);
+  const defaultOutBase = analysisDirs.length === 1 ? analysisDirs[0] : process.cwd();
+  const outDir = path.resolve(args.outDir ?? path.join(defaultOutBase, 'report'));
 
-  const prepared = await prepareArenaAnalysis({ analysisDir });
+  const prepared = await prepareArenaAnalysis({ analysisDir: analysisDirs });
+  const analysisDir = prepared.analysisDir;
   const runs = prepared.runs;
 
   const runId = typeof prepared.meta?.runId === 'string' ? prepared.meta.runId : null;
@@ -58,7 +61,7 @@ export async function generateArenaReportSuite(
 
     const res = await generateArenaReport({
       ...args,
-      analysisDir,
+      analysisDir: analysisDirs,
       outDir: modelOutDir,
       filter: { modelProvider: key.modelProvider, modelName: key.modelName },
       modelLabel,
@@ -80,7 +83,7 @@ export async function generateArenaReportSuite(
     const allOutDir = path.join(outDir, 'all');
     const res = await generateArenaReport({
       ...args,
-      analysisDir,
+      analysisDir: analysisDirs,
       outDir: allOutDir,
       indexHref: '../index.html',
     });
@@ -93,6 +96,7 @@ export async function generateArenaReportSuite(
     indexHtmlPath,
     renderArenaReportIndexHtml({
       analysisDir,
+      analysisSources: prepared.analysisSources,
       runId,
       generatedAt,
       scenarioDefsPath,

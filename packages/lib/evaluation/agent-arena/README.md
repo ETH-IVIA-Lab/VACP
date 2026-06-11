@@ -101,6 +101,16 @@ pnpm start -- report --analysis .agent-arena/runs/<runId>/analysis
 
 Outputs include an HTML report bundle plus per-chart datasets.
 
+Pass multiple analysis folders to produce one merged report over repeated runs:
+
+```bash
+pnpm start -- report \
+  --analysis .agent-arena/runs/<runA>/analysis .agent-arena/runs/<runB>/analysis \
+  --out .agent-arena/reports/<studyId>
+```
+
+The report loader merges rows at analysis time. Each run keeps its `run_id`, and charts use one preferred row per `(model, run_id, experiment, scenario)` group.
+
 ## OpenCode exports
 
 Analysis and reporting read the OpenCode session export written for each job:

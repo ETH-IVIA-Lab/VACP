@@ -1,4 +1,11 @@
-import { loadArenaAnalysis, type ArenaAnalysisMeta, type ArenaRunRow, type ArenaToolCallRow } from './load-analysis.js';
+import {
+  loadArenaAnalysis,
+  type ArenaAnalysisInput,
+  type ArenaAnalysisMeta,
+  type ArenaAnalysisSource,
+  type ArenaRunRow,
+  type ArenaToolCallRow,
+} from './load-analysis.js';
 import { loadScenarioDefs, type ScenarioDef } from './load-scenarios.js';
 import {
   computeExperimentSummaries,
@@ -17,7 +24,9 @@ import {
 
 export type PreparedArenaAnalysis = {
   analysisDir: string;
+  analysisDirs: string[];
   meta: ArenaAnalysisMeta | null;
+  analysisSources: ArenaAnalysisSource[];
   runs: NormalizedRun[];
   experimentDomain: string[];
   scenarioDomain: string[];
@@ -37,7 +46,7 @@ export type PreparedArenaAnalysis = {
 };
 
 export async function prepareArenaAnalysis(args: {
-  analysisDir: string;
+  analysisDir: ArenaAnalysisInput;
   filter?: { modelProvider: string; modelName: string };
 }): Promise<PreparedArenaAnalysis> {
   const analysis = await loadArenaAnalysis(args.analysisDir);
@@ -67,7 +76,18 @@ export async function prepareArenaAnalysis(args: {
 
   return {
     analysisDir: analysis.analysisDir,
+    analysisDirs: analysis.analysisDirs,
     meta: analysis.meta,
+    analysisSources: analysis.meta?.analysisSources ?? [
+      {
+        analysisDir: analysis.analysisDir,
+        runId: typeof analysis.meta?.runId === 'string' ? analysis.meta.runId : null,
+        runDir: typeof analysis.meta?.runDir === 'string' ? analysis.meta.runDir : null,
+        generatedAt: typeof analysis.meta?.generatedAt === 'string' ? analysis.meta.generatedAt : null,
+        runs: analysis.runs.length,
+        toolCalls: analysis.toolCalls.length,
+      },
+    ],
     runs,
     experimentDomain,
     scenarioDomain: orderedScenarioIds,

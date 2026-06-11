@@ -28,10 +28,15 @@ async function main() {
   );
 
   const scoring = await loadScenarioJudges(configPath);
+  const derivedConfig = (await import(pathToFileURL(configPath).href)).default as {
+    runs: Array<{ model: { providerID: string; modelID: string } }>;
+  };
+  const firstModel = derivedConfig.runs[0]?.model;
   assert.ok(scoring);
+  assert.ok(firstModel);
   assert.ok(scoring.scenariosPath?.endsWith('agent-arena.scenarios.ts'));
   assert.equal(typeof scoring.judges.get('vl-global-development-t1-lifeexp-max-2000'), 'function');
-  assert.equal(scoring.pricingByModel.has('openai::gpt-5.4'), true);
+  assert.equal(scoring.pricingByModel.has(`${firstModel.providerID}::${firstModel.modelID}`), true);
 
   const judge = scoring.judges.get('vl-global-development-t1-lifeexp-max-2000') as (args: {
     scenarioId: string;

@@ -2,11 +2,12 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { JSDOM } from 'jsdom';
 import { buildDefaultFigures, DEFAULT_THEME, type ArenaAnyChart, type ArenaReportTheme } from './charts.js';
+import type { ArenaAnalysisInput } from './load-analysis.js';
 import { prepareArenaAnalysis } from './prepare.js';
 import { renderArenaReportHtml, type ArenaReportSection } from './render-html.js';
 
 export type GenerateArenaReportArgs = {
-  analysisDir: string;
+  analysisDir: ArenaAnalysisInput;
   outDir?: string;
   theme?: Partial<ArenaReportTheme>;
   charts?: ArenaAnyChart[];
@@ -31,10 +32,12 @@ const DEFAULT_DEPS: GenerateArenaReportDeps = {
 };
 
 export async function generateArenaReport(args: GenerateArenaReportArgs, deps: GenerateArenaReportDeps = DEFAULT_DEPS) {
-  const analysisDir = path.resolve(args.analysisDir);
+  const prepared = await prepareArenaAnalysis({
+    analysisDir: args.analysisDir,
+    ...(args.filter ? { filter: args.filter } : {}),
+  });
+  const analysisDir = prepared.analysisDir;
   const outDir = path.resolve(args.outDir ?? path.join(analysisDir, 'report'));
-
-  const prepared = await prepareArenaAnalysis({ analysisDir, ...(args.filter ? { filter: args.filter } : {}) });
   const document = deps.createDocument();
 
   const figures = buildDefaultFigures({
@@ -81,6 +84,7 @@ export async function generateArenaReport(args: GenerateArenaReportArgs, deps: G
         figures,
         runId: typeof prepared.meta?.runId === 'string' ? prepared.meta.runId : null,
         generatedAt: typeof prepared.meta?.generatedAt === 'string' ? prepared.meta.generatedAt : null,
+        analysisSources: prepared.analysisSources,
         modelLabel: args.modelLabel ?? null,
         indexHref: args.indexHref ?? null,
         taskIndex: prepared.taskIndex,

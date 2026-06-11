@@ -1,4 +1,5 @@
 import type { ArenaFigure } from './charts/types.js';
+import type { ArenaAnalysisSource } from './load-analysis.js';
 import type { NormalizedRun } from './stats.js';
 import { deriveEvalOutcome } from '../eval/outcome.js';
 
@@ -55,6 +56,7 @@ export type ArenaReportHtmlContext = {
   analysisDir: string;
   runId: string | null;
   generatedAt: string | null;
+  analysisSources: ArenaAnalysisSource[];
   modelLabel: string | null;
   indexHref: string | null;
   scenarioDefsPath: string | null;
@@ -164,7 +166,11 @@ export function renderArenaReportHtml(
   if (ctx.runId) titleParts.push(ctx.runId);
   if (ctx.modelLabel) titleParts.push(ctx.modelLabel);
   const title = titleParts.join(' - ');
-  const sub = [ctx.runId ? `Run: ${ctx.runId}` : null, ctx.generatedAt ? `Analyzed: ${ctx.generatedAt}` : null]
+  const sub = [
+    ctx.runId ? `Run: ${ctx.runId}` : null,
+    ctx.analysisSources.length > 1 ? `Sources: ${ctx.analysisSources.length} analyses` : null,
+    ctx.generatedAt ? `Analyzed: ${ctx.generatedAt}` : null,
+  ]
     .filter(Boolean)
     .join('  ·  ');
 
@@ -238,6 +244,15 @@ function renderOverviewSection(ctx: ArenaReportHtmlContext) {
       value: fmtInt(totalRuns),
       meta: `${fmtInt(experiments)} experiments`,
     },
+    ...(ctx.analysisSources.length > 1
+      ? [
+          {
+            label: 'Sources',
+            value: fmtInt(ctx.analysisSources.length),
+            meta: 'Analysis folders merged',
+          },
+        ]
+      : []),
     {
       label: 'Median Tokens',
       value: withCacheMedian === null ? 'n/a' : fmtInt(Math.round(withCacheMedian)),
@@ -281,6 +296,10 @@ function renderOverviewSection(ctx: ArenaReportHtmlContext) {
         ]
           .filter(Boolean)
           .join(' ');
+  const sourceLine =
+    ctx.analysisSources.length > 1
+      ? `Merged analysis sources: ${ctx.analysisSources.map(formatAnalysisSourceLabel).join(', ')}.`
+      : null;
 
   return [
     '    <section class="section overviewSection" id="section-overview">',
@@ -300,6 +319,7 @@ function renderOverviewSection(ctx: ArenaReportHtmlContext) {
     '      </div>',
     '      <ul class="overviewCaveats muted small">',
     '        <li>Charts use the preferred-run view: one selected run per model, run_id, experiment, and scenario group.</li>',
+    ...(sourceLine ? [`        <li>${escapeHtml(sourceLine)}</li>`] : []),
     '        <li>Flag rates are computed over runs with available telemetry for each flag. Missing values are excluded and shown as n/a.</li>',
     '        <li>Tool heatmaps report calls per run, not raw call totals.</li>',
     `        <li>${escapeHtml(exportLine)}</li>`,
@@ -318,6 +338,10 @@ function medianNumber(values: number[]) {
 function sumNumber(values: number[]) {
   if (!values.length) return null;
   return values.reduce((acc, value) => acc + value, 0);
+}
+
+function formatAnalysisSourceLabel(source: ArenaAnalysisSource) {
+  return source.runId || source.analysisDir.split('/').filter(Boolean).at(-1) || 'analysis';
 }
 
 function groupFigures(figures: ArenaFigure[]) {

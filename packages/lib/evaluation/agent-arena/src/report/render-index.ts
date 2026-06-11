@@ -1,3 +1,5 @@
+import type { ArenaAnalysisSource } from './load-analysis.js';
+
 export type ArenaReportIndexModelRow = {
   modelLabel: string;
   modelProvider: string;
@@ -20,6 +22,7 @@ export type ArenaReportIndexModelRow = {
 
 export type ArenaReportIndexHtmlContext = {
   analysisDir: string;
+  analysisSources: ArenaAnalysisSource[];
   runId: string | null;
   generatedAt: string | null;
   scenarioDefsPath: string | null;
@@ -32,9 +35,17 @@ export function renderArenaReportIndexHtml(ctx: ArenaReportIndexHtmlContext) {
   if (ctx.runId) titleParts.push(ctx.runId);
   const title = titleParts.join(' - ');
 
-  const sub = [ctx.runId ? `Run: ${ctx.runId}` : null, ctx.generatedAt ? `Analyzed: ${ctx.generatedAt}` : null]
+  const sub = [
+    ctx.runId ? `Run: ${ctx.runId}` : null,
+    ctx.analysisSources.length > 1 ? `Sources: ${ctx.analysisSources.length} analyses` : null,
+    ctx.generatedAt ? `Analyzed: ${ctx.generatedAt}` : null,
+  ]
     .filter(Boolean)
     .join('  ·  ');
+  const sourceLine =
+    ctx.analysisSources.length > 1
+      ? `<p class="muted small">Merged analysis sources: ${escapeHtml(ctx.analysisSources.map(formatAnalysisSourceLabel).join(', '))}.</p>`
+      : '';
 
   const tableRows = ctx.models
     .map((m) => {
@@ -78,6 +89,7 @@ export function renderArenaReportIndexHtml(ctx: ArenaReportIndexHtmlContext) {
     `      <h1 class="title">Agent Arena Reports</h1>`,
     `      <div class="sub">${escapeHtml(sub)}</div>`,
     `    </header>`,
+    sourceLine,
     '    <section class="section panel">',
     '      <h2>Models</h2>',
     '      <div class="tableWrap">',
@@ -113,6 +125,10 @@ export function renderArenaReportIndexHtml(ctx: ArenaReportIndexHtmlContext) {
     '</html>',
     '',
   ].join('\n');
+}
+
+function formatAnalysisSourceLabel(source: ArenaAnalysisSource) {
+  return source.runId || source.analysisDir.split('/').filter(Boolean).at(-1) || 'analysis';
 }
 
 function css() {
@@ -261,6 +277,10 @@ tbody tr:hover td {
 
 .muted {
   color: var(--muted);
+}
+
+.small {
+  font-size: 12px;
 }
 
 a:focus-visible,

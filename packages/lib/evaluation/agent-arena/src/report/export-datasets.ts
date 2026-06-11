@@ -2,6 +2,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { JSDOM } from 'jsdom';
 import { DEFAULT_CHARTS, createChartContext, type ArenaAnyChart, type ArenaReportTheme } from './charts.js';
+import type { ArenaAnalysisInput } from './load-analysis.js';
 import { prepareArenaAnalysis } from './prepare.js';
 import type {
   ExperimentSummary,
@@ -12,7 +13,7 @@ import type {
 } from './stats.js';
 
 export type ExportArenaDatasetsArgs = {
-  analysisDir: string;
+  analysisDir: ArenaAnalysisInput;
   outDir?: string;
   charts?: ArenaAnyChart[];
   chartConfigById?: Record<string, unknown>;
@@ -20,10 +21,9 @@ export type ExportArenaDatasetsArgs = {
 };
 
 export async function exportArenaDatasets(args: ExportArenaDatasetsArgs) {
-  const analysisDir = path.resolve(args.analysisDir);
+  const prepared = await prepareArenaAnalysis({ analysisDir: args.analysisDir });
+  const analysisDir = prepared.analysisDir;
   const outDir = path.resolve(args.outDir ?? path.join(analysisDir, 'datasets'));
-
-  const prepared = await prepareArenaAnalysis({ analysisDir });
 
   const document = new JSDOM('').window.document;
   const ctx = createChartContext({
@@ -56,6 +56,8 @@ export async function exportArenaDatasets(args: ExportArenaDatasetsArgs) {
   await writeJson(path.join(outDir, 'meta.json'), {
     generated_at: new Date().toISOString(),
     analysis_dir: analysisDir,
+    analysis_dirs: prepared.analysisDirs,
+    analysis_sources: prepared.analysisSources,
     run_id: typeof prepared.meta?.runId === 'string' ? prepared.meta.runId : null,
     scenario_defs_path: prepared.scenarioDefsPath,
     opencode_log_source: typeof prepared.meta?.opencodeLogSource === 'string' ? prepared.meta.opencodeLogSource : null,
@@ -109,6 +111,7 @@ export async function exportArenaDatasets(args: ExportArenaDatasetsArgs) {
 
 function exportNormalizedRuns(runs: NormalizedRun[]) {
   return runs.map((r) => ({
+    run_id: r.runId,
     experiment: r.experiment,
     scenario_id: r.scenarioId,
     model_provider: r.modelProvider,
