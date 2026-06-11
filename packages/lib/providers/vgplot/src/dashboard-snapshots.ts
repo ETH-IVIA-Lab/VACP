@@ -2,9 +2,10 @@ import type { VacpCapabilitiesSnapshot, VacpRef, VacpStateSnapshot } from '@vacp
 import { nowIso, VACP_SCHEMA_VERSION } from '@vacp/core';
 import { formatDuckDbTableMetadataSummary, getDuckDbTableMetadata, type VacpDuckDbTableMetadata } from '@vacp/duckdb';
 
-import type { CollectedInput } from './inputs';
+import { readInputValue, type CollectedInput } from './inputs';
 import { discoverPlotTables, type VgplotDataHandle } from './data-handles';
 import { whereClauseForVgplotDashboardSelection } from './duckdb-selection';
+import { isSelectionBackedNearest } from './interactors/nearest';
 import { makePlotRef } from './refs';
 import type { InstallVacpOnVgplotDashboardOptions, VgplotPlotLike, VgplotTableLike } from './types';
 
@@ -25,6 +26,58 @@ function resolveHandleTableName(args: {
     (tableObj && typeof tableObj.from === 'string' ? tableObj.from : null) ??
     null
   );
+}
+
+function safeStateValue(value: unknown, seen = new WeakSet<object>(), depth = 0): unknown {
+  if (value instanceof Date && Number.isFinite(value.getTime())) return value.toISOString();
+  if (value == null || typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
+    return value;
+  }
+  if (typeof value === 'function' || typeof value === 'symbol') return undefined;
+  if (Array.isArray(value)) {
+    if (depth >= 4) return `[Array(${value.length})]`;
+    const slice = value.slice(0, 24).map((entry) => safeStateValue(entry, seen, depth + 1));
+    return value.length > slice.length ? [...slice, `… ${value.length - slice.length} more`] : slice;
+  }
+  if (typeof value === 'object') {
+    if (seen.has(value)) return '[circular]';
+    const ctor = value.constructor?.name && value.constructor.name !== 'Object' ? value.constructor.name : 'Object';
+    if (depth >= 2) return `[${ctor}]`;
+    seen.add(value);
+    try {
+      const out: Record<string, unknown> = {};
+      const entries = Object.entries(value as Record<string, unknown>).slice(0, 24);
+      for (const [key, entry] of entries) {
+        const next = safeStateValue(entry, seen, depth + 1);
+        if (next !== undefined) out[key] = next;
+      }
+      const total = Object.keys(value as Record<string, unknown>).length;
+      if (total > entries.length) out.__truncated = `${total - entries.length} more keys`;
+      return out;
+    } finally {
+      seen.delete(value);
+    }
+  }
+  return String(value);
+}
+
+function readScaleDomain(scale: unknown): unknown[] | undefined {
+  if (!scale) return undefined;
+  const anyScale = scale as { domain?: unknown };
+  const raw = typeof anyScale.domain === 'function' ? (anyScale.domain as () => unknown)() : anyScale.domain;
+  if (!Array.isArray(raw) || raw.length < 2) return undefined;
+  return raw.map((value) => safeStateValue(value));
+}
+
+function readNearestValue(interactor: Record<string, unknown>, rawValue: unknown): unknown {
+  if (rawValue !== undefined) return rawValue;
+  const selection = interactor.selection;
+  if (!selection || typeof selection !== 'object' || !('value' in selection)) return undefined;
+  const value = (selection as { value?: unknown }).value;
+  if (value && typeof value === 'object' && Object.hasOwn(value, 'value') && Object.hasOwn(value, 'predicate')) {
+    return (value as { value?: unknown }).value;
+  }
+  return value;
 }
 
 export function createVgplotDashboardSnapshots(args: {
@@ -101,15 +154,21 @@ export function createVgplotDashboardSnapshots(args: {
     for (const input of inputs) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const inst = input.input as any;
-      const selected =
-        typeof inst.selectedValue === 'function' ? inst.selectedValue() : inst.select ? inst.select.value : undefined;
-      const selectionValue = inst.selection?.value ?? undefined;
+      const selected = readInputValue(input);
+      const selectionValue = safeStateValue(inst.selection?.value ?? undefined);
       const optionCount = Array.isArray(inst.data)
         ? inst.data.length
         : inst.select?.options
           ? inst.select.options.length
           : undefined;
-      state[input.ref] = { kind: 'Widget', widgetKind: input.meta.kind, value: selected, selectionValue, optionCount };
+      state[input.ref] = {
+        kind: 'Widget',
+        widgetKind: input.meta.kind,
+        value: safeStateValue(selected.value),
+        selectionValue,
+        optionCount,
+        ...(!selected.ok ? { readError: selected.error } : null),
+      };
     }
 
     for (const { plotId, plot } of plots) {
@@ -122,17 +181,31 @@ export function createVgplotDashboardSnapshots(args: {
         });
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const anyI = interactor as any;
-        const selectionValue = anyI.selection?.value ?? undefined;
         const ctorName = interactor.constructor?.name ?? 'Interactor';
+        const rawValue = interactor.value;
+        const selectionValue =
+          ctorName === 'Nearest'
+            ? safeStateValue(readNearestValue(anyI, rawValue))
+            : safeStateValue(anyI.selection?.value ?? undefined);
+        const domain =
+          ctorName === 'Interval1D'
+            ? { domain: readScaleDomain(anyI.scale) }
+            : ctorName === 'Interval2D'
+              ? { xDomain: readScaleDomain(anyI.xscale), yDomain: readScaleDomain(anyI.yscale) }
+              : ctorName === 'PanZoom'
+                ? { xDomain: readScaleDomain(anyI.xscale), yDomain: readScaleDomain(anyI.yscale) }
+                : null;
         state[interactorRef] = {
           kind: ctorName,
           plotId,
-          value: interactor.value,
+          value: safeStateValue(rawValue),
           selectionValue,
+          ...(ctorName === 'Nearest' ? { selectionBacked: isSelectionBackedNearest(interactor) } : null),
+          ...domain,
           ...(ctorName === 'PanZoom'
             ? {
-                x: anyI.xsel?.value ?? null,
-                y: anyI.ysel?.value ?? null,
+                x: safeStateValue(anyI.xsel?.value ?? null),
+                y: safeStateValue(anyI.ysel?.value ?? null),
                 xField: anyI.xfield ?? null,
                 yField: anyI.yfield ?? null,
               }
@@ -151,7 +224,7 @@ export function createVgplotDashboardSnapshots(args: {
         sortDesc: Boolean(table.sortDesc),
         offset: typeof table.offset === 'number' ? table.offset : 0,
         limit: typeof table.limit === 'number' ? table.limit : null,
-        selectionValue: table.selection?.value ?? undefined,
+        selectionValue: safeStateValue(table.selection?.value ?? undefined),
       };
     }
 

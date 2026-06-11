@@ -40,13 +40,13 @@ export function useChatAutoscroll(depSignal: unknown) {
       lastTop: lastScrollTopRef.current,
     });
     lastScrollTopRef.current = currentTop;
-    setStickToBottom(nextStick);
+    setStickToBottom((current) => (current === nextStick ? current : nextStick));
   }, []);
 
   const jumpToLatest = useCallback(
     (behavior: ScrollBehavior = 'smooth') => {
       scrollToBottom(behavior);
-      setStickToBottom(true);
+      setStickToBottom((current) => (current ? current : true));
     },
     [scrollToBottom],
   );

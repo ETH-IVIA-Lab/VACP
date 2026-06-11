@@ -20,8 +20,10 @@ import { buildStateUpdate, computeStateToken, scopeStateSnapshot } from './state
 import {
   entryMessage,
   entrySource,
+  findLatestIndexWithLiveState,
   findNextIndexWithState,
   findPrevIndexWithState,
+  liveStateFromEntry,
   makeEntryId,
   notify,
   stateFromEntry,
@@ -52,6 +54,7 @@ export function createRuntimeBridge(args: {
 
   let liveCapabilities: VacpCapabilitiesSnapshot | null = null;
   let liveState: VacpStateSnapshot | null = null;
+  let lastLiveState: VacpStateSnapshot | null = null;
   const stateUpdateCache = new Map<string, VacpStateSnapshot>();
 
   const cacheStateSnapshot = (token: string, snapshot: VacpStateSnapshot): void => {
@@ -72,6 +75,25 @@ export function createRuntimeBridge(args: {
   // When replaying time travel onto the host app, suppress observer-driven
   // snapshot recording so the timeline doesn't get polluted.
   let suppressObserverRecording = 0;
+  let replayRequestId = 0;
+  let stateReplayTail: Promise<void> = Promise.resolve();
+  let liveReplayPromise: Promise<void> | null = null;
+
+  const enqueueStateReplay = (run: () => Promise<void>): Promise<void> => {
+    const replay = stateReplayTail.catch(() => undefined).then(run);
+    stateReplayTail = replay.catch(() => undefined);
+    return replay;
+  };
+
+  const scheduleCursorReplay = (requestId: number, targetCursor: number): void => {
+    const replay = enqueueStateReplay(async () => {
+      if (requestId !== replayRequestId || mode !== 'inspect' || cursor !== targetCursor) return;
+      await replayCursorToApp(targetCursor);
+    });
+    void replay.catch(() => {
+      if (requestId === replayRequestId) emitRuntimeChange({ source: 'system', message: 'inspect replay failed' });
+    });
+  };
 
   const emitRuntimeChange = (options?: { source?: VacpChangeSource; message?: string }): void => {
     notify(listeners, {
@@ -93,6 +115,7 @@ export function createRuntimeBridge(args: {
     const [cap, st] = await Promise.all([adapter.snapshots.getCapabilities(), adapter.snapshots.getState()]);
     liveCapabilities = cap;
     liveState = st;
+    if (mode === 'live' && suppressObserverRecording === 0) lastLiveState = st;
   };
 
   const currentCapabilities = (): VacpCapabilitiesSnapshot => {
@@ -116,14 +139,10 @@ export function createRuntimeBridge(args: {
     return entry ? (stateFromEntry(entry) ?? liveState) : liveState;
   };
 
-  const replayCursorToApp = async (): Promise<void> => {
-    if (mode !== 'inspect') return;
-    if (!adapter.actions.list().some((x) => x.name === VACP_APPLY_STATE_ACTION)) return;
-    const idx = cursor >= 0 ? cursor : history.length - 1;
-    const entry = idx >= 0 ? history[idx] : undefined;
-    const st = entry ? stateFromEntry(entry) : undefined;
-    if (!st) return;
+  const canApplyState = (): boolean => adapter.actions.list().some((x) => x.name === VACP_APPLY_STATE_ACTION);
 
+  const applyStateToApp = async (st: VacpStateSnapshot): Promise<void> => {
+    if (!canApplyState()) return;
     suppressObserverRecording += 1;
     try {
       const call: VacpActionCall = {
@@ -138,6 +157,26 @@ export function createRuntimeBridge(args: {
     }
   };
 
+  const replayCursorToApp = async (targetCursor: number): Promise<void> => {
+    if (mode !== 'inspect') return;
+    if (!adapter.actions.list().some((x) => x.name === VACP_APPLY_STATE_ACTION)) return;
+    const idx = targetCursor >= 0 ? targetCursor : history.length - 1;
+    const entry = idx >= 0 ? history[idx] : undefined;
+    const st = entry ? stateFromEntry(entry) : undefined;
+    if (!st) return;
+
+    await applyStateToApp(st);
+  };
+
+  const replayLatestToApp = async (): Promise<void> => {
+    if (!canApplyState()) return;
+    const idx = lastLiveState ? null : findLatestIndexWithLiveState(history);
+    const entry = idx === null ? undefined : history[idx];
+    const st = lastLiveState ?? (entry ? liveStateFromEntry(entry) : undefined);
+    if (!st) return;
+    await applyStateToApp(st);
+  };
+
   const { recordIfStateChanged, startObserving, stopObserving } = createStateObserver({
     getState: () => adapter.snapshots.getState(),
     getLive: () => ({ capabilities: liveCapabilities, state: liveState }),
@@ -147,42 +186,74 @@ export function createRuntimeBridge(args: {
   });
 
   const setMode = (next: VacpRuntimeMode, options?: { source?: VacpChangeSource; message?: string }): void => {
+    const requestId = ++replayRequestId;
+    if (next === 'live') {
+      if (!canApplyState()) {
+        mode = 'live';
+        cursor = history.length - 1;
+        emitRuntimeChange(options);
+        return;
+      }
+      const replay = enqueueStateReplay(async () => {
+        if (requestId !== replayRequestId) return;
+        await replayLatestToApp();
+      });
+      const done = replay
+        .then(() => {
+          if (requestId !== replayRequestId) return;
+          mode = 'live';
+          cursor = history.length - 1;
+          emitRuntimeChange(options);
+        })
+        .catch(() => {
+          if (requestId !== replayRequestId) return;
+          emitRuntimeChange({ ...options, message: entryMessage(options?.message) ?? 'return to live failed' });
+        });
+      liveReplayPromise = done;
+      void done.finally(() => {
+        if (liveReplayPromise === done) liveReplayPromise = null;
+      });
+      return;
+    }
     mode = next;
-    if (mode === 'live') cursor = history.length - 1;
-    else if (cursor < 0) cursor = history.length - 1;
+    if (cursor < 0) cursor = history.length - 1;
     emitRuntimeChange(options);
-    if (mode === 'inspect') void replayCursorToApp();
+    if (mode === 'inspect') scheduleCursorReplay(requestId, cursor);
   };
 
   const setCursor = (nextCursor: number, options?: { source?: VacpChangeSource; message?: string }): void => {
+    const requestId = ++replayRequestId;
     cursor = Math.max(-1, Math.min(nextCursor, history.length - 1));
     mode = 'inspect';
     emitRuntimeChange(options);
-    void replayCursorToApp();
+    scheduleCursorReplay(requestId, cursor);
   };
 
   const undo = (options?: { source?: VacpChangeSource; message?: string }): void => {
     const prev = findPrevIndexWithState(history, cursor - 1);
     if (prev === null) return;
+    const requestId = ++replayRequestId;
     cursor = prev;
     mode = 'inspect';
     emitRuntimeChange(options);
-    void replayCursorToApp();
+    scheduleCursorReplay(requestId, cursor);
   };
 
   const redo = (options?: { source?: VacpChangeSource; message?: string }): void => {
     const next = findNextIndexWithState(history, cursor + 1);
     if (next === null) return;
+    const requestId = ++replayRequestId;
     cursor = next;
     mode = 'inspect';
     emitRuntimeChange(options);
-    void replayCursorToApp();
+    scheduleCursorReplay(requestId, cursor);
   };
 
   const setStateOverrideMap = (
     next: Record<string, unknown>,
     options?: { source?: VacpChangeSource; message?: string },
   ) => {
+    replayRequestId += 1;
     stateOverride = { version: VACP_SCHEMA_VERSION, createdAt: nowIso(), state: next as VacpStateSnapshot['state'] };
     mode = 'inspect';
     record({
@@ -201,6 +272,7 @@ export function createRuntimeBridge(args: {
     next: VacpCapabilitiesSnapshot['graph'],
     options?: { source?: VacpChangeSource; message?: string },
   ) => {
+    replayRequestId += 1;
     const base =
       liveCapabilities ??
       ({
@@ -232,6 +304,8 @@ export function createRuntimeBridge(args: {
     call: VacpActionCall,
     options?: { source?: VacpChangeSource; message?: string },
   ): Promise<VacpActionResult> => {
+    await stateReplayTail;
+    if (liveReplayPromise) await liveReplayPromise;
     await ensureLive();
     const before = liveState as VacpStateSnapshot;
     const result = await adapter.actions.execute(call);
@@ -253,6 +327,7 @@ export function createRuntimeBridge(args: {
   };
 
   const updateAdapters = (next: AdapterUpdate, options?: { source?: VacpChangeSource; message?: string }): void => {
+    replayRequestId += 1;
     const nextSessionKey = typeof next.sessionKey === 'string' && next.sessionKey.length ? next.sessionKey : null;
     const prevSessionKey = sessionKey;
     const sessionChanged = Boolean(nextSessionKey && nextSessionKey !== prevSessionKey);
@@ -274,6 +349,7 @@ export function createRuntimeBridge(args: {
       cursor = -1;
       liveCapabilities = null;
       liveState = null;
+      lastLiveState = null;
       stateUpdateCache.clear();
       if (listeners.size > 0) {
         stopObserving();

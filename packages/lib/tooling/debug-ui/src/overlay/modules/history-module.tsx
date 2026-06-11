@@ -1,5 +1,17 @@
 import type { VacpChangeSource, VacpHistoryEntry } from '@vacp/core';
-import { Bot, Cpu, PanelRightClose, PanelRightOpen, Redo2, Undo2, User, Wrench } from 'lucide-react';
+import {
+  Bot,
+  Cpu,
+  Eye,
+  PanelRightClose,
+  PanelRightOpen,
+  Radio,
+  Redo2,
+  RotateCcw,
+  Undo2,
+  User,
+  Wrench,
+} from 'lucide-react';
 import type { ReactElement } from 'react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 
@@ -157,6 +169,7 @@ export function HistoryModule(props: VacpDebugModuleProps): ReactElement {
 
   const setCursor = (cursor: number) =>
     props.bridge.setCursor?.(cursor, { source: 'debug', message: `cursor=${cursor}` });
+  const setLiveMode = () => props.bridge.setMode?.('live', { source: 'debug', message: 'return to live from history' });
   const undo = () => props.bridge.undo?.({ source: 'debug', message: 'undo' });
   const redo = () => props.bridge.redo?.({ source: 'debug', message: 'redo' });
 
@@ -186,6 +199,14 @@ export function HistoryModule(props: VacpDebugModuleProps): ReactElement {
     const next = findNextIndexWithState(history, idx);
     if (next !== null) return next;
     return null;
+  };
+
+  const selectedIdx = selected ? history.findIndex((h) => h.id === selected.id) : -1;
+  const selectedCursorTarget = selectedIdx >= 0 ? cursorTargetForIndex(selectedIdx) : null;
+  const selectedCanInspect = selectedCursorTarget !== null;
+  const inspectSelected = () => {
+    if (selectedCursorTarget === null) return;
+    setCursor(selectedCursorTarget);
   };
 
   return (
@@ -251,6 +272,54 @@ export function HistoryModule(props: VacpDebugModuleProps): ReactElement {
             <HistorySourceLegend stack={stackLegend} />
           )}
         </ModuleSubheader>
+
+        <div
+          data-vacp-history-mode-strip="1"
+          className={cn(
+            'flex shrink-0 items-center gap-2 rounded-lg border px-3 py-2 text-[11px]',
+            props.runtime.mode === 'inspect'
+              ? 'border-amber-200/16 bg-amber-300/[0.055] text-amber-50/82'
+              : 'border-emerald-200/14 bg-emerald-300/[0.045] text-emerald-50/78',
+            compactControls ? 'flex-col items-stretch' : 'flex-wrap',
+          )}
+        >
+          <span className="inline-flex min-w-0 items-center gap-2 font-medium">
+            {props.runtime.mode === 'inspect' ? (
+              <Eye className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+            ) : (
+              <Radio className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+            )}
+            <span className="min-w-0 truncate">
+              {props.runtime.mode === 'inspect'
+                ? `Inspecting history entry ${cursorIdx >= 0 ? cursorIdx : 'unknown'}`
+                : 'Live mode'}
+            </span>
+          </span>
+          <span className="min-w-0 flex-1 text-slate-100/58">
+            {props.runtime.mode === 'inspect'
+              ? 'The host app is showing recorded state until you return to live.'
+              : 'New app interactions and debug actions append to history.'}
+          </span>
+          <button
+            type="button"
+            className="inline-flex h-7 shrink-0 items-center justify-center gap-1.5 rounded-md border border-white/10 bg-white/[0.045] px-2.5 text-[11px] font-semibold text-slate-100/82 outline-none transition hover:border-white/18 hover:bg-white/[0.075] focus:ring-2 focus:ring-white/28 disabled:cursor-not-allowed disabled:opacity-45"
+            disabled={!selectedCanInspect || props.runtime.mode === 'inspect'}
+            title={selectedCanInspect ? 'Inspect the selected stateful history entry.' : 'Select an entry with recorded state.'}
+            onClick={inspectSelected}
+          >
+            <Eye className="h-3.5 w-3.5" aria-hidden="true" />
+            Inspect selected
+          </button>
+          <button
+            type="button"
+            className="inline-flex h-7 shrink-0 items-center justify-center gap-1.5 rounded-md border border-white/10 bg-white/[0.045] px-2.5 text-[11px] font-semibold text-slate-100/82 outline-none transition hover:border-white/18 hover:bg-white/[0.075] focus:ring-2 focus:ring-white/28 disabled:cursor-not-allowed disabled:opacity-45"
+            disabled={props.runtime.mode !== 'inspect'}
+            onClick={setLiveMode}
+          >
+            <RotateCcw className="h-3.5 w-3.5" aria-hidden="true" />
+            Return to Live
+          </button>
+        </div>
 
         <div className="min-h-0 flex-1 overflow-auto border-t border-white/[0.075] pt-1">
           <RovingFocusGroup orientation="vertical" loop asChild>

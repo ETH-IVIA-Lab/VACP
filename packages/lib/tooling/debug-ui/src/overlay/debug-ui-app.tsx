@@ -12,6 +12,7 @@ import { JsonModule } from '@vacp/debug-ui/overlay/modules/json-module';
 import { SettingsModule } from '@vacp/debug-ui/overlay/modules/settings-module';
 import { ChatModule } from '@vacp/debug-ui/overlay/modules/chat/chat-module';
 import { useVacpBridge, useVacpBridgePresence, useVacpRuntime } from '@vacp/debug-ui/overlay/bridge-queries';
+import { useRuntimeHealth } from '@vacp/debug-ui/overlay/runtime-health';
 import { TooltipProvider } from '@vacp/debug-ui/ui/components/ui/tooltip';
 
 import { DEBUG_UI_PANEL_BREAKPOINTS, isDenseDebugPanel } from './debug-ui-breakpoints';
@@ -102,6 +103,12 @@ export function VacpDebugUiApp(props: { globalKey: string; includeActions: boole
     : open && (bridgeQuery.isFetching || runtimeQuery.isFetching)
       ? 'unknown'
       : 'missing';
+  const runtimeHealth = useRuntimeHealth({
+    bridgeStatus,
+    runtime: runtimeQuery.data ?? null,
+    bridgeError: bridgeQuery.error,
+    runtimeError: runtimeQuery.error,
+  });
 
   const { panelPosition } = useDebugPanelLayout({
     rootRef,
@@ -297,6 +304,7 @@ export function VacpDebugUiApp(props: { globalKey: string; includeActions: boole
         meta={meta}
         bridge={bridge}
         runtime={runtime}
+        runtimeHealth={runtimeHealth}
         renderModule={renderModule}
       />
     </TooltipProvider>

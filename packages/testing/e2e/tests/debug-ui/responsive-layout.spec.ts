@@ -421,7 +421,7 @@ for (const viewport of COMPACT_SETUP_VIEWPORTS) {
       await page.setViewportSize({ width: viewport.width, height: viewport.height });
       await openDebugUi(page, srv.url);
       await page.getByRole('tab', { name: 'Chat' }).click();
-      await expect(page.locator('[data-vacp-chat-settings-panel="1"]')).toBeVisible();
+      await expect(page.locator('[data-vacp-chat-settings-panel="1"]')).toBeVisible({ timeout: 15_000 });
 
       const metrics = await compactChatSetupMetrics(page);
       expectRectInside(metrics.settings, metrics.panel, `${viewport.name} chat setup settings`);

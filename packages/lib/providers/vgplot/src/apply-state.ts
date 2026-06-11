@@ -4,7 +4,6 @@ import { lastPathComponent, splitVacpRefAt } from '@vacp/core';
 import type { CollectedInput } from './inputs';
 import { executeInputAction } from './inputs';
 import { executeIntervalAction } from './interactors/interval';
-import { executeNearestAction } from './interactors/nearest';
 import { executePanZoomAction } from './interactors/pan-zoom';
 import { executeRegionAction } from './interactors/region';
 import { executeToggleAction } from './interactors/toggle';
@@ -27,6 +26,14 @@ function coerceDomainValue(value: unknown): DomainValueLike | null {
   return null;
 }
 
+function hasDomainPair(value: unknown): value is [unknown, unknown] {
+  return Array.isArray(value) && value.length >= 2;
+}
+
+function hasPanZoomDomain(record: Record<string, unknown>): boolean {
+  return hasDomainPair(record.x) || hasDomainPair(record.y);
+}
+
 export function makeApplyStateHandler(args: {
   inputByRef: Map<VacpRef, CollectedInput>;
   plotsById: Map<string, VgplotPlotLike>;
@@ -36,6 +43,7 @@ export function makeApplyStateHandler(args: {
 
   return async (state: Record<string, unknown>) => {
     const errors: Array<{ ref: string; message: string }> = [];
+    const skipped: Array<{ ref: string; reason: string }> = [];
     let applied = 0;
 
     for (const [ref, raw] of Object.entries(state)) {
@@ -69,21 +77,26 @@ export function makeApplyStateHandler(args: {
         try {
           const sortColumn = rec.sortColumn ?? null;
           const sortDesc = Boolean(rec.sortDesc);
+          let tableApplied = false;
           if (typeof sortColumn === 'string' && sortColumn) {
             await executeTableAction(table, {
               name: 'vgplot.table_set_sort',
               params: { column: sortColumn, desc: sortDesc },
             });
+            tableApplied = true;
           } else if (sortColumn === null || sortColumn === undefined) {
             await executeTableAction(table, { name: 'vgplot.table_clear_sort' });
+            tableApplied = true;
           }
           if (typeof rec.offset === 'number' || typeof rec.limit === 'number') {
             await executeTableAction(table, {
               name: 'vgplot.table_set_page',
               params: { offset: rec.offset, limit: rec.limit },
             });
+            tableApplied = true;
           }
-          applied += 1;
+          if (tableApplied) applied += 1;
+          else skipped.push({ ref, reason: 'Table state did not include supported sort or pagination fields' });
         } catch (err) {
           errors.push({ ref, message: err instanceof Error ? err.message : String(err) });
         }
@@ -91,7 +104,17 @@ export function makeApplyStateHandler(args: {
       }
 
       const parsed = splitVacpRefAt(ref, '/interactor/');
-      if (!parsed) continue;
+      if (!parsed) {
+        const kind = isRecord(raw) && typeof raw.kind === 'string' ? raw.kind : 'unknown';
+        skipped.push({
+          ref,
+          reason:
+            kind === 'DataHandle'
+              ? 'DataHandle refs are read-only and are controlled by plot, table, or widget state'
+              : `Ref kind ${kind} is not controllable by VGPlot apply_state`,
+        });
+        continue;
+      }
       const plotId = lastPathComponent(parsed.before) ?? '';
       const plot = plotsById.get(plotId);
       if (!plot) {
@@ -107,13 +130,14 @@ export function makeApplyStateHandler(args: {
 
       const ctorName = interactor.constructor?.name ?? 'Interactor';
       const rec = isRecord(raw) ? raw : null;
-      const desired = rec
-        ? rec.selectionValue !== undefined
-          ? rec.selectionValue
-          : Object.hasOwn(rec, 'value')
-            ? rec.value
-            : undefined
-        : raw;
+      let desired: unknown = raw;
+      if (rec) {
+        if (ctorName === 'Nearest' && Object.hasOwn(rec, 'value')) desired = rec.value;
+        else if (ctorName === 'PanZoom' && hasPanZoomDomain(rec)) desired = rec;
+        else if (rec.selectionValue !== undefined) desired = rec.selectionValue;
+        else if (Object.hasOwn(rec, 'value')) desired = rec.value;
+        else desired = undefined;
+      }
       const callId = crypto.randomUUID();
 
       try {
@@ -136,17 +160,22 @@ export function makeApplyStateHandler(args: {
               name: 'vgplot.clear_pan_zoom',
               params: { plotId, interactorId },
             });
-          else if (ctorName === 'Nearest')
-            await executeNearestAction(plot, {
-              callId,
-              name: 'vgplot.clear_nearest',
-              params: { plotId, interactorId },
+          else if (ctorName === 'Nearest') {
+            skipped.push({
+              ref,
+              reason:
+                'Nearest refs are transient hover state and cannot be replayed safely without VGPlot pointer-derived values',
             });
+            continue;
+          }
           else if (ctorName === 'Toggle')
             await executeToggleAction(plot, { callId, name: 'vgplot.clear_toggle', params: { plotId, interactorId } });
           else if (ctorName === 'Region')
             await executeRegionAction(plot, { callId, name: 'vgplot.clear_region', params: { plotId, interactorId } });
-          else errors.push({ ref, message: `Unsupported interactor kind for clear: ${ctorName}` });
+          else {
+            errors.push({ ref, message: `Unsupported interactor kind for clear: ${ctorName}` });
+            continue;
+          }
           applied += 1;
           continue;
         }
@@ -190,8 +219,8 @@ export function makeApplyStateHandler(args: {
         if (ctorName === 'PanZoom') {
           const x = (rec?.x ?? null) as unknown;
           const y = (rec?.y ?? null) as unknown;
-          const hasX = Array.isArray(x) && x.length >= 2;
-          const hasY = Array.isArray(y) && y.length >= 2;
+          const hasX = hasDomainPair(x);
+          const hasY = hasDomainPair(y);
           if (!hasX && !hasY) throw new Error('Expected {x:[x0,x1]} and/or {y:[y0,y1]}');
           const x0 = hasX ? (coerceDomainValue((x as unknown[])[0]) ?? undefined) : undefined;
           const x1 = hasX ? (coerceDomainValue((x as unknown[])[1]) ?? undefined) : undefined;
@@ -207,12 +236,11 @@ export function makeApplyStateHandler(args: {
         }
 
         if (ctorName === 'Nearest') {
-          await executeNearestAction(plot, {
-            callId,
-            name: 'vgplot.set_nearest',
-            params: { plotId, interactorId, value: desired },
+          skipped.push({
+            ref,
+            reason:
+              'Nearest refs are transient hover state and cannot be replayed safely without VGPlot pointer-derived values',
           });
-          applied += 1;
           continue;
         }
 
@@ -242,6 +270,6 @@ export function makeApplyStateHandler(args: {
       }
     }
 
-    return { applied, errors };
+    return { applied, skipped, errors };
   };
 }

@@ -22,7 +22,7 @@ import { ModuleHeader, ModulePane, ModuleRoot } from '../module-layout';
 import type { VacpDebugModuleProps } from '../module-types';
 import { ChatConfigPanel } from './chat-config-panel';
 import { ChatSetupSurface } from './chat-setup-surface';
-import { ConfiguredChat } from './configured-chat';
+import { ConfiguredChat, type ChatEndpointDiagnostics } from './configured-chat';
 import { createVacpChatSessionCacheKey, deleteVacpChatSession } from './chat-session-registry';
 import { deriveVacpChatScope } from './chat-scope';
 import { readThreadDraft, useVacpChatStore } from './chat-store';
@@ -151,8 +151,9 @@ export function ChatModule(props: VacpDebugModuleProps): ReactElement {
     (event: VacpAgentToolEvent) => {
       if (!activeThreadId) return;
       appendToolEvent(scopeId, activeThreadId, event);
+      setActivityOpen(scopeId, true);
     },
-    [activeThreadId, appendToolEvent, scopeId],
+    [activeThreadId, appendToolEvent, scopeId, setActivityOpen],
   );
 
   const sessionCacheKey = useMemo(() => {
@@ -176,6 +177,35 @@ export function ChatModule(props: VacpDebugModuleProps): ReactElement {
     : activeThread
       ? `${activeThread.messages.length} message${activeThread.messages.length === 1 ? '' : 's'}`
       : 'Preparing';
+  const endpointDiagnostics: ChatEndpointDiagnostics = !configReady
+    ? {
+        tone: 'warn',
+        title: 'Setup needed',
+        detail: 'Add a provider endpoint, API key, and model before sending chat turns.',
+      }
+    : modelsError
+      ? {
+          tone: 'error',
+          title: 'Endpoint check failed',
+          detail: modelsError,
+        }
+      : modelsLoading
+        ? {
+            tone: 'checking',
+            title: 'Checking endpoint',
+            detail: `${config.providerName || config.provider} / ${config.baseURL || 'provider default'} / ${config.model}`,
+          }
+        : availableModels.length > 0
+          ? {
+              tone: 'ok',
+              title: 'Endpoint verified',
+              detail: `${availableModels.length} model${availableModels.length === 1 ? '' : 's'} available. Active model: ${config.model}.`,
+            }
+          : {
+              tone: 'warn',
+              title: 'Endpoint not checked',
+              detail: `${config.providerName || config.provider} / ${config.baseURL || 'provider default'} / ${config.model}. Refresh models in settings to verify the endpoint.`,
+            };
   const settingsPanel = (
     <ChatConfigPanel
       className="h-full max-h-none"
@@ -320,6 +350,7 @@ export function ChatModule(props: VacpDebugModuleProps): ReactElement {
                 onRegenerate={() => setThreadPickerOpen(false)}
                 onCloseActivity={() => setActivityOpen(scopeId, false)}
                 showActivity={showActivity}
+                endpointDiagnostics={endpointDiagnostics}
               />
             ) : (
               <ChatSetupSurface

@@ -3,7 +3,7 @@ import test from 'node:test';
 
 import type { VacpGraph, VacpRef } from '@vacp/core';
 
-import { buildVacpFlowGraph, nodeId } from '../src/overlay/modules/graph/graph-model';
+import { buildInspectorValue, buildVacpFlowGraph, filterVacpGraph, nodeId } from '../src/overlay/modules/graph/graph-model';
 import { nextCollapsedRefsForToggle } from '../src/overlay/modules/graph/graph-collapse';
 
 function ref(value: string): VacpRef {
@@ -166,4 +166,93 @@ test('graph expansion reveals a collapsed branch one level at a time', () => {
   nodeIds = new Set(flow.nodes.map((node) => node.id));
   assert.equal(nodeIds.has(nodeId(field)), true);
   assert.equal(flow.counts.hiddenNodes, 0);
+});
+
+test('graph filter keeps search matches with graph context', () => {
+  const root = ref('vacp://example/root');
+  const plot = ref('vacp://example/plot');
+  const field = ref('vacp://example/plot/encoding/x/field-body_mass');
+  const other = ref('vacp://example/other');
+  const graph: VacpGraph = {
+    nodes: [
+      { ref: root, kind: 'View', layer: 'ViewLayer', title: 'Root' },
+      { ref: plot, kind: 'Visualization', layer: 'VisualizationLayer', title: 'Plot' },
+      { ref: field, kind: 'EncodedField', layer: 'DataLayer', title: 'body_mass' },
+      { ref: other, kind: 'Widget', layer: 'ConfigLayer', title: 'Control' },
+    ],
+    edges: [
+      { from: root, to: plot, kind: 'contains' },
+      { from: plot, to: field, kind: 'contains' },
+      { from: root, to: other, kind: 'contains' },
+    ],
+    actions: [
+      {
+        name: 'vacp.data_schema',
+        description: 'Describe body_mass data.',
+        targetRef: field,
+      },
+    ],
+  };
+
+  const filtered = filterVacpGraph(graph, { query: 'body_mass' });
+  assert.deepEqual(
+    filtered.nodes.map((node) => node.ref).sort(),
+    [field, plot].sort(),
+  );
+  assert.equal(filtered.edges.length, 1);
+  assert.equal(filtered.actions.map((action) => action.name).includes('vacp.data_schema'), true);
+});
+
+test('graph filter applies node kind filters', () => {
+  const data = ref('vacp://example/data');
+  const widget = ref('vacp://example/widget');
+  const graph: VacpGraph = {
+    nodes: [
+      { ref: data, kind: 'DataHandle', layer: 'DataLayer', title: 'Data' },
+      { ref: widget, kind: 'Widget', layer: 'ConfigLayer', title: 'Widget' },
+    ],
+    edges: [{ from: widget, to: data, kind: 'controls' }],
+    actions: [],
+  };
+
+  const filtered = filterVacpGraph(graph, { nodeKinds: new Set(['DataHandle']) });
+  assert.deepEqual(filtered.nodes.map((node) => node.ref), [data]);
+  assert.equal(filtered.edges.length, 0);
+});
+
+test('graph action selection resolves the original action after filtering', () => {
+  const plot = ref('vacp://example/plot');
+  const other = ref('vacp://example/other');
+  const graph: VacpGraph = {
+    nodes: [
+      { ref: plot, kind: 'Visualization', layer: 'VisualizationLayer', title: 'Plot' },
+      { ref: other, kind: 'Visualization', layer: 'VisualizationLayer', title: 'Other' },
+    ],
+    edges: [],
+    actions: [
+      { name: 'example.first', description: 'First action.', targetRef: other },
+      { name: 'example.second', description: 'Second action.', targetRef: plot, parameters: { default: { ok: true } } },
+    ],
+  };
+
+  const filtered = filterVacpGraph(graph, { query: 'second' });
+  const selected = filtered.actions.map((action, index) => ({ kind: 'action' as const, index, name: action.name }))[0]!;
+  const inspector = buildInspectorValue(
+    {
+      version: '0.1.0',
+      runtimeId: 'test',
+      mode: 'live',
+      cursor: -1,
+      history: [],
+      liveCapabilities: { version: '0.1.0', createdAt: '2026-01-01T00:00:00.000Z', graph },
+      liveState: { version: '0.1.0', createdAt: '2026-01-01T00:00:00.000Z', state: {} },
+      currentCapabilities: { version: '0.1.0', createdAt: '2026-01-01T00:00:00.000Z', graph },
+      currentState: { version: '0.1.0', createdAt: '2026-01-01T00:00:00.000Z', state: {} },
+    },
+    selected,
+  ) as { name?: string; parameters?: unknown };
+
+  assert.equal(selected.index, 0);
+  assert.equal(inspector.name, 'example.second');
+  assert.deepEqual(inspector.parameters, { default: { ok: true } });
 });

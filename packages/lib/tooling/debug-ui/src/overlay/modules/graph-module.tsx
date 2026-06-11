@@ -1,11 +1,15 @@
-import type { VacpRef } from '@vacp/core';
+import type { VacpNodeKind, VacpRef } from '@vacp/core';
 import {
   ArrowLeftRight,
   ArrowUpDown,
   Check,
   ClipboardCopy,
+  Filter,
+  LocateFixed,
   PanelRightClose,
   PanelRightOpen,
+  RotateCcw,
+  Search,
   Workflow,
   XCircle,
   Zap,
@@ -19,6 +23,7 @@ import { DEBUG_UI_PANEL_BREAKPOINTS, isDenseDebugPanel } from '@vacp/debug-ui/ov
 import { useVacpDebugUiStore } from '@vacp/debug-ui/overlay/debug-store';
 import { IconButton } from '@vacp/debug-ui/overlay/icon-button';
 import { useElementSize } from '@vacp/debug-ui/overlay/hooks/use-element-size';
+import { Input } from '@vacp/debug-ui/ui/components/ui/input';
 import { JsonViewer } from '@vacp/debug-ui/ui/components/ui/json-viewer';
 import { copyTextToClipboard } from '@vacp/debug-ui/ui/lib/clipboard';
 import { cn } from '@vacp/debug-ui/ui/lib/utils';
@@ -29,6 +34,10 @@ import { VacpGraphFlow } from './graph/graph-flow';
 import {
   buildInspectorValue,
   buildVacpFlowGraph,
+  actionId,
+  filterVacpGraph,
+  nodeId,
+  nodeKindCounts,
   safeJson,
   shortRef,
 } from './graph/graph-model';
@@ -64,16 +73,36 @@ export function GraphModule(props: VacpDebugModuleProps): ReactElement {
   const effectiveInspectOpen = inspectOpen && !dense;
   const showSideBySide = effectiveInspectOpen && rootSize.width >= DEBUG_UI_PANEL_BREAKPOINTS.splitPane;
   const [mermaidCopied, setMermaidCopied] = useState(false);
+  const [query, setQuery] = useState('');
+  const [activeKinds, setActiveKinds] = useState<VacpNodeKind[]>([]);
+  const [focusSelection, setFocusSelection] = useState(false);
 
   const graph = props.runtime.currentCapabilities.graph;
   const includeActions = includeActionsOverride ?? includeActionsDefault;
+  const activeKindSet = useMemo(() => new Set(activeKinds), [activeKinds]);
+  const filteredGraph = useMemo(
+    () =>
+      filterVacpGraph(graph, {
+        query,
+        nodeKinds: activeKindSet,
+        focus: focusSelection ? selected : null,
+      }),
+    [activeKindSet, focusSelection, graph, query, selected],
+  );
+  const kindCounts = useMemo(() => nodeKindCounts(graph), [graph]);
+  const layerSummary = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const node of filteredGraph.nodes) counts.set(node.layer, (counts.get(node.layer) ?? 0) + 1);
+    return [...counts.entries()].map(([layer, count]) => `${layer.replace('Layer', '')} ${count}`).join(' / ');
+  }, [filteredGraph.nodes]);
+  const filtersActive = query.trim().length > 0 || activeKinds.length > 0 || focusSelection;
 
   const toggleCollapse = useCallback((ref: VacpRef) => toggleCollapsedRef(graph, ref), [graph, toggleCollapsedRef]);
 
   const flow = useMemo(
     () =>
       buildVacpFlowGraph({
-        graph,
+        graph: filteredGraph,
         direction,
         includeActions,
         collapsedRefs,
@@ -81,12 +110,16 @@ export function GraphModule(props: VacpDebugModuleProps): ReactElement {
         onToggleCollapse: toggleCollapse,
         onSelect: selectGraphItem,
       }),
-    [collapsedRefs, direction, graph, includeActions, selectGraphItem, selected, toggleCollapse],
+    [collapsedRefs, direction, filteredGraph, includeActions, selectGraphItem, selected, toggleCollapse],
   );
 
   const mermaidText = useMemo(
-    () => renderVacpDiagramMermaid({ capabilities: props.runtime.currentCapabilities, options: { direction, includeActions } }),
-    [direction, includeActions, props.runtime.currentCapabilities],
+    () =>
+      renderVacpDiagramMermaid({
+        capabilities: { ...props.runtime.currentCapabilities, graph: filteredGraph },
+        options: { direction, includeActions },
+      }),
+    [direction, filteredGraph, includeActions, props.runtime.currentCapabilities],
   );
 
   const inspectorValue = useMemo(() => buildInspectorValue(props.runtime, selected), [props.runtime, selected]);
@@ -106,9 +139,28 @@ export function GraphModule(props: VacpDebugModuleProps): ReactElement {
     pruneCollapsedRefs(graph);
   }, [graph, pruneCollapsedRefs]);
 
+  const graphItemIds = useMemo(
+    () =>
+      new Set([
+        ...graph.nodes.map((node) => nodeId(node.ref)),
+        ...graph.actions.map((action, index) => actionId(index, action.name)),
+      ]),
+    [graph],
+  );
+
   useEffect(() => {
-    pruneSelectedNodeIds(new Set(flow.nodes.map((node) => node.id)));
-  }, [flow.nodes, pruneSelectedNodeIds]);
+    pruneSelectedNodeIds(graphItemIds);
+  }, [graphItemIds, pruneSelectedNodeIds]);
+
+  const toggleKind = (kind: VacpNodeKind) => {
+    setActiveKinds((current) => (current.includes(kind) ? current.filter((item) => item !== kind) : [...current, kind]));
+  };
+
+  const resetFilters = () => {
+    setQuery('');
+    setActiveKinds([]);
+    setFocusSelection(false);
+  };
 
   return (
     <ModuleRoot
@@ -187,6 +239,86 @@ export function GraphModule(props: VacpDebugModuleProps): ReactElement {
             </>
           }
         />
+
+        <div
+          data-vacp-graph-controls="1"
+          className={cn('grid gap-2 rounded-md border border-white/[0.075] bg-white/[0.02] p-2', dense && 'p-1.5')}
+        >
+          <div className="flex min-w-0 flex-wrap items-center gap-2">
+            <label className="relative min-w-[180px] flex-1">
+              <span className="sr-only">Search graph</span>
+              <Search className="pointer-events-none absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-100/45" />
+              <Input
+                data-vacp-graph-search="1"
+                className="h-8 pl-7 text-xs"
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                placeholder="Search refs, fields, actions"
+              />
+            </label>
+            <button
+              type="button"
+              data-vacp-graph-focus-selection="1"
+              className={cn(
+                'inline-flex h-8 shrink-0 items-center gap-1.5 rounded-md border px-2 text-[11px] font-semibold',
+                focusSelection
+                  ? 'border-teal-100/18 bg-teal-200/[0.07] text-teal-50/86'
+                  : 'border-white/[0.075] bg-white/[0.025] text-slate-100/68',
+                !selected && 'opacity-45',
+              )}
+              disabled={!selected}
+              aria-pressed={focusSelection}
+              onClick={() => setFocusSelection((value) => !value)}
+            >
+              <LocateFixed className="h-3.5 w-3.5" />
+              <span>Focus</span>
+            </button>
+            <button
+              type="button"
+              data-vacp-graph-reset-filters="1"
+              className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-md border border-white/[0.075] bg-white/[0.025] px-2 text-[11px] font-semibold text-slate-100/68 disabled:opacity-45"
+              disabled={!filtersActive}
+              onClick={resetFilters}
+            >
+              <RotateCcw className="h-3.5 w-3.5" />
+              <span>Reset</span>
+            </button>
+          </div>
+          <div className="flex min-w-0 items-center gap-1.5 overflow-x-auto [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            <span className="inline-flex h-6 shrink-0 items-center gap-1 rounded-md border border-white/[0.075] bg-white/[0.025] px-2 text-[10px] font-semibold text-slate-100/62">
+              <Filter className="h-3 w-3" />
+              Kinds
+            </span>
+            {kindCounts.map(({ kind, count }) => {
+              const active = activeKinds.includes(kind);
+              return (
+                <button
+                  key={kind}
+                  type="button"
+                  data-vacp-graph-kind-filter={kind}
+                  className={cn(
+                    'inline-flex h-6 shrink-0 items-center gap-1 rounded-md border px-2 text-[10px] font-semibold',
+                    active
+                      ? 'border-teal-100/18 bg-teal-200/[0.07] text-teal-50/86'
+                      : 'border-white/[0.075] bg-white/[0.025] text-slate-100/62',
+                  )}
+                  aria-pressed={active}
+                  onClick={() => toggleKind(kind)}
+                >
+                  <span>{kind}</span>
+                  <span className="text-slate-100/46">{count}</span>
+                </button>
+              );
+            })}
+          </div>
+          <div className="flex flex-wrap items-center gap-2 text-[10px] text-slate-100/52">
+            <span data-vacp-graph-filter-summary="1">
+              Showing {filteredGraph.nodes.length} of {graph.nodes.length} nodes and {filteredGraph.edges.length} of{' '}
+              {graph.edges.length} edges.
+            </span>
+            {layerSummary ? <span data-vacp-graph-layer-summary="1">Layer groups: {layerSummary}</span> : null}
+          </div>
+        </div>
 
         <ModulePane tone="surface" className="vacp-debug-ui-flow h-full min-h-0 w-full overflow-hidden">
           <VacpGraphFlow nodes={flow.nodes} edges={flow.edges} counts={flow.counts} onSelect={selectGraphItem} />

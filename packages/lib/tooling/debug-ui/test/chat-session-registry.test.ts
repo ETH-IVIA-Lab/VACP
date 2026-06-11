@@ -3,6 +3,7 @@ import test from 'node:test';
 
 import type { VacpLLMConfig } from '@vacp/agent-client';
 
+import { sameChatScopeMeta } from '../src/overlay/modules/chat/chat-store';
 import { createVacpChatSessionCacheKey } from '../src/overlay/modules/chat/chat-session-registry';
 
 const CONFIG: VacpLLMConfig = {
@@ -36,4 +37,32 @@ test('chat session cache key rotates on credential revision without storing API 
   assert.notEqual(changedSecretNewRevision, oldKey);
   assert.equal(oldKey.includes('sk-old-secret'), false);
   assert.equal(changedSecretNewRevision.includes('sk-new-secret'), false);
+});
+
+test('chat scope metadata ignores timestamp churn', () => {
+  const base = {
+    scopeId: 'runtime:r1:url:http://example.test',
+    label: 'current view',
+    runtimeId: 'r1',
+    sessionKey: 'session-1',
+    viewRef: 'vacp://view/main' as const,
+    vizRef: 'vacp://view/main/viz' as const,
+    urlKey: 'http://example.test',
+    updatedAt: '2026-06-10T10:00:00.000Z',
+  };
+
+  assert.equal(
+    sameChatScopeMeta(base, {
+      ...base,
+      updatedAt: '2026-06-10T10:00:01.000Z',
+    }),
+    true,
+  );
+  assert.equal(
+    sameChatScopeMeta(base, {
+      ...base,
+      vizRef: 'vacp://view/main/other-viz',
+    }),
+    false,
+  );
 });

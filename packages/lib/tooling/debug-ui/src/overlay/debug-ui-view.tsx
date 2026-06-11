@@ -4,6 +4,7 @@ import type { ReactElement, ReactNode, RefObject } from 'react';
 import type { VacpRuntimeSnapshot } from '@vacp/core';
 import type { VacpDebugModuleId } from '@vacp/debug-ui/overlay/debug-store';
 import { IconButton } from '@vacp/debug-ui/overlay/icon-button';
+import type { RuntimeHealthSnapshot } from '@vacp/debug-ui/overlay/runtime-health';
 import type { VacpWindowBridge } from '@vacp/debug-ui/types';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@vacp/debug-ui/ui/components/ui/tabs';
 import { cn } from '@vacp/debug-ui/ui/lib/utils';
@@ -318,6 +319,58 @@ function ModuleContent(props: {
   );
 }
 
+function healthToneClass(tone: 'ok' | 'warn' | 'error' | 'muted'): string {
+  if (tone === 'ok') return 'border-emerald-200/12 bg-emerald-300/[0.045] text-emerald-50/82';
+  if (tone === 'error') return 'border-red-200/18 bg-red-300/[0.07] text-red-50/84';
+  if (tone === 'warn') return 'border-amber-100/14 bg-amber-100/[0.055] text-amber-50/76';
+  return 'border-white/[0.075] bg-white/[0.025] text-slate-100/62';
+}
+
+function HealthPill(props: { label: string; value: string | number; tone?: 'ok' | 'warn' | 'error' | 'muted' }) {
+  return (
+    <span
+      className={cn(
+        'inline-flex h-6 shrink-0 items-center gap-1 rounded-md border px-2 text-[10px] leading-none',
+        healthToneClass(props.tone ?? 'muted'),
+      )}
+    >
+      <span className="font-semibold">{props.label}</span>
+      <span>{props.value}</span>
+    </span>
+  );
+}
+
+function RuntimeHealthStrip(props: { health: RuntimeHealthSnapshot; densePanel: boolean }): ReactElement {
+  const bridgeTone = props.health.bridgeStatus === 'ok' ? 'ok' : props.health.bridgeStatus === 'missing' ? 'error' : 'warn';
+  const providerTone =
+    props.health.providerStatus === 'ok' ? 'ok' : props.health.providerStatus === 'error' ? 'error' : 'warn';
+  const consoleTone = props.health.consoleErrors > 0 ? 'error' : 'ok';
+  const runtimeTone = props.health.runtimeErrors > 0 ? 'error' : 'ok';
+  const networkTone = props.health.networkFailures > 0 ? 'error' : 'ok';
+  return (
+    <div
+      data-vacp-runtime-health="1"
+      className={cn(
+        'flex min-w-0 items-center gap-1.5 overflow-x-auto border-b border-white/[0.075] bg-[#0c1317]/96 px-2 py-1.5',
+        '[-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden',
+        props.densePanel && 'py-1',
+      )}
+      title={props.health.lastIssue ?? 'Runtime health'}
+    >
+      <HealthPill label="Bridge" value={props.health.bridgeStatus} tone={bridgeTone} />
+      <HealthPill label="Provider" value={props.health.providerStatus} tone={providerTone} />
+      <HealthPill label="Mode" value={props.health.mode} tone={props.health.mode === 'inspect' ? 'warn' : 'muted'} />
+      <HealthPill label="History" value={props.health.historyLength} />
+      <HealthPill label="Console" value={props.health.consoleErrors} tone={consoleTone} />
+      <HealthPill label="Runtime" value={props.health.runtimeErrors} tone={runtimeTone} />
+      <HealthPill label="Network" value={props.health.networkFailures} tone={networkTone} />
+      {props.health.lastIssue ? (
+        <span className="min-w-[180px] truncate text-[10px] text-slate-100/52">{props.health.lastIssue}</span>
+      ) : null}
+    </div>
+  );
+}
+
 function ModuleShell(props: {
   panelHeaderRef: RefObject<HTMLDivElement | null>;
   compactDragRef: RefObject<HTMLDivElement | null>;
@@ -329,6 +382,7 @@ function ModuleShell(props: {
   densePanel: boolean;
   bridge: VacpWindowBridge | null;
   runtime: VacpRuntimeSnapshot | null;
+  runtimeHealth: RuntimeHealthSnapshot;
   inspectBanner: ReactNode;
   renderModule: (id: VacpDebugModuleId) => ReactElement | null;
 }): ReactElement {
@@ -340,7 +394,7 @@ function ModuleShell(props: {
       onValueChange={(v) => props.setModuleId(v as VacpDebugModuleId)}
       orientation="horizontal"
       activationMode="manual"
-      className="grid min-h-0 w-full min-w-0 max-w-full grid-rows-[auto_minmax(0,1fr)] overflow-hidden"
+      className="grid min-h-0 w-full min-w-0 max-w-full grid-rows-[auto_auto_minmax(0,1fr)] overflow-hidden"
     >
       <PanelTopBar
         panelHeaderRef={props.panelHeaderRef}
@@ -361,6 +415,7 @@ function ModuleShell(props: {
         bridge={props.bridge}
         runtime={props.runtime}
       />
+      <RuntimeHealthStrip health={props.runtimeHealth} densePanel={props.densePanel} />
       <ModuleContent
         modules={MODULES}
         densePanel={props.densePanel}
@@ -391,6 +446,7 @@ export function DebugUiView(props: {
   meta: string;
   bridge: VacpWindowBridge | null;
   runtime: VacpRuntimeSnapshot | null;
+  runtimeHealth: RuntimeHealthSnapshot;
   renderModule: (id: VacpDebugModuleId) => ReactElement | null;
 }): ReactElement {
   const panelState = props.open ? 'open' : props.panelClosing ? 'closing' : 'closed';
@@ -432,6 +488,7 @@ export function DebugUiView(props: {
           densePanel={props.densePanel}
           bridge={props.bridge}
           runtime={props.runtime}
+          runtimeHealth={props.runtimeHealth}
           inspectBanner={<InspectBanner runtime={props.runtime} setModuleId={props.setModuleId} />}
           renderModule={props.renderModule}
         />

@@ -70,11 +70,6 @@ export function registerVgplotDashboardActions(args: {
     });
   });
 
-  register('vgplot.set_nearest', async (params) => {
-    const p = (params ?? {}) as Record<string, unknown>;
-    const { plot } = resolvePlot(p);
-    return executeNearestAction(plot, { callId: crypto.randomUUID(), name: 'vgplot.set_nearest', params: p });
-  });
   register('vgplot.clear_nearest', async (params) => {
     const p = (params ?? {}) as Record<string, unknown>;
     const { plot } = resolvePlot(p);

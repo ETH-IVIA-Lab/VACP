@@ -19,6 +19,18 @@ import { executeDebugAction } from './action-execution';
 import { ModuleField, ModuleHeader, ModulePane, ModuleRoot } from './module-layout';
 import type { VacpDebugModuleProps } from './module-types';
 
+type ProviderApplyIssue = {
+  ref: string;
+  message: string;
+};
+
+type ApplyStateReport = {
+  applied: number | null;
+  changedRefs: string[];
+  skipped: ProviderApplyIssue[];
+  errors: ProviderApplyIssue[];
+};
+
 function parseRefs(text: string): VacpRef[] | undefined {
   const refs = text
     .split(/[\s,]+/)
@@ -28,10 +40,46 @@ function parseRefs(text: string): VacpRef[] | undefined {
   return refs as VacpRef[];
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
+}
+
 function isStateUpdate(value: unknown): value is VacpStateUpdate {
   if (!value || typeof value !== 'object') return false;
   const rec = value as Record<string, unknown>;
   return typeof rec.mode === 'string' && typeof rec.token === 'string';
+}
+
+function normalizeProviderIssues(value: unknown, textKey: 'reason' | 'message'): ProviderApplyIssue[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((item) => {
+      if (!isRecord(item)) return null;
+      const ref = typeof item.ref === 'string' ? item.ref : '';
+      const message = typeof item[textKey] === 'string' ? item[textKey] : '';
+      if (!ref && !message) return null;
+      return { ref, message };
+    })
+    .filter((item): item is ProviderApplyIssue => item !== null);
+}
+
+function changedStateRefs(before: Record<string, unknown>, after: Record<string, unknown>): string[] {
+  const refs = new Set([...Object.keys(before), ...Object.keys(after)]);
+  return [...refs].filter((ref) => stringifyJson(before[ref]) !== stringifyJson(after[ref]));
+}
+
+function applyStateReport(args: {
+  result: unknown;
+  before: Record<string, unknown>;
+  after: Record<string, unknown>;
+}): ApplyStateReport {
+  const result = isRecord(args.result) ? args.result : {};
+  return {
+    applied: typeof result.applied === 'number' ? result.applied : null,
+    changedRefs: changedStateRefs(args.before, args.after),
+    skipped: normalizeProviderIssues(result.skipped, 'reason'),
+    errors: normalizeProviderIssues(result.errors, 'message'),
+  };
 }
 
 export function JsonModule(props: VacpDebugModuleProps): ReactElement {
@@ -56,6 +104,7 @@ export function JsonModule(props: VacpDebugModuleProps): ReactElement {
   const [probeError, setProbeError] = useState<string | null>(null);
   const [editStatus, setEditStatus] = useState<string>('');
   const [editError, setEditError] = useState<string | null>(null);
+  const [applyReport, setApplyReport] = useState<ApplyStateReport | null>(null);
   const updateSummary = useMemo(() => {
     if (!isStateUpdate(updatePayload)) return null;
     if (updatePayload.mode === 'full') {
@@ -112,6 +161,7 @@ export function JsonModule(props: VacpDebugModuleProps): ReactElement {
 
   const applyOverride = () => {
     setEditError(null);
+    setApplyReport(null);
     if (overrideEditorError) {
       setEditStatus('');
       setEditError(overrideEditorError);
@@ -141,6 +191,7 @@ export function JsonModule(props: VacpDebugModuleProps): ReactElement {
 
   const applyToApp = async () => {
     setEditError(null);
+    setApplyReport(null);
     if (overrideEditorError) {
       setEditStatus('');
       setEditError(overrideEditorError);
@@ -162,9 +213,30 @@ export function JsonModule(props: VacpDebugModuleProps): ReactElement {
         props.bridge.setMode('live', { source: 'debug', message: 'auto: back to live for apply_state' });
       }
       setEditStatus('Applying…');
+      const before = await props.bridge.getState();
       const res = await executeDebugAction(props.bridge, call, { source: 'debug' });
-      setEditStatus(res.ok ? 'Applied.' : (res.error?.message ?? 'Apply failed'));
-      if (!res.ok) setEditError(res.error?.message ?? 'Apply failed');
+      const after = await props.bridge.getState();
+      const report = applyStateReport({ result: res.ok ? res.result : null, before: before.state, after: after.state });
+      setApplyReport(report);
+      if (!res.ok) {
+        setEditStatus('');
+        setEditError(res.error?.message ?? 'Apply failed');
+        return;
+      }
+      if (report.changedRefs.length > 0) {
+        setEditStatus(`Applied. ${report.changedRefs.length} state ref${report.changedRefs.length === 1 ? '' : 's'} changed.`);
+        return;
+      }
+      if (report.skipped.length > 0 || report.errors.length > 0) {
+        const skipped = report.skipped.length;
+        const errors = report.errors.length;
+        setEditStatus(
+          `No app state changed. Provider reported ${skipped} skipped ref${skipped === 1 ? '' : 's'} and ${errors} error${errors === 1 ? '' : 's'}.`,
+        );
+        return;
+      }
+      setEditStatus('');
+      setEditError('Apply completed, but provider state did not change and no provider issue was reported.');
     } catch (err) {
       setEditStatus('');
       setEditError(String(err));
@@ -174,6 +246,7 @@ export function JsonModule(props: VacpDebugModuleProps): ReactElement {
   const clear = () => {
     props.bridge.clearOverrides?.({ source: 'debug', message: 'clear overrides' });
     setEditStatus('Overrides cleared.');
+    setApplyReport(null);
   };
 
   return (
@@ -386,6 +459,7 @@ export function JsonModule(props: VacpDebugModuleProps): ReactElement {
                   setOverrideValue(props.runtime.currentState.state);
                   setOverrideEditorError(null);
                   setOverrideResetSignal((value) => value + 1);
+                  setApplyReport(null);
                 }}
               />
               <IconButton
@@ -434,7 +508,49 @@ export function JsonModule(props: VacpDebugModuleProps): ReactElement {
 
         {editStatus ? <div className="text-[11px] text-slate-100/68">{editStatus}</div> : null}
         {editError ? <div className="text-[11px] text-red-50/84">{editError}</div> : null}
+        {applyReport ? <ApplyReportView report={applyReport} /> : null}
       </ModulePane>
     </ModuleRoot>
+  );
+}
+
+function ApplyReportView(props: { report: ApplyStateReport }): ReactElement {
+  const { report } = props;
+  return (
+    <div
+      data-vacp-json-apply-report="1"
+      className="rounded-lg border border-white/[0.075] bg-white/[0.025] px-3 py-2 text-[11px] leading-5 text-slate-100/72"
+    >
+      <div className="font-semibold text-slate-100/86">
+        Apply report
+        {typeof report.applied === 'number' ? (
+          <span className="ml-2 font-normal text-slate-100/58">provider applied {report.applied}</span>
+        ) : null}
+      </div>
+      {report.changedRefs.length > 0 ? (
+        <IssueList title="Changed refs" items={report.changedRefs.map((ref) => ({ ref, message: 'state changed' }))} />
+      ) : (
+        <div className="text-slate-100/58">No state refs changed.</div>
+      )}
+      {report.skipped.length > 0 ? <IssueList title="Skipped refs" items={report.skipped} /> : null}
+      {report.errors.length > 0 ? <IssueList title="Provider errors" items={report.errors} /> : null}
+    </div>
+  );
+}
+
+function IssueList(props: { title: string; items: ProviderApplyIssue[] }): ReactElement {
+  return (
+    <div className="mt-1">
+      <div className="font-medium text-slate-100/78">{props.title}</div>
+      <ul className="mt-0.5 space-y-0.5">
+        {props.items.slice(0, 6).map((item) => (
+          <li key={`${props.title}:${item.ref}:${item.message}`} className="min-w-0 break-words">
+            <code className="text-slate-100/82">{item.ref || '(unknown ref)'}</code>
+            <span className="text-slate-100/54">: {item.message}</span>
+          </li>
+        ))}
+      </ul>
+      {props.items.length > 6 ? <div className="text-slate-100/50">+{props.items.length - 6} more</div> : null}
+    </div>
   );
 }

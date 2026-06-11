@@ -1,6 +1,7 @@
 import type { UIMessage } from '@ai-sdk/react';
 import { code } from '@streamdown/code';
 import type { ReactElement, RefObject } from 'react';
+import { useState } from 'react';
 import { Streamdown } from 'streamdown';
 
 import { JsonViewer } from '@vacp/debug-ui/ui/components/ui/json-viewer';
@@ -9,6 +10,7 @@ import { cn } from '@vacp/debug-ui/ui/lib/utils';
 type UiPart = UIMessage['parts'][number];
 
 const streamdownPlugins = { code };
+const TOOL_SUMMARY_LIMIT = 240;
 
 function toolPartName(part: UiPart): string {
   if (part.type === 'dynamic-tool' && 'toolName' in part && typeof part.toolName === 'string') return part.toolName;
@@ -18,12 +20,14 @@ function toolPartName(part: UiPart): string {
 
 function previewValue(value: unknown): string | null {
   if (value === null || value === undefined) return null;
-  if (typeof value === 'string') return value;
-  try {
-    return JSON.stringify(value);
-  } catch {
-    return String(value);
-  }
+  const raw = typeof value === 'string' ? value : (() => {
+    try {
+      return JSON.stringify(value);
+    } catch {
+      return String(value);
+    }
+  })();
+  return raw.length > TOOL_SUMMARY_LIMIT ? `${raw.slice(0, TOOL_SUMMARY_LIMIT)}...` : raw;
 }
 
 function toolSummary(part: UiPart): string | null {
@@ -32,6 +36,75 @@ function toolSummary(part: UiPart): string | null {
   if ('output' in part) return previewValue(part.output);
   if ('input' in part) return previewValue(part.input);
   return null;
+}
+
+function ToolPartDetails(props: { part: UiPart; idx: number }): ReactElement {
+  const state = 'state' in props.part ? String(props.part.state) : undefined;
+  const callId = 'toolCallId' in props.part && typeof props.part.toolCallId === 'string' ? props.part.toolCallId : undefined;
+  const input = 'input' in props.part ? props.part.input : undefined;
+  const output = 'output' in props.part ? props.part.output : undefined;
+  const errorText = 'errorText' in props.part ? props.part.errorText : undefined;
+  const name = toolPartName(props.part);
+  const forceOpen = state === 'input-streaming' || state === 'output-error' || Boolean(errorText);
+  const [opened, setOpened] = useState(forceOpen);
+  const expanded = forceOpen || opened;
+  const stablePayload = state !== 'input-streaming' && state !== 'output-streaming';
+
+  return (
+    <details
+      key={`tool-${props.idx}`}
+      open={expanded}
+      onToggle={(event) => setOpened((event.currentTarget as HTMLDetailsElement).open)}
+      className="rounded-lg border border-white/[0.075] bg-white/[0.02] px-2 py-2"
+      data-vacp-chat-tool-details="1"
+    >
+      <summary className="grid cursor-pointer list-none gap-1 text-[11px] text-slate-100/85">
+        <div className="flex min-w-0 flex-wrap items-center gap-2">
+          <span className="font-semibold text-slate-100/90">{name}</span>
+          {state ? (
+            <span className="rounded-full border border-white/[0.075] bg-white/[0.035] px-2 py-0.5 text-[10px] text-slate-100/66">
+              {state}
+            </span>
+          ) : null}
+          {callId ? <span className="text-[10px] text-slate-100/55 [overflow-wrap:anywhere]">{callId}</span> : null}
+        </div>
+        {toolSummary(props.part) ? <div className="truncate text-[10px] text-slate-100/60">{toolSummary(props.part)}</div> : null}
+      </summary>
+      {expanded ? (
+        <div className="mt-2 grid gap-2">
+          {input !== undefined ? (
+            <div>
+              <div className="text-[10px] font-semibold uppercase tracking-wide text-slate-100/65">Input</div>
+              {stablePayload ? (
+                <JsonViewer value={input} className="vacp-chat-json-view mt-1 p-2" expandDepth={1} scrollable={false} />
+              ) : (
+                <pre className="mt-1 max-h-32 overflow-auto rounded-md border border-white/[0.075] bg-white/[0.018] p-2 text-[10px] text-slate-100/70">
+                  {previewValue(input) ?? 'Streaming input...'}
+                </pre>
+              )}
+            </div>
+          ) : null}
+          {output !== undefined ? (
+            <div>
+              <div className="text-[10px] font-semibold uppercase tracking-wide text-slate-100/65">Output</div>
+              {stablePayload ? (
+                <JsonViewer value={output} className="vacp-chat-json-view mt-1 p-2" expandDepth={1} scrollable={false} />
+              ) : (
+                <pre className="mt-1 max-h-32 overflow-auto rounded-md border border-white/[0.075] bg-white/[0.018] p-2 text-[10px] text-slate-100/70">
+                  {previewValue(output) ?? 'Streaming output...'}
+                </pre>
+              )}
+            </div>
+          ) : null}
+          {errorText ? (
+            <div className="rounded-md border border-red-200/18 bg-red-300/[0.07] px-2 py-1 text-[11px] text-red-50/84">
+              {errorText}
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+    </details>
+  );
 }
 
 function renderPart(part: UiPart, idx: number, streaming: boolean): ReactElement | null {
@@ -62,54 +135,7 @@ function renderPart(part: UiPart, idx: number, streaming: boolean): ReactElement
   }
 
   if (part.type.startsWith('tool-') || part.type === 'dynamic-tool') {
-    const state = 'state' in part ? String(part.state) : undefined;
-    const callId = 'toolCallId' in part && typeof part.toolCallId === 'string' ? part.toolCallId : undefined;
-    const input = 'input' in part ? part.input : undefined;
-    const output = 'output' in part ? part.output : undefined;
-    const errorText = 'errorText' in part ? part.errorText : undefined;
-    const name = toolPartName(part);
-    const forceOpen = state === 'input-streaming' || state === 'output-error' || Boolean(errorText);
-
-    return (
-      <details
-        key={`tool-${idx}`}
-        open={forceOpen}
-        className="rounded-lg border border-white/[0.075] bg-white/[0.02] px-2 py-2"
-        data-vacp-chat-tool-details="1"
-      >
-        <summary className="grid cursor-pointer list-none gap-1 text-[11px] text-slate-100/85">
-          <div className="flex min-w-0 flex-wrap items-center gap-2">
-            <span className="font-semibold text-slate-100/90">{name}</span>
-            {state ? (
-              <span className="rounded-full border border-white/[0.075] bg-white/[0.035] px-2 py-0.5 text-[10px] text-slate-100/66">
-                {state}
-              </span>
-            ) : null}
-            {callId ? <span className="text-[10px] text-slate-100/55 [overflow-wrap:anywhere]">{callId}</span> : null}
-          </div>
-          {toolSummary(part) ? <div className="truncate text-[10px] text-slate-100/60">{toolSummary(part)}</div> : null}
-        </summary>
-        <div className="mt-2 grid gap-2">
-          {input !== undefined ? (
-            <div>
-              <div className="text-[10px] font-semibold uppercase tracking-wide text-slate-100/65">Input</div>
-              <JsonViewer value={input} className="vacp-chat-json-view mt-1 p-2" expandDepth={1} scrollable={false} />
-            </div>
-          ) : null}
-          {output !== undefined ? (
-            <div>
-              <div className="text-[10px] font-semibold uppercase tracking-wide text-slate-100/65">Output</div>
-              <JsonViewer value={output} className="vacp-chat-json-view mt-1 p-2" expandDepth={1} scrollable={false} />
-            </div>
-          ) : null}
-          {errorText ? (
-            <div className="rounded-md border border-red-200/18 bg-red-300/[0.07] px-2 py-1 text-[11px] text-red-50/84">
-              {errorText}
-            </div>
-          ) : null}
-        </div>
-      </details>
-    );
+    return <ToolPartDetails key={`tool-${idx}`} part={part} idx={idx} />;
   }
 
   if (part.type === 'step-start') return null;

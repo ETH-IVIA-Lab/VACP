@@ -91,23 +91,24 @@ export const useVacpDebugUiStore = create<VacpDebugUiState>((set) => ({
 
   open: false,
   moduleId: readInitialModule(),
-  setIncludeActionsDefault: (include) => set({ includeActionsDefault: include }),
+  setIncludeActionsDefault: (include) =>
+    set((state) => (state.includeActionsDefault === include ? state : { includeActionsDefault: include })),
 
-  setOpen: (open) => set({ open }),
+  setOpen: (open) => set((state) => (state.open === open ? state : { open })),
   setModuleId: (id) => {
     saveModule(id);
-    set({ moduleId: id });
+    set((state) => (state.moduleId === id ? state : { moduleId: id }));
   },
 
   graphInspectOpen: readBool(GRAPH_INSPECT_KEY, true),
   historyDetailsOpen: readBool(HISTORY_DETAILS_KEY, true),
   setGraphInspectOpen: (open) => {
     saveBool(GRAPH_INSPECT_KEY, open);
-    set({ graphInspectOpen: open });
+    set((state) => (state.graphInspectOpen === open ? state : { graphInspectOpen: open }));
   },
   setHistoryDetailsOpen: (open) => {
     saveBool(HISTORY_DETAILS_KEY, open);
-    set({ historyDetailsOpen: open });
+    set((state) => (state.historyDetailsOpen === open ? state : { historyDetailsOpen: open }));
   },
 
   dataGraphSignature: null,
@@ -115,10 +116,28 @@ export const useVacpDebugUiStore = create<VacpDebugUiState>((set) => ({
   dataSqlByHandleRef: {},
   dataLastResult: null,
   dataLastError: null,
-  setDataGraphSignature: (sig) => set({ dataGraphSignature: sig }),
-  setDataSelectedHandleRef: (ref) => set({ dataSelectedHandleRef: ref }),
-  setDataSqlForHandle: (ref, sql) => set((s) => ({ dataSqlByHandleRef: { ...s.dataSqlByHandleRef, [ref]: sql } })),
-  setDataLastResult: ({ result, error }) => set({ dataLastResult: result, dataLastError: error ?? null }),
+  setDataGraphSignature: (sig) => set((state) => (state.dataGraphSignature === sig ? state : { dataGraphSignature: sig })),
+  setDataSelectedHandleRef: (ref) =>
+    set((state) => (state.dataSelectedHandleRef === ref ? state : { dataSelectedHandleRef: ref })),
+  setDataSqlForHandle: (ref, sql) =>
+    set((state) =>
+      state.dataSqlByHandleRef[ref] === sql
+        ? state
+        : { dataSqlByHandleRef: { ...state.dataSqlByHandleRef, [ref]: sql } },
+    ),
+  setDataLastResult: ({ result, error }) =>
+    set((state) =>
+      state.dataLastResult === result && state.dataLastError === (error ?? null)
+        ? state
+        : { dataLastResult: result, dataLastError: error ?? null },
+    ),
   resetDataModule: () =>
-    set({ dataSelectedHandleRef: null, dataSqlByHandleRef: {}, dataLastResult: null, dataLastError: null }),
+    set((state) =>
+      state.dataSelectedHandleRef === null &&
+      Object.keys(state.dataSqlByHandleRef).length === 0 &&
+      state.dataLastResult === null &&
+      state.dataLastError === null
+        ? state
+        : { dataSelectedHandleRef: null, dataSqlByHandleRef: {}, dataLastResult: null, dataLastError: null },
+    ),
 }));

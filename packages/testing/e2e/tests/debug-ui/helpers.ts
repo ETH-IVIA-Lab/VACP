@@ -14,6 +14,8 @@ type SeedDebugChatThreadOptions = {
   viewRef?: string;
   vizRef?: string;
   model?: string;
+  baseURL?: string;
+  apiKey?: string;
   clearLayoutStorage?: boolean;
 };
 
@@ -54,8 +56,8 @@ function seedDebugChatThreadInBrowser(opts: SeedDebugChatThreadOptions): void {
         'openai-compatible': {
           provider: 'openai-compatible',
           providerName: 'openai-compatible',
-          baseURL: 'http://localhost:8317/v1',
-          apiKey: 'default',
+          baseURL: opts.baseURL ?? 'http://localhost:8317/v1',
+          apiKey: opts.apiKey ?? 'default',
           model: opts.model ?? 'gpt-5.4',
           temperature: 0.2,
           maxSteps: 10,

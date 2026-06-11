@@ -129,6 +129,18 @@ function ensureScopeWithThread(
   };
 }
 
+export function sameChatScopeMeta(a: VacpChatScopeMeta, b: VacpChatScopeMeta): boolean {
+  return (
+    a.scopeId === b.scopeId &&
+    a.label === b.label &&
+    a.runtimeId === b.runtimeId &&
+    a.sessionKey === b.sessionKey &&
+    a.viewRef === b.viewRef &&
+    a.vizRef === b.vizRef &&
+    a.urlKey === b.urlKey
+  );
+}
+
 export type VacpChatThread = {
   id: string;
   title: string;
@@ -184,6 +196,11 @@ export const useVacpChatStore = create<VacpChatStoreState>()(
 
       ensureScope: (meta) => {
         set((state) => {
+          const existing = state.scopes[meta.scopeId];
+          if (existing && sameChatScopeMeta(existing.meta, meta)) {
+            if (state.activeScopeId === meta.scopeId) return state;
+            return { ...state, activeScopeId: meta.scopeId };
+          }
           const scope = ensureScopeWithThread(state.scopes, meta);
           const next: VacpChatStoreData = {
             ...state,
@@ -221,6 +238,7 @@ export const useVacpChatStore = create<VacpChatStoreState>()(
         set((state) => {
           const scope = state.scopes[scopeId];
           if (!scope || !scope.threads[threadId]) return state;
+          if (state.activeScopeId === scopeId && scope.activeThreadId === threadId) return state;
           return {
             ...state,
             activeScopeId: scopeId,
@@ -345,15 +363,24 @@ export const useVacpChatStore = create<VacpChatStoreState>()(
 
       setDraft: (scopeId, threadId, value) => {
         const key = threadKey(scopeId, threadId);
-        set((state) => ({ ...state, draftByThreadKey: { ...state.draftByThreadKey, [key]: value } }));
+        set((state) => {
+          if ((state.draftByThreadKey[key] ?? '') === value) return state;
+          return { ...state, draftByThreadKey: { ...state.draftByThreadKey, [key]: value } };
+        });
       },
 
       setActivityOpen: (scopeId, open) => {
-        set((state) => ({ ...state, activityOpenByScope: { ...state.activityOpenByScope, [scopeId]: open } }));
+        set((state) => {
+          if ((state.activityOpenByScope[scopeId] ?? false) === open) return state;
+          return { ...state, activityOpenByScope: { ...state.activityOpenByScope, [scopeId]: open } };
+        });
       },
 
       setSettingsOpen: (scopeId, open) => {
-        set((state) => ({ ...state, settingsOpenByScope: { ...state.settingsOpenByScope, [scopeId]: open } }));
+        set((state) => {
+          if ((state.settingsOpenByScope[scopeId] ?? false) === open) return state;
+          return { ...state, settingsOpenByScope: { ...state.settingsOpenByScope, [scopeId]: open } };
+        });
       },
     }),
     {

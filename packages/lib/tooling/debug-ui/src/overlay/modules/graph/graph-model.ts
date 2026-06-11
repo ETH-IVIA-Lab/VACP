@@ -3,6 +3,7 @@ import type {
   VacpEdge,
   VacpEdgeKind,
   VacpGraph,
+  VacpNodeKind,
   VacpNode,
   VacpRef,
   VacpRuntimeSnapshot,
@@ -66,7 +67,103 @@ export function nodeId(ref: VacpRef): string {
 }
 
 export function actionId(index: number, actionName: string): string {
-  return `action:${index}:${actionName}`;
+  return `action:${actionName}`;
+}
+
+function textMatches(value: unknown, query: string): boolean {
+  if (value === null || value === undefined) return false;
+  if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
+    return String(value).toLowerCase().includes(query);
+  }
+  if (Array.isArray(value)) return value.some((item) => textMatches(item, query));
+  if (typeof value === 'object') {
+    return Object.entries(value as Record<string, unknown>).some(
+      ([key, entry]) => key.toLowerCase().includes(query) || textMatches(entry, query),
+    );
+  }
+  return false;
+}
+
+function nodeMatchesQuery(node: VacpNode, query: string): boolean {
+  return (
+    node.ref.toLowerCase().includes(query) ||
+    node.kind.toLowerCase().includes(query) ||
+    node.layer.toLowerCase().includes(query) ||
+    (node.title ?? '').toLowerCase().includes(query) ||
+    (node.description ?? '').toLowerCase().includes(query) ||
+    textMatches(node.data, query)
+  );
+}
+
+function actionMatchesQuery(action: VacpActionDescriptor, query: string): boolean {
+  return (
+    action.name.toLowerCase().includes(query) ||
+    (action.title ?? '').toLowerCase().includes(query) ||
+    (action.description ?? '').toLowerCase().includes(query) ||
+    (action.targetRef ?? '').toLowerCase().includes(query) ||
+    textMatches(action.parameters, query)
+  );
+}
+
+function neighborRefs(graph: VacpGraph, refs: ReadonlySet<VacpRef>): Set<VacpRef> {
+  const next = new Set(refs);
+  for (const edge of graph.edges) {
+    if (refs.has(edge.from) || refs.has(edge.to)) {
+      next.add(edge.from);
+      next.add(edge.to);
+    }
+  }
+  return next;
+}
+
+export function filterVacpGraph(
+  graph: VacpGraph,
+  options: {
+    query?: string;
+    nodeKinds?: ReadonlySet<VacpNodeKind>;
+    focus?: SelectedGraphItem;
+  },
+): VacpGraph {
+  const query = options.query?.trim().toLowerCase() ?? '';
+  const nodeKinds = options.nodeKinds ?? new Set<VacpNodeKind>();
+  const hasKindFilter = nodeKinds.size > 0;
+  const focus = options.focus;
+
+  if (!query && !hasKindFilter && !focus) return graph;
+
+  let allowedRefs = new Set(graph.nodes.map((node) => node.ref));
+  if (query) {
+    const matches = new Set(graph.nodes.filter((node) => nodeMatchesQuery(node, query)).map((node) => node.ref));
+    for (const action of graph.actions) {
+      if (action.targetRef && actionMatchesQuery(action, query)) matches.add(action.targetRef);
+    }
+    allowedRefs = neighborRefs(graph, matches);
+  }
+
+  if (focus?.kind === 'node') {
+    allowedRefs = neighborRefs(graph, new Set([focus.ref]));
+  } else if (focus?.kind === 'action') {
+    const action = graph.actions.find((candidate) => candidate.name === focus.name) ?? graph.actions[focus.index];
+    allowedRefs = action?.targetRef ? neighborRefs(graph, new Set([action.targetRef])) : new Set();
+  }
+
+  const nodes = graph.nodes.filter((node) => allowedRefs.has(node.ref) && (!hasKindFilter || nodeKinds.has(node.kind)));
+  const visibleRefs = new Set(nodes.map((node) => node.ref));
+  const edges = graph.edges.filter((edge) => visibleRefs.has(edge.from) && visibleRefs.has(edge.to));
+  const actions = graph.actions.filter((action, index) => {
+    if (focus?.kind === 'action') return action.name === focus.name || (action.name !== focus.name && index === focus.index);
+    if (query && !actionMatchesQuery(action, query) && (!action.targetRef || !visibleRefs.has(action.targetRef))) return false;
+    if (focus?.kind === 'node' && action.targetRef !== focus.ref) return false;
+    return !action.targetRef || visibleRefs.has(action.targetRef);
+  });
+
+  return { ...graph, nodes, edges, actions };
+}
+
+export function nodeKindCounts(graph: VacpGraph): Array<{ kind: VacpNodeKind; count: number }> {
+  const counts = new Map<VacpNodeKind, number>();
+  for (const node of graph.nodes) counts.set(node.kind, (counts.get(node.kind) ?? 0) + 1);
+  return [...counts.entries()].map(([kind, count]) => ({ kind, count }));
 }
 
 function displayTitle(node: VacpNode): string {
@@ -320,7 +417,7 @@ export function buildInspectorValue(runtime: VacpRuntimeSnapshot, selected: Sele
   const graph = runtime.currentCapabilities.graph;
 
   if (selected.kind === 'action') {
-    const action = graph.actions[selected.index];
+    const action = graph.actions.find((candidate) => candidate.name === selected.name) ?? graph.actions[selected.index];
     return action
       ? {
           kind: 'action',

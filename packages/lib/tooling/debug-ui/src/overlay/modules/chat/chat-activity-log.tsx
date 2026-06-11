@@ -1,4 +1,5 @@
 import type { ReactElement } from 'react';
+import { useState } from 'react';
 
 import type { VacpAgentToolEvent } from '@vacp/agent-client';
 import { JsonViewer } from '@vacp/debug-ui/ui/components/ui/json-viewer';
@@ -20,6 +21,80 @@ function normalizationBadge(event: VacpAgentToolEvent): boolean {
   return Boolean(event.requestedInput !== undefined || event.inputNote);
 }
 
+function ToolEventDetails(props: { event: VacpAgentToolEvent; index: number }): ReactElement {
+  const { event } = props;
+  const scope = capabilitiesScopeBadge(event);
+  const forceOpen = event.status === 'failed';
+  const [opened, setOpened] = useState(forceOpen);
+  const expanded = forceOpen || opened;
+
+  return (
+    <details
+      key={`${event.at}-${props.index}`}
+      open={expanded}
+      onToggle={(toggleEvent) => setOpened((toggleEvent.currentTarget as HTMLDetailsElement).open)}
+      className="rounded-md border border-white/[0.075] bg-white/[0.02] px-3 py-2"
+    >
+      <summary className="flex cursor-pointer list-none items-center gap-2">
+        <span className="font-semibold text-slate-100/90">{event.toolName}</span>
+        {scope ? (
+          <span className="rounded-full border border-white/[0.075] bg-white/[0.035] px-1.5 py-0.5 text-[10px] text-slate-100/62">
+            {scope}
+          </span>
+        ) : null}
+        {normalizationBadge(event) ? (
+          <span className="rounded-full border border-white/12 bg-white/[0.055] px-1.5 py-0.5 text-[10px] text-slate-100/70">
+            normalized
+          </span>
+        ) : null}
+        <span className={cn('font-medium', eventColor(event.status))}>{event.status}</span>
+        <span className="ml-auto text-slate-100/55">{new Date(event.at).toLocaleTimeString()}</span>
+      </summary>
+      {expanded ? (
+        <div className="mt-2 grid gap-2">
+          {event.inputNote ? (
+            <div className="rounded-md border border-white/12 bg-white/[0.055] px-2 py-1 text-[10px] text-slate-100/70">
+              {event.inputNote}
+            </div>
+          ) : null}
+          {event.input !== undefined ? (
+            <div>
+              <div className="text-[10px] font-semibold uppercase tracking-wide text-slate-100/65">
+                Effective input
+              </div>
+              <JsonViewer value={event.input} className="vacp-chat-json-view mt-1 p-2" expandDepth={1} scrollable={false} />
+            </div>
+          ) : null}
+          {event.requestedInput !== undefined ? (
+            <div>
+              <div className="text-[10px] font-semibold uppercase tracking-wide text-slate-100/65">
+                Requested input
+              </div>
+              <JsonViewer
+                value={event.requestedInput}
+                className="vacp-chat-json-view mt-1 p-2"
+                expandDepth={1}
+                scrollable={false}
+              />
+            </div>
+          ) : null}
+          {event.output !== undefined ? (
+            <div>
+              <div className="text-[10px] font-semibold uppercase tracking-wide text-slate-100/65">Output</div>
+              <JsonViewer value={event.output} className="vacp-chat-json-view mt-1 p-2" expandDepth={1} scrollable={false} />
+            </div>
+          ) : null}
+          {event.error ? (
+            <div className="rounded-md border border-red-200/18 bg-red-300/[0.07] px-2 py-1 text-red-50/84">
+              {event.error}
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+    </details>
+  );
+}
+
 export function ChatActivityLog(props: { events: VacpAgentToolEvent[]; className?: string }): ReactElement {
   return (
     <section className={cn('grid min-h-0 gap-2 p-3', props.className)}>
@@ -39,81 +114,7 @@ export function ChatActivityLog(props: { events: VacpAgentToolEvent[]; className
         {props.events
           .slice()
           .reverse()
-          .map((event, idx) => {
-            const scope = capabilitiesScopeBadge(event);
-            return (
-              <details
-                key={`${event.at}-${idx}`}
-                open={event.status === 'failed'}
-                className="rounded-md border border-white/[0.075] bg-white/[0.02] px-3 py-2"
-              >
-                <summary className="flex cursor-pointer list-none items-center gap-2">
-                  <span className="font-semibold text-slate-100/90">{event.toolName}</span>
-                  {scope ? (
-                    <span className="rounded-full border border-white/[0.075] bg-white/[0.035] px-1.5 py-0.5 text-[10px] text-slate-100/62">
-                      {scope}
-                    </span>
-                  ) : null}
-                  {normalizationBadge(event) ? (
-                    <span className="rounded-full border border-white/12 bg-white/[0.055] px-1.5 py-0.5 text-[10px] text-slate-100/70">
-                      normalized
-                    </span>
-                  ) : null}
-                  <span className={cn('font-medium', eventColor(event.status))}>{event.status}</span>
-                  <span className="ml-auto text-slate-100/55">{new Date(event.at).toLocaleTimeString()}</span>
-                </summary>
-                <div className="mt-2 grid gap-2">
-                  {event.inputNote ? (
-                    <div className="rounded-md border border-white/12 bg-white/[0.055] px-2 py-1 text-[10px] text-slate-100/70">
-                      {event.inputNote}
-                    </div>
-                  ) : null}
-                  {event.input !== undefined ? (
-                    <div>
-                      <div className="text-[10px] font-semibold uppercase tracking-wide text-slate-100/65">
-                        Effective input
-                      </div>
-                      <JsonViewer
-                        value={event.input}
-                        className="vacp-chat-json-view mt-1 p-2"
-                        expandDepth={1}
-                        scrollable={false}
-                      />
-                    </div>
-                  ) : null}
-                  {event.requestedInput !== undefined ? (
-                    <div>
-                      <div className="text-[10px] font-semibold uppercase tracking-wide text-slate-100/65">
-                        Requested input
-                      </div>
-                      <JsonViewer
-                        value={event.requestedInput}
-                        className="vacp-chat-json-view mt-1 p-2"
-                        expandDepth={1}
-                        scrollable={false}
-                      />
-                    </div>
-                  ) : null}
-                  {event.output !== undefined ? (
-                    <div>
-                      <div className="text-[10px] font-semibold uppercase tracking-wide text-slate-100/65">Output</div>
-                      <JsonViewer
-                        value={event.output}
-                        className="vacp-chat-json-view mt-1 p-2"
-                        expandDepth={1}
-                        scrollable={false}
-                      />
-                    </div>
-                  ) : null}
-                  {event.error ? (
-                    <div className="rounded-md border border-red-200/18 bg-red-300/[0.07] px-2 py-1 text-red-50/84">
-                      {event.error}
-                    </div>
-                  ) : null}
-                </div>
-              </details>
-            );
-          })}
+          .map((event, idx) => <ToolEventDetails key={`${event.at}-${idx}`} event={event} index={idx} />)}
       </div>
     </section>
   );

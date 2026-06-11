@@ -1,5 +1,5 @@
 import type { VacpNode, VacpRef } from '@vacp/core';
-import { ClipboardCopy, Play, RefreshCw, TableProperties } from 'lucide-react';
+import { ClipboardCopy, Download, FileJson, Play, RefreshCw, Sparkles, TableProperties } from 'lucide-react';
 import type { ReactElement } from 'react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 
@@ -14,9 +14,17 @@ import { copyTextToClipboard } from '@vacp/debug-ui/ui/lib/clipboard';
 import { cn } from '@vacp/debug-ui/ui/lib/utils';
 import type { VacpDebugModuleProps } from '../module-types';
 import { ModuleEmptyState, ModuleField, ModuleHeader, ModulePane, ModuleRoot } from '../module-layout';
-import { defaultQuery, shortRef } from './data-utils';
+import {
+  buildDataQueryTemplates,
+  defaultQuery,
+  downloadTextFile,
+  resultRowsToCsv,
+  resultRowsToJson,
+  safeDataExportName,
+  shortRef,
+} from './data-utils';
 import { useDataSql } from './use-data-sql';
-import { useSqlNamespace } from './use-sql-namespace';
+import { useSqlSchema } from './use-sql-namespace';
 
 export function DataModule(props: VacpDebugModuleProps): ReactElement {
   const rootRef = useRef<HTMLDivElement | null>(null);
@@ -42,7 +50,10 @@ export function DataModule(props: VacpDebugModuleProps): ReactElement {
         const title = n.title ?? shortRef(n.ref);
         return { ref: n.ref, title, label: `${title} (${shortRef(n.ref)})` };
       })
-      .sort((a, b) => a.title.localeCompare(b.title));
+      .sort((a, b) => {
+        const primaryDelta = (a.ref.endsWith('/data/main') ? 0 : 1) - (b.ref.endsWith('/data/main') ? 0 : 1);
+        return primaryDelta || a.title.localeCompare(b.title);
+      });
   }, [props.runtime.currentCapabilities]);
 
   const handleRefs = useMemo(() => handles.map((h) => h.ref), [handles]);
@@ -57,6 +68,7 @@ export function DataModule(props: VacpDebugModuleProps): ReactElement {
   const resetDataModule = useVacpDebugUiStore((s) => s.resetDataModule);
 
   const [schemaResetId, setSchemaResetId] = useState(0);
+  const [exportStatus, setExportStatus] = useState<{ tone: 'ok' | 'error'; message: string } | null>(null);
 
   useEffect(() => {
     if (graphSignature && graphSig === graphSignature) return;
@@ -80,13 +92,20 @@ export function DataModule(props: VacpDebugModuleProps): ReactElement {
     if (!selectedHandle) return;
     setSqlForHandle(selectedHandle, sql);
   };
+  const selectedHandleTitle = useMemo(() => {
+    if (!selectedHandle) return null;
+    const found = handles.find((h) => h.ref === selectedHandle);
+    return found?.title ?? null;
+  }, [handles, selectedHandle]);
 
-  const sqlSchema = useSqlNamespace({
+  const sqlMetadata = useSqlSchema({
     bridge: props.bridge,
     selectedHandle,
     runtimeMode: props.runtime.mode,
     resetKey: `${graphSignature}:${schemaResetId}`,
   });
+  const sqlSchema = sqlMetadata.namespace;
+  const queryTemplates = useMemo(() => buildDataQueryTemplates(sqlMetadata.schema), [sqlMetadata.schema]);
 
   const dataSql = useDataSql({
     bridge: props.bridge,
@@ -100,6 +119,10 @@ export function DataModule(props: VacpDebugModuleProps): ReactElement {
     dataSql.reset();
   }, [dataSql.reset, graphSignature, props.runtime.runtimeId]);
 
+  useEffect(() => {
+    setExportStatus(null);
+  }, [dataSql.result?.resolvedSql]);
+
   const refresh = async () => {
     if (typeof props.bridge.refresh !== 'function') return;
     await props.bridge.refresh({ source: 'debug', message: 'refresh' });
@@ -110,6 +133,49 @@ export function DataModule(props: VacpDebugModuleProps): ReactElement {
     if (!selectedHandle) return;
     await dataSql.run(selectedHandle, selectedSql);
     requestAnimationFrame(() => editorRef.current?.view?.focus());
+  };
+
+  const useTemplate = (sql: string | null) => {
+    if (!sql || !selectedHandle) return;
+    setSelectedSql(sql);
+    requestAnimationFrame(() => editorRef.current?.view?.focus());
+  };
+
+  const exportLabel = selectedHandleTitle ?? (selectedHandle ? shortRef(selectedHandle) : 'vacp-data');
+  const copyCsv = async () => {
+    if (!dataSql.result) return;
+    try {
+      const csv = resultRowsToCsv(dataSql.result.table.columns, dataSql.result.table.rows);
+      await copyTextToClipboard(csv);
+      setExportStatus({ tone: 'ok', message: `Copied ${dataSql.result.table.rows.length} loaded rows as CSV.` });
+    } catch (e) {
+      setExportStatus({ tone: 'error', message: e instanceof Error ? e.message : 'CSV copy failed.' });
+    }
+  };
+  const downloadCsv = () => {
+    if (!dataSql.result) return;
+    try {
+      const csv = resultRowsToCsv(dataSql.result.table.columns, dataSql.result.table.rows);
+      downloadTextFile(safeDataExportName(exportLabel, 'csv'), csv, 'text/csv;charset=utf-8');
+      setExportStatus({ tone: 'ok', message: `Downloaded ${dataSql.result.table.rows.length} loaded rows as CSV.` });
+    } catch (e) {
+      setExportStatus({ tone: 'error', message: e instanceof Error ? e.message : 'CSV download failed.' });
+    }
+  };
+  const downloadJson = () => {
+    if (!dataSql.result) return;
+    try {
+      const json = resultRowsToJson({
+        columns: dataSql.result.table.columns,
+        rows: dataSql.result.table.rows,
+        resolvedSql: dataSql.result.resolvedSql,
+        selectedHandle,
+      });
+      downloadTextFile(safeDataExportName(exportLabel, 'json'), json, 'application/json;charset=utf-8');
+      setExportStatus({ tone: 'ok', message: `Downloaded ${dataSql.result.table.rows.length} loaded rows as JSON.` });
+    } catch (e) {
+      setExportStatus({ tone: 'error', message: e instanceof Error ? e.message : 'JSON download failed.' });
+    }
   };
 
   const resultView = (() => {
@@ -140,6 +206,19 @@ export function DataModule(props: VacpDebugModuleProps): ReactElement {
           Query relations: <code className={inlineCodeClass}>vacp_handle</code> (current selection) and{' '}
           <code className={inlineCodeClass}>vacp_all</code> (full dataset).
         </div>
+        {exportStatus ? (
+          <div
+            data-vacp-data-export-status="1"
+            className={cn(
+              'mt-2 rounded-lg border px-3 py-2 text-[12px]',
+              exportStatus.tone === 'ok'
+                ? 'border-emerald-200/14 bg-emerald-300/[0.055] text-emerald-50/84'
+                : 'border-red-200/18 bg-red-300/[0.07] text-red-50/86',
+            )}
+          >
+            {exportStatus.message}
+          </div>
+        ) : null}
 
         <SqlResultTable
           columns={table.columns}
@@ -169,21 +248,21 @@ export function DataModule(props: VacpDebugModuleProps): ReactElement {
     );
   })();
 
-  const selectedHandleTitle = useMemo(() => {
-    if (!selectedHandle) return null;
-    const found = handles.find((h) => h.ref === selectedHandle);
-    return found?.title ?? null;
-  }, [handles, selectedHandle]);
-
   const canRun = Boolean(selectedHandle);
 
   return (
     <ModuleRoot
       rootRef={rootRef}
       boundWide={boundWide}
-      className={cn('grid h-full min-h-0 grid-rows-[auto_minmax(0,1fr)]', dense ? 'gap-2' : 'gap-3')}
+      className={cn(
+        'grid h-full min-h-0 overflow-x-clip',
+        boundWide
+          ? 'grid-cols-[minmax(380px,0.95fr)_minmax(420px,1.05fr)] grid-rows-1'
+          : 'grid-rows-[minmax(300px,0.95fr)_minmax(220px,1fr)]',
+        dense ? 'gap-2' : 'gap-3',
+      )}
     >
-      <ModulePane className={cn('flex flex-col', dense ? 'gap-2' : 'gap-3')}>
+      <ModulePane className={cn('flex min-h-0 flex-col overflow-y-auto overflow-x-clip pr-1', dense ? 'gap-2' : 'gap-3')}>
         <ModuleHeader
           title="Query"
           description="Run DuckDB SQL against the selected handle."
@@ -237,6 +316,49 @@ export function DataModule(props: VacpDebugModuleProps): ReactElement {
             </select>
           </ModuleField>
 
+          <ModuleField label="Templates">
+            <div
+              data-vacp-data-template-list="1"
+              className="flex gap-2 overflow-x-auto pb-0.5 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+            >
+              {queryTemplates.map((template) => {
+                const disabled = !template.sql;
+                return (
+                  <button
+                    key={template.id}
+                    type="button"
+                    data-vacp-data-template={template.id}
+                    className={cn(
+                      'min-w-0 w-[160px] shrink-0 rounded-lg border px-2.5 py-1.5 text-left outline-none transition focus:ring-2 focus:ring-white/22',
+                      disabled
+                        ? 'cursor-not-allowed border-white/[0.055] bg-white/[0.018] text-slate-100/35'
+                        : 'border-white/[0.09] bg-white/[0.035] text-slate-100/86 hover:border-teal-200/22 hover:bg-teal-300/[0.065]',
+                    )}
+                    disabled={disabled}
+                    title={template.disabledReason ?? template.description}
+                    onMouseDown={(ev) => ev.preventDefault()}
+                    onClick={() => useTemplate(template.sql)}
+                  >
+                    <span className="flex min-w-0 items-center gap-1.5">
+                      <Sparkles className="h-3.5 w-3.5 shrink-0 text-teal-100/70" aria-hidden="true" />
+                      <span className="min-w-0 truncate text-[12px] font-semibold">{template.label}</span>
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+            <div data-vacp-data-schema-status="1" className="mt-1 text-[11px] text-slate-100/50">
+              Schema:{' '}
+              <span className="text-slate-100/68">
+                {sqlMetadata.schema.source === 'data_schema'
+                  ? `${sqlMetadata.schema.vacp_all.length} columns from vacp.data_schema`
+                  : sqlMetadata.schema.source === 'data_sql'
+                    ? `${sqlMetadata.schema.vacp_all.length} columns from SQL probe`
+                    : 'waiting for live schema'}
+              </span>
+            </div>
+          </ModuleField>
+
           <ModuleField label="SQL" htmlFor="vacp-sql">
             <SqlEditor
               id="vacp-sql"
@@ -270,6 +392,36 @@ export function DataModule(props: VacpDebugModuleProps): ReactElement {
             ) : (
               'No DataHandles available for this view.'
             )
+          }
+          actions={
+            dataSql.result ? (
+              <>
+                <IconButton
+                  icon={<ClipboardCopy className="h-4 w-4 text-slate-100/90" />}
+                  label="Copy result CSV"
+                  title="Copy loaded result rows as CSV."
+                  size={iconButtonSize}
+                  onMouseDown={(ev) => ev.preventDefault()}
+                  onClick={() => void copyCsv()}
+                />
+                <IconButton
+                  icon={<Download className="h-4 w-4 text-slate-100/90" />}
+                  label="Download result CSV"
+                  title="Download loaded result rows as CSV."
+                  size={iconButtonSize}
+                  onMouseDown={(ev) => ev.preventDefault()}
+                  onClick={() => downloadCsv()}
+                />
+                <IconButton
+                  icon={<FileJson className="h-4 w-4 text-slate-100/90" />}
+                  label="Download result JSON"
+                  title="Download loaded result rows and resolved SQL as JSON."
+                  size={iconButtonSize}
+                  onMouseDown={(ev) => ev.preventDefault()}
+                  onClick={() => downloadJson()}
+                />
+              </>
+            ) : null
           }
         />
         <div className={cn('min-h-0 flex-1 overflow-auto', dense ? 'pt-2' : 'pt-3')}>{resultView}</div>

@@ -197,6 +197,13 @@ type ConfiguredChatProps = {
   onRegenerate: () => void;
   onCloseActivity: () => void;
   showActivity: boolean;
+  endpointDiagnostics: ChatEndpointDiagnostics;
+};
+
+export type ChatEndpointDiagnostics = {
+  tone: 'ok' | 'warn' | 'error' | 'checking';
+  title: string;
+  detail: string;
 };
 
 export function ConfiguredChat(props: ConfiguredChatProps): ReactElement {
@@ -347,6 +354,8 @@ export function ConfiguredChat(props: ConfiguredChatProps): ReactElement {
       )}
     >
       <div className="flex min-h-0 flex-col">
+        <EndpointDiagnosticsStrip diagnostics={props.endpointDiagnostics} compact={compactPanel} />
+
         {error ? (
           <div className="mb-2 rounded-md border border-red-200/18 bg-red-300/[0.07] px-3 py-2 text-[11px] text-red-50/84">
             <div className="flex items-start gap-2">
@@ -538,6 +547,31 @@ export function ConfiguredChat(props: ConfiguredChatProps): ReactElement {
           )}
         />
       ) : null}
+    </div>
+  );
+}
+
+function EndpointDiagnosticsStrip(props: { diagnostics: ChatEndpointDiagnostics; compact: boolean }): ReactElement {
+  const toneClass =
+    props.diagnostics.tone === 'ok'
+      ? 'border-emerald-200/12 bg-emerald-300/[0.045] text-emerald-50/82'
+      : props.diagnostics.tone === 'error'
+        ? 'border-red-200/18 bg-red-300/[0.07] text-red-50/84'
+        : props.diagnostics.tone === 'checking'
+          ? 'border-sky-200/14 bg-sky-300/[0.055] text-sky-50/80'
+          : 'border-amber-100/14 bg-amber-100/[0.055] text-amber-50/76';
+  return (
+    <div
+      data-vacp-chat-endpoint-diagnostics="1"
+      className={cn('mb-2 rounded-md border px-3 py-2 text-[11px]', toneClass)}
+    >
+      <div className="flex min-w-0 items-center gap-2">
+        {props.diagnostics.tone === 'checking' ? <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin" /> : null}
+        <span className="shrink-0 font-semibold">{props.diagnostics.title}</span>
+        <span className={cn('min-w-0 text-current/80', props.compact ? 'truncate' : 'break-words')}>
+          {props.diagnostics.detail}
+        </span>
+      </div>
     </div>
   );
 }

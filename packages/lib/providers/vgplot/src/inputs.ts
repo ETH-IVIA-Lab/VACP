@@ -8,10 +8,13 @@ type VgplotInputElement = HTMLElement & { value?: unknown };
 type VgplotInputLike = {
   constructor?: { name?: string };
   element?: HTMLElement;
-  selection?: { update?: (...args: unknown[]) => unknown };
+  selection?: { update?: (...args: unknown[]) => unknown; pending?: (type: string) => Promise<void> };
   publish?: (value: unknown) => unknown;
   reset?: () => unknown;
   selectedValue?: (value?: unknown) => unknown;
+  slider?: HTMLInputElement;
+  curval?: HTMLElement;
+  selectionType?: string;
   from?: string;
   column?: string;
   field?: string;
@@ -19,6 +22,10 @@ type VgplotInputLike = {
   data?: Array<{ value: unknown; label?: string }>;
   select?: HTMLSelectElement;
 };
+
+type InputValueRead =
+  | { ok: true; value: unknown }
+  | { ok: false; value: unknown; error: string };
 
 export type CollectedInput = {
   inputId: string;
@@ -82,7 +89,19 @@ function collectMenuOptions(
     label: typeof label === 'string' && label.length ? label : undefined,
   });
 
-  // Prefer the rendered <select> options (includes auto-populated menus).
+  // Prefer VGPlot's data array so complex option values do not collapse to
+  // DOM option strings like "-6,0".
+  if (Array.isArray(input.data) && input.data.length > 0) {
+    const count = input.data.length;
+    const sliced = input.data.slice(0, limit);
+    return {
+      options: sliced.map((o, index) => normalized(o.value, o.label ?? input.select?.options?.[index]?.label)),
+      count,
+      truncated: count > limit,
+    };
+  }
+
+  // Fallback to rendered <select> options for DOM-only menus.
   const select = input.select;
   if (select && typeof select.options?.length === 'number') {
     const opts = Array.from(select.options);
@@ -95,18 +114,104 @@ function collectMenuOptions(
     };
   }
 
-  // Fallback to VGPlot's `data` array (often present for explicit menu options).
-  if (Array.isArray(input.data)) {
-    const count = input.data.length;
-    const sliced = input.data.slice(0, limit);
+  return null;
+}
+
+export function readInputValue(input: CollectedInput): InputValueRead {
+  const inst = input.input;
+  try {
+    if (typeof inst.selectedValue === 'function') return { ok: true, value: inst.selectedValue() };
+  } catch (error) {
     return {
-      options: sliced.map((o) => normalized(o.value, o.label)),
-      count,
-      truncated: count > limit,
+      ok: false,
+      value: inst.select ? inst.select.value : undefined,
+      error: error instanceof Error ? error.message : String(error),
     };
   }
+  if (inst.slider) {
+    const n = inst.slider.valueAsNumber;
+    return { ok: true, value: Number.isFinite(n) ? n : inst.slider.value };
+  }
+  if (inst.select) return { ok: true, value: inst.select.value };
+  return { ok: true, value: undefined };
+}
 
-  return null;
+export function hasIndexedOptions(input: CollectedInput): boolean {
+  const inst = input.input;
+  return Boolean((inst.select?.options?.length ?? 0) > 0 || (Array.isArray(inst.data) && inst.data.length > 0));
+}
+
+function optionCount(input: VgplotInputLike): number {
+  if (Array.isArray(input.data) && input.data.length > 0) return input.data.length;
+  return input.select?.options?.length ?? 0;
+}
+
+function optionValueAt(input: VgplotInputLike, index: number): unknown {
+  if (Array.isArray(input.data) && input.data[index]) return input.data[index].value;
+  const option = input.select?.options?.[index];
+  if (option) return option.value;
+  return undefined;
+}
+
+function currentOptionValue(input: VgplotInputLike): unknown {
+  const index = input.select && input.select.selectedIndex >= 0 ? input.select.selectedIndex : 0;
+  return optionValueAt(input, index);
+}
+
+function ensureSelectedOption(input: VgplotInputLike): unknown {
+  if (input.select && input.select.selectedIndex < 0 && input.select.options.length > 0) {
+    input.select.selectedIndex = 0;
+  }
+  return currentOptionValue(input);
+}
+
+function valuesMatch(a: unknown, b: unknown): boolean {
+  if (a === b) return true;
+  try {
+    return stableStringify(a) === stableStringify(b);
+  } catch {
+    return false;
+  }
+}
+
+function selectMenuValue(input: VgplotInputLike, value: unknown): void {
+  if (!input.select) return;
+  if (Array.isArray(input.data)) {
+    const index = input.data.findIndex((option) => valuesMatch(option.value, value));
+    if (index >= 0) {
+      input.select.selectedIndex = index;
+      return;
+    }
+  }
+  input.select.value = String(value);
+}
+
+function isSelectionLike(value: unknown): value is { update: (clause: unknown) => unknown; predicate: (...args: unknown[]) => unknown } {
+  return Boolean(value) && typeof value === 'object' && typeof (value as any).update === 'function' && typeof (value as any).predicate === 'function';
+}
+
+function isParamLike(value: unknown): value is { update: (value: unknown) => unknown } {
+  return Boolean(value) && typeof value === 'object' && typeof (value as any).update === 'function';
+}
+
+function coerceFiniteSliderValue(input: VgplotInputLike, value: unknown): number {
+  const candidate = Array.isArray(value) && input.selectionType === 'interval' ? value[value.length - 1] : value;
+  if (Array.isArray(candidate)) throw new Error('Slider value must be a scalar number');
+  const n = typeof candidate === 'number' ? candidate : typeof candidate === 'string' && candidate.trim() ? Number(candidate) : NaN;
+  if (!Number.isFinite(n)) throw new Error('Slider value must be a finite number');
+  return n;
+}
+
+function setSliderDomValue(input: VgplotInputLike, value: number): void {
+  if (!input.slider) return;
+  input.slider.value = String(value);
+  if (input.curval) input.curval.innerText = input.slider.value;
+}
+
+async function waitForInputDispatch(input: VgplotInputLike): Promise<void> {
+  if (typeof input.selection?.pending !== 'function') return;
+  await input.selection.pending('value');
+  await input.selection.pending('value');
 }
 
 export function collectInputs(root: ParentNode, options: InstallVacpOnVgplotDashboardOptions): CollectedInput[] {
@@ -160,38 +265,64 @@ export async function executeInputAction(
   const inst = input.input as any;
 
   if (call.name === 'vgplot.clear_input') {
-    if (typeof inst.reset === 'function') inst.reset();
-    if (typeof inst.publish === 'function') inst.publish('');
-    return { cleared: true };
+    if (typeof inst.reset === 'function') {
+      inst.reset();
+      const next = ensureSelectedOption(inst);
+      if (typeof inst.publish === 'function') inst.publish(next ?? null);
+      await waitForInputDispatch(inst);
+      return { cleared: true, value: next };
+    }
+    if (isSelectionLike(inst.selection)) {
+      inst.selection.update({ source: inst });
+      await waitForInputDispatch(inst);
+      return { cleared: true, value: undefined };
+    }
+    if (isParamLike(inst.selection)) {
+      inst.selection.update(null);
+      await waitForInputDispatch(inst);
+      return { cleared: true, value: null };
+    }
+    const next = ensureSelectedOption(inst);
+    if (typeof inst.publish === 'function') inst.publish(next ?? null);
+    await waitForInputDispatch(inst);
+    return { cleared: true, value: next };
   }
 
   if (call.name === 'vgplot.set_input_option_index') {
+    if (!hasIndexedOptions(input)) throw new Error('Input does not expose indexed options');
     const idx = Number(params.index);
     if (!Number.isFinite(idx)) throw new Error('index must be a number');
+    if (idx < 0) throw new Error('index must be >= 0');
+    const count = optionCount(inst);
+    if (idx >= count) throw new Error(`index must be < ${count}`);
     if (inst.select && typeof inst.select.selectedIndex === 'number') inst.select.selectedIndex = idx;
-    let next: unknown = undefined;
-    if (inst.select && inst.select.options && inst.select.options.length > idx) {
-      next = inst.select.options[idx]?.value ?? inst.select.value;
-    } else if (Array.isArray(inst.data) && inst.data[idx]) {
-      next = inst.data[idx].value;
-    } else if (typeof inst.selectedValue === 'function') {
+    let next = optionValueAt(inst, idx);
+    if (next === undefined && typeof inst.selectedValue === 'function') {
       try {
         next = inst.selectedValue();
       } catch {
         next = inst.select ? inst.select.value : undefined;
       }
-    } else if (inst.select) {
+    }
+    if (next === undefined && inst.select) {
       next = inst.select.value;
     }
     if (typeof inst.publish === 'function') inst.publish(next);
+    await waitForInputDispatch(inst);
     return { set: true, index: idx, value: next };
   }
 
   if (call.name === 'vgplot.set_input_value') {
-    const value = params.value;
+    let value = params.value;
+    if (inst.slider) {
+      const sliderValue = coerceFiniteSliderValue(inst, value);
+      setSliderDomValue(inst, sliderValue);
+      value = sliderValue;
+    }
     if (typeof inst.selectedValue === 'function') inst.selectedValue(value);
-    if (inst.select) inst.select.value = String(value);
+    selectMenuValue(inst, value);
     if (typeof inst.publish === 'function') inst.publish(value);
+    await waitForInputDispatch(inst);
     return { set: true, value };
   }
 

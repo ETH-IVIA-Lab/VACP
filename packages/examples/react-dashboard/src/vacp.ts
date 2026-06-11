@@ -354,31 +354,49 @@ export function installVacpForReactDashboard(args: { globalKey?: string; title?:
   const tableName = makeVacpDuckDbTableName({ prefix: 'vacp_react_dashboard_rows' });
   let tableMeta: VacpDuckDbTableMetadata | null = null;
   let loadedDatasetId: DatasetId | null = null;
+  let duckDbLoad: Promise<void> | null = null;
   const selectedIdsTable = 'vacp_react_dashboard_selected_ids';
 
   const ensureDuckDbLoaded = async (): Promise<void> => {
-    await args.model.ensureDataset();
-    const datasetId = args.model.getDatasetId();
-    if (!datasetId) throw new Error('No dataset selected');
-    const dataset = args.model.getDataset();
-    if (!dataset) throw new Error('No dataset loaded');
-    if (loadedDatasetId === datasetId) return;
-    const db = await duckdb;
-    await db.exec(`DROP TABLE IF EXISTS ${tableName}`);
-    await db.loadObjectsAsTable(tableName, dataset.rows, { create: true });
-    try {
-      tableMeta = await getDuckDbTableMetadata({
-        duckdb: db,
-        table: tableName,
-        sampleRows: 0,
-        maxNumericColumns: 0,
-        maxTemporalColumns: 0,
-        maxCategoricalColumns: 0,
-      });
-    } catch {
-      tableMeta = null;
+    while (true) {
+      await args.model.ensureDataset();
+      const datasetId = args.model.getDatasetId();
+      if (!datasetId) throw new Error('No dataset selected');
+      const dataset = args.model.getDataset();
+      if (!dataset) throw new Error('No dataset loaded');
+
+      if (duckDbLoad) {
+        await duckDbLoad;
+        continue;
+      }
+      if (loadedDatasetId === datasetId) return;
+
+      const load = (async () => {
+        const db = await duckdb;
+        await db.exec(`DROP TABLE IF EXISTS ${tableName}`);
+        await db.loadObjectsAsTable(tableName, dataset.rows, { create: true });
+        try {
+          tableMeta = await getDuckDbTableMetadata({
+            duckdb: db,
+            table: tableName,
+            sampleRows: 0,
+            maxNumericColumns: 0,
+            maxTemporalColumns: 0,
+            maxCategoricalColumns: 0,
+          });
+        } catch {
+          tableMeta = null;
+        }
+        loadedDatasetId = datasetId;
+      })();
+
+      duckDbLoad = load;
+      try {
+        await load;
+      } finally {
+        if (duckDbLoad === load) duckDbLoad = null;
+      }
     }
-    loadedDatasetId = datasetId;
   };
 
   const syncSelectedIds = async (ids: string[]): Promise<void> => {
