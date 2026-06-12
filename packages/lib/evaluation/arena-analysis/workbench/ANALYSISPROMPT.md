@@ -15,10 +15,10 @@ You must produce a single JSON object with the shape `{ "turns": [...] }`. Each 
 ```typescript
 interface InteractionTurn {
   turn: number; // The message number (e.g., 2 for Message 002)
-  stratum: "SEM" | "SYN" | "PRG"; // Where the action occurs
-  phase: "FOR" | "STR" | "EVL" | "INS" | "TERM"; // What the agent is trying to do
-  outcome: "SUC" | "FEX" | "FLA"; // What happened
-  shift: "LAD" | "DES" | "STA" | null; // How the agent's strategy changed
+  stratum: 'SEM' | 'SYN' | 'PRG'; // Where the action occurs
+  phase: 'FOR' | 'STR' | 'EVL' | 'INS' | 'TERM'; // What the agent is trying to do
+  outcome: 'SUC' | 'FEX' | 'FLA'; // What happened
+  shift: 'LAD' | 'DES' | 'STA' | null; // How the agent's strategy changed
   notes: string; // Concise, specific details of the action and result
 }
 ```

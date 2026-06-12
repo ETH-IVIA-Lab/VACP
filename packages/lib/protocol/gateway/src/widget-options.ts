@@ -33,7 +33,7 @@ export function registerVacpWidgetOptionsAction(
         query: { type: 'string', description: 'Optional substring filter applied to label/value.' },
       },
       required: ['ref'],
-      examples: [{ ref: 'vacp://…/input/0', query: 'judo' }],
+      examples: [{ ref: 'vacp://.../input/0', query: 'judo' }],
     },
   };
 

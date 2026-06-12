@@ -24,7 +24,7 @@ async function runDefaultDataSqlAndExpectResults(page: Page): Promise<void> {
   await expect(dataTab).toBeVisible({ timeout: 15_000 });
   await dataTab.click();
 
-  // The Data module may briefly show "Connecting…" while handles are being hydrated.
+  // The Data module may briefly show "Connecting..." while handles are hydrated.
   const connecting = page.locator('.vacp-debug-ui-content', { hasText: 'Connecting' });
   if (await connecting.isVisible().catch(() => false)) {
     await expect(connecting).toBeHidden({ timeout: 45_000 });

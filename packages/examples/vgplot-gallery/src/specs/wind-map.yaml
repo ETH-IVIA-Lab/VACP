@@ -1,7 +1,7 @@
 meta:
   title: Wind Map
   description: >
-    `vector` marks on a grid show both direction and intensity—here, the speed of winds.
+    `vector` marks on a grid show direction and intensity, here measured as wind speed.
     Expressions for `rotate`, `length`, and `stroke` values are evaluated in the database.
     Both the legend and map support interactive selections to highlight values.
   credit: Adapted from an [Observable Plot example](https://observablehq.com/@observablehq/plot-wind-map).

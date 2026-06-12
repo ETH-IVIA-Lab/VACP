@@ -87,7 +87,7 @@ def _(mo, states_df):
         """
         WITH
             runs_with_id AS (
-                -- Step 1: Assign a unique session_id and carry the key partitioning columns forward.
+                -- Assign a stable session_id and carry partition columns forward.
                 SELECT
                     DENSE_RANK () OVER (
                         ORDER BY
@@ -111,10 +111,10 @@ def _(mo, states_df):
                             model_name
                     ) AS solved_status
                 FROM
-                    states_df -- Your flattened DataFrame
+                    states_df
             ),
             state_transitions AS (
-                -- Step 2: Use LEAD() to find the next state, partitioned by the unique session_id.
+                -- Use LEAD() to derive the next state within each session.
                 SELECT
                     session_id,
                     experiment,
@@ -159,7 +159,7 @@ def _(mo, states_df):
             current_state,
             next_state
         HAVING
-            transition_count > 0 -- Lowered threshold to see even single transitions for rare models/outcomes
+            transition_count > 0 -- Include rare model and outcome transitions.
         ORDER BY
             experiment,
             model_name,
@@ -227,25 +227,25 @@ def _(mo, states_df):
                 FROM states_df
             ),
             failure_reactions AS (
-                -- Step 2: For each turn, find the 'shift' of the *next* turn within the same run.
+                -- For each turn, find the next strategic shift within the same run.
                 SELECT 
                     session_id,
                     model_name,
                     experiment,
                     solved,
                     outcome,
-                    -- The 'reaction_shift' is the agent's strategic pivot on the turn immediately following a failure.
+                    -- reaction_shift is the strategic pivot immediately after a failure.
                     LEAD(shift) OVER (PARTITION BY session_id ORDER BY turn) AS reaction_shift
                 FROM runs_with_id
             )
-        -- Final Aggregation: Count the types of shifts that follow failures, and partition by success status.
+        -- Count shift types after failures and partition them by success status.
         SELECT 
             experiment,
             model_name,
-            solved,         -- The key dimension for comparison
+            solved,
             reaction_shift AS shift,
             COUNT(*) AS shift_count,
-            -- Calculate this shift type percentage for the current group.
+            -- Calculate each shift type as a percentage of the current group.
             ROUND(
                 COUNT(*) * 100.0 / SUM(COUNT(*)) OVER (
                     PARTITION BY 
@@ -257,7 +257,7 @@ def _(mo, states_df):
             ) AS shift_pct
         FROM failure_reactions
         WHERE 
-            outcome IN ('FLA', 'FEX') -- We only care about what happens *after* a failure
+            outcome IN ('FLA', 'FEX')
             AND reaction_shift IS NOT NULL
         GROUP BY 
             experiment, 
@@ -316,16 +316,16 @@ def _(mo, states_df):
         SELECT 
             experiment,
             model_name,
-            solved,         -- The dimension we are partitioning by
+            solved,
             stratum,
             COUNT(*) AS turn_count,
-            -- The percentage of turns in this stratum for this specific group (e.g., for all SOLVED baseline GPT runs)
+            -- Calculate this stratum percentage within each experiment, model, and solve status.
             ROUND(
                 COUNT(*) * 100.0 / SUM(COUNT(*)) OVER (
                     PARTITION BY 
                         experiment, 
                         model_name, 
-                        solved -- This is the key change.
+                        solved
                 ), 
                 2
             ) AS pct_in_stratum
@@ -339,7 +339,7 @@ def _(mo, states_df):
         ORDER BY 
             experiment, 
             model_name, 
-            solved,      -- Ordering by 'solved' makes the output easy to compare
+            solved,
             pct_in_stratum DESC;
         """,
         output=False,
@@ -443,9 +443,13 @@ def _(RUNS_ROOT, RUN_FILES, json, pl):
 def _():
     MODEL_LABEL_MAP = {
         'anthropic.claude-sonnet-4-5-20250929-v1-0': 'Claude Sonnet 4.5',
-        'gemini-3-pro-preview': 'Gemini 3 Pro',
+        'claude-sonnet-4-5': 'Claude Sonnet 4.5',
+        'gemini-3-pro-preview': 'Gemini 3 Pro Preview',
+        'gemini-3.1-pro-preview': 'Gemini 3.1 Pro',
         'gpt-5.2': 'GPT 5.2',
+        'gpt-5.2-vacp': 'GPT 5.2',
         'gpt-5.4': 'GPT 5.4',
+        'gpt-5.5': 'GPT 5.5',
     }
     STRATUM_LABEL_MAP = {
         'SEM': 'Semantic',
@@ -453,12 +457,12 @@ def _():
         'PRG': 'Pragmatic',
     }
     EXPERIMENT_LABEL_MAP = {
-        'baseline': 'UI + DOM',
-        'with-snapshot': 'UI + DOM + State',
-        'pure-vacp': 'VACP',
-        'plain-mcp': 'MCP Tools (No VACP)',
-        'partial-toolkit': 'VACP + UI/DOM (No Data Query)',
-        'full-toolkit': 'VACP + UI + DOM',
+        'baseline': 'S1 UI + DOM',
+        'with-snapshot': 'S2 UI + DOM + State',
+        'plain-mcp': 'S3 MCP (with SQL access)',
+        'pure-vacp': 'S4 VACP (with SQL access)',
+        'partial-toolkit': 'S5 VACP + UI + DOM (no SQL access)',
+        'full-toolkit': 'S6 VACP + UI + DOM (with SQL access)',
     }
     SHIFT_LABEL_MAP = {
         'LAD': 'Ascend',

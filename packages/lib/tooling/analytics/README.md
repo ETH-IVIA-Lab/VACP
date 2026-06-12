@@ -19,7 +19,7 @@ if (apiKey) {
     },
     analytics: {
       // Off by default to avoid spamming analytics during brush/drag interactions.
-      // When enabled, snapshots are throttled to ~1/sec (configurable).
+      // When enabled, snapshots are throttled to about one per second.
       captureSnapshots: true,
     },
   });
@@ -32,11 +32,11 @@ By default this:
 - captures VACP runtime history entries as PostHog events
 - mirrors a bounded history buffer into session properties for replay
 
-Snapshots are opt-in via `analytics.captureSnapshots` and are bounced to at most one snapshot per second by default.
+Snapshots are opt-in via `analytics.captureSnapshots` and are throttled to at most one snapshot per second by default.
 
 In the repo examples, PostHog is enabled via:
 
 - `VACP_POSTHOG_API_KEY` (required)
 - `VACP_POSTHOG_API_HOST` (optional)
-- `VACP_POSTHOG_DEFAULTS` (optional; forwarded to `posthog.init({ defaults })`)
-- `VACP_POSTHOG_CAPTURE_SNAPSHOTS=1` (optional; enables snapshot capture)
+- `VACP_POSTHOG_DEFAULTS` (optional, forwarded to `posthog.init({ defaults })`)
+- `VACP_POSTHOG_CAPTURE_SNAPSHOTS=1` (optional, enables snapshot capture)

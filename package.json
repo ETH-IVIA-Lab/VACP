@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "pnpm --filter vacp-example-index dev:full",
     "build": "pnpm -r --if-present build",
-    "format": "oxfmt --config .oxfmtrc.json . && pnpm -r --if-present format",
+    "format": "git ls-files -z | xargs -0 oxfmt --config .oxfmtrc.json && pnpm -r --if-present format",
     "lint": "pnpm -r --if-present lint",
     "typecheck": "pnpm -r --if-present typecheck",
     "test": "pnpm -r --if-present test"

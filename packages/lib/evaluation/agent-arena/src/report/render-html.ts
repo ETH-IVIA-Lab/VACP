@@ -1019,10 +1019,10 @@ function renderTaskBreakdownSection(ctx: ArenaReportHtmlContext) {
           const s = byTaskKey.get(`${t.scenarioId}__${exp}`) ?? null;
           if (!s) {
             return [
-              `<td class="num muted" title="Not run">—</td>`,
-              `<td class="num muted" title="Not run">—</td>`,
-              `<td class="num muted" title="Not run">—</td>`,
-              `<td class="num muted" title="Not run">—</td>`,
+              `<td class="num muted" title="Not run">n/a</td>`,
+              `<td class="num muted" title="Not run">n/a</td>`,
+              `<td class="num muted" title="Not run">n/a</td>`,
+              `<td class="num muted" title="Not run">n/a</td>`,
             ];
           }
 
@@ -1081,7 +1081,7 @@ function renderTaskBreakdownSection(ctx: ArenaReportHtmlContext) {
       const cells = ctx.experiments
         .flatMap((exp) => {
           const s = byTaskKey.get(`${t.scenarioId}__${exp}`) ?? null;
-          if (!s) return [`<td class="num muted">—</td>`, `<td class="num muted">—</td>`];
+          if (!s) return [`<td class="num muted">n/a</td>`, `<td class="num muted">n/a</td>`];
           return [
             `<td class="num">${s.costTotalUsd === null ? 'n/a' : fmtUsd(s.costTotalUsd)}</td>`,
             `<td class="num">${s.costMedianUsd === null ? 'n/a' : fmtUsd(s.costMedianUsd)}</td>`,
@@ -1170,7 +1170,7 @@ function renderModelResponsesSection(ctx: ArenaReportHtmlContext) {
       const cells = ctx.experiments
         .map((exp) => {
           const runs = byKey.get(`${t.scenarioId}__${exp}`) ?? [];
-          if (!runs.length) return `<td class="muted">—</td>`;
+          if (!runs.length) return `<td class="muted">n/a</td>`;
           return `<td class="jsonCell">${renderJsonCell(runs)}</td>`;
         })
         .join('');
@@ -1247,7 +1247,7 @@ function resolveRunEvalOutcome(run: NormalizedRun) {
 
 function classifyRunStatus(run: NormalizedRun): { key: JsonCellStatusKey; label: string } {
   const outcome = resolveRunEvalOutcome(run);
-  if (outcome === 'plumbing_failure') return { key: 'timeout', label: 'Timeout' };
+  if (outcome === 'plumbing_failure') return { key: 'timeout', label: 'Plumbing Failure' };
   if (run.solvedSemantic === true || outcome === 'solved_semantic' || outcome === 'solved_strict') {
     return { key: 'correct_solution', label: 'Correct Solution' };
   }
@@ -1278,7 +1278,7 @@ function summarizeJsonCellStatus(runs: NormalizedRun[]) {
     }
   }
 
-  if (best === 'timeout') return { key: best, label: 'Timeout' };
+  if (best === 'timeout') return { key: best, label: 'Plumbing Failure' };
   if (best === 'correct_solution') return { key: best, label: 'Correct Solution' };
   return { key: best, label: 'Incorrect Solution' };
 }

@@ -45,7 +45,7 @@ Common options:
 
 Create `agent-arena.config.ts` in the directory you run from. It defines a flat list of runs.
 
-Minimal example (placeholders):
+Minimal config:
 
 ```ts
 import type { ArenaConfig } from '@vacp/agent-arena';
@@ -57,8 +57,8 @@ const config: ArenaConfig = {
   timeouts: { promptMs: 10 * 60_000 },
   runs: [
     {
-      experiment: 'provider/model (default tools)',
-      model: { providerID: 'provider-id', modelID: 'model-id' },
+      experiment: 'local/model (default tools)',
+      model: { providerID: 'local', modelID: 'model' },
       toolPolicy: { mode: 'all' },
       summarize: true,
       scenario: {
@@ -131,7 +131,7 @@ For larger suites against local examples:
 3. Run:
 
 ```bash
-pnpm -C packages/lib/evaluation/agent-arena start -- run --export-logs --write-metrics --out nogit/scenario-report-matrix/<YYYY-MM-DD>
+pnpm -C packages/lib/evaluation/agent-arena start -- run --export-logs --write-metrics --out .agent-arena/runs/scenario-report-matrix-<YYYY-MM-DD>
 ```
 
 ## Related docs

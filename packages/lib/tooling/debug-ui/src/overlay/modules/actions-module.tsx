@@ -14,11 +14,7 @@ import { RovingFocusGroup, RovingFocusGroupItem } from '@vacp/debug-ui/ui/compon
 import { copyTextToClipboard } from '@vacp/debug-ui/ui/lib/clipboard';
 import { cn } from '@vacp/debug-ui/ui/lib/utils';
 
-import {
-  createActionParamDraft,
-  validateActionParams,
-  type ActionParamIssue,
-} from './action-params';
+import { createActionParamDraft, validateActionParams, type ActionParamIssue } from './action-params';
 import { executeDebugAction } from './action-execution';
 import { ModuleEmptyState, ModuleField, ModuleHeader, ModulePane, ModuleRoot } from './module-layout';
 import type { VacpDebugModuleProps } from './module-types';
@@ -89,7 +85,8 @@ export function ActionsModule(props: VacpDebugModuleProps): ReactElement {
   }, [actionsSignature, runtimeScopeKey]);
 
   const selectAction = (action: VacpActionDescriptor) => {
-    const params = paramsByAction[action.name] ?? createActionParamDraft(action, props.runtime.currentState.state).params;
+    const params =
+      paramsByAction[action.name] ?? createActionParamDraft(action, props.runtime.currentState.state).params;
     setSelectedName(action.name);
     setParamsValue(params);
     setParamsError(null);
@@ -341,7 +338,13 @@ function ActionResultField(props: {
         {props.result || props.status !== 'idle' ? (
           <JsonViewer
             value={props.result}
-            emptyText={props.status === 'running' ? 'Running...' : props.status === 'error' ? (props.error ?? 'Action failed') : ''}
+            emptyText={
+              props.status === 'running'
+                ? 'Running...'
+                : props.status === 'error'
+                  ? (props.error ?? 'Action failed')
+                  : ''
+            }
             className="min-h-0 max-h-[260px]"
           />
         ) : (

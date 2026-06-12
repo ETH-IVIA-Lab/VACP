@@ -7,10 +7,10 @@ import sys
 import time
 from pathlib import Path
 
-from arena_analyis import env
-from arena_analyis.paths import DEFAULT_PROMPT_FILE, DEFAULT_RUNS_ROOT
-from arena_analyis.runs import Discovery, Selection, discover_jobs
-from arena_analyis.states import (
+from arena_analysis import env
+from arena_analysis.paths import DEFAULT_PROMPT_FILE, DEFAULT_RUNS_ROOT
+from arena_analysis.runs import Discovery, Selection, discover_jobs
+from arena_analysis.states import (
     OpenAIClassifier,
     Options,
     Retry,
@@ -21,20 +21,24 @@ from arena_analyis.states import (
 
 
 def add_run_selection_args(parser: argparse.ArgumentParser) -> None:
-    parser.add_argument('--runs-root', default=str(DEFAULT_RUNS_ROOT))
-    parser.add_argument('--include-attempts', action='store_true')
-    parser.add_argument('--include-failed-runs', action='store_true')
-    parser.add_argument('--limit', type=int, default=0)
+    parser.add_argument(
+        '--runs-root', default=str(DEFAULT_RUNS_ROOT), help='Directory containing Agent Arena run folders.'
+    )
+    parser.add_argument('--include-attempts', action='store_true', help='Include transcript attempts under attempts/.')
+    parser.add_argument('--include-failed-runs', action='store_true', help='Include failed run folders.')
+    parser.add_argument('--limit', type=int, default=0, help='Maximum number of jobs to process. Use 0 for all jobs.')
 
 
 def add_prompt_arg(parser: argparse.ArgumentParser) -> None:
-    parser.add_argument('--prompt-file', default=str(DEFAULT_PROMPT_FILE))
+    parser.add_argument(
+        '--prompt-file', default=str(DEFAULT_PROMPT_FILE), help='Prompt file used for state generation.'
+    )
 
 
 def add_model_args(parser: argparse.ArgumentParser) -> None:
-    parser.add_argument('--model', default=env.model())
-    parser.add_argument('--base-url', default=env.base_url())
-    parser.add_argument('--api-key', default=env.api_key())
+    parser.add_argument('--model', default=env.model(), help='Model name for the OpenAI-compatible classifier.')
+    parser.add_argument('--base-url', default=env.base_url(), help='OpenAI-compatible API base URL.')
+    parser.add_argument('--api-key', default=env.api_key(), help='API key for the OpenAI-compatible endpoint.')
 
 
 def load_prompt(path: Path) -> str:
@@ -166,24 +170,28 @@ def build_parser() -> argparse.ArgumentParser:
     add_run_selection_args(generate)
     add_prompt_arg(generate)
     add_model_args(generate)
-    generate.add_argument('--maxjobs', type=int, default=8)
-    generate.add_argument('--max-attempts', type=int, default=3)
-    generate.add_argument('--timeout-seconds', type=float, default=600.0)
-    generate.add_argument('--retry-delay-seconds', type=float, default=2.0)
-    generate.add_argument('--max-retry-delay-seconds', type=float, default=10.0)
-    generate.add_argument('--overwrite', action='store_true')
+    generate.add_argument('--maxjobs', type=int, default=8, help='Maximum concurrent state-generation requests.')
+    generate.add_argument('--max-attempts', type=int, default=3, help='Maximum model attempts per transcript.')
+    generate.add_argument(
+        '--timeout-seconds', type=float, default=600.0, help='Timeout in seconds for each model request.'
+    )
+    generate.add_argument('--retry-delay-seconds', type=float, default=2.0, help='Initial retry delay in seconds.')
+    generate.add_argument('--max-retry-delay-seconds', type=float, default=10.0, help='Maximum retry delay in seconds.')
+    generate.add_argument('--overwrite', action='store_true', help='Regenerate existing states.json files.')
     generate.set_defaults(func=lambda args: asyncio.run(command_generate_states(args)))
 
     verify = subparsers.add_parser('verify-states', help='Validate existing states.json files.')
     add_run_selection_args(verify)
-    verify.add_argument('--require-complete', action='store_true')
+    verify.add_argument(
+        '--require-complete', action='store_true', help='Fail when eligible transcripts are missing states.json.'
+    )
     verify.set_defaults(func=command_verify_states)
 
     dump_inputs = subparsers.add_parser('dump-inputs', help='Write the exact model input payloads as JSONL.')
     add_run_selection_args(dump_inputs)
     add_prompt_arg(dump_inputs)
-    dump_inputs.add_argument('--model', default=env.model())
-    dump_inputs.add_argument('--output', required=True)
+    dump_inputs.add_argument('--model', default=env.model(), help='Model name recorded in the dumped input rows.')
+    dump_inputs.add_argument('--output', required=True, help='Output JSONL path.')
     dump_inputs.set_defaults(func=command_dump_inputs)
 
     return parser

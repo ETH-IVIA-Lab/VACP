@@ -1,6 +1,6 @@
 # VACP Architecture
 
-VACP makes interactive visualization apps agent-ready by standardizing a compact in-page semantic bridge (`window.__vacp`). The bridge exposes capabilities, state, and actions so agents and humans operate on the same model.
+VACP gives interactive visualization apps a compact in-page semantic bridge (`window.__vacp`). The bridge exposes capabilities, state, and actions so agents and humans operate on the same model.
 
 ## System Overview
 

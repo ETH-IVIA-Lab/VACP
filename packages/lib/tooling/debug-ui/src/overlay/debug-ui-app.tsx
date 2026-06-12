@@ -263,7 +263,7 @@ export function VacpDebugUiApp(props: { globalKey: string; includeActions: boole
     if (!bridge || !runtime) {
       if (!open) return null;
       if (bridgeQuery.isFetching || runtimeQuery.isFetching)
-        return <div className="text-[11px] text-slate-100/80">Connecting…</div>;
+        return <div className="text-[11px] text-slate-100/80">Connecting...</div>;
       const err = (bridgeQuery.error ?? runtimeQuery.error) as Error | null;
       if (err) return <div className="text-[11px] text-slate-100/80">{String(err.message ?? err)}</div>;
       return (

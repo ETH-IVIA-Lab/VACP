@@ -97,11 +97,17 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         help='Optional log level override for FastMCP (stdio mode).',
     )
     p.add_argument('--url', type=str, default='http://localhost:5173/', help='Base URL to open.')
-    p.add_argument('--host', type=str, default='127.0.0.1')
-    p.add_argument('--port', type=int, default=8000)
-    p.add_argument('--headless', action='store_true', default=False)
-    p.add_argument('--browser-type', type=str, choices=['chromium', 'firefox', 'webkit'], default='chromium')
-    p.add_argument('--browser-path', type=str, default=None)
+    p.add_argument('--host', type=str, default='127.0.0.1', help='Host for the HTTP MCP server.')
+    p.add_argument('--port', type=int, default=8000, help='Port for the HTTP MCP server.')
+    p.add_argument('--headless', action='store_true', default=False, help='Run the browser without a visible window.')
+    p.add_argument(
+        '--browser-type',
+        type=str,
+        choices=['chromium', 'firefox', 'webkit'],
+        default='chromium',
+        help='Playwright browser type.',
+    )
+    p.add_argument('--browser-path', type=str, default=None, help='Path to a browser executable.')
     p.add_argument(
         '--window-mode',
         type=str,
@@ -151,12 +157,17 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         default=False,
         help='If using --cdp-url, request remote browser close on exit.',
     )
-    p.add_argument('--global-key', type=str, default='__vacp', help='Accepted for CLI parity with vacp-mcp-server.')
+    p.add_argument(
+        '--global-key',
+        type=str,
+        default='__vacp',
+        help='Window global that contains the VACP bridge (default: __vacp).',
+    )
     p.add_argument(
         '--enable-browser-tools',
         action='store_true',
         default=False,
-        help='Accepted for CLI parity. Plain MCP exposes semantic tools only.',
+        help='Plain MCP exposes semantic use-case tools only. This flag is accepted for shared runner scripts.',
     )
     p.add_argument(
         '--startup-wait-for-bridge',
@@ -168,7 +179,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         '--startup-ready-timeout-ms',
         type=int,
         default=30_000,
-        help='Accepted for CLI parity with vacp-mcp-server.',
+        help='Timeout in ms for --startup-wait-for-bridge (default: 30000).',
     )
     p.add_argument(
         '--startup-wait-for-selector',

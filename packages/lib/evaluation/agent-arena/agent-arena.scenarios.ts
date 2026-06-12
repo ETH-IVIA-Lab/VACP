@@ -556,7 +556,7 @@ function normalizeCaseFold(value: string) {
 function normalizeMonthRange(value: string) {
   const normalizedDash = value
     .trim()
-    .replace(/[–—−]/g, '-')
+    .replace(/[\u2013\u2014\u2212]/g, '-')
     .replace(/\s*-\s*/g, '-');
   const parts = normalizedDash
     .split('-')

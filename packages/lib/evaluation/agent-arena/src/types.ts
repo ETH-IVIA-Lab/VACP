@@ -83,7 +83,7 @@ export type PromptContext = {
 
     /**
      * Stable identifier derived from (model provider, model name, experiment, scenario id).
-     * Useful for artifact naming and analysis joins.
+     * Used for artifact naming and analysis joins.
      */
     slug: string;
   };
@@ -152,7 +152,7 @@ export type FinishedContext = PromptContext & {
   resumed: boolean;
 
   /**
-   * Useful file paths and UI links for post-processing.
+   * File paths and UI links for post-processing.
    */
   meta: {
     /**
@@ -211,7 +211,7 @@ export type ArenaMcpExperiment = {
    * - Server name `"context7"` expands to permission `"context7_*"`.
    * - You can also pass raw wildcard patterns (e.g. `"context7_*"`).
    *
-   * Note: This only affects what the agent is allowed to call; it does not remove servers.
+   * This controls which MCP tools the agent may call. It does not remove server definitions.
    */
   allow?: string[];
 };
@@ -348,7 +348,7 @@ export type ArenaConfig = {
 
     /**
      * Extra OpenCode config to inject into the spawned server (via env).
-     * Use sparingly; most task-specific control should live in `runs`.
+     * Keep task-specific control in `runs` unless the OpenCode server config must change.
      */
     opencodeConfig?: Record<string, unknown>;
   };
@@ -376,7 +376,7 @@ export type ArenaConfig = {
    * If true, reuse prior run results already present on disk (per-job `run.json`)
    * instead of creating a new OpenCode session.
    *
-   * This is most useful when you run with a stable `--out` directory (no timestamp).
+   * Use this with a stable `--out` directory (no timestamp).
    *
    * Notes:
    * - `agent-arena run --resume` reuses only `ok: true` results (reruns failures).
@@ -432,7 +432,7 @@ export type ArenaRunResult = {
   experiment: string;
 
   /**
-   * Scenario identity (kept small/portable; full task is in `inputs.json` / per-run `input.json`).
+   * Scenario identity. The full task is stored in `inputs.json` and each run's `input.json`.
    */
   scenario: { id: string; url: string };
 

@@ -167,8 +167,7 @@ export function makeApplyStateHandler(args: {
                 'Nearest refs are transient hover state and cannot be replayed safely without VGPlot pointer-derived values',
             });
             continue;
-          }
-          else if (ctorName === 'Toggle')
+          } else if (ctorName === 'Toggle')
             await executeToggleAction(plot, { callId, name: 'vgplot.clear_toggle', params: { plotId, interactorId } });
           else if (ctorName === 'Region')
             await executeRegionAction(plot, { callId, name: 'vgplot.clear_region', params: { plotId, interactorId } });

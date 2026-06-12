@@ -288,7 +288,7 @@ export function installVacpOnVegaLiteView(args: {
     });
   });
 
-  // Standard, generic action for "apply this desired state map" (best-effort).
+  // Standard action for applying a desired state map through provider refs.
   const vizRef = makeRef({ appId: options.appId, viewId: options.viewId, vizId: options.vizId, suffix: '' });
   const applyDescriptor = registerVacpApplyStateAction(
     actionRegistry,
@@ -325,7 +325,7 @@ export function installVacpOnVegaLiteView(args: {
 
       return { applied, errors };
     },
-    { targetRef: vizRef, description: 'Apply a state map to Vega-Lite params (best-effort).' },
+    { targetRef: vizRef, description: 'Apply a state map to Vega-Lite params.' },
   );
   actionDescriptors.push(applyDescriptor);
 
@@ -344,9 +344,9 @@ export function installVacpOnVegaLiteView(args: {
           clear: { type: 'boolean', description: 'If true, clear the current hover focus.' },
           fields: {
             type: 'object',
-            description: 'Field→value map to treat as the hovered/selected datum (preferred).',
+            description: 'Field-to-value map to treat as the hovered/selected datum.',
           },
-          value: { description: 'Tooltip payload from Vega (optional; useful for UI/debugging).' },
+          value: { description: 'Tooltip payload from Vega, when fields are not available.' },
           markName: { type: 'string', description: 'Vega mark name, if available.' },
         },
       },
@@ -552,7 +552,7 @@ export function installVacpOnVegaLiteView(args: {
           kind: 'DataHandle',
           tableName: h.tableName,
           selectionWhere: whereClauseForCurrentSelections(spec, view, allowedFieldsForHandle(view, h.ref)),
-          selectedMeaning: 'rows matching current selection params; falls back to all rows if none',
+          selectedMeaning: 'rows matching current selection params, falling back to all rows if none',
         };
       });
       return { version: VACP_SCHEMA_VERSION, createdAt: nowIso(), state: state as any };

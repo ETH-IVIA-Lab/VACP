@@ -44,7 +44,7 @@ function validateEntries(entries) {
 function syncRoutePages(entries) {
   const activeRoutes = new Set(entries.map((entry) => entry.route));
 
-  // Cleanup stale generated route directories.
+  // Remove stale generated route directories.
   for (const name of fs.readdirSync(galleryDir, { withFileTypes: true })) {
     if (!name.isDirectory()) continue;
     const routeDir = resolve(galleryDir, name.name);

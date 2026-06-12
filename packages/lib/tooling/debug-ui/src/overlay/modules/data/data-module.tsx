@@ -262,7 +262,9 @@ export function DataModule(props: VacpDebugModuleProps): ReactElement {
         dense ? 'gap-2' : 'gap-3',
       )}
     >
-      <ModulePane className={cn('flex min-h-0 flex-col overflow-y-auto overflow-x-clip pr-1', dense ? 'gap-2' : 'gap-3')}>
+      <ModulePane
+        className={cn('flex min-h-0 flex-col overflow-y-auto overflow-x-clip pr-1', dense ? 'gap-2' : 'gap-3')}
+      >
         <ModuleHeader
           title="Query"
           description="Run DuckDB SQL against the selected handle."

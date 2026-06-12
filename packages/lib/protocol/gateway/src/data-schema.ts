@@ -32,12 +32,11 @@ export function registerVacpDataSchemaAction(
         detail: { type: 'string', enum: ['columns', 'full'], description: 'Detail level (default: columns).' },
         sampleRows: {
           type: 'number',
-          description:
-            'When detail=full: bound rows scanned for summaries (provider-defined; default tuned for speed).',
+          description: 'Bounds rows scanned for summaries when detail=full. Providers tune the default for speed.',
         },
       },
       required: ['handleRef'],
-      examples: [{ handleRef: 'vacp://…/data/main', detail: 'columns' }],
+      examples: [{ handleRef: 'vacp://.../data/main', detail: 'columns' }],
     },
   };
 

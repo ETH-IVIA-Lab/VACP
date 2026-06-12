@@ -96,8 +96,11 @@ function genericSchemaDraft(action: VacpActionDescriptor): ActionParamDraft {
   const rootDefault = schemaRootDefault(action);
   if (rootDefault) return rootDefault;
   const schema = schemaObject(action.parameters);
-  const properties = schemaObject(schema?.properties)?.properties ?? (isRecord(schema?.properties) ? schema?.properties : {});
-  const required = Array.isArray(schema?.required) ? schema.required.filter((key): key is string => typeof key === 'string') : [];
+  const properties =
+    schemaObject(schema?.properties)?.properties ?? (isRecord(schema?.properties) ? schema?.properties : {});
+  const required = Array.isArray(schema?.required)
+    ? schema.required.filter((key): key is string => typeof key === 'string')
+    : [];
   const params: Record<string, unknown> = {};
   let seeded = 0;
   for (const key of required) {
@@ -122,7 +125,10 @@ export function createActionParamDraft(action: VacpActionDescriptor, state: Stat
   const dataHandle = firstDataHandle(state);
 
   if (action.name === VACP_WIDGET_OPTIONS_ACTION && widget) {
-    return { params: { ref: widget.ref, limit: 20 }, summary: 'Seeded the first widget ref and a bounded option count.' };
+    return {
+      params: { ref: widget.ref, limit: 20 },
+      summary: 'Seeded the first widget ref and a bounded option count.',
+    };
   }
   if (action.name === VACP_APPLY_STATE_ACTION) {
     return { params: { state }, summary: 'Seeded the current state map.' };
@@ -151,7 +157,9 @@ export function validateActionParams(action: VacpActionDescriptor, params: unkno
   if (!isRecord(params)) return [{ path: '$', message: 'Params must be a JSON object.' }];
 
   const properties = isRecord(schema.properties) ? schema.properties : {};
-  const required = Array.isArray(schema.required) ? schema.required.filter((key): key is string => typeof key === 'string') : [];
+  const required = Array.isArray(schema.required)
+    ? schema.required.filter((key): key is string => typeof key === 'string')
+    : [];
   const requiredSet = new Set(required);
   for (const [key, rawProp] of Object.entries(properties)) {
     const prop = schemaObject(properties[key]);

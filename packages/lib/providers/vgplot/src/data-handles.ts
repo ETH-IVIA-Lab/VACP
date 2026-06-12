@@ -72,7 +72,7 @@ export function collectVgplotDataHandles(args: {
     const unique = plotTables.get(plotId) ?? [];
     const plotMainTable = unique.find((t) => preferred.includes(t)) ?? unique[0];
 
-    // If the plot doesn't expose any table via marks, keep the old per-plot handle behavior.
+    // If the plot exposes no mark table, fall back to a per-plot DataHandle.
     if (!plotMainTable) {
       const fallbackRef = makePlotRef({
         appId: args.options.appId,

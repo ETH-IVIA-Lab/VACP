@@ -1,7 +1,7 @@
 import json
 from pathlib import Path
 
-from arena_analyis.runs import Selection, discover_jobs
+from arena_analysis.runs import Selection, discover_jobs
 
 
 def write_run(directory: Path, *, ok: bool = True) -> None:

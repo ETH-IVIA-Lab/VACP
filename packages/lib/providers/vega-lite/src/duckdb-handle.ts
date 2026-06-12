@@ -21,7 +21,7 @@ export type VegaLiteDuckDbDataHandle = {
   ensureMetadata: () => Promise<VacpDuckDbTableMetadata | null>;
 };
 
-// When `expose-bridge=0`, we should not stash internal handles on `window`.
+// Keep hidden DuckDB handles off `window` when `expose-bridge=0`.
 // These in-module caches keep DuckDB reuse without adding global surface area.
 const HIDDEN_DUCKDB_CLIENTS = new Map<string, Promise<VacpDuckDbClient>>();
 const HIDDEN_TABLE_NAMES = new Map<string, Record<string, string>>();
@@ -543,7 +543,7 @@ export function installVegaLiteDuckDbDataHandles(args: {
       suffix,
     }) as VacpRef;
 
-    // DuckDB is shared across the page, so we use unique per-install table names and best-effort cleanup.
+    // DuckDB is shared across the page, so each install receives unique table names.
     const tableName = (() => {
       const name = makeVacpDuckDbTableName({ prefix: base, parts: [s.id] });
 
@@ -696,7 +696,7 @@ export function installVegaLiteDuckDbDataHandles(args: {
           await db.exec(`DROP VIEW IF EXISTS main.${tableName}`);
           await db.exec(`DROP TABLE IF EXISTS main.${tableName}`);
         } catch {
-          // best-effort
+          // The table may not exist yet.
         }
 
         try {

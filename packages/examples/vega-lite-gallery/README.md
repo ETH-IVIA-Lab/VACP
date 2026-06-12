@@ -35,7 +35,7 @@ Open the debug overlay:
    - **Actions**:
      - `vega_lite.set_param` (set a param value)
      - `vega_lite.clear_selection` (clear a selection param, when present)
-     - `vacp.apply_state` (dev-only “apply this state map” helper)
+     - `vacp.apply_state` (applies a state map from the debug overlay during local inspection)
 
 Agents can set *Param*s and clear *Selection*s through semantic actions, without DOM scraping or pixel automation.
 
@@ -44,17 +44,17 @@ Agents can set *Param*s and clear *Selection*s through semantic actions, without
 ### Try it: human interaction
 
 - Interact with the charts:
-  - **brush → detail**: drag a brush in the scatterplot; the right view updates
-  - **brush → origin summary (click to pin)**: brush the scatterplot to recompute origin counts; click bars to pin/highlight one or more origins
+  - **brush -> detail**: drag a brush in the scatterplot. The right view updates
+  - **brush -> origin summary (click to pin)**: brush the scatterplot to recompute origin counts. Click bars to pin or highlight one or more origins
 - Watch:
   - `window.__vacp.getState()` updates
-  - debug overlay → **History** changes
+  - debug overlay -> **History** changes
 
 ### Try it: agent-style actions
 
 Use the overlay:
 
-- Debug overlay → **Actions** to call `vega_lite.set_param` / `vega_lite.clear_selection` manually
+- Debug overlay -> **Actions** to call `vega_lite.set_param` / `vega_lite.clear_selection` manually
 
 ## How to add or edit specs
 
@@ -70,7 +70,7 @@ is running.
 - **Agent** calls `vega_lite.set_param` / `vega_lite.clear_selection`, which updates Vega signals directly.
 - Both paths are recorded in the VACP runtime history so debugging/time travel works uniformly.
 
-## Useful entry points
+## Entry points
 
 - App wiring: `src/app.ts`
 - Spec gallery loader: `src/gallery.ts`

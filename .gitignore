@@ -23,7 +23,6 @@ __pycache__/
 
 # Smoke test artifacts
 .artifacts/
-.artfiacts
 test-results/
 
 # agent-arena runs

@@ -6,8 +6,7 @@ export type VacpPosthogOptions = Readonly<{
   apiKey: string;
   apiHost?: string;
   /**
-   * Extra `posthog.init` config (passed through as-is).
-   * Useful for `defaults`, `person_profiles`, `session_recording`, etc.
+   * Passes options such as `defaults`, `person_profiles`, and `session_recording`.
    */
   config?: Record<string, unknown>;
 }>;
@@ -17,14 +16,14 @@ const DEFAULT_API_HOST = 'https://us.i.posthog.com';
 const POSTHOG_INIT_KEY = Symbol.for('vacp.analytics.posthog.initKey');
 
 function initPosthogOnce(options: VacpPosthogOptions): void {
-  // `posthog-js` is a singleton. We guard init so re-installing VACP (or switching
-  // gallery views) doesn’t spam init calls.
+  // `posthog-js` is a singleton. Guard init so re-installing VACP, or switching
+  // gallery views, does not repeat init calls.
   const g = globalThis as unknown as { [POSTHOG_INIT_KEY]?: string };
   const initKey = `${options.apiKey}|${options.apiHost ?? DEFAULT_API_HOST}`;
   if (g[POSTHOG_INIT_KEY]) {
     if (g[POSTHOG_INIT_KEY] !== initKey) {
       // eslint-disable-next-line no-console
-      console.warn('PostHog is already initialized; ignoring a second init call with different config.');
+      console.warn('PostHog is already initialized. Ignoring a second init call with different config.');
     }
     return;
   }

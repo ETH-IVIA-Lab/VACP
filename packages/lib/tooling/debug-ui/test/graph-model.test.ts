@@ -3,7 +3,12 @@ import test from 'node:test';
 
 import type { VacpGraph, VacpRef } from '@vacp/core';
 
-import { buildInspectorValue, buildVacpFlowGraph, filterVacpGraph, nodeId } from '../src/overlay/modules/graph/graph-model';
+import {
+  buildInspectorValue,
+  buildVacpFlowGraph,
+  filterVacpGraph,
+  nodeId,
+} from '../src/overlay/modules/graph/graph-model';
 import { nextCollapsedRefsForToggle } from '../src/overlay/modules/graph/graph-collapse';
 
 function ref(value: string): VacpRef {
@@ -195,10 +200,7 @@ test('graph filter keeps search matches with graph context', () => {
   };
 
   const filtered = filterVacpGraph(graph, { query: 'body_mass' });
-  assert.deepEqual(
-    filtered.nodes.map((node) => node.ref).sort(),
-    [field, plot].sort(),
-  );
+  assert.deepEqual(filtered.nodes.map((node) => node.ref).sort(), [field, plot].sort());
   assert.equal(filtered.edges.length, 1);
   assert.equal(filtered.actions.map((action) => action.name).includes('vacp.data_schema'), true);
 });
@@ -216,7 +218,10 @@ test('graph filter applies node kind filters', () => {
   };
 
   const filtered = filterVacpGraph(graph, { nodeKinds: new Set(['DataHandle']) });
-  assert.deepEqual(filtered.nodes.map((node) => node.ref), [data]);
+  assert.deepEqual(
+    filtered.nodes.map((node) => node.ref),
+    [data],
+  );
   assert.equal(filtered.edges.length, 0);
 });
 

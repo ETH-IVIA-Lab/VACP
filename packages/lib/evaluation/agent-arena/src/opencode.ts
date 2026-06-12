@@ -80,9 +80,11 @@ async function spawnOpencodeServer(args: {
   const url = `http://${args.hostname}:${args.port}`;
   await waitForHealth(url, args.timeoutMs, proc);
 
-  // Best-effort cleanup: if the CLI process exits for any reason (including Ctrl-C
-  // default termination), ensure the spawned server doesn't linger in the background.
-  // This runs even if callers forget to await `close()`.
+  // Best-effort cleanup: if the CLI process exits for any reason, including
+  // Ctrl-C default termination, ensure the spawned server does not linger in
+  // the background.
+  // Register process-level cleanup so the server is killed even when `close()`
+  // is not awaited.
   const killOnExit = () => {
     try {
       killProcess(proc, 'SIGKILL');
@@ -100,7 +102,7 @@ async function spawnOpencodeServer(args: {
     async close() {
       killProcess(proc, 'SIGTERM');
       await waitForExit(proc, 2000).catch((error) => {
-        consola.warn('Timeout waiting for opencode server to exit after SIGTERM; sending SIGKILL', error);
+        consola.warn('Timeout waiting for opencode server to exit after SIGTERM. Sending SIGKILL', error);
       });
       if (proc.exitCode === null) killProcess(proc, 'SIGKILL');
       await waitForExit(proc, 2000).catch((error) => {

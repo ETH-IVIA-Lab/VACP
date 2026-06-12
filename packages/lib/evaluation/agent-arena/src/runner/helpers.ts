@@ -1,5 +1,5 @@
 // Runner internals: higher-level helpers used by scenario/run execution.
-// These are the “arena semantics” pieces: tool policy and human-facing logs.
+// Arena semantics helpers own tool policy and human-facing logs.
 
 import { consola } from 'consola';
 import type { ArenaConfig, ArenaJob, PromptContext, ToolPolicy } from '../types.js';
@@ -21,7 +21,7 @@ export function buildTitle(config: ArenaConfig, ctx: PromptContext) {
 
   const id = ctx.scenario.id ?? 'scenario';
   const q = ctx.scenario.task.replace(/\s+/g, ' ').trim();
-  const short = q.length > 80 ? `${q.slice(0, 77)}…` : q;
+  const short = q.length > 80 ? `${q.slice(0, 77)}...` : q;
   return `[agent-arena] ${ctx.job.experiment} · ${id} · ${short}`;
 }
 

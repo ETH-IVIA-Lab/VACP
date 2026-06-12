@@ -18,11 +18,7 @@ async function openDebugUi(page: Page): Promise<void> {
   await expect(page.locator('#vacp-debug-ui-panel')).toBeVisible({ timeout: 15_000 });
 }
 
-async function waitForCapabilityRefContains(
-  page: Page,
-  needle: string,
-  timeoutMs = 60_000,
-): Promise<void> {
+async function waitForCapabilityRefContains(page: Page, needle: string, timeoutMs = 60_000): Promise<void> {
   const start = Date.now();
   while (true) {
     const ok = await page.evaluate(async (n) => {
@@ -46,7 +42,9 @@ function trackPageErrors(page: Page): () => void {
   };
 }
 
-test('vega-lite: debug-ui graph renders and selects mark/channel/field nodes for all gallery specs', async ({ page }) => {
+test('vega-lite: debug-ui graph renders and selects mark/channel/field nodes for all gallery specs', async ({
+  page,
+}) => {
   await ensureArtifactsDir();
   const expectNoPageErrors = trackPageErrors(page);
   const srv = await startViteDevServer({

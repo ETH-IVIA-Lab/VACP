@@ -23,7 +23,9 @@ The debug overlay Settings tab shows the resolved source and can store browser-l
 
 ### Bridge exposure
 
-Enable with `?expose-bridge=1`. Disable with `?expose-bridge=0`.
+Enable with `?expose-bridge=1` or `?vacp-expose-bridge=1`. Disable with `?expose-bridge=0` or `?vacp-expose-bridge=0`.
+
+CamelCase URL aliases are also accepted.
 
 Enable with `VACP_EXPOSE_BRIDGE=1`. Disable with `VACP_EXPOSE_BRIDGE=0`.
 

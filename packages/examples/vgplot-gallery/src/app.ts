@@ -57,7 +57,7 @@ export async function run(): Promise<void> {
 
   let renderToken = 0;
 
-  // Dev-only overlay: inspects the VACP bridge and provides time travel + actions + DuckDB SQL.
+  // Debug overlay: inspects the VACP bridge and provides time travel, actions, and DuckDB SQL.
   void installVacpDebugUI();
 
   // VGPlot's coordinator owns the shared in-browser DuckDB instance.
@@ -129,7 +129,7 @@ export async function run(): Promise<void> {
 
   const render = async (entry: GalleryEntry): Promise<void> => {
     const token = (renderToken += 1);
-    // Render: translate spec → vgplot DOM, then attach VACP on top of the resulting plots.
+    // Render: translate the spec to VGPlot DOM, then attach VACP on top of the resulting plots.
     const description = entry.meta.description ?? '';
     metaEl.innerHTML = description ? renderDescriptionMarkdown(description) : '';
 

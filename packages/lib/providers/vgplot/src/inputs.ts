@@ -23,9 +23,7 @@ type VgplotInputLike = {
   select?: HTMLSelectElement;
 };
 
-type InputValueRead =
-  | { ok: true; value: unknown }
-  | { ok: false; value: unknown; error: string };
+type InputValueRead = { ok: true; value: unknown } | { ok: false; value: unknown; error: string };
 
 export type CollectedInput = {
   inputId: string;
@@ -186,8 +184,15 @@ function selectMenuValue(input: VgplotInputLike, value: unknown): void {
   input.select.value = String(value);
 }
 
-function isSelectionLike(value: unknown): value is { update: (clause: unknown) => unknown; predicate: (...args: unknown[]) => unknown } {
-  return Boolean(value) && typeof value === 'object' && typeof (value as any).update === 'function' && typeof (value as any).predicate === 'function';
+function isSelectionLike(
+  value: unknown,
+): value is { update: (clause: unknown) => unknown; predicate: (...args: unknown[]) => unknown } {
+  return (
+    Boolean(value) &&
+    typeof value === 'object' &&
+    typeof (value as any).update === 'function' &&
+    typeof (value as any).predicate === 'function'
+  );
 }
 
 function isParamLike(value: unknown): value is { update: (value: unknown) => unknown } {
@@ -197,7 +202,12 @@ function isParamLike(value: unknown): value is { update: (value: unknown) => unk
 function coerceFiniteSliderValue(input: VgplotInputLike, value: unknown): number {
   const candidate = Array.isArray(value) && input.selectionType === 'interval' ? value[value.length - 1] : value;
   if (Array.isArray(candidate)) throw new Error('Slider value must be a scalar number');
-  const n = typeof candidate === 'number' ? candidate : typeof candidate === 'string' && candidate.trim() ? Number(candidate) : NaN;
+  const n =
+    typeof candidate === 'number'
+      ? candidate
+      : typeof candidate === 'string' && candidate.trim()
+        ? Number(candidate)
+        : NaN;
   if (!Number.isFinite(n)) throw new Error('Slider value must be a finite number');
   return n;
 }

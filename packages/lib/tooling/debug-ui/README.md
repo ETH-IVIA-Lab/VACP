@@ -23,7 +23,7 @@ The Chat tab records the effective tool inputs that were executed. If a request 
 
 ## Minimal usage
 
-Apps that call `installVacpDebugUI` show the floating **VACP** control by default. Disable it when needed:
+Apps that call `installVacpDebugUi` from `@vacp/debug-ui` show the floating **VACP** control by default. Apps using `@vacp/kit` can call `installVacpDebugUI`, which delegates to this package. Disable it when needed:
 
 - URL: `?vacp-debug=0`
 - Env: `VACP_DEBUG_UI=0`

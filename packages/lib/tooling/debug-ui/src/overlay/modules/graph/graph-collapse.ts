@@ -110,7 +110,10 @@ export function nextCollapsedRefsForToggle(
   return next;
 }
 
-export function pruneCollapsedRefsForGraph(graph: VacpGraph, collapsedRefs: ReadonlySet<VacpRef>): ReadonlySet<VacpRef> {
+export function pruneCollapsedRefsForGraph(
+  graph: VacpGraph,
+  collapsedRefs: ReadonlySet<VacpRef>,
+): ReadonlySet<VacpRef> {
   const refs = new Set(graph.nodes.map((node) => node.ref));
   const next = new Set([...collapsedRefs].filter((ref) => refs.has(ref)));
   return next.size === collapsedRefs.size ? collapsedRefs : next;

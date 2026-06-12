@@ -16,11 +16,7 @@ import {
   toJsonContainer,
   type JsonPath,
 } from '@vacp/debug-ui/ui/components/ui/json-editor-model';
-import {
-  JsonInlineValueEditor,
-  JsonKeyEditor,
-  pathLabel,
-} from '@vacp/debug-ui/ui/components/ui/json-editor-inline';
+import { JsonInlineValueEditor, JsonKeyEditor, pathLabel } from '@vacp/debug-ui/ui/components/ui/json-editor-inline';
 import { collapseDepthForExpandDepth, jsonViewTheme, stringifyJson } from '@vacp/debug-ui/ui/components/ui/json-theme';
 import { Textarea } from '@vacp/debug-ui/ui/components/ui/textarea';
 import { copyTextToClipboard } from '@vacp/debug-ui/ui/lib/clipboard';
@@ -170,7 +166,9 @@ function JsonEditorBase({
         children={nodeProps.children as ReactNode}
         path={result.keys ?? (typeof result.keyName === 'undefined' ? [] : [result.keyName])}
         keyName={result.keyName ?? ''}
-        canRename={Boolean(result.parentValue) && typeof result.parentValue === 'object' && !Array.isArray(result.parentValue)}
+        canRename={
+          Boolean(result.parentValue) && typeof result.parentValue === 'object' && !Array.isArray(result.parentValue)
+        }
         disabled={disabled}
         onRename={renameKey}
         onError={setTreeError}

@@ -4,7 +4,7 @@ import { startViteDevServer } from '../helpers/devserver';
 import { exampleDir } from '../helpers/paths';
 import { debugRuntimeState, waitForRuntimeMode, waitForVacpBridge } from './helpers';
 
-test('debug-ui: time travel does not extend history (Seattle Weather)', async ({ page }) => {
+test('debug-ui: inspect mode keeps history length stable (Seattle Weather)', async ({ page }) => {
   const srv = await startViteDevServer({ name: 'vgplot-gallery', cwd: exampleDir('vgplot-gallery') });
   try {
     await page.goto(`${srv.url}?vacp-debug=1#weather`, { waitUntil: 'domcontentloaded' });

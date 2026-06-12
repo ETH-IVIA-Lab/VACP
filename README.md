@@ -1,25 +1,21 @@
 # VACP: Visual Analytics Context Protocol
 
-<!-- [![DOI:tbd](https://zenodo.org/badge/DOI/tbd.svg)](https://doi.org/tbd) -->
-<!-- [![arxiv badge](https://img.shields.io/badge/arXiv-tbd-red)](https://arxiv.org/abs/tbd) -->
-<!-- [![NPM - Downloads](https://img.shields.io/npm/dm/tbd)](https://www.npmjs.com/package/tbd) -->
+[![arXiv:2603.29322](https://img.shields.io/badge/arXiv-2603.29322-red)](https://arxiv.org/abs/2603.29322)
 
-![AI agents interacting with Visual Analytics (VA) interfaces using **VACP** (Visual Analytics Context Protocol). VACP maintains the application state and available interactions informed through the different types of knowledge representation of the VA entities. To perform analytical tasks in the interface, an AI agent can use the provided capabilities to perceive the VA interface and understand possible interactions by using VACP. Further, it can interact with the VA interface through the provided interactions. Interactions (e.g., $I_1$ or $I_2$) manipulate the interface appearance,  triggering a state transition (e.g., $S_2 \rightarrow S_3$) in the application within the VACP layer.](docs/public/images/VACP_Teaser.svg)
-VACP (Visual Analytics Context Protocol) is a small in-app contract for exposing capabilities, VA interface state snapshots, and semantic actions and providing interface accessibility to AI agents for interactive Visual Analytics.
+![AI agents use VACP to read visual analytics state, discover available interactions, and execute semantic actions that update the interface state.](docs/public/images/VACP_Teaser.svg)
+VACP (Visual Analytics Context Protocol) is a small in-app contract for exposing capabilities, visual analytics state snapshots, and semantic actions to AI agents.
 
-[Learn more about VACP at the documentation site](https://docs.vacp.dev), or [read the VACP research paper](https://arxiv.org/abs/tbd).
+[Learn more about VACP at the documentation site](https://docs.vacp.dev), or [read the VACP research paper](https://arxiv.org/abs/2603.29322).
 
-If referencing VACP, please use the following citation:
-
-<!-- , to appear in 2026 IEEE VIS Conference -->
+If you reference VACP, use the following citation:
 
 ```bibTeX
-@article{staehle2026vacp,
+@misc{staehle2026vacp,
   title = {{VACP}: {Visual Analytics Context Protocol}},
-  shorttitle = {{VACP}},
   author = {{St{\"a}hle}, Tobias and {Gyarmati}, Péter Ferenc and {Spinner}, Thilo and {Sevastjanova}, Rita and {Moritz}, Dominik and {El-Assady}, Mennatallah},
   year = {2026},
-  journal = {arXiv preprint arXiv:260.29322},
+  eprint = {2603.29322},
+  archivePrefix = {arXiv},
   doi = {10.48550/arXiv.2603.29322}
 }
 ```
@@ -47,7 +43,7 @@ For full setup and command details, use [docs/get-started/index.md](docs/get-sta
 
 ## Documentation
 
-Visit [https://docs.vacp.dev/](https://docs.vacp.dev/) to view the full documentation and [https://examples.vacp.dev/](https://examples.vacp.dev/) to view the demos. Click the floating **VACP** control, select Chat, enter your own api-key and task the agent to analyse or interact with the available data.
+Visit [https://docs.vacp.dev/](https://docs.vacp.dev/) for the documentation and [https://examples.vacp.dev/](https://examples.vacp.dev/) for demos. Click the floating **VACP** control, select Chat, enter your API key, and ask the agent to analyze or interact with the active visualization.
 
 - Docs site entry: [docs/index.md](docs/index.md)
 - Get started: [docs/get-started/index.md](docs/get-started/index.md)
@@ -65,4 +61,4 @@ Visit [https://docs.vacp.dev/](https://docs.vacp.dev/) to view the full document
 
 ## Contact
 
-If you have any questions, feel free to [open an issue](https://github.com/ETH-IVIA-Lab/VACP/issues/new/choose) or contact [Tobias Stähle](https://ivia.ch/people/staehle).
+For questions, [open an issue](https://github.com/ETH-IVIA-Lab/VACP/issues/new/choose) or contact [Tobias Stähle](https://ivia.ch/people/staehle).

@@ -6,7 +6,7 @@ import { getBridge, readRuntime } from '@vacp/debug-ui/bridge';
 import type { VacpWindowBridge } from '@vacp/debug-ui/types';
 
 // TanStack Query's default retryDelay backoff can grow large. For the overlay,
-// we prefer short, bounded retries so "Connecting…" resolves quickly when a bridge
+// use short, bounded retries so "Connecting..." resolves quickly when a bridge
 // appears a moment after the panel opens (or after a spec switch).
 const BRIDGE_RETRY_DELAY_MS = 200;
 const BRIDGE_RETRY_COUNT = 50;

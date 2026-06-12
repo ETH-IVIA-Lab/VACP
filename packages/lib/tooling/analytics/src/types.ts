@@ -29,13 +29,13 @@ export type VacpRuntimeAnalyticsOptions = Readonly<{
   /**
    * Throttle for snapshot events (defaults to 1000ms). Only applies when `captureSnapshots` is true.
    *
-   * The runtime can emit snapshots at high frequency (e.g. brush interactions), so we "bounce"
-   * to at most one snapshot per interval, keeping the latest snapshot.
+   * The runtime can emit snapshots at high frequency during brush interactions.
+   * Capture at most one snapshot per interval, keeping the latest snapshot.
    */
   snapshotCaptureIntervalMs?: number;
   /**
    * Extra properties to attach to every event/session update (app/view ids, etc).
-   * Keep this small — it’s included everywhere.
+   * Keep this small. It is included everywhere.
    */
   getBaseProperties?: () => Record<string, unknown>;
   /** If true (default), call `provider.startSessionRecording()` when available. */

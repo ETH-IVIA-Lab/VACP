@@ -331,9 +331,9 @@ export function ConfiguredChat(props: ConfiguredChatProps): ReactElement {
 
   const statusLabel =
     status === 'submitted'
-      ? 'Submitting…'
+      ? 'Submitting...'
       : status === 'streaming'
-        ? 'Streaming…'
+        ? 'Streaming...'
         : status === 'error'
           ? 'Error'
           : 'Ready';
@@ -458,7 +458,7 @@ export function ConfiguredChat(props: ConfiguredChatProps): ReactElement {
                   <div className="min-w-0 flex-1 text-pretty">
                     {busy
                       ? status === 'submitted'
-                        ? 'Request received. Preparing the next turn…'
+                        ? 'Request received. Preparing the next turn...'
                         : 'Request received. The agent is working through the turn.'
                       : 'Press Enter to send or Shift+Enter for a newline.'}
                   </div>

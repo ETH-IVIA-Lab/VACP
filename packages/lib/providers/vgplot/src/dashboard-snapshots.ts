@@ -37,7 +37,7 @@ function safeStateValue(value: unknown, seen = new WeakSet<object>(), depth = 0)
   if (Array.isArray(value)) {
     if (depth >= 4) return `[Array(${value.length})]`;
     const slice = value.slice(0, 24).map((entry) => safeStateValue(entry, seen, depth + 1));
-    return value.length > slice.length ? [...slice, `… ${value.length - slice.length} more`] : slice;
+    return value.length > slice.length ? [...slice, `... ${value.length - slice.length} more`] : slice;
   }
   if (typeof value === 'object') {
     if (seen.has(value)) return '[circular]';
@@ -120,7 +120,7 @@ export function createVgplotDashboardSnapshots(args: {
             }),
           );
         } catch {
-          // ignore: metadata is best-effort
+          // Ignore metadata failures so data handles remain queryable.
         }
       }
 
@@ -239,7 +239,7 @@ export function createVgplotDashboardSnapshots(args: {
           selectionWhere: where,
           selectedMeaning: tableObj
             ? 'rows in the current table view (filters + sort + pagination)'
-            : 'rows matching current plot selection; falls back to all rows if none',
+            : 'rows matching current plot selection, falling back to all rows if none',
         };
       });
     }

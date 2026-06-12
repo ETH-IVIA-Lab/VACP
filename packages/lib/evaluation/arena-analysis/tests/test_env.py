@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from arena_analyis import env
+from arena_analysis import env
 from pytest import MonkeyPatch
 
 

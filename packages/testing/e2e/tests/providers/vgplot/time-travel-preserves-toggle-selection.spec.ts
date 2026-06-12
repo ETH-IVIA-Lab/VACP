@@ -3,7 +3,7 @@ import { expect, test } from '@playwright/test';
 import { startViteDevServer } from '../../helpers/devserver';
 import { exampleDir } from '../../helpers/paths';
 
-test('vgplot: time travel apply_state does not poison Toggle selection (Seattle Weather)', async ({ page }) => {
+test('vgplot: time travel apply_state preserves Toggle selection values (Seattle Weather)', async ({ page }) => {
   const srv = await startViteDevServer({ name: 'vgplot-gallery', cwd: exampleDir('vgplot-gallery') });
   const suspiciousConsole: string[] = [];
   page.on('console', (msg) => {

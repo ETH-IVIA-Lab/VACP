@@ -12,7 +12,7 @@ type VacpRuntimeMeta = Readonly<{
 }>;
 
 function getRuntimeMeta(bridge: VacpRuntimeBridge, runtime: VacpRuntimeSnapshot | null): VacpRuntimeMeta {
-  // Prefer the public `getRuntime()` snapshot, but fall back to gateway’s
+  // Prefer the public `getRuntime()` snapshot, but fall back to gateway
   // internal fields for stability across view switches without polling.
   const runtimeId = runtime?.runtimeId ?? (bridge as VacpRuntimeBridge & { __vacpRuntimeId?: string }).__vacpRuntimeId;
   const sessionKey =

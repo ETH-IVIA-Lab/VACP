@@ -161,7 +161,7 @@ export function installVacpOnVgplotDashboard(args: {
     makeApplyStateHandler({ inputByRef, plotsById, tablesById }),
     {
       targetRef: viewRef,
-      description: 'Apply a state map to VGPlot plots, tables, and inputs (best-effort).',
+      description: 'Apply a state map to VGPlot plots, tables, and inputs.',
     },
   );
   actionDescriptors.push(applyDesc);

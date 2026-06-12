@@ -60,7 +60,7 @@ test('vgplot-gallery: history resets when switching specs (new VACP session)', a
 
     expect(after.messages.some((m) => /seed-A|seed-B|seed-C/.test(m))).toBeFalsy();
     expect(after.messages.some((m) => /session changed: vgplot\/weather/.test(m))).toBeTruthy();
-    expect(after.messages.some((m) => /→ vgplot\/axes/.test(m))).toBeTruthy();
+    expect(after.messages.some((m) => /-> vgplot\/axes/.test(m))).toBeTruthy();
   } finally {
     await srv.stop();
   }

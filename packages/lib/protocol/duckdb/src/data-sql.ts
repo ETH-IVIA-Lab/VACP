@@ -46,7 +46,7 @@ export function createDuckDbDataSqlHandler(args: {
       } catch {
         // If the provider-supplied selection predicate is incompatible with the
         // underlying relation (for example due to missing columns), fall back
-        // to the unfiltered relation. This keeps `vacp.data_sql` robust across
+        // to the unfiltered relation so `vacp.data_sql` still works across
         // heterogeneous views.
         await args.duckdb.exec(`CREATE OR REPLACE TEMP VIEW vacp_handle AS ${allSql}`);
       }

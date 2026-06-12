@@ -116,7 +116,8 @@ export const useVacpDebugUiStore = create<VacpDebugUiState>((set) => ({
   dataSqlByHandleRef: {},
   dataLastResult: null,
   dataLastError: null,
-  setDataGraphSignature: (sig) => set((state) => (state.dataGraphSignature === sig ? state : { dataGraphSignature: sig })),
+  setDataGraphSignature: (sig) =>
+    set((state) => (state.dataGraphSignature === sig ? state : { dataGraphSignature: sig })),
   setDataSelectedHandleRef: (ref) =>
     set((state) => (state.dataSelectedHandleRef === ref ? state : { dataSelectedHandleRef: ref })),
   setDataSqlForHandle: (ref, sql) =>

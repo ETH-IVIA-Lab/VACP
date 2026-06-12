@@ -1,8 +1,7 @@
 /**
  * VACP core model (project concepts).
  *
- * VACP makes a visual analytics UI "agent-ready" by providing a stable contract
- * for:
+ * VACP gives a visual analytics UI a stable contract for:
  * - Discovery: what exists and what actions are available?
  * - State: what is currently selected/configured?
  * - Control: execute semantic actions (not clicks) with parameters.
@@ -57,8 +56,8 @@ export type VacpEdgeKind = 'contains' | 'controls' | 'derivedFrom' | 'targets';
 /**
  * A node in the UI/analytics graph.
  *
- * Prefer small, stable summaries and handles over raw data; VACP should avoid
- * "DataLayer explosion" for large plots.
+ * Prefer small, stable summaries and handles over raw data. Large plots should
+ * expose queryable handles instead of embedding complete datasets in the graph.
  */
 export interface VacpNode {
   ref: VacpRef;
@@ -100,9 +99,10 @@ export interface VacpActionDescriptor {
 /**
  * Standard action names (protocol-level).
  *
- * `vacp.apply_state` is intentionally high-level and powerful:
+ * `vacp.apply_state` is intentionally broad:
  * - the caller supplies a *desired state map* keyed by `vacp://...` refs
- * - the provider decides how to interpret and apply that state (best-effort)
+ * - the provider decides how to interpret and apply that state, then reports
+ *   refs it could not apply
  *
  * This enables generic tooling (debug overlays, transports, tests) without
  * hardcoding provider-specific action names.
@@ -291,7 +291,7 @@ export interface VacpCapabilitiesRequest {
 /**
  * State snapshot: current values keyed by stable node refs.
  *
- * This is where selections/params live; it lets agents ask "what is active?"
+ * Selections and params live here, so agents can ask "what is active?"
  * without scraping the DOM.
  */
 export interface VacpStateSnapshot {

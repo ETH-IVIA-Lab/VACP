@@ -20,7 +20,8 @@ export function registerVacpApplyStateAction(
   const descriptor: VacpActionDescriptor = {
     name: VACP_APPLY_STATE_ACTION,
     description:
-      options?.description ?? 'Apply a desired VACP state map to the live app (best-effort; provider-defined).',
+      options?.description ??
+      'Apply a desired VACP state map to the live app. The provider defines how refs are applied.',
     targetRef: options?.targetRef,
     parameters: {
       type: 'object',

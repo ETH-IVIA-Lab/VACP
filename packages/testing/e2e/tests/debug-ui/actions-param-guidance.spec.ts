@@ -42,20 +42,24 @@ test('debug-ui: Actions seeds interval params and blocks missing required params
     await expect(guidance).toContainText('Ready to run');
 
     const raw = await openRawParams(page);
-    await expect.poll(async () => {
-      const params = JSON.parse(await raw.inputValue());
-      const hasDomainValues = ['x0', 'x1', 'y0', 'y1'].every((key) => {
-        const value = params[key];
-        return (typeof value === 'number' && Number.isFinite(value)) || (typeof value === 'string' && value.length > 0);
-      });
-      return { ...params, hasDomainValues };
-    }).toEqual(
-      expect.objectContaining({
-        plotId: 'plot-1',
-        interactorId: '0',
-        hasDomainValues: true,
-      }),
-    );
+    await expect
+      .poll(async () => {
+        const params = JSON.parse(await raw.inputValue());
+        const hasDomainValues = ['x0', 'x1', 'y0', 'y1'].every((key) => {
+          const value = params[key];
+          return (
+            (typeof value === 'number' && Number.isFinite(value)) || (typeof value === 'string' && value.length > 0)
+          );
+        });
+        return { ...params, hasDomainValues };
+      })
+      .toEqual(
+        expect.objectContaining({
+          plotId: 'plot-1',
+          interactorId: '0',
+          hasDomainValues: true,
+        }),
+      );
 
     await page.getByRole('button', { name: 'Run action' }).click();
     await expect(page.locator('[data-vacp-action-result="1"]')).toContainText('"ok":true', { timeout: 15_000 });
@@ -88,16 +92,18 @@ test('debug-ui: Actions seeds and runs PanZoom params from current domains', asy
     await expect(guidance).toContainText('Ready to run');
 
     const raw = await openRawParams(page);
-    await expect.poll(async () => JSON.parse(await raw.inputValue())).toEqual(
-      expect.objectContaining({
-        plotId: 'plot-0',
-        interactorId: '0',
-        x0: expect.any(Number),
-        x1: expect.any(Number),
-        y0: expect.any(Number),
-        y1: expect.any(Number),
-      }),
-    );
+    await expect
+      .poll(async () => JSON.parse(await raw.inputValue()))
+      .toEqual(
+        expect.objectContaining({
+          plotId: 'plot-0',
+          interactorId: '0',
+          x0: expect.any(Number),
+          x1: expect.any(Number),
+          y0: expect.any(Number),
+          y1: expect.any(Number),
+        }),
+      );
 
     await page.getByRole('button', { name: 'Run action' }).click();
     await expect(page.locator('[data-vacp-action-result="1"]')).toContainText('"ok":true', { timeout: 15_000 });

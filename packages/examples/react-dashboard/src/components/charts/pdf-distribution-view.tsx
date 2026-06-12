@@ -167,7 +167,7 @@ export function PdfDistributionView({
               labelFormatter={(_label, payload) => {
                 const p = Array.isArray(payload) ? (payload[0]?.payload as PdfBin | undefined) : undefined;
                 if (!p) return '';
-                return `${xKey}: ${formatNumberShort(p.start, 2)} → ${formatNumberShort(p.end, 2)}`;
+                return `${xKey}: ${formatNumberShort(p.start, 2)} -> ${formatNumberShort(p.end, 2)}`;
               }}
             />
             <Bar
@@ -212,7 +212,7 @@ export function PdfDistributionView({
               labelFormatter={(_label, payload) => {
                 const p = Array.isArray(payload) ? (payload[0]?.payload as PdfBin | undefined) : undefined;
                 if (!p) return '';
-                return `${yKey}: ${formatNumberShort(p.start, 2)} → ${formatNumberShort(p.end, 2)}`;
+                return `${yKey}: ${formatNumberShort(p.start, 2)} -> ${formatNumberShort(p.end, 2)}`;
               }}
             />
             <Bar

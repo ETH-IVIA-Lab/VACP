@@ -22,7 +22,7 @@ function solvedStrictRows(ctx: Parameters<ArenaChart<SolvedStrictChartConfig>['g
 
 export const solvedStrictChart: ArenaChart<SolvedStrictChartConfig> = {
   id: 'solved-strict',
-  title: 'Solved Rate — Strict',
+  title: 'Solved Rate: Strict',
   caption:
     'Share of runs solved in strict mode. Strict means the answer matches expected values and structure exactly.',
   isApplicable: (ctx) => ctx.runs.some((r) => typeof r.solvedStrict === 'boolean'),
@@ -67,7 +67,7 @@ export const solvedStrictChart: ArenaChart<SolvedStrictChartConfig> = {
               return [
                 d.experiment,
                 `n=${d.total}`,
-                `Solved strict: ${fmtPct(d.solved_strict_rate)} (${d.solved}/${d.usable}${missing ? `; ${missing} missing` : ''})`,
+                `Solved strict: ${fmtPct(d.solved_strict_rate)} (${d.solved}/${d.usable}${missing ? `, ${missing} missing` : ''})`,
               ].join('\n');
             },
           }),
@@ -85,7 +85,7 @@ export const solvedStrictChart: ArenaChart<SolvedStrictChartConfig> = {
       }),
     });
 
-    return { id: 'solved-strict', title: 'Solved Rate — Strict', caption: solvedStrictChart.caption, svg, data };
+    return { id: 'solved-strict', title: 'Solved Rate: Strict', caption: solvedStrictChart.caption, svg, data };
   },
 };
 

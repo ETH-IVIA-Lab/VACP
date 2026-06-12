@@ -360,7 +360,7 @@ export function createRuntimeBridge(args: {
         at: nowIso(),
         kind: 'mode',
         source: 'system',
-        message: `session changed: ${prevSessionKey ?? '(unknown)'} → ${nextSessionKey}`,
+        message: `session changed: ${prevSessionKey ?? '(unknown)'} -> ${nextSessionKey}`,
       });
     }
 

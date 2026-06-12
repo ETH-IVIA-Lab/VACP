@@ -304,7 +304,11 @@ export function HistoryModule(props: VacpDebugModuleProps): ReactElement {
             type="button"
             className="inline-flex h-7 shrink-0 items-center justify-center gap-1.5 rounded-md border border-white/10 bg-white/[0.045] px-2.5 text-[11px] font-semibold text-slate-100/82 outline-none transition hover:border-white/18 hover:bg-white/[0.075] focus:ring-2 focus:ring-white/28 disabled:cursor-not-allowed disabled:opacity-45"
             disabled={!selectedCanInspect || props.runtime.mode === 'inspect'}
-            title={selectedCanInspect ? 'Inspect the selected stateful history entry.' : 'Select an entry with recorded state.'}
+            title={
+              selectedCanInspect
+                ? 'Inspect the selected stateful history entry.'
+                : 'Select an entry with recorded state.'
+            }
             onClick={inspectSelected}
           >
             <Eye className="h-3.5 w-3.5" aria-hidden="true" />

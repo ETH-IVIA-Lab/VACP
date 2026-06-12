@@ -77,7 +77,7 @@ export async function waitForActionInteractors(args: {
   if (args.isStale?.()) return false;
 
   const expected = requirements.map((req) => `${req.minCount} ${req.name}`).join(', ');
-  throw new Error(`Timed out waiting for vgplot interactors: ${expected}`);
+  throw new Error(`Timed out waiting for VGPlot interactors: ${expected}`);
 }
 
 function actionInteractorRequirements(entryId: string): Array<{ name: string; minCount: number }> {

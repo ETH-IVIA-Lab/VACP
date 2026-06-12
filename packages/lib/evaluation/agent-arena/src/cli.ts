@@ -119,7 +119,7 @@ program
   )
   .option('--directory <path>', 'OpenCode directory used for project/session context')
   .option('--only <substring>', 'Only run entries whose experiment includes this substring')
-  .option('--dry-run', 'Plan only; do not execute any runs')
+  .option('--dry-run', 'Plan only. Do not execute any runs')
   .option('--rerun-failed', 'Rerun jobs that finished with ok=false (default: reuse finished results)')
   .option(
     '--rerun-outcomes <list>',
@@ -184,7 +184,7 @@ program
       });
       if (raw.dryRun) return;
 
-      // Preserve the original manifest/context for postmortems; `runArena` will rewrite these.
+      // Preserve the original manifest and context for postmortems. `runArena` rewrites these files.
       await backupIfPresent(path.join(outDir, 'inputs.json'));
       await backupIfPresent(path.join(outDir, 'context.json'));
 
@@ -314,7 +314,7 @@ program
       consola.info(`- index:  ${res.indexHtmlPath}`);
       if (res.allHtmlPath) consola.info(`- all:    ${res.allHtmlPath}`);
       for (const page of res.modelReports) {
-        consola.info(`- model:  ${page.modelLabel}  →  ${page.htmlPath}`);
+        consola.info(`- model:  ${page.modelLabel}  ->  ${page.htmlPath}`);
       }
     } catch (error) {
       consola.error(error);

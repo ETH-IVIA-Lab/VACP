@@ -59,17 +59,18 @@ function ToolEventDetails(props: { event: VacpAgentToolEvent; index: number }): 
           ) : null}
           {event.input !== undefined ? (
             <div>
-              <div className="text-[10px] font-semibold uppercase tracking-wide text-slate-100/65">
-                Effective input
-              </div>
-              <JsonViewer value={event.input} className="vacp-chat-json-view mt-1 p-2" expandDepth={1} scrollable={false} />
+              <div className="text-[10px] font-semibold uppercase tracking-wide text-slate-100/65">Effective input</div>
+              <JsonViewer
+                value={event.input}
+                className="vacp-chat-json-view mt-1 p-2"
+                expandDepth={1}
+                scrollable={false}
+              />
             </div>
           ) : null}
           {event.requestedInput !== undefined ? (
             <div>
-              <div className="text-[10px] font-semibold uppercase tracking-wide text-slate-100/65">
-                Requested input
-              </div>
+              <div className="text-[10px] font-semibold uppercase tracking-wide text-slate-100/65">Requested input</div>
               <JsonViewer
                 value={event.requestedInput}
                 className="vacp-chat-json-view mt-1 p-2"
@@ -81,7 +82,12 @@ function ToolEventDetails(props: { event: VacpAgentToolEvent; index: number }): 
           {event.output !== undefined ? (
             <div>
               <div className="text-[10px] font-semibold uppercase tracking-wide text-slate-100/65">Output</div>
-              <JsonViewer value={event.output} className="vacp-chat-json-view mt-1 p-2" expandDepth={1} scrollable={false} />
+              <JsonViewer
+                value={event.output}
+                className="vacp-chat-json-view mt-1 p-2"
+                expandDepth={1}
+                scrollable={false}
+              />
             </div>
           ) : null}
           {event.error ? (
@@ -107,14 +113,14 @@ export function ChatActivityLog(props: { events: VacpAgentToolEvent[]; className
         data-vacp-chat-log="1"
         className="vacp-chat-scroll grid min-h-0 gap-2 overflow-y-auto overflow-x-hidden text-[11px]"
       >
-        {props.events.length === 0 ? (
-          <div className="px-1 py-2 text-slate-100/58">No tool calls yet.</div>
-        ) : null}
+        {props.events.length === 0 ? <div className="px-1 py-2 text-slate-100/58">No tool calls yet.</div> : null}
 
         {props.events
           .slice()
           .reverse()
-          .map((event, idx) => <ToolEventDetails key={`${event.at}-${idx}`} event={event} index={idx} />)}
+          .map((event, idx) => (
+            <ToolEventDetails key={`${event.at}-${idx}`} event={event} index={idx} />
+          ))}
       </div>
     </section>
   );

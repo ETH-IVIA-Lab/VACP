@@ -134,7 +134,7 @@ export function JsonModule(props: VacpDebugModuleProps): ReactElement {
 
   const requestStateUpdate = async (modeOverride?: VacpStateRequest['mode']) => {
     setProbeError(null);
-    setProbeStatus('Requesting state update…');
+    setProbeStatus('Requesting state update...');
     try {
       const refs = parseRefs(requestRefsText);
       const request: VacpStateRequest = {
@@ -212,7 +212,7 @@ export function JsonModule(props: VacpDebugModuleProps): ReactElement {
       if (props.runtime.mode === 'inspect' && typeof props.bridge.setMode === 'function') {
         props.bridge.setMode('live', { source: 'debug', message: 'auto: back to live for apply_state' });
       }
-      setEditStatus('Applying…');
+      setEditStatus('Applying...');
       const before = await props.bridge.getState();
       const res = await executeDebugAction(props.bridge, call, { source: 'debug' });
       const after = await props.bridge.getState();
@@ -224,7 +224,9 @@ export function JsonModule(props: VacpDebugModuleProps): ReactElement {
         return;
       }
       if (report.changedRefs.length > 0) {
-        setEditStatus(`Applied. ${report.changedRefs.length} state ref${report.changedRefs.length === 1 ? '' : 's'} changed.`);
+        setEditStatus(
+          `Applied. ${report.changedRefs.length} state ref${report.changedRefs.length === 1 ? '' : 's'} changed.`,
+        );
         return;
       }
       if (report.skipped.length > 0 || report.errors.length > 0) {

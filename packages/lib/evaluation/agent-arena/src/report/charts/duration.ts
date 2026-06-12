@@ -21,7 +21,7 @@ function durationRows(ctx: Parameters<ArenaChart<DurationChartConfig>['getData']
 export const durationChart: ArenaChart<DurationChartConfig> = {
   id: 'duration',
   title: 'Run Duration by Experiment',
-  caption: 'How long runs take. Box plots show spread and median; dots show individual runs.',
+  caption: 'How long runs take. Box plots show spread and median. Dots show individual runs.',
   isApplicable: (ctx) => ctx.runs.some((r) => typeof r.durationS === 'number'),
   getData: (ctx) => durationRows(ctx),
   render: (ctx, config) => {

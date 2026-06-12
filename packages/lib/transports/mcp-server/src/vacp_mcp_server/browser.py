@@ -22,8 +22,8 @@ class BrowserConfig:
     url: str = 'http://localhost:5173/'
     # Embedded browser window mode.
     # - default: Playwright defaults
-    # - maximized: best-effort maximize window
-    # - fullscreen: best-effort fullscreen window (Chromium only)
+    # - maximized: request a maximized window
+    # - fullscreen: request fullscreen mode (Chromium only)
     window_mode: str = 'fullscreen'
     # Host screen size hint for embedded browser windows.
     screen_width: int | None = None

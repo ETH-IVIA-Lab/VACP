@@ -15,7 +15,7 @@ function outcomeDomain(theme: {
   return [
     { id: 'correct_solution', label: 'Correct Solution', color: theme.colors.ok },
     { id: 'incorrect_solution', label: 'Incorrect Solution', color: theme.colors.bad },
-    { id: 'timeout', label: 'Timeout', color: theme.colors.grid },
+    { id: 'timeout', label: 'Plumbing Failure', color: theme.colors.grid },
   ];
 }
 
@@ -94,7 +94,7 @@ function evalOutcomeRows(ctx: Parameters<ArenaChart<EvalOutcomesChartConfig>['ge
 export const evalOutcomesChart: ArenaChart<EvalOutcomesChartConfig> = {
   id: 'eval-outcomes',
   title: 'Outcome Breakdown by Experiment',
-  caption: 'How runs end in each experiment: timeout, correct solution (semantic), or incorrect solution.',
+  caption: 'How runs end in each experiment: plumbing failure, correct solution (semantic), or incorrect solution.',
   isApplicable: (ctx) => ctx.runs.length > 0,
   getData: (ctx) => evalOutcomeRows(ctx),
   render: (ctx, config) => {

@@ -1,5 +1,5 @@
-from arena_analyis.runs import Discovery, Job, Selection, discover_jobs
-from arena_analyis.states import (
+from arena_analysis.runs import Discovery, Job, Selection, discover_jobs
+from arena_analysis.states import (
     OpenAIClassifier,
     Options,
     Retry,

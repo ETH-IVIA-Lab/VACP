@@ -4,7 +4,7 @@ requires-python = ">=3.12"
 
 [manifest]
 members = [
-    "arena-analyis",
+    "arena-analysis",
     "plain-mcp",
     "vacp-mcp-server",
 ]
@@ -76,9 +76,9 @@ wheels = [
 ]
 
 [[package]]
-name = "arena-analyis"
+name = "arena-analysis"
 version = "0.1.0"
-source = { editable = "packages/lib/evaluation/arena-analyis" }
+source = { editable = "packages/lib/evaluation/arena-analysis" }
 dependencies = [
     { name = "altair" },
     { name = "duckdb" },
@@ -2042,7 +2042,7 @@ wheels = [
 
 [[package]]
 name = "vacp-mcp-server"
-version = "0.0.0"
+version = "0.1.0"
 source = { editable = "packages/lib/transports/mcp-server" }
 dependencies = [
     { name = "fastapi" },

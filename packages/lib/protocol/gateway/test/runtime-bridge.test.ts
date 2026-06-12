@@ -110,7 +110,9 @@ test('Return to Live restores observed live state even when it was not recorded 
   const observed = await bridge.getRuntime();
   assert.equal((observed.liveState.state[ref] as { value?: string }).value, 'live-unrecorded');
   assert.deepEqual(
-    observed.history.map((entry) => (entry.kind === 'snapshot' ? (entry.state?.state[ref] as { value?: string })?.value : undefined)),
+    observed.history.map((entry) =>
+      entry.kind === 'snapshot' ? (entry.state?.state[ref] as { value?: string })?.value : undefined,
+    ),
     ['old'],
   );
 

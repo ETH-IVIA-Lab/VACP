@@ -20,7 +20,8 @@ type ObjectSchema = {
 
 function safeActionValue(value: unknown, seen = new WeakSet<object>(), depth = 0): unknown {
   if (value instanceof Date) return Number.isFinite(value.getTime()) ? value.toISOString() : null;
-  if (value == null || typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') return value;
+  if (value == null || typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean')
+    return value;
   if (typeof value === 'function' || typeof value === 'symbol') return undefined;
   if (Array.isArray(value)) {
     if (depth >= 4) return `[Array(${value.length})]`;
@@ -46,7 +47,8 @@ function safeActionValue(value: unknown, seen = new WeakSet<object>(), depth = 0
 
 function primitiveValue(value: unknown): unknown {
   if (value instanceof Date) return Number.isFinite(value.getTime()) ? value.toISOString() : undefined;
-  if (value == null || typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') return value;
+  if (value == null || typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean')
+    return value;
   return undefined;
 }
 
@@ -143,7 +145,8 @@ function interactorParams(entry: CollectedInteractor | null): Record<string, unk
 function selectedValue(interactor: Record<string, unknown>): unknown {
   if (Object.hasOwn(interactor, 'value') && interactor.value !== undefined) return interactor.value;
   const selection = interactor.selection;
-  if (selection && typeof selection === 'object' && 'value' in selection) return (selection as { value?: unknown }).value;
+  if (selection && typeof selection === 'object' && 'value' in selection)
+    return (selection as { value?: unknown }).value;
   return null;
 }
 
@@ -179,7 +182,11 @@ function firstTableColumn(table: VgplotTableLike): string | null {
   return null;
 }
 
-function objectSchema(properties: Record<string, unknown>, required?: string[], defaults?: Record<string, unknown> | null): ObjectSchema {
+function objectSchema(
+  properties: Record<string, unknown>,
+  required?: string[],
+  defaults?: Record<string, unknown> | null,
+): ObjectSchema {
   return {
     type: 'object',
     properties,
@@ -237,7 +244,9 @@ export function actionDescriptorsForDashboard(args: {
           max: { type: ['number', 'string'] },
         },
         ['interactorId', 'min', 'max'],
-        interval1d && domain ? { ...interactorParams(interval1d), min: domain[0], max: domain[1] } : interactorParams(interval1d),
+        interval1d && domain
+          ? { ...interactorParams(interval1d), min: domain[0], max: domain[1] }
+          : interactorParams(interval1d),
       ),
     });
     actions.push({
@@ -253,7 +262,9 @@ export function actionDescriptorsForDashboard(args: {
   }
 
   if (hasInterval2D) {
-    const current = Array.isArray(interval2d?.interactor.value) ? interval2d.interactor.value : selectedValue(interval2d?.interactor ?? {});
+    const current = Array.isArray(interval2d?.interactor.value)
+      ? interval2d.interactor.value
+      : selectedValue(interval2d?.interactor ?? {});
     const currentX = Array.isArray(current) ? pairFromValue(current[0]) : null;
     const currentY = Array.isArray(current) ? pairFromValue(current[1]) : null;
     const x = currentX ?? innerDomainPair(readScaleDomain(interval2d?.interactor.xscale));
@@ -292,7 +303,7 @@ export function actionDescriptorsForDashboard(args: {
   if (hasToggle) {
     actions.push({
       name: 'vgplot.set_toggle',
-      description: 'Set a Toggle interactor value (best-effort).',
+      description: 'Set a Toggle interactor value.',
       targetRef: viewRef,
       parameters: objectSchema(
         { plotId: { type: 'string' }, interactorId: { type: 'string' }, value: {} },
@@ -304,7 +315,11 @@ export function actionDescriptorsForDashboard(args: {
       name: 'vgplot.clear_toggle',
       description: 'Clear a Toggle interactor value.',
       targetRef: viewRef,
-      parameters: objectSchema({ plotId: { type: 'string' }, interactorId: { type: 'string' } }, ['interactorId'], interactorParams(toggle)),
+      parameters: objectSchema(
+        { plotId: { type: 'string' }, interactorId: { type: 'string' } },
+        ['interactorId'],
+        interactorParams(toggle),
+      ),
     });
   }
 
@@ -312,16 +327,20 @@ export function actionDescriptorsForDashboard(args: {
     actions.push({
       name: 'vgplot.clear_nearest',
       description:
-        'Clear a selection-backed Nearest hover/inspect interactor. Param-backed Nearest values are pointer-derived and are not exposed as semantic actions.',
+        'Clear a selection-backed Nearest hover or inspect interactor. Param-backed Nearest values are pointer-derived and are not exposed as semantic actions.',
       targetRef: viewRef,
-      parameters: objectSchema({ plotId: { type: 'string' }, interactorId: { type: 'string' } }, ['interactorId'], interactorParams(nearest)),
+      parameters: objectSchema(
+        { plotId: { type: 'string' }, interactorId: { type: 'string' } },
+        ['interactorId'],
+        interactorParams(nearest),
+      ),
     });
   }
 
   if (hasRegion) {
     actions.push({
       name: 'vgplot.set_region',
-      description: 'Set a Region (categorical) selection value (best-effort).',
+      description: 'Set a Region categorical selection value.',
       targetRef: viewRef,
       parameters: objectSchema(
         { plotId: { type: 'string' }, interactorId: { type: 'string' }, value: {} },
@@ -333,7 +352,11 @@ export function actionDescriptorsForDashboard(args: {
       name: 'vgplot.clear_region',
       description: 'Clear a Region selection.',
       targetRef: viewRef,
-      parameters: objectSchema({ plotId: { type: 'string' }, interactorId: { type: 'string' } }, ['interactorId'], interactorParams(region)),
+      parameters: objectSchema(
+        { plotId: { type: 'string' }, interactorId: { type: 'string' } },
+        ['interactorId'],
+        interactorParams(region),
+      ),
     });
   }
 
@@ -342,7 +365,7 @@ export function actionDescriptorsForDashboard(args: {
     const y = innerDomainPair(panZoom?.interactor.y ?? readScaleDomain(panZoom?.interactor.yscale), true);
     actions.push({
       name: 'vgplot.set_pan_zoom',
-      description: 'Set a PanZoom view domain (best-effort).',
+      description: 'Set a PanZoom view domain.',
       targetRef: viewRef,
       parameters: objectSchema(
         {
@@ -365,9 +388,13 @@ export function actionDescriptorsForDashboard(args: {
     });
     actions.push({
       name: 'vgplot.clear_pan_zoom',
-      description: 'Clear a PanZoom view domain (best-effort).',
+      description: 'Clear a PanZoom view domain.',
       targetRef: viewRef,
-      parameters: objectSchema({ plotId: { type: 'string' }, interactorId: { type: 'string' } }, ['interactorId'], interactorParams(panZoom)),
+      parameters: objectSchema(
+        { plotId: { type: 'string' }, interactorId: { type: 'string' } },
+        ['interactorId'],
+        interactorParams(panZoom),
+      ),
     });
   }
 
@@ -396,7 +423,7 @@ export function actionDescriptorsForDashboard(args: {
   if (hasOptionInputs) {
     actions.push({
       name: 'vgplot.set_input_option_index',
-      description: 'Set a VGPlot input widget (Menu/Slider/etc.) by option index (0-based).',
+      description: 'Set a VGPlot input widget by option index.',
       targetRef: viewRef,
       parameters: objectSchema(
         { ref: { type: 'string' }, index: { type: 'number' } },
@@ -409,7 +436,7 @@ export function actionDescriptorsForDashboard(args: {
   if (hasInputs) {
     actions.push({
       name: 'vgplot.set_input_value',
-      description: 'Set a VGPlot input widget value (best-effort).',
+      description: 'Set a VGPlot input widget value.',
       targetRef: viewRef,
       parameters: objectSchema(
         { ref: { type: 'string' }, value: {} },
@@ -419,7 +446,7 @@ export function actionDescriptorsForDashboard(args: {
     });
     actions.push({
       name: 'vgplot.clear_input',
-      description: 'Clear/reset a VGPlot input widget (best-effort).',
+      description: 'Clear or reset a VGPlot input widget.',
       targetRef: viewRef,
       parameters: objectSchema({ ref: { type: 'string' } }, ['ref'], input ? { ref: input.ref } : null),
     });
@@ -428,7 +455,7 @@ export function actionDescriptorsForDashboard(args: {
   if (hasTables) {
     actions.push({
       name: 'vgplot.table_set_sort',
-      description: 'Sort a VGPlot table by a column (best-effort).',
+      description: 'Sort a VGPlot table by a column.',
       targetRef: viewRef,
       parameters: objectSchema(
         { tableId: { type: 'string' }, column: { type: 'string' }, desc: { type: 'boolean' } },
@@ -446,7 +473,11 @@ export function actionDescriptorsForDashboard(args: {
       name: 'vgplot.table_clear_sort',
       description: 'Clear the sort order for a VGPlot table.',
       targetRef: viewRef,
-      parameters: objectSchema({ tableId: { type: 'string' } }, undefined, tableEntry ? { tableId: tableEntry.tableId } : null),
+      parameters: objectSchema(
+        { tableId: { type: 'string' } },
+        undefined,
+        tableEntry ? { tableId: tableEntry.tableId } : null,
+      ),
     });
     actions.push({
       name: 'vgplot.table_set_page',
@@ -459,7 +490,8 @@ export function actionDescriptorsForDashboard(args: {
           ? {
               tableId: tableEntry.tableId,
               offset: typeof tableEntry.table.offset === 'number' ? tableEntry.table.offset : 0,
-              limit: typeof tableEntry.table.limit === 'number' && tableEntry.table.limit > 0 ? tableEntry.table.limit : 50,
+              limit:
+                typeof tableEntry.table.limit === 'number' && tableEntry.table.limit > 0 ? tableEntry.table.limit : 50,
             }
           : null,
       ),

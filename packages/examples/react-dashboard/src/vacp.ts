@@ -6,9 +6,9 @@
  * - semantic actions (dataset/encoding/selection)
  * - DuckDB access via the standard `vacp.data_sql` action
  *
- * The dashboard implementation (React + zustand) stays VACP-agnostic; the VACP
- * layer receives a small model adapter (getters/setters) similar to the other
- * “bring-your-own-provider” examples.
+ * The dashboard implementation (React + zustand) stays VACP-agnostic.
+ * The VACP layer receives a small model adapter (getters/setters), matching
+ * the bring-your-own-provider examples.
  */
 
 import type { VacpGraphBase } from '@vacp/kit';
@@ -209,7 +209,7 @@ export function installVacpForReactDashboard(args: { globalKey?: string; title?:
   actions
     .action(
       'dashboard.select_by_quantiles',
-      'Select points within x/y quantile bounds of the current encoding. Useful for compact subset selection without hand-picking raw ranges.',
+      'Select points within x/y quantile bounds of the current encoding for compact subset selection without hand-picking raw ranges.',
     )
     .target(selectionRef)
     .params({

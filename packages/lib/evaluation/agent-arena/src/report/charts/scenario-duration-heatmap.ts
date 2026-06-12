@@ -3,7 +3,7 @@ import { fmtNumber } from './utils.js';
 
 export const scenarioDurationHeatmapChart = createScenarioMetricHeatmapChart({
   id: 'scenario-duration-heatmap',
-  title: 'Task by Experiment — Median Duration',
+  title: 'Task by Experiment: Median Duration',
   caption: 'Median runtime per task. X-axis numbers map to the Task Index table.',
   valueLabel: 'Median duration',
   getValue: (r) => r.durationS,

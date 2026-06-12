@@ -24,7 +24,7 @@ type SelectorState = Literal['attached', 'detached', 'hidden', 'visible']
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
-    p = argparse.ArgumentParser(description='VACP MCP Server')
+    p = argparse.ArgumentParser(description='Expose a VACP-enabled web page over MCP.')
     p.add_argument(
         '--transport',
         type=str,
@@ -52,11 +52,17 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         help='Optional log level override for FastMCP (stdio mode).',
     )
     p.add_argument('--url', type=str, default='http://localhost:5173/', help='URL to open.')
-    p.add_argument('--host', type=str, default='0.0.0.0')
-    p.add_argument('--port', type=int, default=8000)
-    p.add_argument('--headless', action='store_true', default=False)
-    p.add_argument('--browser-type', type=str, choices=['chromium', 'firefox', 'webkit'], default='chromium')
-    p.add_argument('--browser-path', type=str, default=None)
+    p.add_argument('--host', type=str, default='0.0.0.0', help='Host for the HTTP MCP server.')
+    p.add_argument('--port', type=int, default=8000, help='Port for the HTTP MCP server.')
+    p.add_argument('--headless', action='store_true', default=False, help='Run the browser without a visible window.')
+    p.add_argument(
+        '--browser-type',
+        type=str,
+        choices=['chromium', 'firefox', 'webkit'],
+        default='chromium',
+        help='Playwright browser type.',
+    )
+    p.add_argument('--browser-path', type=str, default=None, help='Path to a browser executable.')
     p.add_argument(
         '--window-mode',
         type=str,
@@ -106,12 +112,20 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         default=False,
         help='If using --cdp-url, request remote browser close on exit.',
     )
-    p.add_argument('--global-key', type=str, default='__vacp', help='Global key for window bridge (default: __vacp)')
+    p.add_argument(
+        '--global-key',
+        type=str,
+        default='__vacp',
+        help='Window global that contains the VACP bridge (default: __vacp).',
+    )
     p.add_argument(
         '--enable-browser-tools',
         action='store_true',
         default=False,
-        help='Expose additional browser-control MCP tools (screenshot/eval/etc). Off by default.',
+        help=(
+            'Expose browser-control MCP tools: screenshot, eval, wait-for-selector, click, fill, press, and sleep. '
+            'Off by default.'
+        ),
     )
     p.add_argument(
         '--startup-wait-for-bridge',

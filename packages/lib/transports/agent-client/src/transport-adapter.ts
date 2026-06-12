@@ -12,7 +12,7 @@ async function ensureLiveMode(bridge: VacpBridgeLike) {
     const runtime = await bridge.getRuntime();
     if (runtime.mode === 'inspect') bridge.setMode('live', { source: 'agent', message: 'auto:live for execute' });
   } catch {
-    // keep execute best-effort even if runtime snapshot is unavailable
+    // Runtime mode recovery must not block action execution.
   }
 }
 

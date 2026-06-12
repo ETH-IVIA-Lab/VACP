@@ -3,10 +3,7 @@ import type { Edge, Node } from '@xyflow/react';
 
 export type GraphDirection = 'LR' | 'TB';
 
-export type SelectedGraphItem =
-  | { kind: 'node'; ref: VacpRef }
-  | { kind: 'action'; index: number; name: string }
-  | null;
+export type SelectedGraphItem = { kind: 'node'; ref: VacpRef } | { kind: 'action'; index: number; name: string } | null;
 
 export type VacpGraphNodeData = Record<string, unknown> & {
   item: Exclude<SelectedGraphItem, null>;

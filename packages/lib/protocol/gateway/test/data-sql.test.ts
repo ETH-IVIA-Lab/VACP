@@ -62,6 +62,9 @@ test('registerVacpDataSqlAction registers the SQL action when enable-sql is 1', 
     const descriptor = registerVacpDataSqlAction(registry, async () => ({ rows: [{ n: 1 }] }));
 
     assert.equal(descriptor?.name, PUBLIC_DATA_SQL_ACTION);
-    assert.equal(registry.list().some((action) => action.name === PUBLIC_DATA_SQL_ACTION), true);
+    assert.equal(
+      registry.list().some((action) => action.name === PUBLIC_DATA_SQL_ACTION),
+      true,
+    );
   });
 });

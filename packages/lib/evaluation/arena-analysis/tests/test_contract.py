@@ -1,4 +1,4 @@
-from arena_analyis.contract import normalize_shifts, parse_meta, validate_turns
+from arena_analysis.contract import normalize_shifts, parse_meta, validate_turns
 
 
 def test_validate_turns_matches_assistant_turns_and_final_answer() -> None:

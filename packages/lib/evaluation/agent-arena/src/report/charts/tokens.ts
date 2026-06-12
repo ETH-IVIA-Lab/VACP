@@ -20,7 +20,7 @@ function tokenRows(ctx: Parameters<ArenaChart<TokensChartConfig>['getData']>[0])
 
 export const tokensChart: ArenaChart<TokensChartConfig> = {
   id: 'tokens',
-  title: 'Token Use by Experiment — With Cache',
+  title: 'Token Use by Experiment: With Cache',
   caption: 'Per-run token usage with cache. Use Token Accounting for the full with-cache vs no-cache breakdown.',
   isApplicable: (ctx) => ctx.runs.some((r) => typeof r.tokensTotalWithCacheAll === 'number'),
   getData: (ctx) => tokenRows(ctx),

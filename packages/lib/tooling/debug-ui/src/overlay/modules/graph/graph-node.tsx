@@ -134,9 +134,13 @@ export function VacpGraphNode(props: NodeProps<VacpFlowNode>): ReactElement {
           <NodeKindIcon data={data} />
         </div>
         <div className="min-w-0 flex-1">
-          <div className="break-words text-[12px] font-semibold leading-4 text-slate-50/90 [overflow-wrap:anywhere]">{data.title}</div>
+          <div className="break-words text-[12px] font-semibold leading-4 text-slate-50/90 [overflow-wrap:anywhere]">
+            {data.title}
+          </div>
           {data.subtitle ? (
-            <div className="mt-0.5 break-words text-[10.5px] leading-3 text-slate-100/46 [overflow-wrap:anywhere]">{data.subtitle}</div>
+            <div className="mt-0.5 break-words text-[10.5px] leading-3 text-slate-100/46 [overflow-wrap:anywhere]">
+              {data.subtitle}
+            </div>
           ) : null}
         </div>
         {data.hasChildren && data.onToggleCollapse ? (
@@ -160,7 +164,9 @@ export function VacpGraphNode(props: NodeProps<VacpFlowNode>): ReactElement {
         ) : null}
       </div>
 
-      <div className="break-words text-[10.5px] font-medium leading-3 text-slate-100/58 [overflow-wrap:anywhere]">{data.meta}</div>
+      <div className="break-words text-[10.5px] font-medium leading-3 text-slate-100/58 [overflow-wrap:anywhere]">
+        {data.meta}
+      </div>
       {data.collapsed && data.collapsedCount > 0 ? (
         <div className="mt-auto text-[10px] font-medium leading-3 text-emerald-100/68">
           {data.collapsedCount} hidden child{data.collapsedCount === 1 ? '' : 'ren'}

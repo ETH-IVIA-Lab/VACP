@@ -291,8 +291,8 @@ async function runJob(args: {
       return reused;
     }
 
-    // Partial/invalid artifacts should not count as “done”. Archive them before rerunning so
-    // analysis doesn't accidentally count stale screenshots/log exports.
+    // Archive partial or invalid artifacts before rerun so analysis only reads
+    // current screenshots and log exports.
     if (inspection.state !== 'missing') {
       const archived = await archiveJobArtifacts({
         jobOutDir,

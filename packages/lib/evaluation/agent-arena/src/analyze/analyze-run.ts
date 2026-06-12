@@ -808,7 +808,7 @@ function summarizeToolCalls(calls: ToolCallRow[]) {
 
 function truncate(value: string, maxChars: number) {
   if (value.length <= maxChars) return value;
-  return value.slice(0, maxChars) + '…';
+  return value.slice(0, maxChars) + '...';
 }
 
 function clampField(value: string | null, maxChars: number) {
@@ -877,7 +877,7 @@ export async function loadScenarioJudges(configPathRaw?: string) {
     mod = await jiti.import(configPath);
   } catch {
     const judges = collectScenarioJudges(await importScenarioBases(jiti, scenariosPath));
-    // Scoring is best-effort; allow analysis to proceed without solutions.
+    // Missing scenario modules should not block transcript analysis.
     return {
       configPath,
       configHash,

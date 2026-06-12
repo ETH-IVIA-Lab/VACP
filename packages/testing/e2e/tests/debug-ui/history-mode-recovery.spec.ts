@@ -64,7 +64,9 @@ test('debug-ui: returning to live reapplies the latest host state after inspect 
       const widgetEntry = Object.entries(before.state).find(([, value]) => (value as any)?.kind === 'Widget');
       if (!widgetEntry) throw new Error('No widget state found');
       const [targetRef, widget] = widgetEntry as [string, any];
-      const action = (await bridge.getCapabilities()).graph.actions.find((candidate: any) => candidate.name === 'vgplot.set_input_option_index');
+      const action = (await bridge.getCapabilities()).graph.actions.find(
+        (candidate: any) => candidate.name === 'vgplot.set_input_option_index',
+      );
       const params = structuredClone(action?.parameters?.default ?? { ref: targetRef, index: 0 });
       params.ref = targetRef;
 
@@ -107,23 +109,27 @@ test('debug-ui: returning to live reapplies the latest host state after inspect 
     await firstStateEntry.click();
     await page.getByRole('button', { name: 'Inspect selected' }).click();
     await waitForRuntimeMode(page, 'inspect');
-    await expect.poll(async () => {
-      const snap = await page.evaluate(async (ref) => {
-        const bridge = (globalThis as any).__vacp;
-        return (await bridge.getState()).state[ref]?.value;
-      }, targetRef);
-      return snap;
-    }).toEqual(oldValue);
+    await expect
+      .poll(async () => {
+        const snap = await page.evaluate(async (ref) => {
+          const bridge = (globalThis as any).__vacp;
+          return (await bridge.getState()).state[ref]?.value;
+        }, targetRef);
+        return snap;
+      })
+      .toEqual(oldValue);
 
     await page.getByRole('button', { name: 'Return to Live' }).click();
     await waitForRuntimeMode(page, 'live');
-    await expect.poll(async () => {
-      const snap = await page.evaluate(async (ref) => {
-        const bridge = (globalThis as any).__vacp;
-        return (await bridge.getState()).state[ref]?.value;
-      }, targetRef);
-      return snap;
-    }).toEqual(liveValue);
+    await expect
+      .poll(async () => {
+        const snap = await page.evaluate(async (ref) => {
+          const bridge = (globalThis as any).__vacp;
+          return (await bridge.getState()).state[ref]?.value;
+        }, targetRef);
+        return snap;
+      })
+      .toEqual(liveValue);
   } finally {
     await srv.stop();
   }
@@ -171,29 +177,33 @@ test('debug-ui: returning to live does not apply inspect-only JSON overrides', a
     expect(setup.overrideValue).not.toEqual(setup.liveValue);
 
     await waitForRuntimeMode(page, 'inspect');
-    await expect.poll(async () => {
-      const current = await page.evaluate(async (ref) => {
-        const bridge = (globalThis as any).__vacp;
-        const runtime = await bridge.getRuntime();
-        const live = (await bridge.getState()).state[ref]?.value;
-        return {
-          current: runtime.currentState.state[ref]?.value,
-          live,
-        };
-      }, setup.targetRef);
-      return current;
-    }).toMatchObject({ current: setup.overrideValue, live: setup.liveValue });
+    await expect
+      .poll(async () => {
+        const current = await page.evaluate(async (ref) => {
+          const bridge = (globalThis as any).__vacp;
+          const runtime = await bridge.getRuntime();
+          const live = (await bridge.getState()).state[ref]?.value;
+          return {
+            current: runtime.currentState.state[ref]?.value,
+            live,
+          };
+        }, setup.targetRef);
+        return current;
+      })
+      .toMatchObject({ current: setup.overrideValue, live: setup.liveValue });
 
     await page.evaluate(() => {
       (globalThis as any).__vacp.setMode('live', { source: 'debug', message: 'return after override' });
     });
     await waitForRuntimeMode(page, 'live');
-    await expect.poll(async () => {
-      return await page.evaluate(async (ref) => {
-        const bridge = (globalThis as any).__vacp;
-        return (await bridge.getState()).state[ref]?.value;
-      }, setup.targetRef);
-    }).toEqual(setup.liveValue);
+    await expect
+      .poll(async () => {
+        return await page.evaluate(async (ref) => {
+          const bridge = (globalThis as any).__vacp;
+          return (await bridge.getState()).state[ref]?.value;
+        }, setup.targetRef);
+      })
+      .toEqual(setup.liveValue);
   } finally {
     await srv.stop();
   }

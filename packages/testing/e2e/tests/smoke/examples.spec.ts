@@ -271,7 +271,12 @@ async function selectedCount(page: Page, handleRef: string): Promise<number> {
   return count;
 }
 
-async function expectVgplotIntervalActionWorks(page: Page, graph: any, handleRef: string, allRows: number): Promise<void> {
+async function expectVgplotIntervalActionWorks(
+  page: Page,
+  graph: any,
+  handleRef: string,
+  allRows: number,
+): Promise<void> {
   const actions = graph.actions ?? [];
   const nodes = graph.nodes ?? [];
   const target = nodes.find(

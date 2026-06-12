@@ -267,7 +267,7 @@ export default function App({ onInteraction }: Props) {
 
               <div className="flex flex-col gap-2">
                 <div className="flex items-center justify-between text-sm text-muted-foreground">
-                  <span>{loading ? 'Loading…' : dataset ? dataset.title : 'No dataset'}</span>
+                  <span>{loading ? 'Loading...' : dataset ? dataset.title : 'No dataset'}</span>
                   <span>{dataset ? `${dataset.rows.length} rows` : ''}</span>
                 </div>
                 <div className="flex items-center justify-between text-sm text-muted-foreground">
@@ -300,7 +300,7 @@ export default function App({ onInteraction }: Props) {
                   <div className="flex flex-col space-y-1.5">
                     <CardTitle>Scatter</CardTitle>
                     <CardDescription>
-                      Click points to toggle selection. Drag to brush-select; drag brush to move.
+                      Click points to toggle selection. Drag to brush-select, then drag the brush to move it.
                     </CardDescription>
                   </div>
                 </div>
@@ -324,7 +324,7 @@ export default function App({ onInteraction }: Props) {
                     {isLoadingDataset ? (
                       <PlaceholderPanel
                         icon={<Loader2 className="h-5 w-5 animate-spin" />}
-                        title="Loading dataset…"
+                        title="Loading dataset..."
                         description="Preparing rows and columns for the dashboard."
                       />
                     ) : isMissingDataset ? (
@@ -372,7 +372,7 @@ export default function App({ onInteraction }: Props) {
                       {encoding.x && encoding.y ? (
                         <>
                           PDF estimate for {encoding.x} and {encoding.y}.
-                          {selectedIds.length ? ' Uses the selected subset; clear selection to view all.' : ''}
+                          {selectedIds.length ? ' Uses the selected subset. Clear selection to view all.' : ''}
                         </>
                       ) : (
                         <>Pick X and Y fields to view distributions.</>
@@ -401,7 +401,7 @@ export default function App({ onInteraction }: Props) {
                     {isLoadingDataset ? (
                       <PlaceholderPanel
                         icon={<Loader2 className="h-5 w-5 animate-spin" />}
-                        title="Loading dataset…"
+                        title="Loading dataset..."
                         description="Preparing rows and columns for the dashboard."
                       />
                     ) : isMissingDataset ? (
@@ -414,7 +414,7 @@ export default function App({ onInteraction }: Props) {
                       <PlaceholderPanel
                         icon={<SlidersHorizontal className="h-5 w-5" />}
                         title="Pick X and Y fields"
-                        description="Select numeric fields in Controls to render the distributions. Click bars to filter; double-click a chart to clear."
+                        description="Select numeric fields in Controls to render the distributions. Click bars to filter, then double-click a chart to clear."
                         actions={
                           dataset ? (
                             <Button type="button" variant="secondary" size="sm" onClick={onUseRecommendedEncoding}>

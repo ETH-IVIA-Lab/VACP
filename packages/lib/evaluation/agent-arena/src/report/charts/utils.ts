@@ -92,7 +92,7 @@ export function marginLeftForLabels(labels: string[], theme: ArenaReportTheme, b
 }
 
 export function estimateTextWidthPx(text: string, fontSizePx: number) {
-  // Robust-enough for layout: most sans fonts are ~0.55–0.65em per character.
+  // Layout estimate: most sans fonts are roughly 0.55 to 0.65em per character.
   return Math.ceil(text.length * fontSizePx * 0.62);
 }
 

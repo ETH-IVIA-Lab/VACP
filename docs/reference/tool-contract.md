@@ -1,6 +1,6 @@
 # Tool contract
 
-Transports expose a small, stable tool surface. All of them call the same in-page bridge and return structured snapshots and action results.
+The bridge tool contract is the stable surface shared across transports. These tools call the same in-page bridge and return structured snapshots and action results. Transport-specific helpers can add navigation or page inspection without changing the VACP contract.
 
 ```text
 vacp_capabilities(options?)

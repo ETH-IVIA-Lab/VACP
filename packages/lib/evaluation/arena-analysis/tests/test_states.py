@@ -3,8 +3,8 @@ import json
 from pathlib import Path
 from typing import Any
 
-from arena_analyis.runs import Job
-from arena_analyis.states import (
+from arena_analysis.runs import Job
+from arena_analysis.states import (
     Options,
     build_chat_messages,
     dump,

@@ -10,7 +10,6 @@
     "**/.turbo/**",
     "**/.vite/**",
     "**/.artifacts/**",
-    "**/nogit/**",
     "**/tasks/**",
     "**/node_modules/**",
     "**/.venv/**",

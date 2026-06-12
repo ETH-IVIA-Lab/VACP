@@ -209,7 +209,8 @@ export async function chatScrollState(page: Page): Promise<ChatScrollState> {
       atTop: Math.abs(scroller.scrollTop) <= 1,
       atBottom: maxScrollTop > 0 && Math.abs(scroller.scrollTop - maxScrollTop) <= 1,
       firstUserVisible,
-      outerScrollMoved: scrollableAncestors.some((node) => Math.abs(node.scrollTop) > 1) || Math.abs(panel.scrollTop) > 1,
+      outerScrollMoved:
+        scrollableAncestors.some((node) => Math.abs(node.scrollTop) > 1) || Math.abs(panel.scrollTop) > 1,
     };
   });
 }

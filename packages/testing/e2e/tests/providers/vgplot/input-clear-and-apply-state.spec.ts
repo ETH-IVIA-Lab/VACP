@@ -66,20 +66,17 @@ test('vgplot: apply_state reports read-only DataHandle refs', async ({ page }) =
     await waitForBridge(page);
 
     const handleRef = await firstStateRef(page, 'DataHandle');
-    const result = await page.evaluate(
-      async (ref) => {
-        const vacp = (globalThis as any).__vacp;
-        const snap = await vacp.getState();
-        const state = structuredClone(snap.state);
-        state[ref] = { ...state[ref], auditProbe: 'json-tab-apply' };
-        return await vacp.execute({
-          callId: crypto.randomUUID(),
-          name: 'vacp.apply_state',
-          params: { state },
-        });
-      },
-      handleRef,
-    );
+    const result = await page.evaluate(async (ref) => {
+      const vacp = (globalThis as any).__vacp;
+      const snap = await vacp.getState();
+      const state = structuredClone(snap.state);
+      state[ref] = { ...state[ref], auditProbe: 'json-tab-apply' };
+      return await vacp.execute({
+        callId: crypto.randomUUID(),
+        name: 'vacp.apply_state',
+        params: { state },
+      });
+    }, handleRef);
 
     expect(result?.ok).toBe(true);
     expect(result?.result?.applied).toBe(0);

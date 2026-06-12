@@ -27,7 +27,7 @@ export function registerVacpDataSqlAction(
     name: VACP_DATA_SQL_ACTION,
     description:
       options?.description ??
-      'Run a DuckDB SQL query over a VACP DataHandle (provider-defined mapping; `vacp_handle`/`vacp_all` are reserved). Prefer semantic, human-like interaction actions first; use SQL only when the app cannot express the needed question via available actions.',
+      'Run a DuckDB SQL query over a VACP DataHandle. Providers define the mapping. `vacp_handle` and `vacp_all` are reserved. Prefer semantic, human-like interaction actions first. Use SQL only when the app cannot express the needed question through available actions.',
     targetRef: options?.targetRef,
     parameters: {
       type: 'object',

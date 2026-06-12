@@ -2,7 +2,7 @@ export type VacpHyperParams = Readonly<{
   /**
    * Whether to enable the in-page debug UI overlay (defaults to true).
    *
-   * Sources (highest → lowest priority):
+   * Sources, highest to lowest priority:
    * - URL params: `?vacp-debug=0|1`
    * - env var: `VACP_DEBUG_UI=0|1`
    * - localStorage: `vacp:debug=0|1`
@@ -15,8 +15,9 @@ export type VacpHyperParams = Readonly<{
    * When disabled, VACP integrations should avoid installing `window.__vacp`
    * entirely (and remove it if already present).
    *
-   * Sources (highest → lowest priority):
-   * - URL param: `?expose-bridge=0|1` (also accepts `?exposeBridge=0|1`)
+   * Sources, highest to lowest priority:
+   * - URL params: `?expose-bridge=0|1` or `?vacp-expose-bridge=0|1`
+   *   (camelCase aliases are also accepted)
    * - env var: `VACP_EXPOSE_BRIDGE=0|1`
    * - localStorage: `vacp:expose-bridge=0|1`
    * - default: true
@@ -25,7 +26,7 @@ export type VacpHyperParams = Readonly<{
   /**
    * Whether to inject a JSON DOM snapshot `<script>` tag (defaults to true).
    *
-   * Sources (highest → lowest priority):
+   * Sources, highest to lowest priority:
    * - URL param: `?vacp-dom-snapshot=0|1`
    * - env var: `VACP_DOM_SNAPSHOT=0|1`
    * - localStorage: `vacp:dom-snapshot=0|1`
@@ -35,7 +36,7 @@ export type VacpHyperParams = Readonly<{
   /**
    * Whether to register the raw SQL DataHandle action (defaults to true).
    *
-   * Sources (highest → lowest priority):
+   * Sources, highest to lowest priority:
    * - URL param: `?enable-sql=0|1`
    * - env var: `VACP_ENABLE_SQL=0|1`
    * - localStorage: `vacp:enable-sql=0|1`

@@ -29,8 +29,8 @@ export interface VegaViewLike {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   removeSignalListener?: (name: string, handler: (name: string, value: any) => void) => void;
   /**
-   * Optional Vega View API: list available signal names.
-   * (Not guaranteed; provider will degrade gracefully.)
+   * Optional Vega View API for listing available signal names.
+   * When absent, the provider skips signal-name discovery.
    */
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   getState?: (options?: any) => any;
@@ -45,7 +45,7 @@ export interface VegaViewLike {
   /**
    * Optional Vega View API: access a named scale function.
    *
-   * Used to map selection data extents → pixel extents for interval brushes.
+   * Used to map selection data extents to pixel extents for interval brushes.
    */
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   scale?: (name: string) => any;
@@ -97,7 +97,8 @@ export interface InstallVacpOnVegaLiteOptions {
   enableDuckDbDataHandle?: boolean;
   /**
    * If true, include a debugging action that allows setting any signal by name.
-   * This is powerful but should be used carefully in production UIs.
+   * Keep this disabled in production UIs unless arbitrary signal writes are part
+   * of the intended control surface.
    */
   includeSetSignalAction?: boolean;
 }

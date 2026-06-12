@@ -128,7 +128,12 @@ export function buildDataQueryTemplates(schema: DebugSqlSchema): DataQueryTempla
 
   return [
     template('count', 'Count', 'Count selected rows and all rows.', defaultQuery()),
-    template('sample', 'Sample rows', 'Preview the first rows from the selected handle.', 'SELECT *\nFROM vacp_handle\nLIMIT 25;'),
+    template(
+      'sample',
+      'Sample rows',
+      'Preview the first rows from the selected handle.',
+      'SELECT *\nFROM vacp_handle\nLIMIT 25;',
+    ),
     template(
       'selected-vs-all',
       'Selected vs all',
@@ -151,14 +156,18 @@ export function buildDataQueryTemplates(schema: DebugSqlSchema): DataQueryTempla
     template(
       'numeric-summary',
       numeric ? `Summarize ${numeric.name}` : 'Numeric summary',
-      numeric ? `Compute min, average, max, and sample standard deviation for ${numeric.name}.` : 'Summarize a numeric column.',
+      numeric
+        ? `Compute min, average, max, and sample standard deviation for ${numeric.name}.`
+        : 'Summarize a numeric column.',
       numericSql,
       numeric ? undefined : 'No numeric column found in schema.',
     ),
     template(
       'temporal-range',
       temporal ? `Range ${temporal.name}` : 'Temporal range',
-      temporal ? `Find the observed time range for ${temporal.name}.` : 'Find the observed range for a date or time column.',
+      temporal
+        ? `Find the observed time range for ${temporal.name}.`
+        : 'Find the observed range for a date or time column.',
       temporalSql,
       temporal ? undefined : 'No date or time column found in schema.',
     ),

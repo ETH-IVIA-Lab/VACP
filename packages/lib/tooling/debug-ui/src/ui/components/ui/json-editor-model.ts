@@ -36,10 +36,7 @@ export function parseJsonEditorPath(input: string): JsonPath {
   const trimmed = input.trim();
   if (!trimmed) return [];
   if (!trimmed.startsWith('/')) return [trimmed];
-  return trimmed
-    .slice(1)
-    .split('/')
-    .map(parsePointerSegment);
+  return trimmed.slice(1).split('/').map(parsePointerSegment);
 }
 
 export function setJsonPath(root: unknown, path: JsonPath, nextValue: unknown): JsonContainer {

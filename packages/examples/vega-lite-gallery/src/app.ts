@@ -14,7 +14,7 @@ export async function run(): Promise<void> {
     throw new Error('Missing root elements');
   }
 
-  // Dev-only overlay: inspects the VACP bridge and provides time travel + actions + DuckDB SQL.
+  // Debug overlay: inspects the VACP bridge and provides time travel, actions, and DuckDB SQL.
   void installVacpDebugUI();
 
   // Gallery UI: pick between small specs that each exercise a different VACP feature.
@@ -61,14 +61,13 @@ export async function run(): Promise<void> {
         entry,
       });
 
-      // Workaround: in headless Chromium (used by agent-arena), Vega can complete the embed with an
-      // empty DOM/canvas. A follow-up `runAsync` (after the current task) reliably makes the chart
-      // visible for screenshots and agent runs.
+      // Headless Chromium can finish Vega embedding with an empty DOM/canvas.
+      // Queue a follow-up runAsync so screenshots and arena runs see the chart.
       setTimeout(() => {
         void result.view.runAsync();
       }, 0);
     } finally {
-      // Hardening: don't expose the Vega View handle on `window`.
+      // Keep the Vega View handle off window after installation.
       delete g.__vegaView;
     }
   };

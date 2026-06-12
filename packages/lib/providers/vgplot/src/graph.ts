@@ -126,7 +126,7 @@ export function buildDashboardGraph(args: {
       kind: 'Visualization',
       layer: 'VisualizationLayer',
       title: plotId,
-      description: 'vgplot plot (part of a dashboard)',
+      description: 'VGPlot plot (part of a dashboard)',
       data: {
         plotId,
         width: (() => {
@@ -175,7 +175,7 @@ export function buildDashboardGraph(args: {
         kind: 'Mark',
         layer: 'VisualizationLayer',
         title: mark.type ?? 'mark',
-        description: 'vgplot mark',
+        description: 'VGPlot mark',
         data: {
           type: mark.type,
           index: typeof mark.index === 'number' ? mark.index : undefined,
@@ -205,7 +205,7 @@ export function buildDashboardGraph(args: {
           kind: 'EncodingChannel',
           layer: 'VisualizationLayer',
           title: chName,
-          description: 'vgplot mark encoding channel',
+          description: 'VGPlot mark encoding channel',
           data: {
             plotId,
             markIndex: typeof mark.index === 'number' ? mark.index : undefined,
@@ -268,7 +268,7 @@ export function buildDashboardGraph(args: {
         kind: 'InteractionTarget',
         layer: 'InteractionFeedbackLayer',
         title: it.constructor?.name ?? 'Interactor',
-        description: 'vgplot interactor (selection/brush)',
+        description: 'VGPlot interactor (selection/brush)',
         data: { plotId, interactorId: String(i) },
       });
       edges.push({ from: plotRef, to: interactorRef, kind: 'contains' });
@@ -311,7 +311,7 @@ export function buildDashboardGraph(args: {
       kind: 'Visualization',
       layer: 'VisualizationLayer',
       title: tableId,
-      description: 'vgplot table (scroll/sort surface)',
+      description: 'VGPlot table (scroll/sort surface)',
       data: {
         tableId,
         from: typeof table.from === 'string' ? table.from : undefined,

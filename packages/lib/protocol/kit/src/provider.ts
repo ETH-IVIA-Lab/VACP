@@ -1,10 +1,4 @@
-import type {
-  VacpCapabilitiesSnapshot,
-  VacpGraph,
-  VacpRef,
-  VacpRuntimeBridge,
-  VacpStateSnapshot,
-} from '@vacp/core';
+import type { VacpCapabilitiesSnapshot, VacpGraph, VacpRef, VacpRuntimeBridge, VacpStateSnapshot } from '@vacp/core';
 import { nowIso, VACP_SCHEMA_VERSION } from '@vacp/core';
 import { installVacpRuntimeBridge, type VacpSnapshotProvider, VacpActionRegistry } from '@vacp/gateway';
 
@@ -44,7 +38,7 @@ export function createVacpSnapshotProvider(args: {
 /**
  * Install a stable runtime bridge and return helpers for annotation + refresh.
  *
- * This is meant to be the “one place” where a visualization wires VACP in:
+ * This is the integration point where a visualization wires VACP in:
  * - the visualization implementation remains framework/DOM-agnostic
  * - this layer adds discovery/control/history as an optional adapter
  */

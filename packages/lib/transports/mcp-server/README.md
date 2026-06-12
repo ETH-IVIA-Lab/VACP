@@ -29,11 +29,16 @@ uv run vacp-mcp-server --url http://localhost:<vite-port>/
 
 Default MCP endpoint: `http://localhost:8000/mcp`.
 
-## Core MCP tools
+## MCP tools
+
+Bridge tools:
 
 - `vacp_capabilities(options?)`
 - `vacp_state(options?)`
 - `vacp_execute(name, params?, call_id?)`
+
+Page helpers:
+
 - `vacp_open_url(url, wait_for_bridge?, timeout_ms?)`
 - `vacp_page_info()`
 
@@ -48,7 +53,7 @@ uv run vacp-mcp-server --transport stdio --url http://localhost:<vite-port>/
 Notes:
 
 - In stdio mode, `--host/--port` are ignored.
-- Keep stdout clean; logs go to stderr.
+- Keep stdout clean. Logs go to stderr.
 
 ## Optional browser tools
 

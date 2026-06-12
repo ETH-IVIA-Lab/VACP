@@ -10,7 +10,7 @@ function normalizeValue(value: any): Normalized {
   if (value instanceof Date) return value.getTime();
   if (Array.isArray(value)) return value.map((v) => normalizeValue(v));
   if (typeof value === 'object') {
-    // Make debugging failures readable: only keep primitive-ish fields.
+    // Keep only primitive fields so assertion diffs stay readable.
     return Object.fromEntries(
       Object.entries(value as Record<string, unknown>)
         .filter(([, v]) => v == null || typeof v === 'string' || typeof v === 'number' || typeof v === 'boolean')
@@ -20,7 +20,7 @@ function normalizeValue(value: any): Normalized {
   return value;
 }
 
-test('vgplot: apply_state does not break subsequent human brushing (Seattle Weather)', async ({ page }) => {
+test('vgplot: apply_state preserves subsequent human brushing (Seattle Weather)', async ({ page }) => {
   const srv = await startViteDevServer({ name: 'vgplot-gallery', cwd: exampleDir('vgplot-gallery') });
   try {
     await page.goto(`${srv.url}?vacp-debug=1#weather`, { waitUntil: 'domcontentloaded' });
@@ -77,7 +77,7 @@ test('vgplot: apply_state does not break subsequent human brushing (Seattle Weat
     });
     expect(first).toBeTruthy();
 
-    // Apply the current state snapshot back into the app (no-op-ish), then brush again.
+    // Apply the current state snapshot back into the app, then brush again.
     const applyRes = await page.evaluate(async () => {
       const vacp = (globalThis as any).__vacp;
       const state = (globalThis as any).__savedState;

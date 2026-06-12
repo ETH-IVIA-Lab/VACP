@@ -28,7 +28,7 @@ plotDefaults:
   height: 150
 
 # Below we explicitly enumerate every chart in the SPLOM.
-# Such repetitions are easy to generate from a host language!
+# Host-language generators can produce these repeated chart blocks.
 vconcat:
   - hconcat:
       - plot:

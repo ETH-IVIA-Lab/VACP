@@ -5,7 +5,7 @@ The implementation in this repo is `@vacp/debug-ui` under `packages/lib/tooling/
 
 ## Open
 
-The overlay is enabled by default in apps that call `installVacpDebugUI`. Click the floating **VACP** control to open it.
+The example apps call `installVacpDebugUI` from `@vacp/kit`, which installs `@vacp/debug-ui` when the overlay flag is enabled. Click the floating **VACP** control to open it.
 
 Disable it with `?vacp-debug=0` or `VACP_DEBUG_UI=0`. Use the Settings tab to inspect the active flags and store browser-level overrides.
 

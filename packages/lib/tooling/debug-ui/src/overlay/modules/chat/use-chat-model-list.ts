@@ -57,7 +57,10 @@ export function useChatModelList({
   const refreshModels = useCallback(() => setModelRefreshSeq((seq) => seq + 1), []);
 
   const canFetchModels =
-    modelPanelVisible && modelRefreshSeq > 0 && debouncedModelReadinessKey === modelReadinessKey && canListModels(config);
+    modelPanelVisible &&
+    modelRefreshSeq > 0 &&
+    debouncedModelReadinessKey === modelReadinessKey &&
+    canListModels(config);
   const modelsQuery = useQuery<VacpLLMModelOption[], Error>({
     queryKey: [MODEL_QUERY_KEY, modelConfigRevision, modelRefreshSeq, modelCacheKey],
     queryFn: ({ signal }) => listVacpLLMModels(config, { signal }),

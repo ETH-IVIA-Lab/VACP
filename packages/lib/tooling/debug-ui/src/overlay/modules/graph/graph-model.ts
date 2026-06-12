@@ -10,13 +10,7 @@ import type {
 } from '@vacp/core';
 import { MarkerType, Position } from '@xyflow/react';
 
-import type {
-  GraphDirection,
-  SelectedGraphItem,
-  VacpFlowEdge,
-  VacpFlowNode,
-  VacpGraphCounts,
-} from './graph-types';
+import type { GraphDirection, SelectedGraphItem, VacpFlowEdge, VacpFlowNode, VacpGraphCounts } from './graph-types';
 import { containsChildrenByParent, descendantsFor, hiddenRefsForCollapse } from './graph-collapse';
 
 const NODE_WIDTH = 280;
@@ -151,8 +145,10 @@ export function filterVacpGraph(
   const visibleRefs = new Set(nodes.map((node) => node.ref));
   const edges = graph.edges.filter((edge) => visibleRefs.has(edge.from) && visibleRefs.has(edge.to));
   const actions = graph.actions.filter((action, index) => {
-    if (focus?.kind === 'action') return action.name === focus.name || (action.name !== focus.name && index === focus.index);
-    if (query && !actionMatchesQuery(action, query) && (!action.targetRef || !visibleRefs.has(action.targetRef))) return false;
+    if (focus?.kind === 'action')
+      return action.name === focus.name || (action.name !== focus.name && index === focus.index);
+    if (query && !actionMatchesQuery(action, query) && (!action.targetRef || !visibleRefs.has(action.targetRef)))
+      return false;
     if (focus?.kind === 'node' && action.targetRef !== focus.ref) return false;
     return !action.targetRef || visibleRefs.has(action.targetRef);
   });

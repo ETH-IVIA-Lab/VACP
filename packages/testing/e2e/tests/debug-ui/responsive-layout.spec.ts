@@ -117,7 +117,11 @@ async function selectedTabpanelOverflowX(page: Page): Promise<boolean> {
     const selectedTab = panel.querySelector<HTMLElement>('[role="tab"][aria-selected="true"]');
     const controls = selectedTab?.getAttribute('aria-controls');
     const tabpanel = controls ? document.getElementById(controls) : null;
-    if (!(tabpanel instanceof HTMLElement) || tabpanel.getAttribute('role') !== 'tabpanel' || !panel.contains(tabpanel)) {
+    if (
+      !(tabpanel instanceof HTMLElement) ||
+      tabpanel.getAttribute('role') !== 'tabpanel' ||
+      !panel.contains(tabpanel)
+    ) {
       throw new Error('Missing selected debug UI tabpanel');
     }
     return tabpanel.scrollWidth > tabpanel.clientWidth + 1;
@@ -314,12 +318,15 @@ async function subheaderHeight(page: Page, moduleName: (typeof MODULES)[number],
 
 async function expectPanelSize(page: Page, expected: { width: number; height: number }, scope: string): Promise<void> {
   await expect
-    .poll(async () => {
-      return await page.locator('#vacp-debug-ui-panel').evaluate((panel) => {
-        const rect = panel.getBoundingClientRect();
-        return { width: Math.round(rect.width), height: Math.round(rect.height) };
-      });
-    }, { message: `${scope} panel size` })
+    .poll(
+      async () => {
+        return await page.locator('#vacp-debug-ui-panel').evaluate((panel) => {
+          const rect = panel.getBoundingClientRect();
+          return { width: Math.round(rect.width), height: Math.round(rect.height) };
+        });
+      },
+      { message: `${scope} panel size` },
+    )
     .toEqual(expected);
 }
 
@@ -448,11 +455,7 @@ for (const viewport of COMPACT_SETUP_VIEWPORTS) {
         '[data-vacp-chat-max-output-tokens="1"]',
         `${viewport.name} max output tokens`,
       );
-      await expectControlReachableInsidePanel(
-        page,
-        '[data-vacp-chat-temperature="1"]',
-        `${viewport.name} temperature`,
-      );
+      await expectControlReachableInsidePanel(page, '[data-vacp-chat-temperature="1"]', `${viewport.name} temperature`);
     } finally {
       await srv.stop();
     }

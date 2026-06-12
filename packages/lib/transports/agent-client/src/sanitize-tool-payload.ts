@@ -6,7 +6,7 @@ const MAX_STRING_LENGTH = 12_000;
 
 function truncateString(value: string): string {
   if (value.length <= MAX_STRING_LENGTH) return value;
-  return `${value.slice(0, MAX_STRING_LENGTH)}… [truncated ${value.length - MAX_STRING_LENGTH} chars]`;
+  return `${value.slice(0, MAX_STRING_LENGTH)}... [truncated ${value.length - MAX_STRING_LENGTH} chars]`;
 }
 
 function sanitizeObjectEntries(
@@ -64,7 +64,9 @@ function sanitizeToolPayloadInternal(value: unknown, seen: WeakSet<object>, dept
   if (value instanceof Date) return Number.isFinite(value.getTime()) ? value.toISOString() : null;
   if (value instanceof Error) return sanitizeError(value, seen, depth);
   if (Array.isArray(value)) {
-    const items = value.slice(0, MAX_ARRAY_ITEMS).map((entry) => sanitizeToolPayloadInternal(entry, seen, depth + 1) ?? null);
+    const items = value
+      .slice(0, MAX_ARRAY_ITEMS)
+      .map((entry) => sanitizeToolPayloadInternal(entry, seen, depth + 1) ?? null);
     return value.length > MAX_ARRAY_ITEMS
       ? [...items, { __truncated: `${value.length - MAX_ARRAY_ITEMS} more items` }]
       : items;

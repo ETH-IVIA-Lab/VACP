@@ -153,7 +153,9 @@ export function GraphModule(props: VacpDebugModuleProps): ReactElement {
   }, [graphItemIds, pruneSelectedNodeIds]);
 
   const toggleKind = (kind: VacpNodeKind) => {
-    setActiveKinds((current) => (current.includes(kind) ? current.filter((item) => item !== kind) : [...current, kind]));
+    setActiveKinds((current) =>
+      current.includes(kind) ? current.filter((item) => item !== kind) : [...current, kind],
+    );
   };
 
   const resetFilters = () => {

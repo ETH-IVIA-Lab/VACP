@@ -40,7 +40,9 @@ test('debug-ui: Graph search kind filters and stable inspect pane work together'
     await page.locator('[data-vacp-graph-reset-filters="1"]').click();
     await page.locator('[data-vacp-graph-kind-filter="DataHandle"]').click();
     await expect.poll(async () => await visibleNodeCount(page)).toBeGreaterThan(0);
-    await expect(page.locator('[data-vacp-graph-node-kind]:not([data-vacp-graph-node-kind="DataHandle"])')).toHaveCount(0);
+    await expect(page.locator('[data-vacp-graph-node-kind]:not([data-vacp-graph-node-kind="DataHandle"])')).toHaveCount(
+      0,
+    );
 
     const dataNode = page.locator('[data-vacp-graph-node-kind="DataHandle"]').first();
     const dataRef = await dataNode.getAttribute('data-vacp-graph-node-ref');

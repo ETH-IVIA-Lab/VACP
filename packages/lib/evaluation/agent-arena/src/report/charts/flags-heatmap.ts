@@ -50,9 +50,9 @@ function flagsHeatmapCells(ctx: Parameters<ArenaChart<FlagsHeatmapChartConfig>['
 
 export const flagsHeatmapChart: ArenaChart<FlagsHeatmapChartConfig> = {
   id: 'flags-heatmap',
-  title: 'Policy and Infrastructure Flags — Rate',
+  title: 'Policy and Infrastructure Flags: Rate',
   caption:
-    'How often key reliability flags appeared in each experiment. Rates use only runs with flag telemetry; missing values are excluded and shown as n/a.',
+    'How often key reliability flags appeared in each experiment. Rates use only runs with flag telemetry. Missing values are excluded and shown as n/a.',
   isApplicable: (ctx) =>
     ctx.runs.some(
       (r) =>
@@ -103,7 +103,7 @@ export const flagsHeatmapChart: ArenaChart<FlagsHeatmapChartConfig> = {
               if (d.rate === null)
                 return `${d.experiment} × ${d.flag_label}\nRate: n/a (0/${d.total} runs report flag)`;
               const missing = Math.max(0, d.total - d.usable);
-              return `${d.experiment} × ${d.flag_label}\nRate: ${fmtPct(d.rate)} (${d.count}/${d.usable}${missing ? `; ${missing} missing` : ''})`;
+              return `${d.experiment} × ${d.flag_label}\nRate: ${fmtPct(d.rate)} (${d.count}/${d.usable}${missing ? `, ${missing} missing` : ''})`;
             },
           }),
           Plot.text(cells, {

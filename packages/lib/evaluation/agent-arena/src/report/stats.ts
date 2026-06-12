@@ -21,8 +21,8 @@ export type NormalizedRun = {
   modelName: string;
 
   ok: boolean;
-  // True when the run reached a stable, gradeable state (no infra/harness failures detected).
-  // Older analysis folders won't have this field; fall back to `ok`.
+  // True when the run reached a stable, gradeable state with no detected infra or harness failure.
+  // Archived analysis rows may only have `ok`, so use it as the plumbing fallback.
   plumbingOk: boolean | null;
   plumbingFailure: string | null;
   runErrorMessage: string | null;

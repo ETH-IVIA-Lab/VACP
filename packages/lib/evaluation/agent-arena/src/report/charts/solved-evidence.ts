@@ -41,5 +41,5 @@ function cleanText(value: string) {
 
 function truncate(value: string, maxChars: number) {
   if (value.length <= maxChars) return value;
-  return `${value.slice(0, maxChars - 1)}…`;
+  return `${value.slice(0, maxChars - 1)}...`;
 }

@@ -80,9 +80,15 @@ function FlowCanvas(props: {
         pannable
         zoomable
         nodeStrokeWidth={2}
-        nodeColor={(node) => (node.data.graphKind === 'action' ? 'rgba(245, 158, 11, 0.34)' : 'rgba(148, 163, 184, 0.42)')}
+        nodeColor={(node) =>
+          node.data.graphKind === 'action' ? 'rgba(245, 158, 11, 0.34)' : 'rgba(148, 163, 184, 0.42)'
+        }
         nodeStrokeColor={(node) =>
-          node.data.selected ? 'rgba(226, 232, 240, 0.82)' : node.data.graphKind === 'action' ? 'rgba(245, 158, 11, 0.48)' : 'rgba(148, 163, 184, 0.52)'
+          node.data.selected
+            ? 'rgba(226, 232, 240, 0.82)'
+            : node.data.graphKind === 'action'
+              ? 'rgba(245, 158, 11, 0.48)'
+              : 'rgba(148, 163, 184, 0.52)'
         }
       />
       <Panel position="bottom-left" className="vacp-debug-ui-flow-controls" aria-label="Graph zoom controls">
@@ -108,7 +114,13 @@ function FlowCanvas(props: {
         >
           <Minus aria-hidden="true" />
         </button>
-        <button type="button" className="vacp-debug-ui-flow-control" aria-label="Fit View" title="Fit View" onClick={fitGraph}>
+        <button
+          type="button"
+          className="vacp-debug-ui-flow-control"
+          aria-label="Fit View"
+          title="Fit View"
+          onClick={fitGraph}
+        >
           <Maximize2 aria-hidden="true" />
         </button>
       </Panel>

@@ -56,7 +56,7 @@ function main() {
       answer_parse_status: 'no_json_fence',
       solved_strict: null,
       solved_semantic: null,
-      // Earlier analysis exports only had `cost`.
+      // Cost-only rows remain supported for archived analysis exports.
       cost: 3.6,
       tokens_input: 5,
       tokens_output: 5,

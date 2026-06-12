@@ -1,6 +1,9 @@
 [project]
 name = "vacp-mcp-server"
-version = "0.0.0"
+version = "0.1.0"
+description = "MCP server that exposes VACP-enabled web pages to external agents through Playwright"
+readme = "README.md"
+authors = [{ name = "Péter Ferenc Gyarmati", email = "dev.petergy@gmail.com" }]
 requires-python = ">=3.12"
 dependencies = [
   "fastapi>=0.115.0",

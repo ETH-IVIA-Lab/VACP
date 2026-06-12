@@ -1,11 +1,7 @@
 import type { KeyboardEvent as ReactKeyboardEvent, ReactElement, ReactNode } from 'react';
 import { useEffect, useState } from 'react';
 
-import {
-  formatJsonLiteral,
-  parseJsonLiteral,
-  type JsonPath,
-} from '@vacp/debug-ui/ui/components/ui/json-editor-model';
+import { formatJsonLiteral, parseJsonLiteral, type JsonPath } from '@vacp/debug-ui/ui/components/ui/json-editor-model';
 
 function formatEditableLiteral(value: unknown): string {
   return formatJsonLiteral(value) ?? String(value);

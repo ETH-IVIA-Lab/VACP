@@ -8,7 +8,7 @@ This package standardizes how apps expose semantic data access through the `vacp
 
 ## When to use
 
-- You want tools/agents to query the app’s dataset through a stable semantic action.
+- You want tools or agents to query the app dataset through a stable semantic action.
 - You want to back `vacp.data_sql` with DuckDB (WASM or server-side).
 
 ## Conceptual model

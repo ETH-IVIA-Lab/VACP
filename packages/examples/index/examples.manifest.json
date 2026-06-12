@@ -3,7 +3,7 @@
     "id": "vgplot",
     "route": "vgplot",
     "title": "VGPlot Gallery",
-    "description": "Spec-driven examples with rich interactions powered by vgplot.",
+    "description": "Spec-driven examples with rich interactions powered by VGPlot.",
     "folder": "vgplot-gallery",
     "adapterModule": "../../vgplot-gallery/src/mfe.ts",
     "smokeSelector": "#app svg, #app canvas"

@@ -15,8 +15,6 @@ __pycache__
 
 .git
 **/.git
-nogit
-**/nogit
 .venv
 **/.venv
 .pytest_cache

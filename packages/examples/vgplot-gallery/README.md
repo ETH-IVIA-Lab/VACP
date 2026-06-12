@@ -1,6 +1,6 @@
 # VGPlot gallery
 
-VACP + vgplot (VGPlot runtime).
+VACP + VGPlot.
 
 This example exposes a VGPlot dashboard through VACP by installing a bridge at `window.__vacp` (unless
 `?expose-bridge=0`).
@@ -57,20 +57,18 @@ automation.
 - Use a brush/interval _Selection_ on the chart.
 - Watch how:
   - `window.__vacp.getState()` changes
-  - runtime history grows (debug overlay → **History**)
-
-### Try it: agent-style actions
+  - runtime history grows (debug overlay -> **History**)
 
 ### Try it: manual action dispatch
 
-- Debug overlay → **Actions**
-- Pick an action and provide JSON params
+- Open Debug overlay -> **Actions**.
+- Pick an action and provide JSON params.
 
-This is useful when:
+Manual dispatch covers these checks:
 
-- you want to validate action schemas
-- you want to reproduce an interaction deterministically
-- you want to compare “human brush” vs “semantic action” outcomes
+- Validate action schemas.
+- Reproduce an interaction deterministically.
+- Compare human brush and semantic action outcomes.
 
 ## How to add or edit specs
 
@@ -82,16 +80,16 @@ meta:
   description: Two linked histograms sharing a *Selection*.
 ```
 
-Everything under `meta` is ignored by the vgplot runtime and only used by the gallery UI.
+Everything under `meta` is ignored by the VGPlot runtime and only used by the gallery UI.
 
 ## How bidirectionality is achieved
 
-- **Human** updates the vgplot interactor state (brush/toggle/menu).
+- **Human** updates the VGPlot interactor state (brush/toggle/menu).
 - `@vacp/vgplot` observes/reads the current _Selection_ state and exposes it via `window.__vacp.getState()`.
 - **Agent** dispatches an equivalent semantic action via `window.__vacp.execute(...)` (or `dispatch(...)` when available).
 - Both paths record into the same runtime history so time travel/debugging works across both.
 
-## Useful entry points
+## Entry points
 
 - App wiring: `src/app.ts`
 - Specs + metadata: `src/specs/`

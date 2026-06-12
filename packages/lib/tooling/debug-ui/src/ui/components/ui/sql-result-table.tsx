@@ -178,7 +178,10 @@ export function SqlResultTable({
     <div
       role="table"
       aria-label="SQL query results"
-      className={cn('w-full min-w-0 overflow-hidden rounded-lg border border-white/[0.075] bg-white/[0.025]', className)}
+      className={cn(
+        'w-full min-w-0 overflow-hidden rounded-lg border border-white/[0.075] bg-white/[0.025]',
+        className,
+      )}
       style={{ height, maxHeight: height }}
     >
       <div ref={scrollRef} className="h-full w-full overflow-auto">
@@ -264,7 +267,7 @@ export function SqlResultTable({
                   className="absolute left-0 right-0 flex items-center px-3 text-[12px] text-slate-100/60"
                   style={{ top: rows.length * rowHeight, height: rowHeight }}
                 >
-                  {loadingMore ? 'Loading…' : 'Scroll to load more'}
+                  {loadingMore ? 'Loading...' : 'Scroll to load more'}
                 </div>
               ) : null}
             </div>

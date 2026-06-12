@@ -165,14 +165,14 @@ export function installVacpForCarsParallelCoords(args: {
   const isFiniteNumber = (value: unknown): value is number => typeof value === 'number' && Number.isFinite(value);
 
   actions
-    .action('parallel_coords.set_hover', 'Set the currently hovered line (shows tooltip; best-effort).')
+    .action('parallel_coords.set_hover', 'Set the hovered line by row id or car-name match and show its tooltip.')
     .target(hoverRef)
     .params({
       type: 'object',
       properties: {
         clear: { type: 'boolean', description: 'If true, clear the current hover.' },
         id: { type: 'number', description: 'Row id (internal numeric id used by this demo).' },
-        car: { type: 'string', description: 'Car name to hover (best-effort match within current selection).' },
+        car: { type: 'string', description: 'Car-name substring to match within the current selection.' },
         prefer: {
           type: 'string',
           enum: ['first', 'min_horsepower_nonzero', 'max_horsepower'],
@@ -284,7 +284,7 @@ export function installVacpForCarsParallelCoords(args: {
 
       return { applied };
     },
-    { targetRef: vizRef, description: 'Apply brush ranges + dimension order (best-effort).' },
+    { targetRef: vizRef, description: 'Apply brush ranges, axis order, and hover state.' },
   );
 
   const sql = createDuckDbSqlRouter({ duckdb });
@@ -350,7 +350,7 @@ export function installVacpForCarsParallelCoords(args: {
         kind: 'Param',
         layer: 'ConfigLayer',
         title: 'dimension_order',
-        description: 'Axis order (left → right).',
+        description: 'Axis order from left to right.',
         data: { type: 'string[]' },
       },
       {

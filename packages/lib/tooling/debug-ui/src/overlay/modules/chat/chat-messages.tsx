@@ -20,13 +20,16 @@ function toolPartName(part: UiPart): string {
 
 function previewValue(value: unknown): string | null {
   if (value === null || value === undefined) return null;
-  const raw = typeof value === 'string' ? value : (() => {
-    try {
-      return JSON.stringify(value);
-    } catch {
-      return String(value);
-    }
-  })();
+  const raw =
+    typeof value === 'string'
+      ? value
+      : (() => {
+          try {
+            return JSON.stringify(value);
+          } catch {
+            return String(value);
+          }
+        })();
   return raw.length > TOOL_SUMMARY_LIMIT ? `${raw.slice(0, TOOL_SUMMARY_LIMIT)}...` : raw;
 }
 
@@ -40,7 +43,8 @@ function toolSummary(part: UiPart): string | null {
 
 function ToolPartDetails(props: { part: UiPart; idx: number }): ReactElement {
   const state = 'state' in props.part ? String(props.part.state) : undefined;
-  const callId = 'toolCallId' in props.part && typeof props.part.toolCallId === 'string' ? props.part.toolCallId : undefined;
+  const callId =
+    'toolCallId' in props.part && typeof props.part.toolCallId === 'string' ? props.part.toolCallId : undefined;
   const input = 'input' in props.part ? props.part.input : undefined;
   const output = 'output' in props.part ? props.part.output : undefined;
   const errorText = 'errorText' in props.part ? props.part.errorText : undefined;
@@ -68,7 +72,9 @@ function ToolPartDetails(props: { part: UiPart; idx: number }): ReactElement {
           ) : null}
           {callId ? <span className="text-[10px] text-slate-100/55 [overflow-wrap:anywhere]">{callId}</span> : null}
         </div>
-        {toolSummary(props.part) ? <div className="truncate text-[10px] text-slate-100/60">{toolSummary(props.part)}</div> : null}
+        {toolSummary(props.part) ? (
+          <div className="truncate text-[10px] text-slate-100/60">{toolSummary(props.part)}</div>
+        ) : null}
       </summary>
       {expanded ? (
         <div className="mt-2 grid gap-2">
@@ -88,7 +94,12 @@ function ToolPartDetails(props: { part: UiPart; idx: number }): ReactElement {
             <div>
               <div className="text-[10px] font-semibold uppercase tracking-wide text-slate-100/65">Output</div>
               {stablePayload ? (
-                <JsonViewer value={output} className="vacp-chat-json-view mt-1 p-2" expandDepth={1} scrollable={false} />
+                <JsonViewer
+                  value={output}
+                  className="vacp-chat-json-view mt-1 p-2"
+                  expandDepth={1}
+                  scrollable={false}
+                />
               ) : (
                 <pre className="mt-1 max-h-32 overflow-auto rounded-md border border-white/[0.075] bg-white/[0.018] p-2 text-[10px] text-slate-100/70">
                   {previewValue(output) ?? 'Streaming output...'}
@@ -168,7 +179,10 @@ export function ChatMessages(props: {
       >
         <div
           ref={props.contentRef}
-          className={cn('mx-auto flex min-h-full w-full max-w-4xl flex-col', props.compact ? 'gap-2 pb-2' : 'gap-3 pb-4')}
+          className={cn(
+            'mx-auto flex min-h-full w-full max-w-4xl flex-col',
+            props.compact ? 'gap-2 pb-2' : 'gap-3 pb-4',
+          )}
         >
           {props.messages.length === 0 ? (
             <div className={cn('px-1 text-[12px] text-slate-100/64', props.compact ? 'py-2' : 'py-4')}>
@@ -198,7 +212,12 @@ export function ChatMessages(props: {
                         : 'border-white/[0.075] bg-white/[0.02]',
                   )}
                 >
-                  <div className={cn('text-[10px] font-semibold uppercase text-slate-100/60', props.compact ? 'mb-1' : 'mb-2')}>
+                  <div
+                    className={cn(
+                      'text-[10px] font-semibold uppercase text-slate-100/60',
+                      props.compact ? 'mb-1' : 'mb-2',
+                    )}
+                  >
                     {roleLabel}
                   </div>
                   <div className="grid gap-2">

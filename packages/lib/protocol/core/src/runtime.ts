@@ -15,9 +15,9 @@ import type {
  * However, many workflows (debugging, replay, time travel, undo/redo) benefit
  * from a *runtime* that records a timeline of snapshots and action results.
  *
- * Importantly, this runtime layer is *not MCP-specific*: MCP is just one
- * transport that can read and invoke the protocol surface. The runtime exists
- * in the app, and can be used by humans (debug UI), agents, or other tooling.
+ * The runtime layer is transport-neutral. MCP is one transport that can read
+ * and invoke the protocol surface. The runtime exists in the app and can be
+ * used by humans (debug UI), agents, or other tooling.
  */
 export type VacpChangeSource = 'human' | 'agent' | 'debug' | 'system';
 
@@ -71,8 +71,7 @@ export interface VacpRuntimeSnapshot {
 /**
  * Optional extended in-page bridge contract for debugging and time travel.
  *
- * This is still VACP (protocol + snapshots + actions), but exposes runtime
- * instrumentation that makes it easy to build tools like a debug overlay.
+ * Runtime instrumentation for in-page tools such as the debug overlay.
  */
 export interface VacpRuntimeBridge extends VacpWindowBridge {
   getRuntime?: () => Promise<VacpRuntimeSnapshot> | VacpRuntimeSnapshot;
@@ -81,7 +80,7 @@ export interface VacpRuntimeBridge extends VacpWindowBridge {
    * Listeners are only invoked in-page (not over MCP).
    */
   subscribe?: (listener: (entry: VacpHistoryEntry) => void) => () => void;
-  /** Capture a fresh state snapshot (useful on human-driven UI changes). */
+  /** Capture a fresh state snapshot after human-driven UI changes. */
   refresh?: (options?: { source?: VacpChangeSource; message?: string }) => Promise<VacpStateSnapshot>;
   /** Switch between live and time-travel inspection. */
   setMode?: (mode: VacpRuntimeMode, options?: { source?: VacpChangeSource; message?: string }) => void;
@@ -109,7 +108,7 @@ export interface VacpRuntimeBridge extends VacpWindowBridge {
   /**
    * Optional state observer:
    * - records timeline entries when snapshots change
-   * - useful when the provider cannot emit events for human interactions
+   * - records human interactions for providers that cannot emit events
    */
   startObserving?: (options?: { intervalMs?: number; source?: VacpChangeSource; message?: string }) => void;
   stopObserving?: () => void;

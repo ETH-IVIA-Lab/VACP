@@ -22,7 +22,11 @@ export interface VgplotMarkLike {
 export interface VgplotInteractorLike {
   constructor: { name: string };
   value?: unknown;
-  selection?: { value?: unknown; update?: (...args: unknown[]) => unknown; predicate?: (...args: unknown[]) => unknown };
+  selection?: {
+    value?: unknown;
+    update?: (...args: unknown[]) => unknown;
+    predicate?: (...args: unknown[]) => unknown;
+  };
   init?: (svg: SVGElement) => unknown | Promise<unknown>;
 }
 

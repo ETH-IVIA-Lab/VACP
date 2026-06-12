@@ -9,8 +9,8 @@ from typing import Any, Protocol, cast
 
 from openai import AsyncOpenAI
 
-from arena_analyis.contract import RESPONSE_SCHEMA, normalize_shifts, parse_meta, validate_turns
-from arena_analyis.runs import Job
+from arena_analysis.contract import RESPONSE_SCHEMA, normalize_shifts, parse_meta, validate_turns
+from arena_analysis.runs import Job
 
 TranscriptReader = Callable[[Path], str]
 StatesReader = Callable[[Path], Any]
@@ -192,14 +192,14 @@ async def process(
             states_reader=states_reader,
         )
         if errors:
-            return Result(job=job, ok=False, kind='skipped_existing', attempts=0, error='; '.join(errors))
+            return Result(job=job, ok=False, kind='skipped_existing', attempts=0, error='. '.join(errors))
         return Result(job=job, ok=True, kind='skipped_existing', attempts=0)
 
     if meta.is_stub:
         states_writer(job.states, [])
         errors = validate_turns([], meta)
         if errors:
-            return Result(job=job, ok=False, kind='stub', attempts=0, error='; '.join(errors))
+            return Result(job=job, ok=False, kind='stub', attempts=0, error='. '.join(errors))
         return Result(job=job, ok=True, kind='stub', attempts=0)
 
     last_error: str | None = None
@@ -210,7 +210,7 @@ async def process(
             normalized_turns = normalize_shifts(turns)
             errors = validate_turns(normalized_turns, meta)
             if errors:
-                raise ValueError('; '.join(errors))
+                raise ValueError('. '.join(errors))
             states_writer(job.states, normalized_turns)
             return Result(job=job, ok=True, kind='classified', attempts=attempt)
         except Exception as exc:

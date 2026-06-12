@@ -80,7 +80,7 @@ function toolsHeatmapByTaskCells(
 
 export const toolsHeatmapByTaskChart: ArenaChart<ToolsHeatmapByTaskChartConfig> = {
   id: 'tools-heatmap-by-task',
-  title: 'Top Tools by Calls per Run — Task View',
+  title: 'Top Tools by Calls per Run: Task View',
   caption: 'Top tools normalized by run count, shown per task. Cells show calls per run.',
   isApplicable: (ctx) => ctx.toolByScenario.length > 0,
   getData: (ctx, config) => toolsHeatmapByTaskCells(ctx, config),

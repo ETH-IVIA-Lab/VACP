@@ -6,7 +6,7 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
-from arena_analyis.paths import ENV_FILE
+from arena_analysis.paths import ENV_FILE
 
 DEFAULT_BASE_URL = 'http://localhost:8317/v1'
 DEFAULT_MODEL = 'gpt-5.4'

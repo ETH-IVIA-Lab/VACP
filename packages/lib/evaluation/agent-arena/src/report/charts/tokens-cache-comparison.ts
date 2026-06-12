@@ -89,7 +89,7 @@ function renderMedianTokenBars(args: {
 
 export const tokensMedianNoCacheChart: ArenaChart<TokensMedianByBasisChartConfig> = {
   id: 'tokens-median-no-cache',
-  title: 'Median Token Accounting by Experiment — No Cache',
+  title: 'Median Token Accounting by Experiment: No Cache',
   caption: 'Supporting view with no-cache medians by experiment.',
   isApplicable: (ctx) => ctx.summaries.some((s) => typeof s.tokensMedianNoCache === 'number'),
   getData: (ctx) => medianTokenRows(ctx, 'no-cache'),
@@ -99,7 +99,7 @@ export const tokensMedianNoCacheChart: ArenaChart<TokensMedianByBasisChartConfig
       config,
       basis: 'no-cache',
       id: 'tokens-median-no-cache',
-      title: 'Median Token Accounting by Experiment — No Cache',
+      title: 'Median Token Accounting by Experiment: No Cache',
       caption: 'Supporting view with no-cache medians by experiment.',
       barFill: ctx.theme.colors.info,
     }),
@@ -107,8 +107,8 @@ export const tokensMedianNoCacheChart: ArenaChart<TokensMedianByBasisChartConfig
 
 export const tokensMedianWithCacheChart: ArenaChart<TokensMedianByBasisChartConfig> = {
   id: 'tokens-median-with-cache',
-  title: 'Median Token Accounting by Experiment — With Cache',
-  caption: 'Primary token view with with-cache medians by experiment.',
+  title: 'Median Token Accounting by Experiment: With Cache',
+  caption: 'Primary token view with cache-aware medians by experiment.',
   isApplicable: (ctx) => ctx.summaries.some((s) => typeof s.tokensMedianWithCacheAll === 'number'),
   getData: (ctx) => medianTokenRows(ctx, 'with-cache'),
   render: (ctx, config) =>
@@ -117,8 +117,8 @@ export const tokensMedianWithCacheChart: ArenaChart<TokensMedianByBasisChartConf
       config,
       basis: 'with-cache',
       id: 'tokens-median-with-cache',
-      title: 'Median Token Accounting by Experiment — With Cache',
-      caption: 'Primary token view with with-cache medians by experiment.',
+      title: 'Median Token Accounting by Experiment: With Cache',
+      caption: 'Primary token view with cache-aware medians by experiment.',
       barFill: ctx.theme.colors.info,
     }),
 };

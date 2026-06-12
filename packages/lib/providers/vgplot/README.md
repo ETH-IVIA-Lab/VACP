@@ -2,21 +2,21 @@
 
 ## Purpose
 
-First-class VACP integration for vgplot (VGPlot runtime).
+First-class VACP integration for VGPlot.
 
-This provider maps vgplot’s runtime semantics (*View*s, interactors, *Selection*s) into VACP capabilities/state/actions.
+This provider maps VGPlot runtime semantics (*View*s, interactors, *Selection*s) into VACP capabilities/state/actions.
 
 ## When to use
 
-- You build visualizations with vgplot runtime and want them to be agent-ready.
+- You build visualizations with the VGPlot runtime and want VACP state and actions.
 - You want semantic actions for selection/interaction instead of pixel automation.
 
 ## Conceptual model
 
-Treat this provider as a compiler layer:
+The provider maps VGPlot concepts into VACP:
 
-- vgplot runtime entities become stable refs and graph nodes,
-- vgplot interaction semantics become state snapshot entries,
+- VGPlot runtime entities become stable refs and graph nodes,
+- VGPlot interaction semantics become state snapshot entries,
 - semantic actions are registered for intent-level operations.
 
 ## Minimal usage

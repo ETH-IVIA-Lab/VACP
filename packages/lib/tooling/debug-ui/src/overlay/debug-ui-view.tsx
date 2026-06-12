@@ -341,7 +341,8 @@ function HealthPill(props: { label: string; value: string | number; tone?: 'ok' 
 }
 
 function RuntimeHealthStrip(props: { health: RuntimeHealthSnapshot; densePanel: boolean }): ReactElement {
-  const bridgeTone = props.health.bridgeStatus === 'ok' ? 'ok' : props.health.bridgeStatus === 'missing' ? 'error' : 'warn';
+  const bridgeTone =
+    props.health.bridgeStatus === 'ok' ? 'ok' : props.health.bridgeStatus === 'missing' ? 'error' : 'warn';
   const providerTone =
     props.health.providerStatus === 'ok' ? 'ok' : props.health.providerStatus === 'error' ? 'error' : 'warn';
   const consoleTone = props.health.consoleErrors > 0 ? 'error' : 'ok';

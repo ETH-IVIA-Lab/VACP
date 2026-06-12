@@ -9,7 +9,7 @@ Helpers for bring-your-own-provider VACP integrations.
 ## When to use
 
 - Your app has custom interactions and you want semantic actions/state without pixel automation.
-- You are integrating VACP into a non-vgplot / non-Vega-Lite visualization stack.
+- You are integrating VACP into a visualization stack other than VGPlot or Vega-Lite.
 
 ## Conceptual model
 

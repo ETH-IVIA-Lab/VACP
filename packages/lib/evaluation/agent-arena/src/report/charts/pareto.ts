@@ -24,7 +24,7 @@ function paretoPoints(ctx: Parameters<ArenaChart<ParetoChartConfig>['getData']>[
 
 export const paretoChart: ArenaChart<ParetoChartConfig> = {
   id: 'pareto',
-  title: 'Duration vs Tokens — Medians',
+  title: 'Duration vs Tokens: Medians',
   caption:
     'Each point is one experiment. Right means more median tokens (without cache), up means slower runs. Labels include semantic solved rate (strict shown secondarily in tooltip).',
   isApplicable: (ctx) =>

@@ -98,9 +98,9 @@ function compactGraph(capabilities: VacpCapabilitiesSnapshot): {
   edges: VacpCapabilitiesSnapshot['graph']['edges'];
   actions: Array<{ name: string; targetRef?: VacpRef; title?: string; description?: string }>;
 } {
-  // This intentionally strips graph payloads down to fields that are useful for
-  // planning/action selection. Omitting richer provider metadata keeps DOM size
-  // down and makes graph token churn far less likely between state updates.
+  // Compact graph payloads to the fields needed for planning and action
+  // selection. Omitting provider metadata keeps DOM size down and reduces token
+  // churn between state updates.
   return {
     nodes: capabilities.graph.nodes.map((n) => ({
       ref: n.ref,

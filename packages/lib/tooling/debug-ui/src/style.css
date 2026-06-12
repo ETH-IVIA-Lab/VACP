@@ -110,9 +110,7 @@
 
 #vacp-debug-ui-panel .vacp-debug-ui-flow .react-flow {
   color: rgba(226, 232, 240, 0.86);
-  background:
-    radial-gradient(circle at 18% 12%, rgba(148, 163, 184, 0.04), transparent 26%),
-    rgba(7, 12, 16, 0.18);
+  background: radial-gradient(circle at 18% 12%, rgba(148, 163, 184, 0.04), transparent 26%), rgba(7, 12, 16, 0.18);
 }
 
 #vacp-debug-ui-panel .vacp-debug-ui-flow .react-flow__background,

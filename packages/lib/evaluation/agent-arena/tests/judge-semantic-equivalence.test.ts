@@ -32,7 +32,7 @@ const monthRangeEquivalentDash = monthRangeJudge({
   parseStatus: 'ok',
   answer: {
     moreSunnyRange: 'Aug - Oct',
-    moreRainyRange: 'Feb–Apr',
+    moreRainyRange: 'Feb\u2013Apr',
   },
 });
 

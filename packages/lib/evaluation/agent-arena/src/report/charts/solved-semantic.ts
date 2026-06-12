@@ -22,7 +22,7 @@ function solvedSemanticRows(ctx: Parameters<ArenaChart<SolvedSemanticChartConfig
 
 export const solvedSemanticChart: ArenaChart<SolvedSemanticChartConfig> = {
   id: 'solved-semantic',
-  title: 'Solved Rate — Semantic',
+  title: 'Solved Rate: Semantic',
   caption:
     'Share of runs solved in semantic mode. Semantic accepts meaning-equivalent answers even when wording differs.',
   isApplicable: (ctx) => ctx.runs.some((r) => typeof r.solvedSemantic === 'boolean'),
@@ -68,7 +68,7 @@ export const solvedSemanticChart: ArenaChart<SolvedSemanticChartConfig> = {
               return [
                 d.experiment,
                 `n=${d.total}`,
-                `Solved semantic: ${fmtPct(d.solved_semantic_rate)} (${d.solved}/${d.usable}${missing ? `; ${missing} missing` : ''})`,
+                `Solved semantic: ${fmtPct(d.solved_semantic_rate)} (${d.solved}/${d.usable}${missing ? `, ${missing} missing` : ''})`,
               ].join('\n');
             },
           }),

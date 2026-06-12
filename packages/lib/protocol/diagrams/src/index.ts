@@ -49,7 +49,7 @@ function shortRef(ref: VacpRef): string {
 
 function clampLabel(s: string, max: number): string {
   if (s.length <= max) return s;
-  return `${s.slice(0, Math.max(0, max - 1))}…`;
+  return `${s.slice(0, Math.max(0, max - 1))}...`;
 }
 
 function mermaidIdForIndex(i: number): string {

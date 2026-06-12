@@ -61,7 +61,7 @@ export function ChatConfigPanel(props: ChatConfigPanelProps): ReactElement {
             >
               <Trash2 className="h-4 w-4 text-slate-100/90" />
             </Button>
-            {props.showClose ?? true ? (
+            {(props.showClose ?? true) ? (
               <Button size="iconSm" aria-label="Close settings" title="Close settings" onClick={props.onClose}>
                 <X className="h-4 w-4 text-slate-100/90" />
               </Button>

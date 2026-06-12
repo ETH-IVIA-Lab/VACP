@@ -2,7 +2,13 @@ import { expect, test } from '@playwright/test';
 
 import { startViteDevServer } from '../helpers/devserver';
 import { exampleDir } from '../helpers/paths';
-import { debugRuntimeState, dimensionOrder, dispatchDimensionOrderPair, waitForRuntimeMode, waitForVacpBridge } from './helpers';
+import {
+  debugRuntimeState,
+  dimensionOrder,
+  dispatchDimensionOrderPair,
+  waitForRuntimeMode,
+  waitForVacpBridge,
+} from './helpers';
 
 test('debug-ui: history undo/redo updates time travel cursor', async ({ page }) => {
   const srv = await startViteDevServer({

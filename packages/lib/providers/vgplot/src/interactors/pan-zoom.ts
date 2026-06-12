@@ -17,9 +17,8 @@ type PanZoomInteractor = {
 /**
  * Programmatic control of vgplot pan/zoom.
  *
- * Pan/zoom is not a data *selection*; it's a view-domain operation. For
- * VACP it still matters, because agents should be able to navigate the view
- * with the same semantics as humans ("zoom into this range").
+ * Pan/zoom is a view-domain operation. VACP still exposes it so agents can
+ * navigate the view with the same semantics as humans ("zoom into this range").
  */
 export async function executePanZoomAction(plot: VgplotPlotLike, call: VacpActionCall): Promise<unknown> {
   const params = (call.params ?? {}) as Record<string, unknown>;

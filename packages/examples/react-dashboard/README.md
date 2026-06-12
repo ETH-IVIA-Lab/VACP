@@ -8,7 +8,7 @@ Example React dashboard wired to VACP via `@vacp/kit`.
 - Encoding controls for `x`, `y`, and `color`.
 - Linked *View*s:
   - Scatter plot (point toggle + 2D brush)
-  - Distribution _View_ (histogram/PDF; click bars to select a bin)
+  - Distribution _View_ (histogram/PDF with clickable bars for bin selection)
   - Data table _View_ (TanStack Table)
 - VACP bridge:
   - Semantic actions (`dashboard.*`) for dataset/encoding/_Selection_, including `dashboard.set_brush_2d`
@@ -26,8 +26,8 @@ From the repo root:
 - Drag in the scatter to brush-select (replaces the _Selection_). Drag the brush rectangle to move it.
 - Click distribution bars to select a bin (also replaces the _Selection_).
 - Double-click a chart to clear _Selection_.
-- Use the Distribution _View_ to inspect PDFs; _Selection_ drives the subset.
-- Scroll the Data Table; _Selection_ drives the subset.
+- Use the Distribution _View_ to inspect PDFs. _Selection_ drives the subset.
+- Scroll the Data Table. _Selection_ drives the subset.
 - Open the overlay with the floating **VACP** button, then run SQL like:
   - `SELECT COUNT(*) AS n FROM vacp_all`
   - `SELECT COUNT(*) AS n FROM vacp_handle`

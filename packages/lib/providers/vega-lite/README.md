@@ -8,12 +8,12 @@ This provider connects to a Vega _View_ and exposes a stable VACP bridge with ca
 
 ## When to use
 
-- You render Vega-Lite (or Vega) and want agent-ready semantics.
+- You render Vega-Lite (or Vega) and want VACP state and actions.
 - You want to control *Param*s and *Selection*s through semantic actions.
 
 ## Conceptual model
 
-This provider maps the Vega runtime into VACP:
+The provider maps the Vega runtime into VACP:
 
 - _View_/_Param_/_Selection_ entities become graph nodes with stable refs,
 - _Param_ and _Selection_ values appear in the state snapshot,

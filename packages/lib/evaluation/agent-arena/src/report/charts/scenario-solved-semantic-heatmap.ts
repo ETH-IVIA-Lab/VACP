@@ -52,7 +52,7 @@ function scenarioSolvedSemanticCells(
 
 export const scenarioSolvedSemanticHeatmapChart: ArenaChart<ScenarioSolvedSemanticHeatmapChartConfig> = {
   id: 'scenario-heatmap-semantic',
-  title: 'Scenario by Experiment — Solved Semantic',
+  title: 'Scenario by Experiment: Solved Semantic',
   caption: 'Semantic result per task.',
   isApplicable: (ctx) => ctx.runs.some((r) => typeof r.solvedSemantic === 'boolean'),
   getData: (ctx) => scenarioSolvedSemanticCells(ctx),
@@ -61,7 +61,7 @@ export const scenarioSolvedSemanticHeatmapChart: ArenaChart<ScenarioSolvedSemant
       items: [
         { label: 'Correct Solution', fill: ctx.theme.colors.ok },
         { label: 'Incorrect Solution', fill: ctx.theme.colors.bad },
-        { label: 'Timeout', fill: ctx.theme.colors.grid },
+        { label: 'Plumbing Failure', fill: ctx.theme.colors.grid },
         { label: 'Not run', fill: '#ffffff', stroke: ctx.theme.colors.grid },
       ],
     };
@@ -202,7 +202,7 @@ function formatSolvedSemanticCellTitle(row: {
 }) {
   if (row.bucket === 'not-run') return `${row.experiment} × ${row.scenario_id}\nNot run`;
   if (row.bucket === 'timeout')
-    return `${row.experiment} × ${row.scenario_id}\nOutcome: Timeout (no usable solved_semantic value)`;
+    return `${row.experiment} × ${row.scenario_id}\nOutcome: Plumbing Failure (no usable solved_semantic value)`;
 
   const verdict = row.bucket === 'correct_solution' ? 'Correct Solution' : 'Incorrect Solution';
   return [

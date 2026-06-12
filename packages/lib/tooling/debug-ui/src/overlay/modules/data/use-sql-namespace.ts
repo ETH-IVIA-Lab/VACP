@@ -129,7 +129,12 @@ export function useSqlSchema(args: {
           if (cancelled) return;
           const handleCols = isJsonSchemaResult(handleRes) ? columnsFromNames(handleRes.columns) : [];
           const allCols = isJsonSchemaResult(allRes) ? columnsFromNames(allRes.columns) : [];
-          const next: DebugSqlSchema = { vacp_handle: handleCols, vacp_all: allCols, rowCount: null, source: 'data_sql' };
+          const next: DebugSqlSchema = {
+            vacp_handle: handleCols,
+            vacp_all: allCols,
+            rowCount: null,
+            source: 'data_sql',
+          };
           cacheRef.current.set(cacheKey, next);
           setSchemaColumns(next);
         } catch {

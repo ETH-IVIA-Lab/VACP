@@ -7,8 +7,8 @@ import { signalNamesFromView, tryGetSignal, trySetSignal } from './signals';
 import type { VegaLiteParamLike, VegaLiteSpecLike, VegaViewLike } from './types';
 
 function signalsForParam(param: VegaLiteParamLike, allSignals: string[]): string[] {
-  // Vega-Lite compiles selection parameters into multiple signals. We can't
-  // rely on compile-time knowledge here, so we use best-effort matching:
+  // Vega-Lite compiles selection parameters into multiple signals. Runtime
+  // matching covers the stable signal names produced by common compiled specs:
   // - always include the param name
   // - include any signals that start with the param name (common pattern)
   const out = new Set<string>([param.name]);
@@ -150,10 +150,9 @@ function tryInferUnitIdFromRuntimeSubcontext(view: VegaViewLike, contextKey: str
   // (e.g. "concat_0", "layer_2") that matches the subcontext's group mark name
   // without the "_group" suffix.
   //
-  // This is intentionally best-effort and guarded: `_runtime` is not part of the
-  // public View API, but it's present in Vega's View implementation and is the
-  // only reliable way to map subcontext keys → unit ids when the selection is
-  // currently empty (tuple signal is null and store is empty).
+  // `_runtime` is not part of the public View API. Vega's View implementation
+  // exposes it, and it is the only reliable way to map subcontext keys to unit
+  // ids when the selection is currently empty.
   try {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const rt = (view as any)?._runtime as any;

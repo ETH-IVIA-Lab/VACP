@@ -37,8 +37,8 @@ function toSerializableErrorDetails(error: unknown): unknown {
  * than wiring agents to DOM events. This is the core of the VACP "control
  * plane".
  *
- * Actions should be a small, explicit set of validated operations the UI
- * intentionally exposes; not arbitrary code execution.
+ * Actions should be a small, explicit set of validated operations exposed by
+ * the UI control surface.
  */
 export class VacpActionRegistry {
   private readonly descriptors = new Map<string, VacpActionDescriptor>();
