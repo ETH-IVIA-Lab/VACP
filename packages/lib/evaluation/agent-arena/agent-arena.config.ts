@@ -31,10 +31,15 @@ const MODELS = [
   {
     providerID: 'openai',
     modelID: 'gpt-5.4',
-    // Source: https://openrouter.ai/openai/gpt-5.4
+    // Source: https://openai.com/api/pricing/
     pricing: { input: 2.5, output: 15, cacheRead: 0.25, cacheWrite: 0 },
   },
-  /*
+  {
+    providerID: 'openai',
+    modelID: 'gpt-5.5',
+    // Source: https://openai.com/api/pricing/
+    pricing: { input: 5, output: 30, cacheRead: 0.5, cacheWrite: 0 },
+  },
   {
     providerID: 'azure-openai-foundry',
     modelID: 'gpt-5.2-vacp',
@@ -47,20 +52,6 @@ const MODELS = [
     // Source: https://openrouter.ai/anthropic/claude-sonnet-4.5
     pricing: { input: 3, output: 15, cacheRead: 0.3, cacheWrite: 3.75 },
   },
-  {
-    providerID: 'google-vertex',
-    modelID: 'gemini-3-pro-preview',
-    // Vertex Gemini 3 Pro Preview standard <=200K tier.
-    pricing: { input: 2, output: 12, cacheRead: 0.2, cacheWrite: 0 },
-  },
-  {
-    providerID: 'amazon-bedrock',
-    modelID: 'anthropic.claude-sonnet-4-5-20250929-v1:0',
-    // Bedrock Sonnet 4.5 regional endpoint pricing (10% over global).
-    // Cache write uses default 5-minute prompt-cache write pricing.
-    pricing: { input: 3.3, output: 16.5, cacheRead: 0.33, cacheWrite: 4.125 },
-  },
-  */
 ];
 
 const DEFAULT_MCP_TIMEOUT_MS = 120_000;
