@@ -449,7 +449,7 @@ async function evaluateScenario(args: {
 async function findJobDirs(runDir: string) {
   const runsRoot = path.join(runDir, 'runs');
   const inputs = await findFiles(runsRoot, 'input.json');
-  return inputs.map((p) => path.dirname(p));
+  return inputs.filter((p) => !p.split(path.sep).includes('attempts')).map((p) => path.dirname(p));
 }
 
 async function findFiles(root: string, fileName: string) {
