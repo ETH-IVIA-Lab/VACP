@@ -9,7 +9,7 @@ from typing import Any, Protocol, cast
 
 from openai import AsyncOpenAI
 
-from arena_analysis.contract import RESPONSE_SCHEMA, normalize_shifts, parse_meta, validate_turns
+from arena_analysis.contract import RESPONSE_SCHEMA, build_stub_turn, normalize_shifts, parse_meta, validate_turns
 from arena_analysis.runs import Job
 
 TranscriptReader = Callable[[Path], str]
@@ -196,8 +196,9 @@ async def process(
         return Result(job=job, ok=True, kind='skipped_existing', attempts=0)
 
     if meta.is_stub:
-        states_writer(job.states, [])
-        errors = validate_turns([], meta)
+        stub_turns = [build_stub_turn(meta)]
+        states_writer(job.states, stub_turns)
+        errors = validate_turns(stub_turns, meta)
         if errors:
             return Result(job=job, ok=False, kind='stub', attempts=0, error='. '.join(errors))
         return Result(job=job, ok=True, kind='stub', attempts=0)

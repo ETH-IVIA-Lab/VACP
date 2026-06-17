@@ -59,6 +59,7 @@ class TranscriptMeta:
     assistant_turns: list[int]
     last_answer_turn: int | None
     is_stub: bool
+    stub_status: str | None
 
 
 def parse_meta(transcript_text: str) -> TranscriptMeta:
@@ -77,16 +78,32 @@ def parse_meta(transcript_text: str) -> TranscriptMeta:
         if ANSWER_RE.search(chunk):
             answer_turns.append(turn)
 
-    is_stub = (
-        'status: `missing_session_id`' in transcript_text
-        or 'status: `no_messages`' in transcript_text
-        or len(assistant_turns) == 0
-    )
+    stub_status = None
+    if 'status: `missing_session_id`' in transcript_text:
+        stub_status = 'missing_session_id'
+    elif 'status: `no_messages`' in transcript_text:
+        stub_status = 'no_messages'
+    elif len(assistant_turns) == 0:
+        stub_status = 'no_assistant_turns'
+
     return TranscriptMeta(
         assistant_turns=assistant_turns,
         last_answer_turn=answer_turns[-1] if answer_turns else None,
-        is_stub=is_stub,
+        is_stub=stub_status is not None,
+        stub_status=stub_status,
     )
+
+
+def build_stub_turn(meta: TranscriptMeta) -> dict[str, Any]:
+    status = meta.stub_status or 'stub'
+    return {
+        'turn': 0,
+        'stratum': 'SYN',
+        'phase': 'TERM',
+        'outcome': 'FLA',
+        'shift': None,
+        'notes': f'Transcript status is {status}. No assistant messages were available to classify.',
+    }
 
 
 def normalize_shifts(turns: Any) -> Any:
@@ -128,6 +145,12 @@ def validate_turns(turns: Any, meta: TranscriptMeta) -> list[str]:
     errors: list[str] = []
     if not isinstance(turns, list):
         return ['top-level value is not an array']
+
+    if meta.is_stub:
+        expected_turn = build_stub_turn(meta)
+        if turns != [expected_turn]:
+            return ['stub transcript requires one synthetic terminal state']
+        return []
 
     normalized: list[dict[str, Any]] = []
     for index, item in enumerate(turns):

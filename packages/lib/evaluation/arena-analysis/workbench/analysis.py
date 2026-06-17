@@ -374,10 +374,12 @@ def _(STATES_FILES, json, pl, runs_df):
         )
         .select(
             run_id=pl.col('path').str.extract(r'/\.agent-arena/runs/([^/]+)/runs/'),
-            experiment=pl.col('path').str.extract(r'/experiment=(.+)/scenario'),
-            scenario_id=pl.col('path').str.extract(r'/scenario=(.+)/modelProvider'),
-            model_provider=pl.col('path').str.extract(r'/modelProvider=(.+)/modelName'),
-            model_name=pl.col('path').str.extract(r'/modelName=(.+)/states.json'),
+            experiment=pl.col('path').str.extract(r'/experiment=([^/]+)/scenario='),
+            scenario_id=pl.col('path').str.extract(r'/scenario=([^/]+)/modelProvider='),
+            model_provider=pl.col('path').str.extract(r'/modelProvider=([^/]+)/modelName='),
+            model_name=pl.col('path').str.extract(r'/modelName=([^/]+)/(?:attempts/[^/]+/)?states\.json'),
+            attempt_id=pl.col('path').str.extract(r'/attempts/([^/]+)/states\.json'),
+            is_attempt=pl.col('path').str.contains('/attempts/'),
             states='states',
         )
         .join(
@@ -396,6 +398,7 @@ def _(STATES_FILES, json, pl, runs_df):
                 'model_provider',
                 'model_name',
             ],
+            how='left',
         )
         .explode('states')
         .unnest('states')
@@ -498,24 +501,30 @@ def _(LABEL_MAPS, pl):
 
 
 @app.cell(hide_code=True)
-def _(pathlib):
+def _(os, pathlib):
     ARENA_ROOT = pathlib.Path(__file__).parents[2] / 'agent-arena'
-    RUNS_ROOT = ARENA_ROOT / '.agent-arena' / 'runs'
+    configured_runs_root = os.environ.get('ARENA_ANALYSIS_RUNS_ROOT')
+    RUNS_ROOT = (
+        pathlib.Path(configured_runs_root).expanduser().resolve()
+        if configured_runs_root
+        else ARENA_ROOT / '.agent-arena' / 'runs'
+    )
     RUN_FILES = sorted(RUNS_ROOT.glob('*/analysis/datasets/runs_normalized.json'))
-    STATES_FILES = sorted(RUNS_ROOT.glob('*/runs/*/*/*/*/states.json'))
+    STATES_FILES = sorted(RUNS_ROOT.glob('*/runs/**/states.json'))
     return ARENA_ROOT, RUNS_ROOT, RUN_FILES, STATES_FILES
 
 
 @app.cell(hide_code=True)
 def _():
     import json
+    import os
     import pathlib
 
     import altair as alt
     import marimo as mo
     import polars as pl
 
-    return alt, json, mo, pathlib, pl
+    return alt, json, mo, os, pathlib, pl
 
 
 if __name__ == '__main__':

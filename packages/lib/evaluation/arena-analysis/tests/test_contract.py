@@ -1,4 +1,4 @@
-from arena_analysis.contract import normalize_shifts, parse_meta, validate_turns
+from arena_analysis.contract import build_stub_turn, normalize_shifts, parse_meta, validate_turns
 
 
 def test_validate_turns_matches_assistant_turns_and_final_answer() -> None:
@@ -206,3 +206,33 @@ Still inspecting.
     )
 
     assert 'turn 1 has phase TERM outside terminal turns [2]' in errors
+
+
+def test_validate_turns_rejects_empty_stub_states() -> None:
+    transcript = """# Transcript
+
+## Metadata
+
+- status: `missing_session_id`
+
+## Note
+
+run.json does not contain a sessionID for this job.
+"""
+    meta = parse_meta(transcript)
+
+    assert meta.is_stub is True
+    assert meta.stub_status == 'missing_session_id'
+    assert validate_turns([], meta) == ['stub transcript requires one synthetic terminal state']
+
+
+def test_validate_turns_accepts_synthetic_stub_state() -> None:
+    transcript = """# Transcript
+
+## Metadata
+
+- status: `no_messages`
+"""
+    meta = parse_meta(transcript)
+
+    assert validate_turns([build_stub_turn(meta)], meta) == []
