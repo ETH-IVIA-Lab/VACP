@@ -19,15 +19,11 @@ From the repo root:
 pnpm -C examples/vega-lite-gallery dev
 ```
 
-Open the inspector:
-
-- click the floating **VACP** button. Applications choose whether to call `installVacpInspector()`
-
 ## How it works
 
 1. The app picks a spec from `src/specs/*.vl.json`.
 2. `vega-embed` renders it to **SVG** and returns a Vega _View_.
-3. `@vacp/adapter-vega-lite` installs VACP:
+3. `@vacp/adapter-vega-lite` creates a provider. The application installs its runtime through `@vacp/runtime-browser`:
    - **Bridge**: installs/updates `window.__vacp` (capabilities/state/execute, unless `exposeBridge: false`)
    - **Graph**: creates nodes for:
      - _Param_ (a named Vega-Lite parameter)
@@ -35,7 +31,7 @@ Open the inspector:
    - **Actions**:
      - `vega_lite.set_param` (set a param value)
      - `vega_lite.clear_selection` (clear a selection param, when present)
-     - `vacp.apply_state` (applies a state map from the inspector during local inspection)
+     - `vacp.apply_state` (applies an explicitly supplied state map)
 
 Agents can set *Param*s and clear *Selection*s through semantic actions, without DOM scraping or pixel automation.
 
@@ -48,13 +44,10 @@ Agents can set *Param*s and clear *Selection*s through semantic actions, without
   - **brush -> origin summary (click to pin)**: brush the scatterplot to recompute origin counts. Click bars to pin or highlight one or more origins
 - Watch:
   - `window.__vacp.getState()` updates
-  - inspector -> **History** changes
 
 ### Try it: agent-style actions
 
-Use the overlay:
-
-- Inspector -> **Actions** to call `vega_lite.set_param` / `vega_lite.clear_selection` manually
+Call `window.__vacp.execute({ callId, name, params })` from the browser console with a `vega_lite.set_param` or `vega_lite.clear_selection` action. Discover parameter schemas through `window.__vacp.getCapabilities()`. Match `operation.contract`, then pass the descriptor’s source-qualified `name` to `execute`.
 
 ## How to add or edit specs
 

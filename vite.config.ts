@@ -50,16 +50,16 @@ export default defineConfig({
       runtime: ['protocol'],
       'runtime-browser': ['protocol', 'runtime'],
       'transport-bridge': ['protocol'],
-      'transport-webmcp': ['protocol', 'runtime'],
+      'transport-webmcp': ['protocol'],
       'data-duckdb': ['protocol'],
       'diagram-mermaid': ['protocol'],
       analytics: ['protocol'],
       'analytics-posthog': ['protocol', 'analytics'],
       'agent-ai-sdk': ['protocol', 'transport-bridge'],
       sdk: ['protocol', 'runtime', 'runtime-browser'],
-      'adapter-vega-lite': ['protocol', 'runtime', 'runtime-browser', 'data-duckdb'],
-      'adapter-vgplot': ['protocol', 'runtime', 'runtime-browser', 'data-duckdb'],
-      inspector: ['protocol', 'runtime-browser', 'transport-bridge', 'agent-ai-sdk', 'diagram-mermaid', 'inspector'],
+      'adapter-vega-lite': ['protocol', 'runtime', 'data-duckdb'],
+      'adapter-vgplot': ['protocol', 'runtime', 'data-duckdb'],
+      'inspector-core': ['protocol'],
     }).map(
       ([owner, dependencies]) =>
         ({

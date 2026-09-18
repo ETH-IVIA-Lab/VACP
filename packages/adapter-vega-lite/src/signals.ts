@@ -1,4 +1,4 @@
-import type { VegaViewLike } from './types';
+import type { VegaViewLike } from './types.js';
 
 export function tryGetSignal(view: VegaViewLike, name: string) {
   try {

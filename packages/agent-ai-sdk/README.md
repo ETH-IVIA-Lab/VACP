@@ -9,6 +9,6 @@ import { createVacpTransport } from '@vacp/transport-bridge';
 const tools = createVacpTools({ transport: createVacpTransport(bridge) });
 ```
 
-`createVacpAgent` composes the model and tools into an agent. Tool traces preserve both requested and effective input when normalization changes a request.
+`createVacpToolLoopAgent` composes the model and tools into an agent. `createVacpChatRuntime` also supplies an AI SDK chat transport. Applications pass model configuration explicitly and own its persistence. Tool traces preserve both requested and effective input when normalization changes a request.
 
 See [agent connections](../../docs/transports/index.md) and the [tool contract](../../docs/reference/tool-contract.md).

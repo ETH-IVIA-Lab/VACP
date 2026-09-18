@@ -1,6 +1,4 @@
-import { exampleOptions } from '../../config';
 import type { VgplotPlotLike, VgplotTableLike } from '@vacp/adapter-vgplot';
-import { installVacpInspector } from '@vacp/inspector';
 import type { VacpDuckDbClient } from '@vacp/data-duckdb';
 import { coordinator, DuckDBWASMConnector } from '@uwdata/mosaic-core';
 import { astToDOM, parseSpec } from '@uwdata/mosaic-spec';
@@ -67,9 +65,6 @@ export async function run(): Promise<void> {
   }
 
   let renderToken = 0;
-
-  // Inspector: inspects the VACP bridge and provides time travel, actions, and DuckDB SQL.
-  if (exampleOptions.inspector) installVacpInspector();
 
   // VGPlot's coordinator owns the shared in-browser DuckDB instance.
   const mc = coordinator();

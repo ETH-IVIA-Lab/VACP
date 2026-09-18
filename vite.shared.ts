@@ -2,6 +2,10 @@ import { resolve } from 'node:path';
 import type { Alias } from 'vite-plus';
 
 const workspacePackages = [
+  ['@vacp/inspector-core', 'packages/inspector-core/src/index.ts'],
+  ['@vacp/inspector-core/runtime', 'packages/inspector-core/src/runtime.ts'],
+  ['@vacp/inspector-core/http', 'packages/inspector-core/src/http.ts'],
+  ['@vacp/protocol/validation', 'packages/protocol/src/validation.ts'],
   ['@vacp/transport-webmcp', 'packages/transport-webmcp/src/index.ts'],
   ['@vacp/runtime-browser', 'packages/runtime-browser/src/index.ts'],
   ['@vacp/transport-bridge', 'packages/transport-bridge/src/index.ts'],
@@ -12,7 +16,6 @@ const workspacePackages = [
   ['@vacp/diagram-mermaid', 'packages/diagram-mermaid/src/index.ts'],
   ['@vacp/analytics', 'packages/analytics/src/index.ts'],
   ['@vacp/analytics-posthog', 'packages/analytics-posthog/src/index.ts'],
-  ['@vacp/inspector', 'packages/inspector/src/index.ts'],
   ['@vacp/agent-ai-sdk', 'packages/agent-ai-sdk/src/index.ts'],
   ['@vacp/adapter-vega-lite', 'packages/adapter-vega-lite/src/index.ts'],
   ['@vacp/adapter-vgplot', 'packages/adapter-vgplot/src/index.ts'],
@@ -54,13 +57,10 @@ export function normalizeVacpBasePath(raw: string | undefined): string {
 }
 
 export function vacpWorkspaceAliases(workspaceRoot: string): Alias[] {
-  const inspectorSrc = resolve(workspaceRoot, 'packages/inspector/src');
-
   return [
     ...workspacePackages.map(([name, source]) => ({
       find: exactPackageMatcher(name),
       replacement: resolve(workspaceRoot, source),
     })),
-    { find: /^@vacp\/inspector\/(.+)$/, replacement: `${inspectorSrc}/$1` },
   ];
 }

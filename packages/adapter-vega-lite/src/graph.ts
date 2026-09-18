@@ -1,9 +1,9 @@
 import type { VacpActionDescriptor, VacpEdge, VacpGraphFragment, VacpNode, VacpRef } from '@vacp/protocol';
 import { VACP_SCHEMA_VERSION } from '@vacp/protocol';
 
-import { collectVegaLiteParams } from './params';
-import { makeRef } from './refs';
-import type { InstallVacpOnVegaLiteOptions, VegaLiteParamLike, VegaLiteSpecLike } from './types';
+import { collectVegaLiteParams } from './params.js';
+import { makeRef } from './refs.js';
+import type { VegaLiteProviderOptions, VegaLiteParamLike, VegaLiteSpecLike } from './types.js';
 
 function classifyParam(p: VegaLiteParamLike): { kind: 'Param' | 'Selection'; details: Record<string, unknown> } {
   if (p.select) {
@@ -194,7 +194,7 @@ function collectChannelBindings(spec: VegaLiteSpecLike): ExtractedBinding[] {
 
 export function buildGraph(args: {
   spec: VegaLiteSpecLike;
-  options: InstallVacpOnVegaLiteOptions;
+  options: VegaLiteProviderOptions;
   actions: VacpActionDescriptor[];
   dataHandles?: Array<{ ref: VacpRef; title?: string; description?: string; data?: Record<string, unknown> }>;
 }): VacpGraphFragment {

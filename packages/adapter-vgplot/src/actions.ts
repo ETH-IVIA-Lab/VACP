@@ -1,15 +1,15 @@
 import type { VacpActionDescriptor } from '@vacp/protocol';
 
-import { isSelectionBackedNearest } from './interactors/nearest';
-import { hasIndexedOptions, readInputValue, type CollectedInput } from './inputs';
-import { makeViewRef } from './refs';
+import { isSelectionBackedNearest } from './interactors/nearest.js';
+import { hasIndexedOptions, readInputValue, type CollectedInput } from './inputs.js';
+import { makeViewRef } from './refs.js';
 import type {
-  InstallVacpOnVgplotDashboardOptions,
+  VgplotProviderOptions,
   VgplotPlotLike,
   VgplotTableLike,
   VgplotInteractorLike,
   VgplotScaleLike,
-} from './types';
+} from './types.js';
 
 type CollectedInteractor = {
   plotId: string;
@@ -251,7 +251,7 @@ export function actionDescriptorsForDashboard(args: {
   plots: Array<{ plotId: string; plot: VgplotPlotLike }>;
   tables?: Array<{ tableId: string; table: VgplotTableLike }>;
   inputs: CollectedInput[];
-  options: InstallVacpOnVgplotDashboardOptions;
+  options: VgplotProviderOptions;
 }): VacpActionDescriptor[] {
   const hasInterval1D = args.plots.some((p) => p.plot.interactors.some((i) => i.constructor?.name === 'Interval1D'));
   const hasInterval2D = args.plots.some((p) => p.plot.interactors.some((i) => i.constructor?.name === 'Interval2D'));

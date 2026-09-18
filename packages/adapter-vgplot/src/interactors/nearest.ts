@@ -1,7 +1,7 @@
 import type { VacpActionCall } from '@vacp/protocol';
 
-import type { VgplotPlotLike, VgplotInteractorLike } from '../types';
-import { awaitPlotUpdate } from './plot-update';
+import type { VgplotPlotLike, VgplotInteractorLike } from '../types.js';
+import { awaitPlotUpdate } from './plot-update.js';
 
 type SelectionBackedNearest = VgplotInteractorLike & {
   selection: { update(value: unknown): unknown; predicate(...args: unknown[]): unknown };

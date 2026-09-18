@@ -37,7 +37,6 @@ for (const route of ['vgplot', 'vega-lite', 'react-dashboard', 'cars-parcoords']
       return window.__vacp.getState();
     });
     expect(state.state).toBeDefined();
-    await expect(page.locator('#vacp-inspector-react-root')).toBeAttached();
     expect(errors).toEqual([]);
     await page.screenshot({ path: testInfo.outputPath(`${route}.png`), fullPage: true });
   });

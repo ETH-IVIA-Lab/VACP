@@ -8,7 +8,6 @@ Playwright end-to-end suite for VACP examples and runtime surfaces.
 tests/
   docs/         # published documentation and integration snippets
   bridge/       # window.__vacp contract + state update semantics
-  inspector/     # overlay behavior and interaction flows
   providers/
     vega-lite/  # Vega-Lite provider-specific behavior
     vgplot/     # VGPlot provider-specific behavior

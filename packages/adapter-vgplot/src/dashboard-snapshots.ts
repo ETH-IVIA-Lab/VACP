@@ -6,18 +6,18 @@ import {
   type VacpDuckDbTableMetadata,
 } from '@vacp/data-duckdb';
 
-import { readInputValue, type CollectedInput } from './inputs';
-import { discoverPlotTables, type VgplotDataHandle } from './data-handles';
-import { whereClauseForVgplotDashboardSelection } from './duckdb-selection';
-import { isSelectionBackedNearest } from './interactors/nearest';
-import { makePlotRef } from './refs';
+import { readInputValue, type CollectedInput } from './inputs.js';
+import { discoverPlotTables, type VgplotDataHandle } from './data-handles.js';
+import { whereClauseForVgplotDashboardSelection } from './duckdb-selection.js';
+import { isSelectionBackedNearest } from './interactors/nearest.js';
+import { makePlotRef } from './refs.js';
 import type {
-  InstallVacpOnVgplotDashboardOptions,
+  VgplotProviderOptions,
   VgplotPlotLike,
   VgplotTableLike,
   VgplotInteractorLike,
   VgplotScaleLike,
-} from './types';
+} from './types.js';
 
 type TablesById = Map<string, VgplotTableLike>;
 
@@ -112,7 +112,7 @@ function readNearestValue(interactor: VgplotInteractorLike, rawValue: unknown) {
 
 export function createVgplotDashboardSnapshots(args: {
   graph: VacpGraphFragment;
-  options: InstallVacpOnVgplotDashboardOptions;
+  options: VgplotProviderOptions;
   inputs: CollectedInput[];
   plots: Array<{ plotId: string; plot: VgplotPlotLike }>;
   tables: Array<{ tableId: string; table: VgplotTableLike }>;

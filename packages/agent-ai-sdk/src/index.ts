@@ -1,19 +1,17 @@
-export * from './types';
+export * from './types.js';
 
-export * from './instructions';
+export * from './instructions.js';
 
-export * from './config-storage';
+export * from './create-openai-compatible-model.js';
 
-export * from './create-openai-compatible-model';
+export * from './create-gemini-model.js';
 
-export * from './create-gemini-model';
+export * from './create-llm-model.js';
 
-export * from './create-llm-model';
+export * from './vacp-tools.js';
 
-export * from './vacp-tools';
+export * from './sanitize-tool-payload.js';
 
-export * from './sanitize-tool-payload';
+export * from './context-compaction.js';
 
-export * from './context-compaction';
-
-export * from './create-vacp-agent';
+export * from './create-vacp-agent.js';

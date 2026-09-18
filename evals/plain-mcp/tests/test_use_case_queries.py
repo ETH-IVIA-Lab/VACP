@@ -84,7 +84,9 @@ class _StateRuntime:
     def state_entry(self, snapshot: JsonDict, ref: str) -> JsonDict:  # noqa: ARG002
         return {}
 
-    async def execute(self, name: str, params: JsonDict | None = None) -> object | None:
+    async def execute_contract(
+        self, name: str, params: JsonDict | None = None, *, ref: str | None = None
+    ) -> object | None:  # noqa: ARG002
         self.calls.append((name, params))
         return {'ok': True}
 

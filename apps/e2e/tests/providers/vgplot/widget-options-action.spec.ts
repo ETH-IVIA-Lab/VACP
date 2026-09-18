@@ -2,6 +2,7 @@ import { expect, test, type Page } from '@playwright/test';
 
 import { startAppServer } from '../../helpers/devserver';
 import { exampleDir } from '../../helpers/paths';
+import { executeOperation } from '../operations';
 
 async function expectBridge(page: Page): Promise<void> {
   await page.waitForFunction(
@@ -20,37 +21,28 @@ async function widgetOptions(
   page: Page,
   args: { ref: string; offset?: number; limit?: number; query?: string },
 ): Promise<any> {
-  return await page.evaluate(
-    async ({ ref, offset, limit, query }) =>
-      await globalThis.__vacp.execute({
-        callId: crypto.randomUUID(),
-        name: 'vacp.widget_options',
-        params: { ref, offset, limit, query },
-      }),
-    args,
-  );
+  return executeOperation(page, 'vacp.widget_options', args);
 }
 
 async function waitForWidgetRef(page: Page, titleNeedle: string, timeoutMs = 30_000): Promise<string> {
-  const start = Date.now();
-
-  while (true) {
-    const caps = await getCapabilities(page);
-    const nodes = caps?.graph?.nodes ?? [];
-
-    const found = nodes.find(
-      (n: any) => n?.kind === 'Widget' && typeof n?.ref === 'string' && String(n?.title ?? '').includes(titleNeedle),
-    );
-
-    if (found?.ref) return String(found.ref);
-
-    if (Date.now() - start > timeoutMs)
-      throw new Error(`Timed out waiting for widget title containing: ${titleNeedle}`);
-    await page.waitForTimeout(150);
-  }
+  let ref: string | undefined;
+  await expect
+    .poll(
+      async () => {
+        const caps = await getCapabilities(page);
+        ref = caps.graph.nodes.find(
+          (node: { kind: string; ref: string; title?: string }) =>
+            node.kind === 'Widget' && node.title?.includes(titleNeedle),
+        )?.ref;
+        return ref;
+      },
+      { timeout: timeoutMs, message: `Widget ${titleNeedle} becomes available` },
+    )
+    .toEqual(expect.any(String));
+  return ref!;
 }
 
-test('action: vacp.widget_options (vgplot athletes Sport menu)', async ({ page }) => {
+test('widget option search returns matching sport choices', async ({ page }) => {
   const srv = await startAppServer({ name: 'vgplot-gallery', cwd: exampleDir('vgplot-gallery') });
 
   try {
@@ -59,34 +51,22 @@ test('action: vacp.widget_options (vgplot athletes Sport menu)', async ({ page }
 
     const sportRef = await waitForWidgetRef(page, 'Sport');
 
-    const caps = await getCapabilities(page);
-    const actions = caps?.graph?.actions ?? [];
-    expect(actions.some((a: any) => a?.name === 'vacp.widget_options')).toBeTruthy();
+    let result: any;
 
-    let last: any = null;
-
-    for (let i = 0; i < 30; i += 1) {
-      last = await widgetOptions(page, { ref: sportRef, query: 'judo' });
-
-      if (last?.ok && Array.isArray(last?.result?.options)) break;
-      await page.waitForTimeout(150);
-    }
-
-    expect(last?.ok).toBeTruthy();
-    expect(typeof last?.result?.count).toBe('number');
-    expect(last?.result?.count).toBeGreaterThan(0);
-    expect(Array.isArray(last?.result?.options)).toBeTruthy();
-    expect(
-      last?.result?.options?.some(
-        (o: any) =>
-          String(o?.label ?? '')
-            .toLowerCase()
-            .includes('judo') ||
-          String(o?.value ?? '')
-            .toLowerCase()
-            .includes('judo'),
-      ),
-    ).toBeTruthy();
+    await expect
+      .poll(
+        async () => {
+          result = await widgetOptions(page, { ref: sportRef, query: 'judo' });
+          return result.ok
+            ? result.result.options.map((option: { label?: string; value: unknown }) =>
+                String(option.label ?? option.value).toLowerCase(),
+              )
+            : [];
+        },
+        { timeout: 15_000, message: 'Sport option search returns Judo' },
+      )
+      .toContain('judo');
+    expect(result.result.count).toBeGreaterThan(0);
   } finally {
     await srv.stop();
   }

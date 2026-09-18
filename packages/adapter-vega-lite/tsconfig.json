@@ -7,9 +7,6 @@
   },
   "references": [
     {
-      "path": "../runtime-browser"
-    },
-    {
       "path": "../protocol"
     },
     {

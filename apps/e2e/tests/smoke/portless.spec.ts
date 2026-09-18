@@ -99,7 +99,6 @@ test('Portless routes docs, gallery and standalone examples with working HMR', a
           await expect(page.locator('.gallery-card')).toHaveCount(4);
         } else {
           await page.waitForFunction(() => Boolean(window.__vacp));
-          await expect(page.locator('#vacp-inspector-react-root')).toBeAttached();
         }
         await expect.poll(() => connected, { message: `HMR connects through ${hostname}` }).toBe(true);
       } finally {

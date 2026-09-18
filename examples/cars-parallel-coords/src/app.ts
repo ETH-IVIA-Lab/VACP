@@ -11,7 +11,6 @@ import { createParallelCoordsChart } from './chart';
 import { loadCarsDataset } from './data';
 import { installVacpForCarsParallelCoords } from './vacp';
 import { installVacpWebMcp } from '@vacp/transport-webmcp';
-import { installVacpInspector } from '@vacp/inspector';
 
 export async function run(): Promise<void> {
   const chartRoot = document.querySelector<HTMLDivElement>('#chart');
@@ -22,8 +21,6 @@ export async function run(): Promise<void> {
   if (!chartRoot || !tooltip || !resetBrushBtn || !resetDimensionsBtn) {
     throw new Error('Missing root elements');
   }
-
-  if (exampleOptions.inspector) installVacpInspector();
 
   const { data, dimensions } = await loadCarsDataset('data/cars.csv');
 

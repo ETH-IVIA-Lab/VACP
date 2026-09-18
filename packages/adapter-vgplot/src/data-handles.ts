@@ -1,7 +1,7 @@
 import type { VacpRef } from '@vacp/protocol';
 
-import { makePlotRef, makeViewRef } from './refs';
-import type { InstallVacpOnVgplotDashboardOptions, VgplotPlotLike, VgplotTableLike } from './types';
+import { makePlotRef, makeViewRef } from './refs.js';
+import type { VgplotProviderOptions, VgplotPlotLike, VgplotTableLike } from './types.js';
 
 export type VgplotDataHandle = {
   ref: VacpRef;
@@ -47,7 +47,7 @@ function slugify(text: string): string {
 export function collectVgplotDataHandles(args: {
   plots: Array<{ plotId: string; plot: VgplotPlotLike }>;
   tables?: Array<{ tableId: string; table: VgplotTableLike }>;
-  options: InstallVacpOnVgplotDashboardOptions;
+  options: VgplotProviderOptions;
   preferredTables?: string[];
 }): VgplotDataHandle[] {
   const out: VgplotDataHandle[] = [];

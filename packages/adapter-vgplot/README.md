@@ -1,45 +1,35 @@
 # @vacp/adapter-vgplot
 
-## Purpose
+`@vacp/adapter-vgplot` exposes Mosaic VGPlot marks, selections, interactors, input widgets, and tables.
 
-First-class VACP integration for VGPlot.
-
-This provider maps VGPlot runtime semantics (*View*s, interactors, *Selection*s) into VACP capabilities/state/actions.
-
-## When to use
-
-- You build visualizations with the VGPlot runtime and want VACP state and actions.
-- You want semantic actions for selection/interaction instead of pixel automation.
-
-## Conceptual model
-
-The provider maps VGPlot concepts into VACP:
-
-- VGPlot runtime entities become stable refs and graph nodes,
-- VGPlot interaction semantics become state snapshot entries,
-- semantic actions are registered for intent-level operations.
-
-## Minimal usage
-
-Install VACP after rendering:
+Bind an existing rendered visualization, then compose its provider into a runtime:
 
 ```ts
-import { installVacpOnVgplot } from '@vacp/adapter-vgplot';
+import { createVgplotProvider } from '@vacp/adapter-vgplot';
+import { createVacpRuntime } from '@vacp/runtime';
 
-installVacpOnVgplot(plot, svg, {
-  appId: 'vacp-examples',
-  viewId: 'vgplot/crossfilter',
-  plotId: 'plot-0',
-  title: 'Crossfilter (Flights)',
+const provider = createVgplotProvider({
+  root: svg,
+  plots: [{ plotId: 'scatter', plot }],
+  options: { appId: 'analysis', viewId: 'overview' },
 });
+const runtime = createVacpRuntime({ providers: [provider] });
+const observation = await runtime.observe();
+
+// When this analytical session ends:
+runtime.dispose();
 ```
 
-Runnable example:
+Supply `root` to discover dashboard input widgets. Explicit plots and tables can be bound independently of a containing DOM node.
 
-- `examples/vgplot-gallery`
+The runtime owns the attached provider's lifetime. Provider subscriptions observe human interactions and release listeners when detached. Disposing the provider leaves the visualization available to its host.
 
-## Related docs
+Action names are qualified by source identity. Discover an action through its `operation.contract` (for example, `vgplot.set_interval_1d`), then execute the advertised `name`. Graph ownership identifies the source when several providers offer the same contract.
 
-- [Providers](../../docs/providers/index.md)
-- [Examples](../../docs/examples/index.md)
-- [Tool Contract](../../docs/reference/tool-contract.md)
+Applications can expose the same provider through `installVacpRuntime({ providers: [provider], exposeBridge, injectDomSnapshot })` from `@vacp/runtime-browser`. Exposure policy belongs to the application.
+
+For dashboards, supply several `plots` and optional `tables`. Each plot supplies a `plotId` and the VGPlot object. Each table supplies a `tableId` and the table object.
+
+Actions update existing Mosaic selections so linked views respond through their usual dataflow. Pass `options.duckdbClient` to expose data queries through the dashboard's database connection. Set `enableSql: false` to retain schema discovery while omitting SQL execution.
+
+[Provider guide](../../docs/providers/vgplot.md) · [Runnable example](../../examples/vgplot-gallery)

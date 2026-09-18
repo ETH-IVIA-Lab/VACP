@@ -3,10 +3,10 @@ import { z } from 'zod';
 
 import type { VacpRef } from '@vacp/protocol';
 
-import type { VacpAgentToolEvent, VacpAgentToolName } from './types';
+import type { VacpAgentToolEvent, VacpAgentToolName } from './types.js';
 import type { VacpCapabilitiesRequest, VacpStateRequest } from '@vacp/protocol';
 import type { VacpTransport } from '@vacp/transport-bridge';
-import { sanitizeToolPayload } from './sanitize-tool-payload';
+import { sanitizeToolPayload } from './sanitize-tool-payload.js';
 
 type ToolOptions = {
   transport: VacpTransport;

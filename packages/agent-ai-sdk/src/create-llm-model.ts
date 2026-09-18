@@ -1,12 +1,12 @@
 import type { LanguageModel } from 'ai';
 
-import { createVacpGeminiModel, listVacpGeminiModels, normalizeVacpGeminiConfig } from './create-gemini-model';
+import { createVacpGeminiModel, listVacpGeminiModels, normalizeVacpGeminiConfig } from './create-gemini-model.js';
 import {
   createVacpOpenAICompatibleModel,
   listVacpOpenAICompatibleModels,
   normalizeVacpOpenAICompatibleConfig,
-} from './create-openai-compatible-model';
-import type { VacpLLMConfig, VacpLLMModelListOptions, VacpLLMModelOption, VacpLLMProvider } from './types';
+} from './create-openai-compatible-model.js';
+import type { VacpLLMConfig, VacpLLMModelListOptions, VacpLLMModelOption, VacpLLMProvider } from './types.js';
 
 const OPENAI_COMPATIBLE_PROVIDER: VacpLLMProvider = 'openai-compatible';
 

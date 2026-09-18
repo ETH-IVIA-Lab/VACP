@@ -190,7 +190,7 @@ def make_brush_date_range(runtime: PlainMcpRuntime) -> ToolCallable:
             'monthdate_date': [bounds['startMonthdateMs'], bounds['endMonthdateMs']],
             'x': [bounds['startMonthdateMs'], bounds['endMonthdateMs']],
         }
-        await runtime.execute('vega_lite.set_selection', {'ref': BRUSH_REF, 'value': value})
+        await runtime.execute_contract('vega_lite.set_selection', {'ref': BRUSH_REF, 'value': value})
         runtime.remember('seattle_weather.brush', {'startDate': start_date, 'endDate': end_date})
         return action_response(
             'brush_date_range',
@@ -204,7 +204,7 @@ def make_brush_date_range(runtime: PlainMcpRuntime) -> ToolCallable:
 def make_select_weather_category(runtime: PlainMcpRuntime) -> ToolCallable:
     async def select_weather_category(category: WeatherCategory) -> JsonDict:
         """Select one weather category in the bar legend."""
-        await runtime.execute('vega_lite.set_selection', {'ref': CLICK_REF, 'value': {'weather': category}})
+        await runtime.execute_contract('vega_lite.set_selection', {'ref': CLICK_REF, 'value': {'weather': category}})
         runtime.remember('seattle_weather.category', category)
         return action_response('select_weather_category', await _weather_state(runtime), details={'category': category})
 
@@ -236,7 +236,7 @@ def make_hover_weather_point(runtime: PlainMcpRuntime) -> ToolCallable:
             raise ValueError('No weather row matched the requested hover')
         row = dict(rows[0])
         row.pop('__total_count', None)
-        await runtime.execute('vega_lite.hover_tooltip', {'fields': {'date': row.get('date')}, 'value': row})
+        await runtime.execute_contract('vega_lite.hover_tooltip', {'fields': {'date': row.get('date')}, 'value': row})
         hover = {'date': row.get('date'), 'weather': row.get('weather'), 'row': row}
         runtime.remember('seattle_weather.hover', hover)
         state = await _weather_state(runtime)

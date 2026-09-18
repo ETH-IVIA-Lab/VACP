@@ -1,7 +1,7 @@
 import type { VacpRef } from '@vacp/protocol';
 
-import { makeViewRef } from './refs';
-import type { InstallVacpOnVgplotDashboardOptions } from './types';
+import { makeViewRef } from './refs.js';
+import type { VgplotProviderOptions } from './types.js';
 
 type VgplotInputLike = {
   constructor?: { name?: string };
@@ -257,7 +257,7 @@ async function waitForInputDispatch(input: VgplotInputLike): Promise<void> {
   await input.selection.pending('value');
 }
 
-export function collectInputs(root: ParentNode, options: InstallVacpOnVgplotDashboardOptions): CollectedInput[] {
+export function collectInputs(root: ParentNode, options: VgplotProviderOptions): CollectedInput[] {
   /**
    * VGPlot inputs (Menu/Slider/etc.) are not plot interactors, but they are part
    * of the semantic interaction surface.

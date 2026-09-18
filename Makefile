@@ -93,7 +93,7 @@ package: ## Build Python wheels and source distributions.
 browser-install: ## Install Chromium and its required system libraries.
 	$(PNPM) --filter @vacp/e2e exec playwright install --with-deps chromium
 
-e2e: build-apps ## Test examples, Inspector, and the published documentation in Chromium.
+e2e: build-apps ## Test examples and the published documentation in Chromium.
 	$(PNPM) --filter @vacp/e2e test:e2e
 
 ci: build check package ## Run the source-validation CI pipeline.

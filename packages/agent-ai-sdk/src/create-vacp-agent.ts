@@ -1,11 +1,11 @@
 import { DirectChatTransport, ToolLoopAgent, stepCountIs } from 'ai';
 import type { LanguageModelUsage } from 'ai';
 
-import { createVacpLLMModel, normalizeVacpLLMConfig } from './create-llm-model';
-import { wrapTransportWithVacpContextCompaction } from './context-compaction';
-import { buildVacpAgentInstructions } from './instructions';
-import type { VacpAgentFactoryOptions, VacpChatMessageMetadata, VacpTokenUsage } from './types';
-import { createVacpTools } from './vacp-tools';
+import { createVacpLLMModel, normalizeVacpLLMConfig } from './create-llm-model.js';
+import { wrapTransportWithVacpContextCompaction } from './context-compaction.js';
+import { buildVacpAgentInstructions } from './instructions.js';
+import type { VacpAgentFactoryOptions, VacpChatMessageMetadata, VacpTokenUsage } from './types.js';
+import { createVacpTools } from './vacp-tools.js';
 
 const DEFAULT_MAX_STEPS = 8;
 
@@ -85,23 +85,12 @@ export function createVacpToolLoopAgent(options: VacpAgentFactoryOptions) {
   });
 }
 
-export function createVacpDirectChatTransport(options: VacpAgentFactoryOptions) {
-  const tools = createVacpTools({ transport: options.transport, onToolEvent: options.onToolEvent });
-  const agent = createVacpToolLoopAgent(options);
-  const baseTransport = new DirectChatTransport({ agent, messageMetadata: createVacpMessageMetadata(options) });
-
-  return wrapTransportWithVacpContextCompaction(baseTransport, options.contextCompactionPolicy, {
-    availableToolNames: Object.keys(tools),
-  });
-}
-
 export function createVacpChatRuntime(options: VacpAgentFactoryOptions) {
-  const tools = createVacpTools({ transport: options.transport, onToolEvent: options.onToolEvent });
   const agent = createVacpToolLoopAgent(options);
   const baseTransport = new DirectChatTransport({ agent, messageMetadata: createVacpMessageMetadata(options) });
 
   const transport = wrapTransportWithVacpContextCompaction(baseTransport, options.contextCompactionPolicy, {
-    availableToolNames: Object.keys(tools),
+    availableToolNames: Object.keys(agent.tools),
   });
 
   return { agent, transport };

@@ -13,7 +13,8 @@ VACP composes analytical sources, state, freshness, and semantic operations thro
 - `packages/sdk`: application integration helpers.
 - `packages/adapter-vega-lite`, `packages/adapter-vgplot`: visualization providers.
 - `packages/agent-ai-sdk`, `packages/python`: model orchestration and MCP transport.
-- `packages/inspector`, `packages/diagram-mermaid`, `packages/analytics`: inspection and telemetry.
+- `packages/inspector-core`: viewer contracts, local history, and client connections.
+- `packages/diagram-mermaid`, `packages/analytics`: graph rendering and telemetry.
 - `packages/analytics-posthog`: PostHog implementation of the telemetry provider port.
 - `vite.shared.ts`: shared Vite configuration for applications.
 - `examples/gallery`: gallery composition and generated routes.
@@ -32,7 +33,7 @@ Use capability families for package names: `adapter-*` for visualization adapter
 
 Dependencies point toward the protocol. Protocol and runtime must not read window, document, URL configuration, or browser storage. Protocol must remain independent of providers, transports, UI frameworks, and applications. Runtime owns snapshot, action, and history behavior against its snapshot and action contracts. Providers translate their visualization's state and actions into those contracts.
 
-Applications compose providers, transports, and optional UI. Pass exposure and SQL policy explicitly. Library packages must not read URL flags, environment variables, or browser storage to choose capabilities. Example context profiles belong under `examples/`. Install the inspector from `@vacp/inspector` at the application boundary. Keep UI dependencies out of `@vacp/sdk`. Libraries must not import applications or another package's private source paths. Declare workspace dependencies in the importing package and use its exported API.
+Applications compose providers, transports, and optional UI. Pass exposure and SQL policy explicitly. Library packages must not read URL flags, environment variables, or browser storage to choose capabilities. Example context profiles belong under `examples/`. Connect custom inspection surfaces through an explicit `InspectorClient`. Keep request state and optional history in `inspector-core`. Presentation, selection, and navigation belong to the consuming surface. Inspection must not mutate the source. Restoration is a separate, explicitly supplied capability. Keep UI dependencies out of `@vacp/sdk`. Libraries must not import applications or another package's private source paths. Declare workspace dependencies in the importing package and use its exported API.
 
 Add an integration as a focused provider implementing the source, projection, observation, and operation ports. Compose sources by stable source ID and keep one owner for every node and action. Discovery adapters may infer mechanical facts; analytical meaning belongs in library or application profiles. Runtime extensions use capability subscriptions and the runtime lifetime signal. Keep target-platform registration and metadata in their own transport package. Keep provider-specific branches in the provider. Avoid compatibility aliases and parallel APIs when replacing a contract.
 

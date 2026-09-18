@@ -14,13 +14,13 @@
   },
   "scripts": {
     "build": "tsc -b",
-    "typecheck": "tsc -b"
+    "typecheck": "tsc -b",
+    "test": "tsx --test test/*.test.ts"
   },
   "dependencies": {
     "@vacp/data-duckdb": "workspace:*",
     "@vacp/protocol": "workspace:*",
-    "@vacp/runtime": "workspace:*",
-    "@vacp/runtime-browser": "workspace:*"
+    "@vacp/runtime": "workspace:*"
   },
   "peerDependencies": {
     "vega": "*",

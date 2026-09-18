@@ -2,16 +2,7 @@ import { expect, test, type Page } from '@playwright/test';
 
 import { startAppServer } from '../helpers/devserver';
 import { exampleDir } from '../helpers/paths';
-
-function isRetryableExecutionContextError(cause: unknown): boolean {
-  const msg = String((cause as { message?: unknown })?.message ?? cause ?? '');
-
-  return (
-    msg.includes('Execution context was destroyed') ||
-    msg.includes('Cannot find context with specified id') ||
-    msg.includes('Target page, context or browser has been closed')
-  );
-}
+import { executeOperation, operationNames } from '../providers/operations';
 
 async function waitForVacpBridge(page: Page, timeoutMs = 45_000): Promise<void> {
   await page.waitForFunction(
@@ -22,32 +13,6 @@ async function waitForVacpBridge(page: Page, timeoutMs = 45_000): Promise<void> 
     undefined,
     { timeout: timeoutMs },
   );
-}
-
-async function evaluateWithVacpRetry<T>(args: {
-  page: Page;
-  label: string;
-  evalFn: (payload: unknown) => Promise<T> | T;
-  payload: unknown;
-  maxAttempts?: number;
-}): Promise<T> {
-  const maxAttempts = args.maxAttempts ?? 4;
-  let lastError: unknown = null;
-
-  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
-    try {
-      return await args.page.evaluate(args.evalFn, args.payload);
-    } catch (error) {
-      lastError = error;
-
-      if (!isRetryableExecutionContextError(error) || attempt >= maxAttempts) throw error;
-      await args.page.waitForLoadState('domcontentloaded', { timeout: 10_000 }).catch(() => {});
-      await waitForVacpBridge(args.page, 15_000).catch(() => {});
-      await args.page.waitForTimeout(80 * attempt);
-    }
-  }
-
-  throw lastError ?? new Error(`Failed ${args.label}: unknown error`);
 }
 
 async function expectBridge(page: Page): Promise<void> {
@@ -67,7 +32,6 @@ async function expectDomSnapshotScript(page: Page, scriptId = '__vacp_snapshot')
   const raw = await page.evaluate((id) => document.getElementById(String(id))?.textContent ?? '', scriptId);
   const manifest = JSON.parse(raw);
   expect(manifest?.format).toBe('vacp.dom_snapshot');
-  expect(Object.prototype.hasOwnProperty.call(manifest, 'version')).toBeFalsy();
   expect(typeof manifest?.graph?.scriptId).toBe('string');
   expect(typeof manifest?.state?.indexScriptId).toBe('string');
   expect(typeof manifest?.state?.catalogScriptId).toBe('string');
@@ -78,7 +42,6 @@ async function expectDomSnapshotScript(page: Page, scriptId = '__vacp_snapshot')
   );
 
   const graph = JSON.parse(graphRaw);
-  expect(Object.prototype.hasOwnProperty.call(graph, 'version')).toBeFalsy();
   expect(Array.isArray(graph?.graph?.nodes)).toBeTruthy();
   expect(Array.isArray(graph?.graph?.actions)).toBeTruthy();
 
@@ -88,7 +51,6 @@ async function expectDomSnapshotScript(page: Page, scriptId = '__vacp_snapshot')
   );
 
   const stateIndex = JSON.parse(stateIndexRaw);
-  expect(Object.prototype.hasOwnProperty.call(stateIndex, 'version')).toBeFalsy();
   expect(Array.isArray(stateIndex?.changedRefs)).toBeTruthy();
   expect(Array.isArray(stateIndex?.removedRefs)).toBeTruthy();
   expect(typeof stateIndex?.catalog?.scriptId).toBe('string');
@@ -99,156 +61,80 @@ async function expectDomSnapshotScript(page: Page, scriptId = '__vacp_snapshot')
   );
 
   const stateCatalog = JSON.parse(stateCatalogRaw);
-  expect(Object.prototype.hasOwnProperty.call(stateCatalog, 'version')).toBeFalsy();
   expect(Array.isArray(stateCatalog?.refs)).toBeTruthy();
 
   const firstRef = (stateCatalog?.refs ?? [])[0];
 
-  if (firstRef?.scriptId) {
-    const refRaw = await page.evaluate(
-      (id) => document.getElementById(String(id))?.textContent ?? '',
-      firstRef.scriptId,
-    );
-
-    const refPayload = JSON.parse(refRaw);
-    expect(Object.prototype.hasOwnProperty.call(refPayload, 'version')).toBeFalsy();
-    expect(refPayload?.ref).toBe(firstRef.ref);
-    expect(Object.prototype.hasOwnProperty.call(refPayload, 'value')).toBeTruthy();
-  }
+  expect(firstRef?.scriptId).toEqual(expect.any(String));
+  const refRaw = await page.evaluate((id) => document.getElementById(String(id))?.textContent ?? '', firstRef.scriptId);
+  const refPayload = JSON.parse(refRaw);
+  expect(refPayload.ref).toBe(firstRef.ref);
+  expect(Object.hasOwn(refPayload, 'value')).toBe(true);
 
   return { manifest, graph, stateIndex, stateCatalog };
 }
 
 async function getCapabilities(page: Page): Promise<any> {
-  return await evaluateWithVacpRetry({
-    page,
-    label: 'getCapabilities',
-    payload: null,
-    evalFn: async () => await globalThis.__vacp.getCapabilities(),
-  });
+  return page.evaluate(() => globalThis.__vacp.getCapabilities());
 }
 
 async function getState(page: Page): Promise<any> {
-  return await evaluateWithVacpRetry({
-    page,
-    label: 'getState',
-    payload: null,
-    evalFn: async () => await globalThis.__vacp.getState(),
-  });
+  return page.evaluate(() => globalThis.__vacp.getState());
 }
 
 async function getRuntime(page: Page): Promise<any> {
-  return await evaluateWithVacpRetry({
-    page,
-    label: 'getRuntime',
-    payload: null,
-    evalFn: async () => await globalThis.__vacp.getRuntime(),
-  });
+  return page.evaluate(() => globalThis.__vacp.getRuntime());
 }
 
 async function dataSql(page: Page, args: { handleRef: string; sql: string; maxRows?: number }): Promise<any> {
-  return await evaluateWithVacpRetry({
-    page,
-    label: 'vacp.data_sql',
-    payload: args,
-    evalFn: async (payload) => {
-      const { handleRef, sql, maxRows } = payload as { handleRef: string; sql: string; maxRows?: number };
-
-      return await globalThis.__vacp.execute({
-        callId: crypto.randomUUID(),
-        name: 'vacp.data_sql',
-        params: { handleRef, sql, format: 'json', maxRows: maxRows ?? 500 },
-      });
-    },
-  });
+  return executeOperation(page, 'vacp.data_sql', { ...args, format: 'json', maxRows: args.maxRows ?? 500 });
 }
 
 async function dataSchema(
   page: Page,
   args: { handleRef: string; detail?: 'columns' | 'full'; sampleRows?: number },
 ): Promise<any> {
-  return await evaluateWithVacpRetry({
-    page,
-    label: 'vacp.data_schema',
-    payload: args,
-    evalFn: async (payload) => {
-      const { handleRef, detail, sampleRows } = payload as {
-        handleRef: string;
-        detail?: 'columns' | 'full';
-        sampleRows?: number;
-      };
-
-      return await globalThis.__vacp.execute({
-        callId: crypto.randomUUID(),
-        name: 'vacp.data_schema',
-        params: { handleRef, detail, sampleRows },
-      });
-    },
-  });
+  return executeOperation(page, 'vacp.data_schema', args);
 }
 
 async function executeVacp(page: Page, args: { name: string; params?: Record<string, unknown> }): Promise<any> {
-  return await evaluateWithVacpRetry({
-    page,
-    label: `execute:${args.name}`,
-    payload: args,
-    evalFn: async (payload) => {
-      const { name, params } = payload as { name: string; params?: Record<string, unknown> };
-
-      return await globalThis.__vacp.execute({ callId: crypto.randomUUID(), name, params: params ?? {} });
-    },
-  });
+  return page.evaluate(
+    ({ name, params }) => globalThis.__vacp.execute({ callId: crypto.randomUUID(), name, params: params ?? {} }),
+    args,
+  );
 }
 
-async function dispatchVacp(page: Page, args: { name: string; params?: Record<string, unknown> }): Promise<any> {
-  return await evaluateWithVacpRetry({
-    page,
-    label: `dispatch:${args.name}`,
-    payload: args,
-    evalFn: async (payload) => {
-      const { name, params } = payload as { name: string; params?: Record<string, unknown> };
-      const bridge = globalThis.__vacp;
-      const call = { callId: crypto.randomUUID(), name, params: params ?? {} };
-
-      if (typeof bridge.dispatch === 'function') {
-        return await bridge.dispatch(call, { source: 'inspector', message: `smoke:${name}` });
-      }
-
-      return await bridge.execute(call);
-    },
-  });
+async function dispatchOperation(page: Page, contract: string, params: Record<string, unknown>): Promise<any> {
+  const names = await operationNames(page, [contract]);
+  return page.evaluate(
+    ({ name, params }) =>
+      globalThis.__vacp.dispatch(
+        { callId: crypto.randomUUID(), name, params },
+        { source: 'inspector', message: `smoke:${name}` },
+      ),
+    { name: names[contract]!, params },
+  );
 }
 
-async function waitForCapabilityRefContains(page: Page, needle: string, timeoutMs = 60_000): Promise<void> {
-  const start = Date.now();
-
-  while (true) {
-    const ok = await page.evaluate(async (n) => {
-      const caps = await globalThis.__vacp.getCapabilities();
-      const nodes = caps?.graph?.nodes ?? [];
-
-      return nodes.some((x: any) => typeof x?.ref === 'string' && String(x.ref).includes(n));
-    }, needle);
-
-    if (ok) return;
-
-    if (Date.now() - start > timeoutMs) throw new Error(`Timed out waiting for capability ref containing: ${needle}`);
-    await page.waitForTimeout(150);
-  }
+async function waitForCapabilityRefContains(page: Page, needle: string, timeout = 60_000): Promise<void> {
+  await expect
+    .poll(
+      async () => {
+        const caps = await getCapabilities(page);
+        return caps.graph.nodes.some((node: { ref: string }) => node.ref.includes(needle));
+      },
+      { timeout, message: `Capability graph contains ${needle}` },
+    )
+    .toBe(true);
 }
 
-async function waitForHistoryLenAtLeast(page: Page, n: number, timeoutMs = 15_000): Promise<void> {
-  const start = Date.now();
-
-  while (true) {
-    const rt = await getRuntime(page);
-    const hist = Array.isArray(rt?.history) ? rt.history : [];
-
-    if (hist.length >= n) return;
-
-    if (Date.now() - start > timeoutMs) throw new Error(`Timed out waiting for history len >= ${n}`);
-    await page.waitForTimeout(120);
-  }
+async function waitForHistoryLenAtLeast(page: Page, count: number, timeout = 15_000): Promise<void> {
+  await expect
+    .poll(async () => (await getRuntime(page)).history.length, {
+      timeout,
+      message: `History contains at least ${count} entries`,
+    })
+    .toBeGreaterThanOrEqual(count);
 }
 
 function countFromResult(res: any): number {
@@ -275,21 +161,17 @@ async function expectDataSchemaWorks(page: Page, handleRef?: string): Promise<vo
 
   if (!target) return;
 
-  expect(actions.some((a: any) => a?.name === 'vacp.data_schema')).toBeTruthy();
+  expect(actions.some((a: any) => a?.operation?.contract === 'vacp.data_schema')).toBeTruthy();
 
-  let last: any = null;
-
-  for (let i = 0; i < 20; i += 1) {
-    // Some providers need a moment to hydrate data before schema queries succeed.
-    last = await dataSchema(page, { handleRef: target, detail: 'columns' });
-
-    if (last?.ok) break;
-    await page.waitForTimeout(150);
-  }
-
-  expect(last?.ok).toBeTruthy();
-  expect(Array.isArray(last?.result?.columns)).toBeTruthy();
-  expect(last?.result?.columns?.length).toBeGreaterThan(0);
+  await expect
+    .poll(
+      async () => {
+        const result = await dataSchema(page, { handleRef: target, detail: 'columns' });
+        return result.ok ? result.result.columns.length : 0;
+      },
+      { timeout: 15_000, message: 'DataHandle exposes its hydrated column schema' },
+    )
+    .toBeGreaterThan(0);
 }
 
 async function selectedCount(page: Page, handleRef: string): Promise<number> {
@@ -318,7 +200,7 @@ async function expectVgplotIntervalActionWorks(
       typeof node?.data?.interactorId === 'string',
   );
 
-  expect(actions.some((action: any) => action?.name === 'vgplot.set_interval_1d')).toBeTruthy();
+  expect(actions.some((action: any) => action?.operation?.contract === 'vgplot.set_interval_1d')).toBeTruthy();
   expect(target).toBeTruthy();
 
   const beforeRows = await selectedCount(page, handleRef);
@@ -345,14 +227,11 @@ async function expectVgplotIntervalActionWorks(
   expect(maxMs).toBeGreaterThan(minMs);
   const span = maxMs - minMs;
 
-  const result = await dispatchVacp(page, {
-    name: 'vgplot.set_interval_1d',
-    params: {
-      plotId: target.data.plotId,
-      interactorId: target.data.interactorId,
-      min: minMs + span * 0.35,
-      max: minMs + span * 0.6,
-    },
+  const result = await dispatchOperation(page, 'vgplot.set_interval_1d', {
+    plotId: target.data.plotId,
+    interactorId: target.data.interactorId,
+    min: minMs + span * 0.35,
+    max: minMs + span * 0.6,
   });
 
   expect(result.ok).toBeTruthy();
@@ -387,17 +266,14 @@ async function expectVegaLiteIntervalSelectionWorks(
     (node: any) => node?.kind === 'Selection' && String(node?.ref ?? '').endsWith('/param/brush'),
   );
 
-  expect(actions.map((action: any) => action?.name)).toContain('vega_lite.set_selection');
+  expect(actions.map((action: any) => action?.operation?.contract)).toContain('vega_lite.set_selection');
   expect(typeof brush?.ref).toBe('string');
 
   const intervalValue = [Date.UTC(2012, 5, 1), Date.UTC(2012, 8, 1)];
 
-  const result = await executeVacp(page, {
-    name: 'vega_lite.set_selection',
-    params: {
-      ref: brush.ref,
-      value: { x: intervalValue },
-    },
+  const result = await executeOperation(page, 'vega_lite.set_selection', {
+    ref: brush.ref,
+    value: { x: intervalValue },
   });
 
   expect(result.ok).toBe(true);
@@ -422,31 +298,6 @@ test('examples: application context controls raw SQL action registration', async
   const srv = await startAppServer({ name: 'vgplot-gallery', cwd: exampleDir('vgplot-gallery') });
 
   try {
-    await page.goto(`${srv.url}?context=guided#weather`, { waitUntil: 'domcontentloaded' });
-    await expectBridge(page);
-    await waitForCapabilityRefContains(page, '/vgplot/weather');
-
-    const disabledCaps = await getCapabilities(page);
-    const disabledGraph = disabledCaps?.graph ?? {};
-    const disabledActions = disabledGraph.actions ?? [];
-
-    const disabledHandle = (disabledGraph.nodes ?? []).find(
-      (node: any) => node?.kind === 'DataHandle' && String(node?.ref ?? '').includes('/vgplot/weather/'),
-    );
-
-    expect(typeof disabledHandle?.ref).toBe('string');
-    expect(disabledActions.some((action: any) => action?.name === 'vacp.data_sql')).toBeFalsy();
-    expect(disabledActions.some((action: any) => action?.name === 'vacp.data_schema')).toBeTruthy();
-
-    const disabledSql = await dataSql(page, {
-      handleRef: disabledHandle.ref as string,
-      sql: 'SELECT COUNT(*)::INTEGER AS n FROM vacp_all',
-    });
-
-    expect(disabledSql.ok).toBeFalsy();
-    expect(String(disabledSql.error?.message ?? '')).toContain('Unknown action');
-    await expectDataSchemaWorks(page, disabledHandle.ref as string);
-
     await page.goto(`${srv.url}?context=full#weather`, { waitUntil: 'domcontentloaded' });
     await expectBridge(page);
     await waitForCapabilityRefContains(page, '/vgplot/weather');
@@ -460,7 +311,7 @@ test('examples: application context controls raw SQL action registration', async
     );
 
     expect(typeof enabledHandle?.ref).toBe('string');
-    expect(enabledActions.some((action: any) => action?.name === 'vacp.data_sql')).toBeTruthy();
+    expect(enabledActions.some((action: any) => action?.operation?.contract === 'vacp.data_sql')).toBeTruthy();
 
     const enabledSql = await dataSql(page, {
       handleRef: enabledHandle.ref as string,
@@ -469,6 +320,32 @@ test('examples: application context controls raw SQL action registration', async
 
     expect(enabledSql.ok).toBeTruthy();
     expect(typeof countFromResult(enabledSql)).toBe('number');
+    const sqlOperationNames = await operationNames(page, ['vacp.data_sql']);
+
+    await page.goto(`${srv.url}?context=guided#weather`, { waitUntil: 'domcontentloaded' });
+    await expectBridge(page);
+    await waitForCapabilityRefContains(page, '/vgplot/weather');
+
+    const disabledCaps = await getCapabilities(page);
+    const disabledGraph = disabledCaps?.graph ?? {};
+    const disabledActions = disabledGraph.actions ?? [];
+
+    const disabledHandle = (disabledGraph.nodes ?? []).find(
+      (node: any) => node?.kind === 'DataHandle' && String(node?.ref ?? '').includes('/vgplot/weather/'),
+    );
+
+    expect(typeof disabledHandle?.ref).toBe('string');
+    expect(disabledActions.some((action: any) => action?.operation?.contract === 'vacp.data_sql')).toBeFalsy();
+    expect(disabledActions.some((action: any) => action?.operation?.contract === 'vacp.data_schema')).toBeTruthy();
+
+    await expectDataSchemaWorks(page, disabledHandle.ref as string);
+
+    const disabledSql = await executeVacp(page, {
+      name: sqlOperationNames['vacp.data_sql']!,
+      params: { handleRef: disabledHandle.ref, sql: 'SELECT COUNT(*)::INTEGER AS n FROM vacp_all' },
+    });
+    expect(disabledSql.ok).toBe(false);
+    expect(disabledSql.error?.message).toContain('Unknown action');
   } finally {
     await srv.stop();
   }
@@ -508,7 +385,7 @@ test('examples: vgplot-gallery', async ({ page }) => {
       const graph = caps?.graph ?? {};
       const actions = graph.actions ?? [];
       const nodes = graph.nodes ?? [];
-      const hasDataSql = actions.some((a: any) => a?.name === 'vacp.data_sql');
+      const hasDataSql = actions.some((a: any) => a?.operation?.contract === 'vacp.data_sql');
 
       const handle = nodes.find(
         (n: any) => n?.kind === 'DataHandle' && String(n?.ref ?? '').includes(`/vgplot/${specId}/`),
@@ -575,7 +452,7 @@ test('examples: vega-lite-gallery', async ({ page }) => {
       const graph = caps?.graph ?? {};
       const actions = graph.actions ?? [];
       const nodes = graph.nodes ?? [];
-      expect(actions.some((a: any) => a?.name === 'vacp.data_sql')).toBeTruthy();
+      expect(actions.some((a: any) => a?.operation?.contract === 'vacp.data_sql')).toBeTruthy();
 
       const handle = nodes.find(
         (n: any) => n?.kind === 'DataHandle' && String(n?.ref ?? '').includes(`/vega-lite/${specId}/`),

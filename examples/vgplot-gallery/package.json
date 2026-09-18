@@ -19,7 +19,7 @@
     "@vacp/adapter-vgplot": "workspace:*",
     "@vacp/analytics-posthog": "workspace:*",
     "@vacp/data-duckdb": "workspace:*",
-    "@vacp/inspector": "workspace:*",
+    "@vacp/runtime-browser": "workspace:*",
     "marked": "^17.0.6",
     "yaml": "catalog:"
   },

@@ -85,7 +85,7 @@ def make_set_sport_filter(runtime: PlainMcpRuntime) -> ToolCallable:
     ) -> JsonDict:
         """Set the athlete sport menu."""
         value = '' if sport.strip().lower() == 'all' else sport.strip().lower()
-        await runtime.execute('vgplot.set_input_value', {'ref': SPORT_REF, 'value': value})
+        await runtime.execute_contract('vgplot.set_input_value', {'ref': SPORT_REF, 'value': value})
         return action_response('set_sport_filter', await _dashboard_state(runtime), details={'sport': sport})
 
     return set_sport_filter
@@ -94,7 +94,7 @@ def make_set_sport_filter(runtime: PlainMcpRuntime) -> ToolCallable:
 def make_set_gender_filter(runtime: PlainMcpRuntime) -> ToolCallable:
     async def set_gender_filter(gender: AthleteGender) -> JsonDict:
         """Set the athlete sex menu."""
-        await runtime.execute('vgplot.set_input_value', {'ref': GENDER_REF, 'value': _gender_value(gender)})
+        await runtime.execute_contract('vgplot.set_input_value', {'ref': GENDER_REF, 'value': _gender_value(gender)})
         return action_response('set_gender_filter', await _dashboard_state(runtime), details={'gender': gender})
 
     return set_gender_filter
@@ -112,7 +112,7 @@ def make_brush_scatterplot(runtime: PlainMcpRuntime) -> ToolCallable:
         x1 = 250 if max_weight is None else max_weight
         y0 = 1.2 if min_height is None else min_height
         y1 = 2.3 if max_height is None else max_height
-        await runtime.execute(
+        await runtime.execute_contract(
             'vgplot.set_interval_2d',
             {'plotId': 'plot-0', 'interactorId': '0', 'x0': x0, 'x1': x1, 'y0': y0, 'y1': y1},
         )
@@ -128,7 +128,7 @@ def make_brush_scatterplot(runtime: PlainMcpRuntime) -> ToolCallable:
 def make_sort_table(runtime: PlainMcpRuntime) -> ToolCallable:
     async def sort_table(column: AthleteSortColumn, direction: SortDirection = 'asc') -> JsonDict:
         """Sort the athlete table by one displayed column."""
-        await runtime.execute(
+        await runtime.execute_contract(
             'vgplot.table_set_sort',
             {'tableId': 'table-0', 'column': column, 'desc': direction == 'desc'},
         )

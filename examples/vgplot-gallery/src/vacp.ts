@@ -1,3 +1,4 @@
+import { installVacpRuntime } from '@vacp/runtime-browser';
 import { exampleOptions } from '../../config';
 /**
  * VACP integration layer.
@@ -7,7 +8,7 @@ import { exampleOptions } from '../../config';
  */
 
 import { installVacpPosthogAnalytics, type VacpPosthogOptions } from '@vacp/analytics-posthog';
-import { installVacpOnVgplotDashboard, type VgplotPlotLike, type VgplotTableLike } from '@vacp/adapter-vgplot';
+import { createVgplotProvider, type VgplotPlotLike, type VgplotTableLike } from '@vacp/adapter-vgplot';
 import type { VacpDuckDbClient } from '@vacp/data-duckdb';
 
 import type { GalleryEntry } from './gallery';
@@ -22,9 +23,8 @@ export async function installVacp(args: {
 }): Promise<void> {
   const appId = 'vacp-examples';
   const viewId = `vgplot/${args.entry.id}`;
-  const runtimeId = exampleOptions.runtimeId;
 
-  const bridge = installVacpOnVgplotDashboard({
+  const provider = createVgplotProvider({
     root: args.root,
     plots: args.plots,
     tables: args.tables,
@@ -33,12 +33,17 @@ export async function installVacp(args: {
       appId,
       viewId,
       title: args.entry.meta.title,
-      globalKey: args.globalKey,
-      exposeBridge: exampleOptions.exposeBridge,
-      injectDomSnapshot: exampleOptions.injectDomSnapshot,
-      runtimeId,
       duckdbClient: args.duckdbClient,
     },
+  });
+
+  const { runtime: bridge } = installVacpRuntime({
+    providers: [provider],
+    globalKey: args.globalKey,
+    sessionKey: viewId,
+    runtimeId: exampleOptions.runtimeId,
+    exposeBridge: exampleOptions.exposeBridge,
+    injectDomSnapshot: exampleOptions.injectDomSnapshot,
   });
 
   // Optional analytics: if PostHog is configured, stream VACP history into the session replay.

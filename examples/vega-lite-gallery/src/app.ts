@@ -1,5 +1,3 @@
-import { exampleOptions } from '../../config';
-import { installVacpInspector } from '@vacp/inspector';
 import { type VegaViewLike } from '@vacp/adapter-vega-lite';
 import embed, { type VisualizationSpec } from 'vega-embed';
 
@@ -15,9 +13,6 @@ export async function run(): Promise<void> {
   if (!app || !selectEl || !metaEl) {
     throw new Error('Missing root elements');
   }
-
-  // Inspector: inspects the VACP bridge and provides time travel, actions, and DuckDB SQL.
-  if (exampleOptions.inspector) installVacpInspector();
 
   // Gallery UI: pick between small specs that each exercise a different VACP feature.
   const gallery = loadGallery();
@@ -63,7 +58,7 @@ export async function run(): Promise<void> {
       const result = await embed(app, spec as VisualizationSpec, { actions: false, renderer: 'canvas' });
 
       // VACP layer: exposes Vega params/selections as nodes/actions at `window.__vacp`.
-      installVacp({
+      await installVacp({
         root: app,
         view: result.view as VegaViewLike,
         spec: spec as VisualizationSpec,

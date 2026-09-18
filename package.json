@@ -22,7 +22,6 @@
     "@types/node": "catalog:",
     "@vacp/protocol": "workspace:*",
     "@vacp/sdk": "workspace:*",
-    "concurrently": "^9.2.4",
     "knip": "^6.35.1",
     "oxlint": "1.83.0",
     "portless": "catalog:",

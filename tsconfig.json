@@ -26,9 +26,6 @@
       "path": "packages/analytics"
     },
     {
-      "path": "packages/inspector"
-    },
-    {
       "path": "packages/agent-ai-sdk"
     },
     {
@@ -48,6 +45,9 @@
     },
     {
       "path": "packages/transport-webmcp"
+    },
+    {
+      "path": "packages/inspector-core"
     }
   ]
 }

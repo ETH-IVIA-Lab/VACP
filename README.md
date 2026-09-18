@@ -46,7 +46,7 @@ Reusable protocol, runtime, providers, transports, and UI live in `packages/*`. 
 
 ## Documentation
 
-Visit [https://docs.vacp.dev/](https://docs.vacp.dev/) for the documentation and [https://examples.vacp.dev/](https://examples.vacp.dev/) for demos. Click the floating **VACP** control, select Chat, enter your API key, and ask the agent to analyze or interact with the active visualization.
+Visit [https://docs.vacp.dev/](https://docs.vacp.dev/) for the documentation and [https://examples.vacp.dev/](https://examples.vacp.dev/) for demos.
 
 - Docs site entry: [docs/index.md](docs/index.md)
 - Get started: [docs/get-started/index.md](docs/get-started/index.md)
@@ -59,7 +59,7 @@ Visit [https://docs.vacp.dev/](https://docs.vacp.dev/) for the documentation and
 
 ## Runtime Notes
 
-- The in-page inspector is enabled by default. Applications choose whether to call `installVacpInspector()`.
+- Build custom inspection surfaces with `@vacp/inspector-core` and an explicit session client.
 - Start MCP server against a running example: `uv run vacp --url https://examples.vacp.localhost/vega-lite/`.
 
 ## Contact

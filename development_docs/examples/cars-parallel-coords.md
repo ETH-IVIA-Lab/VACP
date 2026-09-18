@@ -16,10 +16,6 @@ From the repo root:
 pnpm -C examples/cars-parallel-coords dev
 ```
 
-Open the inspector:
-
-- click the floating **VACP** button. Applications choose whether to call `installVacpInspector()`
-
 ## Interactions
 
 - Brush any axis to filter to a subset of cars.

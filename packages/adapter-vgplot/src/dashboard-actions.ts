@@ -1,13 +1,13 @@
-import type { CollectedInput } from './inputs';
-import { executeInputAction } from './inputs';
-import { executeIntervalAction } from './interactors/interval';
-import { executeLegendToggleAction } from './interactors/legend-toggle';
-import { executeNearestAction } from './interactors/nearest';
-import { executePanZoomAction } from './interactors/pan-zoom';
-import { executeRegionAction } from './interactors/region';
-import { executeToggleAction } from './interactors/toggle';
-import { executeTableAction } from './table-actions';
-import type { VgplotPlotLike, VgplotTableLike } from './types';
+import type { CollectedInput } from './inputs.js';
+import { executeInputAction } from './inputs.js';
+import { executeIntervalAction } from './interactors/interval.js';
+import { executeLegendToggleAction } from './interactors/legend-toggle.js';
+import { executeNearestAction } from './interactors/nearest.js';
+import { executePanZoomAction } from './interactors/pan-zoom.js';
+import { executeRegionAction } from './interactors/region.js';
+import { executeToggleAction } from './interactors/toggle.js';
+import { executeTableAction } from './table-actions.js';
+import type { VgplotPlotLike, VgplotTableLike } from './types.js';
 
 type RegisterFn = (name: string, handler: (params: unknown) => unknown | Promise<unknown>) => void;
 

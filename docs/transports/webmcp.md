@@ -42,7 +42,7 @@ Handlers retain responsibility for validation. The action result is the normal V
 const webmcp = await installVacpWebMcp(integration.bridge, {
   namespace: 'chart',
   includeAction: (action) => action.name !== 'internal.reset',
-  annotations: (action) => ({ readOnlyHint: action.name === 'vacp.data_schema' }),
+  annotations: (action) => ({ readOnlyHint: action.operation.contract === 'vacp.data_schema' }),
 });
 ```
 
@@ -54,7 +54,7 @@ Pass `signal` to tie the installation to an application lifetime. Pass `context`
 
 ## Changes and cleanup
 
-The installer follows `runtime.subscribeCapabilities()`. Runtime refreshes, provider replacement, and observation publish changes to the live graph. Inspector overrides do not change the exported catalog. Unchanged tool definitions keep their registrations. Replacing metadata withdraws the old registration without cancelling a call already in progress.
+The installer follows `runtime.subscribeCapabilities()`. Runtime refreshes, provider replacement, and observation publish changes to the live graph. Runtime history overrides do not change the exported catalog. Unchanged tool definitions keep their registrations. Replacing metadata withdraws the old registration without cancelling a call already in progress.
 
 Waiting graph revisions are merged into the latest catalog; an in-progress registration finishes before the next catalog is applied. Call `await webmcp?.refresh()` to explicitly re-read and wait for that catalog, or a newer queued revision, to finish registering. Automatic failures are available as `webmcp.error` and sent to `onError`. A failed update withdraws owned tools; a successful refresh clears the error and restores registration.
 

@@ -116,7 +116,7 @@ def make_select_airport(runtime: PlainMcpRuntime) -> ToolCallable:
         """Select one origin airport on the flight map."""
         row = await _airport_lookup(runtime, airport)
         code = str(row.get('iata') or airport).upper()
-        await runtime.execute('vega_lite.set_selection', {'ref': ORG_REF, 'value': {'origin': code}})
+        await runtime.execute_contract('vega_lite.set_selection', {'ref': ORG_REF, 'value': {'origin': code}})
         runtime.remember('airports.selected_airport', row)
         state = await _flight_state(runtime)
         state['selectedAirport'] = _airport_summary(None, row)
@@ -139,7 +139,9 @@ def make_filter_routes(runtime: PlainMcpRuntime) -> ToolCallable:
         }
         runtime.remember('airports.route_filter', route_filter)
         if origin:
-            await runtime.execute('vega_lite.set_selection', {'ref': ORG_REF, 'value': {'origin': origin.upper()}})
+            await runtime.execute_contract(
+                'vega_lite.set_selection', {'ref': ORG_REF, 'value': {'origin': origin.upper()}}
+            )
         state = await _flight_state(runtime)
         state['routeFilter'] = route_filter
         return action_response('filter_routes', state, details=route_filter)
@@ -165,8 +167,10 @@ def make_hover_route(runtime: PlainMcpRuntime) -> ToolCallable:
             raise ValueError(f'No route found from {origin!r} to {destination!r}')
         row = dict(rows[0])
         row.pop('__total_count', None)
-        await runtime.execute('vega_lite.set_selection', {'ref': ORG_REF, 'value': {'origin': str(row.get('origin'))}})
-        await runtime.execute(
+        await runtime.execute_contract(
+            'vega_lite.set_selection', {'ref': ORG_REF, 'value': {'origin': str(row.get('origin'))}}
+        )
+        await runtime.execute_contract(
             'vega_lite.hover_tooltip',
             {'fields': {'origin': row.get('origin'), 'destination': row.get('destination')}, 'value': row},
         )

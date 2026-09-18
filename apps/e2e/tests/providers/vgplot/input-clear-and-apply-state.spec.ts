@@ -2,6 +2,7 @@ import { expect, test, type Page } from '@playwright/test';
 
 import { startAppServer } from '../../helpers/devserver';
 import { exampleDir } from '../../helpers/paths';
+import { executeOperation, operationNames } from '../operations';
 
 async function waitForBridge(page: Page): Promise<void> {
   await page.waitForFunction(
@@ -34,30 +35,14 @@ test('vgplot: clear_input keeps menu snapshots readable', async ({ page }) => {
 
     const inputRef = await firstStateRef(page, 'Widget');
 
-    const result = await page.evaluate(
-      async (ref) =>
-        await globalThis.__vacp.execute({
-          callId: crypto.randomUUID(),
-          name: 'vgplot.clear_input',
-          params: { ref },
-        }),
-      inputRef,
-    );
+    const result = await executeOperation(page, 'vgplot.clear_input', { ref: inputRef });
 
     expect(result?.ok).toBe(true);
 
     const snapshot = await page.evaluate(async () => await globalThis.__vacp.getState());
     expect(snapshot?.state?.[inputRef]?.kind).toBe('Widget');
 
-    const options = await page.evaluate(
-      async (ref) =>
-        await globalThis.__vacp.execute({
-          callId: crypto.randomUUID(),
-          name: 'vacp.widget_options',
-          params: { ref, limit: 5 },
-        }),
-      inputRef,
-    );
+    const options = await executeOperation(page, 'vacp.widget_options', { ref: inputRef, limit: 5 });
 
     expect(options?.ok).toBe(true);
     expect(Array.isArray(options?.result?.options)).toBe(true);
@@ -75,18 +60,22 @@ test('vgplot: apply_state reports read-only DataHandle refs', async ({ page }) =
 
     const handleRef = await firstStateRef(page, 'DataHandle');
 
-    const result = await page.evaluate(async (ref) => {
-      const vacp = globalThis.__vacp;
-      const snap = await vacp.getState();
-      const state = structuredClone(snap.state);
-      state[ref] = { ...state[ref], auditProbe: 'json-tab-apply' };
+    const names = await operationNames(page, ['vacp.apply_state']);
+    const result = await page.evaluate(
+      async ({ ref, names }) => {
+        const vacp = globalThis.__vacp;
+        const snap = await vacp.getState();
+        const state = structuredClone(snap.state);
+        state[ref] = { ...state[ref], auditProbe: 'json-tab-apply' };
 
-      return await vacp.execute({
-        callId: crypto.randomUUID(),
-        name: 'vacp.apply_state',
-        params: { state },
-      });
-    }, handleRef);
+        return await vacp.execute({
+          callId: crypto.randomUUID(),
+          name: names['vacp.apply_state'],
+          params: { state },
+        });
+      },
+      { ref: handleRef, names },
+    );
 
     expect(result?.ok).toBe(true);
     expect(result?.result?.applied).toBe(0);
@@ -110,7 +99,8 @@ test('vgplot: apply_state restores PanZoom domains', async ({ page }) => {
     await page.goto(`${srv.url}#pan-zoom`, { waitUntil: 'domcontentloaded' });
     await waitForBridge(page);
 
-    const replay = await page.evaluate(async () => {
+    const names = await operationNames(page, ['vgplot.set_pan_zoom', 'vgplot.clear_pan_zoom', 'vacp.apply_state']);
+    const replay = await page.evaluate(async (names) => {
       const vacp = globalThis.__vacp;
       const snap = await vacp.getState();
       const panZoomEntry = Object.entries(snap.state).find(([, value]) => (value as any)?.kind === 'PanZoom');
@@ -134,7 +124,7 @@ test('vgplot: apply_state restores PanZoom domains', async ({ page }) => {
       const interactorId = ref.split('/interactor/').at(-1);
       await vacp.execute({
         callId: crypto.randomUUID(),
-        name: 'vgplot.set_pan_zoom',
+        name: names['vgplot.set_pan_zoom'],
         params: {
           plotId: panZoom.plotId,
           interactorId,
@@ -148,21 +138,21 @@ test('vgplot: apply_state restores PanZoom domains', async ({ page }) => {
       const expected = structuredClone(afterSet.state[ref]);
       const clearResult = await vacp.execute({
         callId: crypto.randomUUID(),
-        name: 'vgplot.clear_pan_zoom',
+        name: names['vgplot.clear_pan_zoom'],
         params: { plotId: panZoom.plotId, interactorId },
       });
       const cleared = (await vacp.getState()).state[ref];
 
       const applyResult = await vacp.execute({
         callId: crypto.randomUUID(),
-        name: 'vacp.apply_state',
+        name: names['vacp.apply_state'],
         params: { state: structuredClone(afterSet.state) },
       });
 
       const afterReplay = await vacp.getState();
 
       return { clearResult, cleared, applyResult, expected, actual: afterReplay.state[ref] };
-    });
+    }, names);
 
     expect(replay.clearResult.ok).toBe(true);
     expect(replay.cleared.x).toBeNull();
@@ -193,8 +183,8 @@ test('vgplot: slider input actions keep DataHandle SQL valid', async ({ page }) 
         widgetRef: Object.entries(snap.state).find(([, value]) => (value as any)?.kind === 'Widget')?.[0],
         handleRef: Object.entries(snap.state).find(([, value]) => (value as any)?.kind === 'DataHandle')?.[0],
         inputActions: caps.graph.actions
-          .map((action) => action.name)
-          .filter((name) => name.startsWith('vgplot.set_input_')),
+          .map((action) => action.operation?.contract)
+          .filter((contract) => contract?.startsWith('vgplot.set_input_')),
       };
     });
 
@@ -202,62 +192,30 @@ test('vgplot: slider input actions keep DataHandle SQL valid', async ({ page }) 
     expect(refs.handleRef).toBeTruthy();
     expect(refs.inputActions).toEqual(['vgplot.set_input_value']);
 
-    const setResult = await page.evaluate(
-      async (ref) =>
-        await globalThis.__vacp.execute({
-          callId: crypto.randomUUID(),
-          name: 'vgplot.set_input_value',
-          params: { ref, value: [0, 20] },
-        }),
-      refs.widgetRef,
-    );
+    const setResult = await executeOperation(page, 'vgplot.set_input_value', { ref: refs.widgetRef, value: [0, 20] });
 
     expect(setResult?.ok).toBe(true);
 
-    const selected = await page.evaluate(
-      async (handleRef) =>
-        globalThis.__vacp.execute({
-          callId: crypto.randomUUID(),
-          name: 'vacp.data_sql',
-          params: {
-            handleRef,
-            sql: 'SELECT COUNT(*)::INTEGER AS n, MAX(batch)::INTEGER AS max_batch FROM vacp_handle',
-          },
-        }),
-      refs.handleRef,
-    );
+    const selected = await executeOperation(page, 'vacp.data_sql', {
+      handleRef: refs.handleRef,
+      sql: 'SELECT COUNT(*)::INTEGER AS n, MAX(batch)::INTEGER AS max_batch FROM vacp_handle',
+    });
     expect(selected.ok).toBe(true);
     expect(selected.result.rows[0].n).toBeGreaterThan(0);
     expect(selected.result.rows[0].max_batch).toBeLessThanOrEqual(20);
 
-    const clearResult = await page.evaluate(
-      async (ref) =>
-        await globalThis.__vacp.execute({
-          callId: crypto.randomUUID(),
-          name: 'vgplot.clear_input',
-          params: { ref },
-        }),
-      refs.widgetRef,
-    );
+    const clearResult = await executeOperation(page, 'vgplot.clear_input', { ref: refs.widgetRef });
 
     expect(clearResult?.ok).toBe(true);
 
     const clearState = await page.evaluate(async () => await globalThis.__vacp.getState());
     expect(clearState?.state?.[refs.handleRef!]?.selectionWhere ?? null).toBeNull();
 
-    const sqlResult = await page.evaluate(
-      async (handleRef) =>
-        await globalThis.__vacp.execute({
-          callId: crypto.randomUUID(),
-          name: 'vacp.data_sql',
-          params: {
-            handleRef,
-            sql: 'SELECT COUNT(*)::INTEGER AS n FROM vacp_handle',
-            maxRows: 10,
-          },
-        }),
-      refs.handleRef,
-    );
+    const sqlResult = await executeOperation(page, 'vacp.data_sql', {
+      handleRef: refs.handleRef,
+      sql: 'SELECT COUNT(*)::INTEGER AS n FROM vacp_handle',
+      maxRows: 10,
+    });
 
     expect(sqlResult?.ok).toBe(true);
     expect(sqlResult?.result?.rows?.[0]?.n).toBeGreaterThan(selected.result.rows[0].n);
@@ -276,15 +234,7 @@ test('vgplot: menu option indices update the chart and clear restores the defaul
     await expect(line).toHaveAttribute('d', /^M/);
     const originalPath = await line.getAttribute('d');
 
-    const setResult = await page.evaluate(
-      async (ref) =>
-        globalThis.__vacp.execute({
-          callId: crypto.randomUUID(),
-          name: 'vgplot.set_input_option_index',
-          params: { ref, index: 1 },
-        }),
-      inputRef,
-    );
+    const setResult = await executeOperation(page, 'vgplot.set_input_option_index', { ref: inputRef, index: 1 });
     expect(setResult.ok).toBe(true);
     expect(setResult.result.value).toEqual([-3, 3]);
     await expect
@@ -295,15 +245,7 @@ test('vgplot: menu option indices update the chart and clear restores the defaul
       .toBe(true);
     expect((await page.evaluate(async () => globalThis.__vacp.getState())).state[inputRef].value).toEqual([-3, 3]);
 
-    const clearResult = await page.evaluate(
-      async (ref) =>
-        globalThis.__vacp.execute({
-          callId: crypto.randomUUID(),
-          name: 'vgplot.clear_input',
-          params: { ref },
-        }),
-      inputRef,
-    );
+    const clearResult = await executeOperation(page, 'vgplot.clear_input', { ref: inputRef });
     expect(clearResult.ok).toBe(true);
     expect(clearResult.result.value).toEqual([-6, 0]);
     await expect(line).toHaveAttribute('d', originalPath!);
@@ -326,15 +268,15 @@ test('vgplot: transient hover state stays bounded and read-only during replay', 
       return Object.values(snap.state).find((value: any) => value?.kind === 'Nearest') ?? null;
     });
 
-    const actionNames = await page.evaluate(async () => {
+    const contracts = await page.evaluate(async () => {
       const caps = await globalThis.__vacp.getCapabilities();
 
-      return (caps.graph.actions ?? []).map((action: any) => action.name);
+      return (caps.graph.actions ?? []).map((action: any) => action.operation?.contract);
     });
 
     expect(nearest).toBeTruthy();
-    expect(actionNames).not.toContain('vgplot.set_nearest');
-    expect(actionNames).not.toContain('vgplot.clear_nearest');
+    expect(contracts).not.toContain('vgplot.set_nearest');
+    expect(contracts).not.toContain('vgplot.clear_nearest');
     expect(nearest).toEqual(
       expect.objectContaining({
         kind: 'Nearest',
@@ -343,7 +285,8 @@ test('vgplot: transient hover state stays bounded and read-only during replay', 
     );
     expect(JSON.stringify(nearest).length).toBeLessThan(4_000);
 
-    const result = await page.evaluate(async () => {
+    const names = await operationNames(page, ['vacp.apply_state']);
+    const result = await page.evaluate(async (names) => {
       const vacp = globalThis.__vacp;
       const snap = await vacp.getState();
       const state = structuredClone(snap.state);
@@ -366,14 +309,14 @@ test('vgplot: transient hover state stays bounded and read-only during replay', 
       const replay = async (operation: 'clear' | 'set', desired: typeof state) => {
         const applied = await vacp.execute({
           callId: crypto.randomUUID(),
-          name: 'vacp.apply_state',
+          name: names['vacp.apply_state'],
           params: { state: desired },
         });
         const after = await vacp.getState();
         return { operation, applied, actual: after.state[ref] };
       };
       return { ref, replays: [await replay('clear', cleared), await replay('set', state)] };
-    });
+    }, names);
 
     for (const { operation, applied, actual } of result.replays) {
       expect(applied.ok, operation).toBe(true);

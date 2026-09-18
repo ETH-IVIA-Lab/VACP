@@ -1,7 +1,7 @@
 import type { VacpActionCall } from '@vacp/protocol';
 
-import type { VgplotPlotLike } from '../types';
-import { awaitPlotUpdate } from './plot-update';
+import type { VgplotPlotLike } from '../types.js';
+import { awaitPlotUpdate } from './plot-update.js';
 
 type PanZoomInteractor = {
   constructor?: { name?: string };

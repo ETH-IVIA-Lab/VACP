@@ -1,8 +1,5 @@
-import { exampleOptions } from '../../config';
 import { StrictMode } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
-
-import { installVacpInspector } from '@vacp/inspector';
 
 import './index.css';
 import App from './App';
@@ -29,8 +26,6 @@ async function ensureDataset(timeoutMs = 30_000): Promise<void> {
 }
 
 export function mountReactDashboard(rootEl: HTMLElement): () => void {
-  if (exampleOptions.inspector) installVacpInspector();
-
   void useDashboardStore.getState().actions.init();
 
   const vacp = installVacpForReactDashboard({
@@ -65,5 +60,6 @@ export function mountReactDashboard(rootEl: HTMLElement): () => void {
 
   return () => {
     root.unmount();
+    vacp.dispose();
   };
 }

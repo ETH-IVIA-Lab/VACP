@@ -1,17 +1,23 @@
 import type { VacpActionCall } from '@vacp/protocol';
-import { splitVacpRefAt } from '@vacp/protocol';
 import { changeset } from 'vega';
 
-import { collectVegaLiteParams } from './params';
-import { signalNamesFromView, tryGetSignal, trySetSignal } from './signals';
-import type { VegaLiteParamLike, VegaLiteSpecLike, VegaViewLike, VegaRuntimeContext } from './types';
+import { makeRef } from './refs.js';
+import { collectVegaLiteParams } from './params.js';
+import { signalNamesFromView, tryGetSignal, trySetSignal } from './signals.js';
+import type {
+  VegaLiteParamLike,
+  VegaLiteSpecLike,
+  VegaViewLike,
+  VegaRuntimeContext,
+  VegaLiteProviderOptions,
+} from './types.js';
 
 function signalsForParam(param: VegaLiteParamLike, allSignals: string[]): string[] {
   // Vega-Lite compiles selection parameters into multiple signals. Runtime
   // matching covers the stable signal names produced by common compiled specs:
   // - always include the param name
   // - include any signals that start with the param name (common pattern)
-  const out = new Set<string>([param.name]);
+  const out = new Set<string>(allSignals.length === 0 || allSignals.includes(param.name) ? [param.name] : []);
   allSignals.forEach((s) => {
     if (s === param.name) return;
 
@@ -214,25 +220,25 @@ async function applyViewState(view: VegaViewLike, state: unknown): Promise<void>
   await view.runAsync();
 }
 
-export function buildParamLookup(spec: VegaLiteSpecLike, view: VegaViewLike) {
+export function buildParamLookup(spec: VegaLiteSpecLike, view: VegaViewLike, options: VegaLiteProviderOptions) {
   const allSignals = signalNamesFromView(view);
-  const paramByName = new Map<string, { param: VegaLiteParamLike; kind: 'Param' | 'Selection' }>();
+  const paramByRef = new Map<string, { param: VegaLiteParamLike; kind: 'Param' | 'Selection' }>();
   const watchedSignalsByParam = new Map<string, string[]>();
 
   collectVegaLiteParams(spec).forEach((p) => {
     const kind = p.select ? 'Selection' : 'Param';
-    paramByName.set(p.name, { param: p, kind });
+    paramByRef.set(makeRef({ ...options, suffix: `/param/${p.name}` }), { param: p, kind });
     watchedSignalsByParam.set(p.name, signalsForParam(p, allSignals));
   });
 
-  return { paramByName, watchedSignalsByParam, allSignals };
+  return { paramByRef, watchedSignalsByParam, allSignals };
 }
 
 export async function executeAction(
   view: VegaViewLike,
   call: VacpActionCall,
   helpers: {
-    paramByName: Map<string, { param: VegaLiteParamLike; kind: 'Param' | 'Selection' }>;
+    paramByRef: Map<string, { param: VegaLiteParamLike; kind: 'Param' | 'Selection' }>;
     watchedSignalsByParam: Map<string, string[]>;
     allSignals: string[];
   },
@@ -254,13 +260,9 @@ export async function executeAction(
   const ref = typeof params.ref === 'string' ? params.ref : null;
 
   if (!ref) throw new Error('Expected params.ref string');
-  const name = splitVacpRefAt(ref, '/param/')?.after ?? null;
-
-  if (!name) throw new Error(`Could not parse param name from ref: ${ref}`);
-
-  const found = helpers.paramByName.get(name);
-
-  if (!found) throw new Error(`Unknown param: ${name}`);
+  const found = helpers.paramByRef.get(ref);
+  if (!found) throw new Error(`Unknown parameter reference: ${ref}`);
+  const name = found.param.name;
 
   if (call.name === 'vega_lite.set_param') {
     if (found.kind !== 'Param') throw new Error(`Param "${name}" is not a variable parameter`);

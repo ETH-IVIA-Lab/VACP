@@ -84,29 +84,12 @@ export interface VgplotTableLike {
   requestData?: (...args: unknown[]) => unknown | Promise<unknown>;
 }
 
-export interface InstallVacpOnVgplotOptions {
-  appId: string;
-  viewId: string;
-  plotId: string;
-  title?: string;
-  description?: string;
-  globalKey?: string;
-  exposeBridge?: boolean;
-  injectDomSnapshot?: boolean;
-  enableSql?: boolean;
-  runtimeId?: string;
-}
-
-export interface InstallVacpOnVgplotDashboardOptions {
+export interface VgplotProviderOptions {
   appId: string;
   viewId: string;
   title?: string;
   description?: string;
-  globalKey?: string;
-  exposeBridge?: boolean;
-  injectDomSnapshot?: boolean;
   enableSql?: boolean;
-  runtimeId?: string;
   /**
    * Optional DuckDB client to back the standard `vacp.data_sql` action.
    *

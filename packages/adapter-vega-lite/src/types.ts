@@ -76,15 +76,12 @@ export interface VegaLiteSpecLike {
   [key: string]: any;
 }
 
-export interface InstallVacpOnVegaLiteOptions {
+export interface VegaLiteProviderOptions {
   appId: string;
   viewId: string;
   vizId: string;
   title?: string;
   description?: string;
-  globalKey?: string;
-  exposeBridge?: boolean;
-  injectDomSnapshot?: boolean;
   enableSql?: boolean;
   /**
    * Optional DuckDB client to back `vacp.data_sql`.

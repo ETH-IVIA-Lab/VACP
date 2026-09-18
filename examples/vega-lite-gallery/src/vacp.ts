@@ -1,3 +1,4 @@
+import { installVacpRuntime } from '@vacp/runtime-browser';
 import { exampleOptions } from '../../config';
 /**
  * VACP integration layer.
@@ -7,36 +8,46 @@ import { exampleOptions } from '../../config';
  */
 
 import { installVacpPosthogAnalytics, type VacpPosthogOptions } from '@vacp/analytics-posthog';
-import { installVacpOnVegaLiteView, type VegaViewLike } from '@vacp/adapter-vega-lite';
+import { createVegaLiteProvider, type VegaViewLike } from '@vacp/adapter-vega-lite';
 import type { VisualizationSpec } from 'vega-embed';
+import { createDuckDbWasmClient } from '@vacp/data-duckdb';
+
+const duckdbClient = createDuckDbWasmClient();
 
 import type { GalleryEntry } from './gallery';
 
-export function installVacp(args: {
+export async function installVacp(args: {
   root: HTMLElement;
   view: VegaViewLike;
   spec: VisualizationSpec;
   entry: GalleryEntry;
   globalKey?: string;
-}): void {
+}): Promise<void> {
   const appId = 'vacp-examples';
   const viewId = `vega-lite/${args.entry.id}`;
 
-  const bridge = installVacpOnVegaLiteView({
+  const provider = createVegaLiteProvider({
     root: args.root,
     view: args.view,
     spec: args.spec,
     options: {
       enableSql: exampleOptions.enableSql,
+      duckdbClient: await duckdbClient,
       appId,
       viewId,
       vizId: args.entry.id,
       title: args.entry.meta.title,
-      globalKey: args.globalKey,
-      exposeBridge: exampleOptions.exposeBridge,
-      injectDomSnapshot: exampleOptions.injectDomSnapshot,
       includeSetSignalAction: false,
     },
+  });
+
+  const { runtime: bridge } = installVacpRuntime({
+    providers: [provider],
+    globalKey: args.globalKey,
+    sessionKey: viewId,
+    runtimeId: exampleOptions.runtimeId,
+    exposeBridge: exampleOptions.exposeBridge,
+    injectDomSnapshot: exampleOptions.injectDomSnapshot,
   });
 
   // Optional analytics: if PostHog is configured, stream VACP history into the session replay.

@@ -34,15 +34,11 @@ From the repo root:
 pnpm -C examples/vgplot-gallery dev
 ```
 
-Open the inspector:
-
-- click the floating **VACP** button. Applications choose whether to call `installVacpInspector()`
-
 ## How it works
 
 1. The app loads a YAML spec from `src/specs/*.yaml`.
 2. VGPlot renders it into DOM/SVG (via `@uwdata/mosaic-spec` + `@uwdata/vgplot`).
-3. `@vacp/adapter-vgplot` installs VACP:
+3. `@vacp/adapter-vgplot` creates a provider. The application installs its runtime through `@vacp/runtime-browser`:
    - **Bridge**: installs/updates `window.__vacp` (capabilities/state/execute, unless `exposeBridge: false`)
    - **Actions**: registers semantic operations like `vgplot.set_interval_1d`, `vgplot.clear_interval_2d`, etc.
    - **DuckDB SQL**: enables `vacp.data_sql` so agents can query the current _Selection_
@@ -57,12 +53,11 @@ automation.
 - Use a brush/interval _Selection_ on the chart.
 - Watch how:
   - `window.__vacp.getState()` changes
-  - runtime history grows (inspector -> **History**)
+  - runtime history grows
 
 ### Try it: manual action dispatch
 
-- Open Inspector -> **Actions**.
-- Pick an action and provide JSON params.
+Read action descriptors with `window.__vacp.getCapabilities()`, select the contract and source owner, then call `window.__vacp.execute({ callId, name, params })` with the selected action and its parameters.
 
 Manual dispatch covers these checks:
 

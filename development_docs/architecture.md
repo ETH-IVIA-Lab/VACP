@@ -4,22 +4,22 @@ VACP separates the visualization's state from the ways people and agents access 
 
 ## Package ownership
 
-| Package             | Owns                                                               | Workspace dependencies                                                               |
-| ------------------- | ------------------------------------------------------------------ | ------------------------------------------------------------------------------------ |
-| `protocol`          | Protocol records, refs, hashes, and consumer interfaces            | None                                                                                 |
-| `runtime`           | Action registration, snapshot scoping, deltas, history, and replay | `protocol`                                                                           |
-| `runtime-browser`   | Browser options, bridge installation, and DOM snapshots            | `protocol`, `runtime`                                                                |
-| `sdk`               | Custom integration builders and browser composition                | `protocol`, `runtime`, `runtime-browser`                                             |
-| `data-duckdb`       | Database execution, metadata, serialization, and handle routing    | `protocol`                                                                           |
-| `adapter-vega-lite` | Vega-Lite entities, selections, and actions                        | `data-duckdb`, `protocol`, `runtime`, `runtime-browser`                              |
-| `adapter-vgplot`    | VGPlot entities, selections, and actions                           | `data-duckdb`, `protocol`, `runtime`, `runtime-browser`                              |
-| `transport-bridge`  | Bridge-to-tool mapping and readiness behavior                      | `protocol`                                                                           |
-| `agent-ai-sdk`      | Models, AI SDK tools, agent policy, and context compaction         | `protocol`, `transport-bridge`                                                       |
-| `inspector`         | React inspection UI and agent conversations                        | `agent-ai-sdk`, `diagram-mermaid`, `protocol`, `runtime-browser`, `transport-bridge` |
-| `diagram-mermaid`   | Semantic graph to Mermaid source                                   | `protocol`                                                                           |
-| `analytics`         | Provider-independent runtime event subscriptions                   | `protocol`                                                                           |
-| `analytics-posthog` | PostHog implementation of the telemetry provider port              | `protocol`, `analytics`                                                              |
-| `python`            | Python MCP tools and Playwright browser ownership                  | None                                                                                 |
+| Package             | Owns                                                               | Workspace dependencies                   |
+| ------------------- | ------------------------------------------------------------------ | ---------------------------------------- |
+| `protocol`          | Protocol records, refs, hashes, and consumer interfaces            | None                                     |
+| `runtime`           | Action registration, snapshot scoping, deltas, history, and replay | `protocol`                               |
+| `runtime-browser`   | Browser options, bridge installation, and DOM snapshots            | `protocol`, `runtime`                    |
+| `sdk`               | Custom integration builders and browser composition                | `protocol`, `runtime`, `runtime-browser` |
+| `data-duckdb`       | Database execution, metadata, serialization, and handle routing    | `protocol`                               |
+| `adapter-vega-lite` | Vega-Lite entities, selections, and actions                        | `data-duckdb`, `protocol`, `runtime`     |
+| `adapter-vgplot`    | VGPlot entities, selections, and actions                           | `data-duckdb`, `protocol`, `runtime`     |
+| `transport-bridge`  | Bridge-to-tool mapping and readiness behavior                      | `protocol`                               |
+| `agent-ai-sdk`      | Models, AI SDK tools, agent policy, and context compaction         | `protocol`, `transport-bridge`           |
+| `inspector-core`    | Observation sessions, graph indexes, and connection ports          | `protocol`                               |
+| `diagram-mermaid`   | Semantic graph to Mermaid source                                   | `protocol`                               |
+| `analytics`         | Provider-independent runtime event subscriptions                   | `protocol`                               |
+| `analytics-posthog` | PostHog implementation of the telemetry provider port              | `protocol`, `analytics`                  |
+| `python`            | Python MCP tools and Playwright browser ownership                  | None                                     |
 
 Applications and examples choose adapters and own their lifecycle. Runtime and protocol source must not access browser globals or import providers, databases, model SDKs, or UI code. Import restrictions in `vite.config.ts` enforce workspace dependency direction.
 
@@ -48,9 +48,9 @@ The action registry checks action existence and converts handler failures into r
 
 `installVacpRuntime` owns global exposure and DOM observation publication. Sources with distinct IDs compose at one key. Reinstalling one source ID replaces that binding while preserving unrelated providers. A changed session key replaces the source set and establishes a new history boundary. Browser-only publication hooks are stored in a WeakMap owned by the browser adapter.
 
-Applications pass browser exposure and SQL enablement explicitly. The browser installer owns one runtime registry regardless of global exposure. Example context profiles select evaluation surfaces at the application boundary. Inspector preferences store presentation state.
+Applications pass browser exposure and SQL enablement explicitly. The browser installer owns one runtime registry regardless of global exposure. Example context profiles select evaluation surfaces at the application boundary. Each inspection surface owns its presentation state.
 
-`uninstallVacpRuntime` stops observation, clears subscribers, and removes owned bridge and snapshot state. Inspector installation returns a disposal handle that unmounts React and clears its query cache. Applications dispose these resources when their owning view is removed.
+`uninstallVacpRuntime` stops observation, clears subscribers, and removes owned bridge and snapshot state. Disposing an Inspector Core session cancels its requests and releases its source subscription. Applications dispose these resources when their owning view is removed.
 
 ## History and replay
 
@@ -83,12 +83,22 @@ Names group implementations by capability family:
 - `runtime-*`: runtime hosting, currently browser installation.
 - `config-*`: shared development tooling.
 
-`protocol`, `runtime`, `sdk`, `analytics`, `inspector`, and `python` name the shared contract, engine, integration entry point, event pipeline, user feature, and Python distribution. Keep package directories flat and use the same name in the package manifest, imports, and references.
+`protocol`, `runtime`, `sdk`, `analytics`, `inspector-core`, and `python` name the shared contract, engine, integration entry point, event pipeline, inspection primitives, and Python distribution. Keep package directories flat and use the same name in the package manifest, imports, and references.
 
 ## WebMCP projection
 
 `@vacp/transport-webmcp` consumes protocol records and structural runtime ports. Its compiler turns a graph into executable tool definitions using an injected client; it does not read browser globals. Its installer owns asynchronous browser registration, incremental replacement, cancellation, and cleanup. Applications opt in by passing their runtime instance. No provider or core package imports WebMCP.
 
-The runtime owns capability and observation subscriptions and its lifetime signal. DOM publication subscribes to composed observations, so it preserves execution options and shares lifecycle cleanup with other output adapters. These subscriptions are independent of the Inspector history stream. Provider invalidation triggers a new coherent read. Replacing a provider aborts pending calls from its prior binding. Runtime execution owns return-to-live behavior and forwards cancellation to handlers.
+The runtime owns capability and observation subscriptions and its lifetime signal. DOM publication subscribes to composed observations, so it preserves execution options and shares lifecycle cleanup with other output adapters. These subscriptions are independent of the runtime history stream. Provider invalidation triggers a new coherent read. Replacing a provider aborts pending calls from its prior binding. Runtime execution owns return-to-live behavior and forwards cancellation to handlers.
 
 The integration targets upstream WebMCP commit `f5645e9` (2026-09-17), with the mature `webmcp-types` 0.1.7 declarations for its registration surface. Browser verification uses native Chromium APIs, not a polyfill.
+
+## Inspection core
+
+`InspectorClient` identifies one host-owned analytical session and supplies observations. Execution, invalidation, restoration, and reveal are optional capabilities. The root Inspector Core entry point depends on protocol types and platform primitives. Runtime and HTTP connectors sit behind separate entry points.
+
+`createInspectorSession` owns cancellation, observation ordering, operation state, and optional bounded history. Construction and subscription are inert. The host starts the session and disposes it with the inspection surface. Invalidations coalesce while a read is pending. Received observations are cloned and frozen. Source lifetime remains with the host.
+
+`createInspectionIndex` resolves entities, ownership, relationships, freshness, and operations against one observation. UI selection, historical navigation, parameter editing, and result rendering belong to consumers. They can retain a recorded observation independently of the live source. Restoration is an explicit capability and operation.
+
+HTTP clients resolve a session identity before making reads or operations. The Python ASGI endpoint checks that identity on every request. The application owns authentication and authorization.

@@ -1,6 +1,6 @@
 import { sqlIdentifier, sqlStringLiteral } from '@vacp/data-duckdb';
-import type { VegaLiteSpecLike, VegaViewLike } from './types';
-import { collectVegaLiteParams } from './params';
+import type { VegaLiteSpecLike, VegaViewLike } from './types.js';
+import { collectVegaLiteParams } from './params.js';
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return !!value && typeof value === 'object' && !Array.isArray(value);
@@ -44,23 +44,10 @@ function sqlLiteral(value: unknown): string | null {
   return null;
 }
 
-function allowedFieldsFromView(view: VegaViewLike): Set<string> | null {
-  const rec = view as { __vacpVegaLiteDuckDbFields?: unknown };
-  const raw = rec.__vacpVegaLiteDuckDbFields;
-
-  if (!Array.isArray(raw)) return null;
-  const fields = raw.filter((x): x is string => typeof x === 'string' && x.trim().length > 0);
-
-  return fields.length ? new Set(fields) : null;
-}
-
-function hoverPredicatesFromView(view: VegaViewLike, allowed: Set<string> | null): string[] {
-  const rec = view as { __vacpVegaLiteTooltipHover?: unknown };
-  const hover = rec.__vacpVegaLiteTooltipHover;
-
-  if (!hover || !isRecord(hover)) return [];
-  const fields = hover.fields;
-
+function hoverPredicates(
+  fields: Readonly<Record<string, unknown>> | null,
+  allowed: ReadonlySet<string> | null,
+): string[] {
   if (!isRecord(fields)) return [];
 
   const preds: string[] = [];
@@ -142,7 +129,7 @@ function intervalPredicatesFromSelection(
   paramName: string,
   view: VegaViewLike,
   select: Record<string, unknown>,
-  allowed: Set<string> | null,
+  allowed: ReadonlySet<string> | null,
 ): string[] {
   const raw = view.signal(paramName);
 
@@ -215,7 +202,7 @@ function pointPredicatesFromSelection(
   paramName: string,
   view: VegaViewLike,
   select: Record<string, unknown>,
-  allowed: Set<string> | null,
+  allowed: ReadonlySet<string> | null,
 ): string[] {
   const raw = view.signal(paramName);
 
@@ -287,11 +274,10 @@ function pointPredicatesFromSelection(
 export function whereClauseForCurrentSelections(
   spec: VegaLiteSpecLike,
   view: VegaViewLike,
-  allowedOverride?: Set<string> | null,
+  allowed: ReadonlySet<string> | null = null,
+  hoverFields: Readonly<Record<string, unknown>> | null = null,
 ): string | null {
-  const allowed = allowedOverride ?? allowedFieldsFromView(view);
-
-  const hoverPreds = hoverPredicatesFromView(view, allowed);
+  const hoverPreds = hoverPredicates(hoverFields, allowed);
 
   if (hoverPreds.length) {
     return hoverPreds.map((p) => `(${p})`).join(' AND ');

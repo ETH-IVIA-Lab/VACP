@@ -81,11 +81,29 @@ class PlainMcpRuntime:
         raise RuntimeError(message)
 
     async def sql(self, handle_ref: str, sql: str, *, max_rows: int = 500) -> JsonDict:
-        result = await self.execute(
+        result = await self.execute_contract(
             'vacp.data_sql',
             {'handleRef': handle_ref, 'sql': sql, 'format': 'json', 'maxRows': max_rows},
+            ref=handle_ref,
         )
         return as_dict(result)
+
+    async def execute_contract(
+        self, contract: str, params: JsonDict | None = None, *, ref: str | None = None
+    ) -> object | None:
+        capabilities = await self.capabilities({'refs': [ref]} if ref else None)
+        actions = as_dict(capabilities.get('graph')).get('actions')
+        if not isinstance(actions, list):
+            raise RuntimeError('Capabilities must include action descriptors')
+        names = [
+            name
+            for action in actions
+            if as_dict(as_dict(action).get('operation')).get('contract') == contract
+            and isinstance(name := as_dict(action).get('name'), str)
+        ]
+        if len(names) != 1:
+            raise RuntimeError(f'Expected one {contract} operation for {ref or "this analysis"}, found {len(names)}')
+        return await self.execute(names[0], params)
 
     async def rows(self, handle_ref: str, sql: str, *, max_rows: int = 500) -> list[JsonDict]:
         result = await self.sql(handle_ref, sql, max_rows=max_rows)

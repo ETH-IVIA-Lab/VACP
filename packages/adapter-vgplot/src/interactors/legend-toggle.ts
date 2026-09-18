@@ -1,6 +1,6 @@
 import type { VacpActionCall } from '@vacp/protocol';
 
-import type { VgplotPlotLike } from '../types';
+import type { VgplotPlotLike } from '../types.js';
 
 function normalizeLegendEntries(plot: VgplotPlotLike): any[] {
   const raw = plot.legends;

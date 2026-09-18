@@ -1,10 +1,10 @@
 import type { VacpActionDescriptor } from '@vacp/protocol';
 
-import { collectVegaLiteParams } from './params';
-import { makeRef } from './refs';
-import type { InstallVacpOnVegaLiteOptions, VegaLiteSpecLike } from './types';
+import { collectVegaLiteParams } from './params.js';
+import { makeRef } from './refs.js';
+import type { VegaLiteProviderOptions, VegaLiteSpecLike } from './types.js';
 
-export function actionsForSpec(options: InstallVacpOnVegaLiteOptions, spec: VegaLiteSpecLike): VacpActionDescriptor[] {
+export function actionsForSpec(options: VegaLiteProviderOptions, spec: VegaLiteSpecLike): VacpActionDescriptor[] {
   const vizRef = makeRef({ appId: options.appId, viewId: options.viewId, vizId: options.vizId, suffix: '' });
   const actions: VacpActionDescriptor[] = [];
 

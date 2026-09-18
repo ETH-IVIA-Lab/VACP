@@ -18,7 +18,6 @@
     "@tanstack/react-table": "catalog:",
     "@vacp/analytics-posthog": "workspace:*",
     "@vacp/data-duckdb": "workspace:*",
-    "@vacp/inspector": "workspace:*",
     "@vacp/protocol": "workspace:*",
     "@vacp/sdk": "workspace:*",
     "class-variance-authority": "catalog:",

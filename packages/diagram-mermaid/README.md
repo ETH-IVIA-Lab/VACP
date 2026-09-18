@@ -5,7 +5,6 @@ Generate Mermaid source for VACP graphs.
 This package outputs Mermaid text that you can:
 
 - paste into a Markdown Mermaid block,
-- copy from the inspector Graph tab,
 - copy into Mermaid Live Editor.
 
 ## API

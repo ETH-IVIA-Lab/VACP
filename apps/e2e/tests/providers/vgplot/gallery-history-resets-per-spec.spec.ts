@@ -10,15 +10,6 @@ test('vgplot-gallery: history resets when switching specs (new VACP session)', a
     await page.goto(`${srv.url}#weather`, { waitUntil: 'domcontentloaded' });
     await page.waitForFunction(() => !!globalThis.__vacp);
 
-    const pill = page.locator('button.vacp-inspector-button');
-    await expect(pill).toBeVisible();
-    await pill.click();
-    await expect(page.locator('#vacp-inspector-panel')).toBeVisible();
-
-    const historyTab = page.getByRole('tab', { name: 'History' });
-    await expect(historyTab).toBeVisible();
-    await historyTab.click();
-
     await page.evaluate(async () => {
       const b = globalThis.__vacp;
       await b.refresh?.({ source: 'inspector', message: 'seed-A' });

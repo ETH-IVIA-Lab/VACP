@@ -1,0 +1,28 @@
+import type { VacpWindowBridge } from '@vacp/protocol';
+import type { InspectorClient } from './types.js';
+
+export type InspectorRuntime = Pick<VacpWindowBridge, 'observe' | 'execute'> & {
+  subscribe?(invalidate: () => void): () => void;
+};
+
+export function createRuntimeInspectorClient(options: {
+  id: string;
+  title: string;
+  runtime: InspectorRuntime;
+  reveal?: InspectorClient['reveal'];
+  restore?: InspectorClient['restore'];
+}): InspectorClient {
+  const { runtime } = options;
+  return {
+    id: options.id,
+    title: options.title,
+    observe: async ({ signal }) => {
+      signal.throwIfAborted();
+      return await runtime.observe();
+    },
+    execute: (call, controls) => runtime.execute(call, controls),
+    subscribe: runtime.subscribe?.bind(runtime),
+    restore: options.restore,
+    reveal: options.reveal,
+  };
+}

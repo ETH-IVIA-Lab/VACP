@@ -1,4 +1,4 @@
-import type { VgplotPlotLike } from '../types';
+import type { VgplotPlotLike } from '../types.js';
 
 export async function awaitPlotUpdate(plot: VgplotPlotLike, timeoutMs = 750): Promise<void> {
   // vgplot plots expose an update() method, but some implementations may return a promise

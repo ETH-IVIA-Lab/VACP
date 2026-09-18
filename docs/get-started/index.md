@@ -1,6 +1,10 @@
 # Get started
 
-Open the [examples gallery](https://examples.vacp.dev/) and choose a visualization. Click **VACP** to open the [Inspector](../inspector/). Select a chart element or change a control, then inspect its state in Graph or JSON.
+Open the [examples gallery](https://examples.vacp.dev/) and choose a visualization. Select a chart element or change a control, then read the analytical state through the browser console:
+
+```js
+await window.__vacp.observe();
+```
 
 ## Run locally
 

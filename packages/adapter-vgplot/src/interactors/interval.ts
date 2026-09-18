@@ -1,7 +1,7 @@
 import type { VacpActionCall } from '@vacp/protocol';
 
-import type { VgplotPlotLike, VgplotScaleLike } from '../types';
-import { awaitPlotUpdate } from './plot-update';
+import type { VgplotPlotLike, VgplotScaleLike } from '../types.js';
+import { awaitPlotUpdate } from './plot-update.js';
 
 type DomainValue = number | Date;
 

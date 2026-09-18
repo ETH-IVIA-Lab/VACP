@@ -23,7 +23,7 @@ test('native WebMCP projects composed providers and unregisters them on disposal
   const server = await startAppServer({ name: 'webmcp', cwd: exampleDir('cars-parallel-coords') });
   try {
     await page.addInitScript(() => {
-      globalThis.__vacpExampleOptions = { exposeBridge: false, inspector: false, webmcp: true };
+      globalThis.__vacpExampleOptions = { exposeBridge: false, webmcp: true };
     });
     await page.goto(server.url);
     await expect

@@ -110,7 +110,7 @@ def make_get_bubble_chart_state(runtime: PlainMcpRuntime) -> ToolCallable:
 def make_set_year(runtime: PlainMcpRuntime) -> ToolCallable:
     async def set_year(year: Annotated[int, Field(ge=1955, le=2005, multiple_of=5)]) -> JsonDict:
         """Set the global-development year slider."""
-        await runtime.execute('vega_lite.set_param', {'ref': YEAR_REF, 'value': year})
+        await runtime.execute_contract('vega_lite.set_param', {'ref': YEAR_REF, 'value': year})
         return action_response('set_year', await _bubble_state(runtime), details={'year': year})
 
     return set_year
@@ -130,7 +130,7 @@ def make_zoom_chart(runtime: PlainMcpRuntime) -> ToolCallable:
         x_range = _range_with_default(x_min, x_max, default_min=0, default_max=9, scale_factor=scale_factor)
         y_range = _range_with_default(y_min, y_max, default_min=20, default_max=90, scale_factor=scale_factor)
         value = {'fertility': x_range, 'life_expect': y_range, 'x': x_range, 'y': y_range}
-        await runtime.execute('vega_lite.set_selection', {'ref': VIEW_REF, 'value': value})
+        await runtime.execute_contract('vega_lite.set_selection', {'ref': VIEW_REF, 'value': value})
         runtime.remember('global_development.zoom', {'fertility': x_range, 'lifeExpectancy': y_range})
         state = await _bubble_state(runtime)
         if not state.get('zoom'):
@@ -160,8 +160,8 @@ def make_hover_country(runtime: PlainMcpRuntime) -> ToolCallable:
         row = dict(rows[0])
         row.pop('__total_count', None)
         if year is not None:
-            await runtime.execute('vega_lite.set_param', {'ref': YEAR_REF, 'value': target_year})
-        await runtime.execute(
+            await runtime.execute_contract('vega_lite.set_param', {'ref': YEAR_REF, 'value': target_year})
+        await runtime.execute_contract(
             'vega_lite.hover_tooltip',
             {'fields': {'country': row.get('country'), 'year': row.get('year')}, 'value': row},
         )

@@ -1,50 +1,38 @@
 # @vacp/adapter-vega-lite
 
-## Purpose
+`@vacp/adapter-vega-lite` exposes parameters, selections, encodings, and data handles from a Vega-Lite specification and its rendered Vega view.
 
-VACP provider for interactive Vega-Lite/Vega views.
-
-This provider connects to a Vega _View_ and exposes a stable VACP bridge with capabilities, state, and semantic actions.
-
-## When to use
-
-- You render Vega-Lite (or Vega) and want VACP state and actions.
-- You want to control *Param*s and *Selection*s through semantic actions.
-
-## Conceptual model
-
-The provider maps the Vega runtime into VACP:
-
-- _View_/_Param_/_Selection_ entities become graph nodes with stable refs,
-- _Param_ and _Selection_ values appear in the state snapshot,
-- semantic actions set *Param*s and clear *Selection*s.
-
-## Minimal usage
-
-After you have a Vega _View_ (for example from `vega-embed`):
+Bind an existing rendered visualization, then compose its provider into a runtime:
 
 ```ts
-import { installVacpOnVegaLiteView } from '@vacp/adapter-vega-lite';
+import { createVegaLiteProvider } from '@vacp/adapter-vega-lite';
+import { createVacpRuntime } from '@vacp/runtime';
 
-installVacpOnVegaLiteView({
+const provider = createVegaLiteProvider({
   root,
   view,
   spec,
-  options: {
-    appId: 'vacp-examples',
-    viewId: 'vega-lite/example',
-    vizId: 'example',
-    title: 'Example',
-  },
+  options: { appId: 'analysis', viewId: 'overview', vizId: 'scatter' },
 });
+const runtime = createVacpRuntime({ providers: [provider] });
+const observation = await runtime.observe();
+
+// When this analytical session ends:
+runtime.dispose();
 ```
 
-Runnable example:
+Supply `root` to place tooltips over the rendered chart. Observation and parameter execution also work with the Vega view alone.
 
-- `examples/vega-lite-gallery`
+The runtime owns the attached provider's lifetime. Provider subscriptions observe human interactions and release listeners when detached. Disposing the provider leaves the visualization available to its host.
 
-## Related docs
+Action names are qualified by source identity. Discover an action through its `operation.contract` (for example, `vega_lite.set_param`), then execute the advertised `name`. Graph ownership identifies the source when several providers offer the same contract.
 
-- [Providers](../../docs/providers/index.md)
-- [Examples](../../docs/examples/index.md)
-- [Tool Contract](../../docs/reference/tool-contract.md)
+Applications can expose the same provider through `installVacpRuntime({ providers: [provider], exposeBridge, injectDomSnapshot })` from `@vacp/runtime-browser`. Exposure policy belongs to the application.
+
+The IDs define stable references for the view and visualization. Parameter and selection actions operate on the supplied Vega view.
+
+Pass `options.duckdbClient` to reuse a data connection. Otherwise the provider creates a browser DuckDB instance when data is requested. Set `enableDuckDbDataHandle: false` to disable data handles, or `enableSql: false` to omit SQL execution while retaining schema discovery.
+
+`includeSetSignalAction` enables arbitrary named Vega signal writes. It defaults to false. Enable it when signal writes belong to the application's action surface.
+
+[Provider guide](../../docs/providers/vega-lite.md) · [Runnable example](../../examples/vega-lite-gallery)

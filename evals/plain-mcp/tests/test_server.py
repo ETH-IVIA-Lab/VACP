@@ -35,7 +35,7 @@ class _FakeRuntime:
         value = cast(dict[str, object], state).get(ref)
         return cast(dict[str, object], value) if isinstance(value, dict) else {}
 
-    async def execute(self, name: str, params: dict[str, object] | None = None) -> object | None:
+    async def execute_contract(self, name: str, params: dict[str, object] | None = None) -> object | None:
         self.calls.append((name, params))
         return {'ok': True}
 

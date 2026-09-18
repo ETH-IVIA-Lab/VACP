@@ -2,6 +2,7 @@ import { expect, test, type Page } from '@playwright/test';
 
 import { startAppServer } from '../../helpers/devserver';
 import { exampleDir } from '../../helpers/paths';
+import { executeOperation, operationNames } from '../operations';
 
 test('vgplot: set_interval_1d triggers downstream crossfilters (Seattle Weather)', async ({ page }) => {
   const srv = await startAppServer({ name: 'vgplot-gallery', cwd: exampleDir('vgplot-gallery') });
@@ -15,25 +16,12 @@ test('vgplot: set_interval_1d triggers downstream crossfilters (Seattle Weather)
     expect(beforeRows.all).toBeGreaterThan(0);
 
     // Programmatic brush (June-Aug) on the scatter plot should change the bottom bar chart.
-    const callId = crypto.randomUUID();
-
-    const res = await page.evaluate(
-      async ({ callId }) => {
-        const vacp = globalThis.__vacp;
-
-        return await vacp.execute({
-          callId,
-          name: 'vgplot.set_interval_1d',
-          params: {
-            plotId: 'plot-0',
-            interactorId: '0',
-            min: 1338508800000,
-            max: 1346457600000,
-          },
-        });
-      },
-      { callId },
-    );
+    const res = await executeOperation(page, 'vgplot.set_interval_1d', {
+      plotId: 'plot-0',
+      interactorId: '0',
+      min: 1338508800000,
+      max: 1346457600000,
+    });
 
     expect(res?.ok).toBeTruthy();
 
@@ -66,7 +54,8 @@ test('vgplot: set_interval_1d triggers downstream crossfilters (Seattle Weather)
 
     // Capture a post-action snapshot (includes the interval selection in domain units) and then
     // prove vacp.apply_state can restore it after changing the interval again.
-    const restoreResult = await page.evaluate(async () => {
+    const names = await operationNames(page, ['vgplot.set_interval_1d', 'vacp.apply_state']);
+    const restoreResult = await page.evaluate(async (names) => {
       const vacp = globalThis.__vacp;
       const snap = await vacp.getState();
       const savedState = typeof structuredClone === 'function' ? structuredClone(snap.state) : snap.state;
@@ -82,7 +71,7 @@ test('vgplot: set_interval_1d triggers downstream crossfilters (Seattle Weather)
       // Change to a different interval (Oct-Nov) so we can confirm restore.
       await vacp.execute({
         callId: crypto.randomUUID(),
-        name: 'vgplot.set_interval_1d',
+        name: names['vgplot.set_interval_1d'],
         params: { plotId: 'plot-0', interactorId: '0', min: 1349049600000, max: 1351728000000 },
       });
 
@@ -96,7 +85,7 @@ test('vgplot: set_interval_1d triggers downstream crossfilters (Seattle Weather)
 
       const res = await vacp.execute({
         callId: crypto.randomUUID(),
-        name: 'vacp.apply_state',
+        name: names['vacp.apply_state'],
         params: { state: savedState },
       });
 
@@ -116,7 +105,7 @@ test('vgplot: set_interval_1d triggers downstream crossfilters (Seattle Weather)
         applied: res?.result?.applied ?? 0,
         errors: res?.result?.errors ?? [],
       };
-    });
+    }, names);
 
     expect(restoreResult.ok).toBeTruthy();
     expect(restoreResult.applied).toBeGreaterThanOrEqual(1);
@@ -134,7 +123,8 @@ test('vgplot: set_interval_1d triggers downstream crossfilters (Seattle Weather)
 });
 
 async function selectedAndAllRowCounts(page: Page) {
-  return await page.evaluate(async () => {
+  const names = await operationNames(page, ['vacp.data_sql']);
+  return await page.evaluate(async (names) => {
     const vacp = globalThis.__vacp;
     const caps = await vacp.getCapabilities();
 
@@ -149,13 +139,13 @@ async function selectedAndAllRowCounts(page: Page) {
 
     const selected = await vacp.execute({
       callId: crypto.randomUUID(),
-      name: 'vacp.data_sql',
+      name: names['vacp.data_sql'],
       params: { handleRef, sql: 'SELECT COUNT(*)::INTEGER AS n FROM vacp_handle' },
     });
 
     const all = await vacp.execute({
       callId: crypto.randomUUID(),
-      name: 'vacp.data_sql',
+      name: names['vacp.data_sql'],
       params: { handleRef, sql: 'SELECT COUNT(*)::INTEGER AS n FROM vacp_all' },
     });
 
@@ -167,5 +157,5 @@ async function selectedAndAllRowCounts(page: Page) {
           ? (handleState as any).selectionWhere
           : null,
     };
-  });
+  }, names);
 }

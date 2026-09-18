@@ -4,6 +4,7 @@ import { expect, test } from '@playwright/test';
 
 import { startAppServer } from '../../helpers/devserver';
 import { exampleDir } from '../../helpers/paths';
+import { operationNames } from '../operations';
 
 type Normalized = null | undefined | number | string | boolean | Normalized[] | { [k: string]: Normalized };
 
@@ -100,12 +101,13 @@ test('vgplot: apply_state preserves subsequent human brushing (Seattle Weather)'
     expect(first).toBeTruthy();
 
     // Apply the current state snapshot back into the app, then brush again.
-    const applyRes = await page.evaluate(async () => {
+    const names = await operationNames(page, ['vacp.apply_state']);
+    const applyRes = await page.evaluate(async (names) => {
       const vacp = globalThis.__vacp;
       const state = globalThis.__savedState;
 
-      return await vacp.execute({ callId: crypto.randomUUID(), name: 'vacp.apply_state', params: { state } });
-    });
+      return await vacp.execute({ callId: crypto.randomUUID(), name: names['vacp.apply_state'], params: { state } });
+    }, names);
 
     expect(applyRes?.ok).toBeTruthy();
 

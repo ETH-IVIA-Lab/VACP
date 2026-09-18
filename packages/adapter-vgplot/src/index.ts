@@ -1,3 +1,2 @@
-export * from './types';
-
-export { installVacpOnVgplot, installVacpOnVgplotDashboard } from './install';
+export * from './types.js';
+export { createVgplotProvider } from './provider.js';

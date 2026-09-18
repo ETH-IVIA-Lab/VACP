@@ -1,58 +1,113 @@
-import type { CollectedInput } from './inputs';
-import type { VgplotPlotLike, VgplotTableLike } from './types';
-import { wrapUpdate } from './runtime';
+import type { CollectedInput } from './inputs.js';
+import type { VgplotPlotLike, VgplotTableLike } from './types.js';
 
-/**
- * Keep the runtime timeline "alive" by observing human-driven updates.
- *
- * VGPlot/vgplot doesn't provide a single high-level event stream for all
- * interactions, so we attach lightweight observers:
- * - input widget selection updates
- * - interactor selection updates
- */
-export function installVgplotInputObservers(args: {
+/** Observe a live dashboard while consumers are subscribed. */
+export function createVgplotObservationBinding(args: {
   inputs: CollectedInput[];
-  notifyRuntime: (message: string, opts?: { immediate?: boolean }) => void;
+  plots: Array<{ plot: VgplotPlotLike }>;
+  tables: Array<{ table: VgplotTableLike }>;
 }) {
-  const { inputs, notifyRuntime } = args;
+  const listeners = new Set<() => void>();
+  let release: (() => void) | undefined;
+  let disposed = false;
 
-  for (const input of inputs) {
-    if (input.input.selection) wrapUpdate(input.input.selection, 'input.selection.update', (m) => notifyRuntime(m));
-  }
-}
-
-export function installVgplotPlotObservers(args: {
-  plots: Array<{ plotId: string; plot: VgplotPlotLike; element: Element; svg?: SVGElement }>;
-  notifyRuntime: (message: string, opts?: { immediate?: boolean }) => void;
-}) {
-  const { plots, notifyRuntime } = args;
-
-  for (const { plot } of plots) {
-    plot.interactors.forEach((it) => {
-      const origInit = it.init;
-      it.init = async (svgEl: SVGElement) => {
-        const res = origInit ? await origInit.call(it, svgEl) : undefined;
-        notifyRuntime('interactor.init', { immediate: true });
-
-        if (it.selection) wrapUpdate(it.selection, 'selection.update', (m) => notifyRuntime(m));
-
-        return res;
+  const bind = () => {
+    const cleanup: Array<() => void> = [];
+    const wrappedOwners = new WeakSet<object>();
+    let active = true;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const notify = () => {
+      if (!active || timer !== undefined) return;
+      timer = setTimeout(() => {
+        timer = undefined;
+        for (const listener of [...listeners]) {
+          try {
+            listener();
+          } catch {
+            /* A consumer must not interrupt source observation. */
+          }
+        }
+      }, 120);
+    };
+    const observeUpdate = (owner: { update?: (...args: any[]) => unknown } | undefined) => {
+      if (!owner?.update || wrappedOwners.has(owner)) return;
+      wrappedOwners.add(owner);
+      const original = owner.update;
+      const wrapped = (...values: unknown[]) => {
+        const result = original.apply(owner, values);
+        notify();
+        return result;
       };
-
-      if (it.selection) wrapUpdate(it.selection, 'selection.update', (m) => notifyRuntime(m));
-    });
-  }
-}
-
-export function installVgplotTableObservers(args: {
-  tables: Array<{ tableId: string; table: VgplotTableLike; element: Element }>;
-  notifyRuntime: (message: string, opts?: { immediate?: boolean }) => void;
-}) {
-  const { tables, notifyRuntime } = args;
-
-  for (const { table } of tables) {
-    wrapUpdate(table, 'table.update', (m) => notifyRuntime(m));
-
-    if (table.selection) wrapUpdate(table.selection, 'table.selection.update', (m) => notifyRuntime(m));
-  }
+      owner.update = wrapped;
+      cleanup.push(() => {
+        if (owner.update === wrapped) owner.update = original;
+      });
+    };
+    const detach = () => {
+      active = false;
+      clearTimeout(timer);
+      for (const restore of cleanup.reverse()) {
+        try {
+          restore();
+        } catch {
+          /* Continue releasing the remaining bindings. */
+        }
+      }
+    };
+    try {
+      for (const input of args.inputs) observeUpdate(input.input.selection);
+      for (const { table } of args.tables) {
+        observeUpdate(table);
+        observeUpdate(table.selection);
+      }
+      for (const { plot } of args.plots) {
+        for (const interactor of plot.interactors) {
+          observeUpdate(interactor.selection);
+          const original = interactor.init;
+          const wrapped = async (svg: SVGElement) => {
+            const result = await original?.call(interactor, svg);
+            if (active) {
+              observeUpdate(interactor.selection);
+              notify();
+            }
+            return result;
+          };
+          interactor.init = wrapped;
+          cleanup.push(() => {
+            if (interactor.init === wrapped) interactor.init = original;
+          });
+        }
+      }
+      return detach;
+    } catch (error) {
+      detach();
+      throw error;
+    }
+  };
+  return {
+    subscribe(listener: () => void) {
+      if (disposed) throw new Error('VGPlot provider is disposed');
+      const notify = () => listener();
+      listeners.add(notify);
+      try {
+        release ??= bind();
+      } catch (error) {
+        listeners.delete(notify);
+        throw error;
+      }
+      return () => {
+        listeners.delete(notify);
+        if (listeners.size === 0) {
+          release?.();
+          release = undefined;
+        }
+      };
+    },
+    dispose() {
+      disposed = true;
+      release?.();
+      release = undefined;
+      listeners.clear();
+    },
+  };
 }

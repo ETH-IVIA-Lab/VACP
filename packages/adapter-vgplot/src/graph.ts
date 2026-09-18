@@ -1,9 +1,9 @@
 import type { VacpActionDescriptor, VacpEdge, VacpGraphFragment, VacpNode, VacpRef } from '@vacp/protocol';
 import { VACP_SCHEMA_VERSION } from '@vacp/protocol';
 
-import type { CollectedInput } from './inputs';
-import { makePlotRef, makeViewRef } from './refs';
-import type { InstallVacpOnVgplotDashboardOptions, VgplotPlotLike, VgplotTableLike } from './types';
+import type { CollectedInput } from './inputs.js';
+import { makePlotRef, makeViewRef } from './refs.js';
+import type { VgplotProviderOptions, VgplotPlotLike, VgplotTableLike } from './types.js';
 
 function stableStringify(value: unknown): string {
   const seen = new WeakSet<object>();
@@ -96,7 +96,7 @@ export function buildDashboardGraph(args: {
   plots: Array<{ plotId: string; plot: VgplotPlotLike }>;
   tables?: Array<{ tableId: string; table: VgplotTableLike }>;
   inputs: CollectedInput[];
-  options: InstallVacpOnVgplotDashboardOptions;
+  options: VgplotProviderOptions;
   actions: VacpActionDescriptor[];
   dataHandles?: Array<{ ref: VacpRef; surfaceKind: 'plot' | 'table'; surfaceId: string; table?: string }>;
 }): VacpGraphFragment {
