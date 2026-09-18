@@ -1,0 +1,36 @@
+apps/docs/test/diagrams.test.mts
+  s_ad28489153bcf7::t_c0cba53f393a95 25
+  s_ad28489153bcf7::t_082b9216434eb0 40-43
+.gitignore
+  s_ad28489153bcf7::t_0a365700ae252f 12
+apps/docs/.vitepress/diagrams.mts
+  s_ad28489153bcf7::t_c44dcd2e16799c 1-3,5-13,16,18-41,57-60,62-73,75,80-87
+  s_ad28489153bcf7::t_082b9216434eb0 42,44,54,74,76-78
+  s_ad28489153bcf7::t_c0cba53f393a95 4,14-15,17,43,45-53,55-56,61
+apps/docs/.vitepress/config.mts
+  s_ad28489153bcf7::t_c44dcd2e16799c 3,6-10,16,23
+apps/docs/.vitepress/theme/custom.css
+  s_ad28489153bcf7::t_c44dcd2e16799c 1-2,5
+apps/docs/tsconfig.json
+  s_ad28489153bcf7::t_b3c03d7c47896a 6
+.dockerignore
+  s_ad28489153bcf7::t_eab0a08ffd832c 28
+apps/docs/package.json
+  s_ad28489153bcf7::t_c44dcd2e16799c 10-11,16
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "f9d37c542599cdfeecd2dd6c4e97236aaff46539",
+  "prompts": {},
+  "sessions": {
+    "s_ad28489153bcf7": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a0b393-234e-74d3-8b65-e0faa6b8456b",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Péter Ferenc Gyarmati <peterferenc.gyarmati@inf.ethz.ch>"
+    }
+  }
+}
