@@ -103,13 +103,10 @@ test('vgplot: apply_state reports read-only DataHandle refs', async ({ page }) =
   }
 });
 
-test('vgplot: apply_state replays PanZoom domains instead of clearing them', async ({ page }) => {
+test('vgplot: apply_state restores PanZoom domains', async ({ page }) => {
   const srv = await startAppServer({ name: 'vgplot-gallery', cwd: exampleDir('vgplot-gallery') });
 
   try {
-    const pageErrors: string[] = [];
-    page.on('pageerror', (error) => pageErrors.push(error.message));
-
     await page.goto(`${srv.url}?vacp-inspector=1#pan-zoom`, { waitUntil: 'domcontentloaded' });
     await waitForBridge(page);
 
@@ -149,6 +146,12 @@ test('vgplot: apply_state replays PanZoom domains instead of clearing them', asy
       });
       const afterSet = await vacp.getState();
       const expected = structuredClone(afterSet.state[ref]);
+      const clearResult = await vacp.execute({
+        callId: crypto.randomUUID(),
+        name: 'vgplot.clear_pan_zoom',
+        params: { plotId: panZoom.plotId, interactorId },
+      });
+      const cleared = (await vacp.getState()).state[ref];
 
       const applyResult = await vacp.execute({
         callId: crypto.randomUUID(),
@@ -158,17 +161,18 @@ test('vgplot: apply_state replays PanZoom domains instead of clearing them', asy
 
       const afterReplay = await vacp.getState();
 
-      return { applyResult, expected, actual: afterReplay.state[ref] };
+      return { clearResult, cleared, applyResult, expected, actual: afterReplay.state[ref] };
     });
 
+    expect(replay.clearResult.ok).toBe(true);
+    expect(replay.cleared.x).toBeNull();
+    expect(replay.cleared.y).toBeNull();
     expect(replay.applyResult?.ok).toBe(true);
     expect(replay.applyResult?.result?.errors ?? []).toEqual([]);
     expect(replay.actual?.x).toEqual(replay.expected?.x);
     expect(replay.actual?.y).toEqual(replay.expected?.y);
     expect(replay.actual?.x).toEqual(expect.any(Array));
     expect(replay.actual?.y).toEqual(expect.any(Array));
-    await page.waitForTimeout(500);
-    expect(pageErrors.join('\n')).not.toContain('values is not iterable');
   } finally {
     await srv.stop();
   }
@@ -188,13 +192,15 @@ test('vgplot: slider input actions keep DataHandle SQL valid', async ({ page }) 
       return {
         widgetRef: Object.entries(snap.state).find(([, value]) => (value as any)?.kind === 'Widget')?.[0],
         handleRef: Object.entries(snap.state).find(([, value]) => (value as any)?.kind === 'DataHandle')?.[0],
-        actionNames: (caps.graph.actions ?? []).map((action: any) => action.name),
+        inputActions: caps.graph.actions
+          .map((action) => action.name)
+          .filter((name) => name.startsWith('vgplot.set_input_')),
       };
     });
 
     expect(refs.widgetRef).toBeTruthy();
     expect(refs.handleRef).toBeTruthy();
-    expect(refs.actionNames).not.toContain('vgplot.set_input_option_index');
+    expect(refs.inputActions).toEqual(['vgplot.set_input_value']);
 
     const setResult = await page.evaluate(
       async (ref) =>
@@ -208,11 +214,21 @@ test('vgplot: slider input actions keep DataHandle SQL valid', async ({ page }) 
 
     expect(setResult?.ok).toBe(true);
 
-    const setState = await page.evaluate(async () => await globalThis.__vacp.getState());
-    const whereAfterSet = setState?.state?.[refs.handleRef!]?.selectionWhere;
-    expect(whereAfterSet).toEqual(expect.any(String));
-    expect(whereAfterSet).not.toContain('0,20');
-    expect(whereAfterSet).not.toContain('NULL');
+    const selected = await page.evaluate(
+      async (handleRef) =>
+        globalThis.__vacp.execute({
+          callId: crypto.randomUUID(),
+          name: 'vacp.data_sql',
+          params: {
+            handleRef,
+            sql: 'SELECT COUNT(*)::INTEGER AS n, MAX(batch)::INTEGER AS max_batch FROM vacp_handle',
+          },
+        }),
+      refs.handleRef,
+    );
+    expect(selected.ok).toBe(true);
+    expect(selected.result.rows[0].n).toBeGreaterThan(0);
+    expect(selected.result.rows[0].max_batch).toBeLessThanOrEqual(20);
 
     const clearResult = await page.evaluate(
       async (ref) =>
@@ -244,59 +260,60 @@ test('vgplot: slider input actions keep DataHandle SQL valid', async ({ page }) 
     );
 
     expect(sqlResult?.ok).toBe(true);
-    expect(sqlResult?.result?.rows?.[0]?.n).toEqual(expect.any(Number));
+    expect(sqlResult?.result?.rows?.[0]?.n).toBeGreaterThan(selected.result.rows[0].n);
   } finally {
     await srv.stop();
   }
 });
 
-test('vgplot: menu option index preserves complex option values', async ({ page }) => {
+test('vgplot: menu option indices update the chart and clear restores the default frame', async ({ page }) => {
   const srv = await startAppServer({ name: 'vgplot-gallery', cwd: exampleDir('vgplot-gallery') });
-
   try {
     await page.goto(`${srv.url}?vacp-inspector=1#moving-average`, { waitUntil: 'domcontentloaded' });
     await waitForBridge(page);
-
-    const pageErrors: string[] = [];
-    page.on('pageerror', (error) => pageErrors.push(error.message));
-
     const inputRef = await firstStateRef(page, 'Widget');
+    const line = page.locator('#app svg g[aria-label="line"] path').first();
+    await expect(line).toHaveAttribute('d', /^M/);
+    const originalPath = await line.getAttribute('d');
 
     const setResult = await page.evaluate(
       async (ref) =>
-        await globalThis.__vacp.execute({
+        globalThis.__vacp.execute({
           callId: crypto.randomUUID(),
           name: 'vgplot.set_input_option_index',
-          params: { ref, index: 0 },
+          params: { ref, index: 1 },
         }),
       inputRef,
     );
-
-    expect(setResult?.ok).toBe(true);
-    expect(setResult?.result?.value).toEqual([-6, 0]);
+    expect(setResult.ok).toBe(true);
+    expect(setResult.result.value).toEqual([-3, 3]);
+    await expect
+      .poll(async () => {
+        const path = await line.getAttribute('d');
+        return Boolean(path?.startsWith('M') && path !== originalPath);
+      })
+      .toBe(true);
+    expect((await page.evaluate(async () => globalThis.__vacp.getState())).state[inputRef].value).toEqual([-3, 3]);
 
     const clearResult = await page.evaluate(
       async (ref) =>
-        await globalThis.__vacp.execute({
+        globalThis.__vacp.execute({
           callId: crypto.randomUUID(),
           name: 'vgplot.clear_input',
           params: { ref },
         }),
       inputRef,
     );
-
-    expect(clearResult?.ok).toBe(true);
-    expect(clearResult?.result?.value).toEqual([-6, 0]);
-
-    await page.waitForTimeout(500);
-    expect(pageErrors.join('\n')).not.toContain('ROWS BETWEEN - PRECEDING');
-    expect(pageErrors.join('\n')).not.toContain('syntax error');
+    expect(clearResult.ok).toBe(true);
+    expect(clearResult.result.value).toEqual([-6, 0]);
+    await expect(line).toHaveAttribute('d', originalPath!);
+    expect((await page.evaluate(async () => globalThis.__vacp.getState())).state[inputRef].value).toEqual([-6, 0]);
   } finally {
     await srv.stop();
   }
 });
 
-test('vgplot: state snapshots bound complex interactor internals', async ({ page }) => {
+test('vgplot: transient hover state stays bounded and read-only during replay', async ({ page }) => {
   const srv = await startAppServer({ name: 'vgplot-gallery', cwd: exampleDir('vgplot-gallery') });
 
   try {
@@ -324,32 +341,7 @@ test('vgplot: state snapshots bound complex interactor internals', async ({ page
         selectionBacked: false,
       }),
     );
-    expect(() => JSON.stringify(nearest)).not.toThrow();
     expect(JSON.stringify(nearest).length).toBeLessThan(4_000);
-
-    const pageErrors: string[] = [];
-    page.on('pageerror', (error) => pageErrors.push(error.message));
-
-    const replayCurrent = await page.evaluate(async () => {
-      const vacp = globalThis.__vacp;
-      const snap = await vacp.getState();
-
-      return await vacp.execute({
-        callId: crypto.randomUUID(),
-        name: 'vacp.apply_state',
-        params: { state: structuredClone(snap.state) },
-      });
-    });
-
-    expect(replayCurrent?.ok).toBe(true);
-    expect(replayCurrent?.result?.applied).toBe(0);
-    expect(replayCurrent?.result?.skipped ?? []).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({
-          reason: expect.stringMatching(/Nearest refs are transient hover state/i),
-        }),
-      ]),
-    );
 
     const result = await page.evaluate(async () => {
       const vacp = globalThis.__vacp;
@@ -357,39 +349,46 @@ test('vgplot: state snapshots bound complex interactor internals', async ({ page
       const state = structuredClone(snap.state);
       const nearestEntry = Object.entries(state).find(([, value]) => (value as any)?.kind === 'Nearest');
 
-      if (nearestEntry && nearestEntry[1] && typeof nearestEntry[1] === 'object') {
-        const ref = nearestEntry[0];
-        const value = nearestEntry[1];
-        state[ref] = {
-          ...value,
-          value: ['2013-05-13T00:00:00.000Z'],
-          selectionValue: {
-            value: '2013-05-13T00:00:00.000Z',
-            source: { value: ['2013-05-13T00:00:00.000Z'] },
-            predicate: { type: 'IN' },
-          },
-        };
-      }
+      if (!nearestEntry || !nearestEntry[1] || typeof nearestEntry[1] !== 'object')
+        throw new Error('Missing transient hover state');
+      const [ref, value] = nearestEntry;
+      state[ref] = {
+        ...value,
+        value: ['2013-05-13T00:00:00.000Z'],
+        selectionValue: {
+          value: '2013-05-13T00:00:00.000Z',
+          source: { value: ['2013-05-13T00:00:00.000Z'] },
+          predicate: { type: 'IN' },
+        },
+      };
 
-      return await vacp.execute({
-        callId: crypto.randomUUID(),
-        name: 'vacp.apply_state',
-        params: { state },
-      });
+      const cleared = { ...snap.state, [ref]: { ...value, value: null } };
+      const replay = async (operation: 'clear' | 'set', desired: typeof state) => {
+        const applied = await vacp.execute({
+          callId: crypto.randomUUID(),
+          name: 'vacp.apply_state',
+          params: { state: desired },
+        });
+        const after = await vacp.getState();
+        return { operation, applied, actual: after.state[ref] };
+      };
+      return { ref, replays: [await replay('clear', cleared), await replay('set', state)] };
     });
 
-    expect(result?.ok).toBe(true);
-    expect(result?.result?.errors ?? []).toEqual([]);
-    expect(result?.result?.skipped ?? []).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({
-          reason: expect.stringMatching(/Nearest refs are transient hover state/i),
-        }),
-      ]),
-    );
-    await page.waitForTimeout(500);
-    expect(pageErrors.join('\n')).not.toContain('[object Object]');
-    expect(pageErrors.join('\n')).not.toContain('2013-05-13T00:00:00.000Z');
+    for (const { operation, applied, actual } of result.replays) {
+      expect(applied.ok, operation).toBe(true);
+      expect(applied.result.applied, operation).toBe(0);
+      expect(actual, operation).toEqual(nearest);
+      expect(applied.result.errors ?? [], operation).toEqual([]);
+      expect(applied.result.skipped ?? [], operation).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            ref: result.ref,
+            reason: expect.stringMatching(/Nearest refs are transient hover state/i),
+          }),
+        ]),
+      );
+    }
   } finally {
     await srv.stop();
   }
