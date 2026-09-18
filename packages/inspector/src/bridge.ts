@@ -9,13 +9,22 @@ export function getBridge(globalKey: string): VacpRuntimeBridge | null {
 
 export async function readRuntime(bridge: VacpRuntimeBridge): Promise<VacpRuntimeSnapshot> {
   if (typeof bridge.getRuntime === 'function') return await bridge.getRuntime();
-  const [capabilities, state] = await Promise.all([bridge.getCapabilities(), bridge.getState()]);
+  const observation = await bridge.observe();
+  const capabilities = { version: observation.version, createdAt: observation.observedAt, graph: observation.graph };
+  const state = {
+    version: observation.version,
+    createdAt: observation.observedAt,
+    state: observation.state,
+    summary: observation.summary,
+  };
 
   return {
     version: capabilities.version,
     mode: 'live',
     cursor: -1,
     history: [],
+    liveObservation: observation,
+    currentObservation: observation,
     liveCapabilities: capabilities,
     liveState: state,
     currentCapabilities: capabilities,

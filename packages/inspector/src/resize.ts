@@ -67,13 +67,13 @@ export function installVacpInspectorResizer(args: {
 }) {
   const { panel, storageKey, onResize, onResizeEnd } = args;
 
-  if (panel.dataset.vacpInspectorResizer === 'installed') return;
-  panel.dataset.vacpInspectorResizer = 'installed';
+  const lifetime = new AbortController();
 
   const initial = readSize(storageKey);
 
   if (initial) {
     queueMicrotask(() => {
+      if (lifetime.signal.aborted) return;
       applySize(panel, initial);
       onResize?.();
     });
@@ -151,6 +151,14 @@ export function installVacpInspectorResizer(args: {
   };
 
   for (const { mode: handleMode, element } of handles) {
-    element.addEventListener('pointerdown', (ev) => begin(ev, element, handleMode));
+    element.addEventListener('pointerdown', (ev) => begin(ev, element, handleMode), { signal: lifetime.signal });
   }
+  return () => {
+    lifetime.abort();
+    window.removeEventListener('pointermove', onMove);
+    window.removeEventListener('pointerup', onUp);
+    window.removeEventListener('pointercancel', onUp);
+    for (const { element } of handles) element.remove();
+    panel.classList.remove('vacp-inspector-resizing');
+  };
 }

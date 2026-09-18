@@ -23,7 +23,7 @@ test('inspector: Graph search kind filters and stable inspect pane work together
   });
 
   try {
-    await page.goto(`${srv.url}?vacp-inspector=1#symbols`, { waitUntil: 'domcontentloaded' });
+    await page.goto(`${srv.url}#symbols`, { waitUntil: 'domcontentloaded' });
     await waitForVacpBridge(page, { requireRuntime: true });
     await openGraphTab(page);
 

@@ -3,7 +3,7 @@
 VACP + Vega-Lite *Param*s.
 
 This example exposes Vega-Lite charts through VACP by mapping Vega-Lite *Param*s to a bridge at `window.__vacp` (unless
-`?expose-bridge=0`).
+`exposeBridge: false`).
 
 Use this example to see:
 
@@ -21,14 +21,14 @@ pnpm -C examples/vega-lite-gallery dev
 
 Open the inspector:
 
-- click the floating **VACP** button. Disable it with `?vacp-inspector=0` or `VACP_INSPECTOR=0`
+- click the floating **VACP** button. Applications choose whether to call `installVacpInspector()`
 
 ## How it works
 
 1. The app picks a spec from `src/specs/*.vl.json`.
 2. `vega-embed` renders it to **SVG** and returns a Vega _View_.
 3. `@vacp/adapter-vega-lite` installs VACP:
-   - **Bridge**: installs/updates `window.__vacp` (capabilities/state/execute, unless `?expose-bridge=0`)
+   - **Bridge**: installs/updates `window.__vacp` (capabilities/state/execute, unless `exposeBridge: false`)
    - **Graph**: creates nodes for:
      - _Param_ (a named Vega-Lite parameter)
      - _Selection_ (selection-valued parameters)

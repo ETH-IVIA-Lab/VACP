@@ -1,7 +1,9 @@
 # @vacp/sdk
 
-Connect custom application state and controls to VACP with `createVacpActions`, `createVacpRefBuilder`, and `installVacp`.
+Connect application-owned analytical state to VACP with `createVacpActions`, `createVacpProvider`, and `installVacp`.
 
-`installVacp({ graph, actions, getState })` installs the browser runtime and returns its bridge, snapshot provider, refresh helper, and disposal function. Snapshot providers preserve application state, summary, and node metadata types. `params(description, parser)` infers handler parameters from a Zod schema or an application parser; without a parser, the handler owns input validation. Handlers accept domain-interface results. No schema generation is required.
+`createVacpProvider({ source, actions, project })` separates stable source metadata, semantic operations, and the current analytical projection. `installVacp({ providers })` attaches those sources to a composed browser runtime.
 
-Follow the [custom integration guide](../../docs/integrate/index.md) for a complete, tested example. Database handle routing lives in `@vacp/data-duckdb`.
+`params(description, parser)` accepts a Zod schema or an application parser. Handlers receive validated parameters plus cancellation context. VACP does not generate schemas from TypeScript types.
+
+Follow the [custom integration guide](../../docs/integrate/index.md) for a tested example.

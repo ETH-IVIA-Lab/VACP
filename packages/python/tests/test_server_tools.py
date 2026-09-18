@@ -13,6 +13,9 @@ class _FakeClient(VacpBridgeClient):
         self.last_capabilities_request: VacpCapabilitiesRequestOptions | None = None
         self.last_state_request: VacpStateRequestOptions | None = None
 
+    async def observe(self) -> dict[str, object]:
+        return {'revision': 'test', 'graph': {'nodes': [], 'edges': [], 'actions': []}, 'state': {}}
+
     async def get_capabilities(self, request: VacpCapabilitiesRequestOptions | None = None) -> dict:
         self.last_capabilities_request = request
         return {'graph': {'nodes': [], 'edges': [], 'actions': []}}
@@ -73,7 +76,7 @@ class _FakePage:
 async def test_create_mcp_registers_expected_tools() -> None:
     mcp = create_mcp(_FakeClient())
     tools = await mcp.list_tools()
-    assert {tool.name for tool in tools} == {'vacp_capabilities', 'vacp_state', 'vacp_execute'}
+    assert {tool.name for tool in tools} == {'vacp_observe', 'vacp_capabilities', 'vacp_state', 'vacp_execute'}
 
 
 @pytest.mark.asyncio
@@ -122,8 +125,8 @@ async def test_vacp_capabilities_normalizes_bare_root_scope() -> None:
     'options',
     [
         {'bogus': 1},
-        {'kinds': ['BogusKind']},
-        {'layers': ['bogusLayer']},
+        {'kinds': ['']},
+        {'layers': ['']},
         {'refs': ['   ']},
         {'includeNodeData': 'nope'},
     ],
@@ -226,6 +229,7 @@ async def test_create_mcp_registers_page_tools_when_page_provided() -> None:
     mcp = create_mcp(_FakeClient(), page=_FakePage())
     tools = await mcp.list_tools()
     assert {tool.name for tool in tools} == {
+        'vacp_observe',
         'vacp_capabilities',
         'vacp_state',
         'vacp_execute',
@@ -249,3 +253,21 @@ async def test_browser_tools_are_gated_by_enable_flag(tmp_path) -> None:
     out = tmp_path / 'shots' / 's1.png'
     res = await screenshot.fn(path=str(out), full_page=True)
     assert res == {'ok': True, 'path': str(out)}
+
+
+@pytest.mark.asyncio
+async def test_observation_tool_preserves_provider_revision_and_state() -> None:
+    client = _FakeClient()
+    tool = await create_mcp(client).get_tool('vacp_observe')
+    assert isinstance(tool, FunctionTool)
+    assert await tool.fn() == await client.observe()
+
+
+@pytest.mark.asyncio
+async def test_capabilities_accept_provider_defined_analytical_vocabulary() -> None:
+    client = _FakeClient()
+    tool = await create_mcp(client).get_tool('vacp_capabilities')
+    assert isinstance(tool, FunctionTool)
+    options = {'kinds': ['AnalysisOutput'], 'layers': ['AnalysisLayer']}
+    await tool.fn(options=options)
+    assert client.last_capabilities_request == options

@@ -734,7 +734,7 @@ function buildBaselineJobs() {
           url: buildScenarioUrl({
             route: scenario.route,
             hash: scenario.hash,
-            query: { 'expose-bridge': '0', 'vacp-dom-snapshot': '0', 'vacp-inspector': '0', 'enable-sql': '1' },
+            query: { context: 'visual' },
           }),
           task: scenario.task,
           responseFormat: scenario.responseFormat,
@@ -790,7 +790,7 @@ function buildSnapshotInjectedJobs() {
           url: buildScenarioUrl({
             route: scenario.route,
             hash: scenario.hash,
-            query: { 'expose-bridge': '0', 'vacp-dom-snapshot': '1', 'vacp-inspector': '0', 'enable-sql': '1' },
+            query: { context: 'snapshot' },
           }),
           task: scenario.task,
           responseFormat: scenario.responseFormat,
@@ -850,7 +850,7 @@ function buildPureVACPJobs() {
       const url = buildScenarioUrl({
         route: scenario.route,
         hash: scenario.hash,
-        query: { 'expose-bridge': '1', 'vacp-dom-snapshot': '0', 'vacp-inspector': '0', 'enable-sql': '1' },
+        query: { context: 'semantic' },
       });
 
       jobs.push({
@@ -939,7 +939,7 @@ function buildPlainMCPJobs() {
       const url = buildScenarioUrl({
         route: scenario.route,
         hash: scenario.hash,
-        query: { 'expose-bridge': '1', 'vacp-dom-snapshot': '0', 'vacp-inspector': '0', 'enable-sql': '1' },
+        query: { context: 'semantic' },
       });
 
       const toolIds = useCase.tools.map((tool) => mcpToolId(PLAIN_MCP_SERVER_NAME, tool));
@@ -1027,7 +1027,7 @@ function buildToolkitJobs(args: { experiment: 'full-toolkit' | 'partial-toolkit'
       const url = buildScenarioUrl({
         route: scenario.route,
         hash: scenario.hash,
-        query: { 'expose-bridge': '1', 'vacp-dom-snapshot': '1', 'vacp-inspector': '1', 'enable-sql': args.enableSql },
+        query: { context: args.enableSql === '1' ? 'full' : 'guided' },
       });
 
       jobs.push({

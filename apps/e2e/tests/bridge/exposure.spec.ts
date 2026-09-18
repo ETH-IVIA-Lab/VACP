@@ -3,12 +3,12 @@ import { expect, test } from '@playwright/test';
 import { startAppServer } from '../helpers/devserver';
 import { exampleDir } from '../helpers/paths';
 
-test('bridge exposure follows the URL on reload while DOM snapshots remain readable', async ({ page }) => {
+test('example context selects exposure on reload while DOM snapshots remain readable', async ({ page }) => {
   const srv = await startAppServer({ name: 'cars-parallel-coords', cwd: exampleDir('cars-parallel-coords') });
   try {
     for (const enabled of [false, true, false]) {
-      await test.step(`reload with expose-bridge=${Number(enabled)}`, async () => {
-        await page.goto(`${srv.url}?expose-bridge=${Number(enabled)}`, { waitUntil: 'domcontentloaded' });
+      await test.step(`reload with context ${enabled ? 'full' : 'snapshot'}`, async () => {
+        await page.goto(`${srv.url}?context=${enabled ? 'full' : 'snapshot'}`, { waitUntil: 'domcontentloaded' });
         const snapshot = page.locator('#__vacp_snapshot');
         await expect
           .poll(async () => JSON.parse((await snapshot.textContent()) || '{}').format)

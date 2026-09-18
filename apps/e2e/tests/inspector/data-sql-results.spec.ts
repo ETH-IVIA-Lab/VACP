@@ -91,7 +91,7 @@ for (const c of cases) {
     const srv = await startAppServer({ name: c.name, cwd: c.cwd, artifactsDir });
 
     try {
-      const targetUrl = c.hash ? `${srv.url}?vacp-inspector=1${c.hash}` : `${srv.url}?vacp-inspector=1`;
+      const targetUrl = c.hash ? `${srv.url}${c.hash}` : `${srv.url}`;
       await page.goto(targetUrl, { waitUntil: 'domcontentloaded' });
       await waitForVacpBridge(page);
       await c.prepare?.(page);

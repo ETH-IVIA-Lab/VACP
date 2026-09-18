@@ -1,13 +1,16 @@
 # @vacp/runtime-browser
 
-Install and discover browser runtimes, resolve browser configuration, and publish DOM snapshots.
+Install and discover composed browser runtimes, resolve browser configuration, and publish DOM observations.
 
 ```ts
-import { installVacpRuntime, getVacpBridge, uninstallVacpRuntime } from '@vacp/runtime-browser';
+import { getVacpBridge, installVacpRuntime } from '@vacp/runtime-browser';
 
-const runtime = installVacpRuntime({ snapshots, actions });
+const installation = installVacpRuntime({ providers: [controls, chart] });
+const runtime = installation.runtime;
+const observation = await runtime.observe();
 const bridge = getVacpBridge();
-uninstallVacpRuntime();
+
+installation.dispose();
 ```
 
-Installation preserves runtime identity while replacing provider ports. See the [browser reference](../../docs/reference/browser.md) for configuration and lifecycle behavior.
+Installation preserves runtime identity and composes providers by source ID. See the [browser reference](../../docs/reference/browser.md) for configuration and lifecycle behavior.

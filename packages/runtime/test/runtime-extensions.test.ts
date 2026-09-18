@@ -1,34 +1,44 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { VACP_SCHEMA_VERSION, type VacpCapabilitiesSnapshot } from '@vacp/protocol';
-import { createVacpRuntime, VacpActionRegistry } from '../src/index';
+import {
+  VACP_SCHEMA_VERSION,
+  type VacpActionDescriptor,
+  type VacpProvider,
+  type VacpProviderObservation,
+} from '@vacp/protocol';
+import { createVacpProvider, createVacpRuntime, VacpActionRegistry } from '../src/index';
 
-function snapshots(title: string) {
-  return {
-    getCapabilities: (): VacpCapabilitiesSnapshot => ({
-      version: VACP_SCHEMA_VERSION,
-      createdAt: '',
+const source = { id: 'vacp-source://runtime-test' as const, type: 'test', title: 'Runtime test' };
+
+function provider(title: string, actions = new VacpActionRegistry()): VacpProvider {
+  return createVacpProvider({
+    source,
+    actions,
+    project: () => ({
       graph: {
         version: VACP_SCHEMA_VERSION,
         nodes: [{ ref: 'vacp://view', title, kind: 'View', layer: 'ViewLayer' }],
         edges: [],
-        actions: [],
       },
+      state: {},
     }),
-    getState: () => ({ version: VACP_SCHEMA_VERSION, createdAt: '', state: {} }),
-  };
+  });
+}
+
+function descriptor(name: string): VacpActionDescriptor {
+  return { name, description: `${name} value`, operation: { kind: 'mutation', affects: ['vacp://view'] } };
 }
 
 test('capability observers see the live graph even during inspection, and disposal cancels reads', async () => {
-  const runtime = createVacpRuntime({ snapshots: snapshots('live'), actions: new VacpActionRegistry() });
+  const runtime = createVacpRuntime({ providers: [provider('live')] });
   const titles: string[] = [];
   runtime.subscribeCapabilities((value) => titles.push(value.graph.nodes[0]?.title ?? ''));
   try {
-    await runtime.getCapabilities();
-    runtime.setGraphOverride({ version: VACP_SCHEMA_VERSION, nodes: [], edges: [], actions: [] });
+    const live = await runtime.getCapabilities();
+    runtime.setGraphOverride({ ...live.graph, nodes: [], edges: [], ownership: { nodes: {}, actions: {} } });
     await runtime.getRuntime();
     assert.deepEqual(titles, ['live']);
-    runtime.update({ snapshots: snapshots('replacement'), actions: new VacpActionRegistry() });
+    runtime.update({ providers: [provider('replacement')] });
     await runtime.getCapabilities();
     assert.deepEqual(titles, ['live', 'replacement']);
   } finally {
@@ -38,23 +48,18 @@ test('capability observers see the live graph even during inspection, and dispos
   await assert.rejects(runtime.getCapabilities(), /abort/i);
 });
 
-test('a late snapshot from a replaced provider cannot overwrite current capabilities', async () => {
-  let complete!: (value: VacpCapabilitiesSnapshot) => void;
-  const old = snapshots('old');
-  const runtime = createVacpRuntime({
-    snapshots: {
-      ...old,
-      getCapabilities: () =>
-        new Promise((resolve) => {
-          complete = resolve;
-        }),
-    },
-    actions: new VacpActionRegistry(),
-  });
+test('a late observation from a replaced provider cannot overwrite current capabilities', async () => {
+  let complete!: (value: VacpProviderObservation) => void;
+  const old: VacpProvider = {
+    source,
+    observe: () => new Promise((resolve) => (complete = resolve)),
+    execute: async (call) => ({ callId: call.callId, ok: true }),
+  };
+  const runtime = createVacpRuntime({ providers: [old] });
   try {
     const pending = runtime.getCapabilities();
-    runtime.update({ snapshots: snapshots('new'), actions: new VacpActionRegistry() });
-    complete(old.getCapabilities());
+    runtime.update({ providers: [provider('new')] });
+    complete(await provider('old').observe());
     assert.equal((await pending).graph.nodes[0]?.title, 'new');
   } finally {
     runtime.dispose();
@@ -64,10 +69,10 @@ test('a late snapshot from a replaced provider cannot overwrite current capabili
 test('execution owns live-mode recovery and honours cancellation before calling a handler', async () => {
   let executions = 0;
   const actions = new VacpActionRegistry();
-  actions.register({ name: 'set', description: 'Set a value' }, () => {
+  actions.register(descriptor('set'), () => {
     executions++;
   });
-  const runtime = createVacpRuntime({ snapshots: snapshots('live'), actions });
+  const runtime = createVacpRuntime({ providers: [provider('live', actions)] });
   try {
     runtime.setMode('inspect');
     await runtime.execute({ callId: 'first', name: 'set' });
@@ -86,30 +91,22 @@ test('execution owns live-mode recovery and honours cancellation before calling 
 });
 
 test('a queued action cannot execute against a replacement provider', async () => {
-  let complete!: (value: VacpCapabilitiesSnapshot) => void;
+  let complete!: (value: VacpProviderObservation) => void;
   let called = 0;
   const actions = new VacpActionRegistry();
-  actions.register({ name: 'set', description: 'Set value' }, () => {
-    called++;
-  });
-  const old = snapshots('old');
-  const runtime = createVacpRuntime({
-    snapshots: {
-      ...old,
-      getCapabilities: () =>
-        new Promise((resolve) => {
-          complete = resolve;
-        }),
-    },
-    actions,
-  });
+  actions.register(descriptor('set'), () => called++);
+  const old: VacpProvider = {
+    source,
+    observe: () => new Promise((resolve) => (complete = resolve)),
+    execute: (call, options) => actions.execute(call, options),
+  };
+  const runtime = createVacpRuntime({ providers: [old] });
   try {
     const execution = runtime.execute({ callId: 'old', name: 'set' });
     const rejected = assert.rejects(execution, /abort/i);
-    // dispatch awaits the replay queue before reading the provider.
     await Promise.resolve();
-    runtime.update({ snapshots: snapshots('new'), actions });
-    complete(old.getCapabilities());
+    runtime.update({ providers: [provider('new', actions)] });
+    complete(await provider('old', actions).observe());
     await rejected;
     assert.equal(called, 0);
   } finally {
@@ -117,37 +114,31 @@ test('a queued action cannot execute against a replacement provider', async () =
   }
 });
 
-test('a late post-action snapshot cannot attach an old call to a new session history', async () => {
+test('a late post-action observation cannot attach an old call to a new session history', async () => {
   let finishRead!: () => void;
   let afterStarted!: () => void;
-  const after = new Promise<void>((resolve) => {
-    afterStarted = resolve;
-  });
+  const after = new Promise<void>((resolve) => (afterStarted = resolve));
   const actions = new VacpActionRegistry();
-  actions.register({ name: 'set', description: 'Set value' }, () => 'old result');
+  actions.register(descriptor('set'), () => 'old result');
   let reads = 0;
-  const initial = snapshots('old');
-  const runtime = createVacpRuntime({
-    actions,
-    sessionKey: 'old',
-    snapshots: {
-      ...initial,
-      getState: async () => {
-        if (++reads === 2) {
-          afterStarted();
-          await new Promise<void>((resolve) => {
-            finishRead = resolve;
-          });
-        }
-        return initial.getState();
-      },
+  const base = provider('old', actions);
+  const old: VacpProvider = {
+    source,
+    execute: (call, options) => actions.execute(call, options),
+    observe: async () => {
+      if (++reads === 2) {
+        afterStarted();
+        await new Promise<void>((resolve) => (finishRead = resolve));
+      }
+      return base.observe();
     },
-  });
+  };
+  const runtime = createVacpRuntime({ providers: [old], sessionKey: 'old' });
   try {
     const execution = runtime.execute({ callId: 'old-call', name: 'set' });
     const rejected = assert.rejects(execution, /abort/i);
     await after;
-    runtime.update({ snapshots: snapshots('new'), actions, sessionKey: 'new' });
+    runtime.update({ providers: [provider('new', actions)], sessionKey: 'new' });
     finishRead();
     await rejected;
     assert.equal(
@@ -160,12 +151,18 @@ test('a late post-action snapshot cannot attach an old call to a new session his
 });
 
 test('subscribed snapshots detect in-place graph and summary edits without timestamp churn', async () => {
-  const capabilities = snapshots('before subscription').getCapabilities();
-  const state = { version: VACP_SCHEMA_VERSION, createdAt: '', state: {}, summary: { 'vacp://view': 'first' } };
-  const runtime = createVacpRuntime({
+  const graph = {
+    version: VACP_SCHEMA_VERSION,
+    nodes: [{ ref: 'vacp://view' as const, title: 'before subscription', kind: 'View', layer: 'ViewLayer' }],
+    edges: [],
+  };
+  const summary: Record<'vacp://view', string> = { 'vacp://view': 'first' };
+  const sourceProvider = createVacpProvider({
+    source,
     actions: new VacpActionRegistry(),
-    snapshots: { getCapabilities: () => capabilities, getState: () => state },
+    project: () => ({ graph, state: {}, summary }),
   });
+  const runtime = createVacpRuntime({ providers: [sourceProvider] });
   const titles: string[] = [];
   const summaries: string[] = [];
   try {
@@ -174,19 +171,92 @@ test('subscribed snapshots detect in-place graph and summary edits without times
     runtime.subscribeSnapshots((value) => summaries.push(String(value.state.summary?.['vacp://view'])));
     runtime.stopObserving();
     await runtime.getCapabilities();
-    capabilities.createdAt = 'new timestamp';
-    state.createdAt = 'new timestamp';
     await runtime.getCapabilities();
     assert.deepEqual(titles, ['before subscription']);
     assert.deepEqual(summaries, ['first']);
-    capabilities.graph.nodes[0]!.title = 'edited in place';
-    state.summary['vacp://view'] = 'second';
+    graph.nodes[0]!.title = 'edited in place';
+    summary['vacp://view'] = 'second';
     await runtime.getCapabilities();
-    state.summary['vacp://view'] = 'summary only';
+    summary['vacp://view'] = 'summary only';
     await runtime.getCapabilities();
     assert.deepEqual(titles, ['before subscription', 'edited in place']);
     assert.deepEqual(summaries, ['first', 'second', 'summary only']);
   } finally {
+    runtime.dispose();
+  }
+});
+
+test('freshness changes publish observations and history retains the observed revision', async () => {
+  let status: 'current' | 'stale' = 'current';
+  const runtime = createVacpRuntime({
+    providers: [
+      createVacpProvider({
+        source,
+        actions: new VacpActionRegistry(),
+        project: () => ({
+          graph: {
+            version: VACP_SCHEMA_VERSION,
+            nodes: [{ ref: 'vacp://view', kind: 'Visualization', layer: 'VisualizationLayer' }],
+            edges: [],
+          },
+          state: {},
+          freshness: { 'vacp://view': { status } },
+        }),
+      }),
+    ],
+  });
+  const published: string[] = [];
+  const stop = runtime.subscribeSnapshots(({ observation }) =>
+    published.push(observation.freshness!['vacp://view'].status),
+  );
+  try {
+    await runtime.refresh();
+    const first = await runtime.observe();
+    status = 'stale';
+    await runtime.refresh();
+    assert.deepEqual(published, ['current', 'stale']);
+    runtime.setCursor(0);
+    const inspected = await runtime.getRuntime();
+    assert.equal(inspected.currentObservation.revision, first.revision);
+    assert.equal(inspected.currentObservation.freshness!['vacp://view'].status, 'current');
+    assert.equal(inspected.liveObservation.freshness!['vacp://view'].status, 'stale');
+  } finally {
+    stop();
+    runtime.dispose();
+  }
+});
+
+test('replacing an unrelated source preserves an in-flight action', async () => {
+  let started!: () => void;
+  let finish!: () => void;
+  const began = new Promise<void>((resolve) => {
+    started = resolve;
+  });
+  const pending = new Promise<void>((resolve) => {
+    finish = resolve;
+  });
+  const actions = new VacpActionRegistry();
+  actions.register(descriptor('wait'), async (_params, { signal }) => {
+    started();
+    await pending;
+    signal?.throwIfAborted();
+    return 'done';
+  });
+  const runtime = createVacpRuntime({ providers: [provider('running', actions)] });
+  try {
+    const call = runtime.execute({ callId: 'wait', name: 'wait' });
+    await began;
+    runtime.attachProvider(
+      createVacpProvider({
+        source: { id: 'vacp-source://unrelated', type: 'test', title: 'Unrelated' },
+        actions: new VacpActionRegistry(),
+        project: () => ({ graph: { version: VACP_SCHEMA_VERSION, nodes: [], edges: [] }, state: {} }),
+      }),
+    );
+    finish();
+    assert.deepEqual(await call, { callId: 'wait', ok: true, result: 'done' });
+  } finally {
+    finish();
     runtime.dispose();
   }
 });

@@ -1,76 +1,52 @@
-# Connect a custom visualization
+# Connect an analytical source
 
-Use `@vacp/sdk` to describe your application's state and register actions against its existing controls. Each action handler updates application state. Each snapshot reads that same state.
+Use `@vacp/sdk` to describe a source, project its analytical state, and bind semantic operations to the application that owns the state.
 
-This example exposes a numeric threshold control. Start with an input:
-
-```html
-<input id="threshold" type="range" min="0" max="100" value="10" />
-```
-
-Create the integration:
+The threshold example connects an HTML range input:
 
 <<< ../../examples/custom-integration/threshold.ts
 
-Connect the input after it has mounted:
+`createVacpProvider()` keeps three concerns explicit:
+
+- `source` describes stable identity and provenance.
+- `project()` returns the current analytical graph and state in one call.
+- `actions` validates and invokes operations against the owning application.
+
+`installVacp({ providers: [provider] })` attaches the provider to the browser runtime. Providers with distinct source IDs compose at the same global key. Installing a replacement with the same source ID changes that source while preserving the other providers.
+
+## Describe operations
+
+Every operation declares its semantic kind and relationships:
 
 ```ts
-import { connectThreshold } from './threshold';
-import { installVacpInspector } from '@vacp/inspector';
-
-const input = document.querySelector<HTMLInputElement>('#threshold')!;
-const integration = connectThreshold(input);
-const inspector = installVacpInspector();
-
-await integration.bridge.execute({
-  callId: 'set-threshold',
-  name: 'threshold.set',
-  params: { value: 42 },
-});
+actions
+  .operation('mutation', 'threshold.set', 'Set the threshold between 0 and 100')
+  .affects('vacp://example/threshold')
+  .params(
+    {
+      type: 'object',
+      properties: { value: { type: 'number', minimum: 0, maximum: 100 } },
+      required: ['value'],
+    },
+    thresholdParams,
+  )
+  .handle(({ value }) => setThreshold(value));
 ```
 
-The input now shows `42`. Human input and agent actions share the input's value. The capabilities graph lists `threshold.set`, and its state is available under `vacp://example/threshold`.
+Use `mutation` for changes to live analytical state, `creation` for operations that create entities, `evaluation` for parameterized analyses, and `query` for reads that produce data. Add `.input(ref)`, `.affects(ref)`, and `.produces(result)` when those relationships are known.
 
-## Choose stable references
+Parameter descriptions remain JSON Schema-like objects owned by the application. VACP does not generate schemas from TypeScript types.
 
-Derive refs from domain identities such as view IDs, parameter names, or dataset names. Keep the same ref when a chart rerenders. Use `createVacpRefBuilder({ appId, viewId, vizId })` when several entities share a namespace.
+## Add semantic enrichment
 
-## Validate actions
+Introspection can identify safe mechanical facts such as names, types, bounds, and synchronized values. Library and application adapters add analytical meaning such as selections, data handles, visualizations, and relationships between them.
 
-`params(description, parser)` accepts a hand-written input description and an optional parser. Zod 4 schemas work directly, as does any object with a `parse(value)` method. The parser's return type becomes the handler's parameter type. Validation runs before the handler; thrown errors become unsuccessful action results.
+Keep large datasets with their owning system. Expose a `DataHandle` and a query operation or bounded summary rather than embedding the dataset in the graph.
 
-Without a parser, the handler receives unvalidated input and owns validation. Action names and description fields are open to application-defined extensions. VACP does not generate schemas.
+## Observe and release
 
-## Preserve application types
+`bridge.observe()` returns graph, state, source ownership, source revisions, and output freshness from one coherent read.
 
-Action handlers can return ordinary interfaces, including nested objects and async results. Snapshot getters retain their state and summary types:
+Call `integration.refresh(source, message)` after a human interaction when the provider does not publish invalidations. Call `integration.dispose()` when the source unmounts. Disposal removes the integration's source IDs and leaves unrelated providers attached.
 
-```ts
-import { createVacpSnapshotProvider } from '@vacp/sdk';
-
-const snapshots = createVacpSnapshotProvider({
-  graph,
-  actions: actions.registry,
-  getState: () => ({ 'vacp://example/threshold': { value: 42 } }),
-});
-
-const snapshot = await snapshots.getState();
-snapshot.state['vacp://example/threshold'].value; // number
-```
-
-Use `VacpActionCall<Params>`, `VacpActionResult<Result>`, and `VacpStateSnapshot<State, Summary>` when naming your own contracts. Node metadata stays typed through `VacpGraph<NodeData>` and `VacpCapabilitiesSnapshot<NodeData>`. No index signatures are needed on application interfaces. Transport input remains unvalidated until its receiver checks it. Keep transported payloads JSON-serializable.
-
-The standard action helpers validate their common envelopes. Providers still validate the domain-specific values they apply.
-
-## Refresh and cleanup
-
-Call `integration.refresh(source, message)` after a human interaction changes state. Runtime subscriptions can also observe changes through periodic snapshots.
-
-When the application unmounts, release its resources:
-
-```ts
-inspector?.dispose();
-integration.dispose();
-```
-
-For direct control over snapshots and action execution, use the [runtime ports](../reference/runtime).
+See [provider composition](../providers/composition) and the [runtime reference](../reference/runtime).

@@ -1,25 +1,30 @@
 # What is VACP?
 
-VACP gives an agent a semantic interface to a visualization. It describes what the visualization contains, reports its current state, and exposes actions that update the same controls people use.
+VACP gives people and agents one semantic interface to a composed visual analysis. Providers describe their sources, project analytical entities and state, and bind operations to the systems that own those values.
 
-A scatterplot might expose a selection as `vacp://analysis/scatter/selection`. An agent can read its bounds, discover a brush action, and change the selection. The chart remains responsible for rendering the result.
+A notebook can contribute an analytical output, a widget can contribute its filter, and a database adapter can contribute a data handle. The composed graph records which source owns each node and action while allowing relationships across sources.
 
-## Three operations
+## Observation and control
 
-| Operation           | Result                                                  |
-| ------------------- | ------------------------------------------------------- |
-| `getCapabilities()` | A graph of semantic entities and the available actions. |
-| `getState()`        | Current values keyed by stable references.              |
-| `execute(call)`     | An action result or a structured error.                 |
+| Operation           | Result                                                            |
+| ------------------- | ----------------------------------------------------------------- |
+| `observe()`         | One graph, state, ownership, revision, and freshness observation. |
+| `getCapabilities()` | A scoped graph projection.                                        |
+| `getState()`        | A scoped state projection or incremental update.                  |
+| `execute(call)`     | A semantic action result or structured error.                     |
 
-A **ref** identifies an entity across rerenders. Nodes represent views, marks, selections, parameters, widgets, and data handles. Edges describe relationships such as containment and control.
+A **ref** identifies an analytical entity across rerenders and source updates. Nodes can represent views, visualizations, selections, parameters, widgets, data handles, or provider-defined domain concepts. Edges describe relationships such as containment, control, derivation, and visualization.
 
-State holds the values that change during interaction. Capabilities describe the entities and operations used to interpret those values. Large datasets stay in the application and are accessed through data actions.
+Actions describe mutations, creations, evaluations, and queries. Their metadata connects input refs, affected entities, dynamic ref parameters, and produced state, data, visualizations, or artifacts.
+
+## Source authority
+
+Each provider publishes an atomic source observation. The provider defines when its values have settled. A Python widget can wait for trait validation and observers. A reactive notebook can report whether an output is stale, running, current, or failed for a given input revision.
+
+Large datasets stay with their owning system. A provider exposes data handles, queries, and bounded summaries while the application retains storage and execution.
 
 ## Integrations and consumers
 
-A provider maps a visualization into this contract. You can use a provider for Vega-Lite or VGPlot, or [define a custom integration](../integrate/).
+Vega-Lite and VGPlot providers map their visualization runtimes into VACP. Custom providers can bind another visualization, widget system, notebook, or analytical service through the same source, projection, observation, and operation ports.
 
-The [Inspector](../inspector/) and [agents](../transports/) consume the same contract. Screenshots still provide visual feedback, while semantic state provides exact values and actions.
-
-The [runtime](../reference/runtime) adds history, replay, subscriptions, and scoped state updates. The [browser adapter](../reference/browser) exposes it at `window.__vacp` and can publish snapshots into the DOM.
+The [Inspector](../inspector/) and [agents](../transports/) consume the composed contract. The [runtime](../reference/runtime) adds history, replay, subscriptions, and provider lifecycle. The [browser adapter](../reference/browser) exposes the runtime at `window.__vacp` and publishes DOM observations.

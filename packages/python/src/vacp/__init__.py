@@ -1,1 +1,41 @@
-"""Python client and MCP server for the Visual Analytics Context Protocol."""
+"""Python providers and integrations for the Visual Analytics Context Protocol."""
+
+from vacp.provider import (
+    Edge,
+    Freshness,
+    GraphFragment,
+    Invocation,
+    InvocationResult,
+    Node,
+    Observation,
+    OperationDescriptor,
+    OperationResultDescriptor,
+    OperationSemantics,
+    Provider,
+    ProviderComposer,
+    ProviderObservation,
+    RefParameter,
+    SimpleProvider,
+    SourceDescription,
+    as_dict,
+)
+
+__all__ = [
+    'Edge',
+    'Freshness',
+    'GraphFragment',
+    'Invocation',
+    'InvocationResult',
+    'Node',
+    'Observation',
+    'OperationDescriptor',
+    'OperationResultDescriptor',
+    'OperationSemantics',
+    'Provider',
+    'ProviderComposer',
+    'ProviderObservation',
+    'RefParameter',
+    'SimpleProvider',
+    'SourceDescription',
+    'as_dict',
+]

@@ -54,7 +54,7 @@ test('action: vacp.widget_options (vgplot athletes Sport menu)', async ({ page }
   const srv = await startAppServer({ name: 'vgplot-gallery', cwd: exampleDir('vgplot-gallery') });
 
   try {
-    await page.goto(`${srv.url}?vacp-inspector=1#athletes`, { waitUntil: 'domcontentloaded' });
+    await page.goto(`${srv.url}#athletes`, { waitUntil: 'domcontentloaded' });
     await expectBridge(page);
 
     const sportRef = await waitForWidgetRef(page, 'Sport');

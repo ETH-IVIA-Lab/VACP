@@ -5,10 +5,11 @@
 ## Install
 
 ```ts
-import { installVacp } from '@vacp/sdk';
+import { createVacpProvider, installVacp } from '@vacp/sdk';
 import { installVacpWebMcp } from '@vacp/transport-webmcp';
 
-const integration = installVacp({ graph, actions: actions.registry, getState });
+const provider = createVacpProvider({ source, actions: actions.registry, project });
+const integration = installVacp({ providers: [provider] });
 const webmcp = await installVacpWebMcp(integration.bridge, {
   onError: (cause) => console.error('WebMCP registration failed', cause),
 });
@@ -20,11 +21,12 @@ By default, agents discover:
 
 | Tool                        | Result                                                                          |
 | --------------------------- | ------------------------------------------------------------------------------- |
+| `vacp.observe`              | One coherent graph, state, ownership, revision, and freshness observation.      |
 | `vacp.capabilities`         | The live graph, including entities, edges, references, and action descriptions. |
 | `vacp.state`                | Current state and summaries keyed by graph references.                          |
 | `vacp.action.<action-name>` | The result of the corresponding VACP action.                                    |
 
-An action's target node supplies context for its tool description. Its existing parameter schema is reused. The adapter does not infer handlers from graph nodes or create a separate application action registry.
+An action's related nodes supply context for its tool description. Its existing parameter schema is reused. The adapter does not infer handlers from graph nodes or create a separate application action registry.
 
 ## Inputs and results
 
@@ -61,7 +63,7 @@ Waiting graph revisions are merged into the latest catalog; an in-progress regis
 WebMCP cancellation reaches the action handler's execution context:
 
 ```ts
-actions.action('search', 'Search records').handle(async (params, { signal }) => {
+actions.operation('query', 'search', 'Search records').handle(async (params, { signal }) => {
   const query = searchParams.parse(params);
   const response = await fetch(`/search?q=${encodeURIComponent(query.text)}`, { signal });
   return response.json();
@@ -80,6 +82,6 @@ Run the parallel-coordinates example in a browser with WebMCP enabled:
 pnpm --filter @vacp/example-cars-parallel-coords dev
 ```
 
-Open `https://cars-parcoords.examples.vacp.localhost/?webmcp=1`. The same opt-in works on the combined gallery route. Without that query option, the example does not register WebMCP tools.
+Open `https://cars-parcoords.examples.vacp.localhost/`. The example registers WebMCP tools when the browser supports the API.
 
 The browser suite exercises native `document.modelContext` registration and invocation in Chromium 153 with experimental Web Platform features enabled, including provider replacement and disposal. Its experimental caller API currently takes serialized JSON input, whereas the newer draft describes object input. This difference is confined to the browser test; the integration only implements tool provision.

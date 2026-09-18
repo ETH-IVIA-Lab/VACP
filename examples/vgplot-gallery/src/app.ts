@@ -1,3 +1,4 @@
+import { exampleOptions } from '../../config';
 import type { VgplotPlotLike, VgplotTableLike } from '@vacp/adapter-vgplot';
 import { installVacpInspector } from '@vacp/inspector';
 import type { VacpDuckDbClient } from '@vacp/data-duckdb';
@@ -68,7 +69,7 @@ export async function run(): Promise<void> {
   let renderToken = 0;
 
   // Inspector: inspects the VACP bridge and provides time travel, actions, and DuckDB SQL.
-  installVacpInspector();
+  if (exampleOptions.inspector) installVacpInspector();
 
   // VGPlot's coordinator owns the shared in-browser DuckDB instance.
   const mc = coordinator();

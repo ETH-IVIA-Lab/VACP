@@ -1,11 +1,11 @@
+import { exampleOptions } from '../../config';
 import { z } from 'zod';
 
-import type { VacpGraphBase } from '@vacp/sdk';
-import { createVacpActions, createVacpRefBuilder, installVacp } from '@vacp/sdk';
+import { createVacpActions, createVacpProvider, createVacpRefBuilder, installVacp } from '@vacp/sdk';
 import { createDuckDbSqlRouter, makeVacpDuckDbTableName, sqlIdentifier } from '@vacp/data-duckdb';
 import { installVacpPosthogAnalytics, type VacpPosthogOptions } from '@vacp/analytics-posthog';
 import { createDuckDbWasmClient, getDuckDbTableMetadata, type VacpDuckDbTableMetadata } from '@vacp/data-duckdb';
-import { VACP_SCHEMA_VERSION, type VacpRef } from '@vacp/protocol';
+import { VACP_SCHEMA_VERSION, type VacpGraphFragment, type VacpRef } from '@vacp/protocol';
 
 import type { BrushRange, CarDatum, ParallelCoordsSource } from './chart';
 import type { ParallelCoordsState } from './chart';
@@ -98,11 +98,12 @@ export function installVacpForCarsParallelCoords(args: {
   };
 
   actions
-    .action(
+    .operation(
+      'mutation',
       'parallel_coords.set_brush_ranges',
       'Set one or more per-axis brush ranges (data units). Use null to clear.',
     )
-    .target(brushRef)
+    .affects(brushRef)
     .params(
       {
         type: 'object',
@@ -140,8 +141,8 @@ export function installVacpForCarsParallelCoords(args: {
     });
 
   actions
-    .action('parallel_coords.reset_brushes', 'Reset all brushes to the full data extents.')
-    .target(brushRef)
+    .operation('mutation', 'parallel_coords.reset_brushes', 'Reset all brushes to the full data extents.')
+    .affects(brushRef)
     .params({ type: 'object', properties: {} })
     .handle(() => {
       args.resetBrushes('agent');
@@ -150,8 +151,8 @@ export function installVacpForCarsParallelCoords(args: {
     });
 
   actions
-    .action('parallel_coords.set_dimension_order', 'Set the axis order as an array of dimension names.')
-    .target(orderRef)
+    .operation('mutation', 'parallel_coords.set_dimension_order', 'Set the axis order as an array of dimension names.')
+    .affects(orderRef)
     .params(
       {
         type: 'object',
@@ -171,8 +172,8 @@ export function installVacpForCarsParallelCoords(args: {
     });
 
   actions
-    .action('parallel_coords.reset_dimension_order', 'Reset axis order back to the dataset default.')
-    .target(orderRef)
+    .operation('mutation', 'parallel_coords.reset_dimension_order', 'Reset axis order back to the dataset default.')
+    .affects(orderRef)
     .params({ type: 'object', properties: {} })
     .handle(() => {
       args.resetDimensionOrder('agent');
@@ -184,8 +185,12 @@ export function installVacpForCarsParallelCoords(args: {
   const isFiniteNumber = (value: unknown): value is number => typeof value === 'number' && Number.isFinite(value);
 
   actions
-    .action('parallel_coords.set_hover', 'Set the hovered line by row id or car-name match and show its tooltip.')
-    .target(hoverRef)
+    .operation(
+      'mutation',
+      'parallel_coords.set_hover',
+      'Set the hovered line by row id or car-name match and show its tooltip.',
+    )
+    .affects(hoverRef)
     .params(
       {
         type: 'object',
@@ -264,8 +269,8 @@ export function installVacpForCarsParallelCoords(args: {
     });
 
   actions
-    .action('parallel_coords.clear_hover', 'Clear the currently hovered line (hides tooltip).')
-    .target(hoverRef)
+    .operation('mutation', 'parallel_coords.clear_hover', 'Clear the currently hovered line (hides tooltip).')
+    .affects(hoverRef)
     .params({ type: 'object', properties: {} })
     .handle(() => {
       args.setHoveredId(null, 'agent');
@@ -328,7 +333,7 @@ export function installVacpForCarsParallelCoords(args: {
 
       return { applied };
     },
-    { targetRef: vizRef, description: 'Apply brush ranges, axis order, and hover state.' },
+    { affects: [vizRef], description: 'Apply brush ranges, axis order, and hover state.' },
   );
 
   const sql = createDuckDbSqlRouter({ duckdb });
@@ -355,7 +360,8 @@ export function installVacpForCarsParallelCoords(args: {
     },
   });
   actions.standard.dataSql(sql.handler, {
-    targetRef: handleRef,
+    enabled: exampleOptions.enableSql,
+    inputRefs: [handleRef],
     description: 'Query the current selection via DuckDB SQL. `vacp_handle` is brush-filtered (or all rows if empty).',
   });
 
@@ -378,12 +384,12 @@ export function installVacpForCarsParallelCoords(args: {
       return { handleRef, detail, ...meta };
     },
     {
-      targetRef: handleRef,
+      inputRefs: [handleRef],
       description: 'Return schema/metadata for the cars DataHandle (columns, types, row count, optional summaries).',
     },
   );
 
-  const graph: VacpGraphBase = {
+  const graph: Omit<VacpGraphFragment, 'actions'> = {
     version: VACP_SCHEMA_VERSION,
     nodes: [
       { ref: viewRef, kind: 'View', layer: 'ViewLayer', title: args.title },
@@ -431,14 +437,17 @@ export function installVacpForCarsParallelCoords(args: {
     ],
   };
 
-  const vacp = installVacp({
-    globalKey: args.globalKey,
-    graph,
+  const provider = createVacpProvider({
+    source: {
+      id: `vacp-source://${appId}/${viewId}/${vizId}/parallel-coordinates`,
+      type: 'parallel-coordinates',
+      title: args.title,
+    },
     actions: actions.registry,
-    getState: () => {
+    project: () => {
       const st = args.getState();
 
-      return {
+      const state = {
         [brushRef]: {
           kind: 'Selection',
           ranges: st.brushRanges,
@@ -460,7 +469,14 @@ export function installVacpForCarsParallelCoords(args: {
           duckdb: tableMeta ?? undefined,
         },
       } satisfies Record<VacpRef, unknown>;
+      return { graph, state };
     },
+  });
+  const vacp = installVacp({
+    globalKey: args.globalKey,
+    exposeBridge: exampleOptions.exposeBridge,
+    injectDomSnapshot: exampleOptions.injectDomSnapshot,
+    providers: [provider],
   });
 
   // Optional analytics: if PostHog is configured, stream VACP history into the session replay.

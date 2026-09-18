@@ -230,9 +230,9 @@ export async function dimensionOrder(page: Page): Promise<string[]> {
     const caps = await bridge.getCapabilities();
     const actions = (caps as { graph?: { actions?: unknown[] } } | null)?.graph?.actions ?? [];
     const action = actions.find((item) => (item as { name?: unknown }).name === 'parallel_coords.set_dimension_order');
-    const ref = (action as { targetRef?: unknown } | undefined)?.targetRef;
+    const ref = (action as { operation?: { affects?: unknown[] } } | undefined)?.operation?.affects?.[0];
 
-    if (typeof ref !== 'string' || !ref) throw new Error('Missing dimension order action targetRef');
+    if (typeof ref !== 'string' || !ref) throw new Error('Missing dimension order operation effect');
 
     const snap = await bridge.getState();
     const state = (snap as { state?: unknown } | null)?.state;

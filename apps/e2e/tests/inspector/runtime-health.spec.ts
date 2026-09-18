@@ -11,7 +11,7 @@ test('inspector: runtime health strip surfaces console runtime and network failu
   });
 
   try {
-    await page.goto(`${srv.url}?vacp-inspector=1#aeromagnetic-survey`, { waitUntil: 'domcontentloaded' });
+    await page.goto(`${srv.url}#aeromagnetic-survey`, { waitUntil: 'domcontentloaded' });
     await waitForVacpBridge(page, { requireRuntime: true });
 
     const pill = page.locator('button.vacp-inspector-button');

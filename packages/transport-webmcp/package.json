@@ -20,7 +20,9 @@
   },
   "dependencies": {
     "@vacp/protocol": "workspace:*",
-    "@vacp/runtime": "workspace:*",
     "webmcp-types": "catalog:"
+  },
+  "devDependencies": {
+    "@vacp/runtime": "workspace:*"
   }
 }

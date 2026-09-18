@@ -1,4 +1,4 @@
-import type { VacpCapabilitiesSnapshot, VacpGraph, VacpRef } from '@vacp/protocol';
+import { primaryOperationRef, type VacpCapabilitiesSnapshot, type VacpGraph, type VacpRef } from '@vacp/protocol';
 
 /**
  * Mermaid source generation for VACP graphs.
@@ -13,7 +13,7 @@ export interface VacpDiagramRenderInput {
 
 export interface VacpDiagramRenderOptions {
   direction?: 'LR' | 'TB';
-  /** Whether to render actions as separate nodes linked to their targetRef. */
+  /** Whether to render actions as separate nodes linked to their primary operation ref. */
   includeActions?: boolean;
   /** Maximum characters to include for any single label line. */
   maxLabelLength?: number;
@@ -170,8 +170,9 @@ export function renderVacpGraphMermaid(input: VacpDiagramRenderInput, options?: 
       const name = clampLabel(a.name, maxLabelLength);
       lines.push(`${aid}(["${escapeMermaidLabel(`⚡ <b>action</b><br/><b>${name}</b>`)}"])`);
 
-      if (a.targetRef) {
-        const targetIdx = nodeIndexByRef.get(a.targetRef);
+      const primaryRef = primaryOperationRef(a);
+      if (primaryRef) {
+        const targetIdx = nodeIndexByRef.get(primaryRef);
 
         if (targetIdx !== undefined) {
           lines.push(`${aid} -.-> ${mermaidIdForIndex(targetIdx)}`);

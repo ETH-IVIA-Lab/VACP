@@ -4,6 +4,7 @@ import type {
   VacpActionResult,
   VacpCapabilitiesSnapshot,
   VacpGraph,
+  VacpObservation,
   VacpRef,
   VacpStateSnapshot,
   VacpWindowBridge,
@@ -33,6 +34,7 @@ export type VacpHistoryEntry = {
   call?: VacpActionCall;
   result?: VacpActionResult;
   /** Optional snapshot captured at this entry (used for time travel). */
+  observation?: VacpObservation;
   capabilities?: VacpCapabilitiesSnapshot;
   state?: VacpStateSnapshot;
   /** Optional before/after snapshots for action entries. */
@@ -58,6 +60,10 @@ export type VacpRuntimeSnapshot = {
   cursor: number;
   /** Timeline of observed snapshots and action calls/results. */
   history: VacpHistoryEntry[];
+  /** Latest coherent graph/state/freshness observation from live providers. */
+  liveObservation: VacpObservation;
+  /** Selected historical observation, or an inspection projection when overrides are active. */
+  currentObservation: VacpObservation;
   /** Latest observed capabilities/state from the live app. */
   liveCapabilities: VacpCapabilitiesSnapshot;
   liveState: VacpStateSnapshot;

@@ -25,26 +25,30 @@ Applications and examples choose adapters and own their lifecycle. Runtime and p
 
 ## Ports
 
-`VacpSnapshotProvider` supplies capabilities and state. `VacpActionExecutor` lists descriptors and executes calls. `VacpActionRegistrar` accepts descriptors and handlers. Runtime registration helpers depend on the registrar port, and runtime creation depends on the executor port. `VacpActionRegistry` is one implementation.
+`VacpProvider` combines a pure `VacpSourceDescription` with a live binding. Its `observe()` method returns one source revision containing an analytical graph fragment, state, summaries, and output freshness. Its `execute()` method invokes source-owned semantic operations. Optional invalidation and disposal callbacks remain transport-neutral.
 
-`VacpWindowBridge` defines the three protocol operations. `VacpRuntimeBridge` adds optional history and observation capabilities for consumers. `VacpRuntime` is the concrete runtime's public lifecycle interface with required runtime methods, `update`, and `dispose`.
+`createVacpProvider` binds a source description, an analytical projector, and a `VacpActionExecutor`. Discovery adapters can describe source facts before a live binding exists. Profiles can enrich those facts with selections, data handles, visualizations, and analytical relationships.
 
-`VacpTransport` defines the three agent tools independently of any model SDK. `VacpDuckDbClient` is the database adapter contract used by providers and data actions.
+`composeVacpProviders` validates one owner per node and action, permits cross-source edges, routes action calls to their owner, and retries observations invalidated during a read. The composed graph publishes source descriptions and ownership maps.
+
+`VacpWindowBridge.observe()` is the canonical coherent read. Capability and state methods provide scoped projections for compact consumers. `VacpRuntimeBridge` adds history and inspection capabilities. `VacpRuntime` adds provider attachment, source removal, session replacement, invalidation subscriptions, and disposal.
+
+`VacpTransport` defines the four agent tools independently of any model SDK. `VacpDuckDbClient` is the database adapter contract used by providers and data actions.
 
 ## Runtime flow
 
-1. The application changes its own state through human input or an action handler.
-2. Snapshot ports read that state. Capabilities list registered actions.
-3. The runtime records snapshots and action results, scopes reads, and computes delta tokens.
+1. A provider describes its source and projects its current analytical graph, state, summaries, and freshness.
+2. The composer reads every provider at a stable invalidation epoch and records source ownership.
+3. The runtime records observations and operation results, scopes capability and state views, and computes state delta tokens.
 4. Inspector, transport, and analytics consumers read the same public bridge.
 
 The action registry checks action existence and converts handler failures into result envelopes. Standard registration helpers validate common parameter envelopes. Custom handlers validate application-specific parameters before mutation.
 
 ## Browser installation
 
-`installVacpRuntime` owns global exposure and DOM snapshot publication. Reinstallation at one key updates the existing runtime's ports. A changed session key establishes a new history boundary. Browser-only snapshot hooks are stored in a WeakMap owned by the browser adapter.
+`installVacpRuntime` owns global exposure and DOM observation publication. Sources with distinct IDs compose at one key. Reinstalling one source ID replaces that binding while preserving unrelated providers. A changed session key replaces the source set and establishes a new history boundary. Browser-only publication hooks are stored in a WeakMap owned by the browser adapter.
 
-Browser configuration resolves URL, environment, storage, and default values. Integrations pass SQL enablement explicitly to runtime registration. Runtime code never reads browser policy.
+Applications pass browser exposure and SQL enablement explicitly. The browser installer owns one runtime registry regardless of global exposure. Example context profiles select evaluation surfaces at the application boundary. Inspector preferences store presentation state.
 
 `uninstallVacpRuntime` stops observation, clears subscribers, and removes owned bridge and snapshot state. Inspector installation returns a disposal handle that unmounts React and clears its query cache. Applications dispose these resources when their owning view is removed.
 
@@ -85,6 +89,6 @@ Names group implementations by capability family:
 
 `@vacp/transport-webmcp` consumes protocol records and structural runtime ports. Its compiler turns a graph into executable tool definitions using an injected client; it does not read browser globals. Its installer owns asynchronous browser registration, incremental replacement, cancellation, and cleanup. Applications opt in by passing their runtime instance. No provider or core package imports WebMCP.
 
-The runtime owns capability and snapshot subscriptions and its lifetime signal. DOM snapshot publication now subscribes to snapshots instead of wrapping runtime methods, so it preserves execution options and shares lifecycle cleanup with other output adapters. These are independent of the Inspector history stream. Graph changes are published from live snapshot reads, including capability-only changes observed between state updates. Replacing a snapshot provider invalidates in-flight reads from the old provider. Runtime execution owns return-to-live behavior and forwards cancellation to handlers; transports no longer implement inspection recovery themselves.
+The runtime owns capability and observation subscriptions and its lifetime signal. DOM publication subscribes to composed observations, so it preserves execution options and shares lifecycle cleanup with other output adapters. These subscriptions are independent of the Inspector history stream. Provider invalidation triggers a new coherent read. Replacing a provider aborts pending calls from its prior binding. Runtime execution owns return-to-live behavior and forwards cancellation to handlers.
 
 The integration targets upstream WebMCP commit `f5645e9` (2026-09-17), with the mature `webmcp-types` 0.1.7 declarations for its registration surface. Browser verification uses native Chromium APIs, not a polyfill.

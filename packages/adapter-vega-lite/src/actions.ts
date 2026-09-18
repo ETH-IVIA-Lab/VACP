@@ -16,7 +16,7 @@ export function actionsForSpec(options: InstallVacpOnVegaLiteOptions, spec: Vega
     actions.push({
       name: 'vega_lite.set_param',
       description: 'Set a Vega-Lite variable parameter through Vega view signals.',
-      targetRef: vizRef,
+      operation: { kind: 'mutation', affects: [vizRef] },
       parameters: {
         type: 'object',
         properties: {
@@ -32,7 +32,7 @@ export function actionsForSpec(options: InstallVacpOnVegaLiteOptions, spec: Vega
     actions.push({
       name: 'vega_lite.set_selection',
       description: 'Set a Vega-Lite selection parameter. Updates the selection store when possible.',
-      targetRef: vizRef,
+      operation: { kind: 'mutation', affects: [vizRef] },
       parameters: {
         type: 'object',
         properties: {
@@ -48,7 +48,7 @@ export function actionsForSpec(options: InstallVacpOnVegaLiteOptions, spec: Vega
     actions.push({
       name: 'vega_lite.clear_selection',
       description: 'Clear a Vega-Lite selection parameter. Uses Vega signals when needed.',
-      targetRef: vizRef,
+      operation: { kind: 'mutation', affects: [vizRef] },
       parameters: {
         type: 'object',
         properties: {
@@ -63,7 +63,7 @@ export function actionsForSpec(options: InstallVacpOnVegaLiteOptions, spec: Vega
     actions.push({
       name: 'vega.set_signal',
       description: 'Set a named Vega signal for debugging.',
-      targetRef: vizRef,
+      operation: { kind: 'mutation', affects: [vizRef] },
       parameters: {
         type: 'object',
         properties: {

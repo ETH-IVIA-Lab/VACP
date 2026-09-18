@@ -11,7 +11,7 @@ test('inspector: history mode strip inspects selected state and returns to live'
   });
 
   try {
-    await page.goto(`${srv.url}?vacp-inspector=1#weather`, { waitUntil: 'domcontentloaded' });
+    await page.goto(`${srv.url}#weather`, { waitUntil: 'domcontentloaded' });
     await waitForVacpBridge(page);
 
     await page.evaluate(async () => {
@@ -58,25 +58,25 @@ test('inspector: returning to live reapplies the latest host state after inspect
   });
 
   try {
-    await page.goto(`${srv.url}?vacp-inspector=1#aeromagnetic-survey`, { waitUntil: 'domcontentloaded' });
+    await page.goto(`${srv.url}#aeromagnetic-survey`, { waitUntil: 'domcontentloaded' });
     await waitForVacpBridge(page, { requireRuntime: true });
 
-    const { targetRef, oldValue, liveValue } = await page.evaluate(async () => {
+    const { widgetRef, oldValue, liveValue } = await page.evaluate(async () => {
       const bridge = globalThis.__vacp;
       await bridge.refresh({ source: 'inspector', message: 'history-live-replay-baseline' });
       const before = await bridge.getState();
       const widgetEntry = Object.entries(before.state).find(([, value]) => (value as any)?.kind === 'Widget');
 
       if (!widgetEntry) throw new Error('No widget state found');
-      const [targetRef, widget] = widgetEntry;
+      const [widgetRef, widget] = widgetEntry;
       if (!widget || typeof widget !== 'object' || !('value' in widget)) throw new Error('Invalid widget state');
 
       const action = (await bridge.getCapabilities()).graph.actions.find(
         (candidate: any) => candidate.name === 'vgplot.set_input_option_index',
       );
 
-      const params = structuredClone(action?.parameters?.default ?? { ref: targetRef, index: 0 });
-      params.ref = targetRef;
+      const params = structuredClone(action?.parameters?.default ?? { ref: widgetRef, index: 0 });
+      params.ref = widgetRef;
 
       await bridge.dispatch(
         {
@@ -88,7 +88,7 @@ test('inspector: returning to live reapplies the latest host state after inspect
       );
       let live = await bridge.getState();
 
-      if ((live.state as any)[targetRef]?.value === (widget as any).value && Number((widget as any).optionCount) > 1) {
+      if ((live.state as any)[widgetRef]?.value === (widget as any).value && Number((widget as any).optionCount) > 1) {
         params.index = params.index === 0 ? 1 : 0;
         await bridge.dispatch(
           {
@@ -102,9 +102,9 @@ test('inspector: returning to live reapplies the latest host state after inspect
       }
 
       return {
-        targetRef,
+        widgetRef,
         oldValue: (widget as any).value,
-        liveValue: (live.state as any)[targetRef]?.value,
+        liveValue: (live.state as any)[widgetRef]?.value,
       };
     });
 
@@ -126,7 +126,7 @@ test('inspector: returning to live reapplies the latest host state after inspect
           const bridge = globalThis.__vacp;
 
           return (await bridge.getState()).state[ref]?.value;
-        }, targetRef);
+        }, widgetRef);
 
         return snap;
       })
@@ -140,7 +140,7 @@ test('inspector: returning to live reapplies the latest host state after inspect
           const bridge = globalThis.__vacp;
 
           return (await bridge.getState()).state[ref]?.value;
-        }, targetRef);
+        }, widgetRef);
 
         return snap;
       })
@@ -157,7 +157,7 @@ test('inspector: returning to live does not apply inspect-only JSON overrides', 
   });
 
   try {
-    await page.goto(`${srv.url}?vacp-inspector=1#aeromagnetic-survey`, { waitUntil: 'domcontentloaded' });
+    await page.goto(`${srv.url}#aeromagnetic-survey`, { waitUntil: 'domcontentloaded' });
     await waitForVacpBridge(page, { requireRuntime: true });
 
     const setup = await page.evaluate(async () => {
@@ -167,13 +167,13 @@ test('inspector: returning to live does not apply inspect-only JSON overrides', 
       const widgetEntry = Object.entries(before.state).find(([, value]) => (value as any)?.kind === 'Widget');
 
       if (!widgetEntry) throw new Error('No widget state found');
-      const [targetRef, widget] = widgetEntry;
+      const [widgetRef, widget] = widgetEntry;
       if (!widget || typeof widget !== 'object' || !('value' in widget)) throw new Error('Invalid widget state');
 
       const optionsResult = await bridge.execute({
         callId: crypto.randomUUID(),
         name: 'vacp.widget_options',
-        params: { ref: targetRef, limit: 20 },
+        params: { ref: widgetRef, limit: 20 },
       });
 
       const overrideValue = (optionsResult?.result?.options ?? [])
@@ -183,15 +183,15 @@ test('inspector: returning to live does not apply inspect-only JSON overrides', 
       if (overrideValue === undefined) throw new Error('No alternate widget value found');
 
       const overrideState = structuredClone(before.state);
-      overrideState[targetRef] = {
-        ...overrideState[targetRef],
+      overrideState[widgetRef] = {
+        ...overrideState[widgetRef],
         value: overrideValue,
         selectionValue: overrideValue,
       };
       bridge.setStateOverride(overrideState, { source: 'inspector', message: 'inspect-only override' });
 
       return {
-        targetRef,
+        widgetRef,
         liveValue: widget.value,
         overrideValue,
       };
@@ -211,7 +211,7 @@ test('inspector: returning to live does not apply inspect-only JSON overrides', 
             current: runtime.currentState.state[ref]?.value,
             live,
           };
-        }, setup.targetRef);
+        }, setup.widgetRef);
 
         return current;
       })
@@ -227,7 +227,7 @@ test('inspector: returning to live does not apply inspect-only JSON overrides', 
           const bridge = globalThis.__vacp;
 
           return (await bridge.getState()).state[ref]?.value;
-        }, setup.targetRef);
+        }, setup.widgetRef);
       })
       .toEqual(setup.liveValue);
   } finally {

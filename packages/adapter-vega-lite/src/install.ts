@@ -1,14 +1,7 @@
-import type {
-  VacpActionCall,
-  VacpActionDescriptor,
-  VacpCapabilitiesSnapshot,
-  VacpChangeSource,
-  VacpRuntimeBridge,
-  VacpStateSnapshot,
-} from '@vacp/protocol';
-import { nowIso, splitVacpRefAt, VACP_SCHEMA_VERSION } from '@vacp/protocol';
+import type { VacpActionCall, VacpActionDescriptor, VacpChangeSource, VacpRuntimeBridge } from '@vacp/protocol';
+import { splitVacpRefAt } from '@vacp/protocol';
 import { formatDuckDbTableMetadataSummary } from '@vacp/data-duckdb';
-import { registerVacpApplyStateAction, VacpActionRegistry } from '@vacp/runtime';
+import { createVacpProvider, registerVacpApplyStateAction, VacpActionRegistry } from '@vacp/runtime';
 import { installVacpRuntime } from '@vacp/runtime-browser';
 
 import { actionsForSpec } from './actions';
@@ -387,7 +380,7 @@ export function installVacpOnVegaLiteView(args: {
 
       return { applied, errors };
     },
-    { targetRef: vizRef, description: 'Apply a state map to Vega-Lite params.' },
+    { affects: [vizRef], description: 'Apply a state map to Vega-Lite params.' },
   );
 
   actionDescriptors.push(applyDescriptor);
@@ -402,7 +395,7 @@ export function installVacpOnVegaLiteView(args: {
       name: VEGA_LITE_TOOLTIP_HOVER_ACTION,
       description:
         'Set the current tooltip-hover focus for this Vega-Lite view (enables agents to treat hovered points as an explicit selection).',
-      targetRef: vizRef,
+      operation: { kind: 'mutation', affects: [vizRef] },
       parameters: {
         type: 'object',
         properties: {
@@ -605,33 +598,26 @@ export function installVacpOnVegaLiteView(args: {
     })),
   });
 
-  const snapshots = {
-    getCapabilities: async (): Promise<VacpCapabilitiesSnapshot> => ({
-      version: VACP_SCHEMA_VERSION,
-      createdAt: nowIso(),
-      graph: await (async () => {
-        for (const h of dataHandles) {
-          const node = graph.nodes.find((n) => n.kind === 'DataHandle' && n.ref === h.ref) ?? null;
+  const projection = {
+    project: async () => {
+      for (const h of dataHandles) {
+        const node = graph.nodes.find((n) => n.kind === 'DataHandle' && n.ref === h.ref) ?? null;
 
-          if (!node) continue;
+        if (!node) continue;
 
-          if (!handleMetaByRef.has(h.ref)) {
-            const meta = await withTimeout(h.ensureMetadata(), DATA_HANDLE_META_TIMEOUT_MS).catch(() => null);
+        if (!handleMetaByRef.has(h.ref)) {
+          const meta = await withTimeout(h.ensureMetadata(), DATA_HANDLE_META_TIMEOUT_MS).catch(() => null);
 
-            if (meta) handleMetaByRef.set(h.ref, meta);
-          }
-
-          const meta = handleMetaByRef.get(h.ref) ?? null;
-
-          if (!meta) continue;
-          node.data = { ...node.data, duckdb: meta };
-          node.description = `DuckDB handle for "${h.tableName}".\n${formatDuckDbTableMetadataSummary(meta)}`;
+          if (meta) handleMetaByRef.set(h.ref, meta);
         }
 
-        return graph;
-      })(),
-    }),
-    getState: async (): Promise<VacpStateSnapshot> => {
+        const meta = handleMetaByRef.get(h.ref) ?? null;
+
+        if (!meta) continue;
+        node.data = { ...node.data, duckdb: meta };
+        node.description = `DuckDB handle for "${h.tableName}".\n${formatDuckDbTableMetadataSummary(meta)}`;
+      }
+
       const state: Record<string, unknown> = {};
       collectVegaLiteParams(spec).forEach((p) => {
         const pref = makeRef({
@@ -655,14 +641,27 @@ export function installVacpOnVegaLiteView(args: {
         };
       });
 
-      return { version: VACP_SCHEMA_VERSION, createdAt: nowIso(), state: state };
+      const { actions: _actions, ...graphFragment } = graph;
+      return { graph: graphFragment, state };
     },
   };
 
-  const bridge = installVacpRuntime({
-    snapshots,
+  const provider = createVacpProvider({
+    source: {
+      id: `vacp-source://${options.appId}/${options.viewId}/${options.vizId}/vega-lite`,
+      type: 'vega-lite',
+      title: options.title ?? options.vizId,
+      description: options.description,
+    },
     actions: actionRegistry,
+    project: projection.project,
+  });
+
+  const { runtime: bridge } = installVacpRuntime({
+    providers: [provider],
     globalKey: options.globalKey,
+    exposeBridge: options.exposeBridge,
+    injectDomSnapshot: options.injectDomSnapshot,
     sessionKey: `${options.viewId}/${options.vizId}`,
   });
 

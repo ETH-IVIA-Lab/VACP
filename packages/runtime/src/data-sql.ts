@@ -32,7 +32,7 @@ const paramsSchema = z.object({
 export function registerVacpDataSqlAction(
   registry: VacpActionRegistrar,
   handler: VacpDataSqlHandler,
-  options?: { enabled?: boolean; targetRef?: VacpRef; description?: string },
+  options?: { enabled?: boolean; inputRefs?: VacpRef[]; description?: string },
 ): VacpActionDescriptor | null {
   if (options?.enabled === false) return null;
 
@@ -41,7 +41,12 @@ export function registerVacpDataSqlAction(
     description:
       options?.description ??
       'Run a DuckDB SQL query over a VACP DataHandle. Providers define the mapping. `vacp_handle` and `vacp_all` are reserved. Prefer semantic, human-like interaction actions first. Use SQL only when the app cannot express the needed question through available actions.',
-    targetRef: options?.targetRef,
+    operation: {
+      kind: 'query',
+      inputRefs: options?.inputRefs,
+      refParameters: [{ parameter: 'handleRef', role: 'input' }],
+      results: [{ role: 'data', description: 'Query result from the selected data handle' }],
+    },
     parameters: {
       type: 'object',
       properties: {

@@ -7,7 +7,7 @@ test('vgplot: menu inputs include options in capability graph (Voronoi Diagram)'
   const srv = await startAppServer({ name: 'vgplot-gallery', cwd: exampleDir('vgplot-gallery') });
 
   try {
-    await page.goto(`${srv.url}?vacp-inspector=1#voronoi`, { waitUntil: 'domcontentloaded' });
+    await page.goto(`${srv.url}#voronoi`, { waitUntil: 'domcontentloaded' });
     await page.waitForFunction(() => !!globalThis.__vacp);
 
     const widgets = await page.evaluate(async () => {

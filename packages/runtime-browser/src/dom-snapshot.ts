@@ -1,4 +1,4 @@
-import type { VacpCapabilitiesSnapshot, VacpRef, VacpStateSnapshot } from '@vacp/protocol';
+import type { VacpCapabilitiesSnapshot, VacpObservation, VacpRef, VacpStateSnapshot } from '@vacp/protocol';
 import { isVacpRef, fnv1a64Hex, stableStringify } from '@vacp/protocol';
 
 type DomSnapshotCache = {
@@ -101,7 +101,12 @@ function nextRefScriptId(cache: DomSnapshotCache, rootId: string, ref: VacpRef):
 
 type CompactNode = { ref: VacpRef; kind: string; layer: string; title?: string };
 
-type CompactAction = { name: string; targetRef?: VacpRef; title?: string; description?: string };
+type CompactAction = {
+  name: string;
+  operation: VacpCapabilitiesSnapshot['graph']['actions'][number]['operation'];
+  title?: string;
+  description?: string;
+};
 
 type CompactGraph = {
   nodes: CompactNode[];
@@ -121,9 +126,7 @@ function compactGraph(capabilities: VacpCapabilitiesSnapshot): CompactGraph {
   });
 
   const actions = capabilities.graph.actions.map((action) => {
-    const compact: CompactAction = { name: action.name };
-
-    if (action.targetRef) compact.targetRef = action.targetRef;
+    const compact: CompactAction = { name: action.name, operation: action.operation };
 
     if (action.title) compact.title = action.title;
 
@@ -137,6 +140,7 @@ function compactGraph(capabilities: VacpCapabilitiesSnapshot): CompactGraph {
 
 function writeDomSnapshotBundle(args: {
   scriptId: string;
+  observation: VacpObservation;
   capabilities: VacpCapabilitiesSnapshot;
   state: VacpStateSnapshot;
 }): void {
@@ -310,6 +314,11 @@ function writeDomSnapshotBundle(args: {
   mainScript.textContent = safeJsonForScriptTag({
     createdAt: args.state.createdAt,
     format: 'vacp.dom_snapshot',
+    observation: {
+      revision: args.observation.revision,
+      sources: args.observation.graph.sources,
+      freshness: args.observation.freshness,
+    },
     graph: {
       scriptId: graphId,
       token: graphToken,
@@ -340,11 +349,13 @@ export function removeVacpDomSnapshotScript(scriptId: string): void {
 
 export function writeVacpDomSnapshotScript(args: {
   scriptId: string;
+  observation: VacpObservation;
   capabilities: VacpCapabilitiesSnapshot;
   state: VacpStateSnapshot;
 }): void {
   writeDomSnapshotBundle({
     scriptId: args.scriptId,
+    observation: args.observation,
     capabilities: args.capabilities,
     state: args.state,
   });

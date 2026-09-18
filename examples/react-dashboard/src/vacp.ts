@@ -1,8 +1,9 @@
+import { exampleOptions } from '../../config';
 /**
  * VACP integration layer.
  *
  * This module adds an agent-facing contract on top of the React dashboard:
- * - capabilities/state snapshots (`window.__vacp`, unless `?expose-bridge=0`)
+ * - capabilities/state snapshots (`window.__vacp`, when bridge exposure is enabled)
  * - semantic actions (dataset/encoding/selection)
  * - DuckDB access via the standard `vacp.data_sql` action
  *
@@ -11,12 +12,11 @@
  * the bring-your-own-provider examples.
  */
 
-import type { VacpGraphBase } from '@vacp/sdk';
-import { createVacpActions, createVacpRefBuilder, installVacp } from '@vacp/sdk';
+import { createVacpActions, createVacpProvider, createVacpRefBuilder, installVacp } from '@vacp/sdk';
 import { createDuckDbSqlRouter, makeVacpDuckDbTableName, sqlStringLiteral } from '@vacp/data-duckdb';
 import { installVacpPosthogAnalytics, type VacpPosthogOptions } from '@vacp/analytics-posthog';
 import { createDuckDbWasmClient, getDuckDbTableMetadata, type VacpDuckDbTableMetadata } from '@vacp/data-duckdb';
-import { VACP_SCHEMA_VERSION } from '@vacp/protocol';
+import { VACP_SCHEMA_VERSION, type VacpGraphFragment } from '@vacp/protocol';
 
 import type { Dataset, DatasetId, Encoding } from './datasets/registry';
 import { isDatasetId, listDatasets } from './datasets/registry';
@@ -139,11 +139,12 @@ export function installVacpForReactDashboard(args: { globalKey?: string; title?:
   const actions = createVacpActions();
 
   actions
-    .action(
+    .operation(
+      'mutation',
       'dashboard.set_dataset',
       `Set the active dataset (loads JSON rows and rebuilds the DuckDB table). Valid ids: ${datasetIds.join(', ')}.`,
     )
-    .target(handleRef)
+    .affects(handleRef)
     .params({
       type: 'object',
       properties: { id: { type: 'string', enum: datasetIds } },
@@ -159,8 +160,8 @@ export function installVacpForReactDashboard(args: { globalKey?: string; title?:
     });
 
   actions
-    .action('dashboard.set_encoding', 'Set x/y/color encodings for the scatterplot.')
-    .target(scatterRef)
+    .operation('mutation', 'dashboard.set_encoding', 'Set x/y/color encodings for the scatterplot.')
+    .affects(scatterRef)
     .params({
       type: 'object',
       properties: {
@@ -183,8 +184,8 @@ export function installVacpForReactDashboard(args: { globalKey?: string; title?:
     });
 
   actions
-    .action('dashboard.set_selected_ids', 'Set the selected row ids (replaces current selection).')
-    .target(selectionRef)
+    .operation('mutation', 'dashboard.set_selected_ids', 'Set the selected row ids (replaces current selection).')
+    .affects(selectionRef)
     .params({ type: 'object', properties: { ids: { type: 'array', items: { type: 'string' } } }, required: ['ids'] })
     .handle((params) => {
       const ids = getPropArray(asRecord(params), 'ids') ?? [];
@@ -194,8 +195,12 @@ export function installVacpForReactDashboard(args: { globalKey?: string; title?:
     });
 
   actions
-    .action('dashboard.set_brush_2d', 'Set a 2D rectangular brush in data space (x/y) and replace the selection.')
-    .target(brush2dRef)
+    .operation(
+      'mutation',
+      'dashboard.set_brush_2d',
+      'Set a 2D rectangular brush in data space (x/y) and replace the selection.',
+    )
+    .affects(brush2dRef)
     .params({
       type: 'object',
       properties: {
@@ -220,11 +225,12 @@ export function installVacpForReactDashboard(args: { globalKey?: string; title?:
     });
 
   actions
-    .action(
+    .operation(
+      'mutation',
       'dashboard.select_by_quantiles',
       'Select points within x/y quantile bounds of the current encoding for compact subset selection without hand-picking raw ranges.',
     )
-    .target(selectionRef)
+    .affects(selectionRef)
     .params({
       type: 'object',
       properties: {
@@ -267,8 +273,8 @@ export function installVacpForReactDashboard(args: { globalKey?: string; title?:
     });
 
   actions
-    .action('dashboard.clear_brush_2d', 'Clear the 2D brush and clear the selection.')
-    .target(brush2dRef)
+    .operation('mutation', 'dashboard.clear_brush_2d', 'Clear the 2D brush and clear the selection.')
+    .affects(brush2dRef)
     .params({ type: 'object', properties: {} })
     .handle(() => {
       args.model.clearBrush2d();
@@ -277,8 +283,8 @@ export function installVacpForReactDashboard(args: { globalKey?: string; title?:
     });
 
   actions
-    .action('dashboard.toggle_selected_id', 'Toggle one row id in the selection.')
-    .target(selectionRef)
+    .operation('mutation', 'dashboard.toggle_selected_id', 'Toggle one row id in the selection.')
+    .affects(selectionRef)
     .params({ type: 'object', properties: { id: { type: 'string' } }, required: ['id'] })
     .handle((params) => {
       const id = getPropString(asRecord(params), 'id') ?? '';
@@ -290,8 +296,8 @@ export function installVacpForReactDashboard(args: { globalKey?: string; title?:
     });
 
   actions
-    .action('dashboard.clear_selection', 'Clear the explicit point selection.')
-    .target(selectionRef)
+    .operation('mutation', 'dashboard.clear_selection', 'Clear the explicit point selection.')
+    .affects(selectionRef)
     .params({ type: 'object', properties: {} })
     .handle(() => {
       args.model.clearSelection();
@@ -377,7 +383,7 @@ export function installVacpForReactDashboard(args: { globalKey?: string; title?:
 
       return { applied };
     },
-    { targetRef: vizRef, description: 'Apply dashboard state (dataset/encoding/selection).' },
+    { affects: [vizRef], description: 'Apply dashboard state (dataset/encoding/selection).' },
   );
 
   // DuckDB: one table for the active dataset + a temp table for effective ids.
@@ -466,7 +472,8 @@ export function installVacpForReactDashboard(args: { globalKey?: string; title?:
     },
   });
   actions.standard.dataSql(sql.handler, {
-    targetRef: handleRef,
+    enabled: exampleOptions.enableSql,
+    inputRefs: [handleRef],
     description: 'Query the current dataset via DuckDB SQL.',
   });
 
@@ -490,12 +497,12 @@ export function installVacpForReactDashboard(args: { globalKey?: string; title?:
       return { handleRef, detail, ...meta };
     },
     {
-      targetRef: handleRef,
+      inputRefs: [handleRef],
       description: 'Return schema/metadata for the current dataset (columns, types, row count, optional summaries).',
     },
   );
 
-  const graph: VacpGraphBase = {
+  const graph: Omit<VacpGraphFragment, 'actions'> = {
     version: VACP_SCHEMA_VERSION,
     nodes: [
       { ref: appRef, kind: 'App', layer: 'ViewLayer', title: 'VACP examples' },
@@ -607,104 +614,116 @@ export function installVacpForReactDashboard(args: { globalKey?: string; title?:
     ],
   };
 
+  const provider = createVacpProvider({
+    source: {
+      id: `vacp-source://${appId}/${viewId}/${vizId}/react-dashboard`,
+      type: 'react-dashboard',
+      title: 'React analytics dashboard',
+    },
+    actions: actions.registry,
+    project: () => {
+      const state = (() => {
+        const datasetId = args.model.getDatasetId();
+        const encoding = args.model.getEncoding();
+        const selectedIds = args.model.getSelectedIds();
+        const brush2d = args.model.getBrush2d();
+
+        return {
+          [scatterRef]: { kind: 'Mark', datasetId, x: encoding.x, y: encoding.y, color: encoding.color },
+          [distributionXRef]: { kind: 'Mark', datasetId, view: 'pdf', axis: 'x', field: encoding.x },
+          [distributionYRef]: { kind: 'Mark', datasetId, view: 'pdf', axis: 'y', field: encoding.y },
+          [tableRef]: { kind: 'Mark', datasetId },
+          [selectionRef]: { kind: 'Selection', value: selectedIds },
+          [brush2dRef]: {
+            kind: 'Selection',
+            x: encoding.x,
+            y: encoding.y,
+            x0: brush2d?.x0 ?? null,
+            x1: brush2d?.x1 ?? null,
+            y0: brush2d?.y0 ?? null,
+            y1: brush2d?.y1 ?? null,
+          },
+          [handleRef]: {
+            kind: 'DataHandle',
+            tableName,
+            datasetId,
+          },
+        };
+      })();
+      const summary = (() => {
+        const dataset = args.model.getDataset();
+        const datasetId = args.model.getDatasetId();
+        const encoding = args.model.getEncoding();
+        const { ids, meaning } = getEffectiveSelectedIds(args.model);
+
+        const xStats =
+          dataset && encoding.x
+            ? (() => {
+                const vals = numericValues(dataset, encoding.x);
+
+                if (!vals.length) return undefined;
+
+                return {
+                  field: encoding.x,
+                  min: vals[0],
+                  max: vals[vals.length - 1],
+                  q1: quantile(vals, 0.25),
+                  median: quantile(vals, 0.5),
+                  q3: quantile(vals, 0.75),
+                };
+              })()
+            : undefined;
+
+        const yStats =
+          dataset && encoding.y
+            ? (() => {
+                const vals = numericValues(dataset, encoding.y);
+
+                if (!vals.length) return undefined;
+
+                return {
+                  field: encoding.y,
+                  min: vals[0],
+                  max: vals[vals.length - 1],
+                  q1: quantile(vals, 0.25),
+                  median: quantile(vals, 0.5),
+                  q3: quantile(vals, 0.75),
+                };
+              })()
+            : undefined;
+
+        return {
+          [viewRef]: {
+            availableDatasets: datasetCatalog,
+            activeDatasetId: datasetId,
+            activeEncoding: encoding,
+            selectionHint:
+              xStats && yStats
+                ? {
+                    strategy: 'lower-quartile-cluster',
+                    x0: xStats.min,
+                    x1: xStats.q1,
+                    y0: yStats.min,
+                    y1: yStats.q1,
+                  }
+                : undefined,
+          },
+          [handleRef]: {
+            allCount: dataset?.rows.length ?? 0,
+            selectedCount: ids.length,
+            selectedMeaning: meaning,
+            duckdb: tableMeta ?? undefined,
+          },
+        };
+      })();
+      return { graph, state, summary };
+    },
+  });
   const vacp = installVacp({
     globalKey: args.globalKey,
-    graph,
-    actions: actions.registry,
-    getState: () => {
-      const datasetId = args.model.getDatasetId();
-      const encoding = args.model.getEncoding();
-      const selectedIds = args.model.getSelectedIds();
-      const brush2d = args.model.getBrush2d();
-
-      return {
-        [scatterRef]: { kind: 'Mark', datasetId, x: encoding.x, y: encoding.y, color: encoding.color },
-        [distributionXRef]: { kind: 'Mark', datasetId, view: 'pdf', axis: 'x', field: encoding.x },
-        [distributionYRef]: { kind: 'Mark', datasetId, view: 'pdf', axis: 'y', field: encoding.y },
-        [tableRef]: { kind: 'Mark', datasetId },
-        [selectionRef]: { kind: 'Selection', value: selectedIds },
-        [brush2dRef]: {
-          kind: 'Selection',
-          x: encoding.x,
-          y: encoding.y,
-          x0: brush2d?.x0 ?? null,
-          x1: brush2d?.x1 ?? null,
-          y0: brush2d?.y0 ?? null,
-          y1: brush2d?.y1 ?? null,
-        },
-        [handleRef]: {
-          kind: 'DataHandle',
-          tableName,
-          datasetId,
-        },
-      };
-    },
-    getSummary: () => {
-      const dataset = args.model.getDataset();
-      const datasetId = args.model.getDatasetId();
-      const encoding = args.model.getEncoding();
-      const { ids, meaning } = getEffectiveSelectedIds(args.model);
-
-      const xStats =
-        dataset && encoding.x
-          ? (() => {
-              const vals = numericValues(dataset, encoding.x);
-
-              if (!vals.length) return undefined;
-
-              return {
-                field: encoding.x,
-                min: vals[0],
-                max: vals[vals.length - 1],
-                q1: quantile(vals, 0.25),
-                median: quantile(vals, 0.5),
-                q3: quantile(vals, 0.75),
-              };
-            })()
-          : undefined;
-
-      const yStats =
-        dataset && encoding.y
-          ? (() => {
-              const vals = numericValues(dataset, encoding.y);
-
-              if (!vals.length) return undefined;
-
-              return {
-                field: encoding.y,
-                min: vals[0],
-                max: vals[vals.length - 1],
-                q1: quantile(vals, 0.25),
-                median: quantile(vals, 0.5),
-                q3: quantile(vals, 0.75),
-              };
-            })()
-          : undefined;
-
-      return {
-        [viewRef]: {
-          availableDatasets: datasetCatalog,
-          activeDatasetId: datasetId,
-          activeEncoding: encoding,
-          selectionHint:
-            xStats && yStats
-              ? {
-                  strategy: 'lower-quartile-cluster',
-                  x0: xStats.min,
-                  x1: xStats.q1,
-                  y0: yStats.min,
-                  y1: yStats.q1,
-                }
-              : undefined,
-        },
-        [handleRef]: {
-          allCount: dataset?.rows.length ?? 0,
-          selectedCount: ids.length,
-          selectedMeaning: meaning,
-          duckdb: tableMeta ?? undefined,
-        },
-      };
-    },
+    exposeBridge: exampleOptions.exposeBridge,
+    injectDomSnapshot: exampleOptions.injectDomSnapshot,
+    providers: [provider],
   });
 
   // Optional analytics: if PostHog is configured, stream VACP history into the session replay.

@@ -1,3 +1,4 @@
+import { exampleOptions } from '../../config';
 /**
  * VACP integration layer.
  *
@@ -26,11 +27,14 @@ export function installVacp(args: {
     view: args.view,
     spec: args.spec,
     options: {
+      enableSql: exampleOptions.enableSql,
       appId,
       viewId,
       vizId: args.entry.id,
       title: args.entry.meta.title,
       globalKey: args.globalKey,
+      exposeBridge: exampleOptions.exposeBridge,
+      injectDomSnapshot: exampleOptions.injectDomSnapshot,
       includeSetSignalAction: false,
     },
   });

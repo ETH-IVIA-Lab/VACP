@@ -1,5 +1,4 @@
 import { type VacpActionDescriptor, type VacpRef } from '@vacp/protocol';
-import { getVacpBrowserOptions } from '@vacp/runtime-browser';
 import type { VacpDuckDbClient, VacpDuckDbTableMetadata } from '@vacp/data-duckdb';
 import {
   createDuckDbDataSqlHandler,
@@ -22,11 +21,11 @@ export type VegaLiteDuckDbDataHandle = {
   ensureMetadata: () => Promise<VacpDuckDbTableMetadata | null>;
 };
 
-// Keep hidden DuckDB handles off `window` when `expose-bridge=0`.
+// Page-local data clients and tables stay private to the adapter.
 // These in-module caches keep DuckDB reuse without adding global surface area.
-const HIDDEN_DUCKDB_CLIENTS = new Map<string, Promise<VacpDuckDbClient>>();
+const DUCKDB_CLIENTS = new Map<string, Promise<VacpDuckDbClient>>();
 
-const HIDDEN_TABLE_NAMES = new Map<string, Record<string, string>>();
+const TABLE_NAMES = new Map<string, Record<string, string>>();
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return !!value && typeof value === 'object' && !Array.isArray(value);
@@ -510,30 +509,14 @@ export function installVegaLiteDuckDbDataHandles(args: {
   if (!enableDuckDb) return [];
 
   const globalKey = typeof options.globalKey === 'string' && options.globalKey.length ? options.globalKey : '__vacp';
-  const exposeBridge = getVacpBrowserOptions().exposeBridge;
 
   const duckdbPromise: Promise<VacpDuckDbClient> = (() => {
     if (options.duckdbClient) return Promise.resolve(options.duckdbClient);
 
-    if (!exposeBridge) {
-      const existing = HIDDEN_DUCKDB_CLIENTS.get(globalKey);
-
-      if (existing) return existing;
-      const created: Promise<VacpDuckDbClient> = createDuckDbWasmClient({ log: false });
-      HIDDEN_DUCKDB_CLIENTS.set(globalKey, created);
-
-      return created;
-    }
-
-    const rootAny = globalThis as Record<string, unknown>;
-    const key = `${globalKey}DuckDbClient`;
-    const existing = rootAny[key];
-
-    if (existing && typeof (existing as Promise<unknown>).then === 'function')
-      return existing as Promise<VacpDuckDbClient>;
-    const created: Promise<VacpDuckDbClient> = createDuckDbWasmClient({ log: false });
-    rootAny[key] = created;
-
+    const existing = DUCKDB_CLIENTS.get(globalKey);
+    if (existing) return existing;
+    const created = createDuckDbWasmClient({ log: false });
+    DUCKDB_CLIENTS.set(globalKey, created);
     return created;
   })();
 
@@ -646,55 +629,13 @@ export function installVegaLiteDuckDbDataHandles(args: {
 
       const cacheKey = `${globalKey}|${viewKey}`;
 
-      if (!exposeBridge) {
-        const viewMap = HIDDEN_TABLE_NAMES.get(cacheKey) ?? {};
-        const prev = viewMap[suffix] ?? null;
-        viewMap[suffix] = name;
-        HIDDEN_TABLE_NAMES.set(cacheKey, viewMap);
-
-        if (prev && prev !== name)
-          void duckdbPromise.then((db) => db.exec(`DROP TABLE IF EXISTS main.${prev}`)).catch(() => {});
-
-        return name;
-      }
-
-      const rootAny = globalThis as Record<string, unknown>;
-      const key = `${globalKey}VegaLiteDuckDbTables`;
-
-      const map = (() => {
-        const raw = rootAny[key];
-
-        if (raw instanceof Map) {
-          // Backwards/forwards safety during hot reload: if a previous version stored a Map, drop it.
-          const created: Record<string, unknown> = {};
-          rootAny[key] = created;
-
-          return created;
-        }
-
-        if (isRecord(raw)) return raw;
-        const created: Record<string, unknown> = {};
-        rootAny[key] = created;
-
-        return created;
-      })() as Record<string, string | Record<string, string>>;
-
-      const prevValue = map[viewKey];
-
-      const viewMap: Record<string, string> = typeof prevValue === 'object' && prevValue !== null ? prevValue : {};
-
-      const prev = viewMap[suffix] ?? null;
+      const viewMap = TABLE_NAMES.get(cacheKey) ?? {};
+      const previous = viewMap[suffix];
       viewMap[suffix] = name;
-      map[viewKey] = viewMap;
-
-      if (typeof prevValue === 'string' && prevValue) {
-        void duckdbPromise.then((db) => db.exec(`DROP TABLE IF EXISTS main.${prevValue}`)).catch(() => {});
+      TABLE_NAMES.set(cacheKey, viewMap);
+      if (previous && previous !== name) {
+        void duckdbPromise.then((db) => db.exec(`DROP TABLE IF EXISTS main.${previous}`)).catch(() => {});
       }
-
-      if (prev && prev !== name) {
-        void duckdbPromise.then((db) => db.exec(`DROP TABLE IF EXISTS main.${prev}`)).catch(() => {});
-      }
-
       return name;
     })();
 
@@ -934,8 +875,10 @@ export function installVegaLiteDuckDbDataHandles(args: {
       },
     }),
     {
-      targetRef: handlesInternal.find((h) => h.ref.endsWith('/data/main'))?.ref,
-      enabled: getVacpBrowserOptions().enableSql,
+      inputRefs: handlesInternal
+        .flatMap((handle) => (handle.ref.endsWith('/data/main') ? [handle.ref] : []))
+        .slice(0, 1),
+      enabled: options.enableSql ?? true,
       description: 'Query the current Vega-Lite selection using DuckDB SQL.',
     },
   );
@@ -978,7 +921,9 @@ export function installVegaLiteDuckDbDataHandles(args: {
       return { handleRef: params.handleRef, detail, ...meta };
     },
     {
-      targetRef: handlesInternal.find((h) => h.ref.endsWith('/data/main'))?.ref,
+      inputRefs: handlesInternal
+        .flatMap((handle) => (handle.ref.endsWith('/data/main') ? [handle.ref] : []))
+        .slice(0, 1),
       description: 'Return DuckDB schema/metadata for a Vega-Lite DataHandle (columns, types, and optional summaries).',
     },
   );

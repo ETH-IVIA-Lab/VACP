@@ -7,31 +7,13 @@ from typing_extensions import TypedDict
 
 NonBlankString = Annotated[str, StringConstraints(min_length=1, pattern=r'.*\S.*')]
 
-VacpNodeKind = Literal[
-    'App',
-    'View',
-    'Visualization',
-    'Mark',
-    'EncodingChannel',
-    'EncodedField',
-    'Legend',
-    'Axis',
-    'Selection',
-    'Param',
-    'Widget',
-    'DataHandle',
-    'InteractionTarget',
-]
-
-VacpLayer = Literal['ConfigLayer', 'ViewLayer', 'VisualizationLayer', 'DataLayer', 'InteractionFeedbackLayer']
-
 
 @with_config(ConfigDict(extra='forbid'))
 class VacpCapabilitiesRequestOptions(TypedDict, total=False):
     refs: list[NonBlankString]
     prefixes: list[NonBlankString]
-    kinds: list[VacpNodeKind]
-    layers: list[VacpLayer]
+    kinds: list[NonBlankString]
+    layers: list[NonBlankString]
     includeActions: bool
     includeEdges: bool
     includeNodeData: bool

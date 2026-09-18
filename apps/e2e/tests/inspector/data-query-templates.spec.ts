@@ -52,7 +52,7 @@ test('inspector: data templates run and exported result JSON includes resolved S
   });
 
   try {
-    await page.goto(`${srv.url}?vacp-inspector=1#weather`, { waitUntil: 'domcontentloaded' });
+    await page.goto(`${srv.url}#weather`, { waitUntil: 'domcontentloaded' });
     await waitForVacpBridge(page);
     await openDataTab(page);
 
@@ -120,7 +120,7 @@ test('inspector: data templates default to the primary handle when an example ha
   });
 
   try {
-    await page.goto(`${srv.url}?vacp-inspector=1#wnba-shots`, { waitUntil: 'domcontentloaded' });
+    await page.goto(`${srv.url}#wnba-shots`, { waitUntil: 'domcontentloaded' });
     await waitForVacpBridge(page);
     await openDataTab(page);
 

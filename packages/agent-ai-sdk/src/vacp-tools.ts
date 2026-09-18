@@ -49,29 +49,11 @@ const stateOptionsSchema = z.object({
   includeSummary: z.boolean().optional(),
 });
 
-const nodeKinds = [
-  'App',
-  'View',
-  'Visualization',
-  'Mark',
-  'EncodingChannel',
-  'EncodedField',
-  'Legend',
-  'Axis',
-  'Selection',
-  'Param',
-  'Widget',
-  'DataHandle',
-  'InteractionTarget',
-] as const;
-
-const layers = ['ConfigLayer', 'ViewLayer', 'VisualizationLayer', 'DataLayer', 'InteractionFeedbackLayer'] as const;
-
 const capabilitiesOptionsSchema = z.object({
   refs: z.array(z.string().regex(/^vacp:\/\//)).optional(),
   prefixes: z.array(z.string().regex(/^vacp:\/\//)).optional(),
-  kinds: z.array(z.enum(nodeKinds)).optional(),
-  layers: z.array(z.enum(layers)).optional(),
+  kinds: z.array(z.string().min(1)).optional(),
+  layers: z.array(z.string().min(1)).optional(),
   includeActions: z.boolean().optional(),
   includeEdges: z.boolean().optional(),
   includeNodeData: z.boolean().optional(),
@@ -173,90 +155,48 @@ function normalizeCapabilitiesOptions(
 
 export function createVacpTools(options: ToolOptions) {
   const { transport, onToolEvent } = options;
-
+  const run = async (
+    name: VacpAgentToolName,
+    input: Pick<NormalizedToolInput<never>, 'input' | 'requestedInput' | 'inputNote'>,
+    execute: () => Promise<unknown>,
+  ): Promise<unknown> => {
+    emit(onToolEvent, name, 'started', input);
+    try {
+      const output = sanitizeToolPayload(await execute());
+      emit(onToolEvent, name, 'succeeded', { ...input, output });
+      return output;
+    } catch (error) {
+      emit(onToolEvent, name, 'failed', { ...input, error: String(error) });
+      throw error;
+    }
+  };
   return {
+    vacp_observe: tool({
+      description: 'Read graph, state, source ownership, revision, and output freshness together.',
+      inputSchema: z.object({}),
+      execute: async () => await run('vacp_observe', {}, () => transport.vacp_observe()),
+    }),
     vacp_capabilities: tool({
       description: 'Fetch VACP capabilities snapshot (graph + actions), optionally scoped.',
       inputSchema: capabilitiesOptionsSchema,
       execute: async (input) => {
         const normalized = normalizeCapabilitiesOptions(input);
-        emit(onToolEvent, 'vacp_capabilities', 'started', {
-          requestedInput: normalized.requestedInput,
-          input: normalized.input,
-          inputNote: normalized.inputNote,
-        });
-
-        try {
-          const output = sanitizeToolPayload(await transport.vacp_capabilities(normalized.options));
-          emit(onToolEvent, 'vacp_capabilities', 'succeeded', {
-            requestedInput: normalized.requestedInput,
-            input: normalized.input,
-            inputNote: normalized.inputNote,
-            output,
-          });
-
-          return output;
-        } catch (error) {
-          emit(onToolEvent, 'vacp_capabilities', 'failed', {
-            requestedInput: normalized.requestedInput,
-            input: normalized.input,
-            inputNote: normalized.inputNote,
-            error: String(error),
-          });
-          throw error;
-        }
+        return await run('vacp_capabilities', normalized, () => transport.vacp_capabilities(normalized.options));
       },
     }),
-
     vacp_state: tool({
       description: 'Fetch VACP state snapshot or delta update envelope.',
       inputSchema: stateOptionsSchema,
       execute: async (input) => {
         const normalized = normalizeStateOptions(input);
-        emit(onToolEvent, 'vacp_state', 'started', {
-          requestedInput: normalized.requestedInput,
-          input: normalized.input,
-          inputNote: normalized.inputNote,
-        });
-
-        try {
-          const output = sanitizeToolPayload(await transport.vacp_state(normalized.options));
-          emit(onToolEvent, 'vacp_state', 'succeeded', {
-            requestedInput: normalized.requestedInput,
-            input: normalized.input,
-            inputNote: normalized.inputNote,
-            output,
-          });
-
-          return output;
-        } catch (error) {
-          emit(onToolEvent, 'vacp_state', 'failed', {
-            requestedInput: normalized.requestedInput,
-            input: normalized.input,
-            inputNote: normalized.inputNote,
-            error: String(error),
-          });
-          throw error;
-        }
+        return await run('vacp_state', normalized, () => transport.vacp_state(normalized.options));
       },
     }),
-
     vacp_execute: tool({
       description: 'Execute a semantic VACP action by name and optional params.',
       inputSchema: executeSchema,
-      execute: async (input) => {
-        emit(onToolEvent, 'vacp_execute', 'started', { input });
-
-        try {
-          const output = sanitizeToolPayload(await transport.vacp_execute(input.name, input.params, input.call_id));
-          emit(onToolEvent, 'vacp_execute', 'succeeded', { input, output });
-
-          return output;
-        } catch (error) {
-          emit(onToolEvent, 'vacp_execute', 'failed', { input, error: String(error) });
-          throw error;
-        }
-      },
+      execute: async (input) =>
+        await run('vacp_execute', { input }, () => transport.vacp_execute(input.name, input.params, input.call_id)),
     }),
   };
 }

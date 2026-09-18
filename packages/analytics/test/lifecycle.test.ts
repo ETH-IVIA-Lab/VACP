@@ -1,4 +1,4 @@
-import { createVacpRuntime } from '@vacp/runtime';
+import { createVacpProvider, createVacpRuntime, VacpActionRegistry } from '@vacp/runtime';
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import type { VacpHistoryEntry, VacpRuntimeSnapshot } from '@vacp/protocol';
@@ -12,19 +12,18 @@ test('telemetry replaces subscriptions without mutating the bridge or emitting d
     resolveRuntime = resolve;
   });
 
-  const capabilities = {
-    version: '0.1.0' as const,
-    createdAt: '',
-    graph: { version: '0.1.0' as const, nodes: [], edges: [], actions: [] },
-  };
-
-  const state = { version: '0.1.0' as const, createdAt: '', state: {} };
-
+  const provider = createVacpProvider({
+    source: { id: 'vacp-source://analytics-test', type: 'test', title: 'Analytics test' },
+    actions: new VacpActionRegistry(),
+    project: () => ({ graph: { version: '0.1.0', nodes: [], edges: [] }, state: {} }),
+  });
   const runtime = createVacpRuntime({
     runtimeId: 'runtime-1',
-    snapshots: { getCapabilities: () => capabilities, getState: () => state },
-    actions: { list: () => [], execute: async (call) => ({ callId: call.callId, ok: true }) },
+    providers: [provider],
   });
+  const capabilities = await runtime.getCapabilities();
+  const state = await runtime.getState();
+  const observation = await runtime.observe();
 
   const bridge = Object.freeze({
     ...runtime,
@@ -59,6 +58,8 @@ test('telemetry replaces subscriptions without mutating the bridge or emitting d
     mode: 'live',
     cursor: -1,
     history: [],
+    liveObservation: observation,
+    currentObservation: observation,
     liveCapabilities: capabilities,
     currentCapabilities: capabilities,
     liveState: state,

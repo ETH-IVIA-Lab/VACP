@@ -76,15 +76,11 @@ function includeByTypeScope(node: VacpNode, scope: NormalizedScope): boolean {
 }
 
 function scopeAction(action: VacpActionDescriptor, survivingRefs: Set<VacpRef>): boolean {
-  if (!action.targetRef) return true;
-
-  if (survivingRefs.has(action.targetRef)) return true;
-
-  for (const ref of survivingRefs) {
-    if (ref.startsWith(`${action.targetRef}/`)) return true;
-  }
-
-  return false;
+  const refs = [...(action.operation.inputRefs ?? []), ...(action.operation.affects ?? [])];
+  if (!refs.length) return true;
+  return refs.some(
+    (actionRef) => survivingRefs.has(actionRef) || [...survivingRefs].some((ref) => ref.startsWith(`${actionRef}/`)),
+  );
 }
 
 export function scopeCapabilitiesSnapshot(
@@ -118,6 +114,18 @@ export function scopeCapabilitiesSnapshot(
     createdAt: snapshot.createdAt,
     graph: {
       version: snapshot.graph.version,
+      sources: snapshot.graph.sources,
+      ownership: {
+        nodes: Object.fromEntries(
+          Object.entries(snapshot.graph.ownership.nodes).filter(([ref]) => survivingRefs.has(ref as VacpRef)),
+        ),
+        actions: Object.fromEntries(
+          scopedActions.flatMap((action) => {
+            const owner = snapshot.graph.ownership.actions[action.name];
+            return owner ? [[action.name, owner]] : [];
+          }),
+        ),
+      },
       nodes: scopedNodes,
       edges: scopedEdges,
       actions: scopedActions,

@@ -94,7 +94,7 @@ test('Portless routes docs, gallery and standalone examples with working HMR', a
           )
           .toBe(200);
         if (surface.kind === 'docs') {
-          await expect(page.locator('.vp-doc h1')).toHaveText('Connect a custom visualization');
+          await expect(page.locator('.vp-doc h1')).toHaveText('Connect an analytical source');
         } else if (surface.kind === 'gallery') {
           await expect(page.locator('.gallery-card')).toHaveCount(4);
         } else {

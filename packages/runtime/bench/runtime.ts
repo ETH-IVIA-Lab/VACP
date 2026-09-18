@@ -1,10 +1,16 @@
 import { performance } from 'node:perf_hooks';
-import { VACP_SCHEMA_VERSION, fnv1a64Hex, stableStringify, type VacpGraph } from '@vacp/protocol';
-import { createVacpRuntime, VacpActionRegistry } from '../src/index';
+import {
+  VACP_SCHEMA_VERSION,
+  fnv1a64Hex,
+  stableStringify,
+  type VacpGraphFragment,
+  type VacpProvider,
+} from '@vacp/protocol';
+import { createVacpRuntime } from '../src/index';
 
 const size = 1_000;
 const iterations = 100;
-const graph: VacpGraph = {
+const graph: VacpGraphFragment = {
   version: VACP_SCHEMA_VERSION,
   nodes: Array.from({ length: size }, (_, i) => ({
     ref: `vacp://bench/${i}`,
@@ -16,14 +22,15 @@ const graph: VacpGraph = {
   actions: Array.from({ length: size }, (_, i) => ({
     name: `set.${i}`,
     description: `Set parameter ${i}`,
-    targetRef: `vacp://bench/${i}`,
+    operation: { kind: 'mutation', affects: [`vacp://bench/${i}`] },
     parameters: { type: 'object', properties: { value: { type: 'number' } } },
   })),
 };
 const state = Object.fromEntries(graph.nodes.map(({ ref }, i) => [ref, { value: i, selected: false }]));
-const snapshots = {
-  getCapabilities: () => ({ version: VACP_SCHEMA_VERSION, createdAt: '', graph }),
-  getState: () => ({ version: VACP_SCHEMA_VERSION, createdAt: '', state }),
+const provider: VacpProvider = {
+  source: { id: 'vacp-source://benchmark', type: 'benchmark', title: 'Runtime benchmark' },
+  observe: () => ({ revision: 'static', observedAt: '', graph, state }),
+  execute: async (call) => ({ callId: call.callId, ok: true }),
 };
 
 async function measure(name: string, run: () => unknown | Promise<unknown>) {
@@ -40,7 +47,7 @@ async function measure(name: string, run: () => unknown | Promise<unknown>) {
 
 console.log(`Node ${process.version}; ${size} nodes/actions/state refs; static provider`);
 await measure('hash 100 KiB', () => fnv1a64Hex('x'.repeat(100 * 1024)));
-const runtime = createVacpRuntime({ snapshots, actions: new VacpActionRegistry() });
+const runtime = createVacpRuntime({ providers: [provider] });
 try {
   await measure('capabilities without subscribers', () => runtime.getCapabilities());
   await measure('full state update', () => runtime.getState({ mode: 'full' }));

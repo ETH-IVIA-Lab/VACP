@@ -8,6 +8,7 @@ export const defaultVacpAgentInstructions = [
   'For an initial broad capabilities read, omit refs/prefixes entirely and prefer includeNodeData=false until you have narrowed scope.',
   'Do not use bare vacp:// as a ref or prefix. Omit scope fields entirely when you want an unscoped read.',
   'Use vacp_state once for baseline, then prefer delta updates with since tokens when available.',
+  'Use vacp_observe when graph, values, and output freshness must share one observation. A stale or running output does not yet represent the current inputs.',
   'When reading state for a View or Visualization ref, inspect the descendant widget/data state under that container before answering.',
   'Keep visible reasoning terse and professional: one short sentence at most, with no speculative self-talk, filler, or motivational language.',
   'Use vacp_execute for semantic actions only. Avoid DOM or pixel instructions.',

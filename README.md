@@ -3,7 +3,7 @@
 [![arXiv:2603.29322](https://img.shields.io/badge/arXiv-2603.29322-red)](https://arxiv.org/abs/2603.29322)
 
 ![AI agents use VACP to read visual analytics state, discover available interactions, and execute semantic actions that update the interface state.](apps/docs/public/images/VACP_Teaser.svg)
-VACP (Visual Analytics Context Protocol) is a small in-app contract for exposing capabilities, visual analytics state snapshots, and semantic actions to AI agents.
+VACP (Visual Analytics Context Protocol) composes analytical sources into one graph with explicit ownership, coherent state observations, output freshness, and semantic operations for AI agents.
 
 [Learn more about VACP at the documentation site](https://docs.vacp.dev), or [read the VACP research paper](https://arxiv.org/abs/2603.29322).
 
@@ -59,7 +59,7 @@ Visit [https://docs.vacp.dev/](https://docs.vacp.dev/) for the documentation and
 
 ## Runtime Notes
 
-- The in-page inspector is enabled by default. Disable it with `?vacp-inspector=0` or `VACP_INSPECTOR=0`.
+- The in-page inspector is enabled by default. Applications choose whether to call `installVacpInspector()`.
 - Start MCP server against a running example: `uv run vacp --url https://examples.vacp.localhost/vega-lite/`.
 
 ## Contact

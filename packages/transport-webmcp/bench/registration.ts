@@ -4,11 +4,17 @@ import { installVacpWebMcp, type VacpWebMcpSource } from '../src/index';
 
 const revisions: VacpGraph[] = Array.from({ length: 51 }, (_, revision) => ({
   version: VACP_SCHEMA_VERSION,
+  sources: [{ id: 'vacp-source://benchmark', type: 'benchmark', title: 'WebMCP benchmark' }],
+  ownership: {
+    nodes: {},
+    actions: Object.fromEntries(Array.from({ length: 1_000 }, (_, i) => [`set.${i}`, 'vacp-source://benchmark'])),
+  },
   nodes: [],
   edges: [],
   actions: Array.from({ length: 1_000 }, (_, i) => ({
     name: `set.${i}`,
     description: `Set parameter ${i}, revision ${revision}`,
+    operation: { kind: 'evaluation' },
     parameters: { type: 'object', properties: { value: { type: 'number' } } },
   })),
 }));
@@ -19,6 +25,13 @@ async function measureBurst() {
   let registrations = 0;
   const source: VacpWebMcpSource = {
     signal: new AbortController().signal,
+    observe: () => ({
+      version: VACP_SCHEMA_VERSION,
+      revision: 'benchmark',
+      observedAt: '',
+      graph,
+      state: {},
+    }),
     subscribeCapabilities: (listener) => {
       publish = listener;
       return () => {};

@@ -29,7 +29,7 @@ test('vgplot: clear_input keeps menu snapshots readable', async ({ page }) => {
   const srv = await startAppServer({ name: 'vgplot-gallery', cwd: exampleDir('vgplot-gallery') });
 
   try {
-    await page.goto(`${srv.url}?vacp-inspector=1#aeromagnetic-survey`, { waitUntil: 'domcontentloaded' });
+    await page.goto(`${srv.url}#aeromagnetic-survey`, { waitUntil: 'domcontentloaded' });
     await waitForBridge(page);
 
     const inputRef = await firstStateRef(page, 'Widget');
@@ -70,7 +70,7 @@ test('vgplot: apply_state reports read-only DataHandle refs', async ({ page }) =
   const srv = await startAppServer({ name: 'vgplot-gallery', cwd: exampleDir('vgplot-gallery') });
 
   try {
-    await page.goto(`${srv.url}?vacp-inspector=1#us-state-map`, { waitUntil: 'domcontentloaded' });
+    await page.goto(`${srv.url}#us-state-map`, { waitUntil: 'domcontentloaded' });
     await waitForBridge(page);
 
     const handleRef = await firstStateRef(page, 'DataHandle');
@@ -107,7 +107,7 @@ test('vgplot: apply_state restores PanZoom domains', async ({ page }) => {
   const srv = await startAppServer({ name: 'vgplot-gallery', cwd: exampleDir('vgplot-gallery') });
 
   try {
-    await page.goto(`${srv.url}?vacp-inspector=1#pan-zoom`, { waitUntil: 'domcontentloaded' });
+    await page.goto(`${srv.url}#pan-zoom`, { waitUntil: 'domcontentloaded' });
     await waitForBridge(page);
 
     const replay = await page.evaluate(async () => {
@@ -182,7 +182,7 @@ test('vgplot: slider input actions keep DataHandle SQL valid', async ({ page }) 
   const srv = await startAppServer({ name: 'vgplot-gallery', cwd: exampleDir('vgplot-gallery') });
 
   try {
-    await page.goto(`${srv.url}?vacp-inspector=1#athlete-height`, { waitUntil: 'domcontentloaded' });
+    await page.goto(`${srv.url}#athlete-height`, { waitUntil: 'domcontentloaded' });
     await waitForBridge(page);
 
     const refs = await page.evaluate(async () => {
@@ -269,7 +269,7 @@ test('vgplot: slider input actions keep DataHandle SQL valid', async ({ page }) 
 test('vgplot: menu option indices update the chart and clear restores the default frame', async ({ page }) => {
   const srv = await startAppServer({ name: 'vgplot-gallery', cwd: exampleDir('vgplot-gallery') });
   try {
-    await page.goto(`${srv.url}?vacp-inspector=1#moving-average`, { waitUntil: 'domcontentloaded' });
+    await page.goto(`${srv.url}#moving-average`, { waitUntil: 'domcontentloaded' });
     await waitForBridge(page);
     const inputRef = await firstStateRef(page, 'Widget');
     const line = page.locator('#app svg g[aria-label="line"] path').first();
@@ -317,7 +317,7 @@ test('vgplot: transient hover state stays bounded and read-only during replay', 
   const srv = await startAppServer({ name: 'vgplot-gallery', cwd: exampleDir('vgplot-gallery') });
 
   try {
-    await page.goto(`${srv.url}?vacp-inspector=1#normalize`, { waitUntil: 'domcontentloaded' });
+    await page.goto(`${srv.url}#normalize`, { waitUntil: 'domcontentloaded' });
     await waitForBridge(page);
 
     const nearest = await page.evaluate(async () => {

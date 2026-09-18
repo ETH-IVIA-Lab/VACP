@@ -11,7 +11,7 @@ test('inspector: SQL editor keeps focus on run', async ({ page }) => {
   });
 
   try {
-    await page.goto(`${srv.url}?vacp-inspector=1`, { waitUntil: 'domcontentloaded' });
+    await page.goto(`${srv.url}`, { waitUntil: 'domcontentloaded' });
     await waitForVacpBridge(page);
 
     const pill = page.locator('button.vacp-inspector-button');

@@ -1,3 +1,4 @@
+import { exampleOptions } from '../../config';
 /**
  * VACP integration layer.
  *
@@ -21,17 +22,20 @@ export async function installVacp(args: {
 }): Promise<void> {
   const appId = 'vacp-examples';
   const viewId = `vgplot/${args.entry.id}`;
-  const runtimeId = new URLSearchParams(window.location.search).get('vacp-runtime-id')?.trim() || undefined;
+  const runtimeId = exampleOptions.runtimeId;
 
   const bridge = installVacpOnVgplotDashboard({
     root: args.root,
     plots: args.plots,
     tables: args.tables,
     options: {
+      enableSql: exampleOptions.enableSql,
       appId,
       viewId,
       title: args.entry.meta.title,
       globalKey: args.globalKey,
+      exposeBridge: exampleOptions.exposeBridge,
+      injectDomSnapshot: exampleOptions.injectDomSnapshot,
       runtimeId,
       duckdbClient: args.duckdbClient,
     },

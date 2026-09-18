@@ -14,7 +14,7 @@ The Chat tool trace and Markdown export preserve the effective input sent to eac
 
 ## Configuration
 
-The Inspector is enabled by default. Disable it with `?vacp-inspector=0`, `VACP_INSPECTOR=0`, or the browser-storage flag `vacp:inspector=0`. The Settings tab shows each flag’s effective value and source.
+Call `installVacpInspector()` to mount the Inspector. Dispose the returned handle when the host application unmounts. Panel layout and chat preferences persist in browser storage.
 
 Use `installVacpInspector({ globalKey: '__myVisualization' })` to connect to a different bridge key.
 

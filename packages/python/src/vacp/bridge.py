@@ -26,6 +26,8 @@ class ActionResult:
 
 
 class VacpBridgeClient(Protocol):
+    async def observe(self) -> dict[str, object]: ...
+
     async def get_capabilities(self, request: VacpCapabilitiesRequestOptions | None = None) -> dict[str, object]: ...
 
     async def get_state(self, request: VacpStateRequestOptions | None = None) -> dict[str, object]: ...
@@ -50,6 +52,7 @@ class PlaywrightVacpBridgeClient(VacpBridgeClient):
                   const b = globalThis?.[key];
                   return !!(b
                     && typeof b === 'object'
+                    && typeof b.observe === 'function'
                     && typeof b.getCapabilities === 'function'
                     && typeof b.getState === 'function'
                     && typeof b.execute === 'function');
@@ -60,6 +63,10 @@ class PlaywrightVacpBridgeClient(VacpBridgeClient):
         )
         if not ok:
             raise RuntimeError('VACP window bridge not available (expected window.__vacp)')
+
+    async def observe(self) -> dict[str, object]:
+        await self._require_bridge()
+        return await self._page.evaluate('(key) => globalThis[key].observe()', self._global_key)
 
     async def get_capabilities(self, request: VacpCapabilitiesRequestOptions | None = None) -> dict[str, object]:
         await self._require_bridge()

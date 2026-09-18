@@ -290,7 +290,7 @@ export function actionDescriptorsForDashboard(args: {
     actions.push({
       name: 'vgplot.set_interval_1d',
       description: 'Set a 1D interval selection (domain units).',
-      targetRef: viewRef,
+      operation: { kind: 'mutation', affects: [viewRef] },
       parameters: objectSchema(
         {
           plotId: { type: 'string' },
@@ -307,7 +307,7 @@ export function actionDescriptorsForDashboard(args: {
     actions.push({
       name: 'vgplot.clear_interval_1d',
       description: 'Clear a 1D interval selection.',
-      targetRef: viewRef,
+      operation: { kind: 'mutation', affects: [viewRef] },
       parameters: objectSchema(
         { plotId: { type: 'string' }, interactorId: { type: 'string' } },
         ['interactorId'],
@@ -328,7 +328,7 @@ export function actionDescriptorsForDashboard(args: {
     actions.push({
       name: 'vgplot.set_interval_2d',
       description: 'Set a 2D interval selection (x/y domain units).',
-      targetRef: viewRef,
+      operation: { kind: 'mutation', affects: [viewRef] },
       parameters: objectSchema(
         {
           plotId: { type: 'string' },
@@ -347,7 +347,7 @@ export function actionDescriptorsForDashboard(args: {
     actions.push({
       name: 'vgplot.clear_interval_2d',
       description: 'Clear a 2D interval selection.',
-      targetRef: viewRef,
+      operation: { kind: 'mutation', affects: [viewRef] },
       parameters: objectSchema(
         { plotId: { type: 'string' }, interactorId: { type: 'string' } },
         ['interactorId'],
@@ -360,7 +360,7 @@ export function actionDescriptorsForDashboard(args: {
     actions.push({
       name: 'vgplot.set_toggle',
       description: 'Set a Toggle interactor value.',
-      targetRef: viewRef,
+      operation: { kind: 'mutation', affects: [viewRef] },
       parameters: objectSchema(
         { plotId: { type: 'string' }, interactorId: { type: 'string' }, value: {} },
         ['interactorId', 'value'],
@@ -370,7 +370,7 @@ export function actionDescriptorsForDashboard(args: {
     actions.push({
       name: 'vgplot.clear_toggle',
       description: 'Clear a Toggle interactor value.',
-      targetRef: viewRef,
+      operation: { kind: 'mutation', affects: [viewRef] },
       parameters: objectSchema(
         { plotId: { type: 'string' }, interactorId: { type: 'string' } },
         ['interactorId'],
@@ -384,7 +384,7 @@ export function actionDescriptorsForDashboard(args: {
       name: 'vgplot.clear_nearest',
       description:
         'Clear a selection-backed Nearest hover or inspect interactor. Param-backed Nearest values are pointer-derived and are not exposed as semantic actions.',
-      targetRef: viewRef,
+      operation: { kind: 'mutation', affects: [viewRef] },
       parameters: objectSchema(
         { plotId: { type: 'string' }, interactorId: { type: 'string' } },
         ['interactorId'],
@@ -397,7 +397,7 @@ export function actionDescriptorsForDashboard(args: {
     actions.push({
       name: 'vgplot.set_region',
       description: 'Set a Region categorical selection value.',
-      targetRef: viewRef,
+      operation: { kind: 'mutation', affects: [viewRef] },
       parameters: objectSchema(
         { plotId: { type: 'string' }, interactorId: { type: 'string' }, value: {} },
         ['interactorId', 'value'],
@@ -407,7 +407,7 @@ export function actionDescriptorsForDashboard(args: {
     actions.push({
       name: 'vgplot.clear_region',
       description: 'Clear a Region selection.',
-      targetRef: viewRef,
+      operation: { kind: 'mutation', affects: [viewRef] },
       parameters: objectSchema(
         { plotId: { type: 'string' }, interactorId: { type: 'string' } },
         ['interactorId'],
@@ -422,7 +422,7 @@ export function actionDescriptorsForDashboard(args: {
     actions.push({
       name: 'vgplot.set_pan_zoom',
       description: 'Set a PanZoom view domain.',
-      targetRef: viewRef,
+      operation: { kind: 'mutation', affects: [viewRef] },
       parameters: objectSchema(
         {
           plotId: { type: 'string' },
@@ -445,7 +445,7 @@ export function actionDescriptorsForDashboard(args: {
     actions.push({
       name: 'vgplot.clear_pan_zoom',
       description: 'Clear a PanZoom view domain.',
-      targetRef: viewRef,
+      operation: { kind: 'mutation', affects: [viewRef] },
       parameters: objectSchema(
         { plotId: { type: 'string' }, interactorId: { type: 'string' } },
         ['interactorId'],
@@ -458,7 +458,7 @@ export function actionDescriptorsForDashboard(args: {
     actions.push({
       name: 'vgplot.set_legend_toggle',
       description: 'Set an interactive legend (categorical) selection.',
-      targetRef: viewRef,
+      operation: { kind: 'mutation', affects: [viewRef] },
       parameters: {
         type: 'object',
         properties: { plotId: { type: 'string' }, channel: { type: 'string' }, value: {} },
@@ -468,7 +468,7 @@ export function actionDescriptorsForDashboard(args: {
     actions.push({
       name: 'vgplot.clear_legend_toggle',
       description: 'Clear an interactive legend selection.',
-      targetRef: viewRef,
+      operation: { kind: 'mutation', affects: [viewRef] },
       parameters: {
         type: 'object',
         properties: { plotId: { type: 'string' }, channel: { type: 'string' } },
@@ -480,7 +480,7 @@ export function actionDescriptorsForDashboard(args: {
     actions.push({
       name: 'vgplot.set_input_option_index',
       description: 'Set a VGPlot input widget by option index.',
-      targetRef: viewRef,
+      operation: { kind: 'mutation', affects: [viewRef] },
       parameters: objectSchema(
         { ref: { type: 'string' }, index: { type: 'number' } },
         ['ref', 'index'],
@@ -493,7 +493,7 @@ export function actionDescriptorsForDashboard(args: {
     actions.push({
       name: 'vgplot.set_input_value',
       description: 'Set a VGPlot input widget value.',
-      targetRef: viewRef,
+      operation: { kind: 'mutation', affects: [viewRef] },
       parameters: objectSchema(
         { ref: { type: 'string' }, value: {} },
         ['ref', 'value'],
@@ -503,7 +503,7 @@ export function actionDescriptorsForDashboard(args: {
     actions.push({
       name: 'vgplot.clear_input',
       description: 'Clear or reset a VGPlot input widget.',
-      targetRef: viewRef,
+      operation: { kind: 'mutation', affects: [viewRef] },
       parameters: objectSchema({ ref: { type: 'string' } }, ['ref'], input ? { ref: input.ref } : null),
     });
   }
@@ -512,7 +512,7 @@ export function actionDescriptorsForDashboard(args: {
     actions.push({
       name: 'vgplot.table_set_sort',
       description: 'Sort a VGPlot table by a column.',
-      targetRef: viewRef,
+      operation: { kind: 'mutation', affects: [viewRef] },
       parameters: objectSchema(
         { tableId: { type: 'string' }, column: { type: 'string' }, desc: { type: 'boolean' } },
         ['column'],
@@ -528,7 +528,7 @@ export function actionDescriptorsForDashboard(args: {
     actions.push({
       name: 'vgplot.table_clear_sort',
       description: 'Clear the sort order for a VGPlot table.',
-      targetRef: viewRef,
+      operation: { kind: 'mutation', affects: [viewRef] },
       parameters: objectSchema(
         { tableId: { type: 'string' } },
         undefined,
@@ -538,7 +538,7 @@ export function actionDescriptorsForDashboard(args: {
     actions.push({
       name: 'vgplot.table_set_page',
       description: 'Set VGPlot table pagination (offset/limit).',
-      targetRef: viewRef,
+      operation: { kind: 'mutation', affects: [viewRef] },
       parameters: objectSchema(
         { tableId: { type: 'string' }, offset: { type: 'number' }, limit: { type: 'number' } },
         undefined,

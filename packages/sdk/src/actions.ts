@@ -1,5 +1,4 @@
-import { getVacpBrowserOptions } from '@vacp/runtime-browser';
-import type { VacpActionDescriptor, VacpRef } from '@vacp/protocol';
+import type { VacpActionDescriptor, VacpOperationKind, VacpOperationResultDescriptor, VacpRef } from '@vacp/protocol';
 import {
   registerVacpApplyStateAction,
   type VacpApplyStateHandler,
@@ -15,23 +14,23 @@ import {
 
 export type VacpActions = {
   registry: VacpActionRegistry;
-  action: (name: string, description: string) => VacpActionDefinition;
+  operation: (kind: VacpOperationKind, name: string, description: string) => VacpActionDefinition;
   standard: {
     applyState: <Result>(
       handler: VacpApplyStateHandler<Result>,
-      options?: { targetRef?: VacpRef; description?: string },
+      options?: { affects?: VacpRef[]; description?: string },
     ) => VacpActionDescriptor;
     dataSchema: (
       handler: VacpDataSchemaHandler,
-      options?: { targetRef?: VacpRef; description?: string },
+      options?: { inputRefs?: VacpRef[]; description?: string },
     ) => VacpActionDescriptor;
     dataSql: (
       handler: VacpDataSqlHandler,
-      options?: { targetRef?: VacpRef; description?: string },
+      options?: Parameters<typeof registerVacpDataSqlAction>[2],
     ) => VacpActionDescriptor | null;
     widgetOptions: (
       handler: VacpWidgetOptionsHandler,
-      options?: { targetRef?: VacpRef; description?: string },
+      options?: { inputRefs?: VacpRef[]; description?: string },
     ) => VacpActionDescriptor;
   };
 };
@@ -41,12 +40,12 @@ export function createVacpActions(): VacpActions {
 
   return {
     registry,
-    action: (name, description) => new VacpActionDefinition(registry, { name, description }, (value) => value),
+    operation: (kind, name, description) =>
+      new VacpActionDefinition(registry, { name, description, operation: { kind } }, (value) => value),
     standard: {
       applyState: (handler, options) => registerVacpApplyStateAction(registry, handler, options),
       dataSchema: (handler, options) => registerVacpDataSchemaAction(registry, handler, options),
-      dataSql: (handler, options) =>
-        registerVacpDataSqlAction(registry, handler, { enabled: getVacpBrowserOptions().enableSql, ...options }),
+      dataSql: (handler, options) => registerVacpDataSqlAction(registry, handler, options),
       widgetOptions: (handler, options) => registerVacpWidgetOptionsAction(registry, handler, options),
     },
   };
@@ -74,8 +73,20 @@ export class VacpActionDefinition<Params = unknown> {
     return this;
   }
 
-  target(ref: VacpRef): this {
-    this.descriptor.targetRef = ref;
+  input(ref: VacpRef): this {
+    this.descriptor.operation.inputRefs = [...(this.descriptor.operation.inputRefs ?? []), ref];
+
+    return this;
+  }
+
+  affects(ref: VacpRef): this {
+    this.descriptor.operation.affects = [...(this.descriptor.operation.affects ?? []), ref];
+
+    return this;
+  }
+
+  produces(result: VacpOperationResultDescriptor): this {
+    this.descriptor.operation.results = [...(this.descriptor.operation.results ?? []), result];
 
     return this;
   }

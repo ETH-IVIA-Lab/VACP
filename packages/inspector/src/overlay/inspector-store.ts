@@ -2,7 +2,7 @@ import { create } from 'zustand';
 
 import type { VacpRef } from '@vacp/protocol';
 
-export type VacpInspectorModuleId = 'graph' | 'data' | 'actions' | 'history' | 'chat' | 'settings' | 'json';
+export type VacpInspectorModuleId = 'graph' | 'data' | 'actions' | 'history' | 'chat' | 'json';
 
 export type VacpInspectorState = {
   includeActionsDefault: boolean;
@@ -75,7 +75,6 @@ const readInitialModule = (): VacpInspectorModuleId => {
       raw === 'actions' ||
       raw === 'history' ||
       raw === 'chat' ||
-      raw === 'settings' ||
       raw === 'json'
     ) {
       return raw;

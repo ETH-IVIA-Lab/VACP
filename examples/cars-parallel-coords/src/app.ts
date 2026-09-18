@@ -1,3 +1,4 @@
+import { exampleOptions } from '../../config';
 /**
  * Example entrypoint.
  *
@@ -22,7 +23,7 @@ export async function run(): Promise<void> {
     throw new Error('Missing root elements');
   }
 
-  installVacpInspector();
+  if (exampleOptions.inspector) installVacpInspector();
 
   const { data, dimensions } = await loadCarsDataset('data/cars.csv');
 
@@ -55,7 +56,7 @@ export async function run(): Promise<void> {
     setHoveredId: chart.setHoveredId,
   });
 
-  if (new URLSearchParams(window.location.search).get('webmcp') === '1') {
+  if (exampleOptions.webmcp) {
     await installVacpWebMcp(vacp.bridge, { onError: (cause) => console.error('WebMCP registration failed', cause) });
   }
 

@@ -11,7 +11,7 @@ test('inspector: keyboard navigation (compact module nav + roving focus)', async
   });
 
   try {
-    await page.goto(`${srv.url}?vacp-inspector=1`, { waitUntil: 'domcontentloaded' });
+    await page.goto(`${srv.url}`, { waitUntil: 'domcontentloaded' });
     await waitForVacpBridge(page);
 
     await dispatchDimensionOrderPair(page);

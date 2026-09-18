@@ -7,3 +7,5 @@ export * from './util';
 export * from './hash';
 
 export * from './value';
+
+export * from './provider';

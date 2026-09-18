@@ -21,8 +21,5 @@
     "@vacp/protocol": "workspace:*",
     "@vacp/runtime": "workspace:*",
     "zod": "catalog:"
-  },
-  "devDependencies": {
-    "vite": "catalog:"
   }
 }

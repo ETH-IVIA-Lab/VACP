@@ -60,7 +60,7 @@ test('vega-lite: inspector graph renders and selects mark/channel/field nodes fo
   });
 
   try {
-    await page.goto(`${srv.url}?vacp-inspector=1`, { waitUntil: 'domcontentloaded' });
+    await page.goto(`${srv.url}`, { waitUntil: 'domcontentloaded' });
     await page.context().grantPermissions(['clipboard-read', 'clipboard-write'], { origin: srv.url });
     await page.waitForFunction(() => !!globalThis.__vacp);
 

@@ -7,7 +7,7 @@ test('vgplot: set_interval_1d triggers downstream crossfilters (Seattle Weather)
   const srv = await startAppServer({ name: 'vgplot-gallery', cwd: exampleDir('vgplot-gallery') });
 
   try {
-    await page.goto(`${srv.url}?vacp-inspector=1#weather`, { waitUntil: 'domcontentloaded' });
+    await page.goto(`${srv.url}#weather`, { waitUntil: 'domcontentloaded' });
     await page.waitForFunction(() => !!globalThis.__vacp);
 
     const beforeRows = await selectedAndAllRowCounts(page);

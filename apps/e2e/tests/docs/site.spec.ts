@@ -10,7 +10,7 @@ test('documentation serves public guides and the executable integration example'
 
   try {
     await page.goto(`${server.url}integrate/`);
-    await expect(page.locator('.vp-doc h1')).toContainText('Connect a custom visualization');
+    await expect(page.locator('.vp-doc h1')).toContainText('Connect an analytical source');
     await expect(page.locator('.vp-doc')).toContainText('connectThreshold');
     await expect(page.locator('.vp-doc')).toContainText("from '@vacp/sdk'");
     await page.getByRole('link', { name: 'Browser adapter', exact: true }).click();

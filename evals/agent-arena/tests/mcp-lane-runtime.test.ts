@@ -8,7 +8,7 @@ function main() {
     model: { providerID: 'openai', modelID: 'gpt-5.2' },
     scenario: {
       id: 'vl-global-development-t1-lifeexp-max-2000',
-      url: 'http://127.0.0.1:5173/vega-lite/?expose-bridge=1#global-development',
+      url: 'http://127.0.0.1:5173/vega-lite/?context=semantic#global-development',
       task: 'Which country had the highest life expectancy in 2000?',
       responseFormat: '{country: string}',
     },

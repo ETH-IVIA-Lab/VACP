@@ -1,3 +1,4 @@
+import { exampleOptions } from '../../config';
 import { installVacpInspector } from '@vacp/inspector';
 import { type VegaViewLike } from '@vacp/adapter-vega-lite';
 import embed, { type VisualizationSpec } from 'vega-embed';
@@ -16,7 +17,7 @@ export async function run(): Promise<void> {
   }
 
   // Inspector: inspects the VACP bridge and provides time travel, actions, and DuckDB SQL.
-  installVacpInspector();
+  if (exampleOptions.inspector) installVacpInspector();
 
   // Gallery UI: pick between small specs that each exercise a different VACP feature.
   const gallery = loadGallery();

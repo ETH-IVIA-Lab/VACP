@@ -18,7 +18,7 @@ test('inspector: JSON apply reports read-only DataHandle refs', async ({ page })
   });
 
   try {
-    await page.goto(`${srv.url}?vacp-inspector=1#us-state-map`, { waitUntil: 'domcontentloaded' });
+    await page.goto(`${srv.url}#us-state-map`, { waitUntil: 'domcontentloaded' });
     await waitForVacpBridge(page);
 
     const { state, ref } = await page.evaluate(async () => {

@@ -19,7 +19,7 @@ test('vgplot: time travel apply_state preserves Toggle selection values (Seattle
   });
 
   try {
-    await page.goto(`${srv.url}?vacp-inspector=1#weather`, { waitUntil: 'domcontentloaded' });
+    await page.goto(`${srv.url}#weather`, { waitUntil: 'domcontentloaded' });
     await page.waitForFunction(() => !!globalThis.__vacp);
 
     const overlay = page.locator('#app svg').first().locator('rect.overlay').first();

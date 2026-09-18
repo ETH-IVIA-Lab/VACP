@@ -1,12 +1,12 @@
 # Working on VACP
 
-VACP exposes visualization capabilities, state, and semantic actions through an in-page bridge. Preserve the shared human/agent interaction model and its history semantics.
+VACP composes analytical sources, state, freshness, and semantic operations through transport-neutral providers and an in-page bridge. Preserve the shared human/agent interaction model and its history semantics.
 
 ## Workspace
 
 - `packages/protocol`: protocol records, runtime contracts, and shared primitives.
 - `packages/runtime`: action registration, snapshots, state deltas, and history.
-- `packages/runtime-browser`: browser options, global bridge installation, and DOM snapshots.
+- `packages/runtime-browser`: explicit browser exposure, global bridge installation, and DOM snapshots.
 - `packages/transport-bridge`: model-independent bridge-to-tool mapping.
 - `packages/transport-webmcp`: graph projection and optional browser-native tool registration.
 - `packages/data-duckdb`: SQL and data adapters.
@@ -32,9 +32,9 @@ Use capability families for package names: `adapter-*` for visualization adapter
 
 Dependencies point toward the protocol. Protocol and runtime must not read window, document, URL configuration, or browser storage. Protocol must remain independent of providers, transports, UI frameworks, and applications. Runtime owns snapshot, action, and history behavior against its snapshot and action contracts. Providers translate their visualization's state and actions into those contracts.
 
-Applications compose providers, transports, and optional UI. Install the inspector from `@vacp/inspector` at the application boundary. Keep UI dependencies out of `@vacp/sdk`. Libraries must not import applications or another package's private source paths. Declare workspace dependencies in the importing package and use its exported API.
+Applications compose providers, transports, and optional UI. Pass exposure and SQL policy explicitly. Library packages must not read URL flags, environment variables, or browser storage to choose capabilities. Example context profiles belong under `examples/`. Install the inspector from `@vacp/inspector` at the application boundary. Keep UI dependencies out of `@vacp/sdk`. Libraries must not import applications or another package's private source paths. Declare workspace dependencies in the importing package and use its exported API.
 
-Add an integration as a focused adapter implementing existing ports. Introduce a new port in its consuming inner package when the existing contract cannot express the behavior. Runtime extensions use capability subscriptions and the runtime lifetime signal; keep target-platform registration and metadata in their own transport package. Keep provider-specific branches in the provider. Avoid compatibility aliases and parallel APIs when replacing a contract.
+Add an integration as a focused provider implementing the source, projection, observation, and operation ports. Compose sources by stable source ID and keep one owner for every node and action. Discovery adapters may infer mechanical facts; analytical meaning belongs in library or application profiles. Runtime extensions use capability subscriptions and the runtime lifetime signal. Keep target-platform registration and metadata in their own transport package. Keep provider-specific branches in the provider. Avoid compatibility aliases and parallel APIs when replacing a contract.
 
 ## Commands
 

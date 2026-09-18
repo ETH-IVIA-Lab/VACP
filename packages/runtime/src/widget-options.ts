@@ -27,14 +27,19 @@ const paramsSchema = z.object({
 export function registerVacpWidgetOptionsAction(
   registry: VacpActionRegistrar,
   handler: VacpWidgetOptionsHandler,
-  options?: { targetRef?: VacpRef; description?: string },
+  options?: { inputRefs?: VacpRef[]; description?: string },
 ): VacpActionDescriptor {
   const descriptor: VacpActionDescriptor = {
     name: VACP_WIDGET_OPTIONS_ACTION,
     description:
       options?.description ??
       'List available options for a Widget ref (e.g., menus). Use this to map from labels to values/indices for downstream input actions.',
-    targetRef: options?.targetRef,
+    operation: {
+      kind: 'query',
+      inputRefs: options?.inputRefs,
+      refParameters: [{ parameter: 'ref', role: 'input' }],
+      results: [{ role: 'state', description: 'Available values for the widget' }],
+    },
     parameters: {
       type: 'object',
       properties: {

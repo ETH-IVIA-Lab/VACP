@@ -7,7 +7,7 @@ test('vgplot: shared dataset uses a single DataHandle node (Seattle Weather)', a
   const srv = await startAppServer({ name: 'vgplot-gallery', cwd: exampleDir('vgplot-gallery') });
 
   try {
-    await page.goto(`${srv.url}?vacp-inspector=1#weather`, { waitUntil: 'domcontentloaded' });
+    await page.goto(`${srv.url}#weather`, { waitUntil: 'domcontentloaded' });
     await page.waitForFunction(() => !!globalThis.__vacp);
 
     const info = await page.evaluate(async () => {

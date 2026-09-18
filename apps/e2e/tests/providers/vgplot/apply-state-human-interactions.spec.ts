@@ -30,7 +30,7 @@ test('vgplot: apply_state preserves subsequent human brushing (Seattle Weather)'
   const srv = await startAppServer({ name: 'vgplot-gallery', cwd: exampleDir('vgplot-gallery') });
 
   try {
-    await page.goto(`${srv.url}?vacp-inspector=1#weather`, { waitUntil: 'domcontentloaded' });
+    await page.goto(`${srv.url}#weather`, { waitUntil: 'domcontentloaded' });
     await page.waitForFunction(() => !!globalThis.__vacp);
 
     const overlay = page.locator('#app svg').first().locator('rect.overlay').first();

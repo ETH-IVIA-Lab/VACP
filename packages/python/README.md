@@ -1,25 +1,23 @@
 # VACP for Python
 
-Use `vacp` to connect an external agent to a VACP-enabled page through MCP and Playwright.
+The `vacp` package defines transport-neutral provider, observation, operation, freshness, and composition records for Python analytical systems.
 
-From the repository root:
+```python
+from vacp import ProviderComposer
 
-```bash
-uv sync --package vacp --locked
-uv run --package vacp playwright install chromium
-uv run --package vacp vacp --url http://127.0.0.1:5173/vgplot/
+runtime = ProviderComposer([widget_provider, notebook_provider])
+observation = await runtime.observe()
 ```
 
-The default MCP endpoint is `http://localhost:8000/mcp`. For stdio transport:
+Install the server extra to connect an external MCP client to a VACP-enabled browser page:
 
 ```bash
-uv run --package vacp vacp --transport stdio --url http://127.0.0.1:5173/vgplot/
+uv pip install 'vacp[server]'
+vacp --url http://127.0.0.1:5173/vgplot/
 ```
 
-`python -m vacp` exposes the same CLI. Run `vacp --help` for browser launch, CDP attachment, viewport, navigation, and optional browser-tool flags.
+The default MCP endpoint is `http://localhost:8000/mcp`. Pass `--transport stdio` for standard input and output.
 
-Python integrations can import `BrowserConfig` and `BrowserManager` from `vacp.browser`, and `PlaywrightVacpBridgeClient` from `vacp.bridge`. The bridge client reads capabilities and state and executes semantic actions. MCP tool construction lives in `vacp.server`.
+`SimpleProvider` binds Python source metadata, observation, invocation, invalidation, and cleanup callbacks. `ProviderComposer` validates node and operation ownership, permits cross-source edges, and produces one revisioned observation.
 
-See [agent connections](../../docs/transports/index.md) and the [tool contract](../../docs/reference/tool-contract.md).
-
-Run `make python-check` from the repository root for Python lint, type checks, and tests. Tool versions and configuration are shared in the root `pyproject.toml`.
+Run `make python-check` from the repository root for Python lint, type checks, and tests.

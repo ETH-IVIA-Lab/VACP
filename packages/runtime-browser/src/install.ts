@@ -1,22 +1,21 @@
-import { readExposedRuntime } from './bridge';
-import { createVacpRuntime, type VacpActionExecutor, type VacpRuntime, type VacpSnapshotProvider } from '@vacp/runtime';
-import { getVacpBrowserOptions } from './options';
+import type { VacpProvider } from '@vacp/protocol';
+import { createVacpRuntime, type VacpRuntime } from '@vacp/runtime';
 import {
   defaultVacpDomSnapshotScriptId,
   removeVacpDomSnapshotScript,
   writeVacpDomSnapshotScript,
 } from './dom-snapshot';
-import { purgeVacpWindowGlobals, resolveVacpGlobalKey } from './window-globals';
+import { resolveVacpGlobalKey } from './window-globals';
 
-const HIDDEN_RUNTIME_BRIDGES = new Map<string, VacpRuntime>();
+const runtimes = new Map<string, VacpRuntime>();
 const domSnapshotHooks = new WeakMap<VacpRuntime, () => void>();
 
 function installDomSnapshotHooks(runtime: VacpRuntime, options: { enabled: boolean; scriptId: string }): void {
   domSnapshotHooks.get(runtime)?.();
   if (!options.enabled) return;
 
-  const unsubscribe = runtime.subscribeSnapshots(({ capabilities, state }) => {
-    writeVacpDomSnapshotScript({ scriptId: options.scriptId, capabilities, state });
+  const unsubscribe = runtime.subscribeSnapshots(({ observation, capabilities, state }) => {
+    writeVacpDomSnapshotScript({ scriptId: options.scriptId, observation, capabilities, state });
   });
   const dispose = () => {
     unsubscribe();
@@ -41,11 +40,12 @@ function installDomSnapshotHooks(runtime: VacpRuntime, options: { enabled: boole
  * will treat it as a new session and reset its history.
  */
 export function installVacpRuntime(args: {
-  snapshots: VacpSnapshotProvider;
-  actions: VacpActionExecutor;
+  providers: readonly VacpProvider[];
   globalKey?: string;
   sessionKey?: string;
   runtimeId?: string;
+  /** Publish the runtime at the chosen window key. Defaults to true. */
+  exposeBridge?: boolean;
   /**
    * If true (default), inject a `type="application/json"` `<script>` tag whose
    * contents are pure JSON containing `{ capabilities, state }`.
@@ -55,82 +55,42 @@ export function installVacpRuntime(args: {
   injectDomSnapshot?: boolean;
   /** Optional override for the injected `<script>` element id. */
   domSnapshotScriptId?: string;
-}): VacpRuntime {
+}): { runtime: VacpRuntime; dispose: () => void } {
   const key = resolveVacpGlobalKey(args.globalKey);
-  const exposeBridge = getVacpBrowserOptions().exposeBridge;
-  const domSnapshotEnabled = args.injectDomSnapshot ?? getVacpBrowserOptions().domSnapshot;
+  const exposeBridge = args.exposeBridge ?? true;
+  const domSnapshotEnabled = args.injectDomSnapshot ?? true;
   const domSnapshotScriptId = args.domSnapshotScriptId ?? defaultVacpDomSnapshotScriptId(key);
 
-  if (!domSnapshotEnabled) removeVacpDomSnapshotScript(domSnapshotScriptId);
-
-  const exposed = readExposedRuntime(key);
-
-  if (!exposeBridge) {
-    // Move an existing runtime bridge off `window` so history can remain stable,
-    // then purge all `window[${globalKey}*]` globals for hardening.
-    const existingFromWindow = exposed;
-
-    if (existingFromWindow) HIDDEN_RUNTIME_BRIDGES.set(key, existingFromWindow);
-    purgeVacpWindowGlobals(key);
+  let runtime = runtimes.get(key);
+  if (runtime?.signal.aborted) runtime = undefined;
+  if (!runtime) {
+    runtime = createVacpRuntime({ providers: [], sessionKey: args.sessionKey, runtimeId: args.runtimeId });
+    runtimes.set(key, runtime);
+  } else if (args.sessionKey && args.sessionKey !== runtime.sessionKey) {
+    runtime.update({ providers: [], sessionKey: args.sessionKey });
   }
+  if (exposeBridge) Object.assign(globalThis, { [key]: runtime });
+  else if (Object.getOwnPropertyDescriptor(globalThis, key)?.value === runtime) Reflect.deleteProperty(globalThis, key);
+  installDomSnapshotHooks(runtime, { enabled: domSnapshotEnabled, scriptId: domSnapshotScriptId });
 
-  const existingFromWindow = exposed;
-  const existingFromHidden = HIDDEN_RUNTIME_BRIDGES.get(key);
-  const existing = (exposeBridge ? existingFromWindow : existingFromHidden) ?? existingFromHidden ?? existingFromWindow;
-
-  if (existing) {
-    if (exposeBridge) {
-      Object.assign(globalThis, { [key]: existing });
-      HIDDEN_RUNTIME_BRIDGES.delete(key);
-    } else {
-      HIDDEN_RUNTIME_BRIDGES.set(key, existing);
-    }
-
-    existing.update({
-      snapshots: args.snapshots,
-      actions: args.actions,
-      sessionKey: args.sessionKey,
-    });
-    installDomSnapshotHooks(existing, {
-      enabled: domSnapshotEnabled,
-      scriptId: domSnapshotScriptId,
-    });
-
-    return existing;
-  }
-
-  const bridge = createVacpRuntime({
-    snapshots: args.snapshots,
-    actions: args.actions,
-    sessionKey: args.sessionKey,
-    runtimeId: args.runtimeId,
-  });
-
-  if (exposeBridge) {
-    Object.assign(globalThis, { [key]: bridge });
-    HIDDEN_RUNTIME_BRIDGES.delete(key);
-  } else {
-    HIDDEN_RUNTIME_BRIDGES.set(key, bridge);
-  }
-
-  installDomSnapshotHooks(bridge, {
-    enabled: domSnapshotEnabled,
-    scriptId: domSnapshotScriptId,
-  });
-
-  return bridge;
+  const detach = args.providers.map((provider) => runtime.attachProvider(provider));
+  let disposed = false;
+  return {
+    runtime,
+    dispose: () => {
+      if (disposed) return;
+      disposed = true;
+      for (const release of detach) release();
+      if (runtime.providerIds.length === 0) uninstallVacpRuntime({ globalKey: key });
+    },
+  };
 }
 
 export function uninstallVacpRuntime(options?: { globalKey?: string }): void {
   const key = resolveVacpGlobalKey(options?.globalKey);
-  const exposed = readExposedRuntime(key);
-  const candidate = exposed ?? HIDDEN_RUNTIME_BRIDGES.get(key);
-
-  if (!candidate) return;
-  candidate.dispose();
-  domSnapshotHooks.get(candidate)?.();
-  domSnapshotHooks.delete(candidate);
-  HIDDEN_RUNTIME_BRIDGES.delete(key);
-
-  if (exposed === candidate) Reflect.deleteProperty(globalThis, key);
+  const runtime = runtimes.get(key);
+  if (!runtime) return;
+  runtimes.delete(key);
+  runtime.dispose();
+  if (Object.getOwnPropertyDescriptor(globalThis, key)?.value === runtime) Reflect.deleteProperty(globalThis, key);
 }

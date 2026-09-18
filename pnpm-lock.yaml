@@ -827,10 +827,6 @@ importers:
       zod:
         specifier: 'catalog:'
         version: 4.6.5
-    devDependencies:
-      vite:
-        specifier: npm:@voidzero-dev/vite-plus-core@0.3.3
-        version: '@voidzero-dev/vite-plus-core@0.3.3(@types/node@24.13.4)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.13)(typescript@5.9.3)(yaml@2.9.1)'
 
   packages/sdk:
     dependencies:
@@ -859,12 +855,13 @@ importers:
       '@vacp/protocol':
         specifier: workspace:*
         version: link:../protocol
-      '@vacp/runtime':
-        specifier: workspace:*
-        version: link:../runtime
       webmcp-types:
         specifier: 'catalog:'
         version: 0.1.7
+    devDependencies:
+      '@vacp/runtime':
+        specifier: workspace:*
+        version: link:../runtime
 
 packages:
 

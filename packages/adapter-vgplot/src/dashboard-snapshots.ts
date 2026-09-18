@@ -1,5 +1,5 @@
-import type { VacpCapabilitiesSnapshot, VacpRef, VacpStateSnapshot } from '@vacp/protocol';
-import { nowIso, VACP_SCHEMA_VERSION } from '@vacp/protocol';
+import type { VacpGraphFragment, VacpRef } from '@vacp/protocol';
+import type { VacpAnalyticalProjection } from '@vacp/runtime';
 import {
   formatDuckDbTableMetadataSummary,
   getDuckDbTableMetadata,
@@ -111,7 +111,7 @@ function readNearestValue(interactor: VgplotInteractorLike, rawValue: unknown) {
 }
 
 export function createVgplotDashboardSnapshots(args: {
-  graph: VacpCapabilitiesSnapshot['graph'];
+  graph: VacpGraphFragment;
   options: InstallVacpOnVgplotDashboardOptions;
   inputs: CollectedInput[];
   plots: Array<{ plotId: string; plot: VgplotPlotLike }>;
@@ -119,7 +119,7 @@ export function createVgplotDashboardSnapshots(args: {
   dataHandles: VgplotDataHandle[];
   plotsById: PlotsById;
   tablesById: TablesById;
-}): { getCapabilities: () => Promise<VacpCapabilitiesSnapshot>; getState: () => Promise<VacpStateSnapshot> } {
+}): { project: () => Promise<VacpAnalyticalProjection> } {
   const { inputs, plots, tables, options, dataHandles, plotsById, tablesById } = args;
 
   const dataHandleNodesByRef = new Map<VacpRef, any>();
@@ -177,17 +177,7 @@ export function createVgplotDashboardSnapshots(args: {
     await duckdbMetaPromise;
   };
 
-  const getCapabilities = async (): Promise<VacpCapabilitiesSnapshot> => ({
-    version: VACP_SCHEMA_VERSION,
-    createdAt: nowIso(),
-    graph: await (async () => {
-      await ensureDuckdbMeta();
-
-      return args.graph;
-    })(),
-  });
-
-  const getState = async (): Promise<VacpStateSnapshot> => {
+  const getState = async (): Promise<Record<VacpRef, unknown>> => {
     const state: Record<VacpRef, unknown> = {};
 
     for (const input of inputs) {
@@ -287,8 +277,14 @@ export function createVgplotDashboardSnapshots(args: {
       });
     }
 
-    return { version: VACP_SCHEMA_VERSION, createdAt: nowIso(), state };
+    return state;
   };
 
-  return { getCapabilities, getState };
+  return {
+    project: async () => {
+      await ensureDuckdbMeta();
+      const { actions: _actions, ...graph } = args.graph;
+      return { graph, state: await getState() };
+    },
+  };
 }

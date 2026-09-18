@@ -23,14 +23,18 @@ const paramsSchema = z.object({ state: z.record(vacpRefSchema, z.unknown()) });
 export function registerVacpApplyStateAction<Result>(
   registry: VacpActionRegistrar,
   handler: VacpApplyStateHandler<Result>,
-  options?: { targetRef?: VacpRef; description?: string },
+  options?: { affects?: VacpRef[]; description?: string },
 ): VacpActionDescriptor {
   const descriptor: VacpActionDescriptor = {
     name: VACP_APPLY_STATE_ACTION,
     description:
       options?.description ??
       'Apply a desired VACP state map to the live app. The provider defines how refs are applied.',
-    targetRef: options?.targetRef,
+    operation: {
+      kind: 'mutation',
+      affects: options?.affects,
+      results: [{ role: 'state', description: 'Updated analytical state' }],
+    },
     parameters: {
       type: 'object',
       properties: {

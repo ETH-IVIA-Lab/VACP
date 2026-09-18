@@ -82,7 +82,7 @@ Calls are forwarded to the in-page VACP bridge at `window.__vacp`. The app owns
 the capability graph, state snapshots, and action semantics.
 
 Workflow:
-1) Read `vacp_capabilities()` to discover refs, actions, and parameters.
+1) Read `vacp_observe()` for coherent graph, state, and output freshness.
 2) Read `vacp_state()` for the current semantic state.
 3) Call `vacp_execute()` with one action from the capabilities snapshot.
 4) Read `vacp_state()` again to verify the state change.
@@ -95,6 +95,11 @@ Efficient defaults:
 5) If delta lineage is unclear, resync with one `mode:"full"` call.
 """.strip(),
     )
+
+    @mcp.tool(title='VACP Observation', annotations={'readOnlyHint': True})
+    async def vacp_observe() -> dict[str, object]:
+        """Read graph, state, source ownership, revision, and output freshness together."""
+        return await client.observe()
 
     @mcp.tool(
         title='VACP Capabilities Snapshot',

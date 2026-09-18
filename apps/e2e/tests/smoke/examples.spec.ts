@@ -418,11 +418,11 @@ async function expectVegaLiteIntervalSelectionWorks(
   expect(String(handleState?.selectionWhere ?? '')).toMatch(/date|monthdate|>=|<=|BETWEEN/i);
 }
 
-test('examples: enable-sql query controls raw SQL action registration', async ({ page }) => {
+test('examples: application context controls raw SQL action registration', async ({ page }) => {
   const srv = await startAppServer({ name: 'vgplot-gallery', cwd: exampleDir('vgplot-gallery') });
 
   try {
-    await page.goto(`${srv.url}?vacp-inspector=1&enable-sql=0#weather`, { waitUntil: 'domcontentloaded' });
+    await page.goto(`${srv.url}?context=guided#weather`, { waitUntil: 'domcontentloaded' });
     await expectBridge(page);
     await waitForCapabilityRefContains(page, '/vgplot/weather');
 
@@ -447,7 +447,7 @@ test('examples: enable-sql query controls raw SQL action registration', async ({
     expect(String(disabledSql.error?.message ?? '')).toContain('Unknown action');
     await expectDataSchemaWorks(page, disabledHandle.ref as string);
 
-    await page.goto(`${srv.url}?vacp-inspector=1&enable-sql=1#weather`, { waitUntil: 'domcontentloaded' });
+    await page.goto(`${srv.url}?context=full#weather`, { waitUntil: 'domcontentloaded' });
     await expectBridge(page);
     await waitForCapabilityRefContains(page, '/vgplot/weather');
 
@@ -478,7 +478,7 @@ test('examples: vgplot-gallery', async ({ page }) => {
   const srv = await startAppServer({ name: 'vgplot-gallery', cwd: exampleDir('vgplot-gallery') });
 
   try {
-    await page.goto(`${srv.url}?vacp-inspector=1`, { waitUntil: 'domcontentloaded' });
+    await page.goto(`${srv.url}`, { waitUntil: 'domcontentloaded' });
     await expectBridge(page);
     await expectDomSnapshotScript(page);
 
@@ -549,7 +549,7 @@ test('examples: vega-lite-gallery', async ({ page }) => {
   const srv = await startAppServer({ name: 'vega-lite-gallery', cwd: exampleDir('vega-lite-gallery') });
 
   try {
-    await page.goto(`${srv.url}?vacp-inspector=1`, { waitUntil: 'domcontentloaded' });
+    await page.goto(`${srv.url}`, { waitUntil: 'domcontentloaded' });
     await expectBridge(page);
 
     const specIds = await page.evaluate(() =>
@@ -617,7 +617,7 @@ test('examples: react-dashboard', async ({ page }) => {
   const srv = await startAppServer({ name: 'react-dashboard', cwd: exampleDir('react-dashboard') });
 
   try {
-    await page.goto(`${srv.url}?vacp-inspector=1`, { waitUntil: 'domcontentloaded' });
+    await page.goto(`${srv.url}`, { waitUntil: 'domcontentloaded' });
     await expectBridge(page);
 
     await executeVacp(page, { name: 'dashboard.set_dataset', params: { id: 'iris' } });

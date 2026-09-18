@@ -8,7 +8,7 @@ test('inspector: inspect mode keeps history length stable (Seattle Weather)', as
   const srv = await startAppServer({ name: 'vgplot-gallery', cwd: exampleDir('vgplot-gallery') });
 
   try {
-    await page.goto(`${srv.url}?vacp-inspector=1#weather`, { waitUntil: 'domcontentloaded' });
+    await page.goto(`${srv.url}#weather`, { waitUntil: 'domcontentloaded' });
     await waitForVacpBridge(page);
 
     const overlay = page.locator('#app svg').first().locator('rect.overlay').first();

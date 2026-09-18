@@ -22,7 +22,10 @@ test('inspector: chat tab keeps the conversation surface visible before provider
       localStorage.removeItem('vacp:inspector:size');
       localStorage.removeItem('vacp:inspector:dock');
     });
-    await page.goto(`${srv.url}?vacp-inspector=1&vacp-runtime-id=${RUNTIME_ID}#wnba-shots`, {
+    await page.addInitScript((runtimeId) => {
+      globalThis.__vacpExampleOptions = { runtimeId };
+    }, RUNTIME_ID);
+    await page.goto(`${srv.url}#wnba-shots`, {
       waitUntil: 'domcontentloaded',
     });
     await waitForVacpBridge(page, { requireRuntime: true });

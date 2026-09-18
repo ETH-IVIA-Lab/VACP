@@ -1,12 +1,14 @@
-import type {
-  VacpActionDescriptor,
-  VacpEdge,
-  VacpEdgeKind,
-  VacpGraph,
-  VacpNodeKind,
-  VacpNode,
-  VacpRef,
-  VacpRuntimeSnapshot,
+import {
+  operationRefs,
+  primaryOperationRef,
+  type VacpActionDescriptor,
+  type VacpEdge,
+  type VacpEdgeKind,
+  type VacpGraph,
+  type VacpNodeKind,
+  type VacpNode,
+  type VacpRef,
+  type VacpRuntimeSnapshot,
 } from '@vacp/protocol';
 import { MarkerType, Position } from '@xyflow/react';
 
@@ -107,7 +109,7 @@ function actionMatchesQuery(action: VacpActionDescriptor, query: string): boolea
     action.name.toLowerCase().includes(query) ||
     (action.title ?? '').toLowerCase().includes(query) ||
     (action.description ?? '').toLowerCase().includes(query) ||
-    (action.targetRef ?? '').toLowerCase().includes(query) ||
+    operationRefs(action).some((ref) => ref.toLowerCase().includes(query)) ||
     textMatches(action.parameters, query)
   );
 }
@@ -146,7 +148,7 @@ export function filterVacpGraph(
     const matches = new Set(graph.nodes.filter((node) => nodeMatchesQuery(node, query)).map((node) => node.ref));
 
     for (const action of graph.actions) {
-      if (action.targetRef && actionMatchesQuery(action, query)) matches.add(action.targetRef);
+      if (actionMatchesQuery(action, query)) operationRefs(action).forEach((ref) => matches.add(ref));
     }
 
     allowedRefs = neighborRefs(graph, matches);
@@ -156,7 +158,7 @@ export function filterVacpGraph(
     allowedRefs = neighborRefs(graph, new Set([focus.ref]));
   } else if (focus?.kind === 'action') {
     const action = graph.actions.find((candidate) => candidate.name === focus.name) ?? graph.actions[focus.index];
-    allowedRefs = action?.targetRef ? neighborRefs(graph, new Set([action.targetRef])) : new Set();
+    allowedRefs = action ? neighborRefs(graph, new Set(operationRefs(action))) : new Set();
   }
 
   const nodes = graph.nodes.filter((node) => allowedRefs.has(node.ref) && (!hasKindFilter || nodeKinds.has(node.kind)));
@@ -167,12 +169,12 @@ export function filterVacpGraph(
     if (focus?.kind === 'action')
       return action.name === focus.name || (action.name !== focus.name && index === focus.index);
 
-    if (query && !actionMatchesQuery(action, query) && (!action.targetRef || !visibleRefs.has(action.targetRef)))
-      return false;
+    const refs = operationRefs(action);
+    if (query && !actionMatchesQuery(action, query) && !refs.some((ref) => visibleRefs.has(ref))) return false;
 
-    if (focus?.kind === 'node' && action.targetRef !== focus.ref) return false;
+    if (focus?.kind === 'node' && !refs.includes(focus.ref)) return false;
 
-    return !action.targetRef || visibleRefs.has(action.targetRef);
+    return !refs.length || refs.some((ref) => visibleRefs.has(ref));
   });
 
   return { ...graph, nodes, edges, actions };
@@ -297,12 +299,13 @@ function graphEdge(edge: VacpEdge, index: number, direction: GraphDirection): Va
 }
 
 function actionEdge(action: VacpActionDescriptor, index: number, direction: GraphDirection): VacpFlowEdge | null {
-  if (!action.targetRef) return null;
+  const primaryRef = primaryOperationRef(action);
+  if (!primaryRef) return null;
 
   return {
-    id: `action-edge:${index}:${action.name}:${action.targetRef}`,
+    id: `action-edge:${index}:${action.name}:${primaryRef}`,
     source: actionId(index, action.name),
-    target: nodeId(action.targetRef),
+    target: nodeId(primaryRef),
     sourceHandle: direction === 'TB' ? 'source-left' : 'source-top',
     targetHandle: direction === 'TB' ? 'target-right' : 'target-bottom',
     type: 'smoothstep',
@@ -394,7 +397,8 @@ export function buildVacpFlowGraph(args: {
   if (includeActions) {
     let actionLaneIndex = 0;
     graph.actions.forEach((action, index) => {
-      if (action.targetRef && hiddenRefs.has(action.targetRef)) return;
+      const primaryRef = primaryOperationRef(action);
+      if (primaryRef && hiddenRefs.has(primaryRef)) return;
       const position = actionPosition(actionLaneIndex++, direction, bounds);
       const id = actionId(index, action.name);
       flowNodes.push({
@@ -446,13 +450,15 @@ export function buildInspectorValue(runtime: VacpRuntimeSnapshot, selected: Sele
 
   if (selected.kind === 'action') {
     const action = graph.actions.find((candidate) => candidate.name === selected.name) ?? graph.actions[selected.index];
+    const sourceId = action ? graph.ownership.actions[action.name] : undefined;
 
     return action
       ? {
           kind: 'action',
           name: action.name,
           description: action.description ?? null,
-          targetRef: action.targetRef ?? null,
+          operation: action.operation,
+          source: graph.sources.find((source) => source.id === sourceId) ?? null,
           parameters: action.parameters ?? {},
         }
       : { error: 'Unknown action', index: selected.index, name: selected.name };
@@ -462,7 +468,8 @@ export function buildInspectorValue(runtime: VacpRuntimeSnapshot, selected: Sele
 
   if (!node) return { error: 'Unknown node', ref: selected.ref };
   const stateValue = runtime.currentState.state[node.ref];
-  const targeting = graph.actions.filter((action) => action.targetRef === node.ref);
+  const sourceId = graph.ownership.nodes[node.ref];
+  const targeting = graph.actions.filter((action) => operationRefs(action).includes(node.ref));
   const connectedEdges = graph.edges.filter((edge) => edge.from === node.ref || edge.to === node.ref);
 
   return {
@@ -475,6 +482,8 @@ export function buildInspectorValue(runtime: VacpRuntimeSnapshot, selected: Sele
     description: node.description ?? null,
     data: node.data ?? null,
     state: stateValue ?? null,
+    freshness: runtime.currentObservation.freshness?.[node.ref] ?? null,
+    source: graph.sources.find((source) => source.id === sourceId) ?? null,
     actions: targeting.map((action) => action.name),
     edges: connectedEdges,
   };

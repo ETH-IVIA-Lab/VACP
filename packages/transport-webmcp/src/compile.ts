@@ -1,5 +1,5 @@
 import type { WebMCP } from 'webmcp-types';
-import type { VacpGraph, VacpActionDescriptor } from '@vacp/protocol';
+import { primaryOperationRef, type VacpGraph, type VacpActionDescriptor } from '@vacp/protocol';
 import type { VacpWebMcpClient, VacpWebMcpOptions } from './types';
 
 function copySchema(schema: Record<string, unknown>): Record<string, unknown> {
@@ -36,6 +36,17 @@ export function compileVacpWebMcpTools(
   const nodes = new Map(graph.nodes.map((node) => [node.ref, node]));
   const tools: WebMCP.ModelContextTool[] = [
     {
+      name: `${namespace}.observe`,
+      description: 'Read one coherent VACP observation: sources, ownership, graph, state, summaries, and freshness.',
+      annotations: { readOnlyHint: true },
+      execute: async (_input, { signal }) => {
+        signal.throwIfAborted();
+        const result = await client.observe();
+        signal.throwIfAborted();
+        return result;
+      },
+    },
+    {
       name: `${namespace}.capabilities`,
       description:
         'Read the live VACP graph: entities, stable references, relationships, and available semantic actions.',
@@ -63,11 +74,12 @@ export function compileVacpWebMcpTools(
   for (const action of graph.actions) {
     if (options.includeAction && !options.includeAction(action, graph)) continue;
     const name = options.actionName?.(action) ?? `${namespace}.action.${action.name}`;
-    const target = action.targetRef ? nodes.get(action.targetRef) : undefined;
+    const primaryRef = primaryOperationRef(action);
+    const target = primaryRef ? nodes.get(primaryRef) : undefined;
     const context = target
       ? `\nTarget: ${target.title ?? target.ref} (${target.kind}, ${target.layer}). VACP ref: ${target.ref}.`
-      : action.targetRef
-        ? `\nVACP target: ${action.targetRef}.`
+      : primaryRef
+        ? `\nVACP target: ${primaryRef}.`
         : '';
     const input = actionInput(action, name, options.inputMode?.(action));
     tools.push({

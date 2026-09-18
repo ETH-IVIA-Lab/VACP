@@ -58,81 +58,29 @@ test('createVacpTransport forwards capabilities + state', async () => {
   assert.deepEqual(gotStateOptions, stateOptions);
 });
 
-test('createVacpTransport execute uses dispatch and preserves MCP-style envelope', async () => {
-  const events: Array<{ type: string; payload?: unknown }> = [];
-
-  const bridge = {
-    getCapabilities: async () => ({ createdAt: '', version: '1.0.0', graph: { nodes: [], edges: [], actions: [] } }),
-    getState: async () => ({ createdAt: '', version: '1.0.0', state: {} }),
-    getRuntime: async () => ({ mode: 'inspect' }),
-    setMode: (mode: string, context: unknown) => {
-      events.push({ type: 'setMode', payload: { mode, context } });
-    },
-    dispatch: async (call: unknown, meta: unknown) => {
-      events.push({ type: 'dispatch', payload: { call, meta } });
-
-      return { callId: 'call-42', ok: true, result: { accepted: true } };
-    },
-    execute: async () => ({ callId: 'call-should-not-run', ok: true }),
-  };
-
-  const transport = createVacpTransport(bridge);
-  const result = await transport.vacp_execute('vacp.some_action', { x: 1 }, 'call-42');
-
-  assert.deepEqual(result, { callId: 'call-42', ok: true, result: { accepted: true } });
-  assert.equal(events.length, 1);
-  assert.equal(events[0]?.type, 'dispatch');
-  assert.deepEqual((events[0]?.payload as any)?.call, {
-    callId: 'call-42',
-    name: 'vacp.some_action',
-    params: { x: 1 },
-  });
-});
-
-test('createVacpTransport retries empty capabilities/state after refresh', async () => {
-  let capabilityCalls = 0;
-  let stateCalls = 0;
-  let refreshCalls = 0;
-
-  const bridge = {
+test('transport preserves authoritative empty reads and forwards semantic execution', async () => {
+  let reads = 0;
+  const transport = createVacpTransport({
+    observe: async () => ({ revision: 'empty', graph: { nodes: [], edges: [], actions: [] }, state: {} }),
     getCapabilities: async () => {
-      capabilityCalls += 1;
-
-      if (capabilityCalls === 1) {
-        return { createdAt: '', version: '1.0.0', graph: { nodes: [], edges: [], actions: [] } };
-      }
-
-      return {
-        createdAt: '',
-        version: '1.0.0',
-        graph: { nodes: [{ ref: 'vacp://view' }], edges: [], actions: [{ name: 'x', description: 'x' }] },
-      };
+      reads++;
+      return { graph: { nodes: [], edges: [], actions: [] } };
     },
     getState: async () => {
-      stateCalls += 1;
-
-      if (stateCalls === 1) {
-        return { createdAt: '', version: '1.0.0', state: {} };
-      }
-
-      return { createdAt: '', version: '1.0.0', state: { 'vacp://view': { ready: true } } };
+      reads++;
+      return { state: {} };
     },
-    refresh: async () => {
-      refreshCalls += 1;
-
-      return { createdAt: '', version: '1.0.0', state: { 'vacp://view': { ready: true } } };
-    },
-    execute: async () => ({ callId: 'unused', ok: true }),
-  };
-
-  const transport = createVacpTransport(bridge);
-  const caps = await transport.vacp_capabilities();
-  const state = await transport.vacp_state();
-
-  assert.equal(refreshCalls >= 2, true);
-  assert.equal(caps.graph.nodes.length, 1);
-  assert.equal(caps.graph.actions.length, 1);
-  assert.deepEqual(state.state, { 'vacp://view': { ready: true } });
+    execute: async (call) => ({ callId: call.callId, ok: true, result: call.params }),
+  });
+  assert.equal((await transport.vacp_observe()).revision, 'empty');
+  assert.deepEqual((await transport.vacp_capabilities()).graph.nodes, []);
+  assert.deepEqual((await transport.vacp_state()).state, {});
+  assert.equal(reads, 2);
+  assert.deepEqual(await transport.vacp_execute('set', { value: 2 }, 'test'), {
+    callId: 'test',
+    ok: true,
+    result: { value: 2 },
+  });
 });
 
 test('createVacpTools exposes MCP-compatible names and forwards inputs', async () => {
@@ -157,7 +105,7 @@ test('createVacpTools exposes MCP-compatible names and forwards inputs', async (
   };
 
   const tools = createVacpTools({ transport: transport });
-  assert.deepEqual(Object.keys(tools).sort(), ['vacp_capabilities', 'vacp_execute', 'vacp_state']);
+  assert.deepEqual(Object.keys(tools).sort(), ['vacp_capabilities', 'vacp_execute', 'vacp_observe', 'vacp_state']);
 
   const caps = await tools.vacp_capabilities.execute({ prefixes: ['vacp://chart'] });
   assert.deepEqual(caps, { ok: true });

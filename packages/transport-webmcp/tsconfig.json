@@ -1,6 +1,14 @@
 {
   "extends": "../../tsconfig.base.json",
-  "compilerOptions": { "rootDir": "src", "outDir": "dist", "composite": true },
-  "references": [{ "path": "../protocol" }, { "path": "../runtime" }],
+  "compilerOptions": {
+    "rootDir": "src",
+    "outDir": "dist",
+    "composite": true
+  },
+  "references": [
+    {
+      "path": "../protocol"
+    }
+  ],
   "include": ["src/**/*.ts"]
 }

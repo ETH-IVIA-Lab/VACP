@@ -80,17 +80,15 @@ def test_compose_url_appends_use_case_route_to_base_url() -> None:
 
 def test_compose_url_preserves_base_query_flags() -> None:
     assert (
-        compose_url('http://localhost:5173/?vacp-inspector=0&expose-bridge=1', '/vega-lite/#airports')
-        == 'http://localhost:5173/vega-lite/?vacp-inspector=0&expose-bridge=1#airports'
+        compose_url('http://localhost:5173/?context=semantic', '/vega-lite/#airports')
+        == 'http://localhost:5173/vega-lite/?context=semantic#airports'
     )
 
 
 def test_compose_url_accepts_already_composed_scenario_url() -> None:
     assert (
-        compose_url(
-            'http://localhost:5173/vega-lite/?vacp-inspector=0&expose-bridge=1#airports', '/vega-lite/#airports'
-        )
-        == 'http://localhost:5173/vega-lite/?vacp-inspector=0&expose-bridge=1#airports'
+        compose_url('http://localhost:5173/vega-lite/?context=semantic#airports', '/vega-lite/#airports')
+        == 'http://localhost:5173/vega-lite/?context=semantic#airports'
     )
 
 

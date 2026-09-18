@@ -35,7 +35,7 @@ test('inspector: Actions seeds interval params and blocks missing required param
   });
 
   try {
-    await page.goto(`${srv.url}?vacp-inspector=1#line-density`, { waitUntil: 'domcontentloaded' });
+    await page.goto(`${srv.url}#line-density`, { waitUntil: 'domcontentloaded' });
     await waitForVacpBridge(page, { requireRuntime: true });
     await openActionsTab(page);
 
@@ -88,7 +88,7 @@ test('inspector: Actions seeds and runs PanZoom params from current domains', as
   });
 
   try {
-    await page.goto(`${srv.url}?vacp-inspector=1#pan-zoom`, { waitUntil: 'domcontentloaded' });
+    await page.goto(`${srv.url}#pan-zoom`, { waitUntil: 'domcontentloaded' });
     await waitForVacpBridge(page, { requireRuntime: true });
     await openActionsTab(page);
 

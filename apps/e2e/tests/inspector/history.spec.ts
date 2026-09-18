@@ -17,7 +17,7 @@ test('inspector: history undo/redo updates time travel cursor', async ({ page })
   });
 
   try {
-    await page.goto(`${srv.url}?vacp-inspector=1`, { waitUntil: 'domcontentloaded' });
+    await page.goto(`${srv.url}`, { waitUntil: 'domcontentloaded' });
     await waitForVacpBridge(page);
 
     const pill = page.locator('button.vacp-inspector-button');

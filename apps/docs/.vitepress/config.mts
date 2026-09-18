@@ -12,7 +12,7 @@ export default defineConfig({
     publicDir: fileURLToPath(new URL('../public', import.meta.url)),
     server: { host: '127.0.0.1', port: process.env.PORT ? Number(process.env.PORT) : undefined, strictPort: true },
   },
-  description: 'A small in-app protocol for capabilities, state snapshots, and semantic actions.',
+  description: 'A composable protocol for analytical sources, observations, and semantic operations.',
   cleanUrls: true,
   markdown: {
     config: (md) => {
@@ -43,6 +43,7 @@ export default defineConfig({
         text: 'Providers',
         items: [
           { text: 'Choose a provider', link: '/providers/' },
+          { text: 'Compose providers', link: '/providers/composition' },
           { text: 'Vega-Lite', link: '/providers/vega-lite' },
           { text: 'VGPlot', link: '/providers/vgplot' },
         ],

@@ -6,7 +6,7 @@ test('Inspector installation can be disposed and mounted again', async ({ page }
   const server = await startAppServer({ name: 'inspector-lifecycle', cwd: exampleDir('cars-parallel-coords') });
 
   try {
-    await page.goto(`${server.url}?vacp-inspector=0`);
+    await page.goto(`${server.url}?context=semantic`);
     await page.waitForFunction(() => Boolean(window.__vacp));
     const entry = `/@fs${repoRoot}/packages/inspector/src/index.ts`;
     await page.evaluate(async (url) => {
@@ -17,13 +17,13 @@ test('Inspector installation can be disposed and mounted again', async ({ page }
         send: XMLHttpRequest.prototype.send,
         error: console.error,
       };
-      installVacpInspector({ enabled: true });
+      installVacpInspector();
     }, entry);
     await expect(page.locator('#vacp-inspector-react-root')).toBeAttached();
     await page.waitForFunction(() => window.fetch !== window.__vacpHostHooks?.fetch);
     await page.evaluate(async (url) => {
       const { installVacpInspector } = await import(url);
-      const handle = installVacpInspector({ enabled: true });
+      const handle = installVacpInspector();
       handle.dispose();
       handle.dispose();
     }, entry);
@@ -41,7 +41,7 @@ test('Inspector installation can be disposed and mounted again', async ({ page }
     ).toEqual({ fetch: true, open: true, send: true, error: true });
     await page.evaluate(async (url) => {
       const { installVacpInspector } = await import(url);
-      installVacpInspector({ enabled: true });
+      installVacpInspector();
     }, entry);
     await expect(page.locator('#vacp-inspector-react-root')).toBeAttached();
     await expect(page.locator('button.vacp-inspector-button')).toBeVisible();

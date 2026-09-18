@@ -2,7 +2,6 @@ import { createRoot } from 'react-dom/client';
 import { createElement } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
-import { shouldEnable } from '@vacp/inspector/enabled';
 import type { VacpInspectorOptions } from '@vacp/inspector/types';
 import { VacpInspectorApp } from '@vacp/inspector/overlay/inspector-app';
 
@@ -14,11 +13,7 @@ export interface VacpInspectorInstallation {
 
 let installation: VacpInspectorInstallation | undefined;
 
-export function installVacpInspector(options?: VacpInspectorOptions): VacpInspectorInstallation | undefined {
-  const enabled = options?.enabled ?? 'auto';
-
-  if (!shouldEnable(enabled)) return;
-
+export function installVacpInspector(options?: VacpInspectorOptions): VacpInspectorInstallation {
   if (installation) return installation;
 
   const globalKey = options?.globalKey ?? '__vacp';

@@ -1,4 +1,4 @@
-import type { VacpActionDescriptor, VacpEdge, VacpGraph, VacpNode, VacpRef } from '@vacp/protocol';
+import type { VacpActionDescriptor, VacpEdge, VacpGraphFragment, VacpNode, VacpRef } from '@vacp/protocol';
 import { VACP_SCHEMA_VERSION } from '@vacp/protocol';
 
 import type { CollectedInput } from './inputs';
@@ -99,7 +99,7 @@ export function buildDashboardGraph(args: {
   options: InstallVacpOnVgplotDashboardOptions;
   actions: VacpActionDescriptor[];
   dataHandles?: Array<{ ref: VacpRef; surfaceKind: 'plot' | 'table'; surfaceId: string; table?: string }>;
-}): VacpGraph {
+}): VacpGraphFragment {
   const viewRef = makeViewRef({ appId: args.options.appId, viewId: args.options.viewId, suffix: '' });
 
   const nodes: VacpNode[] = [

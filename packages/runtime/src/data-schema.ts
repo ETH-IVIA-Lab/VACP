@@ -27,14 +27,19 @@ const paramsSchema = z.object({
 export function registerVacpDataSchemaAction(
   registry: VacpActionRegistrar,
   handler: VacpDataSchemaHandler,
-  options?: { targetRef?: VacpRef; description?: string },
+  options?: { inputRefs?: VacpRef[]; description?: string },
 ): VacpActionDescriptor {
   const descriptor: VacpActionDescriptor = {
     name: VACP_DATA_SCHEMA_ACTION,
     description:
       options?.description ??
       'Return a DataHandle schema summary (columns/types, row count, and optional bounded summaries). Use this before writing `vacp.data_sql` queries to avoid column-name/type guesswork.',
-    targetRef: options?.targetRef,
+    operation: {
+      kind: 'query',
+      inputRefs: options?.inputRefs,
+      refParameters: [{ parameter: 'handleRef', role: 'input' }],
+      results: [{ role: 'data', description: 'Schema and bounded data summaries' }],
+    },
     parameters: {
       type: 'object',
       properties: {

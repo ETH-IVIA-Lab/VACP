@@ -199,7 +199,7 @@ test('graph filter keeps search matches with graph context', () => {
       {
         name: 'vacp.data_schema',
         description: 'Describe body_mass data.',
-        targetRef: field,
+        operation: { kind: 'query', inputRefs: [field] },
       },
     ],
   };
@@ -236,19 +236,36 @@ test('graph action selection resolves the original action after filtering', () =
   const other = ref('vacp://example/other');
 
   const graph: VacpGraph = {
+    sources: [{ id: 'vacp-source://graph-test', type: 'test', title: 'Graph test' }],
+    ownership: {
+      nodes: { [plot]: 'vacp-source://graph-test', [other]: 'vacp-source://graph-test' },
+      actions: { 'example.first': 'vacp-source://graph-test', 'example.second': 'vacp-source://graph-test' },
+    },
     nodes: [
       { ref: plot, kind: 'Visualization', layer: 'VisualizationLayer', title: 'Plot' },
       { ref: other, kind: 'Visualization', layer: 'VisualizationLayer', title: 'Other' },
     ],
     edges: [],
     actions: [
-      { name: 'example.first', description: 'First action.', targetRef: other },
-      { name: 'example.second', description: 'Second action.', targetRef: plot, parameters: { default: { ok: true } } },
+      { name: 'example.first', description: 'First action.', operation: { kind: 'mutation', affects: [other] } },
+      {
+        name: 'example.second',
+        description: 'Second action.',
+        operation: { kind: 'mutation', affects: [plot] },
+        parameters: { default: { ok: true } },
+      },
     ],
   };
 
   const filtered = filterVacpGraph(graph, { query: 'second' });
   const selected = filtered.actions.map((action, index) => ({ kind: 'action' as const, index, name: action.name }))[0]!;
+  const observation = {
+    version: '0.1.0' as const,
+    revision: 'test',
+    observedAt: '2026-01-01T00:00:00.000Z',
+    graph,
+    state: {},
+  };
 
   const inspector = buildInspectorValue(
     {
@@ -257,6 +274,8 @@ test('graph action selection resolves the original action after filtering', () =
       mode: 'live',
       cursor: -1,
       history: [],
+      liveObservation: observation,
+      currentObservation: observation,
       liveCapabilities: { version: '0.1.0', createdAt: '2026-01-01T00:00:00.000Z', graph },
       liveState: { version: '0.1.0', createdAt: '2026-01-01T00:00:00.000Z', state: {} },
       currentCapabilities: { version: '0.1.0', createdAt: '2026-01-01T00:00:00.000Z', graph },

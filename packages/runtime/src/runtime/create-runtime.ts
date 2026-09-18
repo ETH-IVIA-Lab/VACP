@@ -8,6 +8,8 @@ import type {
   VacpCapabilitiesSnapshot,
   VacpChangeSource,
   VacpHistoryEntry,
+  VacpObservation,
+  VacpProvider,
   VacpRuntimeMode,
   VacpRuntimeSnapshot,
   VacpStateRequest,
@@ -15,9 +17,9 @@ import type {
   VacpStateUpdate,
 } from '@vacp/protocol';
 import { stableStringify, nowIso, VACP_APPLY_STATE_ACTION, VACP_SCHEMA_VERSION } from '@vacp/protocol';
-import type { VacpActionExecutor } from '../action-registry';
+import { composeVacpProviders } from '../composition';
 import { createRuntimeObserver } from './observer';
-import type { VacpSnapshotProvider, VacpRuntime, VacpLiveSnapshots } from './types';
+import type { VacpRuntime, VacpLiveSnapshots } from './types';
 import { scopeCapabilitiesSnapshot } from './capabilities-scope';
 import { buildStateUpdate } from './state-update';
 import {
@@ -46,21 +48,35 @@ const STATE_UPDATE_CACHE_LIMIT = 64;
  * The live app remains the source of truth; overrides never mutate the app unless an action is executed.
  */
 export function createVacpRuntime(args: {
-  snapshots: VacpSnapshotProvider;
-  actions: VacpActionExecutor;
+  providers: readonly VacpProvider[];
   sessionKey?: string;
   runtimeId?: string;
 }): VacpRuntime {
-  type Adapter = { snapshots: VacpSnapshotProvider; actions: VacpActionExecutor };
+  type AdapterUpdate = { providers: readonly VacpProvider[]; sessionKey?: string };
 
-  type AdapterUpdate = Adapter & { sessionKey?: string };
-
-  const adapter: Adapter = { snapshots: args.snapshots, actions: args.actions };
+  const providers = new Map<string, VacpProvider>();
+  for (const provider of args.providers) {
+    if (providers.has(provider.source.id)) throw new Error(`Duplicate VACP source: ${provider.source.id}`);
+    providers.set(provider.source.id, provider);
+  }
+  let adapter = composeVacpProviders([...providers.values()]);
   let sessionKey = args.sessionKey?.length ? args.sessionKey : null;
 
   const listeners = new Set<(entry: VacpHistoryEntry) => void>();
   const lifetime = new AbortController();
-  let providerLifetime = new AbortController();
+  const providerLifetimes = new Map<string, AbortController>();
+  const providerSignal = (id: string): AbortSignal => {
+    let controller = providerLifetimes.get(id);
+    if (!controller) {
+      controller = new AbortController();
+      providerLifetimes.set(id, controller);
+    }
+    return controller.signal;
+  };
+  const releaseProvider = (id: string): void => {
+    providerLifetimes.get(id)?.abort();
+    providerLifetimes.delete(id);
+  };
   const capabilityListeners = new Set<(snapshot: VacpCapabilitiesSnapshot) => void>();
   const snapshotListeners = new Set<(snapshots: VacpLiveSnapshots) => void>();
   const hasSubscribers = () => listeners.size > 0 || capabilityListeners.size > 0 || snapshotListeners.size > 0;
@@ -75,6 +91,7 @@ export function createVacpRuntime(args: {
 
   let liveCapabilities: VacpCapabilitiesSnapshot | null = null;
   let liveState: VacpStateSnapshot | null = null;
+  let liveObservation: VacpObservation | null = null;
   let lastLiveState: VacpStateSnapshot | null = null;
   const stateUpdateCache = new Map<string, VacpStateSnapshot>();
 
@@ -132,6 +149,9 @@ export function createVacpRuntime(args: {
   };
 
   const record = (entry: VacpHistoryEntry): void => {
+    if (liveObservation && (entry.kind === 'snapshot' || entry.kind === 'action')) {
+      entry.observation = liveObservation;
+    }
     history.push(entry);
     notify(listeners, entry);
 
@@ -141,13 +161,33 @@ export function createVacpRuntime(args: {
   const ensureLive = async (): Promise<VacpLiveSnapshots> => {
     lifetime.signal.throwIfAborted();
     const revision = providerRevision;
-    const [cap, st] = await Promise.all([adapter.snapshots.getCapabilities(), adapter.snapshots.getState()]);
+    const beganLive = mode === 'live' && suppressObserverRecording === 0;
+    let observation: VacpObservation;
+    try {
+      observation = await adapter.observe();
+    } catch (error) {
+      lifetime.signal.throwIfAborted();
+      if (revision !== providerRevision) return ensureLive();
+      throw error;
+    }
     lifetime.signal.throwIfAborted();
     if (revision !== providerRevision) return ensureLive();
+    const cap: VacpCapabilitiesSnapshot = {
+      version: observation.version,
+      createdAt: observation.observedAt,
+      graph: observation.graph,
+    };
+    const st: VacpStateSnapshot = {
+      version: observation.version,
+      createdAt: observation.observedAt,
+      state: observation.state,
+      summary: observation.summary,
+    };
+    liveObservation = observation;
     liveCapabilities = cap;
     liveState = st;
 
-    if (mode === 'live' && suppressObserverRecording === 0) lastLiveState = st;
+    if (beganLive && mode === 'live' && suppressObserverRecording === 0) lastLiveState = st;
 
     if (capabilityListeners.size > 0 || snapshotListeners.size > 0) {
       const nextKey = stableStringify(cap.graph);
@@ -155,26 +195,43 @@ export function createVacpRuntime(args: {
       capabilitiesKey = nextKey;
       if (graphChanged) notify(capabilityListeners, cap);
       if (snapshotListeners.size > 0) {
-        const stateKey = stableStringify({ state: st.state, summary: st.summary });
+        const stateKey = observation.revision;
         if (graphChanged || stateKey !== snapshotKey) {
           snapshotKey = stateKey;
-          notify(snapshotListeners, { capabilities: cap, state: st });
+          notify(snapshotListeners, { observation, capabilities: cap, state: st });
         }
       }
     }
-    return { capabilities: cap, state: st };
+    return { observation, capabilities: cap, state: st };
   };
+
+  const followProviderInvalidations = () =>
+    adapter.subscribe(() => {
+      if (hasSubscribers()) void ensureLive().catch(() => {});
+    });
+  let detachProviderInvalidations = followProviderInvalidations();
 
   const currentCapabilities = (): VacpCapabilitiesSnapshot => {
     if (!liveCapabilities) {
       return {
         version: VACP_SCHEMA_VERSION,
         createdAt: nowIso(),
-        graph: { version: VACP_SCHEMA_VERSION, nodes: [], edges: [], actions: adapter.actions.list() },
+        graph: {
+          version: VACP_SCHEMA_VERSION,
+          sources: [],
+          ownership: { nodes: {}, actions: {} },
+          nodes: [],
+          edges: [],
+          actions: [],
+        },
       };
     }
 
-    if (mode === 'inspect' && graphOverride) return graphOverride;
+    if (mode === 'inspect') {
+      if (graphOverride) return graphOverride;
+      const selected = history[cursor]?.observation;
+      if (selected) return { version: selected.version, createdAt: selected.observedAt, graph: selected.graph };
+    }
 
     return liveCapabilities;
   };
@@ -191,7 +248,24 @@ export function createVacpRuntime(args: {
     return entry ? (stateFromEntry(entry) ?? liveState) : liveState;
   };
 
-  const canApplyState = (): boolean => adapter.actions.list().some((x) => x.name === VACP_APPLY_STATE_ACTION);
+  const currentObservation = (): VacpObservation => {
+    const selected = mode === 'inspect' ? history[cursor]?.observation : undefined;
+    const base = selected ?? liveObservation;
+    const capabilities = currentCapabilities();
+    const state = currentState();
+    if (base && !graphOverride && !stateOverride) return base;
+    return {
+      version: VACP_SCHEMA_VERSION,
+      revision: `inspection_${makeEntryId()}`,
+      observedAt: nowIso(),
+      graph: capabilities.graph,
+      state: state.state,
+      summary: state.summary,
+    };
+  };
+
+  const canApplyState = (): boolean =>
+    Boolean(liveCapabilities?.graph.actions.some((action) => action.name === VACP_APPLY_STATE_ACTION));
 
   const applyStateToApp = async (st: VacpStateSnapshot): Promise<void> => {
     if (!canApplyState()) return;
@@ -204,7 +278,9 @@ export function createVacpRuntime(args: {
         params: { state: st.state },
       };
 
-      await adapter.actions.execute(call, { signal: AbortSignal.any([lifetime.signal, providerLifetime.signal]) });
+      const owner = liveObservation?.graph.ownership.actions[call.name];
+      const signals = owner ? [lifetime.signal, providerSignal(owner)] : [lifetime.signal];
+      await adapter.execute(call, { signal: AbortSignal.any(signals) });
       await ensureLive();
     } finally {
       suppressObserverRecording = Math.max(0, suppressObserverRecording - 1);
@@ -214,7 +290,7 @@ export function createVacpRuntime(args: {
   const replayCursorToApp = async (targetCursor: number): Promise<void> => {
     if (mode !== 'inspect') return;
 
-    if (!adapter.actions.list().some((x) => x.name === VACP_APPLY_STATE_ACTION)) return;
+    if (!canApplyState()) return;
     const idx = targetCursor >= 0 ? targetCursor : history.length - 1;
     const entry = idx >= 0 ? history[idx] : undefined;
     const st = entry ? stateFromEntry(entry) : undefined;
@@ -235,7 +311,7 @@ export function createVacpRuntime(args: {
   };
 
   const { recordIfStateChanged, startObserving, stopObserving } = createRuntimeObserver({
-    getLive: () => ({ capabilities: liveCapabilities, state: liveState }),
+    getLive: () => liveObservation,
     ensureLive,
     record,
     shouldRecord: () => mode === 'live' && suppressObserverRecording === 0,
@@ -350,7 +426,14 @@ export function createVacpRuntime(args: {
     const base = liveCapabilities ?? {
       version: VACP_SCHEMA_VERSION,
       createdAt: nowIso(),
-      graph: { version: VACP_SCHEMA_VERSION, nodes: [], edges: [], actions: [] },
+      graph: {
+        version: VACP_SCHEMA_VERSION,
+        sources: [],
+        ownership: { nodes: {}, actions: {} },
+        nodes: [],
+        edges: [],
+        actions: [],
+      },
     };
 
     graphOverride = { ...base, createdAt: nowIso(), graph: next };
@@ -378,8 +461,13 @@ export function createVacpRuntime(args: {
     call: VacpActionCall,
     options?: VacpActionExecutionOptions & { source?: VacpChangeSource; message?: string },
   ): Promise<VacpActionResult> => {
-    const executionRevision = providerRevision;
-    const signals = [lifetime.signal, providerLifetime.signal];
+    const requestedProviders = new Map(providers);
+    const { observation: initial } = await ensureLive();
+    const owner = initial.graph.ownership.actions[call.name];
+    const provider = owner ? providers.get(owner) : undefined;
+    if (!provider) return { callId: call.callId, ok: false, error: { message: `Unknown action: ${call.name}` } };
+    if (requestedProviders.get(owner) !== provider) throw new DOMException('Provider replaced', 'AbortError');
+    const signals = [lifetime.signal, providerSignal(owner)];
     if (options?.signal) signals.push(options.signal);
     const signal = AbortSignal.any(signals);
     signal.throwIfAborted();
@@ -389,10 +477,10 @@ export function createVacpRuntime(args: {
     if (liveReplayPromise) await liveReplayPromise;
     const { state: before } = await ensureLive();
     signal.throwIfAborted();
-    const result = await adapter.actions.execute(call, { signal });
-    if (executionRevision !== providerRevision) signal.throwIfAborted();
+    const result = await provider.execute(call, { signal });
+    signal.throwIfAborted();
     const { state: after } = await ensureLive();
-    if (executionRevision !== providerRevision) signal.throwIfAborted();
+    signal.throwIfAborted();
     record({
       id: makeEntryId(),
       at: nowIso(),
@@ -411,16 +499,25 @@ export function createVacpRuntime(args: {
 
   const updateAdapters = (next: AdapterUpdate, options?: { source?: VacpChangeSource; message?: string }): void => {
     lifetime.signal.throwIfAborted();
+    const nextSources = new Set(next.providers.map((provider) => provider.source.id));
+    if (nextSources.size !== next.providers.length) throw new Error('Duplicate VACP source in runtime update');
     providerRevision += 1;
-    providerLifetime.abort();
-    providerLifetime = new AbortController();
+
     replayRequestId += 1;
     const nextSessionKey = next.sessionKey?.length ? next.sessionKey : null;
     const prevSessionKey = sessionKey;
     const sessionChanged = Boolean(nextSessionKey && nextSessionKey !== prevSessionKey);
 
-    adapter.snapshots = next.snapshots;
-    adapter.actions = next.actions;
+    detachProviderInvalidations();
+    for (const id of providers.keys()) releaseProvider(id);
+    adapter.dispose({ providers: false });
+    for (const previous of providers.values()) {
+      if (!next.providers.includes(previous)) previous.dispose?.();
+    }
+    providers.clear();
+    for (const provider of next.providers) providers.set(provider.source.id, provider);
+    adapter = composeVacpProviders([...providers.values()]);
+    detachProviderInvalidations = followProviderInvalidations();
     sessionKey = nextSessionKey ?? sessionKey;
 
     graphOverride = null;
@@ -436,6 +533,7 @@ export function createVacpRuntime(args: {
       cursor = -1;
       liveCapabilities = null;
       liveState = null;
+      liveObservation = null;
       lastLiveState = null;
       stateUpdateCache.clear();
 
@@ -459,6 +557,34 @@ export function createVacpRuntime(args: {
         message: entryMessage(options?.message) ?? (sessionChanged ? 'session started' : 'bridge updated'),
       })
       .catch(() => {});
+  };
+
+  const rebuildComposition = (): void => {
+    providerRevision += 1;
+
+    detachProviderInvalidations();
+    adapter.dispose({ providers: false });
+    adapter = composeVacpProviders([...providers.values()]);
+    detachProviderInvalidations = followProviderInvalidations();
+    void ensureLive().catch(() => {});
+  };
+
+  const attachProvider = (provider: VacpProvider): (() => void) => {
+    lifetime.signal.throwIfAborted();
+    const sourceId = provider.source.id;
+    const previous = providers.get(sourceId);
+    if (previous === provider) return () => {};
+    releaseProvider(sourceId);
+    previous?.dispose?.();
+    providers.set(sourceId, provider);
+    rebuildComposition();
+    return () => {
+      if (providers.get(sourceId) !== provider) return;
+      releaseProvider(sourceId);
+      providers.delete(sourceId);
+      provider.dispose?.();
+      rebuildComposition();
+    };
   };
 
   async function getState(): Promise<VacpStateSnapshot>;
@@ -490,16 +616,32 @@ export function createVacpRuntime(args: {
     get sessionKey() {
       return sessionKey ?? undefined;
     },
+    get providerIds() {
+      return [...providers.keys()];
+    },
+    attachProvider,
+    removeProvider: (sourceId) => {
+      const provider = providers.get(sourceId);
+      if (!provider) return;
+      releaseProvider(sourceId);
+      providers.delete(sourceId);
+      provider.dispose?.();
+      rebuildComposition();
+    },
     update: (next) => updateAdapters(next, { source: 'system' }),
     dispose: () => {
       if (lifetime.signal.aborted) return;
       lifetime.abort();
+      detachProviderInvalidations();
+      adapter.dispose();
       capabilityListeners.clear();
       snapshotListeners.clear();
       stopObserving();
       listeners.clear();
       replayRequestId += 1;
     },
+
+    observe: async () => (await ensureLive()).observation,
 
     getCapabilities: async (request?: VacpCapabilitiesRequest) => {
       const { capabilities } = await ensureLive();
@@ -516,7 +658,7 @@ export function createVacpRuntime(args: {
     },
 
     getRuntime: async (): Promise<VacpRuntimeSnapshot> => {
-      const { capabilities: liveCap, state: liveSt } = await ensureLive();
+      const { observation, capabilities: liveCap, state: liveSt } = await ensureLive();
       recordIfStateChanged('system', 'observed state');
 
       return {
@@ -526,6 +668,8 @@ export function createVacpRuntime(args: {
         mode,
         cursor,
         history: [...history],
+        liveObservation: observation,
+        currentObservation: currentObservation(),
         liveCapabilities: liveCap,
         liveState: liveSt,
         currentCapabilities: currentCapabilities(),

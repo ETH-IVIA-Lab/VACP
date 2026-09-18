@@ -8,6 +8,10 @@ export * from './data-sql';
 
 export * from './widget-options';
 
-export type { VacpLiveSnapshots, VacpSnapshotProvider, VacpRuntimeUpdate, VacpRuntime } from './runtime/types';
+export type { VacpLiveSnapshots, VacpRuntimeUpdate, VacpRuntime } from './runtime/types';
 
 export * from './runtime/create-runtime';
+
+export * from './composition';
+
+export * from './create-provider';

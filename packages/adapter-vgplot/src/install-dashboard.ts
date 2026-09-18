@@ -1,4 +1,3 @@
-import { getVacpBrowserOptions } from '@vacp/runtime-browser';
 import type { VacpChangeSource, VacpRef, VacpRuntimeBridge } from '@vacp/protocol';
 import { createDuckDbDataSqlHandler, getDuckDbTableMetadata } from '@vacp/data-duckdb';
 import {
@@ -6,6 +5,7 @@ import {
   registerVacpDataSchemaAction,
   registerVacpDataSqlAction,
   registerVacpWidgetOptionsAction,
+  createVacpProvider,
   VacpActionRegistry,
 } from '@vacp/runtime';
 import { installVacpRuntime } from '@vacp/runtime-browser';
@@ -171,7 +171,7 @@ export function installVacpOnVgplotDashboard(args: {
           options: slice.map((o) => ({ value: safe(o.value), label: o.label })),
         };
       },
-      { targetRef: viewRef },
+      { inputRefs: [viewRef] },
     );
 
     actionDescriptors.push(widgetOptionsDesc);
@@ -181,7 +181,7 @@ export function installVacpOnVgplotDashboard(args: {
     actionRegistry,
     makeApplyStateHandler({ inputByRef, plotsById, tablesById }),
     {
-      targetRef: viewRef,
+      affects: [viewRef],
       description: 'Apply a state map to VGPlot plots, tables, and inputs.',
     },
   );
@@ -266,8 +266,8 @@ export function installVacpOnVgplotDashboard(args: {
         },
       }),
       {
-        enabled: getVacpBrowserOptions().enableSql,
-        targetRef: viewRef,
+        enabled: options.enableSql ?? true,
+        inputRefs: [viewRef],
         description: 'Query the current VGPlot selection using DuckDB SQL.',
       },
     );
@@ -314,7 +314,7 @@ export function installVacpOnVgplotDashboard(args: {
 
         return { handleRef: params.handleRef, detail, ...meta };
       },
-      { targetRef: viewRef },
+      { inputRefs: [viewRef] },
     );
 
     actionDescriptors.push(dataSchemaDesc);
@@ -329,7 +329,7 @@ export function installVacpOnVgplotDashboard(args: {
     dataHandles,
   });
 
-  const snapshots = createVgplotDashboardSnapshots({
+  const projection = createVgplotDashboardSnapshots({
     graph,
     options,
     inputs,
@@ -340,10 +340,22 @@ export function installVacpOnVgplotDashboard(args: {
     tablesById,
   });
 
-  const bridge = installVacpRuntime({
-    snapshots,
+  const provider = createVacpProvider({
+    source: {
+      id: `vacp-source://${options.appId}/${options.viewId}/vgplot`,
+      type: 'vgplot',
+      title: options.title ?? options.viewId,
+      description: options.description,
+    },
     actions: actionRegistry,
+    project: projection.project,
+  });
+
+  const { runtime: bridge } = installVacpRuntime({
+    providers: [provider],
     globalKey: options.globalKey,
+    exposeBridge: options.exposeBridge,
+    injectDomSnapshot: options.injectDomSnapshot,
     sessionKey: options.viewId,
     runtimeId: options.runtimeId,
   });

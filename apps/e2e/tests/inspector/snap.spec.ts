@@ -171,7 +171,7 @@ test('inspector: dock drags freely and keeps the panel attached', async ({ page 
   });
 
   try {
-    await page.goto(`${srv.url}?vacp-inspector=1`, { waitUntil: 'domcontentloaded' });
+    await page.goto(`${srv.url}`, { waitUntil: 'domcontentloaded' });
     await waitForVacpBridge(page);
 
     const pill = page.locator('button.vacp-inspector-button');
@@ -231,7 +231,7 @@ test('inspector: compact saved panel exposes a header drag target', async ({ pag
   });
 
   try {
-    await page.goto(`${srv.url}?vacp-inspector=1`, { waitUntil: 'domcontentloaded' });
+    await page.goto(`${srv.url}`, { waitUntil: 'domcontentloaded' });
     await waitForVacpBridge(page);
     await page.evaluate(() => {
       localStorage.removeItem('vacp:inspector:dock');

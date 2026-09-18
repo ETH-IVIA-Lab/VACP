@@ -2,32 +2,48 @@
 
 ## Action
 
-A named operation with a parameter description and an application handler. Example: set an interval _Selection_.
+A named semantic operation with parameter metadata and an owning provider. Its operation record identifies its kind, inputs, effects, dynamic ref parameters, and results.
+
+## Analytical projection
+
+The graph, state, summaries, and freshness a provider derives from its source at observation time.
 
 ## Capabilities
 
-A snapshot describing what exists in the app and what actions are available.
+A scoped graph view containing sources, ownership, entities, relationships, and available actions.
+
+## Freshness
+
+The relationship between an output and its input revision. An output can be current, stale, running, or failed.
 
 ## Graph
 
-A semantic model of the interface represented as nodes and edges.
+A semantic model composed from source descriptions, nodes, edges, actions, and ownership maps.
+
+## Observation
+
+One revisioned read of the composed graph, state, summaries, and output freshness.
 
 ## Provider
 
-A translation layer that maps a visualization runtime into VACP capabilities, state, and actions.
+A source description plus a live binding that publishes observations, executes owned actions, sends invalidations, and releases source resources.
 
 ## Ref
 
-A stable identifier for a semantic entity in the app. Example: `vacp://...`.
-
-## State
-
-A snapshot of current values keyed by refs. It includes *Selection*s, *Param*s, and configuration values.
-
-## Transport
-
-An adapter between the bridge and an agent-facing tool contract. Example: MCP over Playwright.
+A stable `vacp://` identifier for an analytical entity.
 
 ## Runtime
 
-The component that combines snapshot and action providers with history, subscriptions, and replay.
+The component that composes providers, routes actions by ownership, records history, and manages replay and lifecycle.
+
+## Source
+
+A stable owner identified by a `vacp-source://` ID. A source can represent an application, visualization, widget, notebook, database, or another analytical system.
+
+## State
+
+Current analytical values keyed by refs. State includes selections, parameters, widget values, and provider-defined output records.
+
+## Transport
+
+An adapter between the runtime bridge and an agent-facing interface such as MCP or WebMCP.

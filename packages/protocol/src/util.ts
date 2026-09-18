@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import type { VacpRef } from './schema';
+import type { VacpActionDescriptor, VacpRef } from './schema';
 
 export const vacpRefSchema = z.custom<VacpRef>(isVacpRef, 'Expected a vacp:// reference');
 
@@ -27,4 +27,18 @@ export function lastPathComponent(path: string): string | null {
 
 export function nowIso(): string {
   return new Date().toISOString();
+}
+
+export function operationRefs(action: VacpActionDescriptor): VacpRef[] {
+  return Array.from(
+    new Set([
+      ...(action.operation.inputRefs ?? []),
+      ...(action.operation.affects ?? []),
+      ...(action.operation.results ?? []).flatMap((result) => (result.ref ? [result.ref] : [])),
+    ]),
+  );
+}
+
+export function primaryOperationRef(action: VacpActionDescriptor): VacpRef | undefined {
+  return action.operation.affects?.[0] ?? action.operation.inputRefs?.[0] ?? action.operation.results?.[0]?.ref;
 }

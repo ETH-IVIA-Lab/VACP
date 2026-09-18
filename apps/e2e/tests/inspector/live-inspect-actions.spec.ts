@@ -11,7 +11,7 @@ test('inspector: running an action while inspecting returns to live mode', async
   });
 
   try {
-    await page.goto(`${srv.url}?vacp-inspector=1`, { waitUntil: 'domcontentloaded' });
+    await page.goto(`${srv.url}`, { waitUntil: 'domcontentloaded' });
     await waitForVacpBridge(page);
 
     const baseOrder = await dimensionOrder(page);

@@ -19,11 +19,11 @@ hero:
 
 features:
   - title: Capabilities
-    details: A structured description of what exists in the interface and what can be done.
+    details: A composed graph of analytical sources, entities, relationships, ownership, and operations.
   - title: State
-    details: Read *Selection*s and *Param*s as values keyed by stable refs.
+    details: Observe graph, state, summaries, revisions, and output freshness together.
   - title: Actions
-    details: Execute intent-level interactions with validated parameters.
+    details: Describe mutations, creations, evaluations, and queries with their inputs, effects, and results.
   - title: Transports
     details: Reach the in-page contract from an external agent or in-app tooling.
 ---

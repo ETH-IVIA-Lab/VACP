@@ -1,16 +1,9 @@
 import type { ReactElement } from 'react';
-import { useEffect, useId, useLayoutEffect, useMemo, useReducer, useRef, useState } from 'react';
+import { lazy, Suspense, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react';
 
 import { createVacpInspectorDock } from '@vacp/inspector/dock';
 import { installVacpInspectorResizer } from '@vacp/inspector/resize';
 import { useVacpInspectorStore, type VacpInspectorModuleId } from '@vacp/inspector/overlay/inspector-store';
-import { ActionsModule } from '@vacp/inspector/overlay/modules/actions-module';
-import { DataModule } from '@vacp/inspector/overlay/modules/data-module';
-import { GraphModule } from '@vacp/inspector/overlay/modules/graph-module';
-import { HistoryModule } from '@vacp/inspector/overlay/modules/history-module';
-import { JsonModule } from '@vacp/inspector/overlay/modules/json-module';
-import { SettingsModule } from '@vacp/inspector/overlay/modules/settings-module';
-import { ChatModule } from '@vacp/inspector/overlay/modules/chat/chat-module';
 import { useVacpBridge, useVacpBridgePresence, useVacpRuntime } from '@vacp/inspector/overlay/bridge-queries';
 import { useRuntimeHealth } from '@vacp/inspector/overlay/runtime-health';
 import { TooltipProvider } from '@vacp/inspector/ui/components/ui/tooltip';
@@ -20,27 +13,14 @@ import { InspectorView, type VacpInspectorBridgeStatus } from './inspector-view'
 import { useElementSize } from './hooks/use-element-size';
 import { useInspectorPanelLayout } from './hooks/use-inspector-panel-layout';
 
-type PanelTransition = { visible: boolean; closing: boolean };
-
-type PanelTransitionAction = { type: 'open' } | { type: 'close' } | { type: 'closed' };
-
-function panelTransitionReducer(state: PanelTransition, action: PanelTransitionAction): PanelTransition {
-  if (action.type === 'open') {
-    if (state.visible && !state.closing) return state;
-
-    return { visible: true, closing: false };
-  }
-
-  if (action.type === 'close') {
-    if (!state.visible) return state;
-
-    return { visible: true, closing: true };
-  }
-
-  if (!state.closing) return state;
-
-  return { visible: false, closing: false };
-}
+const modules = {
+  graph: lazy(async () => ({ default: (await import('./modules/graph-module')).GraphModule })),
+  data: lazy(async () => ({ default: (await import('./modules/data/data-module')).DataModule })),
+  actions: lazy(async () => ({ default: (await import('./modules/actions-module')).ActionsModule })),
+  history: lazy(async () => ({ default: (await import('./modules/history-module')).HistoryModule })),
+  chat: lazy(async () => ({ default: (await import('./modules/chat/chat-module')).ChatModule })),
+  json: lazy(async () => ({ default: (await import('./modules/json-module')).JsonModule })),
+};
 
 export function VacpInspectorApp(props: { globalKey: string; includeActions: boolean }): ReactElement {
   const rootRef = useRef<HTMLDivElement | null>(null);
@@ -59,28 +39,9 @@ export function VacpInspectorApp(props: { globalKey: string; includeActions: boo
 
   const [plotKey, setPlotKey] = useState(0);
 
-  const [panelTransition, dispatchPanelTransition] = useReducer(panelTransitionReducer, {
-    visible: open,
-    closing: false,
-  });
-
   useEffect(() => {
     setIncludeActionsDefault(props.includeActions);
   }, [props.includeActions, setIncludeActionsDefault]);
-
-  useEffect(() => {
-    dispatchPanelTransition({ type: open ? 'open' : 'close' });
-  }, [open]);
-
-  useEffect(() => {
-    if (!panelTransition.closing) return;
-
-    const timeout = window.setTimeout(() => {
-      dispatchPanelTransition({ type: 'closed' });
-    }, 170);
-
-    return () => window.clearTimeout(timeout);
-  }, [panelTransition.closing]);
 
   const bridgePresence = useVacpBridgePresence(props.globalKey);
   const bridgeQuery = useVacpBridge(props.globalKey, open);
@@ -120,13 +81,13 @@ export function VacpInspectorApp(props: { globalKey: string; includeActions: boo
   const { panelPosition } = useInspectorPanelLayout({
     rootRef,
     panelRef,
-    open: panelTransition.visible,
+    open: open,
   });
 
   useLayoutEffect(() => {
-    if (!panelTransition.visible) return;
+    if (!open) return;
     panelPosition();
-  }, [panelTransition.visible, panelPosition, panelSize.height, panelSize.width]);
+  }, [open, panelPosition, panelSize.height, panelSize.width]);
 
   useLayoutEffect(() => {
     const root = rootRef.current;
@@ -149,11 +110,14 @@ export function VacpInspectorApp(props: { globalKey: string; includeActions: boo
 
     dockRef.current = dock;
     dock.attach();
-    // The overlay stays mounted for the page lifetime.
+    return () => {
+      dock.dispose();
+      dockRef.current = null;
+    };
   }, [panelPosition]);
 
   useLayoutEffect(() => {
-    if (!panelTransition.visible) return;
+    if (!open) return;
     const dock = dockRef.current;
 
     if (!dock) return;
@@ -163,13 +127,13 @@ export function VacpInspectorApp(props: { globalKey: string; includeActions: boo
     if (header) dock.addHandle(header);
 
     if (compactDrag) dock.addHandle(compactDrag);
-  }, [compactPanel, panelTransition.visible]);
+  }, [compactPanel, open]);
 
   useLayoutEffect(() => {
     const panel = panelRef.current;
 
     if (!panel) return;
-    installVacpInspectorResizer({
+    return installVacpInspectorResizer({
       panel,
       storageKey: 'vacp:inspector:size',
       onResize: () => panelPosition(),
@@ -290,37 +254,34 @@ export function VacpInspectorApp(props: { globalKey: string; includeActions: boo
   const runtime = runtimeQuery.data ?? null;
 
   const renderModule = (id: VacpInspectorModuleId) => {
-    if (id === 'settings') return <SettingsModule />;
-
     if (!bridge || !runtime) {
       if (!open) return null;
 
       if (bridgeQuery.isFetching || runtimeQuery.isFetching)
-        return <div className="text-[11px] text-slate-100/80">Connecting...</div>;
+        return <div className="text-[11px] text-neutral-100/80">Connecting...</div>;
       const err = bridgeQuery.error ?? runtimeQuery.error;
 
-      if (err) return <div className="text-[11px] text-slate-100/80">{String(err.message ?? err)}</div>;
+      if (err) return <div className="text-[11px] text-neutral-100/80">{String(err.message ?? err)}</div>;
 
       return (
-        <div className="text-[11px] text-slate-100/80">
+        <div className="text-[11px] text-neutral-100/80">
           Open the overlay on a VACP-enabled page to inspect the bridge.
         </div>
       );
     }
 
-    const ctx = { bridge, runtime };
-
-    if (id === 'graph') return <GraphModule {...ctx} />;
-
-    if (id === 'data') return <DataModule key={plotKey} {...ctx} />;
-
-    if (id === 'actions') return <ActionsModule {...ctx} />;
-
-    if (id === 'history') return <HistoryModule {...ctx} />;
-
-    if (id === 'chat') return <ChatModule {...ctx} />;
-
-    return <JsonModule {...ctx} />;
+    const Module = modules[id];
+    return (
+      <Suspense
+        fallback={
+          <div role="status" className="p-3 text-xs text-neutral-400">
+            Loading {id}…
+          </div>
+        }
+      >
+        <Module key={id === 'data' ? plotKey : id} bridge={bridge} runtime={runtime} />
+      </Suspense>
+    );
   };
 
   return (
@@ -333,8 +294,6 @@ export function VacpInspectorApp(props: { globalKey: string; includeActions: boo
         compactDragRef={compactDragRef}
         titleId={titleId}
         open={open}
-        panelVisible={panelTransition.visible}
-        panelClosing={panelTransition.closing}
         setOpen={setOpen}
         moduleId={moduleId}
         setModuleId={setModuleId}

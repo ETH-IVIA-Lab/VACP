@@ -3,7 +3,7 @@
 VACP + VGPlot.
 
 This example exposes a VGPlot dashboard through VACP by installing a bridge at `window.__vacp` (unless
-`?expose-bridge=0`).
+`exposeBridge: false`).
 
 Use this example to see:
 
@@ -36,14 +36,14 @@ pnpm -C examples/vgplot-gallery dev
 
 Open the inspector:
 
-- click the floating **VACP** button. Disable it with `?vacp-inspector=0` or `VACP_INSPECTOR=0`
+- click the floating **VACP** button. Applications choose whether to call `installVacpInspector()`
 
 ## How it works
 
 1. The app loads a YAML spec from `src/specs/*.yaml`.
 2. VGPlot renders it into DOM/SVG (via `@uwdata/mosaic-spec` + `@uwdata/vgplot`).
 3. `@vacp/adapter-vgplot` installs VACP:
-   - **Bridge**: installs/updates `window.__vacp` (capabilities/state/execute, unless `?expose-bridge=0`)
+   - **Bridge**: installs/updates `window.__vacp` (capabilities/state/execute, unless `exposeBridge: false`)
    - **Actions**: registers semantic operations like `vgplot.set_interval_1d`, `vgplot.clear_interval_2d`, etc.
    - **DuckDB SQL**: enables `vacp.data_sql` so agents can query the current _Selection_
 

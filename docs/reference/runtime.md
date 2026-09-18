@@ -1,53 +1,53 @@
 # Runtime
 
-`@vacp/runtime` adds history, replay, subscriptions, and state deltas to snapshot and action providers. It runs independently of the browser.
+`@vacp/runtime` composes analytical providers and records interaction history. It runs independently of the browser.
 
 ```ts
 import { createVacpRuntime } from '@vacp/runtime';
 
-const runtime = createVacpRuntime({ snapshots, actions, sessionKey: 'overview' });
-const state = await runtime.getState();
+const runtime = createVacpRuntime({ providers: [controls, chart, data] });
+const observation = await runtime.observe();
 ```
 
-`snapshots` implements `VacpSnapshotProvider`:
+## Provider contract
 
-- `getCapabilities()` returns a capabilities snapshot, synchronously or asynchronously.
-- `getState()` returns a state snapshot, synchronously or asynchronously.
+A `VacpProvider` exposes:
 
-`actions` implements `VacpActionExecutor`:
+- `source`: stable source identity, type, title, and optional metadata.
+- `observe()`: one atomic graph, state, summary, and freshness contribution.
+- `execute(call, options)`: semantic operation execution.
+- `subscribe(invalidate)`: optional push invalidation.
+- `dispose()`: optional source cleanup.
 
-- `list()` returns action descriptors.
-- `execute(call)` returns a promise of an action result.
+`createVacpProvider({ source, actions, project })` builds this port for application integrations. `project()` returns an analytical projection. Browser installation and transports consume the provider through the same runtime contract.
 
-`VacpActionRegistry` implements this port and provides `register(descriptor, handler)` and `unregister(name)`. Custom registries can implement the same port. The runtime does not require this class.
+## Composition and ownership
 
-## History and state
+The runtime merges provider observations by stable refs and operation names. The composed graph records source descriptions plus node and action ownership.
 
-`getRuntime()` returns the current mode, cursor, history, live snapshots, and inspected snapshots. `subscribe(listener)` receives runtime entries and returns an unsubscribe function.
+Providers may add edges to nodes owned by another source. One source owns each node and operation. Duplicate owners and edges whose endpoints are missing fail observation.
 
-`refresh({ source, message })` records a snapshot after an application change. `setCursor(index)`, `undo()`, and `redo()` inspect history. When the provider exposes `vacp.apply_state`, inspection can replay recorded state into the application. `setMode('live')` restores the latest live state.
+`attachProvider(provider)` adds or replaces one source and returns a detach function. `removeProvider(sourceId)` removes one source. `update({ providers, sessionKey })` replaces the complete source set for a new application session.
 
-State and graph overrides affect inspection. They reach the application only through an explicit action.
+## Coherent observations
 
-## Provider replacement and lifecycle
+`observe()` returns a `VacpObservation` with:
 
-`update({ snapshots, actions, sessionKey })` replaces provider ports while retaining runtime identity. Replacing the provider aborts pending calls from the previous provider. A changed session key resets the history for the new view. Public `runtimeId` and `sessionKey` properties identify the current runtime and session.
+- `revision` and `observedAt` for the composed read.
+- `graph.sources` and `graph.ownership`.
+- analytical `state` and bounded `summary` values keyed by refs.
+- per-output `freshness` records when a provider tracks stale, running, current, or failed outputs.
 
-`dispose()` aborts the runtime's `signal`, stops observation, clears subscriptions, and cancels queued replay work. Extensions can use this signal to release resources. `subscribeCapabilities(listener)` observes live graph changes independently of history and inspection overrides. `subscribeSnapshots(listener)` supplies live capability/state pairs for output adapters such as DOM publication. Reads and actions on a disposed runtime reject. Release a browser installation with [`uninstallVacpRuntime`](./browser).
+The composer retries when a provider invalidates while sources are being read. Each provider owns its settlement boundary and must invalidate consumers when its observation changes. This coordinates source observations rather than creating a transaction across independent engines. A notebook provider can wait for reactive execution, while a widget provider can wait for Python validation and trait observers.
 
-## Standard actions
+`getCapabilities()` and `getState()` are scoped views derived from provider observations. Use `observe()` when graph, state, ownership, and freshness must share a revision.
 
-The registration helpers accept a `VacpActionRegistrar`, which supplies `register(descriptor, handler)`:
+## History and replay
 
-- `registerVacpApplyStateAction`
-- `registerVacpDataSchemaAction`
-- `registerVacpDataSqlAction`
-- `registerVacpWidgetOptionsAction`
+`getRuntime()` returns the current mode, cursor, history, live observation, and inspected observation. `subscribe(listener)` receives runtime entries.
 
-`registerVacpDataSqlAction(registrar, handler, { enabled: false })` skips SQL registration. Browser integrations resolve browser policy before passing this option.
+`refresh({ source, message })` records an observation after an application change. `setCursor(index)`, `undo()`, and `redo()` inspect history. A provider that registers `vacp.apply_state` can replay supported state into its application. Providers should report refs that cannot be restored.
 
-## Execution context
+Execution enters live mode before invoking an operation. Caller cancellation and runtime lifetime are combined in the handler's `{ signal }` option.
 
-`execute(call, { signal })` and `dispatch(call, { source, message, signal })` enter live mode before applying an action. This behavior belongs to the runtime, so every transport follows the same history and replay rules.
-
-Registry and SDK handlers receive `(params, { signal })`. Use the signal for cooperative cancellation. It combines the caller's cancellation with the runtime lifetime. The signal is an in-process control and is not serialized into `VacpActionCall`.
+`dispose()` aborts the runtime, releases provider subscriptions, stops observation, and disposes attached providers.

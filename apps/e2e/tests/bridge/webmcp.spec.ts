@@ -19,12 +19,13 @@ test.use({
   launchOptions: { args: ['--enable-experimental-web-platform-features', '--enable-features=WebMCPTesting'] },
 });
 
-test('native WebMCP projects the live graph, follows provider replacement, and unregisters on disposal', async ({
-  page,
-}) => {
+test('native WebMCP projects composed providers and unregisters them on disposal', async ({ page }) => {
   const server = await startAppServer({ name: 'webmcp', cwd: exampleDir('cars-parallel-coords') });
   try {
-    await page.goto(`${server.url}?webmcp=1&expose-bridge=0&vacp-inspector=0`);
+    await page.addInitScript(() => {
+      globalThis.__vacpExampleOptions = { exposeBridge: false, inspector: false, webmcp: true };
+    });
+    await page.goto(server.url);
     await expect
       .poll(() => page.evaluate(async () => (await document.modelContext?.getTools())?.length ?? 0))
       .toBeGreaterThan(2);
@@ -66,20 +67,37 @@ test('native WebMCP projects the live graph, follows provider replacement, and u
     );
     await expect
       .poll(() => page.evaluate(async () => (await document.modelContext?.getTools())?.map((tool) => tool.name).sort()))
-      .toEqual(['unrelated', 'vacp.action.threshold.set', 'vacp.capabilities', 'vacp.state']);
+      .toEqual(
+        expect.arrayContaining([
+          'unrelated',
+          'vacp.action.parallel_coords.set_dimension_order',
+          'vacp.action.threshold.set',
+          'vacp.capabilities',
+          'vacp.observe',
+          'vacp.state',
+        ]),
+      );
     const results = await page.evaluate(async () => {
       const context = document.modelContext!;
       const tools = await context.getTools();
       const action = tools.find((tool) => tool.name === 'vacp.action.threshold.set')!;
+      const observe = tools.find((tool) => tool.name === 'vacp.observe')!;
       const state = tools.find((tool) => tool.name === 'vacp.state')!;
       return {
         valid: JSON.parse(await context.executeTool(action, JSON.stringify({ value: 42 }))),
         invalid: JSON.parse(await context.executeTool(action, JSON.stringify({ value: 101 }))),
+        observation: JSON.parse(await context.executeTool(observe, '{}')),
         state: JSON.parse(await context.executeTool(state, '{}')),
       };
     });
     expect(results.valid.ok).toBe(true);
     expect(results.invalid.ok).toBe(false);
+    expect(results.observation.graph.sources.map((source: { type: string }) => source.type)).toEqual(
+      expect.arrayContaining(['parallel-coordinates', 'control']),
+    );
+    expect(results.observation.graph.ownership.nodes['vacp://example/threshold']).toBe(
+      'vacp-source://example/threshold',
+    );
     expect(results.state.state['vacp://example/threshold'].value).toBe(42);
     await expect(page.locator('#custom-threshold')).toHaveValue('42');
     await page.evaluate(async (root) => {
@@ -97,10 +115,15 @@ test('native WebMCP projects the live graph, follows provider replacement, and u
 test('native cancellation reaches SDK handlers with DOM publication enabled', async ({ page }) => {
   const server = await startAppServer({ name: 'webmcp-cancellation', cwd: exampleDir('cars-parallel-coords') });
   try {
-    await page.goto(`${server.url}?vacp-inspector=0`);
+    await page.addInitScript(() => {
+      globalThis.__vacpExampleOptions = { webmcp: false };
+    });
+    await page.goto(`${server.url}?context=semantic`);
     await page.waitForFunction(() => Boolean(window.__vacp));
     const result = await page.evaluate(async (root) => {
-      const { createVacpActions, installVacp }: typeof VacpSdk = await import(`/@fs${root}/packages/sdk/src/index.ts`);
+      const { createVacpActions, createVacpProvider, installVacp }: typeof VacpSdk = await import(
+        `/@fs${root}/packages/sdk/src/index.ts`
+      );
       const { installVacpWebMcp }: typeof VacpWebMcp = await import(
         `/@fs${root}/packages/transport-webmcp/src/index.ts`
       );
@@ -113,7 +136,7 @@ test('native cancellation reaches SDK handlers with DOM publication enabled', as
         cancelled = resolve;
       });
       const actions = createVacpActions();
-      actions.action('wait', 'Wait for cancellation').handle((_params, { signal }) => {
+      actions.operation('mutation', 'wait', 'Wait for cancellation').handle((_params, { signal }) => {
         if (!signal) throw new Error('Execution signal missing');
         began();
         return new Promise((_resolve, reject) =>
@@ -127,11 +150,12 @@ test('native cancellation reaches SDK handlers with DOM publication enabled', as
           ),
         );
       });
-      const integration = installVacp({
-        graph: { version: '0.1.0', nodes: [], edges: [] },
+      const provider = createVacpProvider({
+        source: { id: 'vacp-source://webmcp-cancellation', type: 'test', title: 'Cancellation test' },
         actions: actions.registry,
-        getState: () => ({}),
+        project: () => ({ graph: { version: '0.1.0', nodes: [], edges: [] }, state: {} }),
       });
+      const integration = installVacp({ providers: [provider] });
       const webmcp = await installVacpWebMcp(integration.bridge);
       if (!webmcp || !document.modelContext) throw new Error('Native WebMCP unavailable');
       try {

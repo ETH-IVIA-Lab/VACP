@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { z } from 'zod';
 import { VACP_SCHEMA_VERSION, type VacpActionCall, type VacpActionResult } from '@vacp/protocol';
-import { createVacpActions, createVacpSnapshotProvider } from '@vacp/sdk';
+import { createVacpActions, createVacpProvider } from '@vacp/sdk';
 
 interface Selection {
   group: string;
@@ -33,7 +33,7 @@ test('custom actions infer transformed parameters and accept domain interface re
   const description: SelectionDescription = { type: 'object', 'x-app-kind': 'selection' };
 
   actions
-    .action('my-app.select', 'Select named items')
+    .operation('mutation', 'my-app.select', 'Select named items')
     .params(description, params)
     .handle(async (selection): Promise<SelectionResult> => {
       selected = selection;
@@ -54,22 +54,26 @@ test('custom actions infer transformed parameters and accept domain interface re
   assert.deepEqual(selected.ids, ['one', 'two']);
   assert.equal(actions.registry.list()[0]?.parameters?.['x-app-kind'], 'selection');
 
-  const snapshots = createVacpSnapshotProvider({
-    graph: {
-      version: VACP_SCHEMA_VERSION,
-      nodes: [{ ref: 'vacp://custom/selection', kind: 'Selection', layer: 'InteractionFeedbackLayer', data: selected }],
-      edges: [],
-    },
+  const provider = createVacpProvider({
+    source: { id: 'vacp-source://custom/selection', type: 'test', title: 'Selection test' },
     actions: actions.registry,
-    getState: (): AppState => ({ 'vacp://custom/selection': selected }),
-    getSummary: () => ({ 'vacp://custom/selection': { count: selected.ids.length } }),
+    project: () => ({
+      graph: {
+        version: VACP_SCHEMA_VERSION,
+        nodes: [
+          { ref: 'vacp://custom/selection', kind: 'Selection', layer: 'InteractionFeedbackLayer', data: selected },
+        ],
+        edges: [],
+      },
+      state: { 'vacp://custom/selection': selected } satisfies AppState,
+      summary: { 'vacp://custom/selection': { count: selected.ids.length } },
+    }),
   });
-  const capabilities = await snapshots.getCapabilities();
-  const metadataGroup: string | undefined = capabilities.graph.nodes[0]?.data?.group;
+  const observation = await provider.observe();
+  const metadataGroup: string | undefined = observation.graph.nodes[0]?.data?.group;
   assert.equal(metadataGroup, 'a');
-  const snapshot = await snapshots.getState();
-  const group: string = snapshot.state['vacp://custom/selection'].group;
-  const count: number | undefined = snapshot.summary?.['vacp://custom/selection'].count;
+  const group = (observation.state['vacp://custom/selection'] as Selection).group;
+  const count = (observation.summary?.['vacp://custom/selection'] as { count?: number } | undefined)?.count;
   assert.equal(group, 'a');
   assert.equal(count, 2);
 
@@ -84,7 +88,7 @@ test('custom actions infer transformed parameters and accept domain interface re
 test('application parsers support async validation without a schema library', async () => {
   const actions = createVacpActions();
   actions
-    .action('custom.echo', 'Echo an accepted string')
+    .operation('mutation', 'custom.echo', 'Echo an accepted string')
     .params(
       { type: 'string' },
       {
@@ -106,7 +110,7 @@ test('application parsers support async validation without a schema library', as
 
 test('application failure details keep their original scalar value', async () => {
   const actions = createVacpActions();
-  actions.action('custom.fail', 'Report a domain error').handle(() => {
+  actions.operation('mutation', 'custom.fail', 'Report a domain error').handle(() => {
     throw 42;
   });
   assert.deepEqual(await actions.registry.execute({ callId: 'failure', name: 'custom.fail' }), {

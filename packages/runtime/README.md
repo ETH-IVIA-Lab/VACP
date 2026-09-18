@@ -1,15 +1,14 @@
 # @vacp/runtime
 
-Compose snapshot and action providers with history, replay, scoped reads, and state deltas. The runtime accepts structural ports and runs independently of the browser.
+Compose analytical providers with explicit ownership, coherent observations, history, and replay.
 
 ```ts
 import { createVacpRuntime } from '@vacp/runtime';
 
-const runtime = createVacpRuntime({ snapshots, actions });
-const state = await runtime.getState();
-runtime.dispose();
+const runtime = createVacpRuntime({ providers: [controls, chart, data] });
+const observation = await runtime.observe();
 ```
 
-`snapshots` implements `VacpSnapshotProvider`, and `actions` implements `VacpActionExecutor`. `VacpActionRegistry` provides an action executor and registrar. Standard action helpers validate their common envelopes, while custom handlers validate application-specific parameters.
+A provider combines a source description, an atomic analytical projection, and operation execution. `composeVacpProviders()` merges providers, validates ownership, routes operations, and retries reads invalidated during observation.
 
-See the [runtime reference](../../docs/reference/runtime.md) and [browser adapter](../../docs/reference/browser.md).
+See the [runtime reference](../../docs/reference/runtime.md) and [provider composition](../../docs/providers/composition.md).

@@ -22,13 +22,33 @@ export type VacpSchemaVersion = typeof VACP_SCHEMA_VERSION;
  */
 export type VacpRef = `vacp://${string}`;
 
+/** Stable identity for one analytical source participating in a composed view. */
+export type VacpSourceId = `vacp-source://${string}`;
+
+export type VacpSourceDescription<Data = Record<string, unknown>> = {
+  id: VacpSourceId;
+  /** Open source family, for example `application`, `widget`, or `notebook`. */
+  type: string;
+  title: string;
+  description?: string;
+  data?: { [Key in keyof Data]: Data[Key] };
+};
+
 /**
  * Semantic layers (not rendering layers).
  *
  * Layers help agents prioritize: configuration vs visual structure vs data vs
  * interaction feedback.
  */
-export type VacpLayer = 'ConfigLayer' | 'ViewLayer' | 'VisualizationLayer' | 'DataLayer' | 'InteractionFeedbackLayer';
+export type VacpCoreLayer =
+  | 'ConfigLayer'
+  | 'ViewLayer'
+  | 'VisualizationLayer'
+  | 'DataLayer'
+  | 'InteractionFeedbackLayer';
+
+/** Core layers remain recognizable while providers may add domain-specific layers. */
+export type VacpLayer = VacpCoreLayer | (string & {});
 
 /**
  * App-agnostic node kinds.
@@ -36,7 +56,7 @@ export type VacpLayer = 'ConfigLayer' | 'ViewLayer' | 'VisualizationLayer' | 'Da
  * Providers can attach additional structured fields in `VacpNode.data` (kept
  * JSON-serializable).
  */
-export type VacpNodeKind =
+export type VacpCoreNodeKind =
   | 'App'
   | 'View'
   | 'Visualization'
@@ -51,7 +71,13 @@ export type VacpNodeKind =
   | 'DataHandle'
   | 'InteractionTarget';
 
-export type VacpEdgeKind = 'contains' | 'controls' | 'derivedFrom' | 'targets';
+/** Core node kinds remain recognizable while providers may add domain-specific kinds. */
+export type VacpNodeKind = VacpCoreNodeKind | (string & {});
+
+export type VacpCoreEdgeKind = 'contains' | 'controls' | 'derivedFrom' | 'targets';
+
+/** Relationship vocabulary is extensible without weakening stable ref identity. */
+export type VacpEdgeKind = VacpCoreEdgeKind | (string & {});
 
 /**
  * A node in the UI/analytics graph.
@@ -86,14 +112,37 @@ export type VacpEdge = {
  * The parameter schema is intentionally lightweight: enough for agents and
  * validators, without requiring a specific JSON schema dialect.
  */
+export type VacpOperationKind = 'mutation' | 'creation' | 'evaluation' | 'query';
+
+export type VacpOperationResultDescriptor = {
+  role: 'state' | 'entity' | 'data' | 'visualization' | 'artifact';
+  /** Stable result ref when the entity already exists or has a predictable identity. */
+  ref?: VacpRef;
+  /** Open semantic kind for results that are created dynamically. */
+  kind?: string;
+  mediaType?: string;
+  description?: string;
+};
+
+export type VacpOperationSemantics = {
+  kind: VacpOperationKind;
+  /** Existing analytical entities whose values are consumed by the operation. */
+  inputRefs?: VacpRef[];
+  /** Existing analytical entities that may change when the operation succeeds. */
+  affects?: VacpRef[];
+  /** Parameters whose values are refs resolved only when the operation is called. */
+  refParameters?: Array<{ parameter: string; role: 'input' | 'affects' }>;
+  /** Values or entities produced by the operation. */
+  results?: VacpOperationResultDescriptor[];
+};
+
 export type VacpActionDescriptor<Parameters = Record<string, unknown>> = {
   name: string;
   title?: string;
   description: string;
   /** JSON schema-like object, kept intentionally minimal. */
   parameters?: Parameters;
-  /** Optional stable ref for the target this action acts on. */
-  targetRef?: VacpRef;
+  operation: VacpOperationSemantics;
 };
 
 /**
@@ -255,9 +304,37 @@ export type VacpWidgetOptionsResult = {
 
 export type VacpGraph<NodeData = Record<string, unknown>> = {
   version: VacpSchemaVersion;
+  sources: VacpSourceDescription[];
+  ownership: {
+    nodes: Record<VacpRef, VacpSourceId>;
+    actions: Record<string, VacpSourceId>;
+  };
   nodes: VacpNode<NodeData>[];
   edges: VacpEdge[];
   actions: VacpActionDescriptor[];
+};
+
+/** One source's analytical projection before ownership-aware composition. */
+export type VacpGraphFragment<NodeData = Record<string, unknown>> = Omit<VacpGraph<NodeData>, 'sources' | 'ownership'>;
+
+export type VacpFreshness = {
+  status: 'current' | 'stale' | 'running' | 'error';
+  /** Revision of the input state the output is based on. */
+  inputRevision?: string;
+  /** Revision of the output currently represented by this ref. */
+  outputRevision?: string;
+  message?: string;
+};
+
+/** One coherent view of capabilities, state, and output freshness. */
+export type VacpObservation<NodeData = Record<string, unknown>> = {
+  version: VacpSchemaVersion;
+  revision: string;
+  observedAt: string;
+  graph: VacpGraph<NodeData>;
+  state: Record<VacpRef, unknown>;
+  summary?: Record<VacpRef, unknown>;
+  freshness?: Record<VacpRef, VacpFreshness>;
 };
 
 /**
@@ -377,6 +454,8 @@ export type VacpActionExecutionOptions = { signal?: AbortSignal };
  */
 export interface VacpWindowBridge {
   version: VacpSchemaVersion;
+  /** Canonical atomic read for graph, state, ownership, and freshness. */
+  observe(): Promise<VacpObservation> | VacpObservation;
   getCapabilities(request: VacpCapabilitiesRequest): Promise<VacpCapabilitiesSnapshot> | VacpCapabilitiesSnapshot;
   getCapabilities(): Promise<VacpCapabilitiesSnapshot> | VacpCapabilitiesSnapshot;
   getState(request: VacpStateRequest): Promise<VacpStateUpdate>;

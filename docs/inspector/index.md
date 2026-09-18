@@ -6,7 +6,7 @@ The VACP Inspector lets you explore a visualization’s semantic graph, query it
 
 The example apps call `installVacpInspector` from `@vacp/inspector`, which mounts the overlay when the overlay flag is enabled. Click the floating **VACP** control to open it.
 
-Disable it with `?vacp-inspector=0` or `VACP_INSPECTOR=0`. Use the Settings tab to inspect the active flags and store browser-level overrides.
+Call `installVacpInspector()` to mount it and dispose the returned handle when the application unmounts.
 
 ## Explore and interact
 

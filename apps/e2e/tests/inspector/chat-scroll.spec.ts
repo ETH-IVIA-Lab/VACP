@@ -36,7 +36,10 @@ test('inspector: chat scroll keeps the first user turn reachable', async ({ page
       viewRef: 'vacp://vacp-examples/vgplot/wnba-shots',
       vizRef: 'vacp://vacp-examples/vgplot/wnba-shots/plot-0',
     });
-    await page.goto(`${srv.url}?vacp-inspector=1&vacp-runtime-id=${RUNTIME_ID}#wnba-shots`, {
+    await page.addInitScript((runtimeId) => {
+      globalThis.__vacpExampleOptions = { runtimeId };
+    }, RUNTIME_ID);
+    await page.goto(`${srv.url}#wnba-shots`, {
       waitUntil: 'domcontentloaded',
     });
     await waitForVacpBridge(page, { requireRuntime: true });

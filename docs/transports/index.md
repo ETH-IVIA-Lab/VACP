@@ -1,6 +1,6 @@
 # Connect an agent
 
-Agents use three tools: `vacp_capabilities`, `vacp_state`, and `vacp_execute`. Each transport forwards those operations to the visualization's bridge.
+Agents use `vacp_observe`, `vacp_capabilities`, `vacp_state`, and `vacp_execute`. Each transport forwards those operations to the visualization's bridge.
 
 ## External agents through MCP
 

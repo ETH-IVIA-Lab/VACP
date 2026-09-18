@@ -4,7 +4,7 @@ import { startAppServer } from '../helpers/devserver';
 import { exampleDir } from '../helpers/paths';
 import { chatScrollState, runtimeId, seedInspectorChatThreadOnNextLoad, waitForVacpBridge } from './helpers';
 
-const MODULES = ['Graph', 'Data', 'Actions', 'History', 'Chat', 'Settings', 'JSON'] as const;
+const MODULES = ['Graph', 'Data', 'Actions', 'History', 'Chat', 'JSON'] as const;
 
 const COMPACT_READY_THREAD_ID = 'thread:responsive-ready-chat';
 
@@ -443,7 +443,10 @@ test('inspector: chat uses the same compact subheader rhythm as events', async (
       viewRef: 'vacp://vacp-examples/vgplot/wnba-shots',
       vizRef: 'vacp://vacp-examples/vgplot/wnba-shots/plot-0',
     });
-    await openInspector(page, `${srv.url}?vacp-inspector=1&vacp-runtime-id=${testRuntimeId}#wnba-shots`, {
+    await page.addInitScript((runtimeId) => {
+      globalThis.__vacpExampleOptions = { runtimeId };
+    }, testRuntimeId);
+    await openInspector(page, `${srv.url}#wnba-shots`, {
       savedSize: { width: 880, height: 560 },
     });
     await expectPanelSize(page, { width: 880, height: 560 }, 'saved-size subheader rhythm');
@@ -522,7 +525,10 @@ for (const viewport of COMPACT_READY_VIEWPORTS) {
         vizRef: 'vacp://vacp-examples/vgplot/wnba-shots/plot-0',
         clearLayoutStorage: true,
       });
-      await page.goto(`${srv.url}?vacp-inspector=1&vacp-runtime-id=${viewport.runtimeId}#wnba-shots`, {
+      await page.addInitScript((runtimeId) => {
+        globalThis.__vacpExampleOptions = { runtimeId };
+      }, viewport.runtimeId);
+      await page.goto(`${srv.url}#wnba-shots`, {
         waitUntil: 'domcontentloaded',
       });
       await waitForVacpBridge(page, { requireRuntime: true });

@@ -33,7 +33,7 @@ test('vega-lite: capability graph includes mark encoding channels + fields acros
   const srv = await startAppServer({ name: 'vega-lite-gallery', cwd: exampleDir('vega-lite-gallery') });
 
   try {
-    await page.goto(`${srv.url}?vacp-inspector=1`, { waitUntil: 'domcontentloaded' });
+    await page.goto(`${srv.url}`, { waitUntil: 'domcontentloaded' });
     await expectBridge(page);
 
     const specIds = await page.evaluate(() =>

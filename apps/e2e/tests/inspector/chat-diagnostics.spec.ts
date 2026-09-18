@@ -32,7 +32,10 @@ test('inspector: chat shows endpoint diagnostics for configured OpenAI-compatibl
       model: 'gpt-5.4-mini',
       clearLayoutStorage: true,
     });
-    await page.goto(`${srv.url}?vacp-inspector=1&vacp-runtime-id=${RUNTIME_ID}#aeromagnetic-survey`, {
+    await page.addInitScript((runtimeId) => {
+      globalThis.__vacpExampleOptions = { runtimeId };
+    }, RUNTIME_ID);
+    await page.goto(`${srv.url}#aeromagnetic-survey`, {
       waitUntil: 'domcontentloaded',
     });
     await waitForVacpBridge(page, { requireRuntime: true });

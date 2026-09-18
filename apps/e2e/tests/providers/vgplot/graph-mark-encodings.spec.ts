@@ -7,7 +7,7 @@ test('vgplot: capability graph includes mark encoding channels + fields (Seattle
   const srv = await startAppServer({ name: 'vgplot-gallery', cwd: exampleDir('vgplot-gallery') });
 
   try {
-    await page.goto(`${srv.url}?vacp-inspector=1#weather`, { waitUntil: 'domcontentloaded' });
+    await page.goto(`${srv.url}#weather`, { waitUntil: 'domcontentloaded' });
     await page.waitForFunction(() => !!globalThis.__vacp);
 
     const graph = await page.evaluate(async () => {
@@ -57,7 +57,7 @@ test('vgplot: capability graph keeps refs unique when marks share a runtime inde
   const srv = await startAppServer({ name: 'vgplot-gallery', cwd: exampleDir('vgplot-gallery') });
 
   try {
-    await page.goto(`${srv.url}?vacp-inspector=1#axes`, { waitUntil: 'domcontentloaded' });
+    await page.goto(`${srv.url}#axes`, { waitUntil: 'domcontentloaded' });
     await page.waitForFunction(() => !!globalThis.__vacp);
 
     const nodes = await page.evaluate(async () => {

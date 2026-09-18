@@ -1,6 +1,8 @@
+import type { ExampleOptions } from '../../../examples/config';
 import type { VacpRuntimeBridge } from '@vacp/protocol';
 
 declare global {
+  var __vacpExampleOptions: Partial<ExampleOptions> | undefined;
   interface Window {
     __vacp?: VacpRuntimeBridge;
     __vacpDownloadProbe?: Array<{ filename: string; text: string }>;

@@ -1,59 +1,45 @@
-# Configuration
+# Configure VACP
 
-VACP supports a small set of runtime toggles via URL query params and environment variables. A URL query param for a flag always wins over environment variables, local storage, and defaults.
+Choose capabilities and browser exposure when composing your application.
 
-## Precedence
+```ts
+import { installVacp } from '@vacp/sdk';
+import { installVacpInspector } from '@vacp/inspector';
 
-1. URL query params
-2. Environment variables
-3. Local storage when available
-4. Built-in defaults
+const integration = installVacp({
+  providers: [provider],
+  exposeBridge: true,
+  injectDomSnapshot: false,
+});
+const inspector = installVacpInspector();
 
-## Knobs
-
-### Inspector
-
-Enable with `?vacp-inspector=1`. Disable with `?vacp-inspector=0`.
-
-Enable with `VACP_INSPECTOR=1`. Disable with `VACP_INSPECTOR=0`.
-
-Local storage key is `vacp:inspector=0|1`. Default is on.
-
-The inspector Settings tab shows the resolved source and can store browser-level overrides.
-
-### Bridge exposure
-
-Enable with `?expose-bridge=1` or `?vacp-expose-bridge=1`. Disable with `?expose-bridge=0` or `?vacp-expose-bridge=0`.
-
-CamelCase URL aliases are also accepted.
-
-Enable with `VACP_EXPOSE_BRIDGE=1`. Disable with `VACP_EXPOSE_BRIDGE=0`.
-
-Local storage key is `vacp:expose-bridge=0|1`. Default is on.
-
-### DOM snapshot injection
-
-Enable with `?vacp-dom-snapshot=1`. Disable with `?vacp-dom-snapshot=0`.
-
-Enable with `VACP_DOM_SNAPSHOT=1`. Disable with `VACP_DOM_SNAPSHOT=0`.
-
-Local storage key is `vacp:dom-snapshot=0|1`. Default is on.
-
-### Raw SQL action
-
-Enable with `?enable-sql=1`. Disable with `?enable-sql=0`.
-
-Enable with `VACP_ENABLE_SQL=1`. Disable with `VACP_ENABLE_SQL=0`.
-
-Local storage key is `vacp:enable-sql=0|1`. Default is on. When disabled, providers can still expose DataHandle nodes and `vacp.data_schema`, but `vacp.data_sql` is not registered or listed in capabilities.
-
-## Optional analytics
-
-The example apps can be configured with optional PostHog settings:
-
-```text
-VACP_POSTHOG_API_KEY
-VACP_POSTHOG_API_HOST
-VACP_POSTHOG_DEFAULTS
-VACP_POSTHOG_CAPTURE_SNAPSHOTS
+// Release these installations when the application unmounts.
+inspector.dispose();
+integration.dispose();
 ```
+
+`exposeBridge` publishes the runtime at `window.__vacp`. `injectDomSnapshot` publishes a JSON observation in the DOM. Both default to `true`. Set `globalKey` on the runtime and Inspector when using another window key.
+
+Install the Inspector where you want its controls to appear. Its stored preferences cover panel position, size, selected module, and chat configuration.
+
+## Data access
+
+Vega-Lite and VGPlot adapters accept `enableSql: false` to omit the raw SQL action while retaining schema and selection access. Custom integrations choose which handlers to register through `createVacpActions()`.
+
+## WebMCP
+
+Call `installVacpWebMcp(integration.bridge)` to expose the runtime through the browser's WebMCP API. This installation has its own lifecycle. See [WebMCP](../transports/webmcp).
+
+## Example contexts
+
+The example applications provide named contexts for reproducible evaluation. This URL selection belongs to the examples, not the VACP library.
+
+| URL                 | Agent access                           |
+| ------------------- | -------------------------------------- |
+| `?context=visual`   | Rendered interface                     |
+| `?context=snapshot` | Interface and DOM observation          |
+| `?context=semantic` | Runtime bridge                         |
+| `?context=full`     | Bridge, DOM observation, and Inspector |
+| `?context=guided`   | Full context with raw SQL disabled     |
+
+The default is `full`. Example tests may set `globalThis.__vacpExampleOptions` before application startup to select explicit installation options.

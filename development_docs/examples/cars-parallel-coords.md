@@ -6,7 +6,7 @@ Implementation:
 
 - TypeScript + Vite (no framework)
 - D3 + SVG rendering
-- VACP bridge at `window.__vacp` (unless `?expose-bridge=0`)
+- VACP bridge at `window.__vacp` (unless `exposeBridge: false`)
 
 ## Run it
 
@@ -18,7 +18,7 @@ pnpm -C examples/cars-parallel-coords dev
 
 Open the inspector:
 
-- click the floating **VACP** button. Disable it with `?vacp-inspector=0` or `VACP_INSPECTOR=0`
+- click the floating **VACP** button. Applications choose whether to call `installVacpInspector()`
 
 ## Interactions
 

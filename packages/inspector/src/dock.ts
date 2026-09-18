@@ -65,6 +65,7 @@ export function createVacpInspectorDock(args: {
 }) {
   const { root, handles, storageKey, onMove, onDrop } = args;
   const installedHandles: HTMLElement[] = [];
+  const lifetime = new AbortController();
 
   const applyInitialPos = () => {
     const saved = readPos(storageKey);
@@ -205,16 +206,31 @@ export function createVacpInspectorDock(args: {
 
   const attach = () => {
     handles.forEach((handle) => installDrag(handle));
-    window.addEventListener('click', onClick, { capture: true });
-    window.addEventListener('pointerdown', onPointerDown, { capture: true });
-    queueMicrotask(() => applyInitialPos());
-    window.addEventListener('resize', () => {
-      const rect = root.getBoundingClientRect();
-      const next = applyDockLeft(root, rect.left);
-      savePos(storageKey, next);
-      onMove?.();
+    window.addEventListener('click', onClick, { capture: true, signal: lifetime.signal });
+    window.addEventListener('pointerdown', onPointerDown, { capture: true, signal: lifetime.signal });
+    queueMicrotask(() => {
+      if (!lifetime.signal.aborted) applyInitialPos();
     });
+    window.addEventListener(
+      'resize',
+      () => {
+        const rect = root.getBoundingClientRect();
+        const next = applyDockLeft(root, rect.left);
+        savePos(storageKey, next);
+        onMove?.();
+      },
+      { signal: lifetime.signal },
+    );
   };
 
-  return { attach, addHandle: installDrag };
+  return {
+    attach,
+    addHandle: installDrag,
+    dispose() {
+      lifetime.abort();
+      cleanupWindowListeners();
+      if (raf) window.cancelAnimationFrame(raf);
+      installedHandles.length = 0;
+    },
+  };
 }

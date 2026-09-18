@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import type { WebMCP } from 'webmcp-types';
-import { VACP_SCHEMA_VERSION, type VacpGraph } from '@vacp/protocol';
-import { createVacpRuntime, VacpActionRegistry } from '@vacp/runtime';
+import { VACP_SCHEMA_VERSION, type VacpGraph, type VacpGraphFragment } from '@vacp/protocol';
+import { createVacpProvider, createVacpRuntime, VacpActionRegistry } from '@vacp/runtime';
 import { compileVacpWebMcpTools, installVacpWebMcp, type VacpWebMcpRegistry } from '../src/index';
 
 class Registry implements VacpWebMcpRegistry {
@@ -31,9 +31,10 @@ class Registry implements VacpWebMcpRegistry {
 function fixture() {
   const actions = new VacpActionRegistry();
   let value = 1;
-  const graph: VacpGraph = {
+  const graph: VacpGraphFragment = {
     version: VACP_SCHEMA_VERSION,
     nodes: [
+      { ref: 'vacp://app', kind: 'App', layer: 'ViewLayer', title: 'Application' },
       {
         ref: 'vacp://app/threshold',
         kind: 'Param',
@@ -49,7 +50,7 @@ function fixture() {
     {
       name: 'threshold.set',
       description: 'Set threshold',
-      targetRef: 'vacp://app/threshold',
+      operation: { kind: 'mutation', affects: ['vacp://app/threshold'] },
       parameters: { type: 'object', properties: { value: { type: 'number' } } },
     },
     (input) => {
@@ -59,17 +60,15 @@ function fixture() {
       return { value };
     },
   );
-  const runtime = createVacpRuntime({
+  const provider = createVacpProvider({
+    source: { id: 'vacp-source://webmcp-test', type: 'test', title: 'WebMCP test' },
     actions,
-    snapshots: {
-      getCapabilities: () => ({
-        version: VACP_SCHEMA_VERSION,
-        createdAt: new Date().toISOString(),
-        graph: { ...graph, actions: actions.list() },
-      }),
-      getState: () => ({ version: VACP_SCHEMA_VERSION, createdAt: '', state: { 'vacp://app/threshold': { value } } }),
+    project: () => {
+      const { actions: _actions, ...projection } = graph;
+      return { graph: projection, state: { 'vacp://app/threshold': { value } } };
     },
   });
+  const runtime = createVacpRuntime({ providers: [provider] });
   return { actions, graph, runtime };
 }
 
@@ -100,7 +99,12 @@ test('graph projection preserves schemas and context, and executes through runti
 test('non-object inputs use a params envelope while custom naming and selection stay optional', async () => {
   const { runtime, actions } = fixture();
   actions.register(
-    { name: 'custom/echo', description: 'Echo a scalar', parameters: { type: 'string', minLength: 1 } },
+    {
+      name: 'custom/echo',
+      description: 'Echo a scalar',
+      operation: { kind: 'evaluation', results: [{ role: 'artifact', mediaType: 'text/plain' }] },
+      parameters: { type: 'string', minLength: 1 },
+    },
     (input) => input,
   );
   try {
@@ -111,25 +115,20 @@ test('non-object inputs use a params envelope while custom naming and selection 
     });
     assert.deepEqual(
       tools.map((tool) => tool.name),
-      ['chart.capabilities', 'chart.state', 'chart.echo'],
+      ['chart.observe', 'chart.capabilities', 'chart.state', 'chart.echo'],
     );
-    const result = await tools[2]?.execute({ params: 'hello' }, { signal: new AbortController().signal });
+    const result = await tools[3]?.execute({ params: 'hello' }, { signal: new AbortController().signal });
     assert.equal((result as { result: string }).result, 'hello');
+    const currentGraph = (await runtime.getCapabilities()).graph;
     assert.throws(
-      () =>
-        compileVacpWebMcpTools(
-          { version: VACP_SCHEMA_VERSION, nodes: [], edges: [], actions: actions.list() },
-          runtime,
-        ),
+      () => compileVacpWebMcpTools({ ...currentGraph, nodes: [], edges: [], actions: actions.list() }, runtime),
       /Invalid WebMCP tool name/,
     );
     assert.throws(
       () =>
-        compileVacpWebMcpTools(
-          { version: VACP_SCHEMA_VERSION, nodes: [], edges: [], actions: actions.list() },
-          runtime,
-          { actionName: () => 'vacp.state' },
-        ),
+        compileVacpWebMcpTools({ ...currentGraph, nodes: [], edges: [], actions: actions.list() }, runtime, {
+          actionName: () => 'vacp.state',
+        }),
       /Duplicate/,
     );
   } finally {
@@ -157,7 +156,11 @@ test('automatic registration follows graph changes, preserves foreign tools, and
       };
     });
     actions.register(
-      { name: 'reset', description: 'Reset selection', targetRef: 'vacp://app/threshold' },
+      {
+        name: 'reset',
+        description: 'Reset selection',
+        operation: { kind: 'mutation', affects: ['vacp://app/threshold'] },
+      },
       () => 'reset',
     );
     await runtime.refresh();
@@ -172,7 +175,7 @@ test('automatic registration follows graph changes, preserves foreign tools, and
   }
   const again = await installVacpWebMcp(runtime, { context });
   assert.ok(again);
-  graph.nodes[0]!.title = 'Changed threshold';
+  graph.nodes[1]!.title = 'Changed threshold';
   await runtime.refresh();
   await again.refresh();
   assert.match(context.tools.get('vacp.action.reset')?.description ?? '', /Changed threshold/);
@@ -205,20 +208,23 @@ test('browser cancellation reaches the application handler; revoked tools cannot
     started = resolve;
   });
   let observedAbort = false;
-  actions.register({ name: 'wait', description: 'Wait until cancelled' }, async (_params, { signal }) => {
-    assert.ok(signal);
-    started();
-    return new Promise<void>((_resolve, reject) =>
-      signal.addEventListener(
-        'abort',
-        () => {
-          observedAbort = true;
-          reject(signal.reason);
-        },
-        { once: true },
-      ),
-    );
-  });
+  actions.register(
+    { name: 'wait', description: 'Wait until cancelled', operation: { kind: 'evaluation' } },
+    async (_params, { signal }) => {
+      assert.ok(signal);
+      started();
+      return new Promise<void>((_resolve, reject) =>
+        signal.addEventListener(
+          'abort',
+          () => {
+            observedAbort = true;
+            reject(signal.reason);
+          },
+          { once: true },
+        ),
+      );
+    },
+  );
   const context = new Registry();
   const registration = await installVacpWebMcp(runtime, { context });
   assert.ok(registration);
@@ -288,13 +294,16 @@ test('an invalid updated catalog withdraws owned tools and can recover on refres
   const registration = await installVacpWebMcp(runtime, { context });
   assert.ok(registration);
   try {
-    actions.register({ name: 'invalid/name', description: 'Invalid native name' }, () => null);
+    actions.register(
+      { name: 'invalid/name', description: 'Invalid native name', operation: { kind: 'evaluation' } },
+      () => null,
+    );
     await assert.rejects(registration.refresh(), /Invalid WebMCP tool name/);
     assert.equal(context.tools.size, 0);
     assert.ok(registration.error instanceof Error);
     actions.unregister('invalid/name');
     await registration.refresh();
-    assert.equal(context.tools.size, 3);
+    assert.equal(context.tools.size, 4);
     assert.equal(registration.error, undefined);
   } finally {
     runtime.dispose();
@@ -304,10 +313,17 @@ test('an invalid updated catalog withdraws owned tools and can recover on refres
 test('an action can update its own metadata without cancelling its successful result', async () => {
   const { runtime, actions, graph } = fixture();
   actions.unregister('threshold.set');
-  actions.register({ name: 'retitle', description: 'Change the title', targetRef: 'vacp://app/threshold' }, () => {
-    graph.nodes[0]!.title = 'Updated title';
-    return 'changed';
-  });
+  actions.register(
+    {
+      name: 'retitle',
+      description: 'Change the title',
+      operation: { kind: 'mutation', affects: ['vacp://app/threshold'] },
+    },
+    () => {
+      graph.nodes[1]!.title = 'Updated title';
+      return 'changed';
+    },
+  );
   const context = new Registry();
   const registration = await installVacpWebMcp(runtime, { context });
   assert.ok(registration);

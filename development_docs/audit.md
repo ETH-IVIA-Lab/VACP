@@ -8,7 +8,7 @@ The initial public documentation set contained 13 site pages. Architecture, cont
 
 | Finding                                                                 | Current owner and contract                                                                                                                            |
 | ----------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Protocol definitions read browser storage, URL, and environment flags   | Browser options live in `@vacp/runtime-browser`. The protocol package contains platform-independent protocol records and utilities.                   |
+| Protocol definitions read browser storage, URL, and environment flags   | Applications pass exposure options to `@vacp/runtime-browser`. The protocol package contains platform-independent protocol records and utilities.     |
 | Runtime construction and browser installation shared one package        | `@vacp/runtime` creates runtimes. `@vacp/runtime-browser` installs and discovers them.                                                                |
 | Runtime signatures required a concrete registry with private state      | Snapshot, execution, and registration ports accept structural implementations.                                                                        |
 | Several constructors and installers overlapped                          | `createVacpRuntime` is the runtime constructor, `installVacpRuntime` is browser composition, and `installVacp` is the custom-integration entry point. |

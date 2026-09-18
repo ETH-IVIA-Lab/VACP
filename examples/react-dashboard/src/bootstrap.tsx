@@ -1,3 +1,4 @@
+import { exampleOptions } from '../../config';
 import { StrictMode } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 
@@ -28,7 +29,7 @@ async function ensureDataset(timeoutMs = 30_000): Promise<void> {
 }
 
 export function mountReactDashboard(rootEl: HTMLElement): () => void {
-  installVacpInspector();
+  if (exampleOptions.inspector) installVacpInspector();
 
   void useDashboardStore.getState().actions.init();
 

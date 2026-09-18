@@ -1,19 +1,13 @@
-import type { VacpCapabilitiesSnapshot, VacpRuntimeBridge, VacpStateSnapshot, VacpRef } from '@vacp/protocol';
-
-import type { VacpActionExecutor } from '../action-registry';
-
-export interface VacpSnapshotProvider<
-  State = Record<VacpRef, unknown>,
-  Summary = Record<VacpRef, unknown>,
-  NodeData = Record<string, unknown>,
-> {
-  getCapabilities(): VacpCapabilitiesSnapshot<NodeData> | Promise<VacpCapabilitiesSnapshot<NodeData>>;
-  getState(): VacpStateSnapshot<State, Summary> | Promise<VacpStateSnapshot<State, Summary>>;
-}
+import type {
+  VacpCapabilitiesSnapshot,
+  VacpObservation,
+  VacpProvider,
+  VacpRuntimeBridge,
+  VacpStateSnapshot,
+} from '@vacp/protocol';
 
 export type VacpRuntimeUpdate = {
-  snapshots: VacpSnapshotProvider;
-  actions: VacpActionExecutor;
+  providers: readonly VacpProvider[];
   /**
    * Optional session identifier for the current attached visualization/view.
    * If this changes, tooling may treat it as a new runtime session.
@@ -26,6 +20,9 @@ export interface VacpRuntime extends Required<Omit<VacpRuntimeBridge, 'runtimeId
   readonly signal: AbortSignal;
   readonly runtimeId: string;
   readonly sessionKey: string | undefined;
+  readonly providerIds: readonly string[];
+  attachProvider(provider: VacpProvider): () => void;
+  removeProvider(sourceId: string): void;
   update(next: VacpRuntimeUpdate): void;
   /** Live graph changes, independent of history and inspection overrides. */
   subscribeCapabilities(listener: (snapshot: VacpCapabilitiesSnapshot) => void): () => void;
@@ -34,4 +31,8 @@ export interface VacpRuntime extends Required<Omit<VacpRuntimeBridge, 'runtimeId
   dispose(): void;
 }
 
-export type VacpLiveSnapshots = { capabilities: VacpCapabilitiesSnapshot; state: VacpStateSnapshot };
+export type VacpLiveSnapshots = {
+  observation: VacpObservation;
+  capabilities: VacpCapabilitiesSnapshot;
+  state: VacpStateSnapshot;
+};

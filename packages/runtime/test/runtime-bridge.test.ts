@@ -2,12 +2,13 @@ import { z } from 'zod';
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import type { VacpCapabilitiesSnapshot, VacpStateSnapshot } from '@vacp/protocol';
+import type { VacpStateSnapshot } from '@vacp/protocol';
 import { VACP_SCHEMA_VERSION } from '@vacp/protocol';
 
 import { registerVacpApplyStateAction } from '../src/apply-state';
 import { VacpActionRegistry } from '../src/action-registry';
 import { createVacpRuntime } from '../src/runtime/create-runtime';
+import { createVacpProvider } from '../src/create-provider';
 
 const valueSchema = z.object({ value: z.string() });
 
@@ -23,17 +24,20 @@ function stateSnapshot(value: string): VacpStateSnapshot {
   };
 }
 
-function capabilities(actions: VacpActionRegistry): VacpCapabilitiesSnapshot {
-  return {
-    version: VACP_SCHEMA_VERSION,
-    createdAt: '2026-06-10T00:00:00.000Z',
-    graph: {
-      version: VACP_SCHEMA_VERSION,
-      nodes: [],
-      edges: [],
-      actions: actions.list(),
-    },
-  };
+function createTestRuntime(actions: VacpActionRegistry, getValue: () => string) {
+  const provider = createVacpProvider({
+    source: { id: 'vacp-source://runtime-replay', type: 'test', title: 'Replay test' },
+    actions,
+    project: () => ({
+      graph: {
+        version: VACP_SCHEMA_VERSION,
+        nodes: [{ ref, kind: 'Widget', layer: 'ConfigLayer', title: 'Input' }],
+        edges: [],
+      },
+      state: stateSnapshot(getValue()).state,
+    }),
+  });
+  return createVacpRuntime({ providers: [provider] });
 }
 
 async function waitFor(predicate: () => Promise<boolean>, label: string): Promise<void> {
@@ -71,13 +75,7 @@ test('Return to Live wins over a slow in-flight inspect replay', async () => {
     hostValue = next;
   });
 
-  const bridge = createVacpRuntime({
-    actions,
-    snapshots: {
-      getCapabilities: async () => capabilities(actions),
-      getState: async () => stateSnapshot(hostValue),
-    },
-  });
+  const bridge = createTestRuntime(actions, () => hostValue);
 
   await bridge.refresh({ source: 'inspector', message: 'old snapshot' });
   hostValue = 'live';
@@ -106,13 +104,7 @@ test('Return to Live restores observed live state even when it was not recorded 
     hostValue = next;
   });
 
-  const bridge = createVacpRuntime({
-    actions,
-    snapshots: {
-      getCapabilities: async () => capabilities(actions),
-      getState: async () => stateSnapshot(hostValue),
-    },
-  });
+  const bridge = createTestRuntime(actions, () => hostValue);
 
   await bridge.refresh({ source: 'inspector', message: 'recorded old snapshot' });
   hostValue = 'live-unrecorded';

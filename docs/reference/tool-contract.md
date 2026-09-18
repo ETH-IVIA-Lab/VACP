@@ -1,16 +1,21 @@
 # Tool contract
 
-The bridge tool contract is the stable surface shared across transports. These tools call the same in-page bridge and return structured snapshots and action results. Transport-specific helpers can add navigation or page inspection without changing the VACP contract.
+The agent tool contract exposes scoped graph and state views plus semantic execution. Both reads come from revisioned provider observations. Use `bridge.observe()` when graph, state, ownership, and freshness must be read together.
 
 ```text
+vacp_observe()
 vacp_capabilities(options?)
 vacp_state(options?)
 vacp_execute(name, params?, call_id?)
 ```
 
+## vacp_observe
+
+Returns one observation with graph, state, source ownership, revision, summaries, and output freshness. Use it when these values must describe the same read.
+
 ## vacp_capabilities
 
-Returns a capabilities snapshot. This includes a semantic graph and action descriptors for the current interface.
+Returns a capabilities snapshot. This includes source descriptions, ownership, a semantic graph, and action descriptors for the current interface.
 
 For a broad read, omit `refs` and `prefixes`. Do not use bare `vacp://` as a scope token.
 
@@ -22,13 +27,14 @@ When `refs` includes a container ref such as a _View_ or _Visualization_, the sc
 
 ## vacp_execute
 
-Executes a named action with validated parameters. The response includes the call id, a success flag, and either a result payload or an error payload.
+Executes a named action with validated parameters. Action descriptors identify the operation kind, input refs, affected refs, dynamic ref parameters, and produced results. The response includes the call id, a success flag, and either a result payload or an error payload.
 
 ## Bridge shape
 
 ```ts
 interface VacpWindowBridge {
   version: VacpSchemaVersion;
+  observe(): Promise<VacpObservation> | VacpObservation;
   getCapabilities(request?: VacpCapabilitiesRequest): Promise<VacpCapabilitiesSnapshot> | VacpCapabilitiesSnapshot;
   getState(request: VacpStateRequest): Promise<VacpStateUpdate>;
   getState(): Promise<VacpStateSnapshot> | VacpStateSnapshot;

@@ -1,12 +1,14 @@
 import type { WebMCP } from 'webmcp-types';
-import type { VacpActionDescriptor, VacpGraph, VacpWindowBridge } from '@vacp/protocol';
-import type { VacpRuntime } from '@vacp/runtime';
+import type { VacpActionDescriptor, VacpCapabilitiesSnapshot, VacpGraph, VacpWindowBridge } from '@vacp/protocol';
 
 /** The executable protocol surface needed by the compiler; no browser globals. */
-export type VacpWebMcpClient = Pick<VacpWindowBridge, 'getCapabilities' | 'getState' | 'execute'>;
+export type VacpWebMcpClient = Pick<VacpWindowBridge, 'observe' | 'getCapabilities' | 'getState' | 'execute'>;
 
 /** Live capability and lifetime ports used by automatic registration. */
-export type VacpWebMcpSource = VacpWebMcpClient & Pick<VacpRuntime, 'signal' | 'subscribeCapabilities'>;
+export type VacpWebMcpSource = VacpWebMcpClient & {
+  readonly signal: AbortSignal;
+  subscribeCapabilities(listener: (snapshot: VacpCapabilitiesSnapshot) => void): () => void;
+};
 
 /** Only registration is required. The adapter never clears another owner's tools. */
 export type VacpWebMcpRegistry = {

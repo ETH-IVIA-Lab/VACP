@@ -1,4 +1,4 @@
-import type { VacpActionDescriptor, VacpEdge, VacpGraph, VacpNode, VacpRef } from '@vacp/protocol';
+import type { VacpActionDescriptor, VacpEdge, VacpGraphFragment, VacpNode, VacpRef } from '@vacp/protocol';
 import { VACP_SCHEMA_VERSION } from '@vacp/protocol';
 
 import { collectVegaLiteParams } from './params';
@@ -197,7 +197,7 @@ export function buildGraph(args: {
   options: InstallVacpOnVegaLiteOptions;
   actions: VacpActionDescriptor[];
   dataHandles?: Array<{ ref: VacpRef; title?: string; description?: string; data?: Record<string, unknown> }>;
-}): VacpGraph {
+}): VacpGraphFragment {
   const vizRef = makeRef({
     appId: args.options.appId,
     viewId: args.options.viewId,

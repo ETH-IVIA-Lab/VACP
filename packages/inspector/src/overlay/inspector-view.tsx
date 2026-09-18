@@ -1,4 +1,4 @@
-import { Braces, Clock, Database, GitGraph, History, MessageSquare, Radar, Settings2, Zap } from 'lucide-react';
+import { Braces, Clock, Database, GitGraph, History, MessageSquare, Radar, Zap } from 'lucide-react';
 import type { ReactElement, ReactNode, RefObject } from 'react';
 
 import type { VacpRuntimeSnapshot } from '@vacp/protocol';
@@ -14,7 +14,7 @@ export type VacpInspectorBridgeStatus = 'missing' | 'unknown' | 'ok';
 type InspectorModule = Readonly<{ id: VacpInspectorModuleId; title: string; description: string; icon: ReactElement }>;
 
 const inlineCodeClass =
-  'rounded-md border border-white/[0.075] bg-white/[0.035] px-1.5 py-0.5 text-[11px] font-medium text-slate-100 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.018)]';
+  'rounded-md border border-white/[0.075] bg-white/[0.035] px-1.5 py-0.5 text-[11px] font-medium text-neutral-100 ';
 
 const MODULES: readonly InspectorModule[] = [
   {
@@ -48,12 +48,6 @@ const MODULES: readonly InspectorModule[] = [
     icon: <MessageSquare className="h-4 w-4 shrink-0" />,
   },
   {
-    id: 'settings',
-    title: 'Settings',
-    description: 'Inspector flags and install behavior',
-    icon: <Settings2 className="h-4 w-4 shrink-0" />,
-  },
-  {
     id: 'json',
     title: 'JSON',
     description: 'Raw snapshot and state controls',
@@ -62,10 +56,10 @@ const MODULES: readonly InspectorModule[] = [
 ];
 
 const modeHelp = (
-  <div className="max-w-[320px] text-[12px] leading-5 text-slate-100/85">
-    <div className="font-semibold text-slate-100/90">Live</div>
+  <div className="max-w-[320px] text-[12px] leading-5 text-neutral-100/85">
+    <div className="font-semibold text-neutral-100/90">Live</div>
     <div>Panels follow the latest provider snapshots (what the app is doing now).</div>
-    <div className="mt-2 font-semibold text-slate-100/90">Inspect (time travel)</div>
+    <div className="mt-2 font-semibold text-neutral-100/90">Inspect (time travel)</div>
     <div>
       Panels show the state at the history cursor. If supported, cursor changes also replay state into the host app.
     </div>
@@ -75,11 +69,11 @@ const modeHelp = (
 );
 
 function bridgeDotClass(status: VacpInspectorBridgeStatus): string {
-  if (status === 'ok') return 'bg-teal-300 shadow-[0_0_0_3px_rgba(45,212,191,0.16),0_0_14px_rgba(45,212,191,0.34)]';
+  if (status === 'ok') return 'bg-teal-300 ';
 
-  if (status === 'unknown') return 'bg-slate-100/42';
+  if (status === 'unknown') return 'bg-neutral-100/42';
 
-  return 'bg-slate-100/24';
+  return 'bg-neutral-100/24';
 }
 
 function InspectorDock(props: {
@@ -103,19 +97,17 @@ function InspectorDock(props: {
         type="button"
         aria-label={props.pillTitle}
         className={cn(
-          'vacp-inspector-button relative grid h-11 w-11 select-none place-items-center rounded-full border border-white/14 bg-[#11171b]/95 text-slate-100 shadow-[0_12px_34px_rgba(0,0,0,0.28)]',
-          'cursor-grab transition-[background-color,border-color,box-shadow,transform] hover:border-white/24 hover:bg-[#151d22]/95 active:scale-[0.97] active:cursor-grabbing focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/42',
-          props.open &&
-            'border-white/24 bg-[#151d22]/96 shadow-[0_15px_36px_rgba(0,0,0,0.3),0_0_0_1px_rgba(255,255,255,0.06)]',
-          props.bridgeStatus === 'ok' &&
-            'border-teal-200/22 shadow-[0_12px_34px_rgba(0,0,0,0.28),0_0_0_1px_rgba(45,212,191,0.08)]',
+          'vacp-inspector-button relative grid h-11 w-11 select-none place-items-center rounded-full border border-white/14 bg-[#171717]/95 text-neutral-100 ',
+          'cursor-grab transition-colors hover:border-white/24 hover:bg-[#171717]/95  active:cursor-grabbing focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/42',
+          props.open && 'border-white/24 bg-[#171717]/96 ',
+          props.bridgeStatus === 'ok' && 'border-teal-200/22 ',
         )}
         data-bridge={props.bridgeStatus}
         data-state={props.open ? 'open' : 'closed'}
         title={props.pillTitle}
         onClick={() => props.setOpen(!props.open)}
       >
-        <Radar className="h-5 w-5 text-slate-50/88" strokeWidth={1.8} aria-hidden="true" />
+        <Radar className="h-5 w-5 text-neutral-50/88" strokeWidth={1.8} aria-hidden="true" />
         <span className={cn('absolute bottom-1 h-1 w-4 rounded-full', dotClass)} aria-hidden="true" />
       </button>
     </div>
@@ -132,7 +124,11 @@ function ModeToggle(props: {
   return (
     <IconButton
       icon={
-        inspect ? <History className="h-4 w-4 text-slate-100/90" /> : <Clock className="h-4 w-4 text-slate-100/90" />
+        inspect ? (
+          <History className="h-4 w-4 text-neutral-100/90" />
+        ) : (
+          <Clock className="h-4 w-4 text-neutral-100/90" />
+        )
       }
       label="Toggle live/inspect mode"
       title={modeHelp}
@@ -165,7 +161,7 @@ function PanelTopBar(props: {
       className={cn(
         'vacp-inspector-topbar',
         'relative flex min-w-0 items-center border-b border-white/[0.075]',
-        'bg-[#0f161a]/96',
+        'bg-[#171717]/96',
         props.compactPanel ? 'min-h-11 gap-1.5 px-1.5 py-1.5' : 'min-h-11 gap-2 px-2.5 py-1.5',
       )}
     >
@@ -188,13 +184,13 @@ function PanelTopBar(props: {
             props.compactPanel || props.showNavLabels ? 'sr-only' : 'hidden w-[188px] shrink-0 sm:block',
           )}
         >
-          <div className="vacp-inspector-title flex min-w-0 items-center gap-1.5 text-[12px] font-semibold text-slate-100/90">
-            <span className="shrink-0 text-slate-100/74" aria-hidden="true">
+          <div className="vacp-inspector-title flex min-w-0 items-center gap-1.5 text-[12px] font-semibold text-neutral-100/90">
+            <span className="shrink-0 text-neutral-100/74" aria-hidden="true">
               {props.activeModule.icon}
             </span>
             <span className="whitespace-nowrap">{props.activeModule.title}</span>
           </div>
-          <div className="text-[10px] text-slate-100/50">{props.activeModule.description}</div>
+          <div className="text-[10px] text-neutral-100/50">{props.activeModule.description}</div>
         </div>
         {props.moduleNav}
       </div>
@@ -257,7 +253,7 @@ function ModuleNav(props: {
   return (
     <nav
       className={cn(
-        'vacp-inspector-nav min-w-0 max-w-full overflow-x-auto rounded-lg border border-white/[0.075] bg-white/[0.025] p-1',
+        'vacp-inspector-nav min-w-0 max-w-full overflow-x-auto p-1',
         '[-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden',
         props.showLabels && 'flex-1',
         !props.showLabels && 'p-0.5',
@@ -266,14 +262,14 @@ function ModuleNav(props: {
     >
       <TabsList
         loop
-        className={cn('vacp-inspector-nav-list gap-1', props.showLabels ? 'grid w-full grid-cols-7' : 'w-max flex-row')}
+        className={cn('vacp-inspector-nav-list gap-1', props.showLabels ? 'grid w-full grid-cols-6' : 'w-max flex-row')}
       >
         {props.modules.map((m) => (
           <TabsTrigger
             key={m.id}
             value={m.id}
             className={cn(
-              'vacp-inspector-module group shrink-0 justify-center rounded-md bg-transparent text-slate-100/68 transition-[background-color,color,transform]',
+              'vacp-inspector-module group shrink-0 justify-center rounded-md bg-transparent text-neutral-100/68 transition-colors',
               props.showLabels ? 'h-8 min-w-0 px-1.5 py-0' : 'h-7 w-7 p-0',
             )}
             data-module-id={m.id}
@@ -303,7 +299,7 @@ function ModuleContent(props: {
   return (
     <div
       className={cn(
-        'vacp-inspector-content min-h-0 min-w-0 overflow-hidden bg-[#0b1115]',
+        'vacp-inspector-content min-h-0 min-w-0 overflow-hidden bg-[#171717]',
         props.densePanel ? 'p-1.5' : 'p-2',
       )}
     >
@@ -326,20 +322,20 @@ function ModuleContent(props: {
 }
 
 function healthToneClass(tone: 'ok' | 'warn' | 'error' | 'muted'): string {
-  if (tone === 'ok') return 'border-emerald-200/12 bg-emerald-300/[0.045] text-emerald-50/82';
+  if (tone === 'ok') return 'text-neutral-300';
 
   if (tone === 'error') return 'border-red-200/18 bg-red-300/[0.07] text-red-50/84';
 
   if (tone === 'warn') return 'border-amber-100/14 bg-amber-100/[0.055] text-amber-50/76';
 
-  return 'border-white/[0.075] bg-white/[0.025] text-slate-100/62';
+  return 'text-neutral-400';
 }
 
 function HealthPill(props: { label: string; value: string | number; tone?: 'ok' | 'warn' | 'error' | 'muted' }) {
   return (
     <span
       className={cn(
-        'inline-flex h-6 shrink-0 items-center gap-1 rounded-md border px-2 text-[10px] leading-none',
+        'inline-flex h-5 shrink-0 items-center gap-1 px-1 text-[10px] leading-none',
         healthToneClass(props.tone ?? 'muted'),
       )}
     >
@@ -364,7 +360,7 @@ function RuntimeHealthStrip(props: { health: RuntimeHealthSnapshot; densePanel: 
     <div
       data-vacp-runtime-health="1"
       className={cn(
-        'flex min-w-0 items-center gap-1.5 overflow-x-auto border-b border-white/[0.075] bg-[#0c1317]/96 px-2 py-1.5',
+        'flex min-w-0 items-center gap-1.5 overflow-x-auto border-b border-white/[0.075] bg-[#171717]/96 px-2 py-1.5',
         '[-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden',
         props.densePanel && 'py-1',
       )}
@@ -378,7 +374,7 @@ function RuntimeHealthStrip(props: { health: RuntimeHealthSnapshot; densePanel: 
       <HealthPill label="Runtime" value={props.health.runtimeErrors} tone={runtimeTone} />
       <HealthPill label="Network" value={props.health.networkFailures} tone={networkTone} />
       {props.health.lastIssue ? (
-        <span className="min-w-[180px] truncate text-[10px] text-slate-100/52">{props.health.lastIssue}</span>
+        <span className="min-w-[180px] truncate text-[10px] text-neutral-100/52">{props.health.lastIssue}</span>
       ) : null}
     </div>
   );
@@ -448,8 +444,6 @@ export function InspectorView(props: {
   compactDragRef: RefObject<HTMLDivElement | null>;
   titleId: string;
   open: boolean;
-  panelVisible: boolean;
-  panelClosing: boolean;
   setOpen: (open: boolean) => void;
   moduleId: VacpInspectorModuleId;
   setModuleId: (id: VacpInspectorModuleId) => void;
@@ -463,7 +457,7 @@ export function InspectorView(props: {
   runtimeHealth: RuntimeHealthSnapshot;
   renderModule: (id: VacpInspectorModuleId) => ReactElement | null;
 }): ReactElement {
-  const panelState = props.open ? 'open' : props.panelClosing ? 'closing' : 'closed';
+  const panelState = props.open ? 'open' : 'closed';
 
   return (
     <div data-vacp-inspector="1">
@@ -478,12 +472,12 @@ export function InspectorView(props: {
       <div
         id="vacp-inspector-panel"
         className={cn(
-          'vacp-inspector-panel fixed z-[2147483001] h-[min(620px,calc(100vh-92px))] w-[min(900px,calc(100vw-28px))] overflow-hidden rounded-lg border border-white/[0.105] bg-[#0b1115] text-slate-100 shadow-[0_18px_44px_rgba(0,0,0,0.34)]',
-          props.panelVisible ? 'grid' : 'hidden',
+          'vacp-inspector-panel fixed z-[2147483001] h-[min(620px,calc(100vh-92px))] w-[min(900px,calc(100vw-28px))] overflow-hidden rounded-lg border border-white/[0.105] bg-[#171717] text-neutral-100 ',
+          props.open ? 'grid' : 'hidden',
           props.densePanel && 'vacp-inspector-dense',
         )}
         ref={props.panelRef}
-        hidden={!props.panelVisible}
+        hidden={!props.open}
         data-state={panelState}
         data-vacp-inspector="1"
         role="dialog"

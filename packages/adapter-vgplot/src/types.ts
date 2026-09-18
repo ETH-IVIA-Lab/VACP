@@ -91,6 +91,9 @@ export interface InstallVacpOnVgplotOptions {
   title?: string;
   description?: string;
   globalKey?: string;
+  exposeBridge?: boolean;
+  injectDomSnapshot?: boolean;
+  enableSql?: boolean;
   runtimeId?: string;
 }
 
@@ -100,6 +103,9 @@ export interface InstallVacpOnVgplotDashboardOptions {
   title?: string;
   description?: string;
   globalKey?: string;
+  exposeBridge?: boolean;
+  injectDomSnapshot?: boolean;
+  enableSql?: boolean;
   runtimeId?: string;
   /**
    * Optional DuckDB client to back the standard `vacp.data_sql` action.
