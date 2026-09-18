@@ -1,0 +1,27 @@
+packages/runtime/bench/runtime.ts
+  ai_agent 9,64-85
+Makefile
+  s_ad28489153bcf7::t_bb269760e366c7 105,108
+packages/runtime/test/state-update.test.ts
+  s_ad28489153bcf7::t_bb269760e366c7 87-102,104-110,140
+  s_ad28489153bcf7::t_33526460f85e22 103,111-139
+packages/runtime/src/runtime/state-update.ts
+  s_ad28489153bcf7::t_bb269760e366c7 176,181
+  s_ad28489153bcf7::t_33526460f85e22 86-90,175,177-180
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "bf5f33bb26aac24c75e57d0f2997ca24a71c9f3e",
+  "prompts": {},
+  "sessions": {
+    "s_ad28489153bcf7": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a0b393-234e-74d3-8b65-e0faa6b8456b",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Péter Ferenc Gyarmati <peterferenc.gyarmati@inf.ethz.ch>"
+    }
+  }
+}
