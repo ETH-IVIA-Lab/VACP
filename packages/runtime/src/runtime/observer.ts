@@ -1,7 +1,7 @@
-import type { VacpLiveSnapshots } from './types';
+import type { VacpLiveSnapshots } from './types.js';
 import type { VacpChangeSource, VacpHistoryEntry, VacpObservation } from '@vacp/protocol';
 import { nowIso } from '@vacp/protocol';
-import { entryMessage, entrySource, makeEntryId } from './helpers';
+import { entryMessage, entrySource, makeEntryId } from './helpers.js';
 
 export function createRuntimeObserver(args: {
   getLive: () => VacpObservation | null;

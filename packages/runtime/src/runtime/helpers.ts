@@ -11,7 +11,7 @@ export function makeEntryId(): string {
 export function notify<Value>(listeners: Set<(entry: Value) => void>, entry: Value): void {
   listeners.forEach((fn) => {
     try {
-      fn(entry);
+      fn(structuredClone(entry));
     } catch {
       // ignore observer failures
     }

@@ -23,7 +23,7 @@ test('default instructions remain part of composed output', () => {
   const instructions = buildVacpAgentInstructions();
   assert.equal(instructions.startsWith(defaultVacpAgentInstructions), true);
   assert.match(instructions, /vacp\.widget_options/i);
-  assert.match(instructions, /vgplot\.set_input_option_index/i);
+  assert.match(instructions, /operation\.contract/i);
   assert.match(instructions, /do not use bare vacp:\/\//i);
   assert.match(instructions, /includeNodeData=false/i);
   assert.match(instructions, /visible reasoning terse and professional/i);

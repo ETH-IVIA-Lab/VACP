@@ -1,4 +1,10 @@
-import type { VacpActionDescriptor, VacpOperationKind, VacpOperationResultDescriptor, VacpRef } from '@vacp/protocol';
+import type {
+  VacpActionDescriptor,
+  VacpOperationKind,
+  VacpOperationResultDescriptor,
+  VacpRef,
+  VacpSourceId,
+} from '@vacp/protocol';
 import {
   registerVacpApplyStateAction,
   type VacpApplyStateHandler,
@@ -35,8 +41,8 @@ export type VacpActions = {
   };
 };
 
-export function createVacpActions(): VacpActions {
-  const registry = new VacpActionRegistry();
+export function createVacpActions(sourceId?: VacpSourceId): VacpActions {
+  const registry = new VacpActionRegistry(sourceId);
 
   return {
     registry,
@@ -73,6 +79,11 @@ export class VacpActionDefinition<Params = unknown> {
     return this;
   }
 
+  contract(contract: string): this {
+    this.descriptor.operation.contract = contract;
+    return this;
+  }
+
   input(ref: VacpRef): this {
     this.descriptor.operation.inputRefs = [...(this.descriptor.operation.inputRefs ?? []), ref];
 
@@ -106,12 +117,10 @@ export class VacpActionDefinition<Params = unknown> {
   }
 
   handle<Result>(handler: VacpActionHandler<Params, Result>): VacpActionDescriptor {
-    this.registry.register(this.descriptor, async (params, options) => {
+    return this.registry.register(this.descriptor, async (params, options) => {
       const parsed = await this.parse(params);
       options.signal?.throwIfAborted();
       return handler(parsed, options);
     });
-
-    return this.descriptor;
   }
 }

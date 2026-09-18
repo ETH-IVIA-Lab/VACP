@@ -4,7 +4,7 @@ import { vacpRefSchema } from '@vacp/protocol';
 import type { VacpActionDescriptor, VacpDataSqlParams, VacpRef } from '@vacp/protocol';
 import { VACP_DATA_SQL_ACTION } from '@vacp/protocol';
 
-import type { VacpActionRegistrar } from './action-registry';
+import type { VacpActionRegistrar } from './action-registry.js';
 
 export type VacpDataSqlHandler = (
   params: VacpDataSqlParams,
@@ -42,6 +42,7 @@ export function registerVacpDataSqlAction(
       options?.description ??
       'Run a DuckDB SQL query over a VACP DataHandle. Providers define the mapping. `vacp_handle` and `vacp_all` are reserved. Prefer semantic, human-like interaction actions first. Use SQL only when the app cannot express the needed question through available actions.',
     operation: {
+      contract: VACP_DATA_SQL_ACTION,
       kind: 'query',
       inputRefs: options?.inputRefs,
       refParameters: [{ parameter: 'handleRef', role: 'input' }],
@@ -63,11 +64,9 @@ export function registerVacpDataSqlAction(
     },
   };
 
-  registry.register(descriptor, (params, executionOptions) => {
+  return registry.register(descriptor, (params, executionOptions) => {
     const parsed = paramsSchema.parse(params);
 
     return handler(parsed, executionOptions);
   });
-
-  return descriptor;
 }

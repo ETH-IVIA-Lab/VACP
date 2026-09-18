@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import type { VacpActionDescriptor, VacpRef } from './schema';
+import type { VacpActionDescriptor, VacpRef } from './schema.js';
 
 export const vacpRefSchema = z.custom<VacpRef>(isVacpRef, 'Expected a vacp:// reference');
 

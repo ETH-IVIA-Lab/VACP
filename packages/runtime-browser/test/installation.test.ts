@@ -81,3 +81,88 @@ test('browser discovery requires the complete versioned protocol surface', () =>
     Reflect.deleteProperty(globalThis, key);
   }
 });
+
+test('a disposed installation cannot uninstall a new runtime at the same key', async () => {
+  const first = installVacpRuntime({ globalKey: key, providers: [provider(1)], injectDomSnapshot: false });
+  uninstallVacpRuntime({ globalKey: key });
+  const replacement = installVacpRuntime({ globalKey: key, providers: [provider(2)], injectDomSnapshot: false });
+  try {
+    first.dispose();
+    assert.equal(getVacpBridge({ globalKey: key }), replacement.runtime);
+    assert.equal((await replacement.runtime.getState()).state['vacp://example/value'], 2);
+  } finally {
+    replacement.dispose();
+  }
+});
+
+test('failed source groups leave installation, session, and exposure unchanged', async () => {
+  const first = installVacpRuntime({
+    globalKey: key,
+    providers: [provider(1)],
+    sessionKey: 'original',
+    injectDomSnapshot: false,
+  });
+  const failing = {
+    ...provider(3, 'failing'),
+    subscribe: () => {
+      throw new Error('Cannot subscribe');
+    },
+  };
+  try {
+    assert.throws(
+      () =>
+        installVacpRuntime({
+          globalKey: key,
+          providers: [provider(2), failing],
+          injectDomSnapshot: false,
+          exposeBridge: false,
+        }),
+      /Cannot subscribe/,
+    );
+    assert.throws(
+      () =>
+        installVacpRuntime({
+          globalKey: key,
+          providers: [provider(2), failing],
+          sessionKey: 'replacement',
+          injectDomSnapshot: false,
+        }),
+      /Cannot subscribe/,
+    );
+    assert.equal(getVacpBridge({ globalKey: key }), first.runtime);
+    assert.equal(first.runtime.sessionKey, 'original');
+    assert.equal((await first.runtime.observe()).state['vacp://example/value'], 1);
+    assert.deepEqual(first.runtime.providerIds, ['vacp-source://installation-value']);
+  } finally {
+    first.dispose();
+  }
+  assert.throws(
+    () =>
+      installVacpRuntime({
+        globalKey: key,
+        providers: [provider(2), failing],
+        injectDomSnapshot: false,
+      }),
+    /Cannot subscribe/,
+  );
+  assert.equal(getVacpBridge({ globalKey: key }), undefined);
+});
+
+test('batch cleanup preserves newer leases, even when the provider instance is reused', async () => {
+  const shared = provider(1);
+  const first = installVacpRuntime({
+    globalKey: key,
+    providers: [shared, provider(2, 'other')],
+    injectDomSnapshot: false,
+  });
+  const second = installVacpRuntime({ globalKey: key, providers: [shared], injectDomSnapshot: false });
+  try {
+    first.dispose();
+    assert.deepEqual(second.runtime.providerIds, [shared.source.id]);
+    assert.equal((await second.runtime.observe()).state['vacp://example/value'], 1);
+  } finally {
+    second.dispose();
+    first.dispose();
+  }
+  assert.equal(getVacpBridge({ globalKey: key }), undefined);
+});

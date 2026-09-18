@@ -4,7 +4,7 @@ import { vacpRefSchema } from '@vacp/protocol';
 import type { VacpActionDescriptor, VacpDataSchemaParams, VacpDataSchemaResult, VacpRef } from '@vacp/protocol';
 import { VACP_DATA_SCHEMA_ACTION } from '@vacp/protocol';
 
-import type { VacpActionRegistrar } from './action-registry';
+import type { VacpActionRegistrar } from './action-registry.js';
 
 export type VacpDataSchemaHandler = (
   params: VacpDataSchemaParams,
@@ -35,6 +35,7 @@ export function registerVacpDataSchemaAction(
       options?.description ??
       'Return a DataHandle schema summary (columns/types, row count, and optional bounded summaries). Use this before writing `vacp.data_sql` queries to avoid column-name/type guesswork.',
     operation: {
+      contract: VACP_DATA_SCHEMA_ACTION,
       kind: 'query',
       inputRefs: options?.inputRefs,
       refParameters: [{ parameter: 'handleRef', role: 'input' }],
@@ -55,11 +56,9 @@ export function registerVacpDataSchemaAction(
     },
   };
 
-  registry.register(descriptor, (params, executionOptions) => {
+  return registry.register(descriptor, (params, executionOptions) => {
     const parsed = paramsSchema.parse(params);
 
     return handler(parsed, executionOptions);
   });
-
-  return descriptor;
 }

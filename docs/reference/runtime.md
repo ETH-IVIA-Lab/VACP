@@ -27,7 +27,7 @@ The runtime merges provider observations by stable refs and operation names. The
 
 Providers may add edges to nodes owned by another source. One source owns each node and operation. Duplicate owners and edges whose endpoints are missing fail observation.
 
-`attachProvider(provider)` adds or replaces one source and returns a detach function. `removeProvider(sourceId)` removes one source. `update({ providers, sessionKey })` replaces the complete source set for a new application session.
+`attachProviders(providers)` atomically adds or replaces a source group and returns a detach function. Detaching releases only sources still owned by that attachment, including when a newer attachment reuses the same provider instance. `removeProvider(sourceId)` removes one source. `update({ providers, sessionKey })` replaces the complete source set for a new application session.
 
 ## Coherent observations
 
@@ -46,7 +46,7 @@ The composer retries when a provider invalidates while sources are being read. E
 
 `getRuntime()` returns the current mode, cursor, history, live observation, and inspected observation. `subscribe(listener)` receives runtime entries.
 
-`refresh({ source, message })` records an observation after an application change. `setCursor(index)`, `undo()`, and `redo()` inspect history. A provider that registers `vacp.apply_state` can replay supported state into its application. Providers should report refs that cannot be restored.
+`refresh({ source, message })` records an observation after an application change. `setCursor(index)`, `undo()`, and `redo()` inspect history. A provider that declares the `vacp.apply_state` operation contract can replay supported state into its application. Providers should report refs that cannot be restored.
 
 Execution enters live mode before invoking an operation. Caller cancellation and runtime lifetime are combined in the handler's `{ signal }` option.
 

@@ -27,7 +27,7 @@ When `refs` includes a container ref such as a _View_ or _Visualization_, the sc
 
 ## vacp_execute
 
-Executes a named action with validated parameters. Action descriptors identify the operation kind, input refs, affected refs, dynamic ref parameters, and produced results. The response includes the call id, a success flag, and either a result payload or an error payload.
+Executes a discovered action by its unique `name` with validated parameters. `operation.contract` identifies shared semantics independently of that routing name. Action descriptors identify the operation kind, input refs, affected refs, dynamic ref parameters, and produced results. The response includes the call id, a success flag, and either a result payload or an error payload.
 
 ## Bridge shape
 
@@ -45,7 +45,11 @@ interface VacpWindowBridge {
 ## Example
 
 ```ts
-await vacp_execute('vacp.data_schema', { handleRef: 'vacp://vacp-examples/data/main', detail: 'columns' }, 'call-1');
+const handleRef = 'vacp://vacp-examples/data/main';
+const capabilities = await vacp_capabilities({ refs: [handleRef] });
+const action = capabilities.graph.actions.find((action) => action.operation.contract === 'vacp.data_schema');
+if (!action) throw new Error('Schema inspection is unavailable for this data handle');
+await vacp_execute(action.name, { handleRef, detail: 'columns' }, 'call-1');
 ```
 
 ```json

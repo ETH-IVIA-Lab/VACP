@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { fnv1a64Hex } from '../src/hash';
+import { fnv1a64Hex, stableStringify } from '../src/hash';
 
 function referenceHash(value: string): string {
   let hash = 0xcbf29ce484222325n;
@@ -30,4 +30,28 @@ test('64-bit tokens retain the existing UTF-16 wire format across carries and ov
     cases.push(value);
   }
   for (const value of cases) assert.equal(fnv1a64Hex(value), referenceHash(value));
+});
+
+test('canonical serialization follows JSON values rather than object identity', () => {
+  const shared = { z: 2, a: 1 };
+  assert.equal(
+    stableStringify({ first: shared, second: shared }),
+    stableStringify({ second: { a: 1, z: 2 }, first: { a: 1, z: 2 } }),
+  );
+  const date = new Date('2026-09-18T12:00:00Z');
+  assert.equal(stableStringify({ date }), stableStringify({ date: date.toISOString() }));
+  const withJson = { toJSON: () => ({ z: 2, a: 1 }) };
+  assert.equal(stableStringify(withJson), '{"a":1,"z":2}');
+  const circular: { self?: object } = {};
+  circular.self = circular;
+  assert.throws(() => stableStringify(circular), /circular/i);
+});
+
+test('canonical tokens preserve JSON property ordering, omission, and prototype-like keys', () => {
+  const value = JSON.parse('{"z":3,"10":"ten","2":"two","__proto__":{"safe":true}}');
+  value.a = [undefined, NaN, -0];
+  value.omitted = undefined;
+  assert.equal(stableStringify(value), '{"2":"two","10":"ten","__proto__":{"safe":true},"a":[null,null,0],"z":3}');
+  assert.equal(Object.getPrototypeOf(value), Object.prototype);
+  assert.equal(value.omitted, undefined);
 });

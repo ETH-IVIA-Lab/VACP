@@ -119,3 +119,28 @@ test('application failure details keep their original scalar value', async () =>
     error: { message: '42', details: 42 },
   });
 });
+
+test('scoped action registries retain shared contracts and return their executable identities', async () => {
+  const left = createVacpActions('vacp-source://left');
+  const right = createVacpActions('vacp-source://right');
+  const first = left
+    .operation('query', 'inspect', 'Inspect left')
+    .contract('domain.inspect')
+    .handle(() => 'left');
+  const second = right
+    .operation('query', 'inspect', 'Inspect right')
+    .contract('domain.inspect')
+    .handle(() => 'right');
+  assert.notEqual(first.name, second.name);
+  assert.equal(first.operation.contract, second.operation.contract);
+  assert.deepEqual(await left.registry.execute({ callId: 'left', name: first.name }), {
+    callId: 'left',
+    ok: true,
+    result: 'left',
+  });
+  assert.deepEqual(await right.registry.execute({ callId: 'right', name: second.name }), {
+    callId: 'right',
+    ok: true,
+    result: 'right',
+  });
+});

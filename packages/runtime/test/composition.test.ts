@@ -125,3 +125,47 @@ test('composition retries observations invalidated while sources are being read'
     composed.dispose();
   }
 });
+
+test('action identity is independent of JavaScript object property names', async () => {
+  const composed = composeVacpProviders([
+    provider({ id: 'vacp-source://constructor', node: 'vacp://first', action: 'constructor', result: 'first' }),
+    provider({ id: 'vacp-source://prototype', node: 'vacp://second', action: '__proto__', result: 'second' }),
+  ]);
+  try {
+    assert.deepEqual(await composed.execute({ callId: 'first', name: 'constructor' }), {
+      callId: 'first',
+      ok: true,
+      result: 'first',
+    });
+    assert.deepEqual(await composed.execute({ callId: 'second', name: '__proto__' }), {
+      callId: 'second',
+      ok: true,
+      result: 'second',
+    });
+    assert.equal((await composed.execute({ callId: 'missing', name: 'toString' })).ok, false);
+  } finally {
+    composed.dispose();
+  }
+});
+
+test('failed composition releases subscriptions it acquired without disposing provider owners', () => {
+  let attached = 0;
+  let disposed = 0;
+  const first = provider({ id: 'vacp-source://first', node: 'vacp://first', action: 'first', result: 'first' });
+  first.subscribe = () => {
+    attached++;
+    return () => {
+      attached--;
+    };
+  };
+  first.dispose = () => {
+    disposed++;
+  };
+  const second = provider({ id: 'vacp-source://second', node: 'vacp://second', action: 'second', result: 'second' });
+  second.subscribe = () => {
+    throw new Error('Cannot subscribe');
+  };
+  assert.throws(() => composeVacpProviders([first, second]), /Cannot subscribe/);
+  assert.equal(attached, 0);
+  assert.equal(disposed, 0);
+});

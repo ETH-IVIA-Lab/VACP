@@ -1,3 +1,3 @@
-export { installVacpRuntime, uninstallVacpRuntime } from './install';
+export { installVacpRuntime, uninstallVacpRuntime } from './install.js';
 
-export { getVacpBridge } from './bridge';
+export { getVacpBridge } from './bridge.js';

@@ -4,7 +4,7 @@ import { vacpRefSchema } from '@vacp/protocol';
 import type { VacpActionDescriptor, VacpRef, VacpWidgetOptionsParams, VacpWidgetOptionsResult } from '@vacp/protocol';
 import { VACP_WIDGET_OPTIONS_ACTION } from '@vacp/protocol';
 
-import type { VacpActionRegistrar } from './action-registry';
+import type { VacpActionRegistrar } from './action-registry.js';
 
 export type VacpWidgetOptionsHandler = (
   params: VacpWidgetOptionsParams,
@@ -35,6 +35,7 @@ export function registerVacpWidgetOptionsAction(
       options?.description ??
       'List available options for a Widget ref (e.g., menus). Use this to map from labels to values/indices for downstream input actions.',
     operation: {
+      contract: VACP_WIDGET_OPTIONS_ACTION,
       kind: 'query',
       inputRefs: options?.inputRefs,
       refParameters: [{ parameter: 'ref', role: 'input' }],
@@ -53,11 +54,9 @@ export function registerVacpWidgetOptionsAction(
     },
   };
 
-  registry.register(descriptor, (params, executionOptions) => {
+  return registry.register(descriptor, (params, executionOptions) => {
     const parsed = paramsSchema.parse(params);
 
     return handler(parsed, executionOptions);
   });
-
-  return descriptor;
 }

@@ -16,21 +16,18 @@ export function fnv1a64Hex(value: string): string {
 }
 
 export function stableStringify(value: unknown): string {
-  const seen = new WeakSet<object>();
-
-  const walk = (v: unknown): unknown => {
-    if (v === null || typeof v !== 'object') return v;
-
-    if (seen.has(v)) return '[Circular]';
-    seen.add(v);
-
-    if (Array.isArray(v)) return v.map(walk);
-    return Object.fromEntries(
-      Object.entries(v)
-        .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
-        .map(([key, entry]) => [key, walk(entry)]),
-    );
+  // Normalize through JSON first so toJSON, omitted properties, and shared
+  // references have exactly the same meaning as the serialized protocol data.
+  const serialized = JSON.stringify(value);
+  const walk = (entry: unknown): unknown => {
+    if (entry === null || typeof entry !== 'object') return entry;
+    if (Array.isArray(entry)) {
+      for (let index = 0; index < entry.length; index++) entry[index] = walk(entry[index]);
+      return entry;
+    }
+    const sorted: Record<string, unknown> = Object.create(null);
+    for (const key of Object.keys(entry).sort()) sorted[key] = walk((entry as Record<string, unknown>)[key]);
+    return sorted;
   };
-
-  return JSON.stringify(walk(value));
+  return JSON.stringify(walk(serialized === undefined ? undefined : JSON.parse(serialized)));
 }

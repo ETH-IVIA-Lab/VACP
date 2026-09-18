@@ -4,7 +4,7 @@ import { vacpRefSchema } from '@vacp/protocol';
 import type { VacpActionDescriptor, VacpRef } from '@vacp/protocol';
 import { VACP_APPLY_STATE_ACTION } from '@vacp/protocol';
 
-import type { VacpActionRegistrar } from './action-registry';
+import type { VacpActionRegistrar } from './action-registry.js';
 
 export type VacpApplyStateHandler<Result = unknown> = (
   state: Record<VacpRef, unknown>,
@@ -31,6 +31,7 @@ export function registerVacpApplyStateAction<Result>(
       options?.description ??
       'Apply a desired VACP state map to the live app. The provider defines how refs are applied.',
     operation: {
+      contract: VACP_APPLY_STATE_ACTION,
       kind: 'mutation',
       affects: options?.affects,
       results: [{ role: 'state', description: 'Updated analytical state' }],
@@ -47,11 +48,9 @@ export function registerVacpApplyStateAction<Result>(
     },
   };
 
-  registry.register(descriptor, (params, executionOptions) => {
+  return registry.register(descriptor, (params, executionOptions) => {
     const parsed = paramsSchema.parse(params);
 
     return handler(parsed.state, executionOptions);
   });
-
-  return descriptor;
 }

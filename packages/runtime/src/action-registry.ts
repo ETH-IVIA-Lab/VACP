@@ -3,7 +3,9 @@ import type {
   VacpActionDescriptor,
   VacpActionResult,
   VacpActionExecutionOptions,
+  VacpSourceId,
 } from '@vacp/protocol';
+import { fnv1a64Hex } from '@vacp/protocol';
 
 export interface VacpActionExecutor {
   list(): VacpActionDescriptor[];
@@ -11,7 +13,7 @@ export interface VacpActionExecutor {
 }
 
 export interface VacpActionRegistrar {
-  register<Result>(descriptor: VacpActionDescriptor, handler: VacpActionHandler<unknown, Result>): void;
+  register<Result>(descriptor: VacpActionDescriptor, handler: VacpActionHandler<unknown, Result>): VacpActionDescriptor;
 }
 
 export type VacpActionHandler<Params = unknown, Result = unknown> = (
@@ -44,6 +46,11 @@ function toSerializableErrorDetails(cause: unknown): unknown {
   }
 }
 
+/** Stable routing identity for an action owned by one analytical source. */
+export function qualifyVacpActionName(sourceId: VacpSourceId, localName: string): string {
+  return `source_${fnv1a64Hex(sourceId)}.${localName}`;
+}
+
 /**
  * Action registry (concepts).
  *
@@ -58,15 +65,23 @@ export class VacpActionRegistry implements VacpActionExecutor, VacpActionRegistr
   private readonly descriptors = new Map<string, VacpActionDescriptor>();
   private readonly handlers = new Map<string, VacpActionHandler>();
 
-  register<Result>(descriptor: VacpActionDescriptor, handler: VacpActionHandler<unknown, Result>): void {
-    if (this.handlers.has(descriptor.name)) {
+  constructor(private readonly sourceId?: VacpSourceId) {}
+
+  register<Result>(
+    descriptor: VacpActionDescriptor,
+    handler: VacpActionHandler<unknown, Result>,
+  ): VacpActionDescriptor {
+    const registered = structuredClone(descriptor);
+    if (this.sourceId) registered.name = qualifyVacpActionName(this.sourceId, descriptor.name);
+    if (this.handlers.has(registered.name)) {
       throw new Error(
         `Duplicate action registration for "${descriptor.name}". Register each action name once (handlers should route via params).`,
       );
     }
 
-    this.descriptors.set(descriptor.name, descriptor);
-    this.handlers.set(descriptor.name, handler);
+    this.descriptors.set(registered.name, registered);
+    this.handlers.set(registered.name, handler);
+    return structuredClone(registered);
   }
 
   unregister(name: string): void {
@@ -75,7 +90,7 @@ export class VacpActionRegistry implements VacpActionExecutor, VacpActionRegistr
   }
 
   list(): VacpActionDescriptor[] {
-    return Array.from(this.descriptors.values());
+    return structuredClone(Array.from(this.descriptors.values()));
   }
 
   async execute(call: VacpActionCall, options: VacpActionExecutionOptions = {}): Promise<VacpActionResult> {

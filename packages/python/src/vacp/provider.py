@@ -4,12 +4,16 @@ import asyncio
 import hashlib
 import inspect
 import json
+import logging
 from collections.abc import Awaitable, Callable, Mapping, Sequence
+from contextlib import ExitStack
 from dataclasses import asdict, dataclass
 from typing import Literal, Protocol, cast
+from uuid import uuid4
 
 VACP_SCHEMA_VERSION = '0.1.0'
 MAX_COHERENCE_RETRIES = 8
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -56,6 +60,7 @@ class RefParameter:
 @dataclass(frozen=True)
 class OperationSemantics:
     kind: Literal['mutation', 'creation', 'evaluation', 'query']
+    contract: str | None = None
     input_refs: tuple[str, ...] = ()
     affects: tuple[str, ...] = ()
     ref_parameters: tuple[RefParameter, ...] = ()
@@ -176,26 +181,46 @@ class SimpleProvider:
 
 class ProviderComposer:
     def __init__(self, providers: Sequence[Provider]) -> None:
+        self.session_id = uuid4().hex
         self._providers = tuple(providers)
         self._by_source: dict[str, Provider] = {}
         self._epoch = 0
         self._disposed = False
-        self._detach: list[Callable[[], None]] = []
+        self._listeners: set[Callable[[], None]] = set()
         for provider in self._providers:
             if provider.source.id in self._by_source:
                 raise ValueError(f'Duplicate VACP source: {provider.source.id}')
             self._by_source[provider.source.id] = provider
-        self._detach = [provider.subscribe(self._invalidate) for provider in self._providers]
+        with ExitStack() as subscriptions:
+            for provider in self._providers:
+                subscriptions.callback(provider.subscribe(self._invalidate))
+            self._subscriptions = subscriptions.pop_all()
+
+    def subscribe(self, invalidate: Callable[[], None]) -> Callable[[], None]:
+        self._ensure_active()
+        self._listeners.add(invalidate)
+        return lambda: self._listeners.discard(invalidate)
 
     def _invalidate(self) -> None:
+        if self._disposed:
+            return
         self._epoch += 1
+        for listener in tuple(self._listeners):
+            try:
+                listener()
+            except Exception:
+                logger.exception('VACP observation subscriber failed')
 
-    async def observe(self) -> Observation:
+    def _ensure_active(self) -> None:
         if self._disposed:
             raise RuntimeError('VACP composer is disposed')
+
+    async def observe(self) -> Observation:
+        self._ensure_active()
         for _ in range(MAX_COHERENCE_RETRIES):
             before = self._epoch
             observations = await asyncio.gather(*(_resolve(provider.observe()) for provider in self._providers))
+            self._ensure_active()
             if before != self._epoch:
                 continue
             return _compose(self._providers, observations)
@@ -206,17 +231,19 @@ class ProviderComposer:
         source_id = observation.action_owners.get(call.name)
         if source_id is None:
             return InvocationResult(call.call_id, False, error={'message': f'Unknown operation: {call.name}'})
-        return await _resolve(self._by_source[source_id].invoke(call))
+        result = await _resolve(self._by_source[source_id].invoke(call))
+        self._ensure_active()
+        return result
 
     def dispose(self) -> None:
         if self._disposed:
             return
         self._disposed = True
-        for detach in self._detach:
-            detach()
-        for provider in self._providers:
-            provider.dispose()
-        self._detach.clear()
+        self._listeners.clear()
+        with ExitStack() as cleanup:
+            for provider in reversed(self._providers):
+                cleanup.callback(provider.dispose)
+            cleanup.callback(self._subscriptions.close)
 
 
 def _compose(providers: Sequence[Provider], observations: Sequence[ProviderObservation]) -> Observation:
@@ -333,6 +360,7 @@ def _operation_dict(action: OperationDescriptor) -> dict[str, object]:
             'operation': _compact(
                 {
                     'kind': semantics.kind,
+                    'contract': semantics.contract,
                     'inputRefs': list(semantics.input_refs) or None,
                     'affects': list(semantics.affects) or None,
                     'refParameters': [

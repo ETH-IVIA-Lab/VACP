@@ -33,6 +33,8 @@ Operation descriptors use four kinds:
 | `evaluation` | Runs a parameterized analysis and produces a result.      |
 | `query`      | Reads data or metadata without changing analytical state. |
 
+`name` is the unique routing identity used for execution across the composed graph. `operation.contract` identifies a shared semantic contract such as `vacp.data_sql`. Several sources can implement the same contract with different action names. Custom contract IDs are ordinary strings. Discover a descriptor by contract and relevant entity, then execute its `name`.
+
 `inputRefs` identify existing values consumed by the operation. `affects` identifies existing entities that may change. `results` describes produced state, entities, data, visualizations, or artifacts. `refParameters` marks parameters whose runtime values are refs.
 
 ## Freshness

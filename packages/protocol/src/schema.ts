@@ -126,6 +126,8 @@ export type VacpOperationResultDescriptor = {
 
 export type VacpOperationSemantics = {
   kind: VacpOperationKind;
+  /** Shared semantic contract, independent of this action's globally unique routing name. */
+  contract?: string;
   /** Existing analytical entities whose values are consumed by the operation. */
   inputRefs?: VacpRef[];
   /** Existing analytical entities that may change when the operation succeeds. */
@@ -137,6 +139,7 @@ export type VacpOperationSemantics = {
 };
 
 export type VacpActionDescriptor<Parameters = Record<string, unknown>> = {
+  /** Unique execution identity across the composed graph. */
   name: string;
   title?: string;
   description: string;
@@ -146,7 +149,7 @@ export type VacpActionDescriptor<Parameters = Record<string, unknown>> = {
 };
 
 /**
- * Standard action names (protocol-level).
+ * Standard semantic contracts (protocol-level).
  *
  * `vacp.apply_state` is intentionally broad:
  * - the caller supplies a *desired state map* keyed by `vacp://...` refs

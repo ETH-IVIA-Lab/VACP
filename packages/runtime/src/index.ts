@@ -1,17 +1,17 @@
-export * from './action-registry';
+export * from './action-registry.js';
 
-export * from './apply-state';
+export * from './apply-state.js';
 
-export * from './data-schema';
+export * from './data-schema.js';
 
-export * from './data-sql';
+export * from './data-sql.js';
 
-export * from './widget-options';
+export * from './widget-options.js';
 
-export type { VacpLiveSnapshots, VacpRuntimeUpdate, VacpRuntime } from './runtime/types';
+export type { VacpLiveSnapshots, VacpRuntimeUpdate, VacpRuntime } from './runtime/types.js';
 
-export * from './runtime/create-runtime';
+export * from './runtime/create-runtime.js';
 
-export * from './composition';
+export * from './composition.js';
 
-export * from './create-provider';
+export * from './create-provider.js';

@@ -8,7 +8,7 @@ import type {
   VacpRef,
   VacpStateSnapshot,
   VacpWindowBridge,
-} from './schema';
+} from './schema.js';
 
 /**
  * Runtime change tracking (project concepts).
@@ -93,7 +93,7 @@ export interface VacpRuntimeBridge extends VacpWindowBridge {
   refresh?: (options?: { source?: VacpChangeSource; message?: string }) => Promise<VacpStateSnapshot>;
   /** Switch between live and time-travel inspection. */
   setMode?: (mode: VacpRuntimeMode, options?: { source?: VacpChangeSource; message?: string }) => void;
-  /** Move the history cursor (time travel) without mutating the live app. */
+  /** Select runtime history and replay it when the provider declares the `vacp.apply_state` contract. */
   setCursor?: (cursor: number, options?: { source?: VacpChangeSource; message?: string }) => void;
   undo?: (options?: { source?: VacpChangeSource; message?: string }) => void;
   redo?: (options?: { source?: VacpChangeSource; message?: string }) => void;

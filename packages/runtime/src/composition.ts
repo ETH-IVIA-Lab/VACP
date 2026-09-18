@@ -1,4 +1,4 @@
-import { notify } from './runtime/helpers';
+import { notify } from './runtime/helpers.js';
 import {
   fnv1a64Hex,
   stableStringify,
@@ -42,6 +42,7 @@ function composeObservations(
   const edges: VacpGraph['edges'] = [];
   const actions: VacpGraph['actions'] = [];
   const ownership: VacpGraph['ownership'] = { nodes: {}, actions: {} };
+  const actionOwners = new Map<string, VacpSourceId>();
   const state: Record<VacpRef, unknown> = {};
   const summary: Record<VacpRef, unknown> = {};
   const freshness: NonNullable<VacpObservation['freshness']> = {};
@@ -61,9 +62,9 @@ function composeObservations(
       nodes.push(node);
     }
     for (const action of observation.graph.actions) {
-      const owner = ownership.actions[action.name];
+      const owner = actionOwners.get(action.name);
       if (owner) duplicate('Action', action.name, owner, sourceId);
-      ownership.actions[action.name] = sourceId;
+      actionOwners.set(action.name, sourceId);
       actions.push(action);
     }
     for (const edge of observation.graph.edges) {
@@ -98,9 +99,10 @@ function composeObservations(
     Object.assign(freshness, observation.freshness);
   }
 
+  ownership.actions = Object.fromEntries(actionOwners);
   const graph: VacpGraph = {
     version: VACP_SCHEMA_VERSION,
-    sources: providers.map((provider) => provider.source),
+    sources: providers.map((provider) => structuredClone(provider.source)),
     ownership,
     nodes,
     edges,
@@ -134,22 +136,30 @@ export function composeVacpProviders(providers: readonly VacpProvider[]) {
   let epoch = 0;
   let disposed = false;
   const listeners = new Set<() => void>();
-  const detach = providers.flatMap((provider) =>
-    provider.subscribe
-      ? [
+  const detach: Array<() => void> = [];
+  try {
+    for (const provider of providers) {
+      if (provider.subscribe) {
+        detach.push(
           provider.subscribe(() => {
             epoch += 1;
             notify(listeners, undefined);
           }),
-        ]
-      : [],
-  );
+        );
+      }
+    }
+  } catch (error) {
+    for (const unsubscribe of detach) unsubscribe();
+    throw error;
+  }
 
   const observe = async (): Promise<VacpObservation> => {
     if (disposed) throw new Error('VACP composition is disposed');
     for (let attempt = 0; attempt < MAX_COHERENCE_RETRIES; attempt++) {
       const before = epoch;
-      const observations = await Promise.all(providers.map((provider) => provider.observe()));
+      const observations = await Promise.all(
+        providers.map(async (provider) => structuredClone(await provider.observe())),
+      );
       if (disposed) throw new Error('VACP composition is disposed');
       if (before !== epoch) continue;
       return composeObservations(providers, observations);
@@ -159,7 +169,8 @@ export function composeVacpProviders(providers: readonly VacpProvider[]) {
 
   const execute = async (call: VacpActionCall, options?: VacpActionExecutionOptions): Promise<VacpActionResult> => {
     const observation = await observe();
-    const sourceId = observation.graph.ownership.actions[call.name];
+    const owners = observation.graph.ownership.actions;
+    const sourceId = Object.hasOwn(owners, call.name) ? owners[call.name] : undefined;
     if (!sourceId) return { callId: call.callId, ok: false, error: { message: `Unknown action: ${call.name}` } };
     return bySource.get(sourceId)!.execute(call, options);
   };

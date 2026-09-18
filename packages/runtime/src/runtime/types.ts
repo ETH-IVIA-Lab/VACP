@@ -21,7 +21,8 @@ export interface VacpRuntime extends Required<Omit<VacpRuntimeBridge, 'runtimeId
   readonly runtimeId: string;
   readonly sessionKey: string | undefined;
   readonly providerIds: readonly string[];
-  attachProvider(provider: VacpProvider): () => void;
+  /** Atomically attach sources; cleanup releases only sources still owned by this attachment. */
+  attachProviders(providers: readonly VacpProvider[]): () => void;
   removeProvider(sourceId: string): void;
   update(next: VacpRuntimeUpdate): void;
   /** Live graph changes, independent of history and inspection overrides. */

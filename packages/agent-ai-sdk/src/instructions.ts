@@ -1,4 +1,4 @@
-import type { VacpAgentInteractionPolicy } from './types';
+import type { VacpAgentInteractionPolicy } from './types.js';
 
 export const defaultVacpAgentInstructions = [
   'You are a VACP protocol assistant.',
@@ -12,7 +12,8 @@ export const defaultVacpAgentInstructions = [
   'When reading state for a View or Visualization ref, inspect the descendant widget/data state under that container before answering.',
   'Keep visible reasoning terse and professional: one short sentence at most, with no speculative self-talk, filler, or motivational language.',
   'Use vacp_execute for semantic actions only. Avoid DOM or pixel instructions.',
-  'When Widget or Menu controls are present, resolve labels or indices first (for example via vacp.widget_options), then use semantic input actions such as vgplot.set_input_option_index, vgplot.set_input_value, or vgplot.clear_input.',
+  'Discover standard capabilities by operation.contract, then execute the descriptor name belonging to the relevant source and entity.',
+  'When Widget or Menu controls are present, resolve labels or indices through the vacp.widget_options contract, then use the discovered input or clear action for that widget.',
   'When the user asks about subsets, clusters, ranges, or highlighted groups, operate through the UI state: set the relevant dataset, configure axes/encoding if unset, apply a non-empty selection, then answer.',
   'If current state already shows that no item/filter/selection is active, answer that directly instead of running a broader fallback query that answers a different question.',
   'For subset answers, do not finish until vacp_state confirms both a configured view and an active selection.',

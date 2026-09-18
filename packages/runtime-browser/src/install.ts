@@ -4,8 +4,8 @@ import {
   defaultVacpDomSnapshotScriptId,
   removeVacpDomSnapshotScript,
   writeVacpDomSnapshotScript,
-} from './dom-snapshot';
-import { resolveVacpGlobalKey } from './window-globals';
+} from './dom-snapshot.js';
+import { resolveVacpGlobalKey } from './window-globals.js';
 
 const runtimes = new Map<string, VacpRuntime>();
 const domSnapshotHooks = new WeakMap<VacpRuntime, () => void>();
@@ -64,24 +64,26 @@ export function installVacpRuntime(args: {
   let runtime = runtimes.get(key);
   if (runtime?.signal.aborted) runtime = undefined;
   if (!runtime) {
-    runtime = createVacpRuntime({ providers: [], sessionKey: args.sessionKey, runtimeId: args.runtimeId });
-    runtimes.set(key, runtime);
+    runtime = createVacpRuntime({ providers: args.providers, sessionKey: args.sessionKey, runtimeId: args.runtimeId });
   } else if (args.sessionKey && args.sessionKey !== runtime.sessionKey) {
-    runtime.update({ providers: [], sessionKey: args.sessionKey });
+    runtime.update({ providers: args.providers, sessionKey: args.sessionKey });
   }
+  const detach = runtime.attachProviders(args.providers);
+  runtimes.set(key, runtime);
   if (exposeBridge) Object.assign(globalThis, { [key]: runtime });
   else if (Object.getOwnPropertyDescriptor(globalThis, key)?.value === runtime) Reflect.deleteProperty(globalThis, key);
   installDomSnapshotHooks(runtime, { enabled: domSnapshotEnabled, scriptId: domSnapshotScriptId });
 
-  const detach = args.providers.map((provider) => runtime.attachProvider(provider));
   let disposed = false;
   return {
     runtime,
     dispose: () => {
       if (disposed) return;
       disposed = true;
-      for (const release of detach) release();
-      if (runtime.providerIds.length === 0) uninstallVacpRuntime({ globalKey: key });
+      detach();
+      if (runtimes.get(key) === runtime && runtime.providerIds.length === 0) {
+        uninstallVacpRuntime({ globalKey: key });
+      }
     },
   };
 }
