@@ -34,7 +34,7 @@ dev = [
     { name = "pytest-asyncio", specifier = ">=0.24.0" },
     { name = "ruff", specifier = ">=0.16" },
     { name = "ty", specifier = ">=0.0.82" },
-    { name = "vacp", extras = ["server"], editable = "packages/python" },
+    { name = "vacp", extras = ["server", "http"], editable = "packages/python" },
 ]
 
 [[package]]
@@ -2175,6 +2175,10 @@ version = "0.1.0"
 source = { editable = "packages/python" }
 
 [package.optional-dependencies]
+http = [
+    { name = "starlette" },
+    { name = "uvicorn" },
+]
 server = [
     { name = "fastapi" },
     { name = "fastmcp" },
@@ -2191,9 +2195,11 @@ requires-dist = [
     { name = "httpx", marker = "extra == 'server'", specifier = ">=0.27.0" },
     { name = "playwright", marker = "extra == 'server'", specifier = ">=1.49.0" },
     { name = "pydantic", marker = "extra == 'server'", specifier = ">=2.8.0" },
+    { name = "starlette", marker = "extra == 'http'", specifier = ">=0.40" },
+    { name = "uvicorn", marker = "extra == 'http'", specifier = ">=0.30" },
     { name = "uvicorn", marker = "extra == 'server'", specifier = ">=0.30.0" },
 ]
-provides-extras = ["server"]
+provides-extras = ["http", "server"]
 
 [[package]]
 name = "watchfiles"
