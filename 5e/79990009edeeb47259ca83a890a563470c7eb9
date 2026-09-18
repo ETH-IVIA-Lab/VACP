@@ -1,0 +1,11 @@
+packages/protocol/package.json
+  ai_agent 17-18
+packages/protocol/test/hash.test.ts
+  ai_agent 1-33
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "5e79990009edeeb47259ca83a890a563470c7eb9",
+  "prompts": {}
+}
