@@ -6,7 +6,12 @@
   "ignoreBinaries": ["opencode", "make"],
   "workspaces": {
     ".": {
-      "entry": ["vite.shared.ts", "tools/oxlint/anti-slop/**/*.test.ts", "examples/custom-integration/threshold.ts"],
+      "entry": [
+        "tools/check-package-imports.mjs",
+        "vite.shared.ts",
+        "tools/oxlint/anti-slop/**/*.test.ts",
+        "examples/custom-integration/threshold.ts",
+      ],
     },
     "examples/gallery": {
       // Generated route HTML loads this entry point.

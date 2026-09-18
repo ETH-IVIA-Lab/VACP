@@ -1,3 +1,3 @@
-export * from './provider';
+export * from './provider.js';
 
-export * from './install';
+export * from './install.js';

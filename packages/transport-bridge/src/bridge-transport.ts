@@ -1,5 +1,5 @@
 import type { VacpWindowBridge } from '@vacp/protocol';
-import type { VacpTransport } from './types';
+import type { VacpTransport } from './types.js';
 
 /** Map agent tools to the provider's settled protocol reads and execution. */
 export function createVacpTransport(bridge: VacpWindowBridge): VacpTransport {

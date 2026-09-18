@@ -11,7 +11,7 @@ WORKSPACE_FILTERS := --filter './packages/*' --filter './apps/*' --filter './exa
 
 .PHONY: bench help setup setup-web setup-python dev dev-all dev-status format lint typecheck
 .PHONY: python-format python-lint python-typecheck python-test python-check
-.PHONY: build build-libs build-apps docs docs-serve test test-tools knip check package browser-install e2e ci
+.PHONY: build build-libs build-apps docs docs-serve test test-tools test-package-imports knip check package browser-install e2e ci
 
 help: ## Show development commands.
 	@awk 'BEGIN {FS = ":.*## "} /^[a-zA-Z0-9_-]+:.*## / {printf "  %-18s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
@@ -41,6 +41,7 @@ lint: python-lint ## Check JavaScript and Python formatting and lint rules.
 	$(VP) check
 
 build-libs:
+	rm -rf packages/*/dist packages/*/*.tsbuildinfo
 	$(VP) run --filter './packages/*' build
 
 build-apps: build-libs
@@ -76,7 +77,10 @@ test-tools: ## Validate the vendored anti-slop rules and their CLI integration.
 knip: ## Check unused files, exports, and dependencies.
 	$(PNPM) exec knip --treat-config-hints-as-errors
 
-test: build-libs python-test ## Run JavaScript and Python unit tests.
+test-package-imports: build-libs ## Verify built headless packages import in native Node.
+	$(PNPM) exec node tools/check-package-imports.mjs
+
+test: build-libs test-package-imports python-test ## Run JavaScript and Python unit tests.
 	$(VP) run $(WORKSPACE_FILTERS) test
 
 check: lint typecheck test-tools knip test ## Run the complete local static and unit-test gates.

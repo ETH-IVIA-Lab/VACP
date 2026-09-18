@@ -1,3 +1,3 @@
-export * from './types';
+export * from './types.js';
 
-export { installVacpRuntimeAnalytics } from './runtime';
+export { installVacpRuntimeAnalytics } from './runtime.js';
