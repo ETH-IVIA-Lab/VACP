@@ -1,7 +1,7 @@
 import type { VacpDataSqlParams, VacpDataSqlResult, VacpRef } from '@vacp/protocol';
 
-import type { VacpDuckDbClient } from './client';
-import { normalizeSingleStatementSql } from './sql';
+import type { VacpDuckDbClient } from './client.js';
+import { normalizeSingleStatementSql } from './sql.js';
 
 type VacpDuckDbHandle = { allSql: string; selectedSql: string };
 
@@ -16,66 +16,37 @@ export function createDuckDbDataSqlHandler(args: {
 }): (params: VacpDataSqlParams) => Promise<VacpDataSqlResult> {
   const maxRowsDefault = args.defaultMaxRows ?? 500;
 
-  // Serialize `vacp.data_sql` calls to keep the `vacp_handle`/`vacp_all` temp
-  // view binding predictable.
-  let chain = Promise.resolve<void>(undefined);
+  return async (params) => {
+    const handle = await args.resolveHandle(params.handleRef);
 
-  const runExclusive = async <T>(fn: () => Promise<T>): Promise<T> => {
-    let release: () => void;
-    const next = new Promise<void>((r) => (release = r));
-    const prev = chain;
-    chain = chain.then(() => next);
-    await prev;
+    if (!handle) throw new Error(`Unknown DataHandle: ${params.handleRef}`);
 
-    try {
-      return await fn();
-    } finally {
-      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-      release!();
+    const allSql = normalizeSingleStatementSql(handle.allSql);
+    const selectedSql = normalizeSingleStatementSql(handle.selectedSql);
+
+    const format = params.format ?? 'json';
+    const sql = normalizeSingleStatementSql(params.sql);
+    // Query-local bindings cannot overwrite another handle on a shared client.
+    // Nest the caller's query so its own WITH/RECURSIVE scope stays intact.
+    const boundSql = `WITH vacp_all AS (${allSql}\n), vacp_handle AS (${selectedSql}\n) SELECT * FROM (${sql}\n) AS __vacp_query`;
+
+    if (format === 'arrow_ipc_base64') {
+      const arrowIpcBase64 = await args.duckdb.queryArrowIpcBase64(boundSql);
+
+      return { format, resolvedSql: boundSql, arrowIpcBase64 };
     }
+
+    const maxRows = params.maxRows ?? maxRowsDefault;
+    const wrapped = `${boundSql} LIMIT ${Math.floor(maxRows) + 1}`;
+    const { columns, rows } = await args.duckdb.queryJson(wrapped);
+    const truncated = rows.length > maxRows;
+
+    return {
+      format: 'json',
+      resolvedSql: wrapped,
+      columns,
+      rows: truncated ? rows.slice(0, maxRows) : rows,
+      truncated,
+    };
   };
-
-  return async (params) =>
-    await runExclusive(async () => {
-      const handle = await args.resolveHandle(params.handleRef);
-
-      if (!handle) throw new Error(`Unknown DataHandle: ${params.handleRef}`);
-
-      const allSql = normalizeSingleStatementSql(handle.allSql);
-      const selectedSql = normalizeSingleStatementSql(handle.selectedSql);
-
-      await args.duckdb.exec(`CREATE OR REPLACE TEMP VIEW vacp_all AS ${allSql}`);
-
-      try {
-        await args.duckdb.exec(`CREATE OR REPLACE TEMP VIEW vacp_handle AS ${selectedSql}`);
-      } catch {
-        // If the provider-supplied selection predicate is incompatible with the
-        // underlying relation (for example due to missing columns), fall back
-        // to the unfiltered relation so `vacp.data_sql` still works across
-        // heterogeneous views.
-        await args.duckdb.exec(`CREATE OR REPLACE TEMP VIEW vacp_handle AS ${allSql}`);
-      }
-
-      const format = params.format ?? 'json';
-      const sql = normalizeSingleStatementSql(params.sql);
-
-      if (format === 'arrow_ipc_base64') {
-        const arrowIpcBase64 = await args.duckdb.queryArrowIpcBase64(sql);
-
-        return { format, resolvedSql: sql, arrowIpcBase64 };
-      }
-
-      const maxRows = params.maxRows ?? maxRowsDefault;
-      const wrapped = `WITH __vacp_q AS (${sql}) SELECT * FROM __vacp_q LIMIT ${Math.floor(maxRows) + 1}`;
-      const { columns, rows } = await args.duckdb.queryJson(wrapped);
-      const truncated = rows.length > maxRows;
-
-      return {
-        format: 'json',
-        resolvedSql: wrapped,
-        columns,
-        rows: truncated ? rows.slice(0, maxRows) : rows,
-        truncated,
-      };
-    });
 }

@@ -1,4 +1,4 @@
-import type { VacpDuckDbTableMetadata } from './metadata';
+import type { VacpDuckDbTableMetadata } from './metadata.js';
 
 function fmtInt(n: number): string {
   try {

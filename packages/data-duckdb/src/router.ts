@@ -1,6 +1,6 @@
-import type { VacpDuckDbClient } from './client';
+import type { VacpDuckDbClient } from './client.js';
 import type { VacpDataSqlParams, VacpRef } from '@vacp/protocol';
-import { createDuckDbDataSqlHandler } from './data-sql';
+import { createDuckDbDataSqlHandler } from './data-sql.js';
 
 export type VacpDuckDbHandleSpec = {
   handleRef: VacpRef;

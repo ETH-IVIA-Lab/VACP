@@ -1,4 +1,4 @@
-import type { VacpDuckDbClient } from './client';
+import type { VacpDuckDbClient } from './client.js';
 
 export type VacpDuckDbColumnInfo = {
   name: string;

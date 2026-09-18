@@ -1,8 +1,8 @@
 import * as duckdb from '@duckdb/duckdb-wasm';
 
-import { base64FromBytes } from './base64';
-import { arrowTableToJson } from './json';
-import { normalizeSingleStatementSql } from './sql';
+import { base64FromBytes } from './base64.js';
+import { arrowTableToJson } from './json.js';
+import { normalizeSingleStatementSql } from './sql.js';
 
 export type VacpDuckDbClient = {
   exec(sql: string): Promise<void>;
@@ -11,18 +11,48 @@ export type VacpDuckDbClient = {
   loadObjectsAsTable(tableName: string, rows: Record<string, unknown>[], options?: { create?: boolean }): Promise<void>;
 };
 
+type DuckDbConnection = Pick<duckdb.AsyncDuckDBConnection, 'close' | 'query' | 'useUnsafe' | 'insertJSONFromPath'>;
+type DuckDbDatabase = Pick<duckdb.AsyncDuckDB, 'registerFileText'> & {
+  connect(): Promise<DuckDbConnection>;
+};
+
+export type VacpDuckDbWasmClient = VacpDuckDbClient & {
+  dispose(): Promise<void>;
+};
+
 export async function createDuckDbWasmClient(options?: {
   log?: boolean;
-  duckdb?: duckdb.AsyncDuckDB;
-  connection?: duckdb.AsyncDuckDBConnection;
-}): Promise<VacpDuckDbClient> {
+  duckdb?: DuckDbDatabase;
+  connection?: DuckDbConnection;
+}): Promise<VacpDuckDbWasmClient> {
   const log = options?.log ?? false;
-  let db: duckdb.AsyncDuckDB | null = options?.duckdb ?? null;
-  let con: duckdb.AsyncDuckDBConnection | null = options?.connection ?? null;
+  let db: DuckDbDatabase | null = options?.duckdb ?? null;
+  let ownedDb: duckdb.AsyncDuckDB | null = null;
+  let con: DuckDbConnection | null = options?.connection ?? null;
   let loadPromise: Promise<void> | null = null;
+  let disposal: Promise<void> | null = null;
+  let disposed = false;
 
-  const ensure = async (): Promise<void> => {
-    if (con) return;
+  const release = async (): Promise<void> => {
+    const connection = options?.connection ? null : con;
+    const database = ownedDb;
+    con = null;
+    ownedDb = null;
+    if (database) db = null;
+    try {
+      await connection?.close();
+    } finally {
+      await database?.terminate();
+    }
+  };
+
+  const ensureActive = (): void => {
+    if (disposed) throw new Error('DuckDB client is disposed');
+  };
+
+  const getConnection = async (): Promise<DuckDbConnection> => {
+    ensureActive();
+    if (con) return con;
 
     if (!loadPromise) {
       loadPromise = (async () => {
@@ -34,39 +64,59 @@ export async function createDuckDbWasmClient(options?: {
             new Blob([`importScripts("${bundle.mainWorker}");`], { type: 'text/javascript' }),
           );
 
-          const worker = new Worker(workerUrl);
-          const logger = log ? new duckdb.ConsoleLogger() : new duckdb.VoidLogger();
-          db = new duckdb.AsyncDuckDB(logger, worker);
-          await db.instantiate(bundle.mainModule, bundle.pthreadWorker);
-          URL.revokeObjectURL(workerUrl);
+          let worker: Worker | undefined;
+          try {
+            worker = new Worker(workerUrl);
+            const logger = log ? new duckdb.ConsoleLogger() : new duckdb.VoidLogger();
+            ownedDb = new duckdb.AsyncDuckDB(logger, worker);
+            db = ownedDb;
+            await ownedDb.instantiate(bundle.mainModule, bundle.pthreadWorker);
+          } catch (error) {
+            if (!ownedDb) worker?.terminate();
+            throw error;
+          } finally {
+            URL.revokeObjectURL(workerUrl);
+          }
         }
 
-        con = await db!.connect();
-      })();
+        con = await db.connect();
+      })().catch(async (error: unknown) => {
+        await release();
+        throw error;
+      });
     }
 
     await loadPromise;
-  };
-
-  const getConnection = async (): Promise<duckdb.AsyncDuckDBConnection> => {
-    await ensure();
+    ensureActive();
 
     return con!;
   };
 
   const runQueryIpc = async (sql: string): Promise<Uint8Array> => {
     const conn = await getConnection();
+    ensureActive();
     const stmt = normalizeSingleStatementSql(sql);
 
     return conn.useUnsafe((bindings, connId) => bindings.runQuery(connId, stmt));
   };
 
   return {
+    dispose: () => {
+      if (!disposal) {
+        disposed = true;
+        disposal = (async () => {
+          await loadPromise?.catch(() => undefined);
+          await release();
+        })();
+      }
+      return disposal;
+    },
     exec: async (sql) => {
       await runQueryIpc(sql);
     },
     queryJson: async (sql) => {
       const conn = await getConnection();
+      ensureActive();
       const stmt = normalizeSingleStatementSql(sql);
       const table = await conn.query(stmt);
 
@@ -78,12 +128,14 @@ export async function createDuckDbWasmClient(options?: {
       return base64FromBytes(bytes);
     },
     loadObjectsAsTable: async (tableName, rows, options) => {
-      if (!db) await ensure();
+      const conn = await getConnection();
+      ensureActive();
+      if (!db) throw new Error('Loading objects requires a DuckDB database');
       const create = options?.create ?? true;
       const path = `/${tableName}.json`;
       const text = JSON.stringify(rows);
-      await db!.registerFileText(path, text);
-      const conn = await getConnection();
+      await db.registerFileText(path, text);
+      ensureActive();
       await conn.insertJSONFromPath(path, { name: tableName, create, schema: 'main' });
     },
   };
