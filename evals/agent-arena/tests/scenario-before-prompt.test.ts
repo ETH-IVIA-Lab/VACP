@@ -1,19 +1,18 @@
 import assert from 'node:assert/strict';
+import test, { type TestContext } from 'node:test';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { runScenario } from '../src/runner/scenario.ts';
 import type { ArenaConfig, ArenaJob } from '../src/types.ts';
 
-async function main() {
-  await testBeforePromptRunsBeforePromptAsync();
-  await testPromptWaitsForSessionIdleWhenStatusIsBusyFirst();
-  await testBeforePromptTimeoutFailsWithoutPrompt();
-  console.log('scenario-before-prompt: ok');
-}
+test('setup completes before prompting and records its result', testBeforePromptRunsBeforePromptAsync);
+test('prompt completion waits for the session to become idle', testPromptWaitsForSessionIdleWhenStatusIsBusyFirst);
+test('setup timeout cancels the hook and prevents prompting', testBeforePromptTimeoutFailsWithoutPrompt);
 
-async function testBeforePromptRunsBeforePromptAsync() {
+async function testBeforePromptRunsBeforePromptAsync(t: TestContext) {
   const tmp = await fs.mkdtemp(path.join(os.tmpdir(), 'arena-before-prompt-'));
+  t.after(() => fs.rm(tmp, { recursive: true, force: true }));
   const outDir = path.join(tmp, 'run-1');
   await fs.mkdir(outDir, { recursive: true });
 
@@ -62,11 +61,18 @@ async function testBeforePromptRunsBeforePromptAsync() {
   assert.equal(input.setup?.result?.ok, true);
 }
 
-async function testBeforePromptTimeoutFailsWithoutPrompt() {
+async function testBeforePromptTimeoutFailsWithoutPrompt(t: TestContext) {
   const tmp = await fs.mkdtemp(path.join(os.tmpdir(), 'arena-before-prompt-timeout-'));
+  t.after(() => fs.rm(tmp, { recursive: true, force: true }));
   const outDir = path.join(tmp, 'run-2');
   await fs.mkdir(outDir, { recursive: true });
 
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  let started!: () => void;
+  const setupStarted = new Promise<void>((resolve) => {
+    started = resolve;
+  });
+  let cancelled = false;
   let promptCalled = false;
 
   const client = mockClient({
@@ -79,14 +85,23 @@ async function testBeforePromptTimeoutFailsWithoutPrompt() {
 
   const config: ArenaConfig = {
     runs: [],
-    timeouts: { setupMs: 25, promptMs: 1000 },
+    timeouts: { setupMs: 1000, promptMs: 1000 },
     promptTemplate: () => 'test prompt',
-    onBeforePrompt: async () => {
-      await sleep(100);
-    },
+    onBeforePrompt: ({ abortSignal }) =>
+      new Promise<void>((resolve) => {
+        abortSignal.addEventListener(
+          'abort',
+          () => {
+            cancelled = true;
+            resolve();
+          },
+          { once: true },
+        );
+        started();
+      }),
   };
 
-  const res = await runScenario({
+  const running = runScenario({
     config,
     job,
     client: client,
@@ -95,14 +110,19 @@ async function testBeforePromptTimeoutFailsWithoutPrompt() {
     outDir,
   });
 
+  await setupStarted;
+  t.mock.timers.tick(1000);
+  const res = await running;
+  assert.equal(cancelled, true);
   assert.equal(res.ok, false);
   assert.equal(promptCalled, false);
   assert.equal(res.setup?.ok, false);
   assert.match(String(res.error?.message ?? ''), /onBeforePrompt timed out/i);
 }
 
-async function testPromptWaitsForSessionIdleWhenStatusIsBusyFirst() {
+async function testPromptWaitsForSessionIdleWhenStatusIsBusyFirst(t: TestContext) {
   const tmp = await fs.mkdtemp(path.join(os.tmpdir(), 'arena-before-prompt-busy-first-'));
+  t.after(() => fs.rm(tmp, { recursive: true, force: true }));
   const outDir = path.join(tmp, 'run-3');
   await fs.mkdir(outDir, { recursive: true });
 
@@ -180,9 +200,3 @@ function mockClient(args?: { onPromptAsync?: () => void; status?: () => Record<s
     },
   };
 }
-
-function sleep(ms: number) {
-  return new Promise<void>((resolve) => setTimeout(resolve, ms));
-}
-
-void main();

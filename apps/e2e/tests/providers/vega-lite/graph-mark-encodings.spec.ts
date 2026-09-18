@@ -12,21 +12,16 @@ async function waitForCapabilityRefContains(
   needle: string,
   timeoutMs = 60_000,
 ): Promise<void> {
-  const start = Date.now();
-
-  while (true) {
-    const ok = await page.evaluate(async (n) => {
-      const caps = await globalThis.__vacp.getCapabilities();
-      const nodes = caps?.graph?.nodes ?? [];
-
-      return nodes.some((x: any) => typeof x?.ref === 'string' && String(x.ref).includes(n));
-    }, needle);
-
-    if (ok) return;
-
-    if (Date.now() - start > timeoutMs) throw new Error(`Timed out waiting for capability ref containing: ${needle}`);
-    await page.waitForTimeout(150);
-  }
+  await expect
+    .poll(
+      async () =>
+        page.evaluate(async (needle) => {
+          const caps = await globalThis.__vacp.getCapabilities();
+          return caps.graph.nodes.some((node: { ref: string }) => node.ref.includes(needle));
+        }, needle),
+      { timeout: timeoutMs, message: `Capability graph contains ${needle}` },
+    )
+    .toBe(true);
 }
 
 test('vega-lite: capability graph includes mark encoding channels + fields across gallery specs', async ({ page }) => {
