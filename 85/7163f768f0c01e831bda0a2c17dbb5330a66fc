@@ -1,0 +1,29 @@
+packages/python/tests/test_inspection_http.py
+  s_ad28489153bcf7::t_69684217b8ec08 53-55
+  s_ad28489153bcf7::t_bf299ce8d17613 1-29,33-52,56-65
+  s_ad28489153bcf7::t_bc7f1091cd9046 30-32
+uv.lock
+  ai_agent 37,2178-2181,2198-2199,2202
+pyproject.toml
+  ai_agent 9
+packages/python/pyproject.toml
+  ai_agent 11
+packages/python/src/vacp/http.py
+  s_ad28489153bcf7::t_bf299ce8d17613 13-71
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "857163f768f0c01e831bda0a2c17dbb5330a66fc",
+  "prompts": {},
+  "sessions": {
+    "s_ad28489153bcf7": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a0b393-234e-74d3-8b65-e0faa6b8456b",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Péter Ferenc Gyarmati <peterferenc.gyarmati@inf.ethz.ch>"
+    }
+  }
+}
