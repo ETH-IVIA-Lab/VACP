@@ -1,0 +1,429 @@
+apps/docs/.vitepress/config.mts
+  s_ad28489153bcf7::t_5cd332aca41db2 1-10
+  s_ad28489153bcf7::t_bdaa3b7ad40d82 15-25
+apps/e2e/tests/browser-globals.d.ts
+  s_ad28489153bcf7::t_93e71b08c94d3f 8-12
+examples/react-dashboard/src/lib/dashboard.ts
+  s_ad28489153bcf7::t_18c58beff08d72 2-3
+packages/runtime/src/runtime/observer.ts
+  s_ad28489153bcf7::t_d6cf336ac19e96 4-11,13-18,20-21,24-100,102-112
+packages/inspector/src/overlay/modules/json-module.tsx
+  s_ad28489153bcf7::t_18c58beff08d72 45-207
+docs/providers/index.md
+  s_ad28489153bcf7::t_9cc30a3b50b0b9 3,5,11
+infra/docs.Dockerfile
+  s_ad28489153bcf7::t_fea49dddead423 2,8,10-15,17-19
+packages/inspector/src/bridge.ts
+  s_ad28489153bcf7::t_5cd332aca41db2 3,5,8-9,11-24
+.github/workflows/ci.yml
+  s_ad28489153bcf7::t_fea49dddead423 1,5-7,9-14,17,19,21-23,25-31,33,35-36,38-47,49-50,52-57
+packages/adapter-vgplot/src/runtime.ts
+  s_ad28489153bcf7::t_18c58beff08d72 41
+development_docs/examples/vgplot-gallery.md
+  s_ad28489153bcf7::t_28104784f8c6fb 96-97
+docs/what-is-vacp/index.md
+  s_ad28489153bcf7::t_9cc30a3b50b0b9 3,5,7,9,11-13,15,17,19,21,23,25
+packages/runtime/src/runtime/types.ts
+  s_ad28489153bcf7::t_d6cf336ac19e96 2-4,12-23,27-29
+  s_ad28489153bcf7::t_4db0991c95bd94 24-26
+development_docs/examples/vega-lite-gallery.md
+  s_ad28489153bcf7::t_28104784f8c6fb 78-79
+development_docs/examples.md
+  s_ad28489153bcf7::t_28104784f8c6fb 7-32
+packages/inspector/src/ui/components/ui/json-theme.ts
+  s_ad28489153bcf7::t_18c58beff08d72 39,47,50
+  s_ad28489153bcf7::t_5cd332aca41db2 1-38,40-46,48,52-62
+apps/e2e/tests/smoke/examples.spec.ts
+  s_ad28489153bcf7::t_18c58beff08d72 30-264
+evals/agent-arena/src/report/stats.ts
+  s_ad28489153bcf7::t_18c58beff08d72 518-568
+packages/inspector/src/enabled.ts
+  s_ad28489153bcf7::t_4db0991c95bd94 9
+evals/agent-arena/agent-arena.scenarios.ts
+  s_ad28489153bcf7::t_18c58beff08d72 19-410
+development_docs/examples/react-dashboard.md
+  s_ad28489153bcf7::t_28104784f8c6fb 34-35
+packages/runtime/test/data-sql.test.ts
+  s_ad28489153bcf7::t_d6cf336ac19e96 1-2,6,13,21,24-28,31,34
+packages/adapter-vgplot/src/duckdb-selection.ts
+  s_ad28489153bcf7::t_18c58beff08d72 6-18
+packages/agent-ai-sdk/src/sanitize-tool-payload.ts
+  s_ad28489153bcf7::t_269cac6ef6a49d 51
+  s_ad28489153bcf7::t_18c58beff08d72 18-38,100-150
+packages/runtime/src/apply-state.ts
+  s_ad28489153bcf7::t_d6cf336ac19e96 5-7,9,12-18,20,22-40,46-49
+  s_ad28489153bcf7::t_e566fa326f1e06 2,10
+packages/inspector/src/overlay/modules/chat/chat-messages.tsx
+  s_ad28489153bcf7::t_18c58beff08d72 24
+apps/docs/README.md
+  s_ad28489153bcf7::t_0f2c3ff510df2a 12
+packages/inspector/src/ui/components/ui/json-editor.tsx
+  s_ad28489153bcf7::t_18c58beff08d72 46-434
+packages/runtime/src/data-schema.ts
+  s_ad28489153bcf7::t_d6cf336ac19e96 5-49,53,55-58
+evals/agent-arena/src/cli.ts
+  s_ad28489153bcf7::t_18c58beff08d72 406-465
+README.md
+  s_ad28489153bcf7::t_28104784f8c6fb 29-30,63
+  s_ad28489153bcf7::t_3ce1a55a1b6eb5 35,38,40
+  s_ad28489153bcf7::t_5cd332aca41db2 44-45,57-58
+packages/inspector/src/overlay/modules/chat/message-sync-signature.ts
+  s_ad28489153bcf7::t_18c58beff08d72 4
+  s_ad28489153bcf7::t_5cd332aca41db2 3,5-34
+packages/agent-ai-sdk/src/create-gemini-model.ts
+  s_ad28489153bcf7::t_18c58beff08d72 55
+packages/adapter-vgplot/src/graph.ts
+  s_ad28489153bcf7::t_18c58beff08d72 8,23-75
+  s_ad28489153bcf7::t_269cac6ef6a49d 11
+packages/inspector/src/overlay/modules/chat/use-chat-autoscroll.ts
+  s_ad28489153bcf7::t_5cd332aca41db2 1-18,20-97
+  s_ad28489153bcf7::t_18c58beff08d72 19
+packages/adapter-vega-lite/src/params.ts
+  s_ad28489153bcf7::t_18c58beff08d72 3-40
+packages/inspector/src/overlay/modules/chat/chat-scope.ts
+  s_ad28489153bcf7::t_5cd332aca41db2 3-12,14-15,17-18,20-22,24-25,27-30,32-33,35-41,43-82
+evals/agent-arena/src/logs/export-session.ts
+  s_ad28489153bcf7::t_18c58beff08d72 100-227
+packages/agent-ai-sdk/src/create-openai-compatible-model.ts
+  s_ad28489153bcf7::t_18c58beff08d72 51
+packages/runtime-browser/package.json
+  s_ad28489153bcf7::t_18c58beff08d72 23
+package.json
+  s_ad28489153bcf7::t_066f1323fb685d 17-18
+  s_ad28489153bcf7::t_28104784f8c6fb 28-33
+packages/analytics/tsconfig.json
+  s_ad28489153bcf7::t_4db0991c95bd94 8-9,11-13
+packages/agent-ai-sdk/src/vacp-tools.ts
+  s_ad28489153bcf7::t_18c58beff08d72 102
+tsconfig.tools.json
+  s_ad28489153bcf7::t_07ee4a5065c7b2 10-11,13-16
+examples/react-dashboard/package.json
+  s_ad28489153bcf7::t_0f2c3ff510df2a 12
+  s_ad28489153bcf7::t_28104784f8c6fb 39-41
+packages/inspector/src/ui/sql/sql.ts
+  s_ad28489153bcf7::t_5cd332aca41db2 1-47
+packages/adapter-vgplot/src/table-actions.ts
+  s_ad28489153bcf7::t_18c58beff08d72 14-33
+packages/adapter-vgplot/src/install-dashboard.ts
+  s_ad28489153bcf7::t_18c58beff08d72 45-120
+packages/runtime/src/runtime/capabilities-scope.ts
+  s_ad28489153bcf7::t_d6cf336ac19e96 1-8,10-22,25-94,101,104-126
+evals/agent-arena/src/analyze/json-array.ts
+  s_ad28489153bcf7::t_18c58beff08d72 14
+packages/data-duckdb/src/metadata.ts
+  s_ad28489153bcf7::t_18c58beff08d72 77-100
+apps/e2e/tests/inspector/lifecycle.spec.ts
+  s_ad28489153bcf7::t_93e71b08c94d3f 15-19,31-32,34-39,41
+apps/e2e/tests/helpers/devserver.ts
+  s_ad28489153bcf7::t_562ce31e566381 63,81-113,115
+  s_ad28489153bcf7::t_28104784f8c6fb 64-69
+docs/get-started/index.md
+  s_ad28489153bcf7::t_9cc30a3b50b0b9 3,5,7,10-14,22,24-26,28
+  s_ad28489153bcf7::t_28104784f8c6fb 18,20
+docs/providers/vgplot.md
+  s_ad28489153bcf7::t_9cc30a3b50b0b9 1-2,4-7,9-23
+packages/inspector/src/overlay/modules/graph/graph-model.ts
+  s_ad28489153bcf7::t_18c58beff08d72 54-86
+packages/adapter-vgplot/src/dashboard-snapshots.ts
+  s_ad28489153bcf7::t_18c58beff08d72 67-76,172-191
+  s_ad28489153bcf7::t_269cac6ef6a49d 43
+packages/protocol/src/runtime.ts
+  s_ad28489153bcf7::t_18c58beff08d72 95
+packages/agent-ai-sdk/src/config-storage.ts
+  s_ad28489153bcf7::t_18c58beff08d72 36-104
+pnpm-workspace.yaml
+  s_ad28489153bcf7::t_29db4463d76cbf 45
+  s_ad28489153bcf7::t_18c58beff08d72 9
+development_docs/examples/cars-parallel-coords.md
+  s_ad28489153bcf7::t_28104784f8c6fb 43
+examples/react-dashboard/src/vacp.ts
+  s_ad28489153bcf7::t_18c58beff08d72 40-360
+evals/agent-arena/agent-arena.config.ts
+  s_ad28489153bcf7::t_18c58beff08d72 2-1216
+evals/agent-arena/src/report/load-scenarios.ts
+  s_ad28489153bcf7::t_18c58beff08d72 57
+packages/runtime/test/runtime-bridge.test.ts
+  s_ad28489153bcf7::t_d6cf336ac19e96 2-4,7-9,11-63,66-95,98-103,106-120,122-123,125-136,139
+evals/agent-arena/src/opencode.ts
+  s_ad28489153bcf7::t_18c58beff08d72 72
+packages/adapter-vega-lite/src/install.ts
+  s_ad28489153bcf7::t_18c58beff08d72 43-635
+packages/inspector/src/overlay/modules/chat/chat-export.ts
+  s_ad28489153bcf7::t_18c58beff08d72 17-21
+packages/data-duckdb/src/client.ts
+  s_ad28489153bcf7::t_18c58beff08d72 9-11
+docs/reference/browser.md
+  s_ad28489153bcf7::t_9cc30a3b50b0b9 1-2,4-5,7-26
+packages/inspector/src/overlay/modules/graph/graph-state.ts
+  s_ad28489153bcf7::t_5cd332aca41db2 1-2,4-61
+packages/inspector/test/action-params.test.ts
+  s_ad28489153bcf7::t_5cd332aca41db2 1-3,5-173
+packages/inspector/src/ui/components/ui/json-editor-model.ts
+  s_ad28489153bcf7::t_5cd332aca41db2 1,4,6-12,14-50,52-59,61-89,91-94,96-133,135-144,146-173,176-193,195-196
+  s_ad28489153bcf7::t_18c58beff08d72 3,5,13,51,90,134,174,194
+  s_ad28489153bcf7::t_269cac6ef6a49d 60,95,145
+tsconfig.json
+  s_ad28489153bcf7::t_4db0991c95bd94 4,6-7,9-13,15-16,18-19,21-22,24-25,27-31,33-37,39-40,48
+examples/cars-parallel-coords/package.json
+  s_ad28489153bcf7::t_0f2c3ff510df2a 12
+  s_ad28489153bcf7::t_28104784f8c6fb 27-28
+apps/e2e/playwright.config.ts
+  s_ad28489153bcf7::t_fea49dddead423 14-15
+apps/e2e/tests/providers/vgplot/time-travel-preserves-toggle-selection.spec.ts
+  s_ad28489153bcf7::t_18c58beff08d72 90-128
+evals/agent-arena/src/report/export-datasets.ts
+  s_ad28489153bcf7::t_18c58beff08d72 19-287
+packages/inspector/src/overlay/modules/chat/use-chat-model-list.ts
+  s_ad28489153bcf7::t_5cd332aca41db2 1,3-85
+packages/protocol/src/schema.ts
+  s_ad28489153bcf7::t_18c58beff08d72 114,325-327
+packages/runtime/src/runtime/state-update.ts
+  s_ad28489153bcf7::t_18c58beff08d72 1-5,7,51,79
+  s_ad28489153bcf7::t_d6cf336ac19e96 9-15,18-19,21-25,29-42,45,47-50,53,56,58-78,81-87,89-91,93-107,109-111,115-129,131-153,158-164,173-184
+packages/inspector/tsconfig.json
+  s_ad28489153bcf7::t_4db0991c95bd94 6-18,20-21,23-24,26-27,29-30,32-34
+examples/cars-parallel-coords/src/chart.ts
+  s_ad28489153bcf7::t_18c58beff08d72 35
+packages/inspector/src/overlay/modules/data/data-utils.ts
+  s_ad28489153bcf7::t_269cac6ef6a49d 196
+  s_ad28489153bcf7::t_18c58beff08d72 185,210-235
+infra/nginx.conf
+  s_ad28489153bcf7::t_fea49dddead423 1-8
+packages/inspector/src/ui/lib/clipboard.ts
+  s_ad28489153bcf7::t_5cd332aca41db2 1-28
+packages/runtime/src/runtime/helpers.ts
+  s_ad28489153bcf7::t_d6cf336ac19e96 2-3,8-63
+docs/reference/glossary.md
+  s_ad28489153bcf7::t_9cc30a3b50b0b9 5,29,33
+packages/adapter-vega-lite/src/graph.ts
+  s_ad28489153bcf7::t_18c58beff08d72 8-30,45-199
+  s_ad28489153bcf7::t_269cac6ef6a49d 33
+packages/adapter-vgplot/src/inputs.ts
+  s_ad28489153bcf7::t_269cac6ef6a49d 46
+  s_ad28489153bcf7::t_18c58beff08d72 10-43,58-307
+docs/providers/vega-lite.md
+  s_ad28489153bcf7::t_9cc30a3b50b0b9 1-2,4-7,9-30
+packages/adapter-vgplot/src/interactors/nearest.ts
+  s_ad28489153bcf7::t_18c58beff08d72 32
+packages/agent-ai-sdk/src/create-vacp-agent.ts
+  s_ad28489153bcf7::t_18c58beff08d72 14
+packages/inspector/src/overlay/modules/action-params.ts
+  s_ad28489153bcf7::t_5cd332aca41db2 1-6,8,10-22,24-27,29-32,34-36,39-43,45-71,73-118,121-175,177-235
+  s_ad28489153bcf7::t_18c58beff08d72 9,23,28,33,37,44,72,120,176
+packages/inspector/test/json-editor-model.test.ts
+  s_ad28489153bcf7::t_5cd332aca41db2 1-55
+packages/inspector/src/overlay/modules/settings-module.tsx
+  s_ad28489153bcf7::t_4db0991c95bd94 5-10,32-241
+packages/runtime/src/runtime/create-runtime.ts
+  s_ad28489153bcf7::t_18c58beff08d72 3-13,15-295
+packages/agent-ai-sdk/test/transport-parity.test.ts
+  s_ad28489153bcf7::t_18c58beff08d72 28-198
+development_docs/contributing.md
+  s_ad28489153bcf7::t_d6cf336ac19e96 46
+  s_ad28489153bcf7::t_0f2c3ff510df2a 24
+  s_ad28489153bcf7::t_5cd332aca41db2 1-6,9-10,29-32,35-40,42-45,47,49-69,71,73-87
+  s_ad28489153bcf7::t_28104784f8c6fb 11-23,25-28
+docs/integrate/index.md
+  s_ad28489153bcf7::t_9cc30a3b50b0b9 1-2,4-12,14-17,19-39,62-76
+packages/adapter-vgplot/src/interactors/interval.ts
+  s_ad28489153bcf7::t_18c58beff08d72 8,85
+packages/inspector/src/overlay/hooks/use-element-size.ts
+  s_ad28489153bcf7::t_5cd332aca41db2 1-30
+apps/docs/package.json
+  s_ad28489153bcf7::t_28104784f8c6fb 14,16
+  s_ad28489153bcf7::t_0f2c3ff510df2a 9
+  s_ad28489153bcf7::t_fea49dddead423 15
+evals/agent-arena/src/analyze/opencode-export.ts
+  s_ad28489153bcf7::t_18c58beff08d72 2-179
+development_docs/architecture.md
+  s_ad28489153bcf7::t_5cd332aca41db2 1-2,4,6-23,25-29,31-35,40-42,44,46-56,58,60-62
+Makefile
+  s_ad28489153bcf7::t_066f1323fb685d 34
+packages/inspector/src/ui/components/ui/json-editor-inline.tsx
+  s_ad28489153bcf7::t_18c58beff08d72 6-29
+packages/adapter-vgplot/src/interactors/legend-toggle.ts
+  s_ad28489153bcf7::t_18c58beff08d72 13-33
+packages/agent-ai-sdk/package.json
+  s_ad28489153bcf7::t_18c58beff08d72 26
+packages/inspector/src/ui/sql/types.ts
+  s_ad28489153bcf7::t_5cd332aca41db2 1-28,30-31
+  s_ad28489153bcf7::t_18c58beff08d72 29
+evals/agent-arena/src/load.ts
+  s_ad28489153bcf7::t_18c58beff08d72 2-115
+docs/transports/index.md
+  s_ad28489153bcf7::t_9cc30a3b50b0b9 1,3,5,7-12,16-18,21,25-26,28-31,34,36-38,40,42
+packages/runtime/src/widget-options.ts
+  s_ad28489153bcf7::t_d6cf336ac19e96 5-47,51,53-56
+packages/inspector/src/overlay/modules/chat/chat-session-registry.ts
+  s_ad28489153bcf7::t_5cd332aca41db2 4-17,19-76,78-95
+evals/agent-arena/src/opencode-config.ts
+  s_ad28489153bcf7::t_18c58beff08d72 26
+packages/adapter-vega-lite/src/duckdb-selection.ts
+  s_ad28489153bcf7::t_18c58beff08d72 5-217
+packages/adapter-vgplot/src/dashboard-actions.ts
+  s_ad28489153bcf7::t_18c58beff08d72 12-143
+packages/adapter-vgplot/src/interactors/toggle.ts
+  s_ad28489153bcf7::t_18c58beff08d72 6-31
+packages/inspector/src/overlay/modules/data-module.tsx
+  s_ad28489153bcf7::t_5cd332aca41db2 1
+infra/examples.Dockerfile
+  s_ad28489153bcf7::t_fea49dddead423 2,8-11,13-14,16,18
+docs/examples/index.md
+  s_ad28489153bcf7::t_9cc30a3b50b0b9 3,5,7-10,12,14
+packages/sdk/src/actions.ts
+  s_ad28489153bcf7::t_e566fa326f1e06 44-68,87-88,91-94,98
+  s_ad28489153bcf7::t_18c58beff08d72 2
+packages/inspector/src/ui/lib/utils.ts
+  s_ad28489153bcf7::t_5cd332aca41db2 1-6
+evals/agent-arena/src/runner/resume-selective.ts
+  s_ad28489153bcf7::t_18c58beff08d72 41-400
+examples/react-dashboard/src/components/charts/pdf-distribution-view.tsx
+  s_ad28489153bcf7::t_18c58beff08d72 51
+packages/runtime/src/data-sql.ts
+  s_ad28489153bcf7::t_18c58beff08d72 2,8
+  s_ad28489153bcf7::t_d6cf336ac19e96 5-7,9-55,61-64
+packages/runtime-browser/src/dom-snapshot.ts
+  s_ad28489153bcf7::t_18c58beff08d72 1-302
+packages/adapter-vega-lite/src/duckdb-handle.ts
+  s_ad28489153bcf7::t_18c58beff08d72 31-801
+packages/inspector/src/overlay/modules/graph/graph-collapse.ts
+  s_ad28489153bcf7::t_5cd332aca41db2 2-140
+packages/protocol/src/util.ts
+  s_ad28489153bcf7::t_e566fa326f1e06 4-7
+examples/cars-parallel-coords/src/vacp.ts
+  s_ad28489153bcf7::t_18c58beff08d72 2-462
+packages/adapter-vgplot/src/apply-state.ts
+  s_ad28489153bcf7::t_18c58beff08d72 15-85
+evals/agent-arena/src/report/render-html.ts
+  s_ad28489153bcf7::t_18c58beff08d72 72-2363
+packages/inspector/test/chat-export.test.ts
+  s_ad28489153bcf7::t_5cd332aca41db2 1-86
+packages/runtime/package.json
+  s_ad28489153bcf7::t_18c58beff08d72 22
+  s_ad28489153bcf7::t_d6cf336ac19e96 1-20,23-24
+packages/inspector/test/graph-model.test.ts
+  s_ad28489153bcf7::t_5cd332aca41db2 1-3,5-271
+examples/react-dashboard/src/components/data-table.tsx
+  s_ad28489153bcf7::t_18c58beff08d72 12
+examples/vgplot-gallery/package.json
+  s_ad28489153bcf7::t_0f2c3ff510df2a 12
+  s_ad28489153bcf7::t_28104784f8c6fb 28-29
+docs/reference/configuration.md
+  s_ad28489153bcf7::t_5cd332aca41db2 14,16,18,20,22
+packages/runtime/src/action-registry.ts
+  s_ad28489153bcf7::t_d6cf336ac19e96 2-8,10-11,13,16,20,26-32,34,36-52,54-81,84-90
+  s_ad28489153bcf7::t_18c58beff08d72 14
+packages/analytics/src/runtime.ts
+  s_ad28489153bcf7::t_d6cf336ac19e96 15-16
+  s_ad28489153bcf7::t_18c58beff08d72 1,21-115
+evals/agent-arena/src/analyze/analyze-run.ts
+  s_ad28489153bcf7::t_18c58beff08d72 2-884,896-1075
+  s_ad28489153bcf7::t_269cac6ef6a49d 892
+packages/transport-bridge/src/types.ts
+  s_ad28489153bcf7::t_18c58beff08d72 1-6,8-13
+packages/runtime/test/state-update.test.ts
+  s_ad28489153bcf7::t_d6cf336ac19e96 1-3,5-86
+docs/inspector/index.md
+  s_ad28489153bcf7::t_5cd332aca41db2 1-21
+packages/runtime/README.md
+  s_ad28489153bcf7::t_d6cf336ac19e96 1-5,11-14
+apps/e2e/tests/providers/vgplot/apply-state-human-interactions.spec.ts
+  s_ad28489153bcf7::t_18c58beff08d72 2
+docs/reference/runtime.md
+  s_ad28489153bcf7::t_9cc30a3b50b0b9 1-47
+packages/adapter-vega-lite/src/signals.ts
+  s_ad28489153bcf7::t_18c58beff08d72 11-32
+packages/adapter-vgplot/src/actions.ts
+  s_ad28489153bcf7::t_18c58beff08d72 22-24,48-143,174-181,238-240
+  s_ad28489153bcf7::t_269cac6ef6a49d 27
+evals/agent-arena/src/runner/job-state.ts
+  s_ad28489153bcf7::t_18c58beff08d72 2-275
+packages/adapter-vgplot/src/interactors/region.ts
+  s_ad28489153bcf7::t_18c58beff08d72 6-25
+packages/protocol/package.json
+  s_ad28489153bcf7::t_18c58beff08d72 20
+vite.config.ts
+  s_ad28489153bcf7::t_73a5cfa72936b0 7-19,21-27,30-35,37,66-70,76,78-79,85-86
+  s_ad28489153bcf7::t_a26a1945c4e972 55
+packages/inspector/src/ui/components/ui/roving-focus.tsx
+  s_ad28489153bcf7::t_5cd332aca41db2 1-5
+AGENTS.md
+  s_ad28489153bcf7::t_28104784f8c6fb 49
+  s_ad28489153bcf7::t_5cd332aca41db2 71
+  s_ad28489153bcf7::t_3ce1a55a1b6eb5 1-6,20,29-31,33,35-43,47-48,62-68,70
+  s_ad28489153bcf7::t_d6cf336ac19e96 8
+packages/inspector/src/ui/components/ui/sql-result-table.tsx
+  s_ad28489153bcf7::t_18c58beff08d72 11-13
+packages/inspector/package.json
+  s_ad28489153bcf7::t_4db0991c95bd94 59
+packages/inspector/src/overlay/modules/chat/configured-chat.tsx
+  s_ad28489153bcf7::t_18c58beff08d72 67
+  s_ad28489153bcf7::t_4db0991c95bd94 3-8,238
+packages/sdk/src/provider.ts
+  s_ad28489153bcf7::t_18c58beff08d72 1
+packages/agent-ai-sdk/src/context-compaction.ts
+  s_ad28489153bcf7::t_18c58beff08d72 32-252
+examples/gallery/package.json
+  s_ad28489153bcf7::t_0f2c3ff510df2a 9
+  s_ad28489153bcf7::t_28104784f8c6fb 21-24
+examples/vega-lite-gallery/package.json
+  s_ad28489153bcf7::t_28104784f8c6fb 25-26
+  s_ad28489153bcf7::t_0f2c3ff510df2a 12
+packages/inspector/src/ui/sql/arrow.ts
+  s_ad28489153bcf7::t_269cac6ef6a49d 85
+  s_ad28489153bcf7::t_18c58beff08d72 65,70,92-94
+  s_ad28489153bcf7::t_5cd332aca41db2 1-64,66-69,72-84,86-91,96-100
+packages/runtime/src/index.ts
+  s_ad28489153bcf7::t_d6cf336ac19e96 1-9
+packages/adapter-vgplot/src/types.ts
+  s_ad28489153bcf7::t_18c58beff08d72 58
+apps/e2e/tests/inspector/history-mode-recovery.spec.ts
+  s_ad28489153bcf7::t_18c58beff08d72 181
+evals/agent-arena/src/runner/util.ts
+  s_ad28489153bcf7::t_18c58beff08d72 8-219
+packages/inspector/test/chat-autoscroll.test.ts
+  s_ad28489153bcf7::t_5cd332aca41db2 1-46
+packages/runtime/tsconfig.json
+  s_ad28489153bcf7::t_4db0991c95bd94 8-9,11-13
+  s_ad28489153bcf7::t_d6cf336ac19e96 1-7,14
+packages/adapter-vega-lite/src/execute.ts
+  s_ad28489153bcf7::t_18c58beff08d72 24,101-358
+evals/agent-arena/src/report/prepare.ts
+  s_ad28489153bcf7::t_18c58beff08d72 104-245
+packages/inspector/test/chat-session-registry.test.ts
+  s_ad28489153bcf7::t_5cd332aca41db2 1-3,5-68
+packages/inspector/src/overlay/modules/graph/graph-types.ts
+  s_ad28489153bcf7::t_5cd332aca41db2 2-38
+packages/protocol/src/hash.ts
+  s_ad28489153bcf7::t_e566fa326f1e06 14-25,28
+packages/inspector/README.md
+  s_ad28489153bcf7::t_5cd332aca41db2 23-25
+packages/analytics/src/types.ts
+  s_ad28489153bcf7::t_18c58beff08d72 1-40
+packages/adapter-vgplot/src/interactors/pan-zoom.ts
+  s_ad28489153bcf7::t_18c58beff08d72 8-43
+packages/inspector/src/overlay/modules/actions-module.tsx
+  s_ad28489153bcf7::t_18c58beff08d72 53-108
+evals/agent-arena/src/types.ts
+  s_ad28489153bcf7::t_18c58beff08d72 207-353
+evals/agent-arena/src/analyze/transcript.ts
+  s_ad28489153bcf7::t_18c58beff08d72 206-308
+packages/data-duckdb/package.json
+  s_ad28489153bcf7::t_18c58beff08d72 17-18
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "c0e4353755ca6cc102c54202839468fa64157dda",
+  "prompts": {},
+  "sessions": {
+    "s_ad28489153bcf7": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a0b393-234e-74d3-8b65-e0faa6b8456b",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Péter Ferenc Gyarmati <peterferenc.gyarmati@inf.ethz.ch>"
+    }
+  }
+}
