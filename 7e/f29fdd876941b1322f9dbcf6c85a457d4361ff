@@ -1,0 +1,39 @@
+packages/sdk/src/actions.ts
+  s_ad28489153bcf7::t_1886e3028b9438 98-102
+packages/runtime/src/action-registry.ts
+  s_ad28489153bcf7::t_1886e3028b9438 1-4,6,10,17-20,81-82,90
+packages/runtime/src/runtime/types.ts
+  s_ad28489153bcf7::t_1886e3028b9438 25-26,30-31
+packages/runtime/src/widget-options.ts
+  ai_agent 1,11,51,54
+packages/runtime/src/runtime/observer.ts
+  s_ad28489153bcf7::t_d6cf336ac19e96 15
+packages/protocol/src/runtime.ts
+  s_ad28489153bcf7::t_1886e3028b9438 3,108
+packages/runtime-browser/test/installation.test.ts
+  s_ad28489153bcf7::t_af0c37d561f171 33
+packages/protocol/src/schema.ts
+  s_ad28489153bcf7::t_1886e3028b9438 365-367,384
+packages/runtime-browser/src/install.ts
+  s_ad28489153bcf7::t_af0c37d561f171 29
+packages/runtime/src/data-schema.ts
+  ai_agent 1,11,53,56
+packages/runtime/src/data-sql.ts
+  s_ad28489153bcf7::t_18c58beff08d72 9,12
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "7ef29fdd876941b1322f9dbcf6c85a457d4361ff",
+  "prompts": {},
+  "sessions": {
+    "s_ad28489153bcf7": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a0b393-234e-74d3-8b65-e0faa6b8456b",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Péter Ferenc Gyarmati <peterferenc.gyarmati@inf.ethz.ch>"
+    }
+  }
+}
