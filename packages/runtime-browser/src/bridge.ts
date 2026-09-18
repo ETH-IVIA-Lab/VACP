@@ -26,6 +26,9 @@ const bridgeContract = z.object({
 
 const runtimeContract = bridgeContract.required().extend({
   runtimeId: z.string(),
+  signal: z.instanceof(AbortSignal),
+  subscribeSnapshots: z.custom<(...args: never[]) => unknown>((value) => typeof value === 'function'),
+  subscribeCapabilities: z.custom<(...args: never[]) => unknown>((value) => typeof value === 'function'),
   sessionKey: z.string().optional(),
   update: z.custom<(...args: never[]) => unknown>((value) => typeof value === 'function'),
   dispose: z.custom<(...args: never[]) => unknown>((value) => typeof value === 'function'),

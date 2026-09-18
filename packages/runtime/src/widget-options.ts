@@ -1,3 +1,4 @@
+import type { VacpActionExecutionOptions } from '@vacp/protocol';
 import { z } from 'zod';
 import { vacpRefSchema } from '@vacp/protocol';
 import type { VacpActionDescriptor, VacpRef, VacpWidgetOptionsParams, VacpWidgetOptionsResult } from '@vacp/protocol';
@@ -7,6 +8,7 @@ import type { VacpActionRegistrar } from './action-registry';
 
 export type VacpWidgetOptionsHandler = (
   params: VacpWidgetOptionsParams,
+  options: VacpActionExecutionOptions,
 ) => VacpWidgetOptionsResult | Promise<VacpWidgetOptionsResult>;
 
 const paramsSchema = z.object({
@@ -46,10 +48,10 @@ export function registerVacpWidgetOptionsAction(
     },
   };
 
-  registry.register(descriptor, (params) => {
+  registry.register(descriptor, (params, executionOptions) => {
     const parsed = paramsSchema.parse(params);
 
-    return handler(parsed);
+    return handler(parsed, executionOptions);
   });
 
   return descriptor;

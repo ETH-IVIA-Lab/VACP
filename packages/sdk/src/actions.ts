@@ -95,7 +95,11 @@ export class VacpActionDefinition<Params = unknown> {
   }
 
   handle<Result>(handler: VacpActionHandler<Params, Result>): VacpActionDescriptor {
-    this.registry.register(this.descriptor, async (params) => handler(await this.parse(params)));
+    this.registry.register(this.descriptor, async (params, options) => {
+      const parsed = await this.parse(params);
+      options.signal?.throwIfAborted();
+      return handler(parsed, options);
+    });
 
     return this.descriptor;
   }

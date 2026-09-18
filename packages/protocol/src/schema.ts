@@ -362,6 +362,9 @@ export type VacpActionResult<Result = unknown, ErrorDetails = unknown> =
   | { callId: string; ok: true; result?: Result }
   | { callId: string; ok: false; error: { message: string; details?: ErrorDetails } };
 
+/** In-process execution controls; these are not part of the serialized call. */
+export type VacpActionExecutionOptions = { signal?: AbortSignal };
+
 /**
  * In-page bridge contract (preferred integration path).
  *
@@ -378,5 +381,5 @@ export interface VacpWindowBridge {
   getCapabilities(): Promise<VacpCapabilitiesSnapshot> | VacpCapabilitiesSnapshot;
   getState(request: VacpStateRequest): Promise<VacpStateUpdate>;
   getState(): Promise<VacpStateSnapshot>;
-  execute(call: VacpActionCall): Promise<VacpActionResult>;
+  execute(call: VacpActionCall, options?: VacpActionExecutionOptions): Promise<VacpActionResult>;
 }

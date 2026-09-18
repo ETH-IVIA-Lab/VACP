@@ -8,7 +8,7 @@ export function makeEntryId(): string {
   return `vacp_${Math.random().toString(16).slice(2)}_${Date.now().toString(16)}`;
 }
 
-export function notify(listeners: Set<(entry: VacpHistoryEntry) => void>, entry: VacpHistoryEntry): void {
+export function notify<Value>(listeners: Set<(entry: Value) => void>, entry: Value): void {
   listeners.forEach((fn) => {
     try {
       fn(entry);

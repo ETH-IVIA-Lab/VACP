@@ -30,7 +30,7 @@ test('browser installation preserves bridge identity while replacing provider po
     });
     uninstallVacpRuntime({ globalKey: key });
     assert.equal(getVacpBridge({ globalKey: key }), undefined);
-    await first.refresh();
+    await assert.rejects(first.refresh(), /abort/i);
     assert.equal(events, 0);
   } finally {
     uninstallVacpRuntime({ globalKey: key });

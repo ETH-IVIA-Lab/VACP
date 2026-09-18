@@ -1,15 +1,23 @@
-import type { VacpActionCall, VacpActionDescriptor, VacpActionResult } from '@vacp/protocol';
+import type {
+  VacpActionCall,
+  VacpActionDescriptor,
+  VacpActionResult,
+  VacpActionExecutionOptions,
+} from '@vacp/protocol';
 
 export interface VacpActionExecutor {
   list(): VacpActionDescriptor[];
-  execute(call: VacpActionCall): Promise<VacpActionResult>;
+  execute(call: VacpActionCall, options?: VacpActionExecutionOptions): Promise<VacpActionResult>;
 }
 
 export interface VacpActionRegistrar {
   register<Result>(descriptor: VacpActionDescriptor, handler: VacpActionHandler<unknown, Result>): void;
 }
 
-export type VacpActionHandler<Params = unknown, Result = unknown> = (params: Params) => Result | Promise<Result>;
+export type VacpActionHandler<Params = unknown, Result = unknown> = (
+  params: Params,
+  options: VacpActionExecutionOptions,
+) => Result | Promise<Result>;
 
 function toSerializableErrorDetails(cause: unknown): unknown {
   if (cause instanceof Error) {
@@ -70,7 +78,8 @@ export class VacpActionRegistry implements VacpActionExecutor, VacpActionRegistr
     return Array.from(this.descriptors.values());
   }
 
-  async execute(call: VacpActionCall): Promise<VacpActionResult> {
+  async execute(call: VacpActionCall, options: VacpActionExecutionOptions = {}): Promise<VacpActionResult> {
+    options.signal?.throwIfAborted();
     const handler = this.handlers.get(call.name);
 
     if (!handler) {
@@ -78,7 +87,7 @@ export class VacpActionRegistry implements VacpActionExecutor, VacpActionRegistr
     }
 
     try {
-      const result = await handler(call.params);
+      const result = await handler(call.params, options);
 
       return { callId: call.callId, ok: true, result: result === undefined ? undefined : result };
     } catch (error) {

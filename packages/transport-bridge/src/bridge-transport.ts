@@ -6,18 +6,6 @@ function messageForExecute(action: string): string {
   return `agent:${action}`;
 }
 
-async function ensureLiveMode(bridge: VacpRuntimeBridge) {
-  if (!bridge.getRuntime || !bridge.setMode) return;
-
-  try {
-    const runtime = await bridge.getRuntime();
-
-    if (runtime.mode === 'inspect') bridge.setMode('live', { source: 'agent', message: 'auto:live for execute' });
-  } catch {
-    // Runtime mode recovery must not block action execution.
-  }
-}
-
 function capabilitiesAreEmpty(snapshot: Awaited<ReturnType<VacpTransport['vacp_capabilities']>>): boolean {
   return snapshot.graph.nodes.length === 0 && snapshot.graph.actions.length === 0;
 }
@@ -130,8 +118,6 @@ export function createVacpTransport(bridge: VacpRuntimeBridge): VacpTransport {
       const action = name?.trim();
 
       if (!action) throw new Error('Expected a non-empty action name');
-
-      await ensureLiveMode(bridge);
 
       const callId = call_id?.trim() || crypto.randomUUID();
 

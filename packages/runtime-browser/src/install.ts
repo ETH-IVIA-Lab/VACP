@@ -1,66 +1,32 @@
 import { readExposedRuntime } from './bridge';
 import { createVacpRuntime, type VacpActionExecutor, type VacpRuntime, type VacpSnapshotProvider } from '@vacp/runtime';
 import { getVacpBrowserOptions } from './options';
-import { type VacpRuntimeBridge } from '@vacp/protocol';
-
 import {
   defaultVacpDomSnapshotScriptId,
   removeVacpDomSnapshotScript,
-  updateVacpDomSnapshotScript,
   writeVacpDomSnapshotScript,
-  type VacpDomSnapshotSource,
 } from './dom-snapshot';
 import { purgeVacpWindowGlobals, resolveVacpGlobalKey } from './window-globals';
 
 const HIDDEN_RUNTIME_BRIDGES = new Map<string, VacpRuntime>();
+const domSnapshotHooks = new WeakMap<VacpRuntime, () => void>();
 
-type DomSnapshotState = {
-  enabled: boolean;
-  scriptId: string;
-  source: VacpDomSnapshotSource;
-};
+function installDomSnapshotHooks(runtime: VacpRuntime, options: { enabled: boolean; scriptId: string }): void {
+  domSnapshotHooks.get(runtime)?.();
+  if (!options.enabled) return;
 
-const domSnapshotHooks = new WeakMap<VacpRuntimeBridge, DomSnapshotState>();
-
-function installDomSnapshotHooks(bridge: VacpRuntimeBridge, state: DomSnapshotState): void {
-  const b = bridge;
-  const installed = domSnapshotHooks.has(bridge);
-  domSnapshotHooks.set(bridge, state);
-
-  if (installed) return;
-
-  const originalRefresh = b.refresh?.bind(b);
-
-  if (originalRefresh) {
-    b.refresh = async (options) => {
-      const st = await originalRefresh(options);
-      const s = domSnapshotHooks.get(b);
-
-      if (s?.enabled) {
-        try {
-          const cap = await s.source.getCapabilities();
-          writeVacpDomSnapshotScript({ scriptId: s.scriptId, capabilities: cap, state: st });
-        } catch {
-          // ignore
-        }
-      }
-
-      return st;
-    };
-  }
-
-  const originalExecute = b.execute?.bind(b);
-
-  if (originalExecute) {
-    b.execute = async (call) => {
-      const res = await originalExecute(call);
-      const s = domSnapshotHooks.get(b);
-
-      if (s?.enabled) void updateVacpDomSnapshotScript({ source: s.source, scriptId: s.scriptId });
-
-      return res;
-    };
-  }
+  const unsubscribe = runtime.subscribeSnapshots(({ capabilities, state }) => {
+    writeVacpDomSnapshotScript({ scriptId: options.scriptId, capabilities, state });
+  });
+  const dispose = () => {
+    unsubscribe();
+    removeVacpDomSnapshotScript(options.scriptId);
+    runtime.signal.removeEventListener('abort', dispose);
+    if (domSnapshotHooks.get(runtime) === dispose) domSnapshotHooks.delete(runtime);
+  };
+  domSnapshotHooks.set(runtime, dispose);
+  runtime.signal.addEventListener('abort', dispose, { once: true });
+  void Promise.resolve(runtime.getCapabilities()).catch(() => {});
 }
 
 /**
@@ -128,10 +94,7 @@ export function installVacpRuntime(args: {
     installDomSnapshotHooks(existing, {
       enabled: domSnapshotEnabled,
       scriptId: domSnapshotScriptId,
-      source: args.snapshots,
     });
-
-    if (domSnapshotEnabled) void updateVacpDomSnapshotScript({ source: args.snapshots, scriptId: domSnapshotScriptId });
 
     return existing;
   }
@@ -153,10 +116,7 @@ export function installVacpRuntime(args: {
   installDomSnapshotHooks(bridge, {
     enabled: domSnapshotEnabled,
     scriptId: domSnapshotScriptId,
-    source: args.snapshots,
   });
-
-  if (domSnapshotEnabled) void updateVacpDomSnapshotScript({ source: args.snapshots, scriptId: domSnapshotScriptId });
 
   return bridge;
 }
@@ -168,9 +128,7 @@ export function uninstallVacpRuntime(options?: { globalKey?: string }): void {
 
   if (!candidate) return;
   candidate.dispose();
-  const snapshot = domSnapshotHooks.get(candidate);
-
-  if (snapshot) removeVacpDomSnapshotScript(snapshot.scriptId);
+  domSnapshotHooks.get(candidate)?.();
   domSnapshotHooks.delete(candidate);
   HIDDEN_RUNTIME_BRIDGES.delete(key);
 

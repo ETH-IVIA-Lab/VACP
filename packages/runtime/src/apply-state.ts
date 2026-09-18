@@ -1,3 +1,4 @@
+import type { VacpActionExecutionOptions } from '@vacp/protocol';
 import { z } from 'zod';
 import { vacpRefSchema } from '@vacp/protocol';
 import type { VacpActionDescriptor, VacpRef } from '@vacp/protocol';
@@ -5,7 +6,10 @@ import { VACP_APPLY_STATE_ACTION } from '@vacp/protocol';
 
 import type { VacpActionRegistrar } from './action-registry';
 
-export type VacpApplyStateHandler<Result = unknown> = (state: Record<VacpRef, unknown>) => Result | Promise<Result>;
+export type VacpApplyStateHandler<Result = unknown> = (
+  state: Record<VacpRef, unknown>,
+  options: VacpActionExecutionOptions,
+) => Result | Promise<Result>;
 
 const paramsSchema = z.object({ state: z.record(vacpRefSchema, z.unknown()) });
 
@@ -39,10 +43,10 @@ export function registerVacpApplyStateAction<Result>(
     },
   };
 
-  registry.register(descriptor, (params) => {
+  registry.register(descriptor, (params, executionOptions) => {
     const parsed = paramsSchema.parse(params);
 
-    return handler(parsed.state);
+    return handler(parsed.state, executionOptions);
   });
 
   return descriptor;

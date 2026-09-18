@@ -31,9 +31,9 @@ State and graph overrides affect inspection. They reach the application only thr
 
 ## Provider replacement and lifecycle
 
-`update({ snapshots, actions, sessionKey })` replaces provider ports while retaining runtime identity. A changed session key resets the history for the new view. Public `runtimeId` and `sessionKey` properties identify the current runtime and session.
+`update({ snapshots, actions, sessionKey })` replaces provider ports while retaining runtime identity. Replacing the provider aborts pending calls from the previous provider. A changed session key resets the history for the new view. Public `runtimeId` and `sessionKey` properties identify the current runtime and session.
 
-`dispose()` stops observation, clears subscriptions, and cancels queued replay work. Release a browser installation with [`uninstallVacpRuntime`](./browser).
+`dispose()` aborts the runtime's `signal`, stops observation, clears subscriptions, and cancels queued replay work. Extensions can use this signal to release resources. `subscribeCapabilities(listener)` observes live graph changes independently of history and inspection overrides. `subscribeSnapshots(listener)` supplies live capability/state pairs for output adapters such as DOM publication. Reads and actions on a disposed runtime reject. Release a browser installation with [`uninstallVacpRuntime`](./browser).
 
 ## Standard actions
 
@@ -45,3 +45,9 @@ The registration helpers accept a `VacpActionRegistrar`, which supplies `registe
 - `registerVacpWidgetOptionsAction`
 
 `registerVacpDataSqlAction(registrar, handler, { enabled: false })` skips SQL registration. Browser integrations resolve browser policy before passing this option.
+
+## Execution context
+
+`execute(call, { signal })` and `dispatch(call, { source, message, signal })` enter live mode before applying an action. This behavior belongs to the runtime, so every transport follows the same history and replay rules.
+
+Registry and SDK handlers receive `(params, { signal })`. Use the signal for cooperative cancellation. It combines the caller's cancellation with the runtime lifetime. The signal is an in-process control and is not serialized into `VacpActionCall`.

@@ -1,4 +1,4 @@
-import type { LiveSnapshots } from './types';
+import type { VacpLiveSnapshots } from './types';
 import type { VacpCapabilitiesSnapshot, VacpChangeSource, VacpHistoryEntry, VacpStateSnapshot } from '@vacp/protocol';
 import { nowIso, stableStringify } from '@vacp/protocol';
 
@@ -6,17 +6,17 @@ import { entryMessage, entrySource, makeEntryId } from './helpers';
 
 type ObserverOptions = { intervalMs: number; source: VacpChangeSource; message?: string };
 
-export function createStateObserver(args: {
-  getState: () => VacpStateSnapshot | Promise<VacpStateSnapshot>;
+export function createRuntimeObserver(args: {
   getLive: () => { capabilities: VacpCapabilitiesSnapshot | null; state: VacpStateSnapshot | null };
-  ensureLive: () => Promise<LiveSnapshots>;
+  ensureLive: () => Promise<VacpLiveSnapshots>;
   record: (entry: VacpHistoryEntry) => void;
   shouldRecord?: () => boolean;
 }) {
-  const { getState, getLive, ensureLive, record } = args;
+  const { getLive, ensureLive, record } = args;
   const shouldRecord = args.shouldRecord ?? (() => true);
 
   let observeTimer: ReturnType<typeof globalThis.setInterval> | null = null;
+  let reading = false;
   let lastObservedHash: string | null = null;
   let lastRecordedStateHash: string | null = null;
 
@@ -59,8 +59,10 @@ export function createStateObserver(args: {
   };
 
   const observeOnce = async () => {
+    if (reading) return;
+    reading = true;
     try {
-      const st = await Promise.resolve(getState());
+      const { state: st } = await ensureLive();
       const hash = stableStringify(st.state);
 
       if (lastObservedHash === null) {
@@ -73,7 +75,6 @@ export function createStateObserver(args: {
       lastObservedHash = hash;
 
       if (!shouldRecord()) return;
-      await ensureLive();
       const { capabilities, state } = getLive();
       record({
         id: makeEntryId(),
@@ -86,6 +87,8 @@ export function createStateObserver(args: {
       });
     } catch {
       // Ignore observer failures; runtime must never break the host app.
+    } finally {
+      reading = false;
     }
   };
 

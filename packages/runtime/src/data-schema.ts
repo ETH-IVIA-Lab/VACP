@@ -1,3 +1,4 @@
+import type { VacpActionExecutionOptions } from '@vacp/protocol';
 import { z } from 'zod';
 import { vacpRefSchema } from '@vacp/protocol';
 import type { VacpActionDescriptor, VacpDataSchemaParams, VacpDataSchemaResult, VacpRef } from '@vacp/protocol';
@@ -7,6 +8,7 @@ import type { VacpActionRegistrar } from './action-registry';
 
 export type VacpDataSchemaHandler = (
   params: VacpDataSchemaParams,
+  options: VacpActionExecutionOptions,
 ) => VacpDataSchemaResult | Promise<VacpDataSchemaResult>;
 
 const paramsSchema = z.object({
@@ -48,10 +50,10 @@ export function registerVacpDataSchemaAction(
     },
   };
 
-  registry.register(descriptor, (params) => {
+  registry.register(descriptor, (params, executionOptions) => {
     const parsed = paramsSchema.parse(params);
 
-    return handler(parsed);
+    return handler(parsed, executionOptions);
   });
 
   return descriptor;

@@ -1,11 +1,6 @@
 import type { VacpCapabilitiesSnapshot, VacpRef, VacpStateSnapshot } from '@vacp/protocol';
 import { isVacpRef, fnv1a64Hex, stableStringify } from '@vacp/protocol';
 
-export type VacpDomSnapshotSource = {
-  getCapabilities: () => VacpCapabilitiesSnapshot | Promise<VacpCapabilitiesSnapshot>;
-  getState: () => VacpStateSnapshot | Promise<VacpStateSnapshot>;
-};
-
 type DomSnapshotCache = {
   graphToken: string | null;
   stateCatalogToken: string | null;
@@ -341,22 +336,6 @@ export function removeVacpDomSnapshotScript(scriptId: string): void {
 
   if (main && main.tagName === 'SCRIPT') main.remove();
   DOM_SNAPSHOT_CACHE.delete(scriptId);
-}
-
-export async function updateVacpDomSnapshotScript(args: {
-  source: VacpDomSnapshotSource;
-  scriptId: string;
-}): Promise<void> {
-  try {
-    const [capabilities, state] = await Promise.all([args.source.getCapabilities(), args.source.getState()]);
-    writeDomSnapshotBundle({
-      scriptId: args.scriptId,
-      capabilities,
-      state,
-    });
-  } catch {
-    // Never break the host app if snapshots are temporarily unavailable.
-  }
 }
 
 export function writeVacpDomSnapshotScript(args: {

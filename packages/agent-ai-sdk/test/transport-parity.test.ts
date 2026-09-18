@@ -80,9 +80,9 @@ test('createVacpTransport execute uses dispatch and preserves MCP-style envelope
   const result = await transport.vacp_execute('vacp.some_action', { x: 1 }, 'call-42');
 
   assert.deepEqual(result, { callId: 'call-42', ok: true, result: { accepted: true } });
-  assert.equal(events[0]?.type, 'setMode');
-  assert.equal(events[1]?.type, 'dispatch');
-  assert.deepEqual((events[1]?.payload as any)?.call, {
+  assert.equal(events.length, 1);
+  assert.equal(events[0]?.type, 'dispatch');
+  assert.deepEqual((events[0]?.payload as any)?.call, {
     callId: 'call-42',
     name: 'vacp.some_action',
     params: { x: 1 },

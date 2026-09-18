@@ -22,10 +22,16 @@ export type VacpRuntimeUpdate = {
 };
 
 export interface VacpRuntime extends Required<Omit<VacpRuntimeBridge, 'runtimeId' | 'sessionKey'>> {
+  /** Aborted when this runtime is disposed. */
+  readonly signal: AbortSignal;
   readonly runtimeId: string;
   readonly sessionKey: string | undefined;
   update(next: VacpRuntimeUpdate): void;
+  /** Live graph changes, independent of history and inspection overrides. */
+  subscribeCapabilities(listener: (snapshot: VacpCapabilitiesSnapshot) => void): () => void;
+  /** Live snapshots for output adapters, independent of the history stream. */
+  subscribeSnapshots(listener: (snapshots: VacpLiveSnapshots) => void): () => void;
   dispose(): void;
 }
 
-export type LiveSnapshots = { capabilities: VacpCapabilitiesSnapshot; state: VacpStateSnapshot };
+export type VacpLiveSnapshots = { capabilities: VacpCapabilitiesSnapshot; state: VacpStateSnapshot };

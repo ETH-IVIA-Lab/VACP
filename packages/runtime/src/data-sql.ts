@@ -1,3 +1,4 @@
+import type { VacpActionExecutionOptions } from '@vacp/protocol';
 import { z } from 'zod';
 import { vacpRefSchema } from '@vacp/protocol';
 import type { VacpActionDescriptor, VacpDataSqlParams, VacpRef } from '@vacp/protocol';
@@ -5,7 +6,10 @@ import { VACP_DATA_SQL_ACTION } from '@vacp/protocol';
 
 import type { VacpActionRegistrar } from './action-registry';
 
-export type VacpDataSqlHandler = (params: VacpDataSqlParams) => unknown | Promise<unknown>;
+export type VacpDataSqlHandler = (
+  params: VacpDataSqlParams,
+  options: VacpActionExecutionOptions,
+) => unknown | Promise<unknown>;
 
 const paramsSchema = z.object({
   handleRef: vacpRefSchema,
@@ -54,10 +58,10 @@ export function registerVacpDataSqlAction(
     },
   };
 
-  registry.register(descriptor, (params) => {
+  registry.register(descriptor, (params, executionOptions) => {
     const parsed = paramsSchema.parse(params);
 
-    return handler(parsed);
+    return handler(parsed, executionOptions);
   });
 
   return descriptor;

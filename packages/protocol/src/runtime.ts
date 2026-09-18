@@ -1,5 +1,6 @@
 import type {
   VacpActionCall,
+  VacpActionExecutionOptions,
   VacpActionResult,
   VacpCapabilitiesSnapshot,
   VacpGraph,
@@ -104,7 +105,7 @@ export interface VacpRuntimeBridge extends VacpWindowBridge {
    */
   dispatch?: (
     call: VacpActionCall,
-    options?: { source?: VacpChangeSource; message?: string },
+    options?: VacpActionExecutionOptions & { source?: VacpChangeSource; message?: string },
   ) => Promise<VacpActionResult>;
 
   /**
