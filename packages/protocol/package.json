@@ -14,7 +14,8 @@
   },
   "scripts": {
     "build": "tsc -b",
-    "typecheck": "tsc -b"
+    "typecheck": "tsc -b",
+    "test": "tsx --test test/*.test.ts"
   },
   "dependencies": {
     "zod": "catalog:"

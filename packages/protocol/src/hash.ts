@@ -1,14 +1,18 @@
 export function fnv1a64Hex(value: string): string {
-  let hash = 0xcbf29ce484222325n;
-  const prime = 0x100000001b3n;
-  const mod = 0xffffffffffffffffn;
+  let high = 0xcbf29ce4;
+  let low = 0x84222325;
 
+  // Multiply two 32-bit limbs by 2^40 + 435, modulo 2^64. The low
+  // product stays below 2^41, so its carry is exact in a JavaScript number.
+  // Keep hashing UTF-16 code units to preserve existing protocol tokens.
   for (let i = 0; i < value.length; i += 1) {
-    hash ^= BigInt(value.charCodeAt(i));
-    hash = (hash * prime) & mod;
+    low = (low ^ value.charCodeAt(i)) >>> 0;
+    const product = low * 435;
+    high = (Math.imul(high, 435) + (low << 8) + Math.floor(product / 0x100000000)) >>> 0;
+    low = product >>> 0;
   }
 
-  return hash.toString(16).padStart(16, '0');
+  return high.toString(16).padStart(8, '0') + low.toString(16).padStart(8, '0');
 }
 
 export function stableStringify(value: unknown): string {
