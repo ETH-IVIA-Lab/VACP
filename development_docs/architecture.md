@@ -80,3 +80,11 @@ Names group implementations by capability family:
 - `config-*`: shared development tooling.
 
 `protocol`, `runtime`, `sdk`, `analytics`, `inspector`, and `python` name the shared contract, engine, integration entry point, event pipeline, user feature, and Python distribution. Keep package directories flat and use the same name in the package manifest, imports, and references.
+
+## WebMCP projection
+
+`@vacp/transport-webmcp` consumes protocol records and structural runtime ports. Its compiler turns a graph into executable tool definitions using an injected client; it does not read browser globals. Its installer owns asynchronous browser registration, incremental replacement, cancellation, and cleanup. Applications opt in by passing their runtime instance. No provider or core package imports WebMCP.
+
+The runtime owns capability and snapshot subscriptions and its lifetime signal. DOM snapshot publication now subscribes to snapshots instead of wrapping runtime methods, so it preserves execution options and shares lifecycle cleanup with other output adapters. These are independent of the Inspector history stream. Graph changes are published from live snapshot reads, including capability-only changes observed between state updates. Replacing a snapshot provider invalidates in-flight reads from the old provider. Runtime execution owns return-to-live behavior and forwards cancellation to handlers; transports no longer implement inspection recovery themselves.
+
+The integration targets upstream WebMCP commit `f5645e9` (2026-09-17), with the mature `webmcp-types` 0.1.7 declarations for its registration surface. Browser verification uses native Chromium APIs, not a polyfill.

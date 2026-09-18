@@ -40,3 +40,7 @@ const tools = createVacpTools({ transport });
 The Inspector's Chat feature provides an in-page interface for configuring a model, running conversations, and reading tool traces. Requests are sent to the configured model endpoint.
 
 See the [tool contract](../reference/tool-contract) for request and response shapes.
+
+## Browser-native tools
+
+Use [WebMCP](webmcp) to expose the live VACP graph and semantic actions through the browser's `document.modelContext` API.

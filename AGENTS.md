@@ -8,6 +8,7 @@ VACP exposes visualization capabilities, state, and semantic actions through an 
 - `packages/runtime`: action registration, snapshots, state deltas, and history.
 - `packages/runtime-browser`: browser options, global bridge installation, and DOM snapshots.
 - `packages/transport-bridge`: model-independent bridge-to-tool mapping.
+- `packages/transport-webmcp`: graph projection and optional browser-native tool registration.
 - `packages/data-duckdb`: SQL and data adapters.
 - `packages/sdk`: application integration helpers.
 - `packages/adapter-vega-lite`, `packages/adapter-vgplot`: visualization providers.
@@ -33,7 +34,7 @@ Dependencies point toward the protocol. Protocol and runtime must not read windo
 
 Applications compose providers, transports, and optional UI. Install the inspector from `@vacp/inspector` at the application boundary. Keep UI dependencies out of `@vacp/sdk`. Libraries must not import applications or another package's private source paths. Declare workspace dependencies in the importing package and use its exported API.
 
-Add an integration as a focused adapter implementing existing ports. Introduce a new port in its consuming inner package when the existing contract cannot express the behavior. Keep provider-specific branches in the provider. Avoid compatibility aliases and parallel APIs when replacing a contract.
+Add an integration as a focused adapter implementing existing ports. Introduce a new port in its consuming inner package when the existing contract cannot express the behavior. Runtime extensions use capability subscriptions and the runtime lifetime signal; keep target-platform registration and metadata in their own transport package. Keep provider-specific branches in the provider. Avoid compatibility aliases and parallel APIs when replacing a contract.
 
 ## Commands
 

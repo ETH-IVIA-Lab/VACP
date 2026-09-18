@@ -18,6 +18,7 @@
     "@vacp/inspector": "workspace:*",
     "@vacp/protocol": "workspace:*",
     "@vacp/sdk": "workspace:*",
+    "@vacp/transport-webmcp": "workspace:*",
     "d3": "^7.9.0",
     "zod": "catalog:"
   },

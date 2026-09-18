@@ -12,7 +12,10 @@
     "@types/node": "catalog:",
     "@vacp/adapter-vgplot": "workspace:*",
     "@vacp/protocol": "workspace:*",
+    "@vacp/sdk": "workspace:*",
+    "@vacp/transport-webmcp": "workspace:*",
     "portless": "catalog:",
-    "typescript": "catalog:"
+    "typescript": "catalog:",
+    "webmcp-types": "catalog:"
   }
 }

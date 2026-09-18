@@ -221,6 +221,9 @@ catalogs:
     vite-plus:
       specifier: 0.3.3
       version: 0.3.3
+    webmcp-types:
+      specifier: 0.1.7
+      version: 0.1.7
     zod:
       specifier: ^4.6.5
       version: 4.6.5
@@ -309,12 +312,21 @@ importers:
       '@vacp/protocol':
         specifier: workspace:*
         version: link:../../packages/protocol
+      '@vacp/sdk':
+        specifier: workspace:*
+        version: link:../../packages/sdk
+      '@vacp/transport-webmcp':
+        specifier: workspace:*
+        version: link:../../packages/transport-webmcp
       portless:
         specifier: 'catalog:'
         version: 0.15.6
       typescript:
         specifier: 'catalog:'
         version: 5.9.3
+      webmcp-types:
+        specifier: 'catalog:'
+        version: 0.1.7
 
   evals/agent-arena:
     dependencies:
@@ -364,6 +376,9 @@ importers:
       '@vacp/sdk':
         specifier: workspace:*
         version: link:../../packages/sdk
+      '@vacp/transport-webmcp':
+        specifier: workspace:*
+        version: link:../../packages/transport-webmcp
       d3:
         specifier: ^7.9.0
         version: 7.9.0
@@ -838,6 +853,18 @@ importers:
       '@vacp/protocol':
         specifier: workspace:*
         version: link:../protocol
+
+  packages/transport-webmcp:
+    dependencies:
+      '@vacp/protocol':
+        specifier: workspace:*
+        version: link:../protocol
+      '@vacp/runtime':
+        specifier: workspace:*
+        version: link:../runtime
+      webmcp-types:
+        specifier: 'catalog:'
+        version: 0.1.7
 
 packages:
 
@@ -5334,6 +5361,9 @@ packages:
   webidl-conversions@7.0.0:
     resolution: {integrity: sha512-VwddBukDzu71offAQR975unBIGqfKZpM+8ZX6ySk8nYhVoo5CYaZyzt3YBvYtRtO+aoGlqxPg/B87NGVZ/fu6g==}
     engines: {node: '>=12'}
+
+  webmcp-types@0.1.7:
+    resolution: {integrity: sha512-70YszESbCx+ozBejmBPTSc0hMyXim+/Kpj8UOZsHd36ANcYqIfkDbMBTTn5y+tQzQYUYN1x2R+5PseKJtVaLqA==}
 
   whatwg-encoding@3.1.1:
     resolution: {integrity: sha512-6qN4hJdMwfYBtE3YBTTHhoeuUrDBPZmbQaxWAqSALV/MeEnR5z1xd8UKud2RAkFoPkmB+hli1TZSnyi84xz1vQ==}
@@ -9878,6 +9908,8 @@ snapshots:
   web-vitals@6.2.2: {}
 
   webidl-conversions@7.0.0: {}
+
+  webmcp-types@0.1.7: {}
 
   whatwg-encoding@3.1.1:
     dependencies:

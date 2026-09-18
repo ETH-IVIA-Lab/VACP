@@ -50,6 +50,7 @@ export default defineConfig({
       runtime: ['protocol'],
       'runtime-browser': ['protocol', 'runtime'],
       'transport-bridge': ['protocol'],
+      'transport-webmcp': ['protocol', 'runtime'],
       'data-duckdb': ['protocol'],
       'diagram-mermaid': ['protocol'],
       analytics: ['protocol'],

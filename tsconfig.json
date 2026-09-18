@@ -45,6 +45,9 @@
     },
     {
       "path": "packages/analytics-posthog"
+    },
+    {
+      "path": "packages/transport-webmcp"
     }
   ]
 }

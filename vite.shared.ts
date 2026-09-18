@@ -2,6 +2,7 @@ import { resolve } from 'node:path';
 import type { Alias } from 'vite-plus';
 
 const workspacePackages = [
+  ['@vacp/transport-webmcp', 'packages/transport-webmcp/src/index.ts'],
   ['@vacp/runtime-browser', 'packages/runtime-browser/src/index.ts'],
   ['@vacp/transport-bridge', 'packages/transport-bridge/src/index.ts'],
   ['@vacp/protocol', 'packages/protocol/src/index.ts'],

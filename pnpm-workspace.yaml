@@ -5,6 +5,7 @@ packages:
   - packages/*
 catalogMode: prefer
 catalog:
+  webmcp-types: 0.1.7
   portless: ^0.15.6
   zod: ^4.6.5
   yaml: ^2.9.1

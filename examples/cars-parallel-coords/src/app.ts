@@ -9,6 +9,7 @@
 import { createParallelCoordsChart } from './chart';
 import { loadCarsDataset } from './data';
 import { installVacpForCarsParallelCoords } from './vacp';
+import { installVacpWebMcp } from '@vacp/transport-webmcp';
 import { installVacpInspector } from '@vacp/inspector';
 
 export async function run(): Promise<void> {
@@ -53,6 +54,10 @@ export async function run(): Promise<void> {
     resetDimensionOrder: chart.resetDimensionOrder,
     setHoveredId: chart.setHoveredId,
   });
+
+  if (new URLSearchParams(window.location.search).get('webmcp') === '1') {
+    await installVacpWebMcp(vacp.bridge, { onError: (cause) => console.error('WebMCP registration failed', cause) });
+  }
 
   notify = vacp.refresh;
 

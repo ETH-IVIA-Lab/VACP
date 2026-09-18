@@ -52,6 +52,7 @@ export default defineConfig({
         items: [
           { text: 'Inspector', link: '/inspector/' },
           { text: 'Connect an agent', link: '/transports/' },
+          { text: 'WebMCP', link: '/transports/webmcp' },
           { text: 'Examples', link: '/examples/' },
         ],
       },
