@@ -1,28 +1,26 @@
 import { fileURLToPath } from 'node:url';
 import { defineConfig } from 'vitepress';
-import { configureDiagramsPlugin } from 'vitepress-plugin-diagrams';
+import { createMermaidDiagrams } from './diagrams.mts';
 
 const YEAR = new Date().getFullYear();
+const diagrams = createMermaidDiagrams({
+  sourceDir: fileURLToPath(new URL('../../../docs', import.meta.url)),
+  diagramsDir: fileURLToPath(new URL('../public/diagrams', import.meta.url)),
+  serverUrl: process.env.VACP_KROKI_SERVER_URL ?? 'https://kroki.io',
+});
 
 export default defineConfig({
   title: 'VACP',
   srcDir: '../../docs',
   vite: {
+    plugins: [diagrams.plugin],
     cacheDir: process.env.VACP_VITE_CACHE_DIR,
     publicDir: fileURLToPath(new URL('../public', import.meta.url)),
     server: { host: '127.0.0.1', port: process.env.PORT ? Number(process.env.PORT) : undefined, strictPort: true },
   },
   description: 'A composable protocol for analytical sources, observations, and semantic operations.',
   cleanUrls: true,
-  markdown: {
-    config: (md) => {
-      configureDiagramsPlugin(md, {
-        diagramsDir: fileURLToPath(new URL('../public/diagrams', import.meta.url)),
-        publicPath: '/diagrams',
-        krokiServerUrl: process.env.VACP_KROKI_SERVER_URL ?? 'https://kroki.io',
-      });
-    },
-  },
+  markdown: { config: diagrams.markdown },
   themeConfig: {
     nav: [
       { text: 'Guide', link: '/get-started/' },

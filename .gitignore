@@ -9,6 +9,7 @@ dist/
 apps/*/dist/
 apps/docs/.vitepress/cache/
 apps/docs/.vitepress/dist/
+apps/docs/public/diagrams/
 
 # TypeScript build artifacts
 *.tsbuildinfo

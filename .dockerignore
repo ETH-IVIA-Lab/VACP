@@ -25,6 +25,7 @@ test-results
 
 apps/docs/.vitepress/cache
 apps/docs/.vitepress/dist
+apps/docs/public/diagrams
 examples/gallery/.generated-public
 
 nogit

@@ -1,42 +1,9 @@
-.vpd-diagram {
-  margin: 16px 0;
-  padding: 12px;
-  border: 1px solid var(--vp-c-divider);
-  border-radius: 12px;
-  background: var(--vp-c-bg-soft);
-  cursor: zoom-in;
+.mermaid-diagram {
+  margin: 24px 0;
 }
 
-.vpd-diagram-image {
+.mermaid-diagram img {
   display: block;
   width: 100%;
   height: auto;
-}
-
-.vpd-diagram-caption {
-  margin-top: 8px;
-  font-size: 13px;
-  color: var(--vp-c-text-2);
-}
-
-.vpd-diagram--fullscreen {
-  position: fixed;
-  inset: 16px;
-  z-index: 9999;
-  margin: 0;
-  padding: 16px;
-  border-radius: 16px;
-  border: 1px solid var(--vp-c-divider);
-  background: var(--vp-c-bg);
-  box-shadow: var(--vp-shadow-3);
-  overflow: auto;
-  cursor: zoom-out;
-}
-
-@media (max-width: 720px) {
-  .vpd-diagram--fullscreen {
-    inset: 12px;
-    padding: 12px;
-    border-radius: 12px;
-  }
 }
