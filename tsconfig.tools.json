@@ -12,6 +12,7 @@
     "vite.shared.ts",
     "apps/*/vite.config.ts",
     "examples/custom-integration/**/*.ts",
-    "examples/*/vite.config.ts"
+    "examples/*/vite.config.ts",
+    "packages/*/bench/**/*.ts"
   ]
 }

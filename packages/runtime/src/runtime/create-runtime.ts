@@ -19,7 +19,7 @@ import type { VacpActionExecutor } from '../action-registry';
 import { createRuntimeObserver } from './observer';
 import type { VacpSnapshotProvider, VacpRuntime, VacpLiveSnapshots } from './types';
 import { scopeCapabilitiesSnapshot } from './capabilities-scope';
-import { buildStateUpdate, computeStateToken, scopeStateSnapshot } from './state-update';
+import { buildStateUpdate } from './state-update';
 import {
   entryMessage,
   entrySource,
@@ -472,15 +472,13 @@ export function createVacpRuntime(args: {
     const normalizedRequest = stateRequestSchema.parse(request);
     const baseline = normalizedRequest.since ? stateUpdateCache.get(normalizedRequest.since) : undefined;
 
-    const update = buildStateUpdate({
+    const { update, snapshot } = buildStateUpdate({
       current,
       request: normalizedRequest,
       baseline,
     });
 
-    const scoped = scopeStateSnapshot(current, normalizedRequest).snapshot;
-    const token = computeStateToken(scoped);
-    cacheStateSnapshot(token, scoped);
+    cacheStateSnapshot(update.token, snapshot);
 
     return update;
   }

@@ -75,7 +75,7 @@ export function scopeStateSnapshot(snapshot: VacpStateSnapshot, request: VacpSta
 
 // Compute a stable content token for a scoped snapshot.
 // Equal scoped payloads always produce the same token.
-export function computeStateToken(snapshot: VacpStateSnapshot): string {
+function computeStateToken(snapshot: VacpStateSnapshot): string {
   const payload: Record<string, unknown> = { state: snapshot.state };
 
   if (snapshot.summary) payload.summary = snapshot.summary;
@@ -145,7 +145,7 @@ export function buildStateUpdate(args: {
   current: VacpStateSnapshot;
   request: VacpStateRequest;
   baseline?: VacpStateSnapshot;
-}): VacpStateUpdate {
+}): { update: VacpStateUpdate; snapshot: VacpStateSnapshot } {
   const mode = args.request.mode ?? 'auto';
   const { snapshot: scopedCurrent, refs } = scopeStateSnapshot(args.current, args.request);
   const token = computeStateToken(scopedCurrent);
@@ -164,7 +164,7 @@ export function buildStateUpdate(args: {
 
     if (scope) update.scope = scope;
 
-    return update;
+    return { update, snapshot: scopedCurrent };
   }
 
   const delta = diffStateSnapshots({ baseline: scopedBaseline, current: scopedCurrent });
@@ -180,5 +180,5 @@ export function buildStateUpdate(args: {
 
   if (scope) update.scope = scope;
 
-  return update;
+  return { update, snapshot: scopedCurrent };
 }

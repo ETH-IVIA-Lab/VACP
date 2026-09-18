@@ -9,7 +9,7 @@ VP := $(PNPM) exec vp
 UV_RUN := $(UV) run --all-packages --all-groups --locked
 WORKSPACE_FILTERS := --filter './packages/*' --filter './apps/*' --filter './examples/*' --filter './evals/*'
 
-.PHONY: help setup setup-web setup-python dev dev-all dev-status format lint typecheck
+.PHONY: bench help setup setup-web setup-python dev dev-all dev-status format lint typecheck
 .PHONY: python-format python-lint python-typecheck python-test python-check
 .PHONY: build build-libs build-apps docs docs-serve test test-tools knip check package browser-install e2e ci
 
@@ -97,3 +97,7 @@ e2e: build-apps ## Test examples, Inspector, and the published documentation in 
 	$(PNPM) --filter @vacp/e2e test:e2e
 
 ci: build check package ## Run the source-validation CI pipeline.
+
+bench: build-libs ## Measure runtime reads, state tokens, and WebMCP registration bursts.
+	$(PNPM) --filter @vacp/runtime bench
+	$(PNPM) --filter @vacp/transport-webmcp bench

@@ -15,7 +15,8 @@
   "scripts": {
     "build": "tsc -b",
     "typecheck": "tsc -b && tsc -p tsconfig.test.json",
-    "test": "tsx --test test/*.test.ts"
+    "test": "tsx --test test/*.test.ts",
+    "bench": "tsx bench/registration.ts"
   },
   "dependencies": {
     "@vacp/protocol": "workspace:*",

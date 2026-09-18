@@ -65,7 +65,7 @@ test('buildStateUpdate rescopes broader baselines before computing a narrower de
     },
   };
 
-  const update = buildStateUpdate({
+  const { update } = buildStateUpdate({
     current,
     request: {
       mode: 'delta',
