@@ -48,7 +48,7 @@ The action registry checks action existence and converts handler failures into r
 
 `installVacpRuntime` owns global exposure and DOM observation publication. Sources with distinct IDs compose at one key. Reinstalling one source ID replaces that binding while preserving unrelated providers. A changed session key replaces the source set and establishes a new history boundary. Browser-only publication hooks are stored in a WeakMap owned by the browser adapter.
 
-Applications pass browser exposure and SQL enablement explicitly. The browser installer owns one runtime registry regardless of global exposure. Example context profiles select evaluation surfaces at the application boundary. Each inspection surface owns its presentation state.
+Applications pass browser exposure and SQL enablement explicitly. The browser installer owns one runtime registry regardless of global exposure. Each inspection surface owns its presentation state.
 
 `uninstallVacpRuntime` stops observation, clears subscribers, and removes owned bridge and snapshot state. Disposing an Inspector Core session cancels its requests and releases its source subscription. Applications dispose these resources when their owning view is removed.
 
@@ -58,17 +58,9 @@ Live state remains authoritative. Inspection overrides are separate from host st
 
 Runtime and session metadata are public properties and snapshot fields. Analytics consumes these fields rather than implementation-private properties.
 
-## Evaluation applications
-
-`evals/agent-arena` separates CLI/config loading, job scheduling, transcript analysis, statistics, and report rendering. Its report templates remain private application code. `evals/arena-analysis` owns Python state extraction and verification. `evals/plain-mcp` owns the research comparison tool surface and use-case registry. These applications consume supported interfaces and remain outside reusable runtime packages.
-
 ## Documentation
 
-`docs/` contains user-facing concepts, integration guides, examples, and API reference. `apps/docs/` hosts VitePress and public assets. `development_docs/` contains architecture, contribution and test guides. Evaluation guides live in `evals/docs/`. Ignored local experiment artifacts are not published documentation.
-
-## Evaluation boundary
-
-`evals/*` remain members of the root pnpm and uv workspaces, sharing the root catalogs and lockfiles. Product packages and examples must not import evaluation code. Evaluation consumes an application URL and the declared `vacp` package dependency. Its configuration resolves paths from its own directory. Extraction into another repository therefore requires workspace/toolchain setup and a source for the MCP package, rather than changes to product internals.
+`docs/` contains user-facing concepts, integration guides, examples, and API reference. `apps/docs/` hosts VitePress and public assets. `development_docs/` contains architecture, contribution and test guides. Ignored local experiment artifacts are not published documentation.
 
 ## Naming
 

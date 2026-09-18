@@ -38,9 +38,6 @@
       "path": "packages/transport-bridge"
     },
     {
-      "path": "evals/agent-arena"
-    },
-    {
       "path": "packages/analytics-posthog"
     },
     {

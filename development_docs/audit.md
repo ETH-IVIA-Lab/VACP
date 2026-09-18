@@ -1,8 +1,8 @@
 # Architecture audit
 
-The audit follows each workspace package's entry points, dependencies, state ownership, and consumer paths. It covers the JavaScript runtime and providers, Inspector, model and MCP transports, examples, evaluation applications, build tooling, and documentation. Generated bundles, dependency caches, credentials, and ignored experiment artifacts are excluded from source review.
+The audit follows each workspace package's entry points, dependencies, state ownership, and consumer paths. It covers the JavaScript runtime and providers, Inspector, model and MCP transports, examples, build tooling, and documentation. Generated bundles, dependency caches, credentials, and ignored experiment artifacts are excluded from source review.
 
-The initial public documentation set contained 13 site pages. Architecture, contribution, evaluation, test, and example-authoring guides are classified as development material. Package READMEs describe package capabilities and point to the appropriate public or development guide.
+The initial public documentation set contained 13 site pages. Architecture, contribution, test, and example-authoring guides are classified as development material. Package READMEs describe package capabilities and point to the appropriate public or development guide.
 
 ## Boundary decisions
 
@@ -25,8 +25,6 @@ The telemetry engine and PostHog provider are separate packages. Telemetry owns 
 ## Retained boundaries
 
 Provider-specific parameter discovery, selection translation, and interaction observers remain with their provider. Database serialization remains with DuckDB. Inspector modules keep their own presentation state and share the protocol bridge. The Python server's browser manager, bridge client, and MCP tool registration remain separate.
-
-Evaluation reports and scoring are application-specific. Their existing runner, analysis, statistics, and rendering modules remain private rather than becoming public packages solely because some files are large. External model execution and remote deployment are separate from deterministic local validation.
 
 ## Validation
 

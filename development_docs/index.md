@@ -5,4 +5,3 @@
 - [Browser tests](testing.md)
 - [Example applications](examples.md)
 - [Architecture audit](audit.md)
-- [Evaluation tools and workflows](../evals/README.md)

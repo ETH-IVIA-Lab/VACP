@@ -7,7 +7,7 @@ PNPM ?= pnpm
 UV ?= uv
 VP := $(PNPM) exec vp
 UV_RUN := $(UV) run --all-packages --all-groups --locked
-WORKSPACE_FILTERS := --filter './packages/*' --filter './apps/*' --filter './examples/*' --filter './evals/*'
+WORKSPACE_FILTERS := --filter './packages/*' --filter './apps/*' --filter './examples/*'
 
 .PHONY: bench help setup setup-web setup-python dev dev-all dev-status format lint typecheck
 .PHONY: python-format python-lint python-typecheck python-test python-check
@@ -45,9 +45,9 @@ build-libs:
 	$(VP) run --filter './packages/*' build
 
 build-apps: build-libs
-	$(VP) run --filter './examples/*' --filter './apps/docs' --filter './evals/*' build
+	$(VP) run --filter './examples/*' --filter './apps/docs' build
 
-build: build-apps ## Build libraries, examples, docs, and evaluation tools.
+build: build-apps ## Build libraries, examples, and docs.
 
 typecheck: build-libs python-typecheck ## Run workspace TypeScript and Python type checks.
 	$(PNPM) exec tsc -p tsconfig.tools.json

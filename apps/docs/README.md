@@ -1,6 +1,6 @@
 # Documentation site
 
-VitePress configuration, theme, and static assets live here. User-facing Markdown lives in top-level `docs/`. Internal guides live in `development_docs/`, with evaluation-specific material in `evals/docs/`.
+VitePress configuration, theme, and static assets live here. User-facing Markdown lives in top-level `docs/`. Internal guides live in `development_docs/`.
 
 From the repository root:
 

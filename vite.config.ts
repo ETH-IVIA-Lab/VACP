@@ -78,7 +78,7 @@ export default defineConfig({
                     message: 'Keep dependencies inward. Compose adapters in applications.',
                   },
                   {
-                    group: ['../**/apps/**', '../**/packages/**', '../**/src/**', '../**/evals/**'],
+                    group: ['../**/apps/**', '../**/packages/**', '../**/src/**'],
                     message: 'Import workspace packages through their public exports.',
                   },
                 ],

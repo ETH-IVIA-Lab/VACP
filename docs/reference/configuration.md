@@ -24,16 +24,6 @@ Vega-Lite and VGPlot adapters accept `enableSql: false` to omit the raw SQL acti
 
 Call `installVacpWebMcp(integration.bridge)` to expose the runtime through the browser's WebMCP API. This installation has its own lifecycle. See [WebMCP](../transports/webmcp).
 
-## Example contexts
+## Example applications
 
-The example applications provide named contexts for reproducible evaluation. This URL selection belongs to the examples, not the VACP library.
-
-| URL                 | Agent access                       |
-| ------------------- | ---------------------------------- |
-| `?context=visual`   | Rendered interface                 |
-| `?context=snapshot` | Interface and DOM observation      |
-| `?context=semantic` | Runtime bridge                     |
-| `?context=full`     | Bridge and DOM observation         |
-| `?context=guided`   | Full context with raw SQL disabled |
-
-The default is `full`. Example tests may set `globalThis.__vacpExampleOptions` before application startup to select explicit installation options.
+`examples/config.ts` owns the example applications' exposure and SQL settings. The defaults enable the runtime bridge, DOM observation, SQL, and WebMCP. Browser tests can supply explicit options through `globalThis.__vacpExampleOptions` before startup.

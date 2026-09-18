@@ -1,7 +1,6 @@
 packages:
   - apps/*
   - examples/*
-  - evals/*
   - packages/*
 catalogMode: prefer
 catalog:

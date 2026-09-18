@@ -294,11 +294,11 @@ async function expectVegaLiteIntervalSelectionWorks(
   expect(String(handleState?.selectionWhere ?? '')).toMatch(/date|monthdate|>=|<=|BETWEEN/i);
 }
 
-test('examples: application context controls raw SQL action registration', async ({ page }) => {
+test('examples: application options control raw SQL action registration', async ({ page }) => {
   const srv = await startAppServer({ name: 'vgplot-gallery', cwd: exampleDir('vgplot-gallery') });
 
   try {
-    await page.goto(`${srv.url}?context=full#weather`, { waitUntil: 'domcontentloaded' });
+    await page.goto(`${srv.url}#weather`, { waitUntil: 'domcontentloaded' });
     await expectBridge(page);
     await waitForCapabilityRefContains(page, '/vgplot/weather');
 
@@ -322,7 +322,10 @@ test('examples: application context controls raw SQL action registration', async
     expect(typeof countFromResult(enabledSql)).toBe('number');
     const sqlOperationNames = await operationNames(page, ['vacp.data_sql']);
 
-    await page.goto(`${srv.url}?context=guided#weather`, { waitUntil: 'domcontentloaded' });
+    await page.addInitScript(() => {
+      globalThis.__vacpExampleOptions = { enableSql: false };
+    });
+    await page.reload({ waitUntil: 'domcontentloaded' });
     await expectBridge(page);
     await waitForCapabilityRefContains(page, '/vgplot/weather');
 

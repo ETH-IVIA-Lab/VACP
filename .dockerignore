@@ -20,7 +20,6 @@ __pycache__
 .pytest_cache
 **/.pytest_cache
 test-results
-.agent-arena
 .artifacts
 
 apps/docs/.vitepress/cache
@@ -31,5 +30,3 @@ examples/gallery/.generated-public
 nogit
 plans
 ara
-
-evals

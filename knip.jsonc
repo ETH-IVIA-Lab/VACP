@@ -2,8 +2,8 @@
   "$schema": "https://unpkg.com/knip@6/schema-jsonc.json",
   // Vendored plugin code is validated by its own rule tests and type check.
   "ignore": ["tools/oxlint/anti-slop/**"],
-  // Host commands and the evaluation CLI are installed outside npm.
-  "ignoreBinaries": ["opencode", "make"],
+  // Make is supplied by the host.
+  "ignoreBinaries": ["make"],
   "workspaces": {
     ".": {
       "entry": [
@@ -21,10 +21,6 @@
     "apps/docs": {
       // VitePress loads this optional minifier dynamically for Rolldown builds.
       "ignoreDependencies": ["oxc-minify"],
-    },
-    "evals/agent-arena": {
-      // Jiti loads the configuration and scenario predicates at runtime.
-      "entry": ["src/index.ts", "agent-arena.config.ts", "agent-arena.scenarios.ts"],
     },
   },
 }

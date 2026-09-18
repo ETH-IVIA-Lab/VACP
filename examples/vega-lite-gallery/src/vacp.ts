@@ -45,7 +45,6 @@ export async function installVacp(args: {
     providers: [provider],
     globalKey: args.globalKey,
     sessionKey: viewId,
-    runtimeId: exampleOptions.runtimeId,
     exposeBridge: exampleOptions.exposeBridge,
     injectDomSnapshot: exampleOptions.injectDomSnapshot,
   });

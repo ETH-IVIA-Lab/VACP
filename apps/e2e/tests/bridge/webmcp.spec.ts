@@ -116,9 +116,9 @@ test('native cancellation reaches SDK handlers with DOM publication enabled', as
   const server = await startAppServer({ name: 'webmcp-cancellation', cwd: exampleDir('cars-parallel-coords') });
   try {
     await page.addInitScript(() => {
-      globalThis.__vacpExampleOptions = { webmcp: false };
+      globalThis.__vacpExampleOptions = { webmcp: false, injectDomSnapshot: false };
     });
-    await page.goto(`${server.url}?context=semantic`);
+    await page.goto(server.url);
     await page.waitForFunction(() => Boolean(window.__vacp));
     const result = await page.evaluate(async (root) => {
       const { createVacpActions, createVacpProvider, installVacp }: typeof VacpSdk = await import(

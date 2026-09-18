@@ -23,9 +23,6 @@ VACP composes analytical sources, state, freshness, and semantic operations thro
 - `docs/`: user-facing guides and API reference.
 - `apps/docs`: VitePress configuration, theme, and public assets.
 - `development_docs/`: architecture, contributing, and testing guides.
-- `evals/agent-arena`, `evals/plain-mcp`, `evals/arena-analysis`: evaluation applications.
-
-Evaluation documentation and fixtures belong under `evals/`. Keep evaluation in the root pnpm and uv workspaces with shared lockfiles. Do not create nested workspaces.
 
 Use capability families for package names: `adapter-*` for visualization adapters, `diagram-*` for diagram formats, `analytics-*` for analytics providers, `data-*` for data backends, and `agent-*` for agent implementations. Keep `packages/` flat.
 
@@ -52,7 +49,7 @@ make browser-install e2e
 
 ## Python QA
 
-The root `pyproject.toml` owns the shared Python dev dependencies and configurations for pytest, Ruff, ty, basedpyright, and pyrefly. Do not duplicate these in workspace members. All Python source, tests, and the analysis workbench are checked from the root against the same environment and Python version.
+The root `pyproject.toml` owns the shared Python dev dependencies and configurations for pytest, Ruff, ty, basedpyright, and pyrefly. Do not duplicate these in workspace members. All Python source and tests are checked from the root against the same environment and Python version.
 
 Use `make python-check` for all Python gates, or `make python-lint`, `make python-typecheck`, and `make python-test` for focused checks. `make check` and CI invoke these same targets once. Python-only packages are managed by uv; they do not need npm task wrappers.
 
@@ -68,6 +65,6 @@ Read the package's implementation and consumers before changing a contract. Upda
 
 Test observable behavior through exported APIs and browser interactions. For visualization changes, run the affected Playwright cases and inspect browser output. For packaging changes, build from the workspace root and check the packaged output. Keep external model calls out of default tests.
 
-Edit gallery route generation in `examples/gallery/scripts/sync-generated.mjs`, not its generated HTML or copied assets. Keep generated output, browser reports, local credentials, and evaluation runs out of version control. Do not run dependency upgrades, publish artifacts, or contact external model endpoints unless the task requests it.
+Edit gallery route generation in `examples/gallery/scripts/sync-generated.mjs`, not its generated HTML or copied assets. Keep generated output, browser reports, and local credentials out of version control. Do not run dependency upgrades, publish artifacts, or contact external model endpoints unless the task requests it.
 
 CI runs the same checks and tests. Docker publishing is restricted to the main branch or manual dispatch. See `development_docs/contributing.md` for local commands and `development_docs/architecture.md` for runtime contracts.

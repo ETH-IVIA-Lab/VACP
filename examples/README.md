@@ -11,4 +11,4 @@ Runnable VACP integrations live here. They depend on reusable packages through w
 
 Run `pnpm dev` from the repository root to start the gallery at `https://examples.vacp.localhost`. `make dev-all` starts docs and every example, with individual examples at `https://<name>.examples.vacp.localhost`. Use `pnpm -C examples/<name> dev` for an individual application.
 
-See the [example development guide](../development_docs/examples.md) to add a gallery entry. Evaluation code belongs in `evals/` and consumes these applications through their served interfaces.
+See the [example development guide](../development_docs/examples.md) to add a gallery entry.

@@ -88,6 +88,6 @@ CI builds the workspace, checks formatting, lint and types, runs unit and browse
 
 ## Documentation
 
-Write user guides and API references in `docs/`. VitePress configuration, theme, and public assets live in `apps/docs/`. Keep architecture, development, and operational material in `development_docs/`. Evaluation-specific guides belong in `evals/docs/`.
+Write user guides and API references in `docs/`. VitePress configuration, theme, and public assets live in `apps/docs/`. Keep architecture, development, and operational material in `development_docs/`.
 
 Run `pnpm --filter @vacp/docs dev` to preview documentation and `pnpm --filter @vacp/docs build` to check the published site. The custom integration snippet is exercised by the SDK's public-boundary test.

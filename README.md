@@ -34,12 +34,11 @@ For full setup and command details, use [docs/get-started/index.md](docs/get-sta
 
 ## Workspace
 
-Reusable protocol, runtime, providers, transports, and UI live in `packages/*`. Examples live in `examples/`, evaluation tools in `evals/`, and the documentation host and browser suite in `apps/`. All use the root workspaces and lockfiles.
+Reusable protocol, runtime, providers, transports, and inspection primitives live in `packages/*`. Examples live in `examples/`, and the documentation host and browser suite in `apps/`. All use the root workspaces and lockfiles.
 
 - Gallery: `examples/gallery`
 - Browser tests: `apps/e2e`
 - User documentation: `docs/`, hosted by `apps/docs`
-- Evaluation: `evals/`
 - Internal guides: `development_docs/`
 - Runtime contracts and dependency boundaries: [development_docs/architecture.md](development_docs/architecture.md)
 - Setup, checks, and dependency updates: [development_docs/contributing.md](development_docs/contributing.md)
