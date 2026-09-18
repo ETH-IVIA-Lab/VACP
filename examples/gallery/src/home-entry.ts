@@ -26,12 +26,14 @@ function renderHome(root: HTMLElement): void {
     <main class="gallery-home">
       <header class="gallery-home__header">
         <p class="gallery-home__eyebrow">VACP</p>
-        <h1>Examples Gallery</h1>
+        <h1>Visual analysis, shared.</h1>
+        <p class="gallery-home__intro">Explore the charts, change a selection, and open VACP to see the state and actions available to an agent.</p>
       </header>
 
       <section class="gallery-home__grid">
         ${cards}
       </section>
+      <footer class="gallery-home__footer"><a href="https://docs.vacp.dev">Documentation</a><a href="https://github.com/ETH-IVIA-Lab/VACP">Source</a></footer>
     </main>
   `;
 }

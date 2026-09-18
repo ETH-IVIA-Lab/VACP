@@ -360,8 +360,8 @@ function JsonEditorBase({
             </div>
           ) : (
             <div className="vacp-json-editor-scalar-root">
-              <div className="text-[12px] font-medium text-slate-100/78">Scalar JSON root</div>
-              <div className="mt-1 text-[11px] leading-4 text-slate-100/58">Switch to Raw to edit this value.</div>
+              <div className="text-[12px] font-medium text-neutral-100/78">Scalar JSON root</div>
+              <div className="mt-1 text-[11px] leading-4 text-neutral-100/58">Switch to Raw to edit this value.</div>
             </div>
           )}
           <div className="vacp-json-editor-structure">

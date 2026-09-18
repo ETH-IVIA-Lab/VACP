@@ -4,7 +4,7 @@ export const INSPECTOR_PANEL_BREAKPOINTS = {
   compactShell: 760,
   compactControls: 760,
   stackLegend: 720,
-  splitPane: 980,
+  splitPane: 840,
   chatCompactPanel: 520,
   chatInlineActivity: 1120,
 } as const;

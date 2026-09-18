@@ -57,8 +57,8 @@ export function ModuleHeader({
       {...props}
     >
       <div className="min-w-0 flex-1">
-        <div className="min-w-0 break-words text-[12px] font-semibold leading-4 text-slate-100/86">{title}</div>
-        {description ? <div className="mt-0.5 text-pretty text-[11px] text-slate-100/58">{description}</div> : null}
+        <div className="min-w-0 break-words text-[12px] font-semibold leading-4 text-neutral-100/86">{title}</div>
+        {description ? <div className="mt-0.5 text-pretty text-[11px] text-neutral-100/58">{description}</div> : null}
       </div>
       {actions ? (
         <ModuleCommandBar compact={compact} className={commandBarClassName} {...restCommandBarProps}>
@@ -94,7 +94,7 @@ function ModuleCommandBar({
 export function ModuleSubheader({ className, ...props }: ModuleSubheaderProps): ReactElement {
   return (
     <div
-      className={cn('flex min-h-7 shrink-0 items-center gap-1.5 text-[11px] text-slate-100/72', className)}
+      className={cn('flex min-h-7 shrink-0 items-center gap-1.5 text-[11px] text-neutral-100/72', className)}
       {...props}
     />
   );
@@ -105,10 +105,9 @@ export function ModulePane({ paneRef, tone = 'plain', className, ...props }: Mod
     <section
       ref={paneRef}
       className={cn(
-        'min-h-0 min-w-0 text-slate-100',
-        tone === 'surface' &&
-          'rounded-md border border-white/[0.065] bg-white/[0.016] shadow-[inset_0_1px_0_rgba(255,255,255,0.015)]',
-        tone === 'code' && 'rounded-md border border-white/[0.065] bg-[#0f171d]/82',
+        'min-h-0 min-w-0 text-neutral-100',
+        tone === 'surface' && 'rounded-md border border-white/[0.065] bg-white/[0.016] ',
+        tone === 'code' && 'rounded-md border border-white/[0.065] bg-[#171717]/82',
         className,
       )}
       {...props}
@@ -126,7 +125,7 @@ export function ModuleField(props: {
 }): ReactElement {
   return (
     <div className={props.className}>
-      <label id={props.labelId} className="text-[11px] font-medium text-slate-100/70" htmlFor={props.htmlFor}>
+      <label id={props.labelId} className="text-[11px] font-medium text-neutral-100/70" htmlFor={props.htmlFor}>
         {props.label}
       </label>
       <div className={cn('mt-1', props.innerClassName)}>{props.children}</div>
@@ -135,5 +134,5 @@ export function ModuleField(props: {
 }
 
 export function ModuleEmptyState(props: { children: ReactNode; className?: string }): ReactElement {
-  return <div className={cn('text-[12px] leading-5 text-slate-100/66', props.className)}>{props.children}</div>;
+  return <div className={cn('text-[12px] leading-5 text-neutral-100/66', props.className)}>{props.children}</div>;
 }

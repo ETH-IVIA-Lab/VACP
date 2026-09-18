@@ -214,7 +214,7 @@ export function DataTable({
   const dotColumnKey = encoding.color;
 
   return (
-    <div className={cn('w-full min-w-0 rounded-lg border bg-background overflow-hidden')} style={{ height }}>
+    <div className={cn('w-full min-w-0 bg-background overflow-hidden')} style={{ height }}>
       <div ref={scrollRef} className="h-full w-full overflow-auto">
         <div
           className="min-w-full"
@@ -224,10 +224,9 @@ export function DataTable({
             width: table.getTotalSize(),
           }}
         >
-          <div className="sticky top-0 z-10 bg-background/80 backdrop-blur">
-            <div className="flex border-b">
-              {headers.map((header, index) => {
-                const isLast = index === headers.length - 1;
+          <div className="sticky top-0 z-10 bg-background">
+            <div className="flex">
+              {headers.map((header) => {
                 const headStyles = { width: `calc(var(--header-${header.index}-size) * 1px)` };
                 const isIndex = header.id === '__row';
                 const highlight = !isIndex ? highlightClassForColumn(header.id, highlightKeys, true) : '';
@@ -237,7 +236,6 @@ export function DataTable({
                     key={header.id}
                     className={cn(
                       'relative flex h-[34px] items-center px-2 text-[11px] font-semibold text-foreground/80 select-none',
-                      !isLast && 'border-r',
                       isIndex ? 'justify-end tabular-nums text-foreground/60' : 'justify-start',
                       highlight,
                     )}
@@ -250,7 +248,7 @@ export function DataTable({
                       <div
                         className={cn(
                           'absolute right-0 top-0 h-full w-[6px] cursor-col-resize',
-                          'after:absolute after:right-[2px] after:top-0 after:h-full after:w-[1px] after:bg-border',
+                          'after:absolute after:right-[2px] after:top-0 after:h-full after:w-[1px] after:bg-transparent hover:after:bg-border',
                           columnSizingInfo.isResizingColumn === header.id && 'after:bg-foreground/50',
                         )}
                         onDoubleClick={() => header.column.resetSize()}
@@ -288,13 +286,13 @@ export function DataTable({
                     <div
                       key={row.id}
                       className={cn(
-                        'absolute left-0 right-0 flex border-b',
+                        'absolute left-0 right-0 flex',
                         row.index % 2 === 1 && 'bg-muted/20',
                         isSelected && 'bg-accent/35',
                       )}
                       style={{ top, height: rowHeight }}
                     >
-                      {row.getVisibleCells().map((cell, index) => {
+                      {row.getVisibleCells().map((cell) => {
                         const colIndex = cell.column.getIndex();
                         const isIndex = cell.column.id === '__row';
                         const highlight = !isIndex ? highlightClassForColumn(cell.column.id, highlightKeys, false) : '';
@@ -316,7 +314,6 @@ export function DataTable({
                             key={cell.id}
                             className={cn(
                               'h-[30px] px-2 py-1 text-[12px] text-foreground/85',
-                              index !== row.getVisibleCells().length - 1 && 'border-r border-border/70',
                               isIndex && 'text-right tabular-nums text-foreground/55',
                               f.alignRight && 'text-right tabular-nums',
                               f.muted && 'italic text-foreground/55',

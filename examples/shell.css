@@ -6,14 +6,14 @@
 
 body {
   margin: 0;
-  background: #f8fafc;
+  background: #fff;
 }
 
 .example-shell {
   max-width: 1360px;
   margin: 0 auto;
   font-family:
-    'Inter',
+    'Geist',
     'Segoe UI',
     -apple-system,
     BlinkMacSystemFont,
@@ -34,28 +34,27 @@ body {
   display: block;
   margin: 0;
   font-size: 12px;
-  font-weight: 700;
-  color: #5a6474;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
+  font-weight: 500;
+  color: #666;
+  letter-spacing: 0;
 }
 
 .example-shell__select {
   display: block;
   width: 100%;
-  border-radius: 10px;
-  border: 1px solid #bcc6d5;
+  border-radius: 6px;
+  border: 1px solid #ddd;
   padding: 8px 12px;
   font-size: 14px;
-  color: #111827;
-  background: rgba(255, 255, 255, 0.92);
+  color: #171717;
+  background: #fff;
 }
 
 .example-shell__meta {
   min-height: 0;
   margin: 0;
   max-width: 96ch;
-  color: #4f5b6d;
+  color: #666;
   font-size: 13px;
   line-height: 1.45;
 }
@@ -92,12 +91,10 @@ body {
 .example-shell__stage {
   min-height: 340px;
   margin-top: 0;
-  border-top: 1px solid rgba(196, 206, 218, 0.75);
   padding-top: 8px;
 }
 
 .example-shell__meta:empty + .example-shell__stage {
-  border-top: 0;
   padding-top: 4px;
 }
 

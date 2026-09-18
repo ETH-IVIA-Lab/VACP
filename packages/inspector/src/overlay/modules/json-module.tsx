@@ -314,7 +314,7 @@ export function JsonModule(props: VacpInspectorModuleProps): ReactElement {
           compact={compactControls}
           actions={
             <IconButton
-              icon={<ClipboardCopy className="h-4 w-4 text-slate-100/90" />}
+              icon={<ClipboardCopy className="h-4 w-4 text-neutral-100/90" />}
               label="Copy snapshot"
               title="Copy the current state snapshot JSON."
               size={iconButtonSize}
@@ -330,7 +330,7 @@ export function JsonModule(props: VacpInspectorModuleProps): ReactElement {
           className={cn('border-t border-white/[0.075]', dense ? 'pt-2' : 'pt-3')}
           data-vacp-state-update="panel"
         >
-          <summary className="cursor-pointer select-none text-[12px] font-semibold text-slate-100/90">
+          <summary className="cursor-pointer select-none text-[12px] font-semibold text-neutral-100/90">
             Update probe
           </summary>
           <div className="mt-3 space-y-3">
@@ -340,11 +340,11 @@ export function JsonModule(props: VacpInspectorModuleProps): ReactElement {
                 rootSize.width >= 880 ? 'grid-cols-4' : rootSize.width >= 620 ? 'grid-cols-2' : 'grid-cols-1',
               )}
             >
-              <label className="text-[11px] text-slate-100/80">
+              <label className="text-[11px] text-neutral-100/80">
                 Mode
                 <select
                   data-vacp-state-update="mode"
-                  className="mt-1 w-full rounded-lg border border-white/[0.08] bg-[#101821]/72 px-3 py-2.5 text-xs text-slate-100/90 outline-none focus:border-white/22 focus:ring-2 focus:ring-white/22"
+                  className="mt-1 w-full rounded-lg border border-white/[0.08] bg-[#171717]/72 px-3 py-2.5 text-xs text-neutral-100/90 outline-none focus:border-white/22 focus:ring-2 focus:ring-white/22"
                   value={requestMode ?? 'delta'}
                   onChange={(e) => setRequestMode(e.target.value as VacpStateRequest['mode'])}
                 >
@@ -353,7 +353,7 @@ export function JsonModule(props: VacpInspectorModuleProps): ReactElement {
                   <option value="delta">delta</option>
                 </select>
               </label>
-              <label className="text-[11px] text-slate-100/80">
+              <label className="text-[11px] text-neutral-100/80">
                 Since token
                 <Input
                   data-vacp-state-update="since"
@@ -363,7 +363,7 @@ export function JsonModule(props: VacpInspectorModuleProps): ReactElement {
                   onChange={(e) => setRequestSince(e.target.value)}
                 />
               </label>
-              <label className="text-[11px] text-slate-100/80">
+              <label className="text-[11px] text-neutral-100/80">
                 Refs (comma/space)
                 <Input
                   data-vacp-state-update="refs"
@@ -373,7 +373,7 @@ export function JsonModule(props: VacpInspectorModuleProps): ReactElement {
                   onChange={(e) => setRequestRefsText(e.target.value)}
                 />
               </label>
-              <label className="inline-flex items-center gap-2 self-end pb-1 text-[11px] text-slate-100/85">
+              <label className="inline-flex items-center gap-2 self-end pb-1 text-[11px] text-neutral-100/85">
                 <input
                   type="checkbox"
                   data-vacp-state-update="include-summary"
@@ -386,7 +386,7 @@ export function JsonModule(props: VacpInspectorModuleProps): ReactElement {
 
             <div className="flex flex-wrap items-center gap-2">
               <IconButton
-                icon={<Play className="h-4 w-4 text-slate-100/90" />}
+                icon={<Play className="h-4 w-4 text-neutral-100/90" />}
                 label="Request update"
                 title="Call getState(request) with the current probe options."
                 variant="primary"
@@ -394,14 +394,14 @@ export function JsonModule(props: VacpInspectorModuleProps): ReactElement {
                 onClick={() => void requestStateUpdate()}
               />
               <IconButton
-                icon={<Braces className="h-4 w-4 text-slate-100/90" />}
+                icon={<Braces className="h-4 w-4 text-neutral-100/90" />}
                 label="Seed since from full"
                 title="Fetch a full update and set its token as the next 'since' baseline."
                 size={iconButtonSize}
                 onClick={() => void seedSinceFromFull()}
               />
               <IconButton
-                icon={<ClipboardCopy className="h-4 w-4 text-slate-100/90" />}
+                icon={<ClipboardCopy className="h-4 w-4 text-neutral-100/90" />}
                 label="Copy update"
                 title="Copy the latest state update payload."
                 size={iconButtonSize}
@@ -411,65 +411,65 @@ export function JsonModule(props: VacpInspectorModuleProps): ReactElement {
 
             {updateSummary ? (
               <div
-                className="rounded-lg border border-white/[0.075] bg-white/[0.02] px-3 py-2 text-[11px] leading-5 text-slate-100/76"
+                className="rounded-lg border border-white/[0.075] bg-white/[0.02] px-3 py-2 text-[11px] leading-5 text-neutral-100/76"
                 data-vacp-state-update="summary"
               >
                 {updateSummary.mode === 'full' ? (
                   <dl className="grid gap-x-3 gap-y-1 sm:grid-cols-2">
                     <div className="min-w-0 break-words">
-                      <dt className="inline text-slate-100/60">mode:</dt> <dd className="inline">full</dd>
+                      <dt className="inline text-neutral-100/60">mode:</dt> <dd className="inline">full</dd>
                     </div>
                     <div className="min-w-0 break-words">
-                      <dt className="inline text-slate-100/60">token:</dt>{' '}
-                      <dd className="inline font-medium text-slate-100">{updateSummary.token}</dd>
+                      <dt className="inline text-neutral-100/60">token:</dt>{' '}
+                      <dd className="inline font-medium text-neutral-100">{updateSummary.token}</dd>
                     </div>
                     <div className="min-w-0 break-words">
-                      <dt className="inline text-slate-100/60">refs:</dt>{' '}
+                      <dt className="inline text-neutral-100/60">refs:</dt>{' '}
                       <dd className="inline">{updateSummary.refCount}</dd>
                     </div>
                     <div className="min-w-0 break-words">
-                      <dt className="inline text-slate-100/60">summary refs:</dt>{' '}
+                      <dt className="inline text-neutral-100/60">summary refs:</dt>{' '}
                       <dd className="inline">{updateSummary.summaryRefCount}</dd>
                     </div>
                   </dl>
                 ) : (
                   <dl className="grid gap-x-3 gap-y-1 sm:grid-cols-2">
                     <div className="min-w-0 break-words">
-                      <dt className="inline text-slate-100/60">mode:</dt> <dd className="inline">delta</dd>
+                      <dt className="inline text-neutral-100/60">mode:</dt> <dd className="inline">delta</dd>
                     </div>
                     <div className="min-w-0 break-words">
-                      <dt className="inline text-slate-100/60">token:</dt>{' '}
-                      <dd className="inline font-medium text-slate-100">{updateSummary.token}</dd>
+                      <dt className="inline text-neutral-100/60">token:</dt>{' '}
+                      <dd className="inline font-medium text-neutral-100">{updateSummary.token}</dd>
                     </div>
                     <div className="min-w-0 break-words">
-                      <dt className="inline text-slate-100/60">base:</dt>{' '}
-                      <dd className="inline font-medium text-slate-100">{updateSummary.baseToken}</dd>
+                      <dt className="inline text-neutral-100/60">base:</dt>{' '}
+                      <dd className="inline font-medium text-neutral-100">{updateSummary.baseToken}</dd>
                     </div>
                     <div className="min-w-0 break-words">
-                      <dt className="inline text-slate-100/60">changed:</dt>{' '}
+                      <dt className="inline text-neutral-100/60">changed:</dt>{' '}
                       <dd className="inline">{updateSummary.changedCount}</dd>
                     </div>
                     <div className="min-w-0 break-words">
-                      <dt className="inline text-slate-100/60">removed:</dt>{' '}
+                      <dt className="inline text-neutral-100/60">removed:</dt>{' '}
                       <dd className="inline">{updateSummary.removedCount}</dd>
                     </div>
                     <div className="min-w-0 break-words">
-                      <dt className="inline text-slate-100/60">summary changed:</dt>{' '}
+                      <dt className="inline text-neutral-100/60">summary changed:</dt>{' '}
                       <dd className="inline">{updateSummary.summaryChangedCount}</dd>
                     </div>
                     <div className="min-w-0 break-words">
-                      <dt className="inline text-slate-100/60">summary removed:</dt>{' '}
+                      <dt className="inline text-neutral-100/60">summary removed:</dt>{' '}
                       <dd className="inline">{updateSummary.summaryRemovedCount}</dd>
                     </div>
                   </dl>
                 )}
               </div>
             ) : null}
-            {probeStatus ? <div className="text-[11px] text-slate-100/68">{probeStatus}</div> : null}
+            {probeStatus ? <div className="text-[11px] text-neutral-100/68">{probeStatus}</div> : null}
             {probeError ? <div className="text-[11px] text-red-50/84">{probeError}</div> : null}
             {updatePayload ? (
               <details className="border-t border-white/[0.075] pt-2">
-                <summary className="cursor-pointer select-none text-[11px] font-medium text-slate-100/80">
+                <summary className="cursor-pointer select-none text-[11px] font-medium text-neutral-100/80">
                   Raw update payload
                 </summary>
                 <JsonViewer value={updatePayload} className="mt-2 max-h-[220px]" />
@@ -493,7 +493,7 @@ export function JsonModule(props: VacpInspectorModuleProps): ReactElement {
           actions={
             <>
               <IconButton
-                icon={<Braces className="h-4 w-4 text-slate-100/90" />}
+                icon={<Braces className="h-4 w-4 text-neutral-100/90" />}
                 label="Reset to current"
                 title="Reset the editor to the current state."
                 size={iconButtonSize}
@@ -505,7 +505,7 @@ export function JsonModule(props: VacpInspectorModuleProps): ReactElement {
                 }}
               />
               <IconButton
-                icon={<Play className="h-4 w-4 text-slate-100/90" />}
+                icon={<Play className="h-4 w-4 text-neutral-100/90" />}
                 label="Apply override"
                 title="Apply this state as an override for inspection (does not affect the live app)."
                 variant="primary"
@@ -513,14 +513,14 @@ export function JsonModule(props: VacpInspectorModuleProps): ReactElement {
                 onClick={() => applyOverride()}
               />
               <IconButton
-                icon={<Play className="h-4 w-4 text-slate-100/90" />}
+                icon={<Play className="h-4 w-4 text-neutral-100/90" />}
                 label="Apply to app"
                 title="Execute vacp.apply_state against the live app."
                 size={iconButtonSize}
                 onClick={() => void applyToApp()}
               />
               <IconButton
-                icon={<Eraser className="h-4 w-4 text-slate-100/90" />}
+                icon={<Eraser className="h-4 w-4 text-neutral-100/90" />}
                 label="Clear overrides"
                 title="Clear any inspection overrides."
                 size={iconButtonSize}
@@ -548,7 +548,7 @@ export function JsonModule(props: VacpInspectorModuleProps): ReactElement {
           />
         </ModuleField>
 
-        {editStatus ? <div className="text-[11px] text-slate-100/68">{editStatus}</div> : null}
+        {editStatus ? <div className="text-[11px] text-neutral-100/68">{editStatus}</div> : null}
         {editError ? <div className="text-[11px] text-red-50/84">{editError}</div> : null}
         {applyReport ? <ApplyReportView report={applyReport} /> : null}
       </ModulePane>
@@ -562,18 +562,18 @@ function ApplyReportView(props: { report: ApplyStateReport }): ReactElement {
   return (
     <div
       data-vacp-json-apply-report="1"
-      className="rounded-lg border border-white/[0.075] bg-white/[0.025] px-3 py-2 text-[11px] leading-5 text-slate-100/72"
+      className="rounded-lg border border-white/[0.075] bg-white/[0.025] px-3 py-2 text-[11px] leading-5 text-neutral-100/72"
     >
-      <div className="font-semibold text-slate-100/86">
+      <div className="font-semibold text-neutral-100/86">
         Apply report
         {typeof report.applied === 'number' ? (
-          <span className="ml-2 font-normal text-slate-100/58">provider applied {report.applied}</span>
+          <span className="ml-2 font-normal text-neutral-100/58">provider applied {report.applied}</span>
         ) : null}
       </div>
       {report.changedRefs.length > 0 ? (
         <IssueList title="Changed refs" items={report.changedRefs.map((ref) => ({ ref, message: 'state changed' }))} />
       ) : (
-        <div className="text-slate-100/58">No state refs changed.</div>
+        <div className="text-neutral-100/58">No state refs changed.</div>
       )}
       {report.skipped.length > 0 ? <IssueList title="Skipped refs" items={report.skipped} /> : null}
       {report.errors.length > 0 ? <IssueList title="Provider errors" items={report.errors} /> : null}
@@ -584,16 +584,16 @@ function ApplyReportView(props: { report: ApplyStateReport }): ReactElement {
 function IssueList(props: { title: string; items: ProviderApplyIssue[] }): ReactElement {
   return (
     <div className="mt-1">
-      <div className="font-medium text-slate-100/78">{props.title}</div>
+      <div className="font-medium text-neutral-100/78">{props.title}</div>
       <ul className="mt-0.5 space-y-0.5">
         {props.items.slice(0, 6).map((item) => (
           <li key={`${props.title}:${item.ref}:${item.message}`} className="min-w-0 break-words">
-            <code className="text-slate-100/82">{item.ref || '(unknown ref)'}</code>
-            <span className="text-slate-100/54">: {item.message}</span>
+            <code className="text-neutral-100/82">{item.ref || '(unknown ref)'}</code>
+            <span className="text-neutral-100/54">: {item.message}</span>
           </li>
         ))}
       </ul>
-      {props.items.length > 6 ? <div className="text-slate-100/50">+{props.items.length - 6} more</div> : null}
+      {props.items.length > 6 ? <div className="text-neutral-100/50">+{props.items.length - 6} more</div> : null}
     </div>
   );
 }

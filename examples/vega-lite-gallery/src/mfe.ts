@@ -1,4 +1,4 @@
-import './shell.css';
+import '../../shell.css';
 import { run } from './app';
 
 export async function mount(target: HTMLElement): Promise<void> {

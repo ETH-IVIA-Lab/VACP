@@ -289,7 +289,7 @@ export function ChatModule(props: VacpInspectorModuleProps): ReactElement {
                   });
                 }}
               >
-                <History className="h-4 w-4 text-slate-100/90" />
+                <History className="h-4 w-4 text-neutral-100/90" />
               </Button>
               <Button
                 size="iconSm"
@@ -304,7 +304,7 @@ export function ChatModule(props: VacpInspectorModuleProps): ReactElement {
                   setThreadPickerOpen(false);
                 }}
               >
-                <MessageSquarePlus className="h-4 w-4 text-slate-100/90" />
+                <MessageSquarePlus className="h-4 w-4 text-neutral-100/90" />
               </Button>
               <Button
                 size="iconSm"
@@ -319,7 +319,7 @@ export function ChatModule(props: VacpInspectorModuleProps): ReactElement {
                   clearThread(scopeId, activeThreadId);
                 }}
               >
-                <Trash2 className="h-4 w-4 text-slate-100/90" />
+                <Trash2 className="h-4 w-4 text-neutral-100/90" />
               </Button>
               <Button
                 size="iconSm"
@@ -329,7 +329,7 @@ export function ChatModule(props: VacpInspectorModuleProps): ReactElement {
                 aria-pressed={showActivity}
                 onClick={() => setActivityOpen(scopeId, !showActivity)}
               >
-                <ActivityIcon className="h-4 w-4 text-slate-100/90" />
+                <ActivityIcon className="h-4 w-4 text-neutral-100/90" />
               </Button>
               <Button
                 size="iconSm"
@@ -343,7 +343,7 @@ export function ChatModule(props: VacpInspectorModuleProps): ReactElement {
                   setSettingsOpen(scopeId, !settingsSheetOpen);
                 }}
               >
-                <Settings2 className="h-4 w-4 text-slate-100/90" />
+                <Settings2 className="h-4 w-4 text-neutral-100/90" />
               </Button>
             </>
           }
@@ -390,7 +390,7 @@ export function ChatModule(props: VacpInspectorModuleProps): ReactElement {
               />
             )
           ) : (
-            <div className="grid h-full place-items-center text-[12px] text-slate-100/70">
+            <div className="grid h-full place-items-center text-[12px] text-neutral-100/70">
               Preparing chat session...
             </div>
           )}
@@ -416,7 +416,7 @@ export function ChatModule(props: VacpInspectorModuleProps): ReactElement {
                 title="Close history"
                 onClick={() => setThreadPickerOpen(false)}
               >
-                <X className="h-4 w-4 text-slate-100/90" />
+                <X className="h-4 w-4 text-neutral-100/90" />
               </Button>
             }
           />
@@ -425,7 +425,7 @@ export function ChatModule(props: VacpInspectorModuleProps): ReactElement {
             className="vacp-chat-scroll grid min-h-0 gap-2 overflow-y-auto overflow-x-hidden border-t border-white/[0.075] pt-3"
           >
             {threadItems.length === 0 ? (
-              <div className="px-1 py-3 text-[11px] text-slate-100/58">No history for this view yet.</div>
+              <div className="px-1 py-3 text-[11px] text-neutral-100/58">No history for this view yet.</div>
             ) : null}
             {threadItems.map((thread) => (
               <button
@@ -443,10 +443,10 @@ export function ChatModule(props: VacpInspectorModuleProps): ReactElement {
                   setThreadPickerOpen(false);
                 }}
               >
-                <div className="truncate text-[12px] font-semibold text-slate-100/90 [overflow-wrap:anywhere]">
+                <div className="truncate text-[12px] font-semibold text-neutral-100/90 [overflow-wrap:anywhere]">
                   {thread.title}
                 </div>
-                <div className="mt-1 text-[10px] text-slate-100/62">{threadSubtitle(thread.messages)}</div>
+                <div className="mt-1 text-[10px] text-neutral-100/62">{threadSubtitle(thread.messages)}</div>
               </button>
             ))}
           </div>

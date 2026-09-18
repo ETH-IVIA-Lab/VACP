@@ -6,14 +6,14 @@
 
 body {
   margin: 0;
-  background: #f8fafc;
+  background: #fff;
 }
 
 .cars-shell {
   max-width: 1360px;
   margin: 0 auto;
   font-family:
-    'Inter',
+    'Geist',
     'Segoe UI',
     -apple-system,
     BlinkMacSystemFont,
@@ -30,13 +30,13 @@ body {
   flex-wrap: wrap;
 }
 
-button {
+.cars-shell button {
   appearance: none;
-  border: 1px solid #bcc7d7;
-  border-radius: 9px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
   padding: 8px 12px;
   background: rgba(255, 255, 255, 0.94);
-  color: #1f2a3d;
+  color: #333;
   cursor: pointer;
   font-size: 13px;
   font-weight: 600;
@@ -46,19 +46,17 @@ button {
     border-color 120ms ease;
 }
 
-button:hover {
-  background: #f5f8fc;
-  border-color: #aebbd0;
+.cars-shell button:hover {
+  background: #fafafa;
+  border-color: #aaa;
 }
 
-button:active {
-  background: #edf2f8;
+.cars-shell button:active {
+  background: #f5f5f5;
 }
 
 #chart {
   overflow-x: auto;
-  border: 1px solid rgba(198, 207, 219, 0.9);
-  border-radius: 10px;
   background: rgba(255, 255, 255, 0.62);
   width: 100%;
   padding: 10px 0 6px;
@@ -81,7 +79,7 @@ button:active {
 
 .axis text {
   font-size: 11px;
-  fill: #111827;
+  fill: #171717;
   font-weight: 500;
 }
 
@@ -114,7 +112,7 @@ button:active {
 }
 
 .line.selected {
-  stroke: #111827;
+  stroke: #171717;
   stroke-width: 2px;
   opacity: 0.95;
 }
@@ -145,7 +143,6 @@ button:active {
   pointer-events: none;
   font-size: 12px;
   z-index: 1000;
-  box-shadow: 0 6px 18px rgba(15, 23, 42, 0.35);
   line-height: 1.5;
   max-width: 250px;
 }

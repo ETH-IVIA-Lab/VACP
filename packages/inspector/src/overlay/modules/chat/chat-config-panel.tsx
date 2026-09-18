@@ -48,8 +48,8 @@ export function ChatConfigPanel(props: ChatConfigPanelProps): ReactElement {
       {showHeading ? (
         <div className="flex items-start gap-2">
           <div className="min-w-0 flex-1">
-            <div className="text-[11px] font-semibold uppercase text-slate-100/75">Settings</div>
-            <div className="mt-1 text-pretty text-[11px] text-slate-100/70">
+            <div className="text-[11px] font-semibold uppercase text-neutral-100/75">Settings</div>
+            <div className="mt-1 text-pretty text-[11px] text-neutral-100/70">
               Configure your chat provider and model for this browser session.
             </div>
           </div>
@@ -60,11 +60,11 @@ export function ChatConfigPanel(props: ChatConfigPanelProps): ReactElement {
               title="Clear saved config"
               onClick={props.onClearConfig}
             >
-              <Trash2 className="h-4 w-4 text-slate-100/90" />
+              <Trash2 className="h-4 w-4 text-neutral-100/90" />
             </Button>
             {(props.showClose ?? true) ? (
               <Button size="iconSm" aria-label="Close settings" title="Close settings" onClick={props.onClose}>
-                <X className="h-4 w-4 text-slate-100/90" />
+                <X className="h-4 w-4 text-neutral-100/90" />
               </Button>
             ) : null}
           </div>
@@ -75,8 +75,8 @@ export function ChatConfigPanel(props: ChatConfigPanelProps): ReactElement {
         <section className={cn('grid gap-3', showHeading && 'border-t border-white/[0.075] pt-4')}>
           <div className="flex items-start gap-2">
             <div className="min-w-0 flex-1">
-              <div className="text-[11px] font-semibold text-slate-100/85">Connection</div>
-              <div className="mt-1 text-pretty text-[11px] text-slate-100/60">
+              <div className="text-[11px] font-semibold text-neutral-100/85">Connection</div>
+              <div className="mt-1 text-pretty text-[11px] text-neutral-100/60">
                 Choose the provider endpoint and model exposed to the inspector chat runtime.
               </div>
             </div>
@@ -87,16 +87,16 @@ export function ChatConfigPanel(props: ChatConfigPanelProps): ReactElement {
                 title="Clear saved config"
                 onClick={props.onClearConfig}
               >
-                <Trash2 className="h-4 w-4 text-slate-100/90" />
+                <Trash2 className="h-4 w-4 text-neutral-100/90" />
               </Button>
             ) : null}
           </div>
           <div className={cn('grid grid-cols-1 gap-3', !compact && 'sm:grid-cols-2')}>
-            <label className="text-[11px] text-slate-100/80">
+            <label className="text-[11px] text-neutral-100/80">
               Provider
               <select
                 data-vacp-chat-provider="1"
-                className="mt-1 w-full rounded-lg border border-white/[0.08] bg-[#101821]/72 px-2 py-2 text-xs text-slate-100/90 outline-none focus:border-white/22 focus:ring-2 focus:ring-white/22"
+                className="mt-1 w-full rounded-lg border border-white/[0.08] bg-[#171717]/72 px-2 py-2 text-xs text-neutral-100/90 outline-none focus:border-white/22 focus:ring-2 focus:ring-white/22"
                 value={provider}
                 onChange={(e) => props.onProviderChange(e.target.value as VacpLLMConfig['provider'])}
               >
@@ -104,12 +104,12 @@ export function ChatConfigPanel(props: ChatConfigPanelProps): ReactElement {
                 <option value="gemini">Gemini</option>
               </select>
             </label>
-            <label className="text-[11px] text-slate-100/80">
+            <label className="text-[11px] text-neutral-100/80">
               Model
               <div className="mt-1 flex items-center gap-2">
                 <select
                   data-vacp-chat-model-select="1"
-                  className="w-full rounded-lg border border-white/[0.08] bg-[#101821]/72 px-2 py-2 text-xs text-slate-100/90 outline-none focus:border-white/22 focus:ring-2 focus:ring-white/22"
+                  className="w-full rounded-lg border border-white/[0.08] bg-[#171717]/72 px-2 py-2 text-xs text-neutral-100/90 outline-none focus:border-white/22 focus:ring-2 focus:ring-white/22"
                   value={props.config.model}
                   disabled={props.loadingModels || props.availableModels.length === 0}
                   onChange={(e) => setField('model', e.target.value)}
@@ -136,13 +136,13 @@ export function ChatConfigPanel(props: ChatConfigPanelProps): ReactElement {
                   onClick={props.onRefreshModels}
                 >
                   {props.loadingModels ? (
-                    <Loader2 className="h-4 w-4 animate-spin text-slate-100/90" />
+                    <Loader2 className="h-4 w-4 animate-spin text-neutral-100/90" />
                   ) : (
-                    <RefreshCw className="h-4 w-4 text-slate-100/90" />
+                    <RefreshCw className="h-4 w-4 text-neutral-100/90" />
                   )}
                 </Button>
               </div>
-              <div className="mt-1 text-[10px] text-slate-100/60">
+              <div className="mt-1 text-[10px] text-neutral-100/60">
                 {props.modelsError
                   ? props.modelsError
                   : props.availableModels.length > 0
@@ -151,7 +151,7 @@ export function ChatConfigPanel(props: ChatConfigPanelProps): ReactElement {
               </div>
             </label>
             {openAICompatibleSelected ? (
-              <label className={cn('text-[11px] text-slate-100/80', !compact && 'sm:col-span-2')}>
+              <label className={cn('text-[11px] text-neutral-100/80', !compact && 'sm:col-span-2')}>
                 Base URL
                 <Input
                   data-vacp-chat-baseurl="1"
@@ -167,12 +167,12 @@ export function ChatConfigPanel(props: ChatConfigPanelProps): ReactElement {
 
         <section className="grid gap-3 border-t border-white/[0.075] pt-4">
           <div>
-            <div className="text-[11px] font-semibold text-slate-100/85">Credentials</div>
-            <div className="mt-1 text-pretty text-[11px] text-slate-100/60">
+            <div className="text-[11px] font-semibold text-neutral-100/85">Credentials</div>
+            <div className="mt-1 text-pretty text-[11px] text-neutral-100/60">
               The key is stored locally for this browser profile and only sent to the configured provider endpoint.
             </div>
           </div>
-          <label className="text-[11px] text-slate-100/80">
+          <label className="text-[11px] text-neutral-100/80">
             {openAICompatibleSelected ? 'API key' : 'Gemini API key'}
             <div className="mt-1 flex items-center gap-2">
               <Input
@@ -189,9 +189,9 @@ export function ChatConfigPanel(props: ChatConfigPanelProps): ReactElement {
                 onClick={props.onToggleApiKey}
               >
                 {props.showApiKey ? (
-                  <EyeOff className="h-4 w-4 text-slate-100/90" />
+                  <EyeOff className="h-4 w-4 text-neutral-100/90" />
                 ) : (
-                  <Eye className="h-4 w-4 text-slate-100/90" />
+                  <Eye className="h-4 w-4 text-neutral-100/90" />
                 )}
               </Button>
             </div>
@@ -199,10 +199,12 @@ export function ChatConfigPanel(props: ChatConfigPanelProps): ReactElement {
         </section>
 
         <details className="border-t border-white/[0.075] pt-4">
-          <summary className="cursor-pointer select-none text-[11px] font-semibold text-slate-100/80">Advanced</summary>
+          <summary className="cursor-pointer select-none text-[11px] font-semibold text-neutral-100/80">
+            Advanced
+          </summary>
           <div className={cn('mt-2 grid grid-cols-1 gap-3', !compact && 'sm:grid-cols-3')}>
             {!openAICompatibleSelected ? (
-              <label className={cn('text-[11px] text-slate-100/80', !compact && 'sm:col-span-3')}>
+              <label className={cn('text-[11px] text-neutral-100/80', !compact && 'sm:col-span-3')}>
                 Base URL (optional)
                 <Input
                   data-vacp-chat-baseurl="1"
@@ -213,7 +215,7 @@ export function ChatConfigPanel(props: ChatConfigPanelProps): ReactElement {
                 />
               </label>
             ) : null}
-            <label className={cn('text-[11px] text-slate-100/80', !compact && 'sm:col-span-3')}>
+            <label className={cn('text-[11px] text-neutral-100/80', !compact && 'sm:col-span-3')}>
               Manual model id
               <Input
                 data-vacp-chat-model="1"
@@ -224,7 +226,7 @@ export function ChatConfigPanel(props: ChatConfigPanelProps): ReactElement {
               />
             </label>
             {openAICompatibleSelected ? (
-              <label className={cn('text-[11px] text-slate-100/80', !compact && 'sm:col-span-3')}>
+              <label className={cn('text-[11px] text-neutral-100/80', !compact && 'sm:col-span-3')}>
                 Provider name
                 <Input
                   data-vacp-chat-provider-name="1"
@@ -235,7 +237,7 @@ export function ChatConfigPanel(props: ChatConfigPanelProps): ReactElement {
                 />
               </label>
             ) : null}
-            <label className="text-[11px] text-slate-100/80">
+            <label className="text-[11px] text-neutral-100/80">
               Max steps
               <Input
                 data-vacp-chat-maxsteps="1"
@@ -247,7 +249,7 @@ export function ChatConfigPanel(props: ChatConfigPanelProps): ReactElement {
                 onChange={(e) => setField('maxSteps', Math.max(1, Number(e.target.value || 6)))}
               />
             </label>
-            <label className="text-[11px] text-slate-100/80">
+            <label className="text-[11px] text-neutral-100/80">
               Max output tokens
               <Input
                 data-vacp-chat-max-output-tokens="1"
@@ -259,7 +261,7 @@ export function ChatConfigPanel(props: ChatConfigPanelProps): ReactElement {
                 onChange={(e) => setField('maxOutputTokens', Math.max(64, Number(e.target.value || 900)))}
               />
             </label>
-            <label className="text-[11px] text-slate-100/80">
+            <label className="text-[11px] text-neutral-100/80">
               Temperature
               <Input
                 data-vacp-chat-temperature="1"
@@ -275,7 +277,7 @@ export function ChatConfigPanel(props: ChatConfigPanelProps): ReactElement {
           </div>
         </details>
 
-        <div className="border-t border-white/[0.075] pt-3 text-[11px] text-slate-100/60">
+        <div className="border-t border-white/[0.075] pt-3 text-[11px] text-neutral-100/60">
           Your API key never leaves your browser except when directly sent to your selected provider endpoint. It is
           stored locally at {vacpLLMConfigStorageKey}.
         </div>

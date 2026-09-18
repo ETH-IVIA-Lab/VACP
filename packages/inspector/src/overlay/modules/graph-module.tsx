@@ -72,7 +72,7 @@ export function GraphModule(props: VacpInspectorModuleProps): ReactElement {
   const pruneSelectedNodeIds = useVacpGraphUiStore((s) => s.pruneSelectedNodeIds);
   const pruneCollapsedRefs = useVacpGraphUiStore((s) => s.pruneCollapsedRefs);
   const toggleCollapsedRef = useVacpGraphUiStore((s) => s.toggleCollapsedRef);
-  const effectiveInspectOpen = inspectOpen && !dense;
+  const effectiveInspectOpen = inspectOpen && selected !== null;
   const showSideBySide = effectiveInspectOpen && rootSize.width >= INSPECTOR_PANEL_BREAKPOINTS.splitPane;
   const [mermaidCopied, setMermaidCopied] = useState(false);
   const [query, setQuery] = useState('');
@@ -190,16 +190,16 @@ export function GraphModule(props: VacpInspectorModuleProps): ReactElement {
       <ModulePane className={cn('flex min-h-0 flex-1 flex-col', dense ? 'gap-2' : 'gap-3')}>
         <ModuleHeader
           title="Graph"
-          description="Pan, zoom, fit, and select VACP nodes. Mermaid source is available from the copy action."
+          description="Select an entity to inspect its state and relationships."
           compact={compactControls}
           actions={
             <>
               <IconButton
                 icon={
                   direction === 'LR' ? (
-                    <ArrowLeftRight className="h-4 w-4 text-slate-100/90" />
+                    <ArrowLeftRight className="h-4 w-4 text-neutral-100/90" />
                   ) : (
-                    <ArrowUpDown className="h-4 w-4 text-slate-100/90" />
+                    <ArrowUpDown className="h-4 w-4 text-neutral-100/90" />
                   )
                 }
                 label="Toggle direction"
@@ -208,7 +208,7 @@ export function GraphModule(props: VacpInspectorModuleProps): ReactElement {
                 onClick={toggleDirection}
               />
               <IconButton
-                icon={<Zap className="h-4 w-4 text-slate-100/90" />}
+                icon={<Zap className="h-4 w-4 text-neutral-100/90" />}
                 label={includeActions ? 'Hide actions' : 'Show actions'}
                 title="Show semantic actions as graph nodes."
                 pressed={includeActions}
@@ -220,7 +220,7 @@ export function GraphModule(props: VacpInspectorModuleProps): ReactElement {
                   mermaidCopied ? (
                     <Check className="h-4 w-4 text-emerald-100/90" />
                   ) : (
-                    <Workflow className="h-4 w-4 text-slate-100/90" />
+                    <Workflow className="h-4 w-4 text-neutral-100/90" />
                   )
                 }
                 label={mermaidCopied ? 'Copied Mermaid' : 'Copy Mermaid'}
@@ -232,34 +232,30 @@ export function GraphModule(props: VacpInspectorModuleProps): ReactElement {
               <span className="sr-only" role="status" aria-live="polite">
                 {mermaidCopied ? 'Mermaid source copied.' : ''}
               </span>
-              {dense ? null : (
-                <IconButton
-                  icon={
-                    inspectOpen ? (
-                      <PanelRightClose className="h-4 w-4 text-slate-100/90" />
-                    ) : (
-                      <PanelRightOpen className="h-4 w-4 text-slate-100/90" />
-                    )
-                  }
-                  label={inspectOpen ? 'Hide inspect pane' : 'Show inspect pane'}
-                  title={inspectOpen ? 'Hide the Inspect pane.' : 'Show the Inspect pane.'}
-                  pressed={effectiveInspectOpen}
-                  size={iconButtonSize}
-                  onClick={() => setInspectOpen(!inspectOpen)}
-                />
-              )}
+              <IconButton
+                icon={
+                  effectiveInspectOpen ? (
+                    <PanelRightClose className="h-4 w-4 text-neutral-100/90" />
+                  ) : (
+                    <PanelRightOpen className="h-4 w-4 text-neutral-100/90" />
+                  )
+                }
+                disabled={!selected}
+                label={effectiveInspectOpen ? 'Hide inspect pane' : 'Show inspect pane'}
+                title={effectiveInspectOpen ? 'Hide the Inspect pane.' : 'Select an entity to inspect its state.'}
+                pressed={effectiveInspectOpen}
+                size={iconButtonSize}
+                onClick={() => setInspectOpen(!inspectOpen)}
+              />
             </>
           }
         />
 
-        <div
-          data-vacp-graph-controls="1"
-          className={cn('grid gap-2 rounded-md border border-white/[0.075] bg-white/[0.02] p-2', dense && 'p-1.5')}
-        >
+        <div data-vacp-graph-controls="1" className={cn('grid gap-2 py-1', dense && 'p-1.5')}>
           <div className="flex min-w-0 flex-wrap items-center gap-2">
             <label className="relative min-w-[180px] flex-1">
               <span className="sr-only">Search graph</span>
-              <Search className="pointer-events-none absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-100/45" />
+              <Search className="pointer-events-none absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-neutral-100/45" />
               <Input
                 data-vacp-graph-search="1"
                 className="h-8 pl-7 text-xs"
@@ -275,7 +271,7 @@ export function GraphModule(props: VacpInspectorModuleProps): ReactElement {
                 'inline-flex h-8 shrink-0 items-center gap-1.5 rounded-md border px-2 text-[11px] font-semibold',
                 focusSelection
                   ? 'border-teal-100/18 bg-teal-200/[0.07] text-teal-50/86'
-                  : 'border-white/[0.075] bg-white/[0.025] text-slate-100/68',
+                  : 'border-white/[0.075] bg-white/[0.025] text-neutral-100/68',
                 !selected && 'opacity-45',
               )}
               disabled={!selected}
@@ -288,7 +284,7 @@ export function GraphModule(props: VacpInspectorModuleProps): ReactElement {
             <button
               type="button"
               data-vacp-graph-reset-filters="1"
-              className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-md border border-white/[0.075] bg-white/[0.025] px-2 text-[11px] font-semibold text-slate-100/68 disabled:opacity-45"
+              className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-md border border-white/[0.075] bg-white/[0.025] px-2 text-[11px] font-semibold text-neutral-100/68 disabled:opacity-45"
               disabled={!filtersActive}
               onClick={resetFilters}
             >
@@ -297,7 +293,7 @@ export function GraphModule(props: VacpInspectorModuleProps): ReactElement {
             </button>
           </div>
           <div className="flex min-w-0 items-center gap-1.5 overflow-x-auto [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-            <span className="inline-flex h-6 shrink-0 items-center gap-1 rounded-md border border-white/[0.075] bg-white/[0.025] px-2 text-[10px] font-semibold text-slate-100/62">
+            <span className="inline-flex h-6 shrink-0 items-center gap-1 rounded-md border border-white/[0.075] bg-white/[0.025] px-2 text-[10px] font-semibold text-neutral-100/62">
               <Filter className="h-3 w-3" />
               Kinds
             </span>
@@ -313,18 +309,18 @@ export function GraphModule(props: VacpInspectorModuleProps): ReactElement {
                     'inline-flex h-6 shrink-0 items-center gap-1 rounded-md border px-2 text-[10px] font-semibold',
                     active
                       ? 'border-teal-100/18 bg-teal-200/[0.07] text-teal-50/86'
-                      : 'border-white/[0.075] bg-white/[0.025] text-slate-100/62',
+                      : 'border-white/[0.075] bg-white/[0.025] text-neutral-100/62',
                   )}
                   aria-pressed={active}
                   onClick={() => toggleKind(kind)}
                 >
                   <span>{kind}</span>
-                  <span className="text-slate-100/46">{count}</span>
+                  <span className="text-neutral-100/46">{count}</span>
                 </button>
               );
             })}
           </div>
-          <div className="flex flex-wrap items-center gap-2 text-[10px] text-slate-100/52">
+          <div className="flex flex-wrap items-center gap-2 text-[10px] text-neutral-100/52">
             <span data-vacp-graph-filter-summary="1">
               Showing {filteredGraph.nodes.length} of {graph.nodes.length} nodes and {filteredGraph.edges.length} of{' '}
               {graph.edges.length} edges.
@@ -349,14 +345,14 @@ export function GraphModule(props: VacpInspectorModuleProps): ReactElement {
             actions={
               <>
                 <IconButton
-                  icon={<XCircle className="h-4 w-4 text-slate-100/90" />}
+                  icon={<XCircle className="h-4 w-4 text-neutral-100/90" />}
                   label="Clear selection"
                   title="Clear the selected node or action."
                   size={iconButtonSize}
                   onClick={() => selectGraphItem(null)}
                 />
                 <IconButton
-                  icon={<ClipboardCopy className="h-4 w-4 text-slate-100/90" />}
+                  icon={<ClipboardCopy className="h-4 w-4 text-neutral-100/90" />}
                   label="Copy JSON"
                   title="Copy the inspected JSON to clipboard."
                   size={iconButtonSize}

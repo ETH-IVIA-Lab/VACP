@@ -1,7 +1,7 @@
 import type { VacpActionCall, VacpActionDescriptor, VacpActionResult } from '@vacp/protocol';
 import { ClipboardCopy, FileJson2, Play, RefreshCw, RotateCcw } from 'lucide-react';
 import type { ReactElement } from 'react';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 
 import { IconButton } from '@vacp/inspector/overlay/icon-button';
 import { INSPECTOR_PANEL_BREAKPOINTS, isDenseInspectorPanel } from '@vacp/inspector/overlay/inspector-breakpoints';
@@ -20,6 +20,12 @@ import { ModuleEmptyState, ModuleField, ModuleHeader, ModulePane, ModuleRoot } f
 import type { VacpInspectorModuleProps } from './module-types';
 
 export function ActionsModule(props: VacpInspectorModuleProps): ReactElement {
+  const graph = props.runtime.currentCapabilities.graph;
+  const scope = `${props.runtime.sessionKey ?? props.runtime.runtimeId}:${graph.actions.map((action) => action.name).join('|')}`;
+  return <ActionEditor key={scope} {...props} />;
+}
+
+function ActionEditor(props: VacpInspectorModuleProps): ReactElement {
   const rootRef = useRef<HTMLDivElement | null>(null);
   const rootSize = useElementSize(rootRef);
   const showTwoCols = rootSize.width >= INSPECTOR_PANEL_BREAKPOINTS.splitPane;
@@ -30,8 +36,6 @@ export function ActionsModule(props: VacpInspectorModuleProps): ReactElement {
   const boundWide = rootSize.width >= INSPECTOR_PANEL_BREAKPOINTS.splitPane;
   const iconButtonSize = 'iconSm';
   const actions = props.runtime.currentCapabilities.graph.actions ?? [];
-  const actionsSignature = useMemo(() => actions.map((a) => a.name).join('\n'), [actions]);
-  const runtimeScopeKey = props.runtime.sessionKey ?? props.runtime.runtimeId ?? 'runtime';
   const [filter, setFilter] = useState('');
 
   const filtered = useMemo(() => {
@@ -49,7 +53,6 @@ export function ActionsModule(props: VacpInspectorModuleProps): ReactElement {
     [actions, selectedName],
   );
 
-  const [paramsValue, setParamsValue] = useState<unknown>({});
   const [paramsByAction, setParamsByAction] = useState<Record<string, unknown>>({});
   const [paramsError, setParamsError] = useState<string | null>(null);
   const [result, setResult] = useState<VacpActionResult | null>(null);
@@ -61,44 +64,24 @@ export function ActionsModule(props: VacpInspectorModuleProps): ReactElement {
     [props.runtime.currentState.state, selected],
   );
 
+  const paramsValue =
+    selected && Object.hasOwn(paramsByAction, selected.name)
+      ? paramsByAction[selected.name]
+      : (selectedDraft?.params ?? {});
+
   const paramIssues = useMemo(
     () => (selected ? validateActionParams(selected, paramsValue) : []),
     [paramsValue, selected],
   );
 
-  useEffect(() => {
-    const next = actions.find((a) => a.name === selectedName) ?? actions[0] ?? null;
-    setParamsByAction({});
-
-    if (!next) {
-      setSelectedName('');
-      setParamsValue({});
-      setParamsError(null);
-      setResult(null);
-      setStatus('idle');
-      setError(null);
-
-      return;
-    }
-
-    const draft = createActionParamDraft(next, props.runtime.currentState.state);
-    setSelectedName(next.name);
-    setParamsValue(draft.params);
-    setParamsError(null);
-    setResult(null);
-    setStatus('idle');
-    setError(null);
-    // Reset action params when the provider session or action surface changes.
-    // The same action name can refer to different refs after gallery navigation.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [actionsSignature, runtimeScopeKey]);
-
   const selectAction = (action: VacpActionDescriptor) => {
-    const params =
-      paramsByAction[action.name] ?? createActionParamDraft(action, props.runtime.currentState.state).params;
-
+    if (selected && (paramsError || paramIssues.length)) {
+      setParamsByAction((previous) => {
+        const { [selected.name]: _discard, ...remaining } = previous;
+        return remaining;
+      });
+    }
     setSelectedName(action.name);
-    setParamsValue(params);
     setParamsError(null);
     setResult(null);
     setStatus('idle');
@@ -106,21 +89,15 @@ export function ActionsModule(props: VacpInspectorModuleProps): ReactElement {
   };
 
   const setActionParams = (next: unknown) => {
-    setParamsValue(next);
-
-    if (!selected) return;
-    const nextIssues = validateActionParams(selected, next);
-    setParamsByAction((prev) => {
-      if (nextIssues.length === 0) return { ...prev, [selected.name]: next };
-      const { [selected.name]: _discard, ...rest } = prev;
-
-      return rest;
-    });
+    if (selected) setParamsByAction((previous) => ({ ...previous, [selected.name]: next }));
   };
 
   const resetParamsToDraft = () => {
     if (!selected || !selectedDraft) return;
-    setActionParams(selectedDraft.params);
+    setParamsByAction((previous) => {
+      const { [selected.name]: _discard, ...remaining } = previous;
+      return remaining;
+    });
     setParamsError(null);
     setResult(null);
     setStatus('idle');
@@ -196,7 +173,7 @@ export function ActionsModule(props: VacpInspectorModuleProps): ReactElement {
           compact={compactHeader}
           actions={
             <IconButton
-              icon={<RefreshCw className="h-4 w-4 text-slate-100/90" />}
+              icon={<RefreshCw className="h-4 w-4 text-neutral-100/90" />}
               label="Refresh snapshots"
               title="Ask the provider to refresh its state snapshot."
               size={iconButtonSize}
@@ -216,7 +193,7 @@ export function ActionsModule(props: VacpInspectorModuleProps): ReactElement {
 
         <ModulePane tone="surface" className={cn('min-h-0 overflow-auto', stacked ? 'max-h-20 shrink-0' : 'flex-1')}>
           <RovingFocusGroup orientation="vertical" loop asChild>
-            <div className="p-1" role="listbox" aria-label="Actions">
+            <div className="p-1" role="group" aria-label="Actions">
               {filtered.map((a) => {
                 const active = a.name === (selected?.name ?? '');
 
@@ -230,11 +207,13 @@ export function ActionsModule(props: VacpInspectorModuleProps): ReactElement {
                         'hover:bg-white/[0.045]',
                         active ? 'border border-white/12 bg-white/[0.07]' : 'border border-transparent',
                       )}
-                      aria-selected={active ? 'true' : 'false'}
+                      aria-pressed={active ? 'true' : 'false'}
                       onClick={() => selectAction(a)}
                     >
-                      <div className="break-words font-semibold text-slate-100/90">{a.name}</div>
-                      {a.description ? <div className="mt-1 text-[11px] text-slate-100/70">{a.description}</div> : null}
+                      <div className="break-words font-semibold text-neutral-100/90">{a.name}</div>
+                      {a.description ? (
+                        <div className="mt-1 text-[11px] text-neutral-100/70">{a.description}</div>
+                      ) : null}
                     </button>
                   </RovingFocusGroupItem>
                 );
@@ -260,7 +239,7 @@ export function ActionsModule(props: VacpInspectorModuleProps): ReactElement {
           actions={
             <>
               <IconButton
-                icon={<Play className="h-4 w-4 text-slate-100/90" />}
+                icon={<Play className="h-4 w-4 text-neutral-100/90" />}
                 label="Run action"
                 title="Execute this action with the current JSON params."
                 variant="primary"
@@ -268,14 +247,14 @@ export function ActionsModule(props: VacpInspectorModuleProps): ReactElement {
                 onClick={() => void run()}
               />
               <IconButton
-                icon={<RotateCcw className="h-4 w-4 text-slate-100/90" />}
+                icon={<RotateCcw className="h-4 w-4 text-neutral-100/90" />}
                 label="Use default params"
                 title="Replace params with a draft inferred from the current state and schema."
                 size={iconButtonSize}
                 onClick={resetParamsToDraft}
               />
               <IconButton
-                icon={<ClipboardCopy className="h-4 w-4 text-slate-100/90" />}
+                icon={<ClipboardCopy className="h-4 w-4 text-neutral-100/90" />}
                 label="Copy result"
                 title="Copy the last result JSON to clipboard."
                 size={iconButtonSize}
@@ -333,7 +312,7 @@ function ActionParamGuidance(props: { draftSummary: string; issues: ActionParamI
       <div className={cn('font-semibold', ready ? 'text-emerald-50/86' : 'text-amber-50/90')}>
         {ready ? 'Ready to run' : 'Fix params before running'}
       </div>
-      {props.draftSummary ? <div className="mt-0.5 text-slate-100/62">{props.draftSummary}</div> : null}
+      {props.draftSummary ? <div className="mt-0.5 text-neutral-100/62">{props.draftSummary}</div> : null}
       {props.issues.length ? (
         <ul className="mt-1 list-disc space-y-0.5 pl-4 text-amber-50/82">
           {props.issues.map((issue) => (
@@ -374,8 +353,8 @@ function ActionResultField(props: {
               <FileJson2 className="h-3.5 w-3.5" aria-hidden="true" />
             </span>
             <span className="min-w-0">
-              <span className="block text-[12px] font-semibold text-slate-100/84">Results will appear here</span>
-              <span className="mt-0.5 block max-w-[40ch] text-[11px] text-slate-100/56">
+              <span className="block text-[12px] font-semibold text-neutral-100/84">Results will appear here</span>
+              <span className="mt-0.5 block max-w-[40ch] text-[11px] text-neutral-100/56">
                 Run the selected action to inspect returned JSON.
               </span>
             </span>

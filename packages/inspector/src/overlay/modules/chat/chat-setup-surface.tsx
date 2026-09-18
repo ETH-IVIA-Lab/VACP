@@ -73,11 +73,14 @@ export function ChatSetupSurface(props: ChatSetupSurfaceProps): ReactElement {
             className="justify-between overflow-hidden"
           >
             <div className="flex min-w-0 flex-1 items-center gap-1.5">
-              <div className="inline-flex h-7 shrink-0 items-center rounded-md border border-white/[0.065] bg-white/[0.018] px-2 text-[11px] font-semibold text-slate-100/72">
+              <div className="inline-flex h-7 shrink-0 items-center rounded-md border border-white/[0.065] bg-white/[0.018] px-2 text-[11px] font-semibold text-neutral-100/72">
                 Conversation
               </div>
               <div
-                className={cn('min-w-0 truncate text-[11px] leading-none text-slate-100/62', compactPanel && 'sr-only')}
+                className={cn(
+                  'min-w-0 truncate text-[11px] leading-none text-neutral-100/62',
+                  compactPanel && 'sr-only',
+                )}
               >
                 {threadSummary}
               </div>
@@ -89,7 +92,7 @@ export function ChatSetupSurface(props: ChatSetupSurfaceProps): ReactElement {
                 title="Copy conversation as Markdown"
                 onClick={() => void copyConversation()}
               >
-                <ClipboardCopy className="h-3.5 w-3.5 text-slate-100/90" />
+                <ClipboardCopy className="h-3.5 w-3.5 text-neutral-100/90" />
                 <span className="sr-only">Copy conversation</span>
               </Button>
               <Button
@@ -98,7 +101,7 @@ export function ChatSetupSurface(props: ChatSetupSurfaceProps): ReactElement {
                 title="Open chat settings"
                 onClick={props.onOpenSettings}
               >
-                <Settings2 className="h-3.5 w-3.5 text-slate-100/90" />
+                <Settings2 className="h-3.5 w-3.5 text-neutral-100/90" />
                 <span className={compactPanel ? 'sr-only' : ''}>Settings</span>
               </Button>
               <div className="inline-flex h-7 shrink-0 items-center gap-1 rounded-md border border-amber-100/14 bg-amber-100/[0.055] px-2 text-[10px] text-amber-50/76">
@@ -126,15 +129,15 @@ export function ChatSetupSurface(props: ChatSetupSurfaceProps): ReactElement {
 
           <div
             className={cn(
-              'relative z-10 border-t border-white/[0.075] bg-[#0b1115]/88 backdrop-blur-sm',
+              'relative z-10 border-t border-white/[0.075] bg-[#171717]/88 ',
               compactPanel ? 'px-2 py-2' : 'px-3 py-3',
             )}
           >
-            <div className="mb-2 flex flex-wrap items-center gap-2 text-[11px] text-slate-100/56">
+            <div className="mb-2 flex flex-wrap items-center gap-2 text-[11px] text-neutral-100/56">
               <div className="min-w-0 flex-1 text-pretty">
                 Configure a provider, key, and model to send messages. Drafts stay with this thread.
               </div>
-              {copyNotice ? <div className="text-slate-100/68">{copyNotice}</div> : null}
+              {copyNotice ? <div className="text-neutral-100/68">{copyNotice}</div> : null}
             </div>
             <label htmlFor="vacp-chat-input" className="sr-only">
               Chat input
@@ -160,7 +163,7 @@ export function ChatSetupSurface(props: ChatSetupSurfaceProps): ReactElement {
                 title="Configure chat settings to send messages"
                 disabled
               >
-                <Send className="h-4 w-4 text-slate-100/90" />
+                <Send className="h-4 w-4 text-neutral-100/90" />
                 <span className={compactPanel ? 'sr-only' : ''}>Send</span>
               </Button>
               <Button
@@ -170,7 +173,7 @@ export function ChatSetupSurface(props: ChatSetupSurfaceProps): ReactElement {
                 title="Stop response"
                 disabled
               >
-                <Square className="h-3.5 w-3.5 text-slate-100/90" />
+                <Square className="h-3.5 w-3.5 text-neutral-100/90" />
                 <span className={compactPanel ? 'sr-only' : ''}>Stop</span>
               </Button>
               <Button
@@ -179,7 +182,7 @@ export function ChatSetupSurface(props: ChatSetupSurfaceProps): ReactElement {
                 title="Regenerate response"
                 disabled
               >
-                <RefreshCw className="h-3.5 w-3.5 text-slate-100/90" />
+                <RefreshCw className="h-3.5 w-3.5 text-neutral-100/90" />
                 <span className={compactPanel ? 'sr-only' : ''}>Regenerate</span>
               </Button>
             </div>

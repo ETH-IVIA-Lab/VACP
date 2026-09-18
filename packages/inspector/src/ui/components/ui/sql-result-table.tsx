@@ -214,7 +214,7 @@ export function SqlResultTable({
           <SqlResultTableHeader table={table} columns={columns} />
 
           {table.getRowModel().rows.length === 0 ? (
-            <div className="px-3 py-4 text-[12px] text-slate-100/70">No results.</div>
+            <div className="px-3 py-4 text-[12px] text-neutral-100/70">No results.</div>
           ) : (
             <div className="relative" style={{ height: totalRows * rowHeight }}>
               {table
@@ -248,12 +248,19 @@ export function SqlResultTable({
                         const cellNode = (
                           <div
                             role={isIndex ? 'rowheader' : 'cell'}
+                            tabIndex={onCopy ? 0 : undefined}
+                            onKeyDown={(event) => {
+                              if (onCopy && event.key === 'Enter') {
+                                event.preventDefault();
+                                onCopy(text);
+                              }
+                            }}
                             className={cn(
-                              'h-[30px] px-2 py-1 text-[12px] text-slate-100/85',
+                              'h-[30px] px-2 py-1 text-[12px] text-neutral-100/85',
                               index !== row.getVisibleCells().length - 1 && 'border-r border-white/[0.045]',
-                              isIndex && 'text-right tabular-nums text-slate-100/55',
+                              isIndex && 'text-right tabular-nums text-neutral-100/55',
                               f.alignRight && 'text-right tabular-nums',
-                              f.muted && 'italic text-slate-100/55',
+                              f.muted && 'italic text-neutral-100/55',
                             )}
                             style={{ width: `calc(var(--col-${colIndex}-size) * 1px)` }}
                             onClick={(e) => {
@@ -286,7 +293,7 @@ export function SqlResultTable({
 
               {hasMore && endIndex > rows.length ? (
                 <div
-                  className="absolute left-0 right-0 flex items-center px-3 text-[12px] text-slate-100/60"
+                  className="absolute left-0 right-0 flex items-center px-3 text-[12px] text-neutral-100/60"
                   style={{ top: rows.length * rowHeight, height: rowHeight }}
                 >
                   {loadingMore ? 'Loading...' : 'Scroll to load more'}

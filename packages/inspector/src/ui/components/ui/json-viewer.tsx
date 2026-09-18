@@ -31,7 +31,7 @@ export function JsonViewer({
   return (
     <div
       className={cn(
-        'min-h-0 w-full rounded-lg border border-white/[0.075] bg-white/[0.022] p-3 text-[12px] leading-5 text-slate-100/85',
+        'min-h-0 w-full rounded-lg border border-white/[0.075] bg-white/[0.022] p-3 text-[12px] leading-5 text-neutral-100/85',
         scrollable
           ? 'vacp-json-viewer-scrollable overflow-auto'
           : 'vacp-json-viewer-inline overflow-visible overflow-x-hidden',
@@ -40,7 +40,7 @@ export function JsonViewer({
       data-vacp-json-viewer="1"
     >
       {value == null ? (
-        <div className="text-slate-100/60">{emptyText}</div>
+        <div className="text-neutral-100/60">{emptyText}</div>
       ) : (
         <JsonView
           className="vacp-json-viewer-tree"

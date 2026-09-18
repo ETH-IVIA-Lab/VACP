@@ -6,28 +6,6 @@
 @source "../node_modules/streamdown/dist/*.js";
 @source "../node_modules/@streamdown/code/dist/*.js";
 
-@keyframes vacp-inspector-panel-enter {
-  from {
-    opacity: 0;
-    transform: translateY(7px) scale(0.985);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-  }
-}
-
-@keyframes vacp-inspector-panel-exit {
-  from {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-  }
-  to {
-    opacity: 0;
-    transform: translateY(6px) scale(0.986);
-  }
-}
-
 /* Host apps may ship global `button { ... }` rules. Because Tailwind utilities are in cascade layers,
    those unlayered host rules would otherwise win and break the inspector. `revert-layer` restores the
    expected Tailwind styles within the inspector. */
@@ -37,30 +15,6 @@
 
 #vacp-inspector-root.vacp-inspector-dragging {
   transition: none !important;
-}
-
-#vacp-inspector-panel {
-  transform-origin: bottom center;
-  backdrop-filter: blur(18px) saturate(1.12);
-}
-
-#vacp-inspector-panel::after {
-  content: '';
-  position: absolute;
-  inset: auto calc(50% - 46px) 0;
-  height: 2px;
-  border-radius: 999px 999px 0 0;
-  background: linear-gradient(90deg, transparent, rgba(226, 232, 240, 0.24), transparent);
-  pointer-events: none;
-}
-
-#vacp-inspector-panel[data-state='open'] {
-  animation: vacp-inspector-panel-enter 180ms cubic-bezier(0.16, 1, 0.3, 1) both;
-}
-
-#vacp-inspector-panel[data-state='closing'] {
-  pointer-events: none;
-  animation: vacp-inspector-panel-exit 150ms cubic-bezier(0.4, 0, 1, 1) both;
 }
 
 #vacp-inspector-panel .vacp-inspector-topbar {
@@ -82,17 +36,6 @@
 #vacp-inspector-panel .vacp-inspector-module[data-state='active'] {
   background: rgba(255, 255, 255, 0.085);
   color: rgba(248, 250, 252, 0.94);
-  box-shadow:
-    inset 0 0 0 1px rgba(255, 255, 255, 0.08),
-    0 1px 0 rgba(255, 255, 255, 0.025);
-}
-
-#vacp-inspector-panel .vacp-inspector-module:active {
-  transform: scale(0.985);
-}
-
-#vacp-inspector-panel .vacp-inspector-switch:not(:disabled):active {
-  transform: scale(0.985);
 }
 
 /* Host apps often set `svg { width: 100%; height: auto; }` (good for charts, bad for icons).
@@ -111,7 +54,7 @@
 
 #vacp-inspector-panel .vacp-inspector-flow .react-flow {
   color: rgba(226, 232, 240, 0.86);
-  background: radial-gradient(circle at 18% 12%, rgba(148, 163, 184, 0.04), transparent 26%), rgba(7, 12, 16, 0.18);
+  background: #111;
 }
 
 #vacp-inspector-panel .vacp-inspector-flow .react-flow__background,
@@ -160,13 +103,12 @@
   transition:
     border-color 140ms ease,
     background-color 140ms ease,
-    box-shadow 140ms ease,
-    transform 140ms ease;
+    color 140ms ease;
 }
 
 #vacp-inspector-panel .vacp-inspector-flow-node:hover {
   border-color: rgba(226, 232, 240, 0.2);
-  background-color: rgba(21, 31, 38, 0.96);
+  background-color: #171717;
 }
 
 #vacp-inspector-panel .vacp-inspector-flow-node-action:hover {
@@ -176,9 +118,6 @@
 
 #vacp-inspector-panel .vacp-inspector-flow-node-selected {
   border-color: rgba(226, 232, 240, 0.44);
-  box-shadow:
-    0 0 0 1px rgba(226, 232, 240, 0.22),
-    0 10px 32px rgba(0, 0, 0, 0.26);
 }
 
 #vacp-inspector-panel .vacp-inspector-flow-handle {
@@ -224,7 +163,7 @@
 }
 
 #vacp-inspector-panel .vacp-inspector-flow .react-flow__edge-textbg {
-  fill: rgba(7, 12, 16, 0.82);
+  fill: #171717;
 }
 
 #vacp-inspector-panel .vacp-inspector-flow-controls {
@@ -235,9 +174,7 @@
   padding: 3px;
   border: 1px solid rgba(255, 255, 255, 0.085);
   border-radius: 9px;
-  background: rgba(12, 19, 25, 0.84);
-  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.22);
-  backdrop-filter: blur(12px);
+  background: #171717;
 }
 
 #vacp-inspector-panel .vacp-inspector-flow-control {
@@ -252,17 +189,12 @@
   cursor: pointer;
   transition:
     background-color 120ms ease,
-    color 120ms ease,
-    transform 120ms ease;
+    color 120ms ease;
 }
 
 #vacp-inspector-panel .vacp-inspector-flow-control:hover {
   background: rgba(255, 255, 255, 0.06);
   color: rgba(248, 250, 252, 0.95);
-}
-
-#vacp-inspector-panel .vacp-inspector-flow-control:active {
-  transform: scale(0.96);
 }
 
 #vacp-inspector-panel .vacp-inspector-flow-control:focus-visible {
@@ -282,11 +214,11 @@
   height: 84px;
   border: 1px solid rgba(255, 255, 255, 0.085);
   border-radius: 8px;
-  background: rgba(12, 19, 25, 0.82);
+  background: #171717;
 }
 
 #vacp-inspector-panel .vacp-inspector-flow .react-flow__minimap-mask {
-  fill: rgba(15, 23, 42, 0.55);
+  fill: #171717;
 }
 
 @container (max-width: 820px) {
@@ -302,12 +234,11 @@
   padding: 4px 6px;
   border: 1px solid rgba(255, 255, 255, 0.075);
   border-radius: 7px;
-  background: rgba(9, 15, 20, 0.72);
+  background: #171717;
   color: rgba(226, 232, 240, 0.62);
   font-size: 10px;
   font-weight: 600;
   line-height: 1;
-  backdrop-filter: blur(12px);
 }
 
 /* Keep scrollbar presence from shifting panel layout (important for inspectors). */
@@ -317,7 +248,7 @@
 
 /* Ensure inline code pills are readable even if the host app styles `code`. */
 #vacp-inspector-panel code {
-  background: rgba(16, 24, 33, 0.7) !important;
+  background: #171717 !important;
   color: rgba(241, 245, 249, 0.86) !important;
   border: 1px solid rgba(255, 255, 255, 0.075) !important;
   padding: 1px 6px !important;
@@ -363,7 +294,6 @@
 #vacp-inspector-panel .vacp-json-editor {
   container-type: inline-size;
   color: rgba(226, 232, 240, 0.84);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.015);
 }
 
 #vacp-inspector-panel .vacp-json-editor-toolbar {
@@ -483,7 +413,6 @@
 #vacp-inspector-panel .vacp-json-editor-key:hover,
 #vacp-inspector-panel .vacp-json-editor-value:hover {
   background: rgba(255, 255, 255, 0.055);
-  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.055);
 }
 
 #vacp-inspector-panel .vacp-json-editor-key:focus-visible,
@@ -529,7 +458,6 @@
   border: 0;
   border-radius: 0;
   background: transparent;
-  box-shadow: none;
   line-height: 1.55;
 }
 
@@ -603,7 +531,7 @@
 }
 
 #vacp-inspector-panel .vacp-chat-streamdown code:not(pre code) {
-  background: rgba(15, 23, 42, 0.78);
+  background: #171717;
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 6px;
   padding: 0 0.35rem;
@@ -613,7 +541,7 @@
 #vacp-inspector-panel .vacp-chat-scroll {
   scrollbar-gutter: stable;
   scrollbar-width: thin;
-  scrollbar-color: rgba(148, 163, 184, 0.32) rgba(15, 23, 42, 0.26);
+  scrollbar-color: rgba(148, 163, 184, 0.32) #171717;
   overscroll-behavior-y: contain;
 }
 
@@ -623,13 +551,13 @@
 }
 
 #vacp-inspector-panel .vacp-chat-scroll::-webkit-scrollbar-track {
-  background: rgba(15, 23, 42, 0.24);
+  background: #171717;
   border-radius: 999px;
 }
 
 #vacp-inspector-panel .vacp-chat-scroll::-webkit-scrollbar-thumb {
   background: rgba(148, 163, 184, 0.3);
-  border: 2px solid rgba(15, 23, 42, 0.24);
+  border: 2px solid #171717;
   border-radius: 999px;
 }
 
@@ -698,4 +626,18 @@
   #vacp-inspector-panel .vacp-inspector-module::before {
     transition-duration: 0.001ms;
   }
+}
+
+:where(#vacp-inspector-root, #vacp-inspector-panel) {
+  font-family:
+    'Geist',
+    -apple-system,
+    BlinkMacSystemFont,
+    'Segoe UI',
+    sans-serif;
+  font-synthesis: none;
+  -webkit-font-smoothing: antialiased;
+}
+#vacp-inspector-panel {
+  color-scheme: dark;
 }

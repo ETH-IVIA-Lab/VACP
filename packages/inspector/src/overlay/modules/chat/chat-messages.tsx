@@ -73,29 +73,29 @@ function ToolPartDetails(props: { part: UiPart; idx: number }): ReactElement {
       className="rounded-lg border border-white/[0.075] bg-white/[0.02] px-2 py-2"
       data-vacp-chat-tool-details="1"
     >
-      <summary className="grid cursor-pointer list-none gap-1 text-[11px] text-slate-100/85">
+      <summary className="grid cursor-pointer list-none gap-1 text-[11px] text-neutral-100/85">
         <div className="flex min-w-0 flex-wrap items-center gap-2">
-          <span className="font-semibold text-slate-100/90">{name}</span>
+          <span className="font-semibold text-neutral-100/90">{name}</span>
           {state ? (
-            <span className="rounded-full border border-white/[0.075] bg-white/[0.035] px-2 py-0.5 text-[10px] text-slate-100/66">
+            <span className="rounded-full border border-white/[0.075] bg-white/[0.035] px-2 py-0.5 text-[10px] text-neutral-100/66">
               {state}
             </span>
           ) : null}
-          {callId ? <span className="text-[10px] text-slate-100/55 [overflow-wrap:anywhere]">{callId}</span> : null}
+          {callId ? <span className="text-[10px] text-neutral-100/55 [overflow-wrap:anywhere]">{callId}</span> : null}
         </div>
         {toolSummary(props.part) ? (
-          <div className="truncate text-[10px] text-slate-100/60">{toolSummary(props.part)}</div>
+          <div className="truncate text-[10px] text-neutral-100/60">{toolSummary(props.part)}</div>
         ) : null}
       </summary>
       {expanded ? (
         <div className="mt-2 grid gap-2">
           {input !== undefined ? (
             <div>
-              <div className="text-[10px] font-semibold uppercase tracking-wide text-slate-100/65">Input</div>
+              <div className="text-[10px] font-semibold uppercase tracking-wide text-neutral-100/65">Input</div>
               {stablePayload ? (
                 <JsonViewer value={input} className="vacp-chat-json-view mt-1 p-2" expandDepth={1} scrollable={false} />
               ) : (
-                <pre className="mt-1 max-h-32 overflow-auto rounded-md border border-white/[0.075] bg-white/[0.018] p-2 text-[10px] text-slate-100/70">
+                <pre className="mt-1 max-h-32 overflow-auto rounded-md border border-white/[0.075] bg-white/[0.018] p-2 text-[10px] text-neutral-100/70">
                   {previewValue(input) ?? 'Streaming input...'}
                 </pre>
               )}
@@ -103,7 +103,7 @@ function ToolPartDetails(props: { part: UiPart; idx: number }): ReactElement {
           ) : null}
           {output !== undefined ? (
             <div>
-              <div className="text-[10px] font-semibold uppercase tracking-wide text-slate-100/65">Output</div>
+              <div className="text-[10px] font-semibold uppercase tracking-wide text-neutral-100/65">Output</div>
               {stablePayload ? (
                 <JsonViewer
                   value={output}
@@ -112,7 +112,7 @@ function ToolPartDetails(props: { part: UiPart; idx: number }): ReactElement {
                   scrollable={false}
                 />
               ) : (
-                <pre className="mt-1 max-h-32 overflow-auto rounded-md border border-white/[0.075] bg-white/[0.018] p-2 text-[10px] text-slate-100/70">
+                <pre className="mt-1 max-h-32 overflow-auto rounded-md border border-white/[0.075] bg-white/[0.018] p-2 text-[10px] text-neutral-100/70">
                   {previewValue(output) ?? 'Streaming output...'}
                 </pre>
               )}
@@ -132,7 +132,7 @@ function ToolPartDetails(props: { part: UiPart; idx: number }): ReactElement {
 function renderPart(part: UiPart, idx: number, streaming: boolean): ReactElement | null {
   if (part.type === 'text' && 'text' in part) {
     return (
-      <div key={`text-${idx}`} className="vacp-chat-streamdown text-[12px] leading-5 text-slate-100/90">
+      <div key={`text-${idx}`} className="vacp-chat-streamdown text-[12px] leading-5 text-neutral-100/90">
         <Streamdown isAnimating={streaming} plugins={streamdownPlugins}>
           {part.text}
         </Streamdown>
@@ -144,10 +144,10 @@ function renderPart(part: UiPart, idx: number, streaming: boolean): ReactElement
     return (
       <details
         key={`reasoning-${idx}`}
-        className="min-w-0 rounded-md border border-white/[0.075] bg-white/[0.02] px-2 py-1 text-[11px] text-slate-100/72"
+        className="min-w-0 rounded-md border border-white/[0.075] bg-white/[0.02] px-2 py-1 text-[11px] text-neutral-100/72"
       >
-        <summary className="cursor-pointer select-none font-medium text-slate-100/75">Reasoning</summary>
-        <div className="vacp-chat-reasoning vacp-chat-streamdown mt-1 text-[11px] leading-5 text-slate-100/80">
+        <summary className="cursor-pointer select-none font-medium text-neutral-100/75">Reasoning</summary>
+        <div className="vacp-chat-reasoning vacp-chat-streamdown mt-1 text-[11px] leading-5 text-neutral-100/80">
           <Streamdown isAnimating={streaming} plugins={streamdownPlugins}>
             {part.text}
           </Streamdown>
@@ -165,7 +165,7 @@ function renderPart(part: UiPart, idx: number, streaming: boolean): ReactElement
   return (
     <div
       key={`part-${idx}`}
-      className="rounded-md border border-white/[0.075] bg-white/[0.025] px-2 py-1 text-[11px] text-slate-100/66"
+      className="rounded-md border border-white/[0.075] bg-white/[0.025] px-2 py-1 text-[11px] text-neutral-100/66"
     >
       {part.type}
     </div>
@@ -196,8 +196,8 @@ export function ChatMessages(props: {
           )}
         >
           {props.messages.length === 0 ? (
-            <div className={cn('px-1 text-[12px] text-slate-100/64', props.compact ? 'py-2' : 'py-4')}>
-              <div className="font-medium text-slate-100/85">Start with a concrete question.</div>
+            <div className={cn('px-1 text-[12px] text-neutral-100/64', props.compact ? 'py-2' : 'py-4')}>
+              <div className="font-medium text-neutral-100/85">Start with a concrete question.</div>
               <div className="mt-1 text-pretty">
                 The agent can inspect capabilities, read state, execute exposed actions, and explain what changed.
               </div>
@@ -215,7 +215,7 @@ export function ChatMessages(props: {
               >
                 <div
                   className={cn(
-                    'w-full max-w-[min(100%,52rem)] rounded-lg border shadow-sm',
+                    'w-full max-w-[min(100%,52rem)] rounded-lg border ',
                     props.compact ? 'px-3 py-2' : 'px-4 py-3',
                     message.role === 'assistant'
                       ? 'border-white/[0.075] bg-white/[0.026]'
@@ -226,7 +226,7 @@ export function ChatMessages(props: {
                 >
                   <div
                     className={cn(
-                      'text-[10px] font-semibold uppercase text-slate-100/60',
+                      'text-[10px] font-semibold uppercase text-neutral-100/60',
                       props.compact ? 'mb-1' : 'mb-2',
                     )}
                   >
@@ -245,7 +245,7 @@ export function ChatMessages(props: {
       {props.showJumpToLatest ? (
         <button
           type="button"
-          className="absolute bottom-4 right-4 rounded-md border border-white/14 bg-white/[0.08] px-2 py-1 text-[11px] font-medium text-slate-50/84 hover:bg-white/[0.12]"
+          className="absolute bottom-4 right-4 rounded-md border border-white/14 bg-white/[0.08] px-2 py-1 text-[11px] font-medium text-neutral-50/84 hover:bg-white/[0.12]"
           onClick={props.onJumpToLatest}
         >
           Jump to latest

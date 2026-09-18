@@ -79,12 +79,12 @@ function roleInfo(source: VacpHistoryEntry['source']): {
   }
 
   return {
-    chipClass: 'border-slate-200/12 bg-white/[0.032] text-slate-100/62',
-    dotClass: 'bg-slate-300/52',
-    rowAccentClass: 'border-l-slate-300/28',
+    chipClass: 'border-neutral-200/12 bg-white/[0.032] text-neutral-100/62',
+    dotClass: 'bg-neutral-300/52',
+    rowAccentClass: 'border-l-neutral-300/28',
     label: 'System',
     description: 'Provider/runtime/internal events (refresh, mode changes, observers).',
-    icon: <Cpu className="h-3.5 w-3.5 text-slate-100/68" aria-hidden="true" />,
+    icon: <Cpu className="h-3.5 w-3.5 text-neutral-100/68" aria-hidden="true" />,
   };
 }
 
@@ -101,18 +101,18 @@ function kindInfo(kind: VacpHistoryEntry['kind']): { chipClass: string; label: s
   if (kind === 'graph_override')
     return { chipClass: 'border-sky-200/14 bg-sky-300/[0.04] text-sky-50/70', label: 'graph' };
 
-  return { chipClass: 'border-slate-200/12 bg-white/[0.032] text-slate-100/62', label: 'mode' };
+  return { chipClass: 'border-neutral-200/12 bg-white/[0.032] text-neutral-100/62', label: 'mode' };
 }
 
 function HistorySourceLegend(props: { stack: boolean }): ReactElement {
   return (
     <div
       className={cn(
-        'flex gap-1.5 text-[11px] text-slate-100/72',
+        'flex gap-1.5 text-[11px] text-neutral-100/72',
         props.stack ? 'flex-col items-stretch' : 'flex-wrap items-center',
       )}
     >
-      <span className="inline-flex items-center rounded-md border border-white/[0.065] bg-white/[0.018] px-2 py-1 font-medium text-slate-100/62">
+      <span className="inline-flex items-center rounded-md border border-white/[0.065] bg-white/[0.018] px-2 py-1 font-medium text-neutral-100/62">
         Sources
       </span>
       {HISTORY_SOURCES.map((source) => {
@@ -249,7 +249,7 @@ export function HistoryModule(props: VacpInspectorModuleProps): ReactElement {
           actions={
             <>
               <IconButton
-                icon={<Undo2 className="h-4 w-4 text-slate-100/90" />}
+                icon={<Undo2 className="h-4 w-4 text-neutral-100/90" />}
                 size={iconButtonSize}
                 label="Undo"
                 title="Undo."
@@ -257,7 +257,7 @@ export function HistoryModule(props: VacpInspectorModuleProps): ReactElement {
                 onClick={() => undo()}
               />
               <IconButton
-                icon={<Redo2 className="h-4 w-4 text-slate-100/90" />}
+                icon={<Redo2 className="h-4 w-4 text-neutral-100/90" />}
                 size={iconButtonSize}
                 label="Redo"
                 title="Redo."
@@ -267,9 +267,9 @@ export function HistoryModule(props: VacpInspectorModuleProps): ReactElement {
               <IconButton
                 icon={
                   detailsOpen ? (
-                    <PanelRightClose className="h-4 w-4 text-slate-100/90" />
+                    <PanelRightClose className="h-4 w-4 text-neutral-100/90" />
                   ) : (
-                    <PanelRightOpen className="h-4 w-4 text-slate-100/90" />
+                    <PanelRightOpen className="h-4 w-4 text-neutral-100/90" />
                   )
                 }
                 size={iconButtonSize}
@@ -286,8 +286,8 @@ export function HistoryModule(props: VacpInspectorModuleProps): ReactElement {
 
         <ModuleSubheader data-vacp-history-subheader="1" role="group" aria-label="History sources">
           {dense ? (
-            <details className="text-[11px] text-slate-100/72">
-              <summary className="cursor-pointer select-none font-medium text-slate-100/78">Sources</summary>
+            <details className="text-[11px] text-neutral-100/72">
+              <summary className="cursor-pointer select-none font-medium text-neutral-100/78">Sources</summary>
               <HistorySourceLegend stack={false} />
             </details>
           ) : (
@@ -317,14 +317,14 @@ export function HistoryModule(props: VacpInspectorModuleProps): ReactElement {
                 : 'Live mode'}
             </span>
           </span>
-          <span className="min-w-0 flex-1 text-slate-100/58">
+          <span className="min-w-0 flex-1 text-neutral-100/58">
             {props.runtime.mode === 'inspect'
               ? 'The host app is showing recorded state until you return to live.'
               : 'New app interactions and inspector actions append to history.'}
           </span>
           <button
             type="button"
-            className="inline-flex h-7 shrink-0 items-center justify-center gap-1.5 rounded-md border border-white/10 bg-white/[0.045] px-2.5 text-[11px] font-semibold text-slate-100/82 outline-none transition hover:border-white/18 hover:bg-white/[0.075] focus:ring-2 focus:ring-white/28 disabled:cursor-not-allowed disabled:opacity-45"
+            className="inline-flex h-7 shrink-0 items-center justify-center gap-1.5 rounded-md border border-white/10 bg-white/[0.045] px-2.5 text-[11px] font-semibold text-neutral-100/82 outline-none transition hover:border-white/18 hover:bg-white/[0.075] focus:ring-2 focus:ring-white/28 disabled:cursor-not-allowed disabled:opacity-45"
             disabled={!selectedCanInspect || props.runtime.mode === 'inspect'}
             title={
               selectedCanInspect
@@ -338,7 +338,7 @@ export function HistoryModule(props: VacpInspectorModuleProps): ReactElement {
           </button>
           <button
             type="button"
-            className="inline-flex h-7 shrink-0 items-center justify-center gap-1.5 rounded-md border border-white/10 bg-white/[0.045] px-2.5 text-[11px] font-semibold text-slate-100/82 outline-none transition hover:border-white/18 hover:bg-white/[0.075] focus:ring-2 focus:ring-white/28 disabled:cursor-not-allowed disabled:opacity-45"
+            className="inline-flex h-7 shrink-0 items-center justify-center gap-1.5 rounded-md border border-white/10 bg-white/[0.045] px-2.5 text-[11px] font-semibold text-neutral-100/82 outline-none transition hover:border-white/18 hover:bg-white/[0.075] focus:ring-2 focus:ring-white/28 disabled:cursor-not-allowed disabled:opacity-45"
             disabled={props.runtime.mode !== 'inspect'}
             onClick={setLiveMode}
           >
@@ -349,7 +349,7 @@ export function HistoryModule(props: VacpInspectorModuleProps): ReactElement {
 
         <div className="min-h-0 flex-1 overflow-auto border-t border-white/[0.075] pt-1">
           <RovingFocusGroup orientation="vertical" loop asChild>
-            <div className="p-1" role="listbox" aria-label="History entries">
+            <div className="p-1" role="group" aria-label="History entries">
               {history.map((h, i) => {
                 const active = h.id === selectedId;
                 const isCursor = props.runtime.mode === 'inspect' && i === cursorIdx;
@@ -368,9 +368,9 @@ export function HistoryModule(props: VacpInspectorModuleProps): ReactElement {
                         active
                           ? 'border-y-white/12 border-r-white/12 bg-white/[0.065]'
                           : 'border-y-transparent border-r-transparent hover:border-y-white/[0.075] hover:border-r-white/[0.075] hover:bg-white/[0.035]',
-                        isCursor ? 'shadow-[inset_0_0_0_1px_rgba(255,255,255,0.08)]' : '',
+                        isCursor ? '' : '',
                       )}
-                      aria-selected={active ? 'true' : 'false'}
+                      aria-pressed={active ? 'true' : 'false'}
                       data-role={h.source}
                       data-vacp-row="history-entry"
                       data-index={i}
@@ -395,8 +395,8 @@ export function HistoryModule(props: VacpInspectorModuleProps): ReactElement {
                           {info.icon}
                           <span className="sr-only">{info.label}</span>
                         </span>
-                        <div className="font-semibold text-slate-100/90">{h.kind}</div>
-                        <div className="text-[11px] text-slate-100/60">{formatTime(h.at)}</div>
+                        <div className="font-semibold text-neutral-100/90">{h.kind}</div>
+                        <div className="text-[11px] text-neutral-100/60">{formatTime(h.at)}</div>
                         <span
                           className={cn(
                             'rounded-full border px-2 py-0.5 text-[10px] font-semibold leading-none',
@@ -406,18 +406,18 @@ export function HistoryModule(props: VacpInspectorModuleProps): ReactElement {
                           {kind.label}
                         </span>
                         {isCursor ? (
-                          <span className="rounded-full border border-white/12 bg-white/[0.06] px-2 py-0.5 text-[10px] font-semibold text-slate-100/72">
+                          <span className="rounded-full border border-white/12 bg-white/[0.06] px-2 py-0.5 text-[10px] font-semibold text-neutral-100/72">
                             cursor
                           </span>
                         ) : null}
                         {!hasState ? (
-                          <span className="rounded-full border border-white/[0.075] bg-white/[0.025] px-2 py-0.5 text-[10px] font-semibold text-slate-100/54">
+                          <span className="rounded-full border border-white/[0.075] bg-white/[0.025] px-2 py-0.5 text-[10px] font-semibold text-neutral-100/54">
                             event
                           </span>
                         ) : null}
                         <div className="flex-1" />
                       </div>
-                      {h.message ? <div className="mt-2 text-[11px] text-slate-100/70">{h.message}</div> : null}
+                      {h.message ? <div className="mt-2 text-[11px] text-neutral-100/70">{h.message}</div> : null}
                     </button>
                   </RovingFocusGroupItem>
                 );

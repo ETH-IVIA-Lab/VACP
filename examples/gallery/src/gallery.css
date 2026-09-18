@@ -1,13 +1,9 @@
 :root {
   color-scheme: light;
-  --gallery-bg: #f8fafc;
-  --gallery-surface: #ffffff;
-  --gallery-border: #d7dde5;
-  --gallery-text: #111827;
-  --gallery-muted: #4b5563;
-  --gallery-subtle: #6b7280;
-  --gallery-shadow: 0 12px 28px rgba(15, 23, 42, 0.08);
-  --gallery-shadow-soft: 0 4px 16px rgba(15, 23, 42, 0.06);
+  --gallery-bg: #fff;
+  --gallery-text: #171717;
+  --gallery-muted: #666;
+  --gallery-subtle: #666;
 }
 
 *,
@@ -20,7 +16,7 @@ body {
   margin: 0;
   min-height: 100vh;
   font-family:
-    'Inter',
+    'Geist',
     'Segoe UI',
     -apple-system,
     BlinkMacSystemFont,
@@ -64,29 +60,21 @@ a {
 
 .gallery-home__grid {
   display: grid;
-  gap: 14px;
-  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 40px 64px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .gallery-card {
   display: flex;
   flex-direction: column;
   height: 100%;
-  background: var(--gallery-surface);
-  border: 1px solid var(--gallery-border);
-  border-radius: 14px;
-  padding: 16px;
+  padding: 0;
   text-decoration: none;
-  transition:
-    transform 130ms ease,
-    box-shadow 130ms ease,
-    border-color 130ms ease;
 }
 
-.gallery-card:hover {
-  transform: translateY(-2px);
-  border-color: #bec8d6;
-  box-shadow: var(--gallery-shadow-soft);
+.gallery-card:hover .gallery-card__title {
+  text-decoration: underline;
+  text-underline-offset: 4px;
 }
 
 .gallery-card:focus-visible {
@@ -121,7 +109,7 @@ a {
 .gallery-home code,
 .gallery-route code {
   background: #e9edf3;
-  border-radius: 999px;
+  border-radius: 4px;
   padding: 2px 8px;
   font-size: 12px;
 }
@@ -140,7 +128,6 @@ a {
 .gallery-route__header {
   margin: 0;
   padding: 0 0 10px;
-  border-bottom: 1px solid rgba(190, 200, 214, 0.62);
 }
 
 .gallery-route__back {
@@ -201,5 +188,24 @@ a {
   .gallery-route__content {
     min-height: auto;
     overflow: visible;
+  }
+}
+
+.gallery-home__intro {
+  max-width: 52ch;
+  color: var(--gallery-muted);
+  line-height: 1.6;
+  margin: 16px 0 32px;
+}
+.gallery-home__footer {
+  margin-top: 32px;
+  display: flex;
+  gap: 24px;
+  font-size: 13px;
+  color: var(--gallery-muted);
+}
+@media (max-width: 600px) {
+  .gallery-home__grid {
+    grid-template-columns: 1fr;
   }
 }

@@ -38,10 +38,10 @@ export function DataModule(props: VacpInspectorModuleProps): ReactElement {
   const tableHeight = `${tableHeaderHeight + 10 * tableRowHeight}px`;
 
   const inlineCodeClass =
-    'rounded-md border border-white/[0.075] bg-[#101821]/70 px-1.5 py-0.5 text-[11px] font-medium text-slate-100/84 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.015)]';
+    'rounded-md border border-white/[0.075] bg-[#171717]/70 px-1.5 py-0.5 text-[11px] font-medium text-neutral-100/84 ';
 
   const selectClass =
-    'w-full rounded-lg border border-white/[0.08] bg-[#101821]/72 px-3 py-2.5 text-xs text-slate-100/90 outline-none focus:border-white/22 focus:ring-2 focus:ring-white/22';
+    'w-full rounded-lg border border-white/[0.08] bg-[#171717]/72 px-3 py-2.5 text-xs text-neutral-100/90 outline-none focus:border-white/22 focus:ring-2 focus:ring-white/22';
 
   const handles = useMemo(() => {
     const nodes = props.runtime.currentCapabilities.graph.nodes;
@@ -210,8 +210,8 @@ export function DataModule(props: VacpInspectorModuleProps): ReactElement {
             <TableProperties className="h-5 w-5" aria-hidden="true" />
           </span>
           <span className="min-w-0">
-            <span className="block text-[13px] font-semibold text-slate-100/84">Results will appear here</span>
-            <span className="mt-0.5 block max-w-[42ch] text-slate-100/56">
+            <span className="block text-[13px] font-semibold text-neutral-100/84">Results will appear here</span>
+            <span className="mt-0.5 block max-w-[42ch] text-neutral-100/56">
               Run SQL against the selected handle to preview rows, raw JSON, and the resolved query.
             </span>
           </span>
@@ -223,7 +223,7 @@ export function DataModule(props: VacpInspectorModuleProps): ReactElement {
 
     return (
       <>
-        <div className="text-[12px] text-slate-100/80">
+        <div className="text-[12px] text-neutral-100/80">
           Query relations: <code className={inlineCodeClass}>vacp_handle</code> (current selection) and{' '}
           <code className={inlineCodeClass}>vacp_all</code> (full dataset).
         </div>
@@ -255,12 +255,12 @@ export function DataModule(props: VacpInspectorModuleProps): ReactElement {
         />
 
         <details className="mt-3 border-t border-white/[0.075] pt-2">
-          <summary className="cursor-pointer text-[12px] text-slate-100/80">Raw JSON</summary>
+          <summary className="cursor-pointer text-[12px] text-neutral-100/80">Raw JSON</summary>
           <JsonViewer value={rawJsonSafe} className="mt-2 max-h-[320px]" />
         </details>
 
         <details className="mt-3 border-t border-white/[0.075] pt-2">
-          <summary className="cursor-pointer text-[12px] text-slate-100/80">Resolved SQL</summary>
+          <summary className="cursor-pointer text-[12px] text-neutral-100/80">Resolved SQL</summary>
           <div className="mt-2">
             <SqlEditor value={resolvedSql} readOnly autoFocus={false} height="140px" />
           </div>
@@ -293,7 +293,7 @@ export function DataModule(props: VacpInspectorModuleProps): ReactElement {
           actions={
             <>
               <IconButton
-                icon={<Play className="h-4 w-4 text-slate-100/90" />}
+                icon={<Play className="h-4 w-4 text-neutral-100/90" />}
                 label="Run query"
                 title="Run the SQL query against this handle."
                 variant="primary"
@@ -303,7 +303,7 @@ export function DataModule(props: VacpInspectorModuleProps): ReactElement {
                 onClick={() => void run()}
               />
               <IconButton
-                icon={<RefreshCw className="h-4 w-4 text-slate-100/90" />}
+                icon={<RefreshCw className="h-4 w-4 text-neutral-100/90" />}
                 label="Refresh snapshots"
                 title="Ask the provider to refresh its state snapshot."
                 size={iconButtonSize}
@@ -311,7 +311,7 @@ export function DataModule(props: VacpInspectorModuleProps): ReactElement {
                 onClick={() => void refresh()}
               />
               <IconButton
-                icon={<ClipboardCopy className="h-4 w-4 text-slate-100/90" />}
+                icon={<ClipboardCopy className="h-4 w-4 text-neutral-100/90" />}
                 label="Copy SQL"
                 title="Copy the current SQL to clipboard."
                 size={iconButtonSize}
@@ -355,8 +355,8 @@ export function DataModule(props: VacpInspectorModuleProps): ReactElement {
                     className={cn(
                       'min-w-0 w-[160px] shrink-0 rounded-lg border px-2.5 py-1.5 text-left outline-none transition focus:ring-2 focus:ring-white/22',
                       disabled
-                        ? 'cursor-not-allowed border-white/[0.055] bg-white/[0.018] text-slate-100/35'
-                        : 'border-white/[0.09] bg-white/[0.035] text-slate-100/86 hover:border-teal-200/22 hover:bg-teal-300/[0.065]',
+                        ? 'cursor-not-allowed border-white/[0.055] bg-white/[0.018] text-neutral-100/35'
+                        : 'border-white/[0.09] bg-white/[0.035] text-neutral-100/86 hover:border-teal-200/22 hover:bg-teal-300/[0.065]',
                     )}
                     disabled={disabled}
                     title={template.disabledReason ?? template.description}
@@ -371,9 +371,9 @@ export function DataModule(props: VacpInspectorModuleProps): ReactElement {
                 );
               })}
             </div>
-            <div data-vacp-data-schema-status="1" className="mt-1 text-[11px] text-slate-100/50">
+            <div data-vacp-data-schema-status="1" className="mt-1 text-[11px] text-neutral-100/50">
               Schema:{' '}
-              <span className="text-slate-100/68">
+              <span className="text-neutral-100/68">
                 {sqlMetadata.schema.source === 'data_schema'
                   ? `${sqlMetadata.schema.vacp_all.length} columns from vacp.data_schema`
                   : sqlMetadata.schema.source === 'data_sql'
@@ -394,7 +394,7 @@ export function DataModule(props: VacpInspectorModuleProps): ReactElement {
               schema={sqlSchema}
               placeholder="DuckDB SQL (Mod+Enter to run, Ctrl/Cmd+Space to complete)"
             />
-            <div className="mt-1 text-[11px] text-slate-100/55">
+            <div className="mt-1 text-[11px] text-neutral-100/55">
               Tip: Shift+click or double-click a cell to copy it
               {props.runtime.mode === 'inspect' ? ' (autocomplete schema is live-mode only).' : '.'}
             </div>
@@ -409,7 +409,7 @@ export function DataModule(props: VacpInspectorModuleProps): ReactElement {
               <>
                 Active handle:{' '}
                 <code className={inlineCodeClass}>{selectedHandleTitle ?? shortRef(selectedHandle)}</code>{' '}
-                <span className="text-slate-100/60">({shortRef(selectedHandle)})</span>
+                <span className="text-neutral-100/60">({shortRef(selectedHandle)})</span>
               </>
             ) : handles.length ? (
               'Select a DataHandle to query.'
@@ -421,7 +421,7 @@ export function DataModule(props: VacpInspectorModuleProps): ReactElement {
             dataSql.result ? (
               <>
                 <IconButton
-                  icon={<ClipboardCopy className="h-4 w-4 text-slate-100/90" />}
+                  icon={<ClipboardCopy className="h-4 w-4 text-neutral-100/90" />}
                   label="Copy result CSV"
                   title="Copy loaded result rows as CSV."
                   size={iconButtonSize}
@@ -429,7 +429,7 @@ export function DataModule(props: VacpInspectorModuleProps): ReactElement {
                   onClick={() => void copyCsv()}
                 />
                 <IconButton
-                  icon={<Download className="h-4 w-4 text-slate-100/90" />}
+                  icon={<Download className="h-4 w-4 text-neutral-100/90" />}
                   label="Download result CSV"
                   title="Download loaded result rows as CSV."
                   size={iconButtonSize}
@@ -437,7 +437,7 @@ export function DataModule(props: VacpInspectorModuleProps): ReactElement {
                   onClick={() => downloadCsv()}
                 />
                 <IconButton
-                  icon={<FileJson className="h-4 w-4 text-slate-100/90" />}
+                  icon={<FileJson className="h-4 w-4 text-neutral-100/90" />}
                   label="Download result JSON"
                   title="Download loaded result rows and resolved SQL as JSON."
                   size={iconButtonSize}

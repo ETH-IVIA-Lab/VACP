@@ -174,15 +174,15 @@ function TokenUsageBadge(props: {
       <TooltipTrigger asChild>
         <div
           {...attrs}
-          className="inline-flex items-center gap-1 rounded-full border border-white/[0.075] bg-white/[0.035] px-2 py-1 text-[10px] text-slate-100/62"
+          className="inline-flex items-center gap-1 rounded-full border border-white/[0.075] bg-white/[0.035] px-2 py-1 text-[10px] text-neutral-100/62"
         >
-          <span className="text-slate-100/55">{props.label}</span>
-          <span className="font-semibold text-slate-100/85">{formatTokens(total)}</span>
+          <span className="text-neutral-100/55">{props.label}</span>
+          <span className="font-semibold text-neutral-100/85">{formatTokens(total)}</span>
         </div>
       </TooltipTrigger>
       <TooltipContent side="top" align={props.align ?? 'end'} className="pointer-events-auto">
-        <div className="grid gap-1 text-[10px] leading-4 text-slate-100/90">
-          <div className="font-semibold text-slate-100/95">{props.label} tokens</div>
+        <div className="grid gap-1 text-[10px] leading-4 text-neutral-100/90">
+          <div className="font-semibold text-neutral-100/95">{props.label} tokens</div>
           <div>Total: {formatTokens(total)}</div>
           {props.usage?.inputTokens != null ? <div>Input: {formatTokens(props.usage.inputTokens)}</div> : null}
           {props.usage?.outputTokens != null ? <div>Output: {formatTokens(props.usage.outputTokens)}</div> : null}
@@ -423,12 +423,12 @@ export function ConfiguredChat(props: ConfiguredChatProps): ReactElement {
             className="justify-between overflow-hidden"
           >
             <div className="flex min-w-0 flex-1 items-center gap-1.5">
-              <div className="inline-flex h-7 shrink-0 items-center rounded-md border border-white/[0.065] bg-white/[0.018] px-2 text-[11px] font-semibold text-slate-100/72">
+              <div className="inline-flex h-7 shrink-0 items-center rounded-md border border-white/[0.065] bg-white/[0.018] px-2 text-[11px] font-semibold text-neutral-100/72">
                 Conversation
               </div>
               <div
                 className={cn(
-                  'min-w-0 truncate text-[11px] leading-none text-slate-100/62',
+                  'min-w-0 truncate text-[11px] leading-none text-neutral-100/62',
                   compactPanel ? 'sr-only' : 'text-pretty',
                 )}
               >
@@ -446,7 +446,7 @@ export function ConfiguredChat(props: ConfiguredChatProps): ReactElement {
                 title="Copy conversation as Markdown"
                 onClick={() => void copyConversation()}
               >
-                <ClipboardCopy className="h-3.5 w-3.5 text-slate-100/90" />
+                <ClipboardCopy className="h-3.5 w-3.5 text-neutral-100/90" />
                 <span className="sr-only">Copy conversation</span>
               </Button>
               <TokenUsageBadge
@@ -461,7 +461,7 @@ export function ConfiguredChat(props: ConfiguredChatProps): ReactElement {
                 dataAttribute="data-vacp-chat-token-thread"
                 align="center"
               />
-              <div className="inline-flex h-7 shrink-0 items-center gap-1 rounded-md border border-white/[0.075] bg-white/[0.035] px-2 text-[10px] text-slate-100/62">
+              <div className="inline-flex h-7 shrink-0 items-center gap-1 rounded-md border border-white/[0.075] bg-white/[0.035] px-2 text-[10px] text-neutral-100/62">
                 {busy ? <Loader2 className="h-3 w-3 animate-spin" /> : null}
                 <span data-vacp-chat-status="1">{statusLabel}</span>
               </div>
@@ -487,12 +487,12 @@ export function ConfiguredChat(props: ConfiguredChatProps): ReactElement {
 
           <div
             className={cn(
-              'relative z-10 border-t border-white/[0.075] bg-[#0b1115]/88 backdrop-blur-sm',
+              'relative z-10 border-t border-white/[0.075] bg-[#171717]/88 ',
               compactPanel ? 'px-2 py-2' : 'px-3 py-3',
             )}
           >
             {!compactPanel || copyNotice || props.showActivity ? (
-              <div className="mb-2 flex flex-wrap items-center gap-2 text-[11px] text-slate-100/56">
+              <div className="mb-2 flex flex-wrap items-center gap-2 text-[11px] text-neutral-100/56">
                 {!compactPanel ? (
                   <div className="min-w-0 flex-1 text-pretty">
                     {busy
@@ -502,7 +502,7 @@ export function ConfiguredChat(props: ConfiguredChatProps): ReactElement {
                       : 'Press Enter to send or Shift+Enter for a newline.'}
                   </div>
                 ) : null}
-                {copyNotice ? <div className="text-slate-100/68">{copyNotice}</div> : null}
+                {copyNotice ? <div className="text-neutral-100/68">{copyNotice}</div> : null}
                 {props.showActivity ? (
                   <Button size="sm" aria-label="Hide activity" title="Hide activity" onClick={props.onCloseActivity}>
                     Hide activity
@@ -542,9 +542,9 @@ export function ConfiguredChat(props: ConfiguredChatProps): ReactElement {
                 onClick={() => void submit()}
               >
                 {busy ? (
-                  <Loader2 className="h-4 w-4 animate-spin text-slate-100/90" />
+                  <Loader2 className="h-4 w-4 animate-spin text-neutral-100/90" />
                 ) : (
-                  <Send className="h-4 w-4 text-slate-100/90" />
+                  <Send className="h-4 w-4 text-neutral-100/90" />
                 )}
                 <span className={compactPanel ? 'sr-only' : ''}>Send</span>
               </Button>
@@ -556,7 +556,7 @@ export function ConfiguredChat(props: ConfiguredChatProps): ReactElement {
                 disabled={!busy}
                 onClick={() => void stop()}
               >
-                <Square className="h-3.5 w-3.5 text-slate-100/90" />
+                <Square className="h-3.5 w-3.5 text-neutral-100/90" />
                 <span className={compactPanel ? 'sr-only' : ''}>Stop</span>
               </Button>
               <Button
@@ -569,7 +569,7 @@ export function ConfiguredChat(props: ConfiguredChatProps): ReactElement {
                   void regenerate();
                 }}
               >
-                <RefreshCw className="h-3.5 w-3.5 text-slate-100/90" />
+                <RefreshCw className="h-3.5 w-3.5 text-neutral-100/90" />
                 <span className={compactPanel ? 'sr-only' : ''}>Regenerate</span>
               </Button>
             </div>

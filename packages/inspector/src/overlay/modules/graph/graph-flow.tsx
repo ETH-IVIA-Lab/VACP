@@ -2,16 +2,7 @@ import type { ReactElement } from 'react';
 import { useEffect, useMemo, useRef } from 'react';
 import { Maximize2, Minus, Plus } from 'lucide-react';
 
-import {
-  Background,
-  BackgroundVariant,
-  MiniMap,
-  Panel,
-  ReactFlow,
-  ReactFlowProvider,
-  useReactFlow,
-  type NodeTypes,
-} from '@xyflow/react';
+import { MiniMap, Panel, ReactFlow, ReactFlowProvider, useReactFlow, type NodeTypes } from '@xyflow/react';
 
 import { useElementSize } from '@vacp/inspector/overlay/hooks/use-element-size';
 
@@ -44,14 +35,14 @@ function FlowCanvas(props: {
     if (props.viewportSize.width === 0 || props.viewportSize.height === 0) return;
 
     const id = window.requestAnimationFrame(() => {
-      void fitView({ padding: 0.18, duration: 180, includeHiddenNodes: false });
+      void fitView({ padding: 0.18, duration: 0, includeHiddenNodes: false });
     });
 
     return () => window.cancelAnimationFrame(id);
   }, [fitKey, fitView, props.nodes.length, props.viewportSize.height, props.viewportSize.width]);
 
   const fitGraph = (): void => {
-    void fitView({ padding: 0.18, duration: 160, includeHiddenNodes: false });
+    void fitView({ padding: 0.18, duration: 0, includeHiddenNodes: false });
   };
 
   return (
@@ -79,7 +70,6 @@ function FlowCanvas(props: {
       proOptions={{ hideAttribution: true }}
       data-vacp-graph-flow="1"
     >
-      <Background variant={BackgroundVariant.Dots} gap={22} size={1.1} />
       <MiniMap<VacpFlowNode>
         pannable
         zoomable
@@ -102,7 +92,7 @@ function FlowCanvas(props: {
           aria-label="Zoom In"
           title="Zoom In"
           onClick={() => {
-            void zoomIn({ duration: 140 });
+            void zoomIn({ duration: 0 });
           }}
         >
           <Plus aria-hidden="true" />
@@ -113,7 +103,7 @@ function FlowCanvas(props: {
           aria-label="Zoom Out"
           title="Zoom Out"
           onClick={() => {
-            void zoomOut({ duration: 140 });
+            void zoomOut({ duration: 0 });
           }}
         >
           <Minus aria-hidden="true" />
