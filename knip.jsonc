@@ -1,0 +1,25 @@
+{
+  "$schema": "https://unpkg.com/knip@6/schema-jsonc.json",
+  // Vendored plugin code is validated by its own rule tests and type check.
+  "ignore": ["tools/oxlint/anti-slop/**"],
+  // Host commands and the evaluation CLI are installed outside npm.
+  "ignoreBinaries": ["opencode", "make"],
+  "workspaces": {
+    ".": {
+      "entry": ["vite.shared.ts", "tools/oxlint/anti-slop/**/*.test.ts", "examples/custom-integration/threshold.ts"],
+    },
+    "examples/gallery": {
+      // Generated route HTML loads this entry point.
+      "entry": ["src/route-entry.ts", "examples.manifest.ts", "vite.config.ts"],
+      "vite": { "config": "vite.config.ts" },
+    },
+    "apps/docs": {
+      // VitePress loads this optional minifier dynamically for Rolldown builds.
+      "ignoreDependencies": ["oxc-minify"],
+    },
+    "evals/agent-arena": {
+      // Jiti loads the configuration and scenario predicates at runtime.
+      "entry": ["src/index.ts", "agent-arena.config.ts", "agent-arena.scenarios.ts"],
+    },
+  },
+}

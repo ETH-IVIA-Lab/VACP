@@ -1,0 +1,29 @@
+{
+  "name": "@vacp/example-vega-lite-gallery",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/mfe.ts"
+  },
+  "scripts": {
+    "dev": "portless run vp dev",
+    "build": "vp build",
+    "preview": "vp preview --host 127.0.0.1 --strictPort",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@vacp/adapter-vega-lite": "workspace:*",
+    "@vacp/analytics-posthog": "workspace:*",
+    "@vacp/inspector": "workspace:*",
+    "vega": "^6.4.0",
+    "vega-embed": "^7.2.0",
+    "vega-lite": "^6.4.3"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "catalog:",
+    "portless": "catalog:",
+    "vite-plus": "catalog:"
+  },
+  "portless": "vega-lite.examples.vacp"
+}

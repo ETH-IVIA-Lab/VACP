@@ -1,29 +1,25 @@
 # What is VACP?
 
-VACP is a small in-app contract for making interactive visual analytics observable and controllable through semantic operations.
+VACP gives an agent a semantic interface to a visualization. It describes what the visualization contains, reports its current state, and exposes actions that update the same controls people use.
 
-Interactive visual analytics already has structure. *Selection*s filter data. *Param*s drive encodings. *View*s depend on each other. VACP makes this structure readable and operable without guessing from pixels or DOM shapes.
+A scatterplot might expose a selection as `vacp://analysis/scatter/selection`. An agent can read its bounds, discover a brush action, and change the selection. The chart remains responsible for rendering the result.
 
-## The contract
+## Three operations
 
-Capabilities describe the interface as a small graph of entities and relations. They also list the actions that can be executed.
+| Operation           | Result                                                  |
+| ------------------- | ------------------------------------------------------- |
+| `getCapabilities()` | A graph of semantic entities and the available actions. |
+| `getState()`        | Current values keyed by stable references.              |
+| `execute(call)`     | An action result or a structured error.                 |
 
-State is a snapshot of current values keyed by stable references. A _Selection_, a _Param_, or a _DataHandle_ can be followed across rerenders.
+A **ref** identifies an entity across rerenders. Nodes represent views, marks, selections, parameters, widgets, and data handles. Edges describe relationships such as containment and control.
 
-Actions are intent-level operations. They are validated and either succeed with a structured result or fail with a structured error.
+State holds the values that change during interaction. Capabilities describe the entities and operations used to interpret those values. Large datasets stay in the application and are accessed through data actions.
 
-## Where it lives
+## Integrations and consumers
 
-VACP lives inside the app process. In this repo it is exposed as `window.__vacp`.
+A provider maps a visualization into this contract. You can use a provider for Vega-Lite or VGPlot, or [define a custom integration](../integrate/).
 
-Screenshots and DOM access still show layout and visual feedback. VACP covers the parts that need precision: what is selected, which *Param*s are set, and which interactions are currently valid.
+The [Inspector](../inspector/) and [agents](../transports/) consume the same contract. Screenshots still provide visual feedback, while semantic state provides exact values and actions.
 
-Some stacks already describe intent in declarative specs like [Vega-Lite](https://vega.github.io/vega-lite/) and [VGPlot](https://idl.uw.edu/mosaic/vgplot/). Some intent only exists in app code and design decisions. VACP is the runtime layer that exposes the semantics an agent needs.
-
-## What this repo provides
-
-This repo ships the protocol types and the in-page runtime that installs a bridge and executes actions.
-It also includes provider integrations for common visualization stacks and helpers for custom apps.
-
-Tools reach the same in-page contract through transports. For development, the repo includes a debug overlay and an in-page client.
-Examples and evaluation tooling keep the contract exercised and testable.
+The [runtime](../reference/runtime) adds history, replay, subscriptions, and scoped state updates. The [browser adapter](../reference/browser) exposes it at `window.__vacp` and can publish snapshots into the DOM.

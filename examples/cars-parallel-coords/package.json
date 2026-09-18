@@ -1,0 +1,31 @@
+{
+  "name": "@vacp/example-cars-parallel-coords",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/mfe.ts"
+  },
+  "scripts": {
+    "dev": "portless run vp dev",
+    "build": "vp build",
+    "preview": "vp preview --host 127.0.0.1 --strictPort",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@vacp/analytics-posthog": "workspace:*",
+    "@vacp/data-duckdb": "workspace:*",
+    "@vacp/inspector": "workspace:*",
+    "@vacp/protocol": "workspace:*",
+    "@vacp/sdk": "workspace:*",
+    "d3": "^7.9.0",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "catalog:",
+    "@types/d3": "^7.4.3",
+    "portless": "catalog:",
+    "vite-plus": "catalog:"
+  },
+  "portless": "cars-parcoords.examples.vacp"
+}

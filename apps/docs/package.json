@@ -1,0 +1,19 @@
+{
+  "name": "@vacp/docs",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "portless run vitepress dev .",
+    "build": "vitepress build .",
+    "preview": "vitepress preview .",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "devDependencies": {
+    "oxc-minify": "^0.116.0",
+    "portless": "catalog:",
+    "vitepress": "2.0.0-alpha.19",
+    "vitepress-plugin-diagrams": "1.1.2"
+  },
+  "portless": "docs.vacp"
+}

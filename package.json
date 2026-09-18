@@ -4,20 +4,33 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "pnpm --filter vacp-example-index dev:full",
-    "build": "pnpm -r --if-present build",
-    "format": "git ls-files -z | xargs -0 oxfmt --config .oxfmtrc.json && pnpm -r --if-present format",
-    "lint": "pnpm -r --if-present lint",
-    "typecheck": "pnpm -r --if-present typecheck",
-    "test": "pnpm -r --if-present test"
+    "dev": "make dev",
+    "build": "make build",
+    "format": "make format",
+    "lint": "make lint",
+    "typecheck": "make typecheck",
+    "test": "make test",
+    "check": "make check",
+    "test:e2e": "make e2e",
+    "check:knip": "make knip",
+    "check:anti-slop": "make test-tools",
+    "dev:all": "make dev-all",
+    "portless": "portless"
   },
   "devDependencies": {
-    "@types/node": "^24.11.0",
-    "concurrently": "^9.2.1",
-    "oxfmt": "^0.24.0",
-    "oxlint": "^1.51.0",
-    "tsup": "^8.5.1",
-    "typescript": "^5.9.3"
+    "@oxlint/plugins": "1.83.0",
+    "@types/node": "catalog:",
+    "@vacp/protocol": "workspace:*",
+    "@vacp/sdk": "workspace:*",
+    "concurrently": "^9.2.4",
+    "knip": "^6.35.1",
+    "oxlint": "1.83.0",
+    "portless": "catalog:",
+    "tsx": "catalog:",
+    "typescript": "catalog:",
+    "vite": "catalog:",
+    "vite-plus": "catalog:",
+    "zod": "catalog:"
   },
   "devEngines": {
     "runtime": {
@@ -26,5 +39,8 @@
       "onFail": "download"
     }
   },
-  "packageManager": "pnpm@11.5.2+sha512.71c631e382066efc25625d5cf029075de07b61b37f6e27350fbd84b1bda5864c8c1967adc280776b45c30a715c0359a3be08fef42d5bb09e2b99029979692916"
+  "engines": {
+    "node": ">=24.16.0"
+  },
+  "packageManager": "pnpm@12.4.2+sha512.08adc6613180275c7c9edada39dcf08c9c61ad4e7eaf330a4f3461f102b0f907423454d117f98e72d47fef0616070644d7bffc973a6a57f5090a6d7c368b07c9"
 }

@@ -1,0 +1,17 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "rootDir": "src",
+    "outDir": "dist",
+    "composite": true
+  },
+  "references": [
+    {
+      "path": "../protocol"
+    },
+    {
+      "path": "../transport-bridge"
+    }
+  ],
+  "include": ["src/**/*.ts"]
+}

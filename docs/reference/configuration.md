@@ -11,15 +11,15 @@ VACP supports a small set of runtime toggles via URL query params and environmen
 
 ## Knobs
 
-### Debug overlay
+### Inspector
 
-Enable with `?vacp-debug=1`. Disable with `?vacp-debug=0`.
+Enable with `?vacp-inspector=1`. Disable with `?vacp-inspector=0`.
 
-Enable with `VACP_DEBUG_UI=1`. Disable with `VACP_DEBUG_UI=0`.
+Enable with `VACP_INSPECTOR=1`. Disable with `VACP_INSPECTOR=0`.
 
-Local storage key is `vacp:debug=0|1`. Default is on.
+Local storage key is `vacp:inspector=0|1`. Default is on.
 
-The debug overlay Settings tab shows the resolved source and can store browser-level overrides.
+The inspector Settings tab shows the resolved source and can store browser-level overrides.
 
 ### Bridge exposure
 

@@ -1,0 +1,17 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "types": ["node", "vite/client"],
+    "jsx": "react-jsx",
+    "resolveJsonModule": true,
+    "allowImportingTsExtensions": true
+  },
+  "include": [
+    "vite.config.ts",
+    "vite.shared.ts",
+    "apps/*/vite.config.ts",
+    "examples/custom-integration/**/*.ts",
+    "examples/*/vite.config.ts"
+  ]
+}

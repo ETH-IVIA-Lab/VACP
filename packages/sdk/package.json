@@ -1,0 +1,28 @@
+{
+  "name": "@vacp/sdk",
+  "version": "0.1.0",
+  "private": true,
+  "files": [
+    "dist"
+  ],
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -b",
+    "typecheck": "tsc -b && tsc -p tsconfig.test.json",
+    "test": "tsx --test test/*.test.ts"
+  },
+  "dependencies": {
+    "@vacp/protocol": "workspace:*",
+    "@vacp/runtime": "workspace:*",
+    "@vacp/runtime-browser": "workspace:*"
+  },
+  "devDependencies": {
+    "zod": "catalog:"
+  }
+}

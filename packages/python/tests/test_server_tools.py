@@ -1,0 +1,251 @@
+from __future__ import annotations
+
+import pytest
+from fastmcp.tools.function_tool import FunctionTool
+from pydantic import ValidationError
+from vacp.bridge import ActionCall, ActionResult, VacpBridgeClient
+from vacp.models import VacpCapabilitiesRequestOptions, VacpStateRequestOptions
+from vacp.server import create_mcp
+
+
+class _FakeClient(VacpBridgeClient):
+    def __init__(self) -> None:
+        self.last_capabilities_request: VacpCapabilitiesRequestOptions | None = None
+        self.last_state_request: VacpStateRequestOptions | None = None
+
+    async def get_capabilities(self, request: VacpCapabilitiesRequestOptions | None = None) -> dict:
+        self.last_capabilities_request = request
+        return {'graph': {'nodes': [], 'edges': [], 'actions': []}}
+
+    async def get_state(self, request: VacpStateRequestOptions | None = None) -> dict:
+        self.last_state_request = request
+        if request is None:
+            return {'state': {}}
+        return {
+            'mode': 'delta',
+            'token': 'st_next',
+            'baseToken': request.get('since'),
+            'delta': {'changed': {}, 'removed': []},
+        }
+
+    async def execute(self, call: ActionCall) -> ActionResult:
+        return ActionResult(
+            call_id=call.call_id,
+            ok=True,
+            result={'name': call.name, 'params': call.params},
+            error=None,
+        )
+
+
+class _FakePage:
+    def __init__(self) -> None:
+        self.url = 'about:blank'
+
+    async def goto(self, url: str, *, wait_until: str | None = None) -> None:  # noqa: ARG002
+        self.url = url
+
+    async def title(self) -> str:
+        return 'Fake Title'
+
+    async def evaluate(self, expression: str, arg: object | None = None) -> object:
+        return {'expression': expression, 'arg': arg}
+
+    async def screenshot(self, *, path: str, full_page: bool = True) -> bytes:  # noqa: ARG002
+        return b''
+
+    async def wait_for_timeout(self, timeout: float) -> None:  # noqa: ARG002
+        return None
+
+    async def wait_for_selector(self, selector: str, *, timeout: float | None = None, state: str | None = None) -> None:  # noqa: ARG002,E501
+        return None
+
+    async def click(self, selector: str) -> None:  # noqa: ARG002
+        return None
+
+    async def fill(self, selector: str, value: str) -> None:  # noqa: ARG002
+        return None
+
+    async def press(self, selector: str, key: str) -> None:  # noqa: ARG002
+        return None
+
+
+@pytest.mark.asyncio
+async def test_create_mcp_registers_expected_tools() -> None:
+    mcp = create_mcp(_FakeClient())
+    tools = await mcp.list_tools()
+    assert {tool.name for tool in tools} == {'vacp_capabilities', 'vacp_state', 'vacp_execute'}
+
+
+@pytest.mark.asyncio
+async def test_vacp_capabilities_full_shape_when_options_omitted() -> None:
+    client = _FakeClient()
+    mcp = create_mcp(client)
+    tool = await mcp.get_tool('vacp_capabilities')
+    assert isinstance(tool, FunctionTool)
+    res = await tool.fn()
+    assert res == {'graph': {'nodes': [], 'edges': [], 'actions': []}}
+    assert client.last_capabilities_request is None
+
+
+@pytest.mark.asyncio
+async def test_vacp_capabilities_forwards_scoping_options() -> None:
+    client = _FakeClient()
+    mcp = create_mcp(client)
+    tool = await mcp.get_tool('vacp_capabilities')
+    assert isinstance(tool, FunctionTool)
+    await tool.fn(
+        options={
+            'prefixes': ['vacp://app/view'],
+            'includeNodeData': False,
+            'kinds': ['View', 'Visualization'],
+        }
+    )
+    assert client.last_capabilities_request == {
+        'prefixes': ['vacp://app/view'],
+        'includeNodeData': False,
+        'kinds': ['View', 'Visualization'],
+    }
+
+
+@pytest.mark.asyncio
+async def test_vacp_capabilities_normalizes_bare_root_scope() -> None:
+    client = _FakeClient()
+    mcp = create_mcp(client)
+    tool = await mcp.get_tool('vacp_capabilities')
+    assert isinstance(tool, FunctionTool)
+    await tool.fn(options={'refs': ['vacp://'], 'prefixes': ['vacp://'], 'includeNodeData': False})
+    assert client.last_capabilities_request == {'includeNodeData': False}
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    'options',
+    [
+        {'bogus': 1},
+        {'kinds': ['BogusKind']},
+        {'layers': ['bogusLayer']},
+        {'refs': ['   ']},
+        {'includeNodeData': 'nope'},
+    ],
+)
+async def test_vacp_capabilities_rejects_invalid_options(options: object) -> None:
+    mcp = create_mcp(_FakeClient())
+    tool = await mcp.get_tool('vacp_capabilities')
+    assert isinstance(tool, FunctionTool)
+    with pytest.raises(ValidationError):
+        await tool.fn(options=options)
+
+
+@pytest.mark.asyncio
+async def test_vacp_state_full_shape_when_options_omitted() -> None:
+    client = _FakeClient()
+    mcp = create_mcp(client)
+    tool = await mcp.get_tool('vacp_state')
+    assert isinstance(tool, FunctionTool)
+    res = await tool.fn()
+    assert res == {'state': {}}
+    assert client.last_state_request is None
+
+
+@pytest.mark.asyncio
+async def test_vacp_state_forwards_options_for_delta_requests() -> None:
+    client = _FakeClient()
+    mcp = create_mcp(client)
+    tool = await mcp.get_tool('vacp_state')
+    assert isinstance(tool, FunctionTool)
+    res = await tool.fn(
+        options={
+            'mode': 'delta',
+            'since': 'st_prev',
+            'refs': ['vacp://a', 'vacp://b'],
+            'includeSummary': False,
+        }
+    )
+    assert res['mode'] == 'delta'
+    assert client.last_state_request == {
+        'mode': 'delta',
+        'since': 'st_prev',
+        'refs': ['vacp://a', 'vacp://b'],
+        'includeSummary': False,
+    }
+
+
+@pytest.mark.asyncio
+async def test_vacp_state_normalizes_bare_root_scope() -> None:
+    client = _FakeClient()
+    mcp = create_mcp(client)
+    tool = await mcp.get_tool('vacp_state')
+    assert isinstance(tool, FunctionTool)
+    await tool.fn(options={'mode': 'full', 'refs': ['vacp://'], 'includeSummary': True})
+    assert client.last_state_request == {'mode': 'full', 'includeSummary': True}
+
+
+@pytest.mark.asyncio
+async def test_vacp_state_rejects_invalid_options() -> None:
+    mcp = create_mcp(_FakeClient())
+    tool = await mcp.get_tool('vacp_state')
+    assert isinstance(tool, FunctionTool)
+    with pytest.raises(ValidationError):
+        await tool.fn(options={'bogus': 1})
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    'options',
+    [
+        'nope',
+        {'mode': 'nope'},
+        {'since': ''},
+        {'since': '   '},
+        {'refs': 'bad'},
+        {'refs': ['ok', '   ']},
+        {'includeSummary': 'nope'},
+    ],
+)
+async def test_vacp_state_rejects_invalid_option_values(options: object) -> None:
+    mcp = create_mcp(_FakeClient())
+    tool = await mcp.get_tool('vacp_state')
+    assert isinstance(tool, FunctionTool)
+    with pytest.raises(ValidationError):
+        await tool.fn(options=options)
+
+
+@pytest.mark.asyncio
+async def test_vacp_execute_tool_calls_surface() -> None:
+    mcp = create_mcp(_FakeClient())
+    tool = await mcp.get_tool('vacp_execute')
+    assert isinstance(tool, FunctionTool)
+    res = await tool.fn(name='vacp.data_sql', params={'handleRef': 'vacp://x', 'sql': 'select 1'}, call_id='c1')
+    assert res['callId'] == 'c1'
+    assert res['ok'] is True
+    assert res['result'] == {'name': 'vacp.data_sql', 'params': {'handleRef': 'vacp://x', 'sql': 'select 1'}}
+
+
+@pytest.mark.asyncio
+async def test_create_mcp_registers_page_tools_when_page_provided() -> None:
+    mcp = create_mcp(_FakeClient(), page=_FakePage())
+    tools = await mcp.list_tools()
+    assert {tool.name for tool in tools} == {
+        'vacp_capabilities',
+        'vacp_state',
+        'vacp_execute',
+        'vacp_open_url',
+        'vacp_page_info',
+    }
+
+
+@pytest.mark.asyncio
+async def test_browser_tools_are_gated_by_enable_flag(tmp_path) -> None:
+    mcp = create_mcp(_FakeClient(), page=_FakePage(), enable_browser_tools=True)
+
+    tools = await mcp.list_tools()
+    tool_names = {tool.name for tool in tools}
+    assert 'browser_screenshot' in tool_names
+    assert 'browser_eval' in tool_names
+
+    screenshot = await mcp.get_tool('browser_screenshot')
+    assert isinstance(screenshot, FunctionTool)
+
+    out = tmp_path / 'shots' / 's1.png'
+    res = await screenshot.fn(path=str(out), full_page=True)
+    assert res == {'ok': True, 'path': str(out)}

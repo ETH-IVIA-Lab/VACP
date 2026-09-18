@@ -1,0 +1,20 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "rootDir": "src",
+    "outDir": "dist",
+    "composite": true
+  },
+  "references": [
+    {
+      "path": "../runtime-browser"
+    },
+    {
+      "path": "../protocol"
+    },
+    {
+      "path": "../runtime"
+    }
+  ],
+  "include": ["src/**/*.ts"]
+}

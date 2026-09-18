@@ -1,38 +1,14 @@
 # Examples
 
-Runnable example apps live under `packages/examples/*`. They serve two purposes.
+Each example uses the same bridge contract and Inspector.
 
-They are reference integrations for providers and host shells. They are also smoke test targets for evaluation.
+| Example                                                           | Explore                                                   |
+| ----------------------------------------------------------------- | --------------------------------------------------------- |
+| [VGPlot](https://examples.vacp.dev/vgplot/)                       | Linked selections, menus, plots, and tables.              |
+| [Vega-Lite](https://examples.vacp.dev/vega-lite/)                 | Parameters, selections, and encoding graphs.              |
+| [Parallel coordinates](https://examples.vacp.dev/cars-parcoords/) | A custom D3 integration with reorderable dimensions.      |
+| [React dashboard](https://examples.vacp.dev/react-dashboard/)     | A custom integration with linked charts and a data table. |
 
-Current example packages:
+Open **VACP**, choose Graph, and select an entity. Change a control to observe state updates, then use Actions or Chat to interact with the visualization.
 
-- `packages/examples/index` is the static gallery host.
-- `packages/examples/vgplot-gallery` is the [VGPlot](https://idl.uw.edu/mosaic/vgplot/) integration.
-- `packages/examples/vega-lite-gallery` is the [Vega-Lite](https://vega.github.io/vega-lite/) integration.
-- `packages/examples/cars-parallel-coords` is a custom direct integration.
-- `packages/examples/react-dashboard` is a React dashboard integration.
-
-## Gallery
-
-Run all examples from one base URL:
-
-```bash
-pnpm dev
-```
-
-## Develop an example on its own
-
-Each example can be started directly:
-
-```bash
-pnpm -C packages/examples/vgplot-gallery dev
-pnpm -C packages/examples/vega-lite-gallery dev
-pnpm -C packages/examples/cars-parallel-coords dev
-pnpm -C packages/examples/react-dashboard dev
-```
-
-## Add a new example
-
-The gallery is declarative. Add an entry to `packages/examples/index/examples.manifest.json`.
-
-Then export `mount(target)` from the example and point the manifest entry at it.
+Use the [local setup](../get-started/) to run these examples from a checkout.

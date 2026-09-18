@@ -2,7 +2,7 @@
 
 ## Action
 
-A named operation with validated parameters. Example: set an interval _Selection_.
+A named operation with a parameter description and an application handler. Example: set an interval _Selection_.
 
 ## Capabilities
 
@@ -26,8 +26,8 @@ A snapshot of current values keyed by refs. It includes *Selection*s, *Param*s, 
 
 ## Transport
 
-A way to reach the in-app protocol from another process. Example: MCP over Playwright.
+An adapter between the bridge and an agent-facing tool contract. Example: MCP over Playwright.
 
 ## Runtime
 
-The in-page layer that installs the bridge, validates actions, and optionally records history.
+The component that combines snapshot and action providers with history, subscriptions, and replay.

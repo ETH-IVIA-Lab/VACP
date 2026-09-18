@@ -1,0 +1,28 @@
+{
+  "name": "@vacp/runtime-browser",
+  "version": "0.1.0",
+  "private": true,
+  "files": [
+    "dist"
+  ],
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -b",
+    "typecheck": "tsc -b",
+    "test": "pnpm exec tsx --test test/*.test.ts"
+  },
+  "dependencies": {
+    "@vacp/protocol": "workspace:*",
+    "@vacp/runtime": "workspace:*",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "vite": "catalog:"
+  }
+}

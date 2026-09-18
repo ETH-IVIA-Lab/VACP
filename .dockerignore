@@ -4,8 +4,8 @@ dist
 **/dist
 .vite
 **/.vite
-.turbo
-**/.turbo
+.vite-plus
+**/.vite-plus
 .DS_Store
 **/.DS_Store
 __pycache__
@@ -23,8 +23,12 @@ test-results
 .agent-arena
 .artifacts
 
-docs/.vitepress/cache
-docs/.vitepress/dist
-packages/lib/evaluation
-packages/testing
-packages/examples/index/.generated-public
+apps/docs/.vitepress/cache
+apps/docs/.vitepress/dist
+examples/gallery/.generated-public
+
+nogit
+plans
+ara
+
+evals

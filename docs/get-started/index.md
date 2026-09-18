@@ -1,78 +1,28 @@
 # Get started
 
-This repo includes runnable examples and a debug overlay. You should be able to run the gallery, inspect the semantic graph, and execute actions.
+Open the [examples gallery](https://examples.vacp.dev/) and choose a visualization. Click **VACP** to open the [Inspector](../inspector/). Select a chart element or change a control, then inspect its state in Graph or JSON.
 
-## Install
+## Run locally
+
+The JavaScript packages are currently consumed from the repository workspace. Use Node.js 24.16 or newer, Corepack, and pnpm.
 
 ```bash
-pnpm install
+git clone https://github.com/ETH-IVIA-Lab/VACP.git
+cd VACP
+corepack enable
+pnpm install --frozen-lockfile
 pnpm build
-uv sync
-pnpm --filter @vacp/e2e exec playwright install chromium
-uv run playwright install chromium
-```
-
-## Run the examples gallery
-
-```bash
 pnpm dev
 ```
 
-Open `http://127.0.0.1:5173/`.
+Open `https://examples.vacp.localhost/` (or the URL Portless prints if your proxy uses another port). Each example exposes the same capabilities, state, and action contract.
 
-## Open the debug overlay
+Run `make docs-serve` for `https://docs.vacp.localhost/`, or `make dev-all` to start docs, the gallery, and every standalone example. See the [development guide](https://github.com/ETH-IVIA-Lab/VACP/blob/main/development_docs/contributing.md#local-urls) for commands and local names.
 
-Click the floating **VACP** control. The debug overlay is enabled by default in the example gallery.
+## Connect your visualization
 
-Disable it with `?vacp-debug=0` or `VACP_DEBUG_UI=0`. The Settings tab shows the active VACP flags, their source, and browser-level overrides.
+- [Custom integration](../integrate/): define your own entities, state, and actions.
+- [Vega-Lite](../providers/vega-lite): expose parameters and selections from a Vega view.
+- [VGPlot](../providers/vgplot): expose plots, tables, and linked interactions.
 
-Interact with a chart and watch the state snapshot change. Then dispatch an action and confirm the interface updates.
-
-## Drive the page via MCP
-
-In another terminal, start the MCP server and point it at the running gallery:
-
-```bash
-uv run vacp-mcp-server --url http://127.0.0.1:5173/
-```
-
-The MCP transport implementation lives in `packages/lib/transports/mcp-server`. It uses [Model Context Protocol](https://modelcontextprotocol.io/) and [Playwright](https://playwright.dev/).
-
-## Run checks
-
-```bash
-pnpm test
-```
-
-## Develop an example on its own
-
-Use this when you want faster iteration on one app or one provider integration.
-
-```bash
-pnpm -C packages/examples/vgplot-gallery dev
-pnpm -C packages/examples/vega-lite-gallery dev
-pnpm -C packages/examples/cars-parallel-coords dev
-pnpm -C packages/examples/react-dashboard dev
-```
-
-## Repo layout
-
-The workspace is organized by responsibility.
-
-```text
-packages/
-  lib/
-    protocol/   # contract types and runtime gateway
-    providers/  # runtime-specific semantic mappings
-    transports/ # MCP server and in-page transport client
-    tooling/    # debug overlay and analytics
-    evaluation/ # scenario runner and analysis tooling
-  testing/
-    e2e/        # Playwright end-to-end suite
-  examples/
-    index/                # static gallery host
-    vgplot-gallery/
-    vega-lite-gallery/
-    cars-parallel-coords/
-    react-dashboard/
-```
+Use [agent transports](../transports/) to connect an external agent or embed an agent in the page.

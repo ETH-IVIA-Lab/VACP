@@ -1,17 +1,50 @@
 {
   "files": [],
   "references": [
-    { "path": "packages/lib/protocol/core" },
-    { "path": "packages/lib/protocol/duckdb" },
-    { "path": "packages/lib/protocol/gateway" },
-    { "path": "packages/lib/protocol/kit" },
-    { "path": "packages/lib/protocol/diagrams" },
-    { "path": "packages/lib/providers/vgplot" },
-    { "path": "packages/lib/providers/vega-lite" },
-    { "path": "packages/lib/tooling/analytics" },
-    { "path": "packages/lib/tooling/debug-ui" },
-    { "path": "packages/lib/transports/agent-client" },
-    { "path": "packages/lib/evaluation/agent-arena" },
-    { "path": "packages/testing/e2e" }
+    {
+      "path": "packages/protocol"
+    },
+    {
+      "path": "packages/data-duckdb"
+    },
+    {
+      "path": "packages/runtime"
+    },
+    {
+      "path": "packages/sdk"
+    },
+    {
+      "path": "packages/diagram-mermaid"
+    },
+    {
+      "path": "packages/adapter-vgplot"
+    },
+    {
+      "path": "packages/adapter-vega-lite"
+    },
+    {
+      "path": "packages/analytics"
+    },
+    {
+      "path": "packages/inspector"
+    },
+    {
+      "path": "packages/agent-ai-sdk"
+    },
+    {
+      "path": "apps/e2e"
+    },
+    {
+      "path": "packages/runtime-browser"
+    },
+    {
+      "path": "packages/transport-bridge"
+    },
+    {
+      "path": "evals/agent-arena"
+    },
+    {
+      "path": "packages/analytics-posthog"
+    }
   ]
 }

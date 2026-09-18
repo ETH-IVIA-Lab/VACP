@@ -1,14 +1,14 @@
 node_modules/
 dist/
-.turbo/
+.vite-plus/
 .vite/
 .env
 .env.*
 
 # Vite builds in examples
-packages/examples/*/dist/
-docs/.vitepress/cache/
-docs/.vitepress/dist/
+apps/*/dist/
+apps/docs/.vitepress/cache/
+apps/docs/.vitepress/dist/
 
 # TypeScript build artifacts
 *.tsbuildinfo
@@ -31,3 +31,7 @@ test-results/
 # OS / editor
 .DS_Store
 .vscode/
+
+playwright-report/
+examples/gallery/.generated-public/
+examples/gallery/*/.vacp-gallery-generated

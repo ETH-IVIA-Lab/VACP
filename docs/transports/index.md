@@ -1,25 +1,42 @@
-# Transports
+# Connect an agent
 
-VACP lives in the page. A transport is how another process reaches the in-page contract.
+Agents use three tools: `vacp_capabilities`, `vacp_state`, and `vacp_execute`. Each transport forwards those operations to the visualization's bridge.
 
-Transports in this repo share the same bridge tool surface:
+## External agents through MCP
 
-```text
-vacp_capabilities(options?)
-vacp_state(options?)
-vacp_execute(name, params?, call_id?)
+From a local VACP checkout, install the Python package and Chromium:
+
+```bash
+uv sync --package vacp --locked
+uv run --package vacp playwright install chromium
+uv run --package vacp vacp --url http://127.0.0.1:5173/vgplot/
 ```
 
-These bridge tools call the in-page bridge and return structured snapshots and action results. Transport-specific helpers can add navigation or page inspection without changing the VACP contract.
+The server uses Playwright to reach the bridge. Its CLI supports stdio and HTTP transports, browser launch, and attachment to an existing Chromium session. Run `uv run --package vacp vacp --help` for connection options.
 
-For unscoped reads, transports should omit scope fields instead of using bare `vacp://`.
+## In-page agents
 
-## MCP transport
+Use `@vacp/transport-bridge` to adapt a bridge to the tool contract:
 
-The MCP transport is a Python server that drives a browser through [Playwright](https://playwright.dev/) and forwards tool calls into the page. It follows [Model Context Protocol](https://modelcontextprotocol.io/) and is implemented in `packages/lib/transports/mcp-server`.
-Use it when the agent runs outside the browser process.
+```ts
+import { getVacpBridge } from '@vacp/runtime-browser';
+import { createVacpTransport } from '@vacp/transport-bridge';
 
-## In-page transport
+const bridge = getVacpBridge();
+if (!bridge) throw new Error('VACP is not installed');
 
-The in-page transport calls the same bridge from browser JavaScript. In this repo it lives in `packages/lib/transports/agent-client`.
-The debug overlay uses it, and embedded agent clients can use it without leaving the browser process.
+const transport = createVacpTransport(bridge);
+const state = await transport.vacp_state();
+```
+
+`@vacp/agent-ai-sdk` connects this transport to an AI SDK agent or tool set:
+
+```ts
+import { createVacpTools } from '@vacp/agent-ai-sdk';
+
+const tools = createVacpTools({ transport });
+```
+
+The Inspector's Chat feature provides an in-page interface for configuring a model, running conversations, and reading tool traces. Requests are sent to the configured model endpoint.
+
+See the [tool contract](../reference/tool-contract) for request and response shapes.

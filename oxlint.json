@@ -1,6 +1,0 @@
-{
-  "plugins": ["typescript"],
-  "rules": {
-    "eslint/no-console": "off"
-  }
-}

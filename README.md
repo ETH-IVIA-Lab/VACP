@@ -2,7 +2,7 @@
 
 [![arXiv:2603.29322](https://img.shields.io/badge/arXiv-2603.29322-red)](https://arxiv.org/abs/2603.29322)
 
-![AI agents use VACP to read visual analytics state, discover available interactions, and execute semantic actions that update the interface state.](docs/public/images/VACP_Teaser.svg)
+![AI agents use VACP to read visual analytics state, discover available interactions, and execute semantic actions that update the interface state.](apps/docs/public/images/VACP_Teaser.svg)
 VACP (Visual Analytics Context Protocol) is a small in-app contract for exposing capabilities, visual analytics state snapshots, and semantic actions to AI agents.
 
 [Learn more about VACP at the documentation site](https://docs.vacp.dev), or [read the VACP research paper](https://arxiv.org/abs/2603.29322).
@@ -24,22 +24,25 @@ If you reference VACP, use the following citation:
 
 From repo root:
 
-- Install dependencies: `pnpm install` and `uv sync`
-- Build workspace: `pnpm build`
-- Start examples gallery: `pnpm dev`
-- Run checks: `pnpm test`
+- Install dependencies: `make setup`
+- Build workspace: `make build`
+- Start examples gallery: `make dev` → `https://examples.vacp.localhost`
+- Start docs and all examples: `make dev-all`
+- Run checks: `make check` and `make browser-install e2e`
 
 For full setup and command details, use [docs/get-started/index.md](docs/get-started/index.md).
 
-## What Is In This Repo
+## Workspace
 
-- Protocol/runtime primitives: `packages/lib/protocol/*`
-- Provider adapters: `packages/lib/providers/*`
-- Transport adapters: `packages/lib/transports/*`
-- Tooling packages: `packages/lib/tooling/*`
-- Evaluation tooling: `packages/lib/evaluation/*`
-- Runnable examples and index host: `packages/examples/*`
-- End-to-end tests: `packages/testing/e2e`
+Reusable protocol, runtime, providers, transports, and UI live in `packages/*`. Examples live in `examples/`, evaluation tools in `evals/`, and the documentation host and browser suite in `apps/`. All use the root workspaces and lockfiles.
+
+- Gallery: `examples/gallery`
+- Browser tests: `apps/e2e`
+- User documentation: `docs/`, hosted by `apps/docs`
+- Evaluation: `evals/`
+- Internal guides: `development_docs/`
+- Runtime contracts and dependency boundaries: [development_docs/architecture.md](development_docs/architecture.md)
+- Setup, checks, and dependency updates: [development_docs/contributing.md](development_docs/contributing.md)
 
 ## Documentation
 
@@ -48,16 +51,16 @@ Visit [https://docs.vacp.dev/](https://docs.vacp.dev/) for the documentation and
 - Docs site entry: [docs/index.md](docs/index.md)
 - Get started: [docs/get-started/index.md](docs/get-started/index.md)
 - Overview: [docs/what-is-vacp/index.md](docs/what-is-vacp/index.md)
-- Core runtime: [docs/core-runtime/index.md](docs/core-runtime/index.md)
+- Core runtime: [docs/reference/runtime.md](docs/reference/runtime.md)
 - Tool contract: [docs/reference/tool-contract.md](docs/reference/tool-contract.md)
 - Runtime configuration: [docs/reference/configuration.md](docs/reference/configuration.md)
-- Architecture spec: [ARCHITECTURE.md](ARCHITECTURE.md)
-- Contributing guide: [CONTRIBUTING.md](CONTRIBUTING.md)
+- Architecture spec: [development_docs/architecture.md](development_docs/architecture.md)
+- Contributing guide: [development_docs/contributing.md](development_docs/contributing.md)
 
 ## Runtime Notes
 
-- The in-page debug overlay is enabled by default. Disable it with `?vacp-debug=0` or `VACP_DEBUG_UI=0`.
-- Start MCP server against a running example: `uv run vacp-mcp-server --url http://localhost:<vite-port>/`.
+- The in-page inspector is enabled by default. Disable it with `?vacp-inspector=0` or `VACP_INSPECTOR=0`.
+- Start MCP server against a running example: `uv run vacp --url https://examples.vacp.localhost/vega-lite/`.
 
 ## Contact
 

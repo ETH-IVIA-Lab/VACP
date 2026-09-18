@@ -1,0 +1,27 @@
+{
+  "name": "@vacp/examples",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node scripts/sync-generated.mjs && portless run vp dev",
+    "build": "node scripts/sync-generated.mjs && vp build",
+    "preview": "vp preview --host 127.0.0.1 --strictPort",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@vacp/example-cars-parallel-coords": "workspace:*",
+    "@vacp/example-react-dashboard": "workspace:*",
+    "@vacp/example-vega-lite-gallery": "workspace:*",
+    "@vacp/example-vgplot-gallery": "workspace:*"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "catalog:",
+    "@vitejs/plugin-react": "catalog:",
+    "portless": "catalog:",
+    "react": "catalog:",
+    "react-dom": "catalog:",
+    "vite-plus": "catalog:"
+  },
+  "portless": "examples.vacp"
+}

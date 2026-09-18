@@ -1,0 +1,18 @@
+[project]
+name = "plain-mcp"
+version = "0.1.0"
+description = "Semantic MCP tools for visual analytics use cases"
+readme = "README.md"
+authors = [{ name = "Péter Ferenc Gyarmati", email = "dev.petergy@gmail.com" }]
+requires-python = ">=3.12"
+dependencies = ["fastmcp>=3.4.2", "vacp>=0.1.0"]
+
+[project.scripts]
+plain-mcp = "plain_mcp:main"
+
+[build-system]
+requires = ["uv_build>=0.12,<0.13"]
+build-backend = "uv_build"
+
+[tool.uv.sources]
+vacp = { workspace = true }

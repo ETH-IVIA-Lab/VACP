@@ -1,0 +1,18 @@
+{
+  "name": "@vacp/e2e",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test:e2e": "playwright test"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.63.0",
+    "@types/node": "catalog:",
+    "@vacp/adapter-vgplot": "workspace:*",
+    "@vacp/protocol": "workspace:*",
+    "portless": "catalog:",
+    "typescript": "catalog:"
+  }
+}

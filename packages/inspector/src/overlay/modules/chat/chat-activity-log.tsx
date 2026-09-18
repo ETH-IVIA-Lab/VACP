@@ -1,0 +1,131 @@
+import type { ReactElement } from 'react';
+import { useState } from 'react';
+
+import type { VacpAgentToolEvent } from '@vacp/agent-ai-sdk';
+import { JsonViewer } from '@vacp/inspector/ui/components/ui/json-viewer';
+import { cn } from '@vacp/inspector/ui/lib/utils';
+
+function eventColor(status: VacpAgentToolEvent['status']): string {
+  if (status === 'succeeded') return 'text-slate-100/76';
+
+  if (status === 'failed') return 'text-red-50/84';
+
+  return 'text-amber-50/70';
+}
+
+function capabilitiesScopeBadge(event: VacpAgentToolEvent): 'full' | 'scoped' | null {
+  if (event.toolName !== 'vacp_capabilities') return null;
+
+  if (!event.input || typeof event.input !== 'object' || Array.isArray(event.input)) return 'full';
+
+  return Object.keys(event.input as Record<string, unknown>).length > 0 ? 'scoped' : 'full';
+}
+
+function normalizationBadge(event: VacpAgentToolEvent): boolean {
+  return Boolean(event.requestedInput !== undefined || event.inputNote);
+}
+
+function ToolEventDetails(props: { event: VacpAgentToolEvent; index: number }): ReactElement {
+  const { event } = props;
+  const scope = capabilitiesScopeBadge(event);
+  const forceOpen = event.status === 'failed';
+  const [opened, setOpened] = useState(forceOpen);
+  const expanded = forceOpen || opened;
+
+  return (
+    <details
+      key={`${event.at}-${props.index}`}
+      open={expanded}
+      onToggle={(toggleEvent) => setOpened(toggleEvent.currentTarget.open)}
+      className="rounded-md border border-white/[0.075] bg-white/[0.02] px-3 py-2"
+    >
+      <summary className="flex cursor-pointer list-none items-center gap-2">
+        <span className="font-semibold text-slate-100/90">{event.toolName}</span>
+        {scope ? (
+          <span className="rounded-full border border-white/[0.075] bg-white/[0.035] px-1.5 py-0.5 text-[10px] text-slate-100/62">
+            {scope}
+          </span>
+        ) : null}
+        {normalizationBadge(event) ? (
+          <span className="rounded-full border border-white/12 bg-white/[0.055] px-1.5 py-0.5 text-[10px] text-slate-100/70">
+            normalized
+          </span>
+        ) : null}
+        <span className={cn('font-medium', eventColor(event.status))}>{event.status}</span>
+        <span className="ml-auto text-slate-100/55">{new Date(event.at).toLocaleTimeString()}</span>
+      </summary>
+      {expanded ? (
+        <div className="mt-2 grid gap-2">
+          {event.inputNote ? (
+            <div className="rounded-md border border-white/12 bg-white/[0.055] px-2 py-1 text-[10px] text-slate-100/70">
+              {event.inputNote}
+            </div>
+          ) : null}
+          {event.input !== undefined ? (
+            <div>
+              <div className="text-[10px] font-semibold uppercase tracking-wide text-slate-100/65">Effective input</div>
+              <JsonViewer
+                value={event.input}
+                className="vacp-chat-json-view mt-1 p-2"
+                expandDepth={1}
+                scrollable={false}
+              />
+            </div>
+          ) : null}
+          {event.requestedInput !== undefined ? (
+            <div>
+              <div className="text-[10px] font-semibold uppercase tracking-wide text-slate-100/65">Requested input</div>
+              <JsonViewer
+                value={event.requestedInput}
+                className="vacp-chat-json-view mt-1 p-2"
+                expandDepth={1}
+                scrollable={false}
+              />
+            </div>
+          ) : null}
+          {event.output !== undefined ? (
+            <div>
+              <div className="text-[10px] font-semibold uppercase tracking-wide text-slate-100/65">Output</div>
+              <JsonViewer
+                value={event.output}
+                className="vacp-chat-json-view mt-1 p-2"
+                expandDepth={1}
+                scrollable={false}
+              />
+            </div>
+          ) : null}
+          {event.error ? (
+            <div className="rounded-md border border-red-200/18 bg-red-300/[0.07] px-2 py-1 text-red-50/84">
+              {event.error}
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+    </details>
+  );
+}
+
+export function ChatActivityLog(props: { events: VacpAgentToolEvent[]; className?: string }): ReactElement {
+  return (
+    <section className={cn('grid min-h-0 gap-2 p-3', props.className)}>
+      <div className="min-w-0">
+        <div className="text-[11px] font-semibold uppercase text-slate-100/70">Tool calls</div>
+        <div className="mt-1 text-pretty text-[11px] text-slate-100/65">Execution trace for the active thread.</div>
+      </div>
+
+      <div
+        data-vacp-chat-log="1"
+        className="vacp-chat-scroll grid min-h-0 gap-2 overflow-y-auto overflow-x-hidden text-[11px]"
+      >
+        {props.events.length === 0 ? <div className="px-1 py-2 text-slate-100/58">No tool calls yet.</div> : null}
+
+        {props.events
+          .slice()
+          .reverse()
+          .map((event, idx) => (
+            <ToolEventDetails key={`${event.at}-${idx}`} event={event} index={idx} />
+          ))}
+      </div>
+    </section>
+  );
+}
