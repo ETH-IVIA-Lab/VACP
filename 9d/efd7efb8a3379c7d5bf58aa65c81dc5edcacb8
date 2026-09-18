@@ -1,0 +1,35 @@
+packages/transport-webmcp/bench/registration.ts
+  ai_agent 1-61
+Makefile
+  ai_agent 12,100-103
+packages/runtime/bench/runtime.ts
+  s_ad28489153bcf7::t_708c74911fd7b0 1-56
+development_docs/performance.md
+  s_ad28489153bcf7::t_9e912a1bdfdc40 1-17,19,24-32
+  s_ad28489153bcf7::t_6d68b0a19dc01e 18,20-23
+packages/runtime/package.json
+  s_ad28489153bcf7::t_d6cf336ac19e96 18
+  ai_agent 19
+packages/transport-webmcp/package.json
+  ai_agent 18-19
+tsconfig.tools.json
+  ai_agent 15-16
+packages/runtime/src/runtime/state-update.ts
+  s_ad28489153bcf7::t_d6cf336ac19e96 78
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "9defd7efb8a3379c7d5bf58aa65c81dc5edcacb8",
+  "prompts": {},
+  "sessions": {
+    "s_ad28489153bcf7": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a0b393-234e-74d3-8b65-e0faa6b8456b",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Péter Ferenc Gyarmati <peterferenc.gyarmati@inf.ethz.ch>"
+    }
+  }
+}
