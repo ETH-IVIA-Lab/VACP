@@ -1,0 +1,350 @@
+packages/adapter-vgplot/src/actions.ts
+  s_ad28489153bcf7::t_1d8a94ed339f7b 7,254
+  s_ad28489153bcf7::t_e5878d3abd9454 3-5,12
+evals/plain-mcp/tests/test_use_case_queries.py
+  s_ad28489153bcf7::t_5f47ffe4cfb34a 87-89
+docs/providers/vgplot.md
+  s_ad28489153bcf7::t_e80612a42ec596 3,5,8-9,11-12,14,16-20,25-29,33
+  s_ad28489153bcf7::t_383572dee472f8 23-24
+  s_ad28489153bcf7::t_118fcae4be44d7 13,31
+packages/adapter-vega-lite/src/actions.ts
+  s_ad28489153bcf7::t_1d8a94ed339f7b 7
+  s_ad28489153bcf7::t_e5878d3abd9454 3-5
+AGENTS.md
+  s_ad28489153bcf7::t_8583737504962a 36
+packages/inspector-core/package.json
+  s_ad28489153bcf7::t_bb269760e366c7 26-27
+  s_ad28489153bcf7::t_3d9a0ebf77a86d 1-4,8-9,22,37
+  s_ad28489153bcf7::t_41fd4a16ca5fa2 5-7,10-21,23-25,28-36
+vite.shared.ts
+  s_ad28489153bcf7::t_0d177ba41dc525 6-8
+apps/e2e/tests/providers/vgplot/widget-options-action.spec.ts
+  s_ad28489153bcf7::t_b68a4e19559b58 5,24,28-42,45,54
+apps/e2e/tests/smoke/examples.spec.ts
+  s_ad28489153bcf7::t_007243a9e5480b 110-114,231-234,275-276
+  s_ad28489153bcf7::t_b5bc54586fff05 5,68-72,78,82,86,90,97,101-104,107-109,115-116,119-128,131-137,164,166-174,203,230,269,274,314,323-348,388,455
+packages/inspector-core/src/snapshot.ts
+  s_ad28489153bcf7::t_207159dfc23ec0 2,39
+  s_ad28489153bcf7::t_cae6defd1e59d4 8-11
+  s_ad28489153bcf7::t_7eeca92cae5a61 4
+  s_ad28489153bcf7::t_ed4b75133419cd 3,5-6,12-14,21,35-38
+  s_ad28489153bcf7::t_bb269760e366c7 15-20,22-34
+  s_ad28489153bcf7::t_51b154fd0111ac 7
+  s_ad28489153bcf7::t_e5878d3abd9454 1
+development_docs/examples/vega-lite-gallery.md
+  s_ad28489153bcf7::t_8583737504962a 34
+packages/adapter-vgplot/src/interactors/interval.ts
+  s_ad28489153bcf7::t_e5878d3abd9454 3-4
+packages/adapter-vgplot/README.md
+  s_ad28489153bcf7::t_383572dee472f8 23
+  s_ad28489153bcf7::t_e80612a42ec596 3,5,7-9,11-12,14-17,19-20,25,27,29,33,35
+  s_ad28489153bcf7::t_118fcae4be44d7 13,31
+packages/adapter-vgplot/src/graph.ts
+  s_ad28489153bcf7::t_1d8a94ed339f7b 99
+  s_ad28489153bcf7::t_e5878d3abd9454 4-6
+examples/vgplot-gallery/package.json
+  s_ad28489153bcf7::t_d21ff44582f240 22
+apps/e2e/tests/providers/vgplot/actions-crossfilter.spec.ts
+  s_ad28489153bcf7::t_b68a4e19559b58 5,19-24,57-58,74,88,108,126-127,142,148,160
+examples/vgplot-gallery/src/vacp.ts
+  s_ad28489153bcf7::t_40c4743ae37752 1,11,27,40-47
+packages/inspector-core/test/http.test.ts
+  s_ad28489153bcf7::t_75571a00c98ba3 10-11,23-25,29-33,40-45,62-79,83-96,98-99
+  s_ad28489153bcf7::t_51b154fd0111ac 80-82
+  s_ad28489153bcf7::t_661fd731ec141d 1-3,5-9,12-22,26-28,34-39,46-54,56-57,61,100
+  s_ad28489153bcf7::t_a7ee3ecc9cc727 97
+  s_ad28489153bcf7::t_13f9decbd4caf5 4
+  s_ad28489153bcf7::t_492fee0918f4f2 55,58-60
+docs/transports/webmcp.md
+  s_ad28489153bcf7::t_654a9a8c3aa136 45
+packages/adapter-vgplot/src/table-actions.ts
+  s_ad28489153bcf7::t_e5878d3abd9454 1
+packages/adapter-vega-lite/src/types.ts
+  s_ad28489153bcf7::t_1d8a94ed339f7b 79
+packages/adapter-vgplot/src/data-handles.ts
+  s_ad28489153bcf7::t_1d8a94ed339f7b 50
+  s_ad28489153bcf7::t_e5878d3abd9454 3-4
+packages/adapter-vgplot/src/duckdb-selection.ts
+  s_ad28489153bcf7::t_e5878d3abd9454 3-4
+packages/inspector-core/test/graph.test.ts
+  s_ad28489153bcf7::t_492fee0918f4f2 12-15,24-25,34
+  s_ad28489153bcf7::t_661fd731ec141d 1-11,16-23,26-33,35-36
+examples/vega-lite-gallery/package.json
+  s_ad28489153bcf7::t_d21ff44582f240 18-19
+packages/adapter-vega-lite/src/observe.ts
+  s_ad28489153bcf7::t_5d4dcba8f6c2c8 5-15,18-19,21-22,30-35,38,46,60-65,72-87
+  s_ad28489153bcf7::t_e5878d3abd9454 1-4
+  s_ad28489153bcf7::t_303b92926011f3 16-17,20,23-29,36-37,39-45,47-59,66-71
+evals/plain-mcp/src/plain_mcp/use_cases/airports.py
+  s_ad28489153bcf7::t_654a9a8c3aa136 119,173
+  s_ad28489153bcf7::t_5f47ffe4cfb34a 142-144,170-172
+packages/adapter-vgplot/src/index.ts
+  s_ad28489153bcf7::t_e5878d3abd9454 1-2
+packages/adapter-vega-lite/test/data.test.ts
+  s_ad28489153bcf7::t_2765e94f344bcb 9-37,41,120-140,143,145-146,149-150,153-155,159-161
+  s_ad28489153bcf7::t_322b6ab80adf5b 98-100
+  s_ad28489153bcf7::t_bd58eff0d27926 101,103
+  s_ad28489153bcf7::t_e80612a42ec596 64-75,102
+  s_ad28489153bcf7::t_7e82dc166f7f52 38-40,141-142,144,147-148,151-152,156-158
+packages/adapter-vgplot/package.json
+  s_ad28489153bcf7::t_1d8a94ed339f7b 17-18,24
+development_docs/architecture.md
+  s_ad28489153bcf7::t_8583737504962a 96,98,100,102,104
+  s_ad28489153bcf7::t_019f4e2454484f 7-22,51,53,86,92,95,97,99,101,103
+packages/adapter-vgplot/src/interactors/pan-zoom.ts
+  s_ad28489153bcf7::t_e5878d3abd9454 3-4
+docs/providers/vega-lite.md
+  s_ad28489153bcf7::t_e80612a42ec596 5,8-9,11,15,17-18,20-21,26-31,34,36
+  s_ad28489153bcf7::t_383572dee472f8 24-25
+packages/adapter-vega-lite/src/graph.ts
+  s_ad28489153bcf7::t_e5878d3abd9454 4-6
+  s_ad28489153bcf7::t_1d8a94ed339f7b 197
+evals/plain-mcp/src/plain_mcp/use_cases/seattle_weather.py
+  s_ad28489153bcf7::t_654a9a8c3aa136 193,207,239
+development_docs/examples/react-dashboard.md
+  s_ad28489153bcf7::t_8583737504962a 31
+packages/adapter-vega-lite/src/data-sources.ts
+  s_ad28489153bcf7::t_6fe87ea399ef21 260-261,263-268,270-271,273-277,293
+  s_ad28489153bcf7::t_f41ceee7ee2fa2 3-89,91-102,104-110,112-259,262,269,272,278-292,294-303
+  s_ad28489153bcf7::t_e5878d3abd9454 1-2
+  s_ad28489153bcf7::t_a14cf41931bb3c 90,103,111
+apps/docs/.vitepress/config.mts
+  s_ad28489153bcf7::t_8583737504962a 52
+docs/examples/index.md
+  s_ad28489153bcf7::t_8583737504962a 3,12
+packages/adapter-vgplot/src/interactors/region.ts
+  s_ad28489153bcf7::t_e5878d3abd9454 3-4
+packages/adapter-vgplot/test/provider.test.ts
+  s_ad28489153bcf7::t_e80612a42ec596 1-6,13-16,22-42
+  s_ad28489153bcf7::t_d21ff44582f240 7-12,17-18,20-21
+  s_ad28489153bcf7::t_118fcae4be44d7 19
+packages/adapter-vega-lite/package.json
+  s_ad28489153bcf7::t_1d8a94ed339f7b 17-18,23
+packages/inspector-core/README.md
+  s_ad28489153bcf7::t_a7ee3ecc9cc727 15,25,29
+  s_ad28489153bcf7::t_8583737504962a 3-14,16-22,27
+  s_ad28489153bcf7::t_019f4e2454484f 28
+packages/agent-ai-sdk/src/create-vacp-agent.ts
+  s_ad28489153bcf7::t_e5878d3abd9454 4-8
+  s_ad28489153bcf7::t_c44dcd2e16799c 93
+apps/e2e/tests/providers/operations.ts
+  s_ad28489153bcf7::t_e5878d3abd9454 1-2,4-17,19,24
+  s_ad28489153bcf7::t_007243a9e5480b 3,18,20-23
+packages/adapter-vgplot/src/apply-state.ts
+  s_ad28489153bcf7::t_e5878d3abd9454 4-11
+packages/adapter-vgplot/src/interactors/plot-update.ts
+  s_ad28489153bcf7::t_e5878d3abd9454 1
+packages/inspector-core/src/notify.ts
+  s_ad28489153bcf7::t_587a2e8a61d771 1-9
+packages/inspector-core/test/runtime.test.ts
+  s_ad28489153bcf7::t_9cc5c524c0baaf 44-45
+  s_ad28489153bcf7::t_057d6df3c2535f 7-43,48
+docs/inspector/index.md
+  s_ad28489153bcf7::t_48ddd036409be2 46-49,63-68
+  s_ad28489153bcf7::t_8583737504962a 1,3,5,7,9-10,17-25,27-30,32,36-44,50-62,70-91,95-104
+  s_ad28489153bcf7::t_a7ee3ecc9cc727 34
+  s_ad28489153bcf7::t_0e2791df72000c 13-15,94
+  s_ad28489153bcf7::t_13f9decbd4caf5 106
+packages/adapter-vgplot/src/provider.ts
+  s_ad28489153bcf7::t_1d8a94ed339f7b 2-11,24-25,29-33,36,38-87,89-315,317-334,336-345
+  s_ad28489153bcf7::t_bd58eff0d27926 1,34-35,88,316,335
+  s_ad28489153bcf7::t_e5878d3abd9454 12-23
+  s_ad28489153bcf7::t_118fcae4be44d7 27-28
+  s_ad28489153bcf7::t_cd30ff001e9857 26,37
+packages/agent-ai-sdk/src/index.ts
+  s_ad28489153bcf7::t_e5878d3abd9454 1,3,5,7,9,11,13,15,17
+packages/inspector-core/src/runtime.ts
+  s_ad28489153bcf7::t_e5878d3abd9454 2
+  s_ad28489153bcf7::t_2b505a61ade890 1,4-7,11
+  s_ad28489153bcf7::t_3d9a0ebf77a86d 3,8-10,12-23,25-28
+  s_ad28489153bcf7::t_e6de4efa54a5c1 24
+evals/plain-mcp/src/plain_mcp/use_cases/athletes.py
+  s_ad28489153bcf7::t_654a9a8c3aa136 88,97,115,131
+packages/adapter-vgplot/src/inputs.ts
+  s_ad28489153bcf7::t_e5878d3abd9454 3-4
+  s_ad28489153bcf7::t_1d8a94ed339f7b 260
+packages/adapter-vega-lite/src/data-rows.ts
+  s_ad28489153bcf7::t_e5878d3abd9454 1
+  s_ad28489153bcf7::t_f41ceee7ee2fa2 2-146,157
+  s_ad28489153bcf7::t_984aeb3aab19da 147-156
+packages/adapter-vega-lite/src/duckdb-selection.ts
+  s_ad28489153bcf7::t_d21ff44582f240 47-50
+  s_ad28489153bcf7::t_e5878d3abd9454 2-3
+  s_ad28489153bcf7::t_5d4dcba8f6c2c8 132,205,277-278,280
+examples/config.ts
+  s_ad28489153bcf7::t_055812397d07c9 15-19
+packages/inspector-core/src/types.ts
+  s_ad28489153bcf7::t_207159dfc23ec0 3-6,9-10,12-13,15,22-24,26-33,35,39-44,47-49,52-55,57-58,60-63
+  s_ad28489153bcf7::t_7eeca92cae5a61 21,25,34
+  s_ad28489153bcf7::t_ed4b75133419cd 16-20,36-37
+  s_ad28489153bcf7::t_3d9a0ebf77a86d 1-2,7-8,11,14,38,45-46,50-51,56,59,64-65
+examples/vgplot-gallery/tsconfig.json
+  s_ad28489153bcf7::t_e80612a42ec596 8-12
+  s_ad28489153bcf7::t_d21ff44582f240 7
+packages/adapter-vega-lite/README.md
+  s_ad28489153bcf7::t_e80612a42ec596 3,5,8-9,11,15,17-21,26-32,34,36,38
+  s_ad28489153bcf7::t_383572dee472f8 24-25
+packages/agent-ai-sdk/src/create-openai-compatible-model.ts
+  s_ad28489153bcf7::t_e5878d3abd9454 4
+packages/adapter-vgplot/src/types.ts
+  s_ad28489153bcf7::t_1d8a94ed339f7b 87
+evals/plain-mcp/src/plain_mcp/use_cases/global_development.py
+  s_ad28489153bcf7::t_654a9a8c3aa136 113,133,163-164
+examples/vega-lite-gallery/src/vacp.ts
+  s_ad28489153bcf7::t_30215af979c999 13-15,19,25,35
+  s_ad28489153bcf7::t_40c4743ae37752 1,11,29,44-51
+packages/inspector-core/test/session.test.ts
+  s_ad28489153bcf7::t_057d6df3c2535f 6,29-32,37-38,51-53,90-93,95-102,104-106,110-111,113-114,120-121,133-141,152-155,163-165,167,202
+  s_ad28489153bcf7::t_51b154fd0111ac 243-245,280-286,294-297
+  s_ad28489153bcf7::t_6d714e0e4d9f9d 254,264-267,301
+  s_ad28489153bcf7::t_bb269760e366c7 322-325
+  s_ad28489153bcf7::t_574216e4e15c5f 309-321
+  s_ad28489153bcf7::t_b5ea7cedf6e17e 1-5,7-28,33-36,39-50,54-89,94,103,107-109,112,115-119,122-132,142-151,156-162,166,168-201,203-210
+  s_ad28489153bcf7::t_a7ee3ecc9cc727 211-242,246-253,255-263,268-279,287-293,298-300,302-308
+packages/agent-ai-sdk/src/vacp-tools.ts
+  s_ad28489153bcf7::t_e5878d3abd9454 6,9
+packages/adapter-vega-lite/src/duckdb-handle.ts
+  s_ad28489153bcf7::t_6fe87ea399ef21 13-19,46,98,127,143,152-153,191-194,196,229
+  s_ad28489153bcf7::t_d17b6d14fc5f12 130,167-169,177-178
+  s_ad28489153bcf7::t_58b96e29ec59a8 40,47,52,54,57-60,112,280-291
+  s_ad28489153bcf7::t_e5878d3abd9454 11-12,20-22
+  s_ad28489153bcf7::t_984aeb3aab19da 2
+  s_ad28489153bcf7::t_f41ceee7ee2fa2 29,43,55-56,126,129,131-137,139,142,144-150,155-161,170,180,190
+  s_ad28489153bcf7::t_9b3e6a314df9ce 128,154,195
+  s_ad28489153bcf7::t_a14cf41931bb3c 67,78
+packages/adapter-vega-lite/src/provider.ts
+  s_ad28489153bcf7::t_d21ff44582f240 104-111,114-120
+  s_ad28489153bcf7::t_bd58eff0d27926 1,52-53,59,126,190
+  s_ad28489153bcf7::t_e5878d3abd9454 5-13,15-16
+  s_ad28489153bcf7::t_383572dee472f8 137-157,183
+  s_ad28489153bcf7::t_7eef1398b8b8f7 55,75
+  s_ad28489153bcf7::t_422cbf6d2d99cb 45
+  s_ad28489153bcf7::t_40c4743ae37752 2-4,14,17-44,46-51,54,56-58,60-74,76-103,112,121,123-125,127-136,158-182,184-189,191-199,201-203
+  s_ad28489153bcf7::t_118fcae4be44d7 113,122,200
+packages/inspector-core/tsconfig.json
+  s_ad28489153bcf7::t_3d9a0ebf77a86d 1-6
+evals/agent-arena/agent-arena.config.ts
+  s_ad28489153bcf7::t_654a9a8c3aa136 896,903
+development_docs/examples/vgplot-gallery.md
+  s_ad28489153bcf7::t_8583737504962a 56
+packages/agent-ai-sdk/src/create-llm-model.ts
+  s_ad28489153bcf7::t_e5878d3abd9454 3,8-9
+packages/adapter-vgplot/src/interactors/legend-toggle.ts
+  s_ad28489153bcf7::t_e5878d3abd9454 3
+apps/e2e/tests/providers/vgplot/input-clear-and-apply-state.spec.ts
+  s_ad28489153bcf7::t_e5878d3abd9454 5,38,45,63,102-103,127,141,148,155,186-187,195,199,207,214,237,248,271,274,278-279,288-289,312,319
+  s_ad28489153bcf7::t_007243a9e5480b 64-69,71-78,200-202,215-218
+packages/agent-ai-sdk/src/context-compaction.ts
+  s_ad28489153bcf7::t_e5878d3abd9454 3,5
+packages/adapter-vega-lite/test/provider.test.ts
+  s_ad28489153bcf7::t_7eef1398b8b8f7 88-96
+  s_ad28489153bcf7::t_322b6ab80adf5b 54,72-76,78-82
+  s_ad28489153bcf7::t_e80612a42ec596 1-11,13-14,19,26-47
+  s_ad28489153bcf7::t_180858358cef88 71,77
+  s_ad28489153bcf7::t_d21ff44582f240 12,15-18,20-25
+packages/adapter-vega-lite/src/signals.ts
+  s_ad28489153bcf7::t_e5878d3abd9454 1
+packages/inspector-core/test/fixtures.ts
+  s_ad28489153bcf7::t_057d6df3c2535f 1,6-8,13-14,17-18,23-29,44-46,48-62
+  s_ad28489153bcf7::t_b5ea7cedf6e17e 2-5,9-12,15-16,19-22,30-43,47,63
+examples/vega-lite-gallery/src/app.ts
+  s_ad28489153bcf7::t_30215af979c999 61
+packages/inspector-core/src/session.ts
+  s_ad28489153bcf7::t_cae6defd1e59d4 139
+  s_ad28489153bcf7::t_574216e4e15c5f 97
+  s_ad28489153bcf7::t_207159dfc23ec0 1-7,12-37,39-52,57-90,92,94-96,98,105,108-138,140,142-164,173-176,178-182
+  s_ad28489153bcf7::t_51b154fd0111ac 141
+  s_ad28489153bcf7::t_41fd4a16ca5fa2 53-56
+  s_ad28489153bcf7::t_9cc5c524c0baaf 165-172
+  s_ad28489153bcf7::t_ed4b75133419cd 91,93,99-104,106-107
+  s_ad28489153bcf7::t_587a2e8a61d771 38,177
+  s_ad28489153bcf7::t_e5878d3abd9454 8-11
+packages/adapter-vgplot/src/interactors/toggle.ts
+  s_ad28489153bcf7::t_e5878d3abd9454 3-4
+packages/inspector-core/src/http.ts
+  s_ad28489153bcf7::t_587a2e8a61d771 3,26-28,37-41,44-51,58-61,64-67
+  s_ad28489153bcf7::t_bf299ce8d17613 1,6,8-10,12-18,20,22-23,29-32,34-35,42-43,52-53,55-57,62-63,68
+  s_ad28489153bcf7::t_e5878d3abd9454 2,4
+  s_ad28489153bcf7::t_8396b2f4df7417 5,7,11,19,21,24-25,33,69-71
+  s_ad28489153bcf7::t_0ffecb8131002f 54
+examples/react-dashboard/src/bootstrap.tsx
+  s_ad28489153bcf7::t_c44dcd2e16799c 63
+packages/agent-ai-sdk/src/create-gemini-model.ts
+  s_ad28489153bcf7::t_e5878d3abd9454 4
+evals/plain-mcp/tests/test_sql.py
+  s_ad28489153bcf7::t_5f47ffe4cfb34a 3-4,27-44
+packages/adapter-vega-lite/src/params.ts
+  s_ad28489153bcf7::t_e5878d3abd9454 1
+packages/adapter-vgplot/src/interactors/nearest.ts
+  s_ad28489153bcf7::t_e5878d3abd9454 3-4
+packages/adapter-vgplot/src/dashboard-actions.ts
+  s_ad28489153bcf7::t_e5878d3abd9454 1-10
+packages/adapter-vega-lite/src/execute.ts
+  s_ad28489153bcf7::t_7eef1398b8b8f7 4,7-13,223,225,230,234,241,263-265
+  s_ad28489153bcf7::t_e5878d3abd9454 5-6
+  s_ad28489153bcf7::t_303b92926011f3 20
+docs/get-started/index.md
+  s_ad28489153bcf7::t_8583737504962a 3-7
+examples/vega-lite-gallery/tsconfig.json
+  s_ad28489153bcf7::t_e80612a42ec596 8-10,14-15
+  s_ad28489153bcf7::t_d21ff44582f240 7
+  s_ad28489153bcf7::t_30215af979c999 11-13
+packages/adapter-vgplot/src/dashboard-snapshots.ts
+  s_ad28489153bcf7::t_e5878d3abd9454 9-13,20
+  s_ad28489153bcf7::t_1d8a94ed339f7b 15,115
+README.md
+  s_ad28489153bcf7::t_8583737504962a 49,62
+packages/inspector-core/bench/inspection.ts
+  s_ad28489153bcf7::t_bb269760e366c7 14-54
+apps/e2e/tests/providers/vgplot/apply-state-human-interactions.spec.ts
+  s_ad28489153bcf7::t_b68a4e19559b58 7,104-105,109-110
+packages/inspector-core/src/index.ts
+  s_ad28489153bcf7::t_41fd4a16ca5fa2 1-8,10-11
+  s_ad28489153bcf7::t_7eeca92cae5a61 9
+  s_ad28489153bcf7::t_e5878d3abd9454 12-14
+packages/inspector-core/src/request.ts
+  s_ad28489153bcf7::t_207159dfc23ec0 1-5,13-18
+  s_ad28489153bcf7::t_7eeca92cae5a61 6-12
+packages/agent-ai-sdk/README.md
+  s_ad28489153bcf7::t_c44dcd2e16799c 12
+packages/adapter-vega-lite/src/tooltip.ts
+  s_ad28489153bcf7::t_2dfc9248c0cf7f 1-2,4-249,264-275,277-379,381-477,486-497
+  s_ad28489153bcf7::t_422cbf6d2d99cb 380
+  s_ad28489153bcf7::t_bd58eff0d27926 276
+  s_ad28489153bcf7::t_e5878d3abd9454 3
+  s_ad28489153bcf7::t_d21ff44582f240 250-263,478-485
+docs/reference/configuration.md
+  s_ad28489153bcf7::t_8583737504962a 17,31-36
+packages/adapter-vgplot/src/observe.ts
+  s_ad28489153bcf7::t_e5878d3abd9454 1-2
+  s_ad28489153bcf7::t_303b92926011f3 23-29,46,49-55,57-85,92-97
+  s_ad28489153bcf7::t_534018483ee5fd 4-5,7-8,10-12,14-22,30-39,41-45,47-48,56,86-91,98-112
+packages/adapter-vega-lite/src/index.ts
+  s_ad28489153bcf7::t_e5878d3abd9454 1-2
+packages/inspector-core/src/graph.ts
+  s_ad28489153bcf7::t_41fd4a16ca5fa2 1,3-28,30-63
+  s_ad28489153bcf7::t_e5878d3abd9454 2
+  s_ad28489153bcf7::t_7eeca92cae5a61 29
+evals/plain-mcp/src/plain_mcp/runtime.py
+  s_ad28489153bcf7::t_85ca1ecf6a9211 84,87,91-106
+packages/agent-ai-sdk/src/types.ts
+  s_ad28489153bcf7::t_e5878d3abd9454 2
+development_docs/code-quality-review.md
+  s_ad28489153bcf7::t_8583737504962a 1,3-9,11,13,15,17
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "0e5cb2ea1469009bc7ad80c9f0d0bc6ea0dfb9c4",
+  "prompts": {},
+  "sessions": {
+    "s_ad28489153bcf7": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a0b393-234e-74d3-8b65-e0faa6b8456b",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Péter Ferenc Gyarmati <peterferenc.gyarmati@inf.ethz.ch>"
+    }
+  }
+}
