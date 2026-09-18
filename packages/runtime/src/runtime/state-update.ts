@@ -83,6 +83,11 @@ function computeStateToken(snapshot: VacpStateSnapshot): string {
   return `st_${fnv1a64Hex(stableStringify(payload))}`;
 }
 
+function sameRefs(before: Record<VacpRef, unknown> = {}, after: Record<VacpRef, unknown> = {}): boolean {
+  const refs = Object.keys(before);
+  return refs.length === Object.keys(after).length && refs.every((ref) => Object.hasOwn(after, ref));
+}
+
 // Compute per-ref delta between two already-scoped snapshots.
 // Comparison is structural (stable JSON), so caller ordering does not matter.
 function diffStateSnapshots(args: { baseline: VacpStateSnapshot; current: VacpStateSnapshot }): VacpStateDeltaPayload {
@@ -167,7 +172,13 @@ export function buildStateUpdate(args: {
     return { update, snapshot: scopedCurrent };
   }
 
-  const delta = diffStateSnapshots({ baseline: scopedBaseline, current: scopedCurrent });
+  // JSON tokens omit undefined values. Preserve additions/removals of those refs.
+  const delta: VacpStateDeltaPayload =
+    token === args.request.since &&
+    sameRefs(scopedBaseline.state, scopedCurrent.state) &&
+    sameRefs(scopedBaseline.summary, scopedCurrent.summary)
+      ? { changed: {}, removed: [], summaryChanged: undefined, summaryRemoved: undefined }
+      : diffStateSnapshots({ baseline: scopedBaseline, current: scopedCurrent });
 
   const update: VacpStateUpdate = {
     version: VACP_SCHEMA_VERSION,

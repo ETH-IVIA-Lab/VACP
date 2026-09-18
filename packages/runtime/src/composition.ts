@@ -68,7 +68,7 @@ function composeObservations(
       actions.push(action);
     }
     for (const edge of observation.graph.edges) {
-      const key = stableStringify(edge);
+      const key = JSON.stringify([edge.from, edge.to, edge.kind]);
       if (edgeKeys.has(key)) continue;
       edgeKeys.add(key);
       edges.push(edge);

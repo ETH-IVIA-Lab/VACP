@@ -102,6 +102,7 @@ e2e: build-apps ## Test examples and the published documentation in Chromium.
 
 ci: build check package ## Run the source-validation CI pipeline.
 
-bench: build-libs ## Measure runtime reads, state tokens, and WebMCP registration bursts.
+bench: build-libs ## Measure runtime reads, inspection capture, and WebMCP registration bursts.
 	$(PNPM) --filter @vacp/runtime bench
 	$(PNPM) --filter @vacp/transport-webmcp bench
+	$(PNPM) --filter @vacp/inspector-core bench

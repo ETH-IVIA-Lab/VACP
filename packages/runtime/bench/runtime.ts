@@ -6,7 +6,7 @@ import {
   type VacpGraphFragment,
   type VacpProvider,
 } from '@vacp/protocol';
-import { createVacpRuntime } from '../src/index';
+import { composeVacpProviders, createVacpRuntime } from '../src/index';
 
 const size = 1_000;
 const iterations = 100;
@@ -61,3 +61,25 @@ try {
   runtime.dispose();
 }
 console.log(`State payload: ${stableStringify({ state }).length} UTF-16 code units`);
+
+const linkedGraph: VacpGraphFragment = {
+  ...graph,
+  edges: graph.nodes.flatMap((node, index) =>
+    Array.from({ length: 8 }, (_, offset) => ({
+      from: node.ref,
+      to: graph.nodes[(index + offset + 1) % size]!.ref,
+      kind: 'relatedTo',
+    })),
+  ),
+};
+const composition = composeVacpProviders([
+  {
+    ...provider,
+    observe: () => ({ revision: 'static', observedAt: '', graph: linkedGraph, state }),
+  },
+]);
+try {
+  await measure('composition with 8,000 edges', () => composition.observe());
+} finally {
+  composition.dispose();
+}

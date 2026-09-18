@@ -169,3 +169,26 @@ test('failed composition releases subscriptions it acquired without disposing pr
   assert.equal(attached, 0);
   assert.equal(disposed, 0);
 });
+
+test('shared relationships deduplicate by endpoints and kind without delimiter ambiguity', async () => {
+  const left = 'vacp://left|right';
+  const right = 'vacp://right';
+  const shared = { from: left, to: right, kind: 'controls|view' };
+  const reverse = { from: right, to: left, kind: shared.kind };
+  const different = { ...shared, kind: 'controls' };
+  const composed = composeVacpProviders([
+    provider({ id: 'vacp-source://left', node: left, action: 'left', result: 'left', edges: [shared] }),
+    provider({
+      id: 'vacp-source://right',
+      node: right,
+      action: 'right',
+      result: 'right',
+      edges: [{ kind: shared.kind, to: right, from: left }, reverse, different],
+    }),
+  ]);
+  try {
+    assert.deepEqual((await composed.observe()).graph.edges, [shared, reverse, different]);
+  } finally {
+    composed.dispose();
+  }
+});

@@ -84,3 +84,57 @@ test('buildStateUpdate rescopes broader baselines before computing a narrower de
     [dataRef]: { selectionWhere: `category = 'Example Item'` },
   });
 });
+
+test('matching scoped content tokens produce empty deltas while changed summaries remain observable', () => {
+  const baseline: VacpStateSnapshot = {
+    version: '0.1.0',
+    createdAt,
+    state: { [teamRef]: { value: 'A' } },
+    summary: { [teamRef]: { count: 3 } },
+  };
+  const initial = buildStateUpdate({ current: baseline, request: { mode: 'full', refs: [viewRef] } });
+  const request = { mode: 'delta' as const, refs: [viewRef], since: initial.update.token };
+  const unchanged = buildStateUpdate({
+    current: structuredClone(baseline),
+    baseline: initial.snapshot,
+    request,
+  }).update;
+  assert.equal(unchanged.mode, 'delta');
+  assert.deepEqual(unchanged.delta, { changed: {}, removed: [], summaryChanged: undefined, summaryRemoved: undefined });
+  const changed = buildStateUpdate({
+    current: { ...baseline, summary: { [teamRef]: { count: 4 } } },
+    baseline: initial.snapshot,
+    request,
+  }).update;
+  assert.equal(changed.mode, 'delta');
+  assert.deepEqual(changed.delta.summaryChanged, { [teamRef]: { count: 4 } });
+});
+
+test('equal JSON tokens still report removed and added undefined-valued refs', () => {
+  const before: VacpStateSnapshot = {
+    version: '0.1.0',
+    createdAt,
+    state: { [teamRef]: undefined },
+    summary: { [teamRef]: undefined },
+  };
+  const after: VacpStateSnapshot = {
+    version: '0.1.0',
+    createdAt,
+    state: { [athleteRef]: undefined },
+    summary: { [athleteRef]: undefined },
+  };
+  const initial = buildStateUpdate({ current: before, request: { mode: 'full' } });
+  const changed = buildStateUpdate({
+    current: after,
+    baseline: initial.snapshot,
+    request: { mode: 'delta', since: initial.update.token },
+  }).update;
+  assert.equal(changed.token, initial.update.token);
+  assert.equal(changed.mode, 'delta');
+  assert.deepEqual(changed.delta, {
+    changed: { [athleteRef]: undefined },
+    removed: [teamRef],
+    summaryChanged: { [athleteRef]: undefined },
+    summaryRemoved: [teamRef],
+  });
+});
