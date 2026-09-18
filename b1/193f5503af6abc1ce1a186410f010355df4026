@@ -1,0 +1,51 @@
+examples/config.ts
+  s_ad28489153bcf7::t_3e24d9f0221f70 1,14-17
+Makefile
+  s_ad28489153bcf7::t_3e24d9f0221f70 10,48,50
+apps/e2e/tests/bridge/webmcp.spec.ts
+  s_ad28489153bcf7::t_3e24d9f0221f70 119,121
+examples/README.md
+  s_ad28489153bcf7::t_3e24d9f0221f70 14
+apps/e2e/tests/smoke/examples.spec.ts
+  s_ad28489153bcf7::t_3e24d9f0221f70 297,301,328
+  s_ad28489153bcf7::t_31af85040bbc50 325-327
+development_docs/audit.md
+  s_ad28489153bcf7::t_3e24d9f0221f70 3,5
+knip.jsonc
+  s_ad28489153bcf7::t_3e24d9f0221f70 5-6
+development_docs/contributing.md
+  s_ad28489153bcf7::t_3e24d9f0221f70 91
+pyproject.toml
+  s_ad28489153bcf7::t_3e24d9f0221f70 2,29,35,39,42-44,51-52
+development_docs/architecture.md
+  s_ad28489153bcf7::t_3e24d9f0221f70 51,63
+apps/e2e/tests/bridge/exposure.spec.ts
+  s_ad28489153bcf7::t_3e24d9f0221f70 6,9-12
+  s_ad28489153bcf7::t_31af85040bbc50 13-30
+AGENTS.md
+  s_ad28489153bcf7::t_3e24d9f0221f70 52,68
+README.md
+  s_ad28489153bcf7::t_98d4a42caff2c8 37
+vite.config.ts
+  s_ad28489153bcf7::t_3e24d9f0221f70 81
+docs/reference/configuration.md
+  s_ad28489153bcf7::t_3e24d9f0221f70 27,29
+apps/docs/README.md
+  s_ad28489153bcf7::t_3e24d9f0221f70 3
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "b1193f5503af6abc1ce1a186410f010355df4026",
+  "prompts": {},
+  "sessions": {
+    "s_ad28489153bcf7": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a0b393-234e-74d3-8b65-e0faa6b8456b",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Péter Ferenc Gyarmati <peterferenc.gyarmati@inf.ethz.ch>"
+    }
+  }
+}
