@@ -1,0 +1,11 @@
+evals/agent-arena/tests/abort-signal-cleanup.test.ts
+  ai_agent 2,4-5,8-44,46
+evals/agent-arena/tests/map-limit-worker-id.test.ts
+  ai_agent 2,5-10,12-37,39
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "a5433c31dd5994042bfaa8f4080923ca66518882",
+  "prompts": {}
+}
