@@ -423,3 +423,95 @@ test('catalog bursts merge waiting revisions and refresh waits for the latest re
     runtime.dispose();
   }
 });
+
+test('a subscription supersedes a pending discovery read without restoring withdrawn actions', async () => {
+  const { runtime } = fixture();
+  const snapshot = await runtime.getCapabilities();
+  const latest = { ...snapshot, graph: { ...snapshot.graph, actions: [] } };
+  let publish!: (value: typeof snapshot) => void;
+  let release!: (value: typeof snapshot) => void;
+  let markStarted!: () => void;
+  const reading = new Promise<typeof snapshot>((resolve) => {
+    release = resolve;
+  });
+  const started = new Promise<void>((resolve) => {
+    markStarted = resolve;
+  });
+  const context = new Registry();
+  const installing = installVacpWebMcp(
+    {
+      ...runtime,
+      subscribeCapabilities: (listener) => {
+        publish = listener;
+        return () => {};
+      },
+      getCapabilities: () => {
+        markStarted();
+        return reading;
+      },
+    },
+    { context },
+  );
+  try {
+    await started;
+    publish(latest);
+    release(snapshot);
+    const registration = await installing;
+    assert.ok(registration);
+    assert.deepEqual(new Set(context.tools.keys()), new Set(['vacp.observe', 'vacp.capabilities', 'vacp.state']));
+    assert.deepEqual(new Set(registration.toolNames), new Set(context.tools.keys()));
+    registration.dispose();
+  } finally {
+    release(snapshot);
+    runtime.dispose();
+  }
+});
+
+test('overlapping refreshes await the newest discovery and ignore stale failures', async () => {
+  const { runtime } = fixture();
+  const snapshot = await runtime.getCapabilities();
+  const latest = {
+    ...snapshot,
+    graph: {
+      ...snapshot.graph,
+      actions: snapshot.graph.actions.map((action) => ({ ...action, description: 'Latest description' })),
+    },
+  };
+  const reads: Array<{ resolve: (value: typeof snapshot) => void; reject: (cause: Error) => void }> = [];
+  const context = new Registry();
+  let deferReads = false;
+  const registration = await installVacpWebMcp(
+    {
+      ...runtime,
+      subscribeCapabilities: () => () => {},
+      getCapabilities: () => {
+        if (!deferReads) return snapshot;
+        return new Promise<typeof snapshot>((resolve, reject) => {
+          reads.push({ resolve, reject });
+        });
+      },
+    },
+    { context },
+  );
+  assert.ok(registration);
+  try {
+    deferReads = true;
+    let firstFinished = false;
+    const first = registration.refresh().then(() => {
+      firstFinished = true;
+    });
+    const second = registration.refresh();
+    await Promise.resolve();
+    reads[0]!.reject(new Error('Superseded discovery failed'));
+    await Promise.resolve();
+    assert.equal(firstFinished, false);
+    reads[1]!.resolve(latest);
+    await Promise.all([first, second]);
+    assert.match(context.tools.get('vacp.action.threshold.set')?.description ?? '', /^Latest description/);
+    assert.equal(registration.error, undefined);
+  } finally {
+    for (const read of reads) read.resolve(snapshot);
+    registration.dispose();
+    runtime.dispose();
+  }
+});

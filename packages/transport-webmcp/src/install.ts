@@ -50,6 +50,8 @@ export async function installVacpWebMcp(
   signal.throwIfAborted();
   const registrations = new Map<string, Registration>();
   let pending: Promise<void> = Promise.resolve();
+  let latest = pending;
+  let discovery = 0;
   let queued: { graph: VacpGraph; completion: Promise<void> } | undefined;
   let error: unknown;
   let disposed = false;
@@ -144,18 +146,26 @@ export async function installVacpWebMcp(
   };
   const refresh = async () => {
     signal.throwIfAborted();
-    try {
-      const snapshot = await readWithSignal(() => source.getCapabilities(), signal);
-      await enqueue(snapshot.graph);
-    } catch (cause) {
-      clear();
-      error = cause;
-      throw cause;
-    }
+    const generation = ++discovery;
+    // A later read or publication owns discovery, regardless of read completion order.
+    const request = readWithSignal(() => source.getCapabilities(), signal).then(
+      (snapshot) => (generation === discovery ? enqueue(snapshot.graph) : latest),
+      (cause) => {
+        signal.throwIfAborted();
+        if (generation !== discovery) return latest;
+        clear();
+        error = cause;
+        throw cause;
+      },
+    );
+    latest = request;
+    await request;
   };
   try {
     const detach = source.subscribeCapabilities((snapshot) => {
-      void enqueue(snapshot.graph).catch((cause) => {
+      discovery++;
+      latest = enqueue(snapshot.graph);
+      void latest.catch((cause) => {
         if (!signal.aborted) options.onError?.(cause);
       });
     });
