@@ -1,0 +1,43 @@
+docs/transports/webmcp.md
+  s_ad28489153bcf7::t_7f0a7e0f542b11 33,35
+packages/transport-webmcp/src/types.ts
+  s_ad28489153bcf7::t_7f0a7e0f542b11 33
+pnpm-lock.yaml
+  ai_agent 339-341
+knip.jsonc
+  s_ad28489153bcf7::t_ffd797dca0fd94 23
+apps/e2e/package.json
+  s_ad28489153bcf7::t_7f0a7e0f542b11 23-24
+apps/e2e/tests/bridge/webmcp.spec.ts
+  s_ad28489153bcf7::t_11d3482e3885f9 146-151
+  s_ad28489153bcf7::t_3693f03fd015f4 99-110
+  s_ad28489153bcf7::t_0d24dbb41c6876 95-98,126-141,169-173
+  s_ad28489153bcf7::t_725712c6eeac2d 142-145,152-153
+  s_ad28489153bcf7::t_345cd45baac6b0 154-166
+  s_ad28489153bcf7::t_cfeb9d2c43cd3d 167-168
+packages/transport-webmcp/test/webmcp.test.ts
+  s_ad28489153bcf7::t_fae27ef393c264 207
+  s_ad28489153bcf7::t_655cdf4fa95d22 186-206,208-218
+apps/e2e/fixtures/webmcp.ts
+  s_ad28489153bcf7::t_0d24dbb41c6876 1-45,56-65
+  s_ad28489153bcf7::t_c6cbf487ca39b4 47-54
+  s_ad28489153bcf7::t_725712c6eeac2d 46,55
+packages/transport-webmcp/src/compile.ts
+  s_ad28489153bcf7::t_7f0a7e0f542b11 21-22
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "f0d5e6a6d222289e9b32b62de1f09f0f20654ba4",
+  "prompts": {},
+  "sessions": {
+    "s_ad28489153bcf7": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a0b393-234e-74d3-8b65-e0faa6b8456b",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Péter Ferenc Gyarmati <peterferenc.gyarmati@inf.ethz.ch>"
+    }
+  }
+}
