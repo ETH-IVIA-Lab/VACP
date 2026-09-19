@@ -52,10 +52,6 @@ const DATASETS = {
 
 export type DatasetId = keyof typeof DATASETS;
 
-export function isDatasetId(value: string): value is DatasetId {
-  return Object.prototype.hasOwnProperty.call(DATASETS, value);
-}
-
 export function listDatasets(): Array<Pick<Dataset, 'id' | 'title' | 'description'>> {
   return (Object.entries(DATASETS) as Array<[DatasetId, DatasetSpec]>).map(([id, d]) => ({
     id,

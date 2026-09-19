@@ -20,6 +20,7 @@
     "@vacp/data-duckdb": "workspace:*",
     "@vacp/protocol": "workspace:*",
     "@vacp/sdk": "workspace:*",
+    "@vacp/transport-webmcp": "workspace:*",
     "class-variance-authority": "catalog:",
     "clsx": "catalog:",
     "lucide-react": "catalog:",
@@ -28,6 +29,7 @@
     "recharts": "^2.15.4",
     "tailwind-merge": "catalog:",
     "tailwindcss-animate": "^1.0.7",
+    "zod": "catalog:",
     "zustand": "catalog:"
   },
   "devDependencies": {

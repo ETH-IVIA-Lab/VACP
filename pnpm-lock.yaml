@@ -434,6 +434,9 @@ importers:
       '@vacp/sdk':
         specifier: workspace:*
         version: link:../../packages/sdk
+      '@vacp/transport-webmcp':
+        specifier: workspace:*
+        version: link:../../packages/transport-webmcp
       class-variance-authority:
         specifier: 'catalog:'
         version: 0.7.1
@@ -458,6 +461,9 @@ importers:
       tailwindcss-animate:
         specifier: ^1.0.7
         version: 1.0.7(tailwindcss@4.3.3)
+      zod:
+        specifier: 'catalog:'
+        version: 4.6.5
       zustand:
         specifier: 'catalog:'
         version: 5.0.15(@types/react@19.3.0)(react@19.3.0)(use-sync-external-store@1.7.0(react@19.3.0))
