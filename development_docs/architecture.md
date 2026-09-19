@@ -141,3 +141,9 @@ Vega run completion can witness its output revision. VGPlot requests updates and
 ## Presentation authority
 
 `VacpExecutionSource` is passive. `VacpExecutionControl` grants bounded gate registration. Creating a headless or browser presence viewer subscribes to events and observations. A host may separately call `paceAgentPresence(control, viewer, timing)` to grant that viewer pacing authority, then release pacing while keeping the viewer attached. Disposing either owner releases waits. Hosts choose which viewer may pace; additional viewers remain independent observers.
+
+## Observation work
+
+Every runtime read still consults the source and preserves consumer isolation. Capability publication reuses its graph fingerprint when the analytical revision and source descriptions are unchanged. A provider revision covers its graph, state, summary, and freshness. `createVacpProvider` incorporates action catalog changes into a supplied projection revision so dynamic operations remain discoverable.
+
+Vega parameter projection reads one native snapshot and indexes its signal scopes once per observation. Root scope precedence and direct-signal fallback remain explicit in the binding. Presence discards superseded geometry work before invoking the resolver, while the execution stream retains every semantic operation.

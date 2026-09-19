@@ -175,10 +175,11 @@ export function createVegaLiteProvider(args: {
       });
 
       const state: Record<string, unknown> = {};
-      for (const [ref, { param, kind, read }] of helpers.paramByRef) {
+      const values = helpers.readValues();
+      for (const [ref, { param, kind }] of helpers.paramByRef) {
         state[ref] = param.select
-          ? { kind, name: param.name, value: read(), select: param.select }
-          : { kind, name: param.name, value: read(), bind: param.bind };
+          ? { kind, name: param.name, value: values.get(ref), select: param.select }
+          : { kind, name: param.name, value: values.get(ref), bind: param.bind };
       }
       dataHandles.forEach((h) => {
         state[h.ref] = {

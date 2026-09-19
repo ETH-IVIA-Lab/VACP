@@ -61,7 +61,9 @@ export function createAgentPresence(source: PresenceSource, options: PresenceOpt
     entry.lookup = lookup;
     const signal = AbortSignal.any([lookup.signal, binding.signal, lifetime.signal]);
     entry.pending = Promise.resolve()
-      .then(() => binding.resolve(focus, { signal }))
+      .then(() => {
+        if (!signal.aborted) return binding.resolve(focus, { signal });
+      })
       .then(
         (target) => {
           if (signal.aborted) return;

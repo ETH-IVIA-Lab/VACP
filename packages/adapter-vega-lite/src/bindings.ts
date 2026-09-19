@@ -57,7 +57,6 @@ export function createVegaLiteBindings(spec: VegaLiteSpecLike, view: VegaViewLik
       signals: string[];
       markTypes?: ReadonlySet<string>;
       contexts(): VegaRuntimeContext[];
-      read(): unknown;
     }
   >();
   for (const param of collectVegaLiteParams(spec)) {
@@ -69,9 +68,29 @@ export function createVegaLiteBindings(spec: VegaLiteSpecLike, view: VegaViewLik
       signals: [...signals],
       markTypes: ownedMarks.get(param.name),
       contexts: () => selectionContexts(view, param.name),
-      read: () => readStateSignal(view, param.name) ?? tryGetSignal(view, param.name),
     });
   }
-  return { paramByRef, allSignals, rootUnit: typeof spec.name === 'string' ? spec.name : '' };
+  return {
+    paramByRef,
+    allSignals,
+    rootUnit: typeof spec.name === 'string' ? spec.name : '',
+    readValues() {
+      let state: VegaRuntimeContext | undefined;
+      try {
+        state = view.getState?.() as VegaRuntimeContext | undefined;
+      } catch {
+        /* Native signal reads remain available when snapshot export is unavailable. */
+      }
+      const signals = new Map<string, unknown>();
+      for (const { context } of contexts(state)) {
+        for (const [name, value] of Object.entries(context.signals ?? {}))
+          if (!signals.has(name)) signals.set(name, value);
+      }
+      const values = new Map<VacpRef, unknown>();
+      for (const [ref, { param }] of paramByRef)
+        values.set(ref, signals.get(param.name) ?? tryGetSignal(view, param.name));
+      return values;
+    },
+  };
 }
 export type VegaLiteBindings = ReturnType<typeof createVegaLiteBindings>;

@@ -19,7 +19,8 @@
   "scripts": {
     "build": "vp pack",
     "typecheck": "tsc -p tsconfig.json",
-    "test": "tsx --test test/*.test.ts"
+    "test": "tsx --test test/*.test.ts",
+    "bench": "tsx bench/observation.ts"
   },
   "dependencies": {
     "@vacp/data-duckdb": "workspace:*",

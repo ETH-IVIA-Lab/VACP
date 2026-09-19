@@ -208,3 +208,41 @@ test('raw signal preparation resolves the native target and retains caller value
     provider.dispose?.();
   }
 });
+
+test('parameter observations share a native snapshot while preserving scoped signal fallback', async () => {
+  let revision = 0;
+  let unavailable = false;
+  const view: VegaViewLike = {
+    signal: (name) => (name === 'outside' ? 42 : 100),
+    getState: () => {
+      if (unavailable) throw new Error('Snapshot unavailable');
+      const value = ++revision;
+      return {
+        signals: { first: value },
+        subcontext: { unit: { signals: { first: -1, second: value, outside: null } } },
+      };
+    },
+    runAsync: async () => {},
+  };
+  const provider = createVegaLiteProvider({
+    view,
+    spec: { params: ['first', 'second', 'outside'].map((name) => ({ name, value: 0 })) },
+    options: { appId: 'test', viewId: 'coherent', vizId: 'chart', enableDuckDbDataHandle: false },
+  });
+  const values = async () => {
+    const { state } = await provider.observe();
+    return ['first', 'second', 'outside'].map(
+      (name) => (state[`vacp://test/coherent/chart/param/${name}`] as { value: number }).value,
+    );
+  };
+  try {
+    const [first, second, outside] = await values();
+    assert.ok(first > 0);
+    assert.equal(first, second);
+    assert.equal(outside, 42);
+    unavailable = true;
+    assert.deepEqual(await values(), [100, 100, 42]);
+  } finally {
+    provider.dispose?.();
+  }
+});

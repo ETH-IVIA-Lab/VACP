@@ -155,17 +155,22 @@ test('subscribed snapshots detect in-place graph and summary edits without times
     edges: [],
   };
   const summary: Record<'vacp://view', string> = { 'vacp://view': 'first' };
+  const description = { ...source };
   const sourceProvider = createVacpProvider({
-    source,
+    source: description,
     actions: new VacpActionRegistry(),
     project: () => ({ graph, state: {}, summary }),
   });
   const runtime = createVacpRuntime({ providers: [sourceProvider] });
   const titles: string[] = [];
   const summaries: string[] = [];
+  const sourceTitles: string[] = [];
   try {
     await runtime.getCapabilities();
-    runtime.subscribeCapabilities((value) => titles.push(value.graph.nodes[0]!.title!));
+    runtime.subscribeCapabilities((value) => {
+      titles.push(value.graph.nodes[0]!.title!);
+      sourceTitles.push(value.graph.sources[0]!.title);
+    });
     runtime.subscribeSnapshots((value) => summaries.push(String(value.state.summary?.['vacp://view'])));
     runtime.stopObserving();
     await runtime.getCapabilities();
@@ -179,6 +184,9 @@ test('subscribed snapshots detect in-place graph and summary edits without times
     await runtime.getCapabilities();
     assert.deepEqual(titles, ['before subscription', 'edited in place']);
     assert.deepEqual(summaries, ['first', 'second', 'summary only']);
+    description.title = 'Renamed source';
+    await runtime.getCapabilities();
+    assert.equal(sourceTitles.at(-1), 'Renamed source');
   } finally {
     runtime.dispose();
   }
@@ -455,6 +463,43 @@ test('an unsettled provider fails within the composition retry bound', async () 
   try {
     await assert.rejects(runtime.observe(), /did not settle/);
     assert.equal(reads, 8);
+  } finally {
+    runtime.dispose();
+  }
+});
+
+test('capabilities follow action catalog changes independently of a host projection revision', async () => {
+  const actions = new VacpActionRegistry();
+  actions.register(descriptor('first'), () => {});
+  const runtime = createVacpRuntime({
+    providers: [
+      createVacpProvider({
+        source,
+        actions,
+        project: () => ({
+          revision: 'host-version',
+          graph: {
+            version: VACP_SCHEMA_VERSION,
+            nodes: [{ ref: 'vacp://view', kind: 'View', layer: 'ViewLayer' }],
+            edges: [],
+          },
+          state: {},
+        }),
+      }),
+    ],
+  });
+  const catalogs: string[][] = [];
+  runtime.subscribeCapabilities((capabilities) =>
+    catalogs.push(capabilities.graph.actions.map((action) => action.name)),
+  );
+  runtime.stopObserving();
+  try {
+    await runtime.getCapabilities();
+    actions.register(descriptor('second'), () => {});
+    await runtime.getCapabilities();
+    actions.unregister('first');
+    await runtime.getCapabilities();
+    assert.deepEqual(catalogs, [['first'], ['first', 'second'], ['second']]);
   } finally {
     runtime.dispose();
   }

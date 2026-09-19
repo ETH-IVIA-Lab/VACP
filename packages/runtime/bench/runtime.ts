@@ -1,4 +1,4 @@
-import { performance } from 'node:perf_hooks';
+import { measure } from '../../../tools/benchmark';
 import {
   VACP_SCHEMA_VERSION,
   fnv1a64Hex,
@@ -9,7 +9,6 @@ import {
 import { composeVacpProviders, createVacpRuntime } from '../src/index';
 
 const size = 1_000;
-const iterations = 100;
 const graph: VacpGraphFragment = {
   version: VACP_SCHEMA_VERSION,
   nodes: Array.from({ length: size }, (_, i) => ({
@@ -32,18 +31,6 @@ const provider: VacpProvider = {
   observe: () => ({ revision: 'static', observedAt: '', graph, state }),
   prepare: async (call) => ({ intent: { affects: [] }, execute: async () => ({ callId: call.callId, ok: true }) }),
 };
-
-async function measure(name: string, run: () => unknown | Promise<unknown>) {
-  for (let i = 0; i < 20; i++) await run();
-  const rounds: number[] = [];
-  for (let round = 0; round < 5; round++) {
-    const start = performance.now();
-    for (let i = 0; i < iterations; i++) await run();
-    rounds.push((performance.now() - start) / iterations);
-  }
-  rounds.sort((a, b) => a - b);
-  console.log(`${name}: ${rounds[2]!.toFixed(3)} ms/op (median of 5 x ${iterations})`);
-}
 
 console.log(`Node ${process.version}; ${size} nodes/actions/state refs; static provider`);
 await measure('hash 100 KiB', () => fnv1a64Hex('x'.repeat(100 * 1024)));
@@ -82,4 +69,26 @@ try {
   await measure('composition with 8,000 edges', () => composition.observe());
 } finally {
   composition.dispose();
+}
+
+let revision = 0;
+const changing = createVacpRuntime({
+  providers: [
+    {
+      ...provider,
+      observe: () => ({
+        revision: String(++revision),
+        observedAt: '',
+        graph,
+        state: { ...state, 'vacp://bench/0': { value: revision, selected: false } },
+      }),
+    },
+  ],
+});
+try {
+  changing.subscribeSnapshots(() => {});
+  changing.stopObserving();
+  await measure('changing subscribed snapshot', () => changing.getCapabilities());
+} finally {
+  changing.dispose();
 }

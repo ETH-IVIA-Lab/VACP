@@ -9,6 +9,7 @@ export function createLiveObservations(read: () => Promise<VacpObservation>, sig
   const snapshotListeners = new Set<(snapshots: VacpLiveSnapshots) => void>();
   let snapshotKey: string | undefined;
   let capabilitiesKey: string | undefined;
+  let graphObservationKey: string | undefined;
   let observationGeneration = 0;
   let pendingRead: { generation: number; promise: Promise<VacpLiveSnapshots> } | undefined;
   let current: VacpLiveSnapshots | undefined;
@@ -39,9 +40,15 @@ export function createLiveObservations(read: () => Promise<VacpObservation>, sig
     current = { observation, capabilities: cap, state: st };
 
     if (capabilityListeners.size > 0 || snapshotListeners.size > 0) {
-      const nextKey = stableStringify(cap.graph);
-      const graphChanged = capabilitiesKey !== nextKey;
-      capabilitiesKey = nextKey;
+      // Source descriptions can change independently of analytical source revisions.
+      const observationKey = stableStringify([observation.revision, cap.graph.sources]);
+      let graphChanged = false;
+      if (graphObservationKey !== observationKey) {
+        const nextKey = stableStringify(cap.graph);
+        graphChanged = capabilitiesKey !== nextKey;
+        capabilitiesKey = nextKey;
+        graphObservationKey = observationKey;
+      }
       if (graphChanged) notify(capabilityListeners, cap);
       if (snapshotListeners.size > 0) {
         const stateKey = observation.revision;
@@ -87,6 +94,7 @@ export function createLiveObservations(read: () => Promise<VacpObservation>, sig
       current = undefined;
       snapshotKey = undefined;
       capabilitiesKey = undefined;
+      graphObservationKey = undefined;
     },
     subscribeCapabilities(listener: (snapshot: VacpCapabilitiesSnapshot) => void) {
       signal.throwIfAborted();
@@ -107,6 +115,10 @@ export function createLiveObservations(read: () => Promise<VacpObservation>, sig
       capabilityListeners.clear();
       snapshotListeners.clear();
       current = undefined;
+      pendingRead = undefined;
+      snapshotKey = undefined;
+      capabilitiesKey = undefined;
+      graphObservationKey = undefined;
     },
   };
 }

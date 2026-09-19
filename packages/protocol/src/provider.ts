@@ -10,6 +10,7 @@ import type { VacpPreparedAction } from './execution';
 
 /** Atomic contribution published by one analytical source. */
 export type VacpProviderObservation<NodeData = Record<string, unknown>> = {
+  /** Changes whenever graph, state, summary, or freshness changes. */
   revision: string;
   observedAt: string;
   graph: VacpGraphFragment<NodeData>;

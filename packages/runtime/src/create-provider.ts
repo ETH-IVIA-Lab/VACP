@@ -15,7 +15,7 @@ export type VacpAnalyticalProjection<NodeData = Record<string, unknown>> = {
   state: Record<VacpRef, unknown>;
   summary?: Record<VacpRef, unknown>;
   freshness?: Record<VacpRef, VacpFreshness>;
-  /** Supply a host revision when one exists; otherwise content defines it. */
+  /** Version of this projection. The provider also accounts for action catalog changes. */
   revision?: string;
 };
 
@@ -33,15 +33,10 @@ export function createVacpProvider<NodeData = Record<string, unknown>>(args: {
       const projected = await args.project();
       const graph: VacpGraphFragment<NodeData> = { ...projected.graph, actions: args.actions.list() };
       const revision =
-        projected.revision ??
-        `src_${fnv1a64Hex(
-          stableStringify({
-            graph,
-            state: projected.state,
-            summary: projected.summary,
-            freshness: projected.freshness,
-          }),
-        )}`;
+        projected.revision == null
+          ? `src_${fnv1a64Hex(stableStringify({ graph, state: projected.state, summary: projected.summary, freshness: projected.freshness }))}`
+          : `${projected.revision}:${fnv1a64Hex(stableStringify(graph.actions))}`;
+
       return {
         revision,
         observedAt: nowIso(),

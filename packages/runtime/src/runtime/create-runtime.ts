@@ -389,6 +389,8 @@ export function createVacpRuntime(args: {
       providerLifetimes.clear();
       providerLeases.clear();
       observations.dispose();
+      history.clear();
+      stateUpdateCache.clear();
       stopObserving();
       listeners.clear();
     },

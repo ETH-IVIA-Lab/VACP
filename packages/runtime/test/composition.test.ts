@@ -45,7 +45,7 @@ function provider(args: {
 test('composition preserves source ownership, cross-source relationships, freshness, and routing', async () => {
   const widgetRef = 'vacp://widget/filter';
   const chartRef = 'vacp://notebook/chart';
-  const composed = composeVacpProviders([
+  const sources = [
     provider({
       id: 'vacp-source://widget',
       node: widgetRef,
@@ -60,7 +60,8 @@ test('composition preserves source ownership, cross-source relationships, freshn
       result: 'chart',
       freshness: 'stale',
     }),
-  ]);
+  ];
+  const composed = composeVacpProviders(Object.freeze(sources));
   try {
     const observation = await composed.observe();
     assert.deepEqual(
@@ -79,6 +80,8 @@ test('composition preserves source ownership, cross-source relationships, freshn
   } finally {
     composed.dispose();
   }
+  assert.equal(sources.length, 2);
+  await assert.rejects(composed.observe(), /disposed/);
 });
 
 test('composition rejects competing ownership instead of silently replacing providers', async () => {

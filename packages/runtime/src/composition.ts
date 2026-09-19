@@ -126,7 +126,8 @@ function composeObservations(
 }
 
 /** Compose independently owned analytical sources into one coherent runtime port. */
-export function composeVacpProviders(providers: readonly VacpProvider[]) {
+export function composeVacpProviders(inputProviders: readonly VacpProvider[]) {
+  let providers = [...inputProviders];
   const bySource = new Map<VacpSourceId, VacpProvider>();
   for (const provider of providers) {
     const existing = bySource.get(provider.source.id);
@@ -170,6 +171,7 @@ export function composeVacpProviders(providers: readonly VacpProvider[]) {
 
   const execute = async (call: VacpActionCall, options?: VacpActionExecutionOptions): Promise<VacpActionResult> => {
     const observation = await observe();
+    if (disposed) throw new Error('VACP composition is disposed');
     const owners = observation.graph.ownership.actions;
     const sourceId = Object.hasOwn(owners, call.name) ? owners[call.name] : undefined;
     if (!sourceId) return { callId: call.callId, ok: false, error: { message: `Unknown action: ${call.name}` } };
@@ -190,6 +192,9 @@ export function composeVacpProviders(providers: readonly VacpProvider[]) {
       if (options?.providers ?? true) {
         for (const provider of providers) provider.dispose?.();
       }
+      providers = [];
+      bySource.clear();
+      detach.length = 0;
       listeners.clear();
     },
   };

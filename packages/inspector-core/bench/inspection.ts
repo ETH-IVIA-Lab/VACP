@@ -1,4 +1,4 @@
-import { performance } from 'node:perf_hooks';
+import { measure } from '../../../tools/benchmark';
 import { VACP_SCHEMA_VERSION, type VacpObservation } from '@vacp/protocol';
 import { createInspectorSession, createInspectionIndex } from '../src/index';
 
@@ -30,20 +30,14 @@ for (let i = 0; i < size; i++) {
   observation.state[ref] = { value: i, selected: false };
 }
 const session = createInspectorSession({ id: 'benchmark', title: 'Benchmark', observe: async () => observation });
-async function measure(name: string, run: () => unknown | Promise<unknown>) {
-  for (let i = 0; i < 20; i++) await run();
-  const rounds: number[] = [];
-  for (let round = 0; round < 5; round++) {
-    const start = performance.now();
-    for (let i = 0; i < 100; i++) await run();
-    rounds.push((performance.now() - start) / 100);
-  }
-  rounds.sort((a, b) => a - b);
-  console.log(`${name}: ${rounds[2]!.toFixed(3)} ms/op (median of 5 x 100)`);
-}
+
 console.log(`Node ${process.version}; ${size} entities/actions/state refs`);
 try {
-  await measure('inspection capture', () => session.refresh());
+  await measure('inspection capture', async () => {
+    await session.refresh();
+    const state = session.getState();
+    if (state.status !== 'ready') throw state.observationError ?? new Error('Inspection did not complete');
+  });
   const captured = session.getState().observation!;
   await measure('index and visit every entity', () => {
     const index = createInspectionIndex(captured);
