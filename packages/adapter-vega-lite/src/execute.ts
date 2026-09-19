@@ -1,5 +1,5 @@
 import { intervalVisualSignals } from './selection-signals';
-import type { VacpActionCall, VacpFocus, VacpRef } from '@vacp/protocol';
+import type { VacpActionCall, VacpFocus, VacpRef, VacpInteraction } from '@vacp/protocol';
 import { changeset } from 'vega';
 
 import { findSignalContext, readStateSignal, runtimeUnit, type VegaLiteBindings } from './bindings';
@@ -170,6 +170,34 @@ function prepareSelectionStore(view: VegaViewLike, name: string, selectionValue:
   return { storeName, tuples, unit };
 }
 
+function interactionForParameter(
+  call: VacpActionCall,
+  param: { select?: unknown; bind?: unknown },
+  fields?: unknown[],
+): VacpInteraction {
+  if (call.name === 'vega_lite.clear_selection') return { kind: 'activate' };
+  const select = isRecord(param.select) ? param.select : undefined;
+  if (param.select === 'interval' || select?.type === 'interval') {
+    const encodings = Array.isArray(select?.encodings)
+      ? select.encodings
+      : fields?.map((field) => (isRecord(field) ? field.channel : undefined));
+    const x = encodings?.includes('x'),
+      y = encodings?.includes('y');
+    const axis = x && y ? 'xy' : x ? 'x' : y ? 'y' : undefined;
+    return { kind: param.bind === 'scales' ? 'pan' : 'brush', axis };
+  }
+  const bind = isRecord(param.bind) ? param.bind : undefined;
+  if (bind?.input === 'range') return { kind: 'drag', axis: 'x' };
+  if (
+    bind &&
+    ['text', 'number', 'search', 'date', 'datetime-local', 'time', 'email', 'url', 'password'].includes(
+      String(bind.input),
+    )
+  )
+    return { kind: 'edit' };
+  return { kind: 'activate' };
+}
+
 export function prepareVegaLiteAction(view: VegaViewLike, call: VacpActionCall, helpers: VegaLiteBindings) {
   const input = structuredClone(call.params ?? {});
   if (typeof input !== 'object' || Array.isArray(input)) throw new Error('Expected action parameters');
@@ -206,9 +234,13 @@ export function prepareVegaLiteAction(view: VegaViewLike, call: VacpActionCall, 
     throw new Error(`Param "${name}" is not a selection parameter`);
   if (!['vega_lite.set_param', 'vega_lite.set_selection', 'vega_lite.clear_selection'].includes(call.name))
     throw new Error(`Unsupported action: ${call.name}`);
-  const focus: VacpFocus = { ref: ref as VacpRef, detail: { value: params.value } };
   const store =
     call.name === 'vega_lite.set_selection' ? prepareSelectionStore(view, name, params.value, helpers) : null;
+  const focus: VacpFocus = {
+    ref: ref as VacpRef,
+    detail: { value: params.value },
+    interaction: interactionForParameter(call, found.param, store?.tuples[0]?.fields),
+  };
   return {
     focus,
     execute: async () => {

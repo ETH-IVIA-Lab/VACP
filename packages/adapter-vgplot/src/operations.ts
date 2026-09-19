@@ -1,4 +1,4 @@
-import type { VacpFocus } from '@vacp/protocol';
+import type { VacpFocus, VacpInteraction } from '@vacp/protocol';
 import type { VgplotBinding, VgplotBindings } from './bindings';
 import { prepareInputAction } from './inputs';
 import { plotLegends } from './legends';
@@ -14,9 +14,14 @@ export type VgplotOperation = { focus: VacpFocus; execute(): unknown | Promise<u
 type Prepare = (params: Params) => VgplotOperation;
 
 /** A closed native target plus a validated mutation; execution never resolves the target again. */
-function bound(binding: VgplotBinding, execute: () => unknown | Promise<unknown>, detail?: unknown): VgplotOperation {
+function bound(
+  binding: VgplotBinding,
+  execute: () => unknown | Promise<unknown>,
+  detail?: unknown,
+  interaction: VacpInteraction = { kind: 'activate' },
+): VgplotOperation {
   return {
-    focus: { ref: binding.ref, detail },
+    focus: { ref: binding.ref, detail, interaction },
     execute: async () => {
       if (binding.kind === 'interactor' && binding.plot.interactors[binding.index] !== binding.interactor)
         throw new Error('Interactor binding changed; prepare the operation again');
@@ -39,12 +44,24 @@ export function createVgplotOperations(bindings: VgplotBindings) {
         ? [params.min, params.max]
         : [params.x0, params.x1, params.y0, params.y1];
     const plan = prepareInterval(binding.interactor, dimension, values);
-    return bound(binding, plan.execute, plan.detail);
+    return bound(
+      binding,
+      plan.execute,
+      plan.detail,
+      clear
+        ? { kind: 'activate' }
+        : { kind: 'brush', axis: dimension === 2 ? 'xy' : binding.interactor.channel === 'y' ? 'y' : 'x' },
+    );
   };
   const points = (params: Params, kind: 'Toggle' | 'Region', clear: boolean) => {
     const binding = interactor(params);
     if (binding.interactor.constructor.name !== kind) throw new Error(`Expected ${kind} interactor`);
-    return bound(binding, preparePointSelection(binding.interactor, clear ? null : params.value));
+    return bound(
+      binding,
+      preparePointSelection(binding.interactor, clear ? null : params.value),
+      undefined,
+      !clear && kind === 'Region' ? { kind: 'brush' } : { kind: 'activate' },
+    );
   };
   const legend = (params: Params, clear: boolean) => {
     const binding = bindings.legend(bindings.plot(params.plotId).plot, params.channel);
@@ -62,7 +79,18 @@ export function createVgplotOperations(bindings: VgplotBindings) {
   };
   const input = (params: Params, name: string) => {
     const binding = bindings.input(params.ref);
-    return bound(binding, prepareInputAction(binding.input, { name, params }));
+    return bound(
+      binding,
+      prepareInputAction(binding.input, { name, params }),
+      undefined,
+      name === 'vgplot.clear_input'
+        ? { kind: 'activate' }
+        : binding.input.input.slider
+          ? { kind: 'drag', axis: 'x' }
+          : binding.input.input.searchbox
+            ? { kind: 'edit' }
+            : { kind: 'activate' },
+    );
   };
   const factories: Record<string, Prepare> = {
     'vgplot.set_interval_1d': (p) => interval(p, 1, false),
@@ -77,15 +105,17 @@ export function createVgplotOperations(bindings: VgplotBindings) {
     'vgplot.clear_legend_toggle': (p) => legend(p, true),
     'vgplot.clear_nearest': (p) => {
       const b = interactor(p);
-      return bound(b, prepareNearestClear(b.interactor));
+      return bound(b, prepareNearestClear(b.interactor), undefined, { kind: 'point' });
     },
     'vgplot.set_pan_zoom': (p) => {
       const b = interactor(p);
-      return bound(b, preparePanZoom(b.interactor, p));
+      const plan = preparePanZoom(b.interactor, p);
+      return bound(b, plan.execute, undefined, plan.interaction);
     },
     'vgplot.clear_pan_zoom': (p) => {
       const b = interactor(p);
-      return bound(b, preparePanZoom(b.interactor, null));
+      const plan = preparePanZoom(b.interactor, null);
+      return bound(b, plan.execute, undefined, plan.interaction);
     },
     'vgplot.table_set_sort': (p) => table(p, 'vgplot.table_set_sort'),
     'vgplot.table_clear_sort': (p) => table(p, 'vgplot.table_clear_sort'),
@@ -179,7 +209,8 @@ export function createVgplotOperations(bindings: VgplotBindings) {
                 y1: Array.isArray(y) ? y[1] : undefined,
               }
             : null;
-        return [bound(binding, preparePanZoom(target, params))];
+        const plan = preparePanZoom(target, params);
+        return [bound(binding, plan.execute, undefined, plan.interaction)];
       }
       return null;
     },

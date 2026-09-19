@@ -246,3 +246,54 @@ test('parameter observations share a native snapshot while preserving scoped sig
     provider.dispose?.();
   }
 });
+
+test('prepared focus describes brushing, pointing and bound-control interaction semantics', async () => {
+  const provider = createVegaLiteProvider({
+    view: { signal: () => 0, runAsync: async () => {} },
+    spec: {
+      params: [
+        { name: 'brush', select: { type: 'interval', encodings: ['x'] } },
+        { name: 'viewport', select: { type: 'interval', encodings: ['x', 'y'] }, bind: 'scales' },
+        { name: 'click', select: { type: 'point' } },
+        { name: 'threshold', value: 0, bind: { input: 'range', min: 0, max: 10 } },
+        { name: 'query', value: '', bind: { input: 'text' } },
+      ],
+    },
+    options: { appId: 'test', viewId: 'semantics', vizId: 'chart', enableDuckDbDataHandle: false },
+  });
+  try {
+    const graph = (await provider.observe()).graph;
+    const prepare = async (contract: string, param: string, value?: unknown) =>
+      provider.prepare({
+        callId: param,
+        name: graph.actions.find((action) => action.operation.contract === contract)!.name,
+        params: { ref: `vacp://test/semantics/chart/param/${param}`, value },
+      });
+    assert.deepEqual((await prepare('vega_lite.set_selection', 'brush', { x: [0, 10] })).intent.focus?.interaction, {
+      kind: 'brush',
+      axis: 'x',
+    });
+    assert.deepEqual(
+      (await prepare('vega_lite.set_selection', 'viewport', { x: [0, 10], y: [0, 10] })).intent.focus?.interaction,
+      {
+        kind: 'pan',
+        axis: 'xy',
+      },
+    );
+    assert.deepEqual((await prepare('vega_lite.set_selection', 'click', { category: 'A' })).intent.focus?.interaction, {
+      kind: 'activate',
+    });
+    assert.deepEqual((await prepare('vega_lite.set_param', 'threshold', 1)).intent.focus?.interaction, {
+      kind: 'drag',
+      axis: 'x',
+    });
+    assert.deepEqual((await prepare('vega_lite.set_param', 'query', 'weather')).intent.focus?.interaction, {
+      kind: 'edit',
+    });
+    assert.deepEqual((await prepare('vega_lite.clear_selection', 'brush')).intent.focus?.interaction, {
+      kind: 'activate',
+    });
+  } finally {
+    provider.dispose?.();
+  }
+});

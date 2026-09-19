@@ -151,11 +151,18 @@ test('composed prerequisites and typed focus survive the action definition stage
       z.string().transform((id) => ({ id })),
     )
     .title('Select item')
-    .focus(({ id }) => ({ ref: 'vacp://chart', detail: { id } })) satisfies { focus: unknown; params?: never };
+    .focus(({ id }) => ({ ref: 'vacp://chart', detail: { id }, interaction: { kind: 'activate' } })) satisfies {
+    focus: unknown;
+    params?: never;
+  };
   const descriptor = definition.handle(({ id }) => id);
   assert.deepEqual(descriptor.availability?.requires, ['vacp://dataset', 'vacp://chart']);
   const prepared = await actions.registry.prepare({ callId: 'select', name: descriptor.name, params: 'point-1' });
-  assert.deepEqual(prepared.intent.focus, { ref: 'vacp://chart', detail: { id: 'point-1' } });
+  assert.deepEqual(prepared.intent.focus, {
+    ref: 'vacp://chart',
+    detail: { id: 'point-1' },
+    interaction: { kind: 'activate' },
+  });
   assert.deepEqual(await prepared.execute(), { callId: 'select', ok: true, result: 'point-1' });
 
   const unparsed = actions.operation('query', 'inspect', 'Inspect chart');

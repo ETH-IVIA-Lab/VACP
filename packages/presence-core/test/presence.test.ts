@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { setImmediate } from 'node:timers/promises';
-import { VACP_SCHEMA_VERSION, type VacpFreshness } from '@vacp/protocol';
+import { VACP_SCHEMA_VERSION, type VacpFreshness, type VacpInteraction } from '@vacp/protocol';
 import { createVacpProvider, createVacpRuntime, VacpActionRegistry } from '@vacp/runtime';
 import { createAgentPresence, paceAgentPresence, type PresenceActivity, type PresenceTarget } from '../src/index';
 
@@ -10,14 +10,14 @@ const target: PresenceTarget = {
   precision: 'exact',
   geometry: { kind: 'point', point: { x: 10, y: 20 } },
 };
-function fixture() {
+function fixture(interaction?: VacpInteraction) {
   const actions = new VacpActionRegistry();
   let executions = 0;
   let freshness: VacpFreshness = { status: 'running' };
   actions.register(
     { name: 'set', description: 'Set', operation: { kind: 'mutation', affects: ['vacp://plot'] } },
     () => ++executions,
-    { parse: (value) => value, focus: (value) => ({ ref: 'vacp://plot', detail: value }) },
+    { parse: (value) => value, focus: (value) => ({ ref: 'vacp://plot', detail: value, interaction }) },
   );
   const provider = createVacpProvider({
     source: { id: 'vacp-source://test', type: 'test', title: 'Test' },
@@ -293,6 +293,22 @@ test('passive viewers need no timing authority and removing host pacing leaves b
     remove();
     first.dispose();
     second.dispose();
+    f.runtime.dispose();
+  }
+});
+
+test('custom interaction meaning reaches headless consumers without granting execution control', async () => {
+  const f = fixture({ kind: 'lasso', axis: 'xy' });
+  const presence = createAgentPresence(f.runtime);
+  try {
+    await f.runtime.execute({ callId: 'custom', name: 'set' });
+    const observation = presence.getSnapshot();
+    assert.deepEqual(observation[0]!.execution.intent?.focus?.interaction, { kind: 'lasso', axis: 'xy' });
+    observation[0]!.execution.intent!.focus!.interaction!.kind = 'changed by viewer';
+    assert.equal(presence.getSnapshot()[0]!.execution.intent?.focus?.interaction?.kind, 'lasso');
+    assert.equal(f.count(), 1);
+  } finally {
+    presence.dispose();
     f.runtime.dispose();
   }
 });

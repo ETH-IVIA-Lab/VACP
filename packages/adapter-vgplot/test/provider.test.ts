@@ -91,6 +91,8 @@ test('preparation validates complete table and axis mutations before changing na
   const axes: unknown[] = [];
   const pan: VgplotInteractorLike = {
     constructor: { name: 'PanZoom' },
+    xscale: { domain: [0, 20], apply: (value) => Number(value) },
+    yscale: { domain: () => [0, 20], apply: (value) => Number(value) },
     xsel: { update: (value) => axes.push(value) },
     ysel: { update: (value) => axes.push(value) },
     clause: (value) => value,
@@ -120,6 +122,9 @@ test('preparation validates complete table and axis mutations before changing na
     assert.equal(table.limit, 10);
     assert.deepEqual(axes, []);
     const zoom = await provider.prepare(call('vgplot.set_pan_zoom', { interactorId: 0, x0: 0, x1: 10, y0: 0, y1: 10 }));
+    assert.deepEqual(zoom.intent.focus?.interaction, { kind: 'zoom', direction: 'in' });
+    const panning = await provider.prepare(call('vgplot.set_pan_zoom', { interactorId: 0, x0: 10, x1: 30 }));
+    assert.deepEqual(panning.intent.focus?.interaction, { kind: 'pan' });
     pan.ysel = { update: (value) => axes.push(value) };
     assert.equal((await zoom.execute()).ok, false);
     assert.deepEqual(axes, []);
@@ -270,6 +275,47 @@ test('late observation setup cannot change a native initialization result', asyn
     assert.equal(changes, 1);
     assert.equal(interactor.selection, readonlySelection);
     await provider.observe();
+  } finally {
+    provider.dispose?.();
+  }
+});
+
+test('pan and zoom semantics use the rendered domain after prior programmatic changes', async () => {
+  let domain = [0, 20];
+  const cached = { domain: [0, 20], apply: Number };
+  const pan: VgplotInteractorLike = {
+    constructor: { name: 'PanZoom' },
+    xscale: cached,
+    svg: { scale: () => ({ domain, apply: Number }) },
+    xsel: {
+      update: (value) => {
+        domain = value as number[];
+      },
+    },
+    clause: (value) => value,
+  };
+  const provider = createVgplotProvider({
+    plots: [{ plotId: 'plot', plot: { marks: [], interactors: [pan] } }],
+    options: { appId: 'test', viewId: 'live-domain', enableSql: false },
+  });
+  try {
+    const { graph } = await provider.observe();
+    const action = graph.actions.find((candidate) => candidate.operation.contract === 'vgplot.set_pan_zoom')!;
+    for (const [x0, x1, interaction] of [
+      [0, 10, { kind: 'zoom', direction: 'in' }],
+      [10, 20, { kind: 'pan' }],
+      [0, 20, { kind: 'zoom', direction: 'out' }],
+    ] as const) {
+      const plan = await provider.prepare({
+        callId: String(x0),
+        name: action.name,
+        params: { interactorId: 0, x0, x1 },
+      });
+      assert.deepEqual(plan.intent.focus?.interaction, interaction);
+      assert.equal((await plan.execute()).ok, true);
+      assert.deepEqual(domain, [x0, x1]);
+    }
+    assert.deepEqual(cached.domain, [0, 20]);
   } finally {
     provider.dispose?.();
   }

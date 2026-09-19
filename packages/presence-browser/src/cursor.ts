@@ -1,13 +1,21 @@
-import type { PresencePoint } from '@vacp/presence-core';
+import type { PresenceActivity, PresencePoint } from '@vacp/presence-core';
+import { defaultCursorAssets, type CursorAsset, type CursorShape } from './cursor-assets';
+import { defaultCursorPresentation, type CursorPresentation } from './cursor-semantics';
+import { updateAttribute } from './svg';
 
 export type CursorAppearance = {
-  cursor?: { size?: number; fill?: string; stroke?: string; path?: string; strokeWidth?: number };
+  cursor?: {
+    size?: number;
+    fill?: string;
+    stroke?: string;
+    strokeWidth?: number;
+    assets?: Readonly<Record<string, CursorAsset>>;
+    resolve?: (activity: PresenceActivity) => CursorPresentation;
+  };
   press?: false | { scale?: number; durationMs?: number };
   ripple?: false | { color?: string; size?: number; durationMs?: number };
 };
 
-// Geometry adapted from agent-browser's recording cursor. See NOTICE and licenses/agent-browser.txt.
-const cursorPath = 'M0 0L14 8.5L7.5 10L4 16Z';
 const ns = 'http://www.w3.org/2000/svg';
 
 export function cursorStyle(options: CursorAppearance) {
@@ -25,7 +33,12 @@ export function cursorStyle(options: CursorAppearance) {
   }
   if (style.size === 0 || style.pressScale > 1)
     throw new Error('Cursor size must be positive and press scale at most 1');
-  return style;
+  const assets = new Map<string, CursorAsset>(Object.entries({ ...defaultCursorAssets, ...options.cursor?.assets }));
+  for (const asset of assets.values()) {
+    if (!asset.path || !Number.isFinite(asset.hotspot.x) || !Number.isFinite(asset.hotspot.y))
+      throw new Error('Cursor assets require a path and a finite hotspot');
+  }
+  return { ...style, assets };
 }
 
 /** An activation acknowledgement, separate from pointer motion and application input. */
@@ -36,25 +49,45 @@ export function createCursorGraphic(
 ) {
   const doc = svg.ownerDocument;
   const group = doc.createElementNS(ns, 'g');
+  const travel = doc.createElementNS(ns, 'g');
+  travel.dataset.vacpTravel = '';
   const glyph = doc.createElementNS(ns, 'g');
   glyph.dataset.vacpCursor = '';
   glyph.style.transformOrigin = '0 0';
   const path = doc.createElementNS(ns, 'path');
-  path.setAttribute('d', options.cursor?.path ?? cursorPath);
-  path.setAttribute('fill', options.cursor?.fill ?? 'white');
   path.setAttribute('stroke', options.cursor?.stroke ?? 'black');
   path.setAttribute('stroke-width', String(style.strokeWidth));
   path.setAttribute('stroke-linejoin', 'round');
-  path.setAttribute('transform', `scale(${style.size / 24})`);
+  path.setAttribute('stroke-linecap', 'round');
   glyph.append(path);
-  group.append(glyph);
+  travel.append(glyph);
+  group.append(travel);
+  let resting: CursorShape = 'arrow',
+    active: CursorShape = 'arrow',
+    pressed = false;
+  let running = false;
+  let acknowledge = true;
+  const paint = () => {
+    const shape = pressed || running ? active : resting;
+    const asset = style.assets.get(shape) ?? style.assets.get('arrow')!;
+    updateAttribute(glyph, 'data-vacp-cursor-shape', style.assets.has(shape) ? shape : 'arrow');
+    updateAttribute(path, 'd', asset.path);
+    updateAttribute(path, 'fill', options.cursor?.fill ?? asset.fill ?? 'white');
+    updateAttribute(path, 'transform', `scale(${style.size / 24}) translate(${-asset.hotspot.x} ${-asset.hotspot.y})`);
+  };
+  paint();
   let press: Animation | undefined;
   let ripple: SVGCircleElement | undefined;
   let expansion: Animation | undefined;
   let timer: ReturnType<typeof setTimeout> | undefined;
+  let release: ReturnType<typeof setTimeout> | undefined;
   const cancel = () => {
     press?.cancel();
     press = undefined;
+    clearTimeout(release);
+    release = undefined;
+    pressed = false;
+    paint();
     expansion?.cancel();
     expansion = undefined;
     clearTimeout(timer);
@@ -64,8 +97,31 @@ export function createCursorGraphic(
   };
   return {
     group,
+    setActivity(activity: PresenceActivity) {
+      running = activity.execution.phase === 'running';
+      const presentation = (options.cursor?.resolve ?? defaultCursorPresentation)(activity);
+      resting = presentation.shape;
+      active = presentation.activeShape ?? resting;
+      acknowledge = presentation.feedback ?? true;
+      paint();
+    },
+    setTravelScale(scale: number) {
+      updateAttribute(travel, 'transform', `scale(${scale})`);
+    },
     activate(point: PresencePoint, reduced: boolean) {
       cancel();
+      if (!acknowledge) return;
+      if (style.pressMs) {
+        pressed = true;
+        paint();
+        release = setTimeout(
+          () => {
+            pressed = false;
+            paint();
+          },
+          reduced ? Math.min(180, style.pressMs) : style.pressMs,
+        );
+      }
       if (style.pressMs && !reduced) {
         press = glyph.animate(
           [

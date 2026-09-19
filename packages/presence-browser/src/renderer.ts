@@ -1,12 +1,16 @@
+import { travelScale, travelStyle, type CursorTravel } from './motion';
 import { createCursorGraphic, cursorStyle, type CursorAppearance } from './cursor';
 import { presenceAnchor, type PresenceActivity, type PresencePoint, type PresenceRenderer } from '@vacp/presence-core';
 import { browserPresenceSurface } from './targets';
+import { updateAttribute } from './svg';
 
 export type BrowserPresenceOptions = CursorAppearance & {
   document?: Document;
   surface?: string;
   motion?: 'system' | 'reduced' | 'full';
   durationMs?: number;
+  /** Enlarge the cursor during longer moves. Disable independently of position interpolation. */
+  travel?: CursorTravel;
   cue?: { color?: string; visible?: boolean };
   labels?: boolean;
   zIndex?: number;
@@ -25,6 +29,9 @@ type Pointer = {
   target: PresencePoint | null;
   start: PresencePoint | null;
   started: number;
+  scale: number;
+  startScale: number;
+  distance: number;
   executionId: string;
 };
 
@@ -46,6 +53,7 @@ export function createBrowserPresenceRenderer(options: BrowserPresenceOptions = 
   if (!view) throw new Error('Presence renderer requires a live document');
   const duration = options.durationMs ?? 220;
   const style = cursorStyle(options);
+  const travel = travelStyle(options.travel);
   const size = style.size;
   if (!Number.isFinite(duration) || duration < 0) throw new Error('Invalid cursor duration or size');
   const host = doc.createElement('div');
@@ -81,7 +89,7 @@ export function createBrowserPresenceRenderer(options: BrowserPresenceOptions = 
   };
   const place = (pointer: Pointer) => {
     if (pointer.position)
-      pointer.group.setAttribute('transform', `translate(${pointer.position.x} ${pointer.position.y})`);
+      updateAttribute(pointer.group, 'transform', `translate(${pointer.position.x} ${pointer.position.y})`);
   };
   const activate = (pointer: Pointer) => {
     if (
@@ -105,6 +113,8 @@ export function createBrowserPresenceRenderer(options: BrowserPresenceOptions = 
         x: pointer.start.x + (pointer.target.x - pointer.start.x) * eased,
         y: pointer.start.y + (pointer.target.y - pointer.start.y) * eased,
       };
+      pointer.scale = progress === 1 ? 1 : travelScale(progress, pointer.distance, pointer.startScale, travel);
+      pointer.graphic.setTravelScale(pointer.scale);
       place(pointer);
       if (progress === 1) {
         pointer.start = null;
@@ -115,7 +125,13 @@ export function createBrowserPresenceRenderer(options: BrowserPresenceOptions = 
     if (moving) frame = view.requestAnimationFrame(tick);
   };
   const schedule = () => {
-    if (!frame) frame = view.requestAnimationFrame(tick);
+    for (const pointer of pointers.values())
+      if (pointer.start) {
+        if (!frame) frame = view.requestAnimationFrame(tick);
+        return;
+      }
+    if (frame) view.cancelAnimationFrame(frame);
+    frame = 0;
   };
   const makePointer = (): Pointer => {
     const cue = doc.createElementNS(ns, 'path');
@@ -143,6 +159,9 @@ export function createBrowserPresenceRenderer(options: BrowserPresenceOptions = 
       start: null,
       started: 0,
       executionId: '',
+      scale: 1,
+      startScale: 1,
+      distance: 0,
     };
   };
   const onMotionChange = () => {
@@ -167,6 +186,9 @@ export function createBrowserPresenceRenderer(options: BrowserPresenceOptions = 
             pointer.group.style.display = 'none';
             pointer.cue.style.display = 'none';
             pointer.start = null;
+            pointer.target = null;
+            pointer.scale = 1;
+            pointer.graphic.setTravelScale(1);
             pointer.graphic.cancel();
             arrived(pointer.executionId);
           }
@@ -183,19 +205,25 @@ export function createBrowserPresenceRenderer(options: BrowserPresenceOptions = 
           pointer.graphic.cancel();
           pointer.activated = false;
         }
+        pointer.graphic.setActivity(activity);
         pointer.group.style.display = '';
         pointer.cue.style.display = '';
         pointer.phase = execution.phase;
         if (execution.phase === 'failed' || execution.phase === 'cancelled') pointer.graphic.cancel();
         pointer.executionId = execution.id;
-        pointer.label.textContent = options.labels ? (execution.actor.label ?? 'Agent') : '';
+        const label = options.labels ? (execution.actor.label ?? 'Agent') : '';
+        if (pointer.label.textContent !== label) pointer.label.textContent = label;
         if (!pointer.position || reduced()) {
           pointer.position = point;
           pointer.start = null;
+          pointer.scale = 1;
+          pointer.graphic.setTravelScale(1);
           place(pointer);
           arrived(execution.id);
         } else if (pointer.target?.x !== point.x || pointer.target?.y !== point.y) {
           pointer.start = pointer.position;
+          pointer.startScale = pointer.scale;
+          pointer.distance = Math.hypot(point.x - pointer.position.x, point.y - pointer.position.y);
           pointer.started = view.performance.now();
         }
         pointer.target = point;
@@ -207,9 +235,9 @@ export function createBrowserPresenceRenderer(options: BrowserPresenceOptions = 
             : g.kind === 'path'
               ? g.points.map((p, i) => `${i ? 'L' : 'M'}${p.x},${p.y}`).join(' ')
               : '';
-        pointer.cue.setAttribute('d', options.cue?.visible === false ? '' : path);
-        pointer.cue.setAttribute('data-precision', target!.precision);
-        pointer.cue.setAttribute('stroke-dasharray', target!.precision === 'surface' ? '3 4' : '');
+        updateAttribute(pointer.cue, 'd', options.cue?.visible === false ? '' : path);
+        updateAttribute(pointer.cue, 'data-precision', target!.precision);
+        updateAttribute(pointer.cue, 'stroke-dasharray', target!.precision === 'surface' ? '3 4' : '');
       }
       for (const [actorId, pointer] of pointers)
         if (!present.has(actorId)) {

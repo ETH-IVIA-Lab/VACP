@@ -32,7 +32,7 @@ function dayOfYear0UTC(d: Date): number {
   return Math.floor((t - start) / 86_400_000);
 }
 
-function readScaleDomain(scale: VgplotScaleLike | undefined): unknown[] | null {
+export function readScaleDomain(scale: VgplotScaleLike | undefined): unknown[] | null {
   if (!scale) return null;
   const anyScale = scale;
   const raw = typeof anyScale.domain === 'function' ? anyScale.domain() : anyScale.domain;

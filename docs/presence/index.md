@@ -31,7 +31,7 @@ installation.dispose();
 
 For VGPlot, use `createVgplotPresentation` from `@vacp/adapter-vgplot/presentation`. Pass the same `root`, `plots`, `tables`, and `options` used to create its provider. Bindings follow provider generations. Replacing or detaching a provider releases its targets and pending lookups.
 
-The default cursor uses the inline SVG geometry from agent-browser: a white pointer with a black outline. It compresses briefly and emits a blue ripple when an action activates at its target. The overlay leaves application pointer events, keyboard focus, and scrolling under human control. Missing or offscreen geometry produces textual activity. A dashed target cue indicates surface-level precision.
+The default arrow retains the inline SVG geometry from agent-browser. Known interactions select dedicated hand, crosshair, text, resize, or zoom assets. Longer moves enlarge the cursor smoothly and settle it back to its resting size. Activation compresses the pointer and emits a blue ripple at the target; pointing and text editing do not imitate a click. The overlay leaves application pointer events, keyboard focus, and scrolling under human control. Missing or offscreen geometry produces textual activity. A dashed target cue indicates surface-level precision.
 
 ## Customize appearance and timing
 
@@ -42,6 +42,7 @@ const presence = createBrowserPresence(runtime, {
   appearance: {
     motion: 'system',
     durationMs: 220,
+    travel: { scale: 1.6, minDistance: 80, fullDistance: 500 },
     cursor: { size: 28, fill: 'white', stroke: 'black', strokeWidth: 1.5 },
     press: { scale: 0.8, durationMs: 260 },
     ripple: { color: '#60a5fa', size: 64, durationMs: 400 },
@@ -51,7 +52,7 @@ const presence = createBrowserPresence(runtime, {
 });
 ```
 
-`motion: 'system'` respects reduced-motion preferences. Use `reduced` for static positioning or `full` to explicitly enable movement. `cursor.path` accepts an SVG path in a 24-unit coordinate system. `appearance.describe(activity)` controls status wording, and `appearance.document` selects the owning document for an iframe or another window.
+`motion: 'system'` respects reduced-motion preferences. Use `reduced` for static positioning or `full` to explicitly enable movement. `travel: false` disables enlargement while retaining position interpolation. Distances are CSS pixels, and `scale` is the maximum multiplier. Retargeting preserves the current position and scale. `appearance.describe(activity)` controls status wording, and `appearance.document` selects the owning document for an iframe or another window.
 
 An action may finish before the cursor arrives. Status reflects the execution outcome immediately. Output freshness is separate: `current`, `updating`, `error`, or `unknown`. Providers must report freshness before a viewer can claim outputs are current.
 
@@ -88,7 +89,11 @@ actions
   .operation('mutation', 'threshold.set', 'Set threshold')
   .title('Set threshold')
   .params(parameterDescription, thresholdParser)
-  .focus(({ value }) => ({ ref: thresholdRef, detail: { value } }))
+  .focus(({ value }) => ({
+    ref: thresholdRef,
+    detail: { value },
+    interaction: { kind: 'drag', axis: 'x' },
+  }))
   .affects(chartRef)
   .handle(({ value }) => setThreshold(value));
 ```
@@ -107,6 +112,51 @@ presence.attach(provider, {
 ```
 
 Canvas and WebGL applications can implement `PresenceResolver` directly. Return a point, region, or path in the renderer's named coordinate surface, or `null` when no location is known. The browser renderer uses CSS viewport pixels on the `viewport` surface. `svgPresenceTarget(element, geometry)` applies a live SVG screen transform. Resolvers receive an abort signal and should release pending work when it aborts.
+
+## Interaction meaning and assets
+
+`VacpFocus.interaction` is optional, serializable context. It travels with the validated focus through execution and headless presence snapshots. The protocol carries meaning; each renderer decides how to express it.
+
+| Kind                    | Default cursor                                              |
+| ----------------------- | ----------------------------------------------------------- |
+| Omitted or unrecognized | Original arrow                                              |
+| `point`, `activate`     | Pointing hand                                               |
+| `brush`                 | Crosshair                                                   |
+| `drag`, `pan`           | Open hand, closed while running or acknowledging activation |
+| `edit`                  | Text caret                                                  |
+| `resize`                | Horizontal, vertical, or four-way arrow according to `axis` |
+| `zoom`                  | Magnifier, optionally with `direction: 'in'` or `'out'`     |
+
+Vega-Lite supplies these hints for interval and point selections, tooltip focus, and bound controls. VGPlot supplies them for intervals, regions, toggles, legends, tables, native sliders/search, and viewport changes. Domain comparisons distinguish known pan and zoom changes. Geometry and interaction meaning remain independent, so the same semantics work with SVG, Canvas, or a custom surface.
+
+Custom kinds are ordinary strings. Put domain-specific details in the existing typed `focus.detail`. A custom renderer reads `activity.execution.intent?.focus?.interaction`. This is a description of the semantic operation, not a synthetic mouse-event sequence.
+
+To extend the browser defaults:
+
+```ts
+import { createBrowserPresence, defaultCursorPresentation, type CursorAsset } from '@vacp/presence-browser';
+
+const lasso: CursorAsset = {
+  path: 'M12 3a8 7 0 1 0 0 14c3 0 4 2 2 4',
+  hotspot: { x: 12, y: 10 },
+  fill: 'none',
+};
+const presence = createBrowserPresence(runtime, {
+  appearance: {
+    cursor: {
+      assets: { lasso },
+      resolve: (activity) =>
+        activity.execution.intent?.focus?.interaction?.kind === 'lasso'
+          ? { shape: 'lasso', feedback: false }
+          : defaultCursorPresentation(activity),
+    },
+  },
+});
+```
+
+`cursor.resolve(activity)` returns a shape, an optional `activeShape` while running or acknowledging activation, and optional `feedback` to control press/ripple acknowledgement. Override only the interactions you need and delegate others to `defaultCursorPresentation`. To use one shape everywhere, return the same shape from this callback. Unknown shape names use your configured arrow asset.
+
+Assets are inline SVG paths in a 24-unit square. Their hotspots stay fixed on the resolved target during size changes and pressing. `defaultCursorAssets` exposes the built-in geometry for custom surfaces. Hand silhouettes adapt the MIT-licensed Tabler Icons; the original arrow retains its agent-browser attribution. Reduced motion disables travel and press scaling while retaining semantic shapes and static activation feedback.
 
 ## Build another inspection surface
 

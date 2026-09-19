@@ -155,3 +155,7 @@ Providers publish their complete current catalog with `availability.requires` an
 Composition and runtime expose `observe()` for the disclosed surface and `inspect()` for the complete observation. One runtime read retains both views; only the disclosed observation enters capability/state subscriptions and DOM snapshots. Local history retains the complete observation. Inspection clients use `inspect()` and cannot bypass execution guards.
 
 Runtime dispatch checks availability before preparation and again after preparation and presentation waits. Native effects that follow provider-owned asynchronous work remain the provider's responsibility. WebMCP projects the disclosed catalog and invocation rechecks live eligibility, including while registration catches up with a state change. Python composition follows the same contract, checked by fixtures shared with the TypeScript protocol suite.
+
+## Interaction presentation
+
+Validated focus may carry a small optional interaction hint (kind, axis, direction). Providers own that meaning; presence-core transports it unchanged, including custom kinds. Browser cursor selection and inline vector assets belong to presence-browser. Glyph hotspots, travel scale, and press feedback use separate SVG transforms. Visual arrival and gesture feedback never authorize or delay an operation unless the host has installed pacing.

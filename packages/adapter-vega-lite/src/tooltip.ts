@@ -375,6 +375,7 @@ export function createVegaLiteTooltipBinding({
         parse: parseHover,
         focus: (prepared) => ({
           ref: vizRef,
+          interaction: { kind: 'point' },
           detail: prepared.clear ? undefined : { fields: prepared.fields, markName: prepared.markName },
         }),
       },

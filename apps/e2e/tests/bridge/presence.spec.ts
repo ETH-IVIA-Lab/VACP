@@ -85,6 +85,10 @@ test('VGPlot presence matches the native interval brush', async ({ page }) => {
       });
     });
     expect(result.ok).toBe(true);
+    await expect(page.locator('[data-vacp-presence] [data-vacp-cursor]')).toHaveAttribute(
+      'data-vacp-cursor-shape',
+      'crosshair',
+    );
     await expect
       .poll(() =>
         page.evaluate(() => {
@@ -189,18 +193,19 @@ test('cursor activation presses once, emits a blue ripple, and respects reduced 
             expansion.pause();
             expansion.currentTime = 200;
           }
-          const before = glyph.getAnimations().length;
           root.style.paddingLeft = '1px';
           await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
           return {
             motion,
-            shape: glyph.querySelector('path')!.getAttribute('d'),
+            shape: glyph.dataset.vacpCursorShape,
             transform: getComputedStyle(glyph).transform,
             rippleColor: ripple.getAttribute('stroke'),
             rippleOpacity: Number(getComputedStyle(ripple).opacity),
             expanding: !!expansion,
-            before,
-            after: glyph.getAnimations().length,
+            retained:
+              glyph.getAnimations()[0] === press &&
+              ripple.getAnimations()[0] === expansion &&
+              overlay.querySelector('[data-vacp-ripple]') === ripple,
           };
         } finally {
           chart.dispose();
@@ -214,11 +219,11 @@ test('cursor activation presses once, emits a blue ripple, and respects reduced 
         root.remove();
       }
     }, repoRoot);
-    expect(samples[0]!.shape).toBe('M0 0L14 8.5L7.5 10L4 16Z');
+    expect(samples[0]!.shape).toBe('crosshair');
     expect(samples[0]!.transform).toContain('0.8');
     expect(samples[0]!.rippleColor).toBe('#60a5fa');
     expect(samples[0]!.rippleOpacity).toBeCloseTo(0.4, 1);
-    expect(samples[0]!.after).toBe(samples[0]!.before);
+    expect(samples[0]!.retained).toBe(true);
     expect(samples[1]!.transform).toBe('none');
     expect(samples[1]!.expanding).toBe(false);
   } finally {
@@ -228,4 +233,53 @@ test('cursor activation presses once, emits a blue ripple, and respects reduced 
 
 test.use({
   launchOptions: { args: ['--enable-experimental-web-platform-features', '--enable-features=WebMCPTesting'] },
+});
+
+test('cursor motion preserves hotspots through interruption, invisibility and reduced motion', async ({ page }) => {
+  const server = await startAppServer({ name: 'presence-motion', cwd: exampleDir('vega-lite-gallery') });
+  try {
+    await page.goto(server.url);
+    const result = await page.evaluate(async (root) => {
+      const { measureCursorMotion }: typeof import('../../fixtures/presence') = await import(
+        `/@fs${root}/apps/e2e/fixtures/presence.ts`
+      );
+      return measureCursorMotion();
+    }, repoRoot);
+    expect(result.middle.shape).toBe('crosshair');
+    expect(result.middle.scale).toBeCloseTo(1.6);
+    expect(result.interruption.scale).toBe(result.middle.scale);
+    expect(result.settled.scale).toBe(1);
+    expect(result.hotspot.x).toBeCloseTo(400);
+    expect(result.hotspot.y).toBeCloseTo(100);
+    expect(result.still.scale).toBe(1);
+    expect(result.recovered.x).toBeCloseTo(900);
+    expect(result.recovered.y).toBeCloseTo(100);
+  } finally {
+    await server.stop();
+  }
+});
+
+test('cursor policy controls semantic assets and feedback, validates configuration and releases its overlay', async ({
+  page,
+}) => {
+  const server = await startAppServer({ name: 'presence-appearance', cwd: exampleDir('vega-lite-gallery') });
+  try {
+    await page.goto(server.url);
+    const result = await page.evaluate(async (root) => {
+      const { measureCursorAppearance }: typeof import('../../fixtures/presence') = await import(
+        `/@fs${root}/apps/e2e/fixtures/presence.ts`
+      );
+      return measureCursorAppearance();
+    }, repoRoot);
+    expect(result.initial).toMatchObject({ shape: 'arrow', path: 'M0 0L14 8.5L7.5 10L4 16Z' });
+    expect(result.pressed).toMatchObject({ shape: 'grabbing', ripple: true });
+    expect(result.hover).toMatchObject({ shape: 'pointer', ripple: false });
+    expect(result.overridden).toMatchObject({ shape: 'app-target', scale: 1, path: 'M0 0h24v24H0Z' });
+    expect(result.feedback.ripple).toBe(false);
+    expect(result.fallback).toMatchObject({ shape: 'arrow', path: 'M0 0h10v10H0Z' });
+    expect(result.invalidAssetsRejected).toBe(true);
+    expect(result.remaining).toBe(0);
+  } finally {
+    await server.stop();
+  }
 });

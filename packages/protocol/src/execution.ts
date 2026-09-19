@@ -3,8 +3,15 @@ import type { VacpActionExecutionOptions, VacpActionResult, VacpRef, VacpSourceI
 /** Identity supplied by the calling host, separate from action parameters. */
 export type VacpActor = { id: string; label?: string; kind: 'agent' | 'human' | 'system' };
 
+/** Optional interaction meaning. Renderers choose their own assets and feedback. */
+export type VacpInteraction = {
+  kind: 'point' | 'activate' | 'brush' | 'drag' | 'pan' | 'zoom' | 'edit' | 'resize' | (string & {});
+  axis?: 'x' | 'y' | 'xy';
+  direction?: 'in' | 'out';
+};
+
 /** Semantic focus. Detail is provider-owned, serializable domain data, never screen coordinates. */
-export type VacpFocus<Detail = unknown> = { ref: VacpRef; detail?: Detail };
+export type VacpFocus<Detail = unknown> = { ref: VacpRef; detail?: Detail; interaction?: VacpInteraction };
 
 export type VacpActionIntent<Detail = unknown> = {
   focus?: VacpFocus<Detail>;

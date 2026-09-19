@@ -1,4 +1,4 @@
-Cursor geometry and activation appearance adapted from agent-browser.
+Default arrow geometry and activation appearance adapted from agent-browser.
 Copyright 2025 Vercel Inc.
 Licensed under the Apache License, Version 2.0. See licenses/agent-browser.txt.
 
@@ -6,3 +6,9 @@ Source: https://github.com/vercel-labs/agent-browser/blob/44583ac8385d814ab98cbf
 
 VACP modifications: semantic execution activation, configurable appearance,
 reduced-motion feedback, independent rendering and cancellation lifecycle.
+
+Hand cursor silhouettes adapted from Tabler Icons (hand-stop, hand-grab, hand-finger).
+Copyright (c) 2020-2026 Paweł Kuna.
+Licensed under the MIT License. See licenses/tabler-icons.txt.
+Source: https://github.com/tabler/tabler-icons/tree/87e7c390fb4ec332ccad0bde25160b233241eb8f/icons/outline
+VACP modifications: closed filled silhouettes, retained finger creases, and cursor hotspots.

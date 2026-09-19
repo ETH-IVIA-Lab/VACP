@@ -38,6 +38,7 @@ export interface VgplotInteractorLike<Value = unknown> {
   value?: Value;
   selection?: VgplotSelectionLike;
   scale?: VgplotScaleLike;
+  svg?: { scale(axis: 'x' | 'y'): VgplotScaleLike | undefined };
   xscale?: VgplotScaleLike;
   yscale?: VgplotScaleLike;
   xsel?: VgplotSelectionLike;
