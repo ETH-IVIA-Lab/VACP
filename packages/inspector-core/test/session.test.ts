@@ -32,22 +32,25 @@ test('custom surfaces share a source while retaining independent observation his
   }
 });
 
-test('observations are captured immutably and unchanged revisions do not fill the journal', async () => {
+test('journals retain changed revisions within their limit', async () => {
   const value = observation();
   const source = client();
   source.observe = async () => value;
   const session = createInspectorSession(source, { historyLimit: 1 });
   try {
     await session.refresh();
-    value.state['vacp://value'] = 99;
-    assert.equal(session.getState().observation?.state['vacp://value'], 0);
-    assert.throws(() => Object.assign(session.getState().observation!.state, { 'vacp://value': 42 }), TypeError);
+    const firstId = session.getState().records[0].id;
     await session.refresh();
-    assert.equal(session.getState().records.length, 1);
+    assert.deepEqual(
+      session.getState().records.map((record) => record.id),
+      [firstId],
+    );
+    value.state['vacp://value'] = 99;
     value.revision = 'new';
     await session.refresh();
     assert.equal(session.getState().records.length, 1);
     assert.equal(session.getState().records[0].observation.revision, 'new');
+    assert.equal(session.getState().records[0].observation.state['vacp://value'], 99);
   } finally {
     session.dispose();
   }

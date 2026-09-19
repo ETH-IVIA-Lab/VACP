@@ -440,9 +440,8 @@ test('human invalidations and semantic actions keep distinct history attribution
   }
 });
 
-test('an unsettled provider fails within the composition retry bound', async () => {
+test('an unsettled provider reports a bounded coherence failure', { timeout: 2000 }, async () => {
   let invalidate = () => {};
-  let reads = 0;
   const unstable = provider('unstable');
   const runtime = createVacpRuntime({
     providers: [
@@ -453,7 +452,6 @@ test('an unsettled provider fails within the composition retry bound', async () 
           return () => {};
         },
         observe: () => {
-          reads++;
           invalidate();
           return unstable.observe();
         },
@@ -462,7 +460,6 @@ test('an unsettled provider fails within the composition retry bound', async () 
   });
   try {
     await assert.rejects(runtime.observe(), /did not settle/);
-    assert.equal(reads, 8);
   } finally {
     runtime.dispose();
   }

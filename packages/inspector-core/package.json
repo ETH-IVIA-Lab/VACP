@@ -23,7 +23,7 @@
   "scripts": {
     "build": "vp pack",
     "typecheck": "tsc -p tsconfig.json && tsc -p tsconfig.test.json",
-    "test": "pnpm exec tsx --test test/*.test.ts",
+    "test": "pnpm exec tsx --test --test-timeout=10000 test/*.test.ts",
     "bench": "tsx bench/inspection.ts"
   },
   "dependencies": {

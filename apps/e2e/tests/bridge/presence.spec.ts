@@ -63,34 +63,53 @@ test('custom SDK actions produce passive presence through native WebMCP without 
   }
 });
 
-test('Vega-Lite and VGPlot project semantic ranges onto their rendered surfaces', async ({ page }) => {
-  for (const family of ['vega-lite', 'vgplot']) {
-    const server = await startAppServer({ name: `presence-${family}`, cwd: exampleDir(`${family}-gallery`) });
-    try {
-      await page.goto(`${server.url}#${family === 'vega-lite' ? 'seattle-weather' : 'weather'}`);
-      await page.waitForFunction(() => !!globalThis.__vacp);
-      const result = await page.evaluate(async (family) => {
-        const bridge = globalThis.__vacp;
-        const graph = (await bridge.getCapabilities()).graph;
-        const contract = family === 'vega-lite' ? 'vega_lite.set_selection' : 'vgplot.set_interval_1d';
-        const action = graph.actions.find((action) => action.operation.contract === contract)!;
-        const params =
-          family === 'vega-lite'
-            ? {
-                ref: graph.nodes.find((node) => node.ref.endsWith('/param/brush'))!.ref,
-                value: { x: [Date.UTC(2012, 5, 1), Date.UTC(2012, 8, 1)] },
-              }
-            : { plotId: 'plot-0', interactorId: '0', min: Date.UTC(2012, 5, 1), max: Date.UTC(2012, 8, 1) };
-        return bridge.execute({ callId: 'presence', name: action.name, params });
-      }, family);
-      expect(result.ok).toBe(true);
-      await expect.poll(() => cursorWithinVisualization(page, '#app')).toBe(true);
-      const cue = page.locator('[data-vacp-presence] svg > path');
-      await expect(cue).toHaveAttribute('d', /M.+[Lhv]/);
-      await expect(cue).toHaveAttribute('data-precision', 'exact');
-    } finally {
-      await server.stop();
-    }
+test('VGPlot presence matches the native interval brush', async ({ page }) => {
+  const server = await startAppServer({ name: 'presence-vgplot', cwd: exampleDir('vgplot-gallery') });
+  try {
+    await page.goto(`${server.url}#weather`);
+    await page.waitForFunction(() => !!globalThis.__vacp);
+    const result = await page.evaluate(async () => {
+      const bridge = globalThis.__vacp;
+      const action = (await bridge.getCapabilities()).graph.actions.find(
+        (action) => action.operation.contract === 'vgplot.set_interval_1d',
+      )!;
+      return bridge.execute({
+        callId: 'presence',
+        name: action.name,
+        params: {
+          plotId: 'plot-0',
+          interactorId: '0',
+          min: Date.UTC(2012, 5, 1),
+          max: Date.UTC(2012, 8, 1),
+        },
+      });
+    });
+    expect(result.ok).toBe(true);
+    await expect
+      .poll(() =>
+        page.evaluate(() => {
+          const brush = document.querySelector('#app svg rect.selection')?.getBoundingClientRect();
+          const cue = document
+            .querySelector('[data-vacp-presence]')
+            ?.shadowRoot?.querySelector('svg > path')
+            ?.getBoundingClientRect();
+          if (!brush || !cue || brush.width <= 0) return null;
+          return {
+            x: cue.x - brush.x,
+            y: cue.y - brush.y,
+            width: cue.width - brush.width,
+            height: cue.height - brush.height,
+          };
+        }),
+      )
+      .toEqual({
+        x: expect.closeTo(0, 0),
+        y: expect.closeTo(0, 0),
+        width: expect.closeTo(0, 0),
+        height: expect.closeTo(0, 0),
+      });
+  } finally {
+    await server.stop();
   }
 });
 

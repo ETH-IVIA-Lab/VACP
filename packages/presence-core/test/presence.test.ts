@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { setImmediate } from 'node:timers/promises';
 import { VACP_SCHEMA_VERSION, type VacpFreshness } from '@vacp/protocol';
 import { createVacpProvider, createVacpRuntime, VacpActionRegistry } from '@vacp/runtime';
 import { createAgentPresence, paceAgentPresence, type PresenceActivity, type PresenceTarget } from '../src/index';
@@ -161,19 +162,34 @@ test('replacing a source retires pending geometry and its old binding cannot tar
   }
 });
 
-test('configured pauses bracket actual execution while the default path stays immediate', async () => {
+test('configured pacing delays mutation and result delivery independently', async (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout'] });
   const f = fixture();
-  const times = new Map<string, number>();
-  f.runtime.subscribeExecutions((execution) => times.set(execution.phase, performance.now()));
+  const phases: string[] = [];
+  f.runtime.subscribeExecutions((execution) => phases.push(execution.phase));
   const presence = createAgentPresence(f.runtime);
   paceAgentPresence(f.runtime, presence, { arrivalTimeoutMs: 0, beforeExecuteMs: 40, afterExecuteMs: 50 });
+  let returned = false;
   try {
-    const result = await f.runtime.execute({ callId: 'paced', name: 'set' });
-    const returned = performance.now();
-    assert.equal(result.ok, true);
+    const execution = f.runtime.execute({ callId: 'paced', name: 'set' }).then((result) => {
+      returned = true;
+      return result;
+    });
+    // Drain ready continuations so the pre-execution gate is waiting on controlled time.
+    await setImmediate();
+    assert.equal(phases.at(-1), 'prepared');
+    t.mock.timers.tick(39);
+    await setImmediate();
+    assert.equal(f.count(), 0);
+    t.mock.timers.tick(1);
+    await setImmediate();
     assert.equal(f.count(), 1);
-    assert.ok(times.get('running')! - times.get('prepared')! >= 35);
-    assert.ok(returned - times.get('succeeded')! >= 45);
+    assert.equal(phases.at(-1), 'succeeded');
+    t.mock.timers.tick(49);
+    await setImmediate();
+    assert.equal(returned, false);
+    t.mock.timers.tick(1);
+    assert.equal((await execution).ok, true);
   } finally {
     presence.dispose();
     f.runtime.dispose();

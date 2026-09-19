@@ -15,7 +15,7 @@
   "scripts": {
     "build": "vp pack",
     "typecheck": "tsc -p tsconfig.json && tsc -p tsconfig.test.json",
-    "test": "tsx --test test/*.test.ts test/*.test.js",
+    "test": "tsx --test --test-timeout=10000 test/*.test.ts test/*.test.js",
     "bench": "tsx bench/registration.ts"
   },
   "dependencies": {

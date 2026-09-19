@@ -15,7 +15,7 @@
   "scripts": {
     "build": "vp pack",
     "typecheck": "tsc -p tsconfig.json",
-    "test": "pnpm exec tsx --test test/*.test.ts"
+    "test": "pnpm exec tsx --test --test-timeout=10000 test/*.test.ts"
   },
   "dependencies": {
     "@ai-sdk/google": "^2.0.97",

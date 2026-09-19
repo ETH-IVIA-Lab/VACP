@@ -122,18 +122,27 @@ test('presentation gates fail open, but provider replacement aborts prepared exe
   }
 });
 
-test('a stalled presentation gate releases execution at its deadline', async () => {
+test('a stalled presentation gate releases execution at its deadline', async (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout'] });
   const f = fixture();
   let gateSignal: AbortSignal | undefined;
+  let entered!: () => void;
+  const waiting = new Promise<void>((resolve) => {
+    entered = resolve;
+  });
   try {
     f.runtime.addExecutionGate(
       (_event, signal) => {
         gateSignal = signal;
+        entered();
         return new Promise(() => {});
       },
-      { timeoutMs: 1 },
+      { timeoutMs: 50 },
     );
-    assert.equal((await f.runtime.execute({ callId: 'bounded', name: 'set', params: 1 })).ok, true);
+    const result = f.runtime.execute({ callId: 'bounded', name: 'set', params: 1 });
+    await waiting;
+    t.mock.timers.tick(50);
+    assert.equal((await result).ok, true);
     assert.equal(gateSignal?.aborted, true);
   } finally {
     f.runtime.dispose();

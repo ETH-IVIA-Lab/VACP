@@ -15,7 +15,7 @@
   "scripts": {
     "build": "vp pack",
     "typecheck": "tsc -p tsconfig.json",
-    "test": "pnpm exec tsx --test test/*.test.ts",
+    "test": "pnpm exec tsx --test --test-timeout=10000 test/*.test.ts",
     "bench": "tsx bench/runtime.ts",
     "bench:memory": "node --expose-gc --import tsx bench/lifetime.ts"
   },
