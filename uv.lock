@@ -1544,7 +1544,7 @@ requires-dist = [
     { name = "fastmcp", marker = "extra == 'server'", specifier = ">=0.4.0" },
     { name = "httpx", marker = "extra == 'server'", specifier = ">=0.27.0" },
     { name = "playwright", marker = "extra == 'server'", specifier = ">=1.49.0" },
-    { name = "pydantic", marker = "extra == 'server'", specifier = ">=2.8.0" },
+    { name = "pydantic", marker = "extra == 'server'", specifier = ">=2.12.0" },
     { name = "starlette", marker = "extra == 'http'", specifier = ">=0.40" },
     { name = "uvicorn", marker = "extra == 'http'", specifier = ">=0.30" },
     { name = "uvicorn", marker = "extra == 'server'", specifier = ">=0.30.0" },

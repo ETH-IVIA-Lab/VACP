@@ -9,12 +9,19 @@ from playwright.async_api import Page
 
 from vacp.models import VacpCapabilitiesRequestOptions, VacpStateRequestOptions
 
+_OMITTED = object()
+
 
 @dataclass(frozen=True)
 class ActionCall:
     call_id: str
     name: str
-    params: object | None = None
+    params: object = _OMITTED
+
+    @property
+    def has_params(self) -> bool:
+        """Whether the caller supplied parameters, including an explicit null."""
+        return self.params is not _OMITTED
 
 
 @dataclass(frozen=True)
@@ -88,7 +95,9 @@ class PlaywrightVacpBridgeClient(VacpBridgeClient):
 
     async def execute(self, call: ActionCall) -> ActionResult:
         await self._require_bridge()
-        payload = {'callId': call.call_id, 'name': call.name, 'params': call.params}
+        payload: dict[str, object] = {'callId': call.call_id, 'name': call.name}
+        if call.has_params:
+            payload['params'] = call.params
         raw = await self._page.evaluate(
             """({ key, payload }) => globalThis[key].execute(payload)""",
             {'key': self._global_key, 'payload': payload},

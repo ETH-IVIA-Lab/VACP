@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any, Literal, Protocol
 
 from fastmcp import FastMCP
+from pydantic.experimental.missing_sentinel import MISSING
 
 from vacp.bridge import ActionCall, VacpBridgeClient
 from vacp.models import normalize_capabilities_request_options, normalize_state_request_options
@@ -159,7 +160,7 @@ Efficient defaults:
     )
     async def vacp_execute(
         name: str,
-        params: dict[str, object] | None = None,
+        params: object = MISSING,
         call_id: str | None = None,
     ) -> dict[str, object]:
         """
@@ -167,7 +168,7 @@ Efficient defaults:
 
         Inputs:
         - `name`: an action id from `vacp_capabilities().graph.actions[].name`
-        - `params` (optional): JSON-serializable object matching that action's `parameters` schema
+        - `params` (optional): JSON value matching that action's `parameters` schema
         - `call_id` (optional): correlation id echoed back as `callId` in the result
 
         Each call requests one semantic app operation. Actions may change state,
@@ -180,7 +181,11 @@ Efficient defaults:
 
         Raises when the VACP bridge is not installed on the page.
         """
-        call = ActionCall(call_id=call_id or 'call', name=name, params=params)
+        call = (
+            ActionCall(call_id=call_id or 'call', name=name)
+            if params is MISSING
+            else ActionCall(call_id=call_id or 'call', name=name, params=params)
+        )
         res = await client.execute(call)
         return {'callId': res.call_id, 'ok': res.ok, 'result': res.result, 'error': res.error}
 

@@ -1,9 +1,12 @@
 from __future__ import annotations
 
+from unittest.mock import AsyncMock
+
 import pytest
 from fastmcp.tools.function_tool import FunctionTool
+from playwright.async_api import Page
 from pydantic import ValidationError
-from vacp.bridge import ActionCall, ActionResult, VacpBridgeClient
+from vacp.bridge import ActionCall, ActionResult, PlaywrightVacpBridgeClient, VacpBridgeClient
 from vacp.models import VacpCapabilitiesRequestOptions, VacpStateRequestOptions
 from vacp.server import create_mcp
 
@@ -222,6 +225,30 @@ async def test_vacp_execute_tool_calls_surface() -> None:
     assert res['callId'] == 'c1'
     assert res['ok'] is True
     assert res['result'] == {'name': 'vacp.data_sql', 'params': {'handleRef': 'vacp://x', 'sql': 'select 1'}}
+
+
+@pytest.mark.asyncio
+async def test_mcp_execution_preserves_json_values_and_omission_through_the_browser_bridge() -> None:
+    page = AsyncMock(spec=Page)
+    cases = [{}, {'params': None}, {'params': 'hello'}, {'params': [1, 2]}, {'params': {'value': 3}}]
+    payloads: list[object] = []
+
+    def evaluate(_expression: str, argument: str | dict[str, object]) -> object:
+        if isinstance(argument, str):
+            return True
+        payloads.append(argument['payload'])
+        return {'callId': 'c1', 'ok': True}
+
+    page.evaluate.side_effect = evaluate
+    mcp = create_mcp(PlaywrightVacpBridgeClient(page))
+    tool = await mcp.get_tool('vacp_execute')
+    assert isinstance(tool, FunctionTool)
+    for supplied in cases:
+        call = ActionCall(call_id='c1', name='custom.input', **supplied)
+        assert call.has_params is ('params' in supplied)
+        result = await tool.run({'name': 'custom.input', 'call_id': 'c1', **supplied})
+        assert result.is_error is False
+        assert payloads[-1] == {'callId': 'c1', 'name': 'custom.input', **supplied}
 
 
 @pytest.mark.asyncio

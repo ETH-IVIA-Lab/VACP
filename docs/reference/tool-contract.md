@@ -31,6 +31,10 @@ When `refs` includes a container ref such as a _View_ or _Visualization_, the sc
 
 Executes a discovered action by its unique `name` with validated parameters. `operation.contract` identifies shared semantics independently of that routing name. Action descriptors identify the operation kind, input refs, affected refs, dynamic ref parameters, and produced results. The response includes the call id, a success flag, and either a result payload or an error payload.
 
+`params` may be any JSON value accepted by the action's schema. Omitting it preserves action defaults. Passing `null` supplies an explicit null value. The Python MCP transport preserves this distinction.
+
+Custom Python `VacpBridgeClient` implementations check `call.has_params` before serializing `call.params`. A false value means to omit the parameter field; a true value includes explicit `None` as JSON `null`.
+
 ## Bridge shape
 
 ```ts
