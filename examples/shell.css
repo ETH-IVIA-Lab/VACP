@@ -12,6 +12,7 @@ body {
 .example-shell {
   max-width: 1360px;
   margin: 0 auto;
+  padding: clamp(24px, 3vw, 48px) clamp(20px, 3vw, 40px) 48px;
   font-family:
     'Geist',
     'Segoe UI',
@@ -26,17 +27,8 @@ body {
 .example-shell__panel {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 12px;
   padding: 0;
-}
-
-.example-shell__label {
-  display: block;
-  margin: 0;
-  font-size: 12px;
-  font-weight: 500;
-  color: #666;
-  letter-spacing: 0;
 }
 
 .example-shell__select {
@@ -91,20 +83,13 @@ body {
 .example-shell__stage {
   min-height: 340px;
   margin-top: 0;
-  padding-top: 8px;
-}
-
-.example-shell__meta:empty + .example-shell__stage {
-  padding-top: 4px;
+  padding-top: 12px;
 }
 
 @media (max-width: 840px) {
   .example-shell__stage {
     min-height: 300px;
-    padding-top: 6px;
-  }
-
-  .example-shell__meta:empty + .example-shell__stage {
-    padding-top: 2px;
+    padding-top: 8px;
+    overflow-x: auto;
   }
 }
