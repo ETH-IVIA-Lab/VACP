@@ -1,0 +1,36 @@
+packages/python/pyproject.toml
+  s_ad28489153bcf7::t_e9cad9e5fe0df9 17
+packages/python/src/vacp/bridge.py
+  s_ad28489153bcf7::t_57ebfd2c128211 21-24,99
+  s_ad28489153bcf7::t_e9cad9e5fe0df9 12-13,19,98,100
+packages/python/tests/test_server_tools.py
+  s_ad28489153bcf7::t_57ebfd2c128211 247-248
+  s_ad28489153bcf7::t_627ffd945fed67 234-242,251
+  s_ad28489153bcf7::t_7c824620423ce6 233,246
+  s_ad28489153bcf7::t_01d0f935204b0e 7,9,230-232,243-245,249-250
+  s_ad28489153bcf7::t_44cf2fab0e0124 3-4
+packages/python/src/vacp/server.py
+  s_ad28489153bcf7::t_01d0f935204b0e 11,163,184-188
+  s_ad28489153bcf7::t_7f0a7e0f542b11 171
+uv.lock
+  ai_agent 1547
+docs/reference/tool-contract.md
+  s_ad28489153bcf7::t_01d0f935204b0e 34-35
+  s_ad28489153bcf7::t_57ebfd2c128211 36-37
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "58b60ec82409d7707abfec84373ce09c278374ef",
+  "prompts": {},
+  "sessions": {
+    "s_ad28489153bcf7": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a0b393-234e-74d3-8b65-e0faa6b8456b",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Péter Ferenc Gyarmati <peterferenc.gyarmati@inf.ethz.ch>"
+    }
+  }
+}
