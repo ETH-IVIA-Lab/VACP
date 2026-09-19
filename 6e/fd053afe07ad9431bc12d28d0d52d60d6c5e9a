@@ -1,0 +1,23 @@
+packages/transport-webmcp/src/install.ts
+  s_ad28489153bcf7::t_296d1f2ccc9a08 53-54,149-162,166-168
+packages/transport-webmcp/test/webmcp.test.ts
+  s_ad28489153bcf7::t_c412214a061d42 432-439,449-450,456,458,465,480,489-491
+  s_ad28489153bcf7::t_0aa35311c9ddc9 426-431,440-448,451-455,457,459-460,463-464,466-479,481-488,492-517
+  s_ad28489153bcf7::t_74d662a62227e3 461-462
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "6efd053afe07ad9431bc12d28d0d52d60d6c5e9a",
+  "prompts": {},
+  "sessions": {
+    "s_ad28489153bcf7": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a0b393-234e-74d3-8b65-e0faa6b8456b",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Péter Ferenc Gyarmati <peterferenc.gyarmati@inf.ethz.ch>"
+    }
+  }
+}
