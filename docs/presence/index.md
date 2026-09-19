@@ -85,10 +85,12 @@ Set `press: false` or `ripple: false` under `appearance` to disable either effec
 Describe the intentional focus after parameter parsing:
 
 ```ts
+import { z } from 'zod';
+
 actions
   .operation('mutation', 'threshold.set', 'Set threshold')
   .title('Set threshold')
-  .params(parameterDescription, thresholdParser)
+  .params(z.object({ value: z.number().min(0).max(100) }))
   .focus(({ value }) => ({
     ref: thresholdRef,
     detail: { value },

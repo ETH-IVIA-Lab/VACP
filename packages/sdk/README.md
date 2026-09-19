@@ -6,7 +6,7 @@ Connect application-owned analytical state to VACP with `createVacpActions`, `cr
 
 `createVacpActions(sourceId)` gives registered actions unique execution names for that source. Use `.contract(id)` to declare shared semantics, and execute the descriptor returned by `.handle()` using its `name`.
 
-`params(description, parser)` accepts a Zod schema or an application parser. Define parameters once, before `.focus()` or `.handle()`; those callbacks receive the parsed type. Handlers also receive cancellation context. VACP does not generate schemas from TypeScript types.
+`params(zodSchema)` derives the agent-facing input JSON Schema and validates parameters during preparation. Define parameters once, before `.focus()` or `.handle()`. Those callbacks receive the inferred Zod output type, including transforms and defaults. Async validation and Zod Mini are supported. Handlers also receive cancellation context.
 
 Use `.requires(...refs)` to add node prerequisites. Describe current readiness alongside the projected state; see [availability](../../docs/providers/availability.md).
 

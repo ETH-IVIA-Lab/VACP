@@ -20,9 +20,7 @@
   "dependencies": {
     "@vacp/protocol": "workspace:*",
     "@vacp/runtime": "workspace:*",
-    "@vacp/runtime-browser": "workspace:*"
-  },
-  "devDependencies": {
+    "@vacp/runtime-browser": "workspace:*",
     "zod": "catalog:"
   }
 }

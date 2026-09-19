@@ -764,7 +764,6 @@ importers:
       '@vacp/runtime-browser':
         specifier: workspace:*
         version: link:../runtime-browser
-    devDependencies:
       zod:
         specifier: 'catalog:'
         version: 4.6.5

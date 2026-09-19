@@ -1,5 +1,16 @@
 import type { VacpActionExecutionOptions, VacpActionResult, VacpRef, VacpSourceId } from './schema';
 
+/** An action failure with transport-neutral, serializable details. */
+export class VacpActionError<Details = unknown> extends Error {
+  constructor(
+    message: string,
+    readonly details: Details,
+  ) {
+    super(message);
+    this.name = 'VacpActionError';
+  }
+}
+
 /** Identity supplied by the calling host, separate from action parameters. */
 export type VacpActor = { id: string; label?: string; kind: 'agent' | 'human' | 'system' };
 

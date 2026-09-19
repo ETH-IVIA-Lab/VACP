@@ -95,16 +95,14 @@ export function installVacpForCarsParallelCoords(args: {
 
   const actions = createVacpActions();
 
+  const brushRange = z
+    .tuple([z.coerce.number(), z.coerce.number()])
+    .transform(([a, b]): BrushRange => (a <= b ? [a, b] : [b, a]))
+    .nullable();
+  const brushParams = z.object({ ranges: z.partialRecord(z.enum(args.dimensions), brushRange) });
   const parseRange = (value: unknown): BrushRange | null => {
-    if (value === null) return null;
-
-    if (!Array.isArray(value) || value.length !== 2) return null;
-    const a = Number(value[0]);
-    const b = Number(value[1]);
-
-    if (!Number.isFinite(a) || !Number.isFinite(b)) return null;
-
-    return a <= b ? [a, b] : [b, a];
+    const parsed = brushRange.safeParse(value);
+    return parsed.success ? parsed.data : null;
   };
 
   actions
@@ -115,39 +113,10 @@ export function installVacpForCarsParallelCoords(args: {
     )
     .title('Filter cars')
     .affects(brushRef)
-    .params(
-      {
-        type: 'object',
-        properties: {
-          ranges: {
-            type: 'object',
-            additionalProperties: {
-              anyOf: [{ type: 'null' }, { type: 'array', items: { type: 'number' }, minItems: 2, maxItems: 2 }],
-            },
-          },
-        },
-        required: ['ranges'],
-      },
-      z.object({ ranges: z.record(z.string(), z.tuple([z.coerce.number(), z.coerce.number()]).nullable()) }),
-    )
-    .focus((params) => ({ ref: brushRef, detail: { ranges: params.ranges } }))
-    .handle((params) => {
-      const rec = params ?? {};
-      const rangesRaw = rec.ranges;
-
-      if (!rangesRaw || typeof rangesRaw !== 'object') throw new Error('Expected params.ranges object');
-
-      const patch: Partial<Record<string, BrushRange | null>> = {};
-
-      for (const [dim, raw] of Object.entries(rangesRaw as Record<string, unknown>)) {
-        if (!args.dimensions.includes(dim)) throw new Error(`Unknown dimension: ${dim}`);
-        const range = parseRange(raw);
-
-        if (raw !== null && !range) throw new Error(`Invalid range for "${dim}": expected [min,max]`);
-        patch[dim] = range;
-      }
-
-      args.setBrushRanges(patch, 'agent');
+    .params(brushParams)
+    .focus(({ ranges }) => ({ ref: brushRef, detail: { ranges } }))
+    .handle(({ ranges }) => {
+      args.setBrushRanges(ranges, 'agent');
 
       return { selectedCount: args.getState().selectedCount };
     });
@@ -155,7 +124,7 @@ export function installVacpForCarsParallelCoords(args: {
   actions
     .operation('mutation', 'parallel_coords.reset_brushes', 'Reset all brushes to the full data extents.')
     .affects(brushRef)
-    .params({ type: 'object', properties: {} })
+    .params(z.object({}).default({}))
     .focus(() => ({ ref: brushRef }))
     .handle(() => {
       args.resetBrushes('agent');
@@ -166,19 +135,8 @@ export function installVacpForCarsParallelCoords(args: {
   actions
     .operation('mutation', 'parallel_coords.set_dimension_order', 'Set the axis order as an array of dimension names.')
     .affects(orderRef)
-    .params(
-      {
-        type: 'object',
-        properties: { order: { type: 'array', items: { type: 'string' } } },
-        required: ['order'],
-      },
-      z.object({ order: z.array(z.coerce.string()) }),
-    )
-    .handle((params) => {
-      const rec = params ?? {};
-
-      if (!Array.isArray(rec.order)) throw new Error('Expected params.order array');
-      const order = rec.order.map(String);
+    .params(z.object({ order: z.array(z.coerce.string()) }))
+    .handle(({ order }) => {
       args.setDimensionOrder(order, 'agent');
 
       return { ok: true };
@@ -187,7 +145,7 @@ export function installVacpForCarsParallelCoords(args: {
   actions
     .operation('mutation', 'parallel_coords.reset_dimension_order', 'Reset axis order back to the dataset default.')
     .affects(orderRef)
-    .params({ type: 'object', properties: {} })
+    .params(z.object({}).default({}))
     .handle(() => {
       args.resetDimensionOrder('agent');
 
@@ -205,24 +163,14 @@ export function installVacpForCarsParallelCoords(args: {
     )
     .affects(hoverRef)
     .params(
-      {
-        type: 'object',
-        properties: {
-          clear: { type: 'boolean', description: 'If true, clear the current hover.' },
-          id: { type: 'number', description: 'Row id (internal numeric id used by this demo).' },
-          car: { type: 'string', description: 'Car-name substring to match within the current selection.' },
-          prefer: {
-            type: 'string',
-            enum: ['first', 'min_horsepower_nonzero', 'max_horsepower'],
-            description: 'When multiple matches exist, how to pick a single row.',
-          },
-        },
-      },
       z.object({
-        clear: z.boolean().optional(),
-        id: z.number().optional(),
-        car: z.string().optional(),
-        prefer: z.string().optional(),
+        clear: z.boolean().describe('If true, clear the current hover.').optional(),
+        id: z.number().describe('Row id (internal numeric id used by this demo).').optional(),
+        car: z.string().describe('Car-name substring to match within the current selection.').optional(),
+        prefer: z
+          .enum(['first', 'min_horsepower_nonzero', 'max_horsepower'])
+          .describe('When multiple matches exist, how to pick a single row.')
+          .optional(),
       }),
     )
     .handle((params) => {
@@ -284,7 +232,7 @@ export function installVacpForCarsParallelCoords(args: {
   actions
     .operation('mutation', 'parallel_coords.clear_hover', 'Clear the currently hovered line (hides tooltip).')
     .affects(hoverRef)
-    .params({ type: 'object', properties: {} })
+    .params(z.object({}).default({}))
     .handle(() => {
       args.setHoveredId(null, 'agent');
 

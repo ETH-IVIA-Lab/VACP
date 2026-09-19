@@ -36,6 +36,6 @@ A full React Doctor scan of the Inspector reported 73 warnings (47/100), chiefly
 
 ## Type and QA boundaries
 
-Custom action handlers infer parsed parameters and accept domain-interface results. Snapshot providers preserve state and summary types. Protocol action calls, results, nodes, SQL rows, and widget values expose type parameters. AI SDK message metadata and transport wrappers preserve their owner types. The runtime's heterogeneous action registry and external transport payloads retain unvalidated inputs at the boundary. No schema generation is used.
+Custom action handlers infer parsed parameters and accept domain-interface results. Snapshot providers preserve state and summary types. Protocol action calls, results, nodes, SQL rows, and widget values expose type parameters. AI SDK message metadata and transport wrappers preserve their owner types. The runtime's heterogeneous action registry and external transport payloads retain unvalidated inputs at the boundary. SDK parameter declarations derive input JSON Schema directly from Zod at definition time. Protocol and runtime records remain independent of the schema library.
 
 Vite configuration is centralized at the root. Make owns local and CI workflows, including Knip, the anti-slop preset and its upstream tests, and all four Python QA tools. Inspector's diagnostics instrumentation is reference-counted and restores browser methods after the final consumer unmounts.

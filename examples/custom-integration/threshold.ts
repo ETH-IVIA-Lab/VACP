@@ -14,14 +14,7 @@ export function connectThreshold(input: ThresholdControl) {
   actions
     .operation('mutation', 'threshold.set', 'Set the threshold between 0 and 100')
     .affects(ref)
-    .params(
-      {
-        type: 'object',
-        properties: { value: { type: 'number', minimum: 0, maximum: 100 } },
-        required: ['value'],
-      },
-      thresholdParams,
-    )
+    .params(thresholdParams)
     .focus(() => ({ ref }))
     .handle(({ value }) => {
       input.value = String(value);

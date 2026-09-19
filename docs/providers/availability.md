@@ -32,14 +32,11 @@ actions
   .operation('mutation', 'chart.select', 'Select a bar')
   .requires('vacp://chart')
   .affects('vacp://selection')
-  .params(
-    { type: 'object', properties: { category: { type: 'string' } }, required: ['category'] },
-    z.object({ category: z.string() }),
-  )
+  .params(z.object({ category: z.string() }))
   .handle(({ category }) => selectCategory(category));
 ```
 
-Use a parser with `.params(schema, parser)` before `.focus()` or `.handle()` when those callbacks need typed parameters. Parameters are defined once; repeated `.requires()` calls add prerequisites. Standard action registration options also accept `availability`.
+Define `.params(zodSchema)` before `.focus()` or `.handle()` to infer parsed parameter types and publish the input schema. Parameters are defined once; repeated `.requires()` calls add prerequisites. Standard action registration options also accept `availability`.
 
 `requires` describes prerequisites. `inputRefs`, `affects`, and `results` describe analytical relationships. They do not implicitly hide actions. An acquisition action may affect a currently unavailable dataset without requiring it. Likewise, `contains` does not imply availability inheritance: a dataset selector inside an empty chart container can remain usable.
 

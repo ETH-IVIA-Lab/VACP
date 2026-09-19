@@ -65,7 +65,7 @@ The root `vite.config.ts` owns library packaging policy. Each library runs `vp p
 
 ## Public types and validation
 
-Preserve application types with generics in action, snapshot, and transport contracts. Use `unknown` where input is actually unvalidated, then narrow it at the receiving boundary. Avoid generic parameters that only disguise unchecked assertions. Custom actions and schema description fields must stay open. Do not require index signatures on domain interfaces or introduce schema generation. Zod 4 is available for runtime validation.
+Preserve application types with generics in action, snapshot, and transport contracts. Use `unknown` where input is actually unvalidated, then narrow it at the receiving boundary. Avoid generic parameters that only disguise unchecked assertions. Custom actions and schema description fields must stay open. Do not require index signatures on domain interfaces. SDK actions use `.params(zodSchema)` to derive input JSON Schema at definition time and infer parsed callback types. Keep Zod conversion in the SDK; protocol and runtime contracts remain schema-library agnostic. Do not add generated schema files or a schema build step.
 
 The vendored anti-slop sources remain unchanged. Local rule choices live in `tools/oxlint/anti-slop/preset.ts`; follow the documented preset rather than adding per-line exceptions. Knip checks dependencies and exports across the shared workspace.
 

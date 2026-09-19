@@ -6,6 +6,7 @@ import type {
   VacpObservation,
   VacpRef,
 } from './schema';
+import { VacpActionError } from './execution';
 
 export type VacpAvailabilityStatus = {
   readonly available: boolean;
@@ -31,12 +32,9 @@ export type VacpAvailabilityFailure =
   | { code: 'input-unavailable'; action: string; ref: VacpRef; status?: VacpAvailabilityStatus };
 
 /** Machine-readable eligibility failure, independent of an execution transport. */
-export class VacpAvailabilityError extends Error {
-  constructor(
-    message: string,
-    readonly details: VacpAvailabilityFailure,
-  ) {
-    super(message);
+export class VacpAvailabilityError extends VacpActionError<VacpAvailabilityFailure> {
+  constructor(message: string, details: VacpAvailabilityFailure) {
+    super(message, details);
     this.name = 'VacpAvailabilityError';
   }
 }

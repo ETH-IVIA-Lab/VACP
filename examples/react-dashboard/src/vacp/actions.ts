@@ -16,14 +16,7 @@ export function registerDashboardActions(actions: VacpActions, model: ReactDashb
       `Set the active dataset (loads JSON rows and rebuilds the DuckDB table). Valid ids: ${datasetIds.join(', ')}.`,
     )
     .affects(handleRef)
-    .params(
-      {
-        type: 'object',
-        properties: { id: { type: 'string', enum: datasetIds } },
-        required: ['id'],
-      },
-      z.object({ id: z.enum(datasetIds) }),
-    )
+    .params(z.object({ id: z.enum(datasetIds) }))
     .handle(async (params) => {
       const { id } = params;
       await model.setDatasetId(id);
@@ -36,15 +29,6 @@ export function registerDashboardActions(actions: VacpActions, model: ReactDashb
     .requires(handleRef)
     .affects(scatterRef)
     .params(
-      {
-        type: 'object',
-        properties: {
-          x: { type: 'string' },
-          y: { type: 'string' },
-          color: { anyOf: [{ type: 'string' }, { type: 'null' }] },
-        },
-        required: ['x', 'y'],
-      },
       z
         .object({ x: z.string().min(1), y: z.string().min(1), color: z.string().nullable().default(null) })
         .transform((params) => {
@@ -65,7 +49,6 @@ export function registerDashboardActions(actions: VacpActions, model: ReactDashb
     .requires(scatterRef)
     .affects(selectionRef)
     .params(
-      { type: 'object', properties: { ids: { type: 'array', items: { type: 'string' } } }, required: ['ids'] },
       z.object({ ids: z.array(z.string()) }).transform((params) => {
         assertDashboardSelection(model.read().dataset, params.ids);
         return params;
@@ -86,19 +69,7 @@ export function registerDashboardActions(actions: VacpActions, model: ReactDashb
     )
     .requires(scatterRef)
     .affects(brush2dRef)
-    .params(
-      {
-        type: 'object',
-        properties: {
-          x0: { type: 'number' },
-          x1: { type: 'number' },
-          y0: { type: 'number' },
-          y1: { type: 'number' },
-        },
-        required: ['x0', 'x1', 'y0', 'y1'],
-      },
-      z.object({ x0: z.number(), x1: z.number(), y0: z.number(), y1: z.number() }),
-    )
+    .params(z.object({ x0: z.number(), x1: z.number(), y0: z.number(), y1: z.number() }))
     .handle((params) => {
       const { x0, x1, y0, y1 } = params;
       model.setBrush2d({ x0, x1, y0, y1 });
@@ -115,15 +86,6 @@ export function registerDashboardActions(actions: VacpActions, model: ReactDashb
     .requires(scatterRef)
     .affects(selectionRef)
     .params(
-      {
-        type: 'object',
-        properties: {
-          xMinQ: { type: 'number', minimum: 0, maximum: 1 },
-          xMaxQ: { type: 'number', minimum: 0, maximum: 1 },
-          yMinQ: { type: 'number', minimum: 0, maximum: 1 },
-          yMaxQ: { type: 'number', minimum: 0, maximum: 1 },
-        },
-      },
       z
         .object({
           xMinQ: z.number().min(0).max(1).default(0),
@@ -164,7 +126,7 @@ export function registerDashboardActions(actions: VacpActions, model: ReactDashb
     .operation('mutation', 'dashboard.clear_brush_2d', 'Clear the 2D brush and clear the selection.')
     .requires(brush2dRef)
     .affects(brush2dRef)
-    .params({ type: 'object', properties: {} })
+    .params(z.object({}).default({}))
     .handle(() => {
       model.clearBrush2d();
 
@@ -176,7 +138,6 @@ export function registerDashboardActions(actions: VacpActions, model: ReactDashb
     .requires(scatterRef)
     .affects(selectionRef)
     .params(
-      { type: 'object', properties: { id: { type: 'string' } }, required: ['id'] },
       z.object({ id: z.string().min(1) }).transform((params) => {
         assertDashboardSelection(model.read().dataset, [params.id]);
         return params;
@@ -194,7 +155,7 @@ export function registerDashboardActions(actions: VacpActions, model: ReactDashb
     .operation('mutation', 'dashboard.clear_selection', 'Clear the explicit point selection.')
     .requires(selectionRef)
     .affects(selectionRef)
-    .params({ type: 'object', properties: {} })
+    .params(z.object({}).default({}))
     .handle(() => {
       model.clearSelection();
 
