@@ -2,9 +2,10 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createVegaLiteProvider, type VegaViewLike } from '../src/index';
 
-test('provider observation subscriptions release signal and tooltip ownership across rebinding', (t) => {
+test('provider observation preserves native tooltip behavior and releases listeners across rebinding', (t) => {
   t.mock.timers.enable({ apis: ['setTimeout'] });
   const signals = new Map<string, () => void>();
+  const events = new Map<string, (event: Event, item?: unknown) => void>();
   const originalTooltip = () => {};
   let tooltip = originalTooltip;
   let value = 1;
@@ -16,6 +17,10 @@ test('provider observation subscriptions release signal and tooltip ownership ac
       signals.delete(name);
     },
     tooltip: (next) => (next ? (tooltip = next) : tooltip),
+    addEventListener: (name, listener) => events.set(name, listener),
+    removeEventListener: (name) => {
+      events.delete(name);
+    },
   };
   const create = () =>
     createVegaLiteProvider({
@@ -27,18 +32,20 @@ test('provider observation subscriptions release signal and tooltip ownership ac
   assert.equal(signals.size, 0);
   let firstChanges = 0;
   const detach = first.subscribe!(() => firstChanges++);
-  assert.notEqual(tooltip, originalTooltip);
+  assert.equal(tooltip, originalTooltip);
+  assert.equal(events.size, 2);
   signals.get('threshold')!();
   detach();
   t.mock.timers.tick(120);
   assert.equal(firstChanges, 0);
+  assert.equal(events.size, 0);
   assert.equal(signals.size, 0);
   assert.equal(tooltip, originalTooltip);
   first.dispose!();
   const second = create();
   let secondChanges = 0;
   second.subscribe!(() => secondChanges++);
-  signals.get('threshold')!();
+  events.get('pointermove')!(new Event('pointermove'), { tooltip: { value: 2 }, datum: { value: 2 } });
   t.mock.timers.tick(120);
   assert.equal(secondChanges, 1);
   second.dispose!();
@@ -132,4 +139,72 @@ test('failed observation binding releases partial listeners and remains retryabl
   assert.equal(changes, 1);
   provider.dispose!();
   assert.equal(listeners.size, 0);
+});
+
+test('shared view observation preserves native promise identity and other consumers on detach', async (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  let value: unknown = 1;
+  const result = Promise.resolve();
+  const runAsync = () => result;
+  const view: VegaViewLike = { signal: (_name, next) => (next === undefined ? value : (value = next)), runAsync };
+  const create = () =>
+    createVegaLiteProvider({
+      view,
+      spec: { params: [{ name: 'threshold', value: 1 }] },
+      options: { appId: 'test', viewId: 'shared', vizId: 'chart', enableDuckDbDataHandle: false },
+    });
+  const first = create(),
+    second = create();
+  first.subscribe!(() => {});
+  const wrapped = view.runAsync;
+  second.subscribe!(() => {});
+  assert.equal(view.runAsync, wrapped);
+  first.dispose!();
+  assert.equal(view.runAsync, wrapped);
+  assert.equal(view.runAsync(), result);
+  await result;
+  t.mock.timers.tick(120);
+  assert.equal(Object.values((await second.observe()).freshness ?? {})[0]?.status, 'current');
+  second.dispose!();
+  assert.equal(view.runAsync, runAsync);
+});
+
+test('raw signal preparation resolves the native target and retains caller values before execution', async () => {
+  let current: unknown = 1;
+  const view: VegaViewLike = {
+    signal(name, value) {
+      if (name !== 'threshold') throw new Error('Unknown signal');
+      if (arguments.length === 2) current = value;
+      return current;
+    },
+    runAsync: async () => {},
+  };
+  const provider = createVegaLiteProvider({
+    view,
+    spec: {},
+    options: {
+      appId: 'test',
+      viewId: 'prepared',
+      vizId: 'chart',
+      includeSetSignalAction: true,
+      enableDuckDbDataHandle: false,
+    },
+  });
+  try {
+    const action = (await provider.observe()).graph.actions.find(
+      (action) => action.operation.contract === 'vega.set_signal',
+    )!;
+    await assert.rejects(
+      provider.prepare({ callId: 'invalid', name: action.name, params: { name: 'missing', value: 2 } }),
+      /Unknown signal/,
+    );
+    const params = { name: 'threshold', value: { level: 2 } };
+    const plan = await provider.prepare({ callId: 'valid', name: action.name, params });
+    params.value.level = 9;
+    assert.equal(current, 1);
+    assert.equal((await plan.execute()).ok, true);
+    assert.deepEqual(current, { level: 2 });
+  } finally {
+    provider.dispose?.();
+  }
 });

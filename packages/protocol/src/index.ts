@@ -9,3 +9,5 @@ export * from './hash.js';
 export * from './value.js';
 
 export * from './provider.js';
+
+export * from './execution.js';

@@ -56,9 +56,5 @@ export function registerVacpDataSchemaAction(
     },
   };
 
-  return registry.register(descriptor, (params, executionOptions) => {
-    const parsed = paramsSchema.parse(params);
-
-    return handler(parsed, executionOptions);
-  });
+  return registry.register(descriptor, handler, { parse: (value) => paramsSchema.parse(value) });
 }

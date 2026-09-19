@@ -43,7 +43,7 @@ test('vgplot-gallery: history resets when switching specs (new VACP session)', a
       })
       .toMatchObject({
         first: {
-          kind: 'mode',
+          kind: 'session',
         },
       });
 

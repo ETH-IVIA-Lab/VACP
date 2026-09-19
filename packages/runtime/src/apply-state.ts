@@ -6,10 +6,11 @@ import { VACP_APPLY_STATE_ACTION } from '@vacp/protocol';
 
 import type { VacpActionRegistrar } from './action-registry.js';
 
-export type VacpApplyStateHandler<Result = unknown> = (
+export type VacpApplyStatePreparation<Result = unknown> = (
   state: Record<VacpRef, unknown>,
-  options: VacpActionExecutionOptions,
-) => Result | Promise<Result>;
+) =>
+  | ((options: VacpActionExecutionOptions) => Result | Promise<Result>)
+  | Promise<(options: VacpActionExecutionOptions) => Result | Promise<Result>>;
 
 const paramsSchema = z.object({ state: z.record(vacpRefSchema, z.unknown()) });
 
@@ -22,7 +23,7 @@ const paramsSchema = z.object({ state: z.record(vacpRefSchema, z.unknown()) });
  */
 export function registerVacpApplyStateAction<Result>(
   registry: VacpActionRegistrar,
-  handler: VacpApplyStateHandler<Result>,
+  prepare: VacpApplyStatePreparation<Result>,
   options?: { affects?: VacpRef[]; description?: string },
 ): VacpActionDescriptor {
   const descriptor: VacpActionDescriptor = {
@@ -48,9 +49,17 @@ export function registerVacpApplyStateAction<Result>(
     },
   };
 
-  return registry.register(descriptor, (params, executionOptions) => {
-    const parsed = paramsSchema.parse(params);
-
-    return handler(parsed.state, executionOptions);
-  });
+  return registry.register(
+    descriptor,
+    (params: { execute: Awaited<ReturnType<VacpApplyStatePreparation<Result>>>; refs: VacpRef[] }, executionOptions) =>
+      params.execute(executionOptions),
+    {
+      parse: async (value) => {
+        const { state } = paramsSchema.parse(value);
+        const execute = await prepare(structuredClone(state));
+        return { execute, refs: Object.keys(state) as VacpRef[] };
+      },
+      affects: (params) => params.refs,
+    },
+  );
 }

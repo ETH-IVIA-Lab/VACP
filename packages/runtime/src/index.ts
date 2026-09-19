@@ -15,3 +15,6 @@ export * from './runtime/create-runtime.js';
 export * from './composition.js';
 
 export * from './create-provider.js';
+
+export { createVacpRestorer, type VacpRestorationOutcome, type VacpRestorationResult } from './restoration.js';
+export { createSharedSubscription } from './shared-subscription.js';

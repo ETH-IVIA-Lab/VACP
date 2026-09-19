@@ -443,7 +443,11 @@ export type VacpActionResult<Result = unknown, ErrorDetails = unknown> =
   | { callId: string; ok: false; error: { message: string; details?: ErrorDetails } };
 
 /** In-process execution controls; these are not part of the serialized call. */
-export type VacpActionExecutionOptions = { signal?: AbortSignal };
+export type VacpActionExecutionOptions = {
+  signal?: AbortSignal;
+  /** Host attribution, never inferred from model-supplied action parameters. */
+  actor?: import('./execution.js').VacpActor;
+};
 
 /**
  * In-page bridge contract (preferred integration path).

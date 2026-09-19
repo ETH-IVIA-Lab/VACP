@@ -18,6 +18,10 @@
       "entry": ["src/route-entry.ts", "examples.manifest.ts", "vite.config.ts"],
       "vite": { "config": "vite.config.ts" },
     },
+    "apps/e2e": {
+      // Loaded in the browser through Vite's /@fs route.
+      "entry": ["fixtures/presence.ts"],
+    },
     "apps/docs": {
       // VitePress loads this optional minifier dynamically for Rolldown builds.
       "ignoreDependencies": ["oxc-minify"],

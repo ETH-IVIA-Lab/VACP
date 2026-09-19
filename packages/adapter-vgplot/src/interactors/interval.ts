@@ -1,12 +1,9 @@
-import type { VacpActionCall } from '@vacp/protocol';
-
-import type { VgplotPlotLike, VgplotScaleLike } from '../types.js';
-import { awaitPlotUpdate } from './plot-update.js';
+import type { VgplotInteractorLike, VgplotScaleLike } from '../types.js';
 
 type DomainValue = number | Date;
 
 function parseDomainValue(value: unknown): DomainValue {
-  if (value instanceof Date) return value;
+  if (value instanceof Date && Number.isFinite(value.getTime())) return value;
 
   if (typeof value === 'number' && Number.isFinite(value)) return value;
 
@@ -75,117 +72,61 @@ function normalizeToScaleDomain(value: DomainValue, scale: VgplotScaleLike | und
   return value;
 }
 
-/**
- * Interval interactors are the primary vgplot selection primitives.
- *
- * We set values in *domain units* and let the interactor translate to pixels /
- * selection clauses internally.
- */
-export async function executeIntervalAction(plot: VgplotPlotLike, call: VacpActionCall) {
-  const params = (call.params ?? {}) as Record<string, unknown>;
-  const interactorId = String(params.interactorId ?? '');
-  const interactor = plot.interactors[Number(interactorId)];
+/** Shared domain normalization for execution and presentation. */
+export function intervalDomainValue(value: unknown, scale: VgplotScaleLike | undefined): DomainValue {
+  return normalizeToScaleDomain(parseDomainValue(value), scale);
+}
 
-  if (!interactor) throw new Error(`Unknown interactorId: ${interactorId}`);
-
-  const ctorName = interactor.constructor?.name ?? 'Interactor';
-  const anyI = interactor;
-
-  if (call.name === 'vgplot.clear_interval_1d' && ctorName === 'Interval1D') {
-    // Prefer the same mechanism as human brushing: clear brush visuals + clear the selection clause.
-    if (anyI.g && anyI.brush) {
-      anyI.g.call(anyI.brush.moveSilent, null);
-    }
-
-    anyI.value = undefined;
-
-    if (typeof anyI.selection?.update === 'function' && typeof anyI.clause === 'function') {
-      anyI.selection.update(anyI.clause(null));
-    } else if (typeof anyI.publish === 'function') {
-      anyI.publish(null);
-    }
-
-    await awaitPlotUpdate(plot);
-
-    return { cleared: true };
-  }
-
-  if (call.name === 'vgplot.clear_interval_2d' && ctorName === 'Interval2D') {
-    if (anyI.g && anyI.brush) {
-      anyI.g.call(anyI.brush.moveSilent, null);
-    }
-
-    anyI.value = undefined;
-
-    if (typeof anyI.selection?.update === 'function' && typeof anyI.clause === 'function') {
-      anyI.selection.update(anyI.clause(null));
-    } else if (typeof anyI.publish === 'function') {
-      anyI.publish(null);
-    }
-
-    await awaitPlotUpdate(plot);
-
-    return { cleared: true };
-  }
-
-  if (call.name === 'vgplot.set_interval_1d' && ctorName === 'Interval1D') {
-    const min = normalizeToScaleDomain(parseDomainValue(params.min), anyI.scale);
-    const max = normalizeToScaleDomain(parseDomainValue(params.max), anyI.scale);
-    anyI.value = [min, max];
-
-    if (anyI.g && anyI.brush && anyI.scale) {
-      const scale = anyI.scale;
-      const px = [min, max].map((v: DomainValue) => scale.apply(v));
-      anyI.g.call(anyI.brush.moveSilent, px);
-    }
-
-    if (typeof anyI.selection?.update === 'function' && typeof anyI.clause === 'function') {
-      anyI.selection.update(anyI.clause([min, max]));
-    } else if (typeof anyI.publish === 'function') {
-      // Fallback: publish if the selection plumbing isn't exposed.
-      anyI.publish([min, max]);
-    }
-
-    // Ensure VGPlot cross-filters re-run (matching the effect of human brushing).
-    await awaitPlotUpdate(plot);
-
-    return { set: true };
-  }
-
-  if (call.name === 'vgplot.set_interval_2d' && ctorName === 'Interval2D') {
-    const x0 = normalizeToScaleDomain(parseDomainValue(params.x0), anyI.xscale);
-    const x1 = normalizeToScaleDomain(parseDomainValue(params.x1), anyI.xscale);
-    const y0 = normalizeToScaleDomain(parseDomainValue(params.y0), anyI.yscale);
-    const y1 = normalizeToScaleDomain(parseDomainValue(params.y1), anyI.yscale);
-
-    const value = [
-      [x0, x1],
-      [y0, y1],
-    ];
-
-    anyI.value = value;
-
-    if (anyI.g && anyI.brush && anyI.xscale && anyI.yscale) {
-      const xscale = anyI.xscale;
-      const yscale = anyI.yscale;
-      const px = [x0, x1].map((v: DomainValue) => xscale.apply(v));
-      const py = [y0, y1].map((v: DomainValue) => yscale.apply(v));
-      anyI.g.call(anyI.brush.moveSilent, [
-        [Math.min(...px), Math.min(...py)],
-        [Math.max(...px), Math.max(...py)],
-      ]);
-    }
-
-    if (typeof anyI.selection?.update === 'function' && typeof anyI.clause === 'function') {
-      anyI.selection.update(anyI.clause(anyI.value));
-    } else if (typeof anyI.publish === 'function') {
-      anyI.publish(value);
-    }
-
-    await awaitPlotUpdate(plot);
-
-    return { set: true };
-  }
-
-  throw new Error(`Unsupported interval action for interactor ${ctorName}: ${call.name}`);
+/** Resolve domain values and selection plumbing before any mutation. */
+export function prepareInterval(interactor: VgplotInteractorLike, dimension: 1 | 2, raw: unknown[] | null) {
+  if (interactor.constructor.name !== `Interval${dimension}D`)
+    throw new Error(`Expected Interval${dimension}D interactor`);
+  const selection = interactor.selection;
+  const update = selection?.update;
+  const clause = interactor.clause;
+  const publish = interactor.publish;
+  if ((!update || !clause) && !publish) throw new Error('Interval has no writable selection');
+  const values =
+    raw?.map((value, index) =>
+      intervalDomainValue(
+        value,
+        dimension === 1 ? interactor.scale : index < 2 ? interactor.xscale : interactor.yscale,
+      ),
+    ) ?? null;
+  const value = values && (dimension === 1 ? values : [values.slice(0, 2), values.slice(2, 4)]);
+  const detail = values
+    ? Object.fromEntries(
+        (dimension === 1 ? ['min', 'max'] : ['x0', 'x1', 'y0', 'y1']).map((key, index) => [
+          key,
+          values[index] instanceof Date ? values[index].toISOString() : values[index],
+        ]),
+      )
+    : undefined;
+  return {
+    detail,
+    execute: () => {
+      if (interactor.selection !== selection) throw new Error('Selection binding changed; prepare again');
+      interactor.value = value ?? undefined;
+      const { g, brush, scale, xscale, yscale } = interactor;
+      if (g && brush) {
+        if (!values) g.call(brush.moveSilent, null);
+        else if (dimension === 1 && scale)
+          g.call(
+            brush.moveSilent,
+            values.map((v) => scale.apply(v)),
+          );
+        else if (dimension === 2 && xscale && yscale) {
+          const x = values.slice(0, 2).map((v) => xscale.apply(v));
+          const y = values.slice(2, 4).map((v) => yscale.apply(v));
+          g.call(brush.moveSilent, [
+            [Math.min(...x), Math.min(...y)],
+            [Math.max(...x), Math.max(...y)],
+          ]);
+        }
+      }
+      if (update && clause) update.call(selection, clause.call(interactor, value));
+      else publish!.call(interactor, value);
+      return value ? { set: true } : { cleared: true };
+    },
+  };
 }

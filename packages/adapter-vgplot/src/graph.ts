@@ -1,9 +1,9 @@
 import type { VacpActionDescriptor, VacpEdge, VacpGraphFragment, VacpNode, VacpRef } from '@vacp/protocol';
 import { VACP_SCHEMA_VERSION } from '@vacp/protocol';
 
-import type { CollectedInput } from './inputs.js';
 import { makePlotRef, makeViewRef } from './refs.js';
-import type { VgplotProviderOptions, VgplotPlotLike, VgplotTableLike } from './types.js';
+import type { VgplotBindings } from './bindings.js';
+import type { VgplotProviderOptions } from './types.js';
 
 function stableStringify(value: unknown): string {
   const seen = new WeakSet<object>();
@@ -93,9 +93,7 @@ function markRefSegment(baseId: string, occurrence: number, total: number): stri
 }
 
 export function buildDashboardGraph(args: {
-  plots: Array<{ plotId: string; plot: VgplotPlotLike }>;
-  tables?: Array<{ tableId: string; table: VgplotTableLike }>;
-  inputs: CollectedInput[];
+  bindings: VgplotBindings;
   options: VgplotProviderOptions;
   actions: VacpActionDescriptor[];
   dataHandles?: Array<{ ref: VacpRef; surfaceKind: 'plot' | 'table'; surfaceId: string; table?: string }>;
@@ -128,7 +126,7 @@ export function buildDashboardGraph(args: {
 
   const dataHandleNodeAdded = new Set<VacpRef>();
 
-  for (const input of args.inputs) {
+  for (const input of args.bindings.inputs) {
     nodes.push({
       ref: input.ref,
       kind: 'Widget',
@@ -140,8 +138,7 @@ export function buildDashboardGraph(args: {
     edges.push({ from: viewRef, to: input.ref, kind: 'contains' });
   }
 
-  for (const { plotId, plot } of args.plots) {
-    const plotRef = makePlotRef({ appId: args.options.appId, viewId: args.options.viewId, plotId, suffix: '' });
+  for (const { plotId, plot, ref: plotRef } of args.bindings.plots) {
     nodes.push({
       ref: plotRef,
       kind: 'Visualization',
@@ -287,14 +284,18 @@ export function buildDashboardGraph(args: {
       });
     });
 
-    plot.interactors.forEach((it, i) => {
-      const interactorRef = makePlotRef({
-        appId: args.options.appId,
-        viewId: args.options.viewId,
-        plotId,
-        suffix: `/interactor/${i}`,
+    args.bindings.legends(plot).forEach(({ legend, index, ref }) => {
+      nodes.push({
+        ref,
+        kind: 'Legend',
+        layer: 'InteractionFeedbackLayer',
+        title: `${legend.channel} legend`,
+        data: { plotId, legendId: String(index), channel: legend.channel, interactive: !!legend.selection },
       });
+      edges.push({ from: plotRef, to: ref, kind: 'contains' });
+    });
 
+    args.bindings.interactors(plot).forEach(({ interactor: it, index: i, ref: interactorRef }) => {
       nodes.push({
         ref: interactorRef,
         kind: 'InteractionTarget',
@@ -334,14 +335,7 @@ export function buildDashboardGraph(args: {
     });
   }
 
-  for (const { tableId, table } of args.tables ?? []) {
-    const tableRef = makePlotRef({
-      appId: args.options.appId,
-      viewId: args.options.viewId,
-      plotId: tableId,
-      suffix: '',
-    });
-
+  for (const { tableId, table, ref: tableRef } of args.bindings.tables) {
     nodes.push({
       ref: tableRef,
       kind: 'Visualization',
@@ -351,7 +345,8 @@ export function buildDashboardGraph(args: {
       data: {
         tableId,
         from: typeof table.from === 'string' ? table.from : undefined,
-        columns: Array.isArray(table.columns) ? table.columns : undefined,
+        columns:
+          table.schema?.map((field) => field.column) ?? (Array.isArray(table.columns) ? table.columns : undefined),
         limit: typeof table.limit === 'number' ? table.limit : undefined,
       },
     });

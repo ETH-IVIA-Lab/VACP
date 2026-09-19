@@ -21,8 +21,6 @@ test('telemetry replaces subscriptions without mutating the bridge or emitting d
     runtimeId: 'runtime-1',
     providers: [provider],
   });
-  const capabilities = await runtime.getCapabilities();
-  const state = await runtime.getState();
   const observation = await runtime.observe();
 
   const bridge = Object.freeze({
@@ -55,15 +53,8 @@ test('telemetry replaces subscriptions without mutating the bridge or emitting d
   resolveRuntime({
     version: '0.1.0',
     runtimeId: 'runtime-1',
-    mode: 'live',
-    cursor: -1,
     history: [],
-    liveObservation: observation,
-    currentObservation: observation,
-    liveCapabilities: capabilities,
-    currentCapabilities: capabilities,
-    liveState: state,
-    currentState: state,
+    observation,
   });
   await Promise.resolve();
 

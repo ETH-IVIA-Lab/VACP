@@ -1,12 +1,57 @@
-import { collectVegaLiteParams } from './params.js';
-import type { buildParamLookup } from './execute.js';
+import { createSharedSubscription } from '@vacp/runtime';
+import type { VacpFreshness } from '@vacp/protocol';
+import type { VegaLiteBindings } from './bindings.js';
 import type { createVegaLiteTooltipBinding } from './tooltip.js';
-import type { VegaLiteSpecLike, VegaViewLike } from './types.js';
+import type { VegaViewLike } from './types.js';
+
+const outputs = new WeakMap<VegaViewLike, VacpFreshness>();
+
+const subscribeRun = createSharedSubscription<VegaViewLike>((view, invalidate) => {
+  let active = true;
+  let revision = 0;
+  let pending = 0;
+  outputs.delete(view);
+  const run = view.runAsync;
+  const wrapped: VegaViewLike['runAsync'] = (...values) => {
+    const inputRevision = String(++revision);
+    pending++;
+    outputs.set(view, { status: 'running', inputRevision });
+    invalidate();
+    const failed = (error: unknown) => {
+      pending--;
+      if (active)
+        outputs.set(view, {
+          status: 'error',
+          inputRevision,
+          message: error instanceof Error ? error.message : String(error),
+        });
+      invalidate();
+    };
+    try {
+      const result = run.apply(view, values);
+      void result.then(() => {
+        pending--;
+        if (active && pending === 0)
+          outputs.set(view, { status: 'current', inputRevision: String(revision), outputRevision: String(revision) });
+        invalidate();
+      }, failed);
+      return result;
+    } catch (error) {
+      failed(error);
+      throw error;
+    }
+  };
+  view.runAsync = wrapped;
+  return () => {
+    active = false;
+    if (view.runAsync === wrapped) view.runAsync = run;
+    outputs.delete(view);
+  };
+});
 
 export function createVegaLiteObservationBinding(args: {
   view: VegaViewLike;
-  spec: VegaLiteSpecLike;
-  helpers: ReturnType<typeof buildParamLookup>;
+  helpers: VegaLiteBindings;
   tooltip: ReturnType<typeof createVegaLiteTooltipBinding>;
 }) {
   const listeners = new Set<() => void>();
@@ -30,9 +75,7 @@ export function createVegaLiteObservationBinding(args: {
       }, 120);
     };
     const signals = new Set<string>();
-    collectVegaLiteParams(args.spec).forEach((param) => {
-      for (const name of args.helpers.watchedSignalsByParam.get(param.name) ?? [param.name]) signals.add(name);
-    });
+    for (const binding of args.helpers.paramByRef.values()) for (const name of binding.signals) signals.add(name);
     const detach = () => {
       active = false;
       clearTimeout(timer);
@@ -45,6 +88,7 @@ export function createVegaLiteObservationBinding(args: {
       }
     };
     try {
+      cleanup.push(subscribeRun(args.view, notify));
       if (args.view.addSignalListener && args.view.removeSignalListener) {
         for (const name of signals) {
           cleanup.push(() => args.view.removeSignalListener?.(name, notify));
@@ -59,6 +103,7 @@ export function createVegaLiteObservationBinding(args: {
     }
   };
   return {
+    freshness: () => outputs.get(args.view),
     subscribe(listener: () => void) {
       if (disposed) throw new Error('Vega-Lite provider is disposed');
       const notify = () => listener();

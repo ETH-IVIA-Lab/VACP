@@ -8,6 +8,12 @@
   "references": [
     {
       "path": "../../packages/runtime-browser"
+    },
+    {
+      "path": "../../packages/presence-browser"
+    },
+    {
+      "path": "../../packages/transport-webmcp"
     }
   ]
 }

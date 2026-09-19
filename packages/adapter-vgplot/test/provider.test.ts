@@ -1,6 +1,26 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { createVacpRuntime } from '@vacp/runtime';
 import { createVgplotProvider, type VgplotInteractorLike, type VgplotPlotLike } from '../src/index';
+
+test('table actions preserve default targets when parameters are omitted', async () => {
+  const table = { sortColumn: 'x', sortDesc: true, update: () => undefined };
+  const provider = createVgplotProvider({
+    plots: [],
+    tables: [{ tableId: 'table', table }],
+    options: { appId: 'test', viewId: 'table', enableSql: false },
+  });
+  const runtime = createVacpRuntime({ providers: [provider] });
+  try {
+    const graph = (await runtime.getCapabilities()).graph;
+    const action = graph.actions.find((action) => action.operation.contract === 'vgplot.table_clear_sort')!;
+    assert.equal((await runtime.execute({ callId: 'clear', name: action.name })).ok, true);
+    assert.equal(table.sortColumn, null);
+    assert.equal(table.sortDesc, false);
+  } finally {
+    runtime.dispose();
+  }
+});
 
 test('provider subscriptions release selection patches and rebind the same live dashboard', (t) => {
   t.mock.timers.enable({ apis: ['setTimeout'] });
@@ -64,4 +84,193 @@ test('failed dashboard binding rolls back patches and isolates consumer failures
   assert.equal(changes, 1);
   provider.dispose!();
   assert.equal(selection.update, original);
+});
+
+test('preparation validates complete table and axis mutations before changing native state', async () => {
+  const table = { schema: [{ column: 'x' }], sortColumn: 'x', offset: 0, limit: 10, update() {} };
+  const axes: unknown[] = [];
+  const pan: VgplotInteractorLike = {
+    constructor: { name: 'PanZoom' },
+    xsel: { update: (value) => axes.push(value) },
+    ysel: { update: (value) => axes.push(value) },
+    clause: (value) => value,
+  };
+  const provider = createVgplotProvider({
+    plots: [{ plotId: 'plot', plot: { marks: [], interactors: [pan] } }],
+    tables: [{ tableId: 'table', table }],
+    options: { appId: 'test', viewId: 'prepared', enableSql: false },
+  });
+  try {
+    const { graph } = await provider.observe();
+    const call = (contract: string, params: unknown) => ({
+      callId: contract,
+      name: graph.actions.find((action) => action.operation.contract === contract)!.name,
+      params,
+    });
+    await assert.rejects(
+      provider.prepare(call('vgplot.table_set_sort', { column: 'missing' })),
+      /Unknown table column/,
+    );
+    await assert.rejects(provider.prepare(call('vgplot.table_set_page', { offset: 20, limit: 'invalid' })), /finite/);
+    await assert.rejects(
+      provider.prepare(call('vgplot.set_pan_zoom', { interactorId: 0, x0: 0, x1: 10, y0: 0, y1: 'bad' })),
+      /numeric y0/,
+    );
+    assert.equal(table.offset, 0);
+    assert.equal(table.limit, 10);
+    assert.deepEqual(axes, []);
+    const zoom = await provider.prepare(call('vgplot.set_pan_zoom', { interactorId: 0, x0: 0, x1: 10, y0: 0, y1: 10 }));
+    pan.ysel = { update: (value) => axes.push(value) };
+    assert.equal((await zoom.execute()).ok, false);
+    assert.deepEqual(axes, []);
+    const plan = await provider.prepare(call('vgplot.table_set_page', { offset: 20, limit: 5 }));
+    assert.equal(table.offset, 0);
+    assert.equal((await plan.execute()).ok, true);
+    assert.equal(table.offset, 20);
+    assert.equal(table.limit, 5);
+    await assert.rejects(plan.execute(), /already been executed/);
+  } finally {
+    provider.dispose?.();
+  }
+});
+
+test('restoration validates every bound target before applying any supported state', async () => {
+  const first = { schema: [{ column: 'x' }], sortColumn: 'x', update() {} };
+  const second = { schema: [{ column: 'y' }], sortColumn: 'y', update() {} };
+  const provider = createVgplotProvider({
+    plots: [],
+    tables: [
+      { tableId: 'one', table: first },
+      { tableId: 'two', table: second },
+    ],
+    options: { appId: 'test', viewId: 'restoration' },
+  });
+  try {
+    const { graph } = await provider.observe();
+    const tables = graph.nodes.filter((node) => node.kind === 'Visualization');
+    const action = graph.actions.find((candidate) => candidate.operation.contract === 'vacp.apply_state')!;
+    await assert.rejects(
+      provider.prepare({
+        callId: 'invalid',
+        name: action.name,
+        params: {
+          state: {
+            [tables[0]!.ref]: { sortColumn: null },
+            [tables[1]!.ref]: { sortColumn: 'missing' },
+          },
+        },
+      }),
+      /Unknown table column/,
+    );
+    assert.equal(first.sortColumn, 'x');
+    assert.equal(second.sortColumn, 'y');
+  } finally {
+    provider.dispose?.();
+  }
+});
+
+test('shared native resources retain one instrumentation owner through out-of-order disposal', async (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  const selection = { update: (value: unknown) => value };
+  const pendingResult = {};
+  const renderResult = Promise.resolve('rendered');
+  const plot: VgplotPlotLike = {
+    marks: [],
+    interactors: [{ constructor: { name: 'Toggle' }, selection }],
+    pending: () => pendingResult,
+    render: () => renderResult,
+  };
+  const originalUpdate = selection.update,
+    originalPending = plot.pending,
+    originalRender = plot.render;
+  const create = () =>
+    createVgplotProvider({ plots: [{ plotId: 'plot', plot }], options: { appId: 'test', viewId: 'shared' } });
+  const first = create(),
+    second = create();
+  let changes = 0;
+  first.subscribe!(() => {});
+  assert.equal(plot.interactors[0]!.init, undefined);
+  const wrappedUpdate = selection.update;
+  second.subscribe!(() => {
+    changes++;
+  });
+  assert.equal(selection.update, wrappedUpdate);
+  first.dispose!();
+  assert.notEqual(selection.update, originalUpdate);
+  assert.equal(selection.update('same-result'), 'same-result');
+  assert.equal(plot.pending!(), pendingResult);
+  assert.equal(plot.render!(), renderResult);
+  await renderResult;
+  t.mock.timers.tick(120);
+  assert.equal(changes, 1);
+  assert.equal(Object.values((await second.observe()).freshness ?? {})[0]?.status, 'current');
+  second.dispose!();
+  assert.equal(selection.update, originalUpdate);
+  assert.equal(plot.pending, originalPending);
+  assert.equal(plot.render, originalRender);
+});
+
+test('a prepared operation cannot mutate an interactor replaced within its native plot', async () => {
+  let writes = 0;
+  const interactor: VgplotInteractorLike = {
+    constructor: { name: 'Toggle' },
+    selection: {
+      update: () => {
+        writes++;
+      },
+    },
+    clause: (value) => value,
+  };
+  const plot: VgplotPlotLike = { marks: [], interactors: [interactor] };
+  const provider = createVgplotProvider({
+    plots: [{ plotId: 'plot', plot }],
+    options: { appId: 'test', viewId: 'replacement' },
+  });
+  try {
+    const { graph } = await provider.observe();
+    const action = graph.actions.find((candidate) => candidate.operation.contract === 'vgplot.set_toggle')!;
+    const plan = await provider.prepare({
+      callId: 'old-binding',
+      name: action.name,
+      params: { interactorId: 0, value: 'x' },
+    });
+    plot.interactors[0] = { ...interactor };
+    const result = await plan.execute();
+    assert.equal(result.ok, false);
+    assert.equal(writes, 0);
+  } finally {
+    provider.dispose?.();
+  }
+});
+
+test('late observation setup cannot change a native initialization result', async (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  const readonlySelection = Object.freeze({ update: () => {} });
+  const result = Promise.resolve('initialized');
+  const interactor: VgplotInteractorLike = {
+    constructor: { name: 'Toggle' },
+    selection: { update: () => {} },
+    init() {
+      this.selection = readonlySelection;
+      return result;
+    },
+  };
+  const provider = createVgplotProvider({
+    plots: [{ plotId: 'plot', plot: { marks: [], interactors: [interactor] } }],
+    options: { appId: 'test', viewId: 'late-binding' },
+  });
+  try {
+    let changes = 0;
+    provider.subscribe!(() => {
+      changes++;
+    });
+    assert.equal(interactor.init!({} as SVGElement), result);
+    assert.equal(await result, 'initialized');
+    t.mock.timers.tick(120);
+    assert.equal(changes, 1);
+    assert.equal(interactor.selection, readonlySelection);
+    await provider.observe();
+  } finally {
+    provider.dispose?.();
+  }
 });

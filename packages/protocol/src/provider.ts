@@ -1,12 +1,12 @@
 import type {
   VacpActionCall,
   VacpActionExecutionOptions,
-  VacpActionResult,
   VacpFreshness,
   VacpGraphFragment,
   VacpRef,
   VacpSourceDescription,
 } from './schema.js';
+import type { VacpPreparedAction } from './execution.js';
 
 /** Atomic contribution published by one analytical source. */
 export type VacpProviderObservation<NodeData = Record<string, unknown>> = {
@@ -27,7 +27,7 @@ export type VacpProviderObservation<NodeData = Record<string, unknown>> = {
 export interface VacpProvider<NodeData = Record<string, unknown>> {
   readonly source: VacpSourceDescription;
   observe(): VacpProviderObservation<NodeData> | Promise<VacpProviderObservation<NodeData>>;
-  execute(call: VacpActionCall, options?: VacpActionExecutionOptions): Promise<VacpActionResult>;
+  prepare(call: VacpActionCall, options?: VacpActionExecutionOptions): Promise<VacpPreparedAction>;
   /** Notify consumers that a later observation may differ. */
   subscribe?(invalidate: () => void): () => void;
   dispose?(): void;

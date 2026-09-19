@@ -53,3 +53,29 @@ export function collectVegaLiteParams(spec: VegaLiteSpecLike): VegaLiteParamLike
 
   return Array.from(byName.values());
 }
+
+/** Selection ownership narrows a datum to the marks that expose that interaction. */
+export function selectionMarkTypes(spec: VegaLiteSpecLike): Map<string, Set<string>> {
+  const result = new Map<string, Set<string>>();
+  const visit = (node: VegaLiteSpecLike, inherited: string[]) => {
+    const names = [...inherited, ...(node.params ?? []).filter((param) => param.select).map((param) => param.name)];
+    const mark = typeof node.mark === 'string' ? node.mark : node.mark?.type;
+    const kind =
+      typeof mark === 'string'
+        ? ((
+            { point: 'symbol', circle: 'symbol', square: 'symbol', bar: 'rect', tick: 'rect' } as Record<string, string>
+          )[mark] ?? mark)
+        : undefined;
+    if (kind)
+      for (const name of names) {
+        const types = result.get(name) ?? new Set<string>();
+        types.add(kind);
+        result.set(name, types);
+      }
+    for (const children of [node.layer, node.vconcat, node.hconcat, node.concat, node.spec]) {
+      for (const child of Array.isArray(children) ? children : children ? [children] : []) visit(child, names);
+    }
+  };
+  visit(spec, []);
+  return result;
+}

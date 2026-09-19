@@ -2,11 +2,19 @@ export interface VegaRuntimeContext {
   signals?: Record<string, unknown>;
   data?: Record<string, unknown>;
   subcontext?: Record<string, VegaRuntimeContext>;
-  group?: { mark?: { name?: string } };
+  group?: import('./scene.js').VegaSceneItem;
+  scales?: Record<string, { value: (value: unknown) => number }>;
   setState?: (state: unknown) => void;
 }
 
 export interface VegaViewLike {
+  addEventListener?: (type: string, handler: (event: Event, item?: unknown) => void) => unknown;
+  removeEventListener?: (type: string, handler: (event: Event, item?: unknown) => void) => unknown;
+  origin?: () => number[];
+  padding?: () => number | { left?: number; top?: number; right?: number; bottom?: number };
+  container?: () => HTMLElement | null;
+  width?: () => number;
+  height?: () => number;
   /**
    * Vega View API: read or set a signal.
    * - signal(name) -> current value

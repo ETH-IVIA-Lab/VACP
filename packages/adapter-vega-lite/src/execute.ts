@@ -1,69 +1,13 @@
-import type { VacpActionCall } from '@vacp/protocol';
+import { intervalVisualSignals } from './selection-signals.js';
+import type { VacpActionCall, VacpFocus, VacpRef } from '@vacp/protocol';
 import { changeset } from 'vega';
 
-import { makeRef } from './refs.js';
-import { collectVegaLiteParams } from './params.js';
-import { signalNamesFromView, tryGetSignal, trySetSignal } from './signals.js';
-import type {
-  VegaLiteParamLike,
-  VegaLiteSpecLike,
-  VegaViewLike,
-  VegaRuntimeContext,
-  VegaLiteProviderOptions,
-} from './types.js';
-
-function signalsForParam(param: VegaLiteParamLike, allSignals: string[]): string[] {
-  // Vega-Lite compiles selection parameters into multiple signals. Runtime
-  // matching covers the stable signal names produced by common compiled specs:
-  // - always include the param name
-  // - include any signals that start with the param name (common pattern)
-  const out = new Set<string>(allSignals.length === 0 || allSignals.includes(param.name) ? [param.name] : []);
-  allSignals.forEach((s) => {
-    if (s === param.name) return;
-
-    if (s.startsWith(`${param.name}_`)) out.add(s);
-  });
-
-  return Array.from(out);
-}
+import { findSignalContext, readStateSignal, runtimeUnit, type VegaLiteBindings } from './bindings.js';
+import { tryGetSignal, trySetSignal } from './signals.js';
+import type { VegaViewLike, VegaRuntimeContext } from './types.js';
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return !!value && typeof value === 'object' && !Array.isArray(value);
-}
-
-function tryGetSignalValueFromState(view: VegaViewLike, name: string) {
-  if (typeof view.getState !== 'function') return undefined;
-
-  try {
-    const st = view.getState() as VegaRuntimeContext | undefined;
-
-    if (!st || typeof st !== 'object') return undefined;
-
-    if (st.signals && Object.prototype.hasOwnProperty.call(st.signals, name)) return st.signals[name];
-
-    const stack: VegaRuntimeContext[] = [];
-
-    if (st.subcontext && typeof st.subcontext === 'object') {
-      stack.push(...Object.values(st.subcontext));
-    }
-
-    while (stack.length) {
-      const next = stack.pop();
-
-      if (!next || typeof next !== 'object') continue;
-      const ctx = next;
-
-      if (ctx.signals && Object.prototype.hasOwnProperty.call(ctx.signals, name)) return ctx.signals[name];
-
-      if (ctx.subcontext && typeof ctx.subcontext === 'object') {
-        stack.push(...Object.values(ctx.subcontext));
-      }
-    }
-
-    return undefined;
-  } catch {
-    return undefined;
-  }
 }
 
 function bestEffortSelectionTuple(args: {
@@ -132,56 +76,6 @@ function tupleFieldKeys(tupleFields: unknown): string[] {
 
 type VegaStateSnapshot = VegaRuntimeContext | undefined;
 
-function signalContextKeyFromSnapshot(snapshot: VegaStateSnapshot, name: string): string | null | undefined {
-  if (!snapshot || typeof snapshot !== 'object') return undefined;
-  const rootSignals = snapshot.signals;
-
-  if (rootSignals && Object.prototype.hasOwnProperty.call(rootSignals, name)) return null;
-
-  const stack: Array<{ key: string; ctx: VegaRuntimeContext }> = [];
-  const sub = snapshot.subcontext;
-
-  if (sub && typeof sub === 'object') {
-    for (const [key, ctx] of Object.entries(sub)) stack.push({ key, ctx });
-  }
-
-  while (stack.length) {
-    const { key, ctx } = stack.pop()!;
-
-    if (!ctx || typeof ctx !== 'object') continue;
-    const rec = ctx;
-
-    if (rec.signals && Object.prototype.hasOwnProperty.call(rec.signals, name)) return key;
-
-    if (rec.subcontext && typeof rec.subcontext === 'object') {
-      for (const [childKey, childCtx] of Object.entries(rec.subcontext)) stack.push({ key: childKey, ctx: childCtx });
-    }
-  }
-
-  return undefined;
-}
-
-function tryInferUnitIdFromRuntimeSubcontext(view: VegaViewLike, contextKey: string): string | undefined {
-  // Vega's `view.getState()` exposes a tree of subcontexts keyed by strings like
-  // "0", "1", ... but interval selection tuples encode a Vega-Lite *unit id*
-  // (e.g. "concat_0", "layer_2") that matches the subcontext's group mark name
-  // without the "_group" suffix.
-  //
-  // `_runtime` is not part of the public View API. Vega's View implementation
-  // exposes it, and it is the only reliable way to map subcontext keys to unit
-  // ids when the selection is currently empty.
-  try {
-    const rt = view._runtime;
-    const markName = rt?.subcontext?.[contextKey]?.group?.mark?.name;
-
-    if (typeof markName !== 'string' || !markName) return undefined;
-
-    return markName.endsWith('_group') ? markName.slice(0, -'_group'.length) : markName;
-  } catch {
-    return undefined;
-  }
-}
-
 function tryGetScaleFn(view: VegaViewLike, name: string): ((v: unknown) => number) | null {
   try {
     const s = view.scale?.(name);
@@ -220,243 +114,230 @@ async function applyViewState(view: VegaViewLike, state: unknown): Promise<void>
   await view.runAsync();
 }
 
-export function buildParamLookup(spec: VegaLiteSpecLike, view: VegaViewLike, options: VegaLiteProviderOptions) {
-  const allSignals = signalNamesFromView(view);
-  const paramByRef = new Map<string, { param: VegaLiteParamLike; kind: 'Param' | 'Selection' }>();
-  const watchedSignalsByParam = new Map<string, string[]>();
+function prepareSelectionStore(view: VegaViewLike, name: string, selectionValue: unknown, helpers: VegaLiteBindings) {
+  if (!view.data || !view.change) return null;
+  const storeName = `${name}_store`;
+  const snapshotBefore = view.getState?.() as VegaStateSnapshot;
+  let existing: unknown[];
+  try {
+    existing = view.data!(storeName) as unknown[];
+  } catch {
+    return null;
+  }
+  const tupleFromState = readStateSignal(view, `${name}_tuple`);
 
-  collectVegaLiteParams(spec).forEach((p) => {
-    const kind = p.select ? 'Selection' : 'Param';
-    paramByRef.set(makeRef({ ...options, suffix: `/param/${p.name}` }), { param: p, kind });
-    watchedSignalsByParam.set(p.name, signalsForParam(p, allSignals));
-  });
+  const ctxKey =
+    findSignalContext(snapshotBefore, `${name}_tuple_fields`)?.path ??
+    findSignalContext(snapshotBefore, `${name}_tuple`)?.path;
 
-  return { paramByRef, watchedSignalsByParam, allSignals };
+  const unitCandidate =
+    (isRecord(existing?.[0]) ? existing[0].unit : undefined) ??
+    (isRecord(tupleFromState) ? tupleFromState.unit : undefined) ??
+    readStateSignal(view, `${name}_unit`) ??
+    (ctxKey?.length ? runtimeUnit(view, ctxKey) : ctxKey ? helpers.rootUnit : undefined);
+
+  const unit = typeof unitCandidate === 'string' ? unitCandidate : undefined;
+
+  const tupleFields =
+    readStateSignal(view, `${name}_tuple_fields`) ?? (isRecord(existing?.[0]) ? existing[0].fields : undefined);
+
+  const values = Array.isArray(selectionValue) ? selectionValue : [selectionValue];
+  const keys = tupleFieldKeys(tupleFields);
+
+  const tuples = values
+    .map((v) => {
+      if (isRecord(v)) return v;
+
+      if (keys.length === 1 && keys[0]) return { [keys[0]]: v };
+
+      return v;
+    })
+    .map((v) => {
+      const tuple = bestEffortSelectionTuple({ selectionValue: v, tupleFields, unit });
+
+      if (!tuple) return null;
+
+      // Some Vega-Lite builds omit the `unit` property entirely for global
+      // selections (single-view and some multi-view specs).
+      if (tuple.unit === undefined) delete tuple.unit;
+
+      return tuple;
+    })
+    .filter((t): t is NonNullable<typeof t> => !!t);
+
+  if (!tuples.length) throw new Error('Could not build a selection tuple from params.value');
+
+  return { storeName, tuples, unit };
 }
 
-export async function executeAction(
-  view: VegaViewLike,
-  call: VacpActionCall,
-  helpers: {
-    paramByRef: Map<string, { param: VegaLiteParamLike; kind: 'Param' | 'Selection' }>;
-    watchedSignalsByParam: Map<string, string[]>;
-    allSignals: string[];
-  },
-) {
-  const params = (call.params ?? {}) as Record<string, unknown>;
+export function prepareVegaLiteAction(view: VegaViewLike, call: VacpActionCall, helpers: VegaLiteBindings) {
+  const input = structuredClone(call.params ?? {});
+  if (typeof input !== 'object' || Array.isArray(input)) throw new Error('Expected action parameters');
+  const params = input as Record<string, unknown>;
 
   if (call.name === 'vega.set_signal') {
     const name = typeof params.name === 'string' ? params.name : null;
 
     if (!name) throw new Error('Expected params.name string');
-    const ok = trySetSignal(view, name, params.value);
+    view.signal(name);
+    return {
+      focus: undefined,
+      execute: async () => {
+        const ok = trySetSignal(view, name, params.value);
 
-    if (!ok) throw new Error(`Failed to set signal: ${name}`);
-    await view.runAsync();
+        if (!ok) throw new Error(`Failed to set signal: ${name}`);
+        await view.runAsync();
 
-    return { ok: true };
+        return { ok: true };
+      },
+    };
   }
 
   const ref = typeof params.ref === 'string' ? params.ref : null;
 
   if (!ref) throw new Error('Expected params.ref string');
-  const found = helpers.paramByRef.get(ref);
+  const found = helpers.paramByRef.get(ref as VacpRef);
   if (!found) throw new Error(`Unknown parameter reference: ${ref}`);
   const name = found.param.name;
 
-  if (call.name === 'vega_lite.set_param') {
-    if (found.kind !== 'Param') throw new Error(`Param "${name}" is not a variable parameter`);
-    const ok = trySetSignal(view, name, params.value);
+  if (call.name === 'vega_lite.set_param' && found.kind !== 'Param')
+    throw new Error(`Param "${name}" is not a variable parameter`);
+  if (call.name !== 'vega_lite.set_param' && found.kind !== 'Selection')
+    throw new Error(`Param "${name}" is not a selection parameter`);
+  if (!['vega_lite.set_param', 'vega_lite.set_selection', 'vega_lite.clear_selection'].includes(call.name))
+    throw new Error(`Unsupported action: ${call.name}`);
+  const focus: VacpFocus = { ref: ref as VacpRef, detail: { value: params.value } };
+  const store =
+    call.name === 'vega_lite.set_selection' ? prepareSelectionStore(view, name, params.value, helpers) : null;
+  return {
+    focus,
+    execute: async () => {
+      if (call.name === 'vega_lite.set_param') {
+        const ok = trySetSignal(view, name, params.value);
 
-    if (!ok) throw new Error(`Failed to set param signal: ${name}`);
-    await view.runAsync();
-
-    return { ok: true, value: tryGetSignal(view, name) };
-  }
-
-  if (call.name === 'vega_lite.set_selection') {
-    if (found.kind !== 'Selection') throw new Error(`Param "${name}" is not a selection parameter`);
-
-    const selectionValue = params.value;
-    const storeName = `${name}_store`;
-
-    const snapshotBefore = typeof view.getState === 'function' ? (view.getState() as VegaStateSnapshot) : undefined;
-
-    // Prefer updating the selection store (dataset) so the compiled selection
-    // logic (predicates, filters, conditional encodings) sees a coherent state.
-    if (typeof view.data === 'function' && typeof view.change === 'function') {
-      try {
-        const existing = view.data(storeName) as unknown[];
-        const tupleFromState = tryGetSignalValueFromState(view, `${name}_tuple`);
-
-        const ctxKey =
-          signalContextKeyFromSnapshot(snapshotBefore, `${name}_tuple_fields`) ??
-          signalContextKeyFromSnapshot(snapshotBefore, `${name}_tuple`);
-
-        const unitCandidate =
-          (isRecord(existing?.[0]) ? existing[0].unit : undefined) ??
-          (isRecord(tupleFromState) ? tupleFromState.unit : undefined) ??
-          tryGetSignalValueFromState(view, `${name}_unit`) ??
-          (typeof ctxKey === 'string' ? tryInferUnitIdFromRuntimeSubcontext(view, ctxKey) : undefined);
-
-        const unit = typeof unitCandidate === 'string' ? unitCandidate : undefined;
-
-        const tupleFields =
-          tryGetSignalValueFromState(view, `${name}_tuple_fields`) ??
-          (isRecord(existing?.[0]) ? existing[0].fields : undefined);
-
-        const values = Array.isArray(selectionValue) ? selectionValue : [selectionValue];
-        const keys = tupleFieldKeys(tupleFields);
-
-        const tuples = values
-          .map((v) => {
-            if (isRecord(v)) return v;
-
-            if (keys.length === 1 && keys[0]) return { [keys[0]]: v };
-
-            return v;
-          })
-          .map((v) => {
-            const tuple = bestEffortSelectionTuple({ selectionValue: v, tupleFields, unit });
-
-            if (!tuple) return null;
-
-            // Some Vega-Lite builds omit the `unit` property entirely for global
-            // selections (single-view and some multi-view specs).
-            if (tuple.unit === undefined) delete tuple.unit;
-
-            return tuple;
-          })
-          .filter((t): t is NonNullable<typeof t> => !!t);
-
-        if (!tuples.length) throw new Error('Could not build a selection tuple from params.value');
-
-        const cs = changeset().remove(() => true);
-
-        if (tuples.length) {
-          cs.insert(tuples);
-        }
-
-        view.change(storeName, cs);
+        if (!ok) throw new Error(`Failed to set param signal: ${name}`);
         await view.runAsync();
 
-        // Interval selections draw a brush rectangle using helper signals such
-        // as `<name>_x` / `<name>_y` (pixel extents). When we update the store
-        // programmatically, those signals don't change, so the rectangle stays
-        // invisible even though the selection predicates work. For interval
-        // selections that have these helper signals, set them via `setState`.
-        const selectDef = found.param.select;
-        const isInterval = isRecord(selectDef) && selectDef.type === 'interval';
+        return { ok: true, value: tryGetSignal(view, name) };
+      }
 
-        if (isInterval && typeof view.getState === 'function') {
-          const snapshotAfter = view.getState() as VegaStateSnapshot;
-          const next = snapshotAfter;
-          const tuple = tuples[0];
+      if (call.name === 'vega_lite.set_selection') {
+        const selectionValue = params.value;
+        if (store) {
+          const { storeName, tuples, unit } = store;
+          const cs = changeset().remove(() => true);
 
-          if (next && tuple && Array.isArray(tuple.fields) && Array.isArray(tuple.values)) {
-            let touched = 0;
+          if (tuples.length) {
+            cs.insert(tuples);
+          }
 
-            for (let i = 0; i < tuple.fields.length; i += 1) {
-              const f = isRecord(tuple.fields[i]) ? (tuple.fields[i] as Record<string, unknown>) : null;
-              const channel = typeof f?.channel === 'string' ? f.channel : null;
+          view.change!(storeName, cs);
+          await view.runAsync();
 
-              if (channel !== 'x' && channel !== 'y') continue;
+          // Interval selections draw a brush rectangle using helper signals such
+          // as `<name>_x` / `<name>_y` (pixel extents). When we update the store
+          // programmatically, those signals don't change, so the rectangle stays
+          // invisible even though the selection predicates work. For interval
+          // selections that have these helper signals, set them via `setState`.
+          const selectDef = found.param.select;
+          const isInterval = isRecord(selectDef) && selectDef.type === 'interval';
 
-              const v = tuple.values[i];
+          if (isInterval && typeof view.getState === 'function') {
+            const snapshotAfter = view.getState() as VegaStateSnapshot;
+            const next = snapshotAfter;
+            const tuple = tuples[0];
 
-              if (!Array.isArray(v) || v.length !== 2) continue;
-              const a = v[0];
-              const b = v[1];
+            if (next && tuple && Array.isArray(tuple.fields) && Array.isArray(tuple.values)) {
+              let touched = 0;
+              const visualSignals = intervalVisualSignals(name, tuple.fields);
 
-              const scale =
-                (unit ? tryGetScaleFn(view, `${unit}_${channel}`) : null) ?? tryGetScaleFn(view, channel) ?? null;
+              for (let i = 0; i < tuple.fields.length; i += 1) {
+                const f = isRecord(tuple.fields[i]) ? (tuple.fields[i] as Record<string, unknown>) : null;
+                const channel = typeof f?.channel === 'string' ? f.channel : null;
 
-              if (!scale) continue;
-              const p0 = scale(a);
-              const p1 = scale(b);
+                if (channel !== 'x' && channel !== 'y') continue;
 
-              if (!isFiniteNumber(p0) || !isFiniteNumber(p1)) continue;
+                const v = tuple.values[i];
 
-              const signalName = `${name}_${channel}`;
-              const loc = signalContextKeyFromSnapshot(next, signalName);
+                if (!Array.isArray(v) || v.length !== 2) continue;
+                const a = v[0];
+                const b = v[1];
 
-              if (loc === undefined) continue;
-              const extent: [number, number] = p0 <= p1 ? [p0, p1] : [p1, p0];
+                const scale =
+                  (unit ? tryGetScaleFn(view, `${unit}_${channel}`) : null) ?? tryGetScaleFn(view, channel) ?? null;
 
-              if (loc === null) {
-                if (next.signals && typeof next.signals === 'object') next.signals[signalName] = extent;
+                if (!scale) continue;
+                const p0 = scale(a);
+                const p1 = scale(b);
+
+                if (!isFiniteNumber(p0) || !isFiniteNumber(p1)) continue;
+
+                const signalName = visualSignals.get(channel);
+                if (!signalName) continue;
+                const context = findSignalContext(next, signalName)?.context;
+                if (!context?.signals) continue;
+                context.signals[signalName] = p0 <= p1 ? [p0, p1] : [p1, p0];
                 touched += 1;
-              } else {
-                const ctx = next.subcontext?.[loc];
-                const ctxRec = ctx && typeof ctx === 'object' ? ctx : null;
-
-                if (ctxRec?.signals && typeof ctxRec.signals === 'object') {
-                  ctxRec.signals[signalName] = extent;
-                  touched += 1;
-                }
               }
-            }
 
-            if (touched) await applyViewState(view, next);
+              if (touched) await applyViewState(view, next);
+            }
+          }
+
+          return { ok: true, method: 'store', value: tryGetSignal(view, name) };
+        }
+
+        // Sources without a selection store expose the resolved signal directly.
+        const ok = trySetSignal(view, name, selectionValue);
+
+        if (!ok) throw new Error(`Failed to set selection signal: ${name}`);
+        await view.runAsync();
+
+        return { ok: true, method: 'signal', value: tryGetSignal(view, name) };
+      }
+
+      if (call.name === 'vega_lite.clear_selection') {
+        // Prefer clearing the Vega-Lite selection *store* (a dataset like
+        // `<param>_store`). This avoids mutating internal helper signals such as
+        // `<param>_tuple_fields`, which can break subsequent human interaction.
+        const storeName = `${name}_store`;
+        let cleared = 0;
+
+        if (typeof view.data === 'function' && typeof view.change === 'function') {
+          try {
+            // Accessing `view.data(name)` throws if the dataset is missing.
+            void view.data(storeName);
+            view.change(
+              storeName,
+              changeset().remove(() => true),
+            );
+            cleared += 1;
+          } catch {
+            // Fall back below.
           }
         }
 
-        return { ok: true, method: 'store', value: tryGetSignal(view, name) };
-      } catch {
-        // Fall back to setting signals below.
+        if (!cleared) {
+          // Best-effort fallback: clear only the signals that carry tuple/value
+          // information. Never clobber `<name>_tuple_fields` (metadata).
+          const watched = found.signals;
+          watched.forEach((sig) => {
+            if (helpers.allSignals.length && !helpers.allSignals.includes(sig)) return;
+
+            if (sig.endsWith('_tuple_fields')) return;
+
+            if (sig !== name && !sig.endsWith('_tuple') && !sig.endsWith('_modify')) return;
+
+            if (trySetSignal(view, sig, null)) cleared += 1;
+          });
+        }
+
+        await view.runAsync();
+
+        return { ok: true, cleared };
       }
-    }
 
-    // Best-effort fallback: set the resolved selection signal directly.
-    const ok = trySetSignal(view, name, selectionValue);
-
-    if (!ok) throw new Error(`Failed to set selection signal: ${name}`);
-    await view.runAsync();
-
-    return { ok: true, method: 'signal', value: tryGetSignal(view, name) };
-  }
-
-  if (call.name === 'vega_lite.clear_selection') {
-    if (found.kind !== 'Selection') throw new Error(`Param "${name}" is not a selection parameter`);
-    // Prefer clearing the Vega-Lite selection *store* (a dataset like
-    // `<param>_store`). This avoids mutating internal helper signals such as
-    // `<param>_tuple_fields`, which can break subsequent human interaction.
-    const storeName = `${name}_store`;
-    let cleared = 0;
-
-    if (typeof view.data === 'function' && typeof view.change === 'function') {
-      try {
-        // Accessing `view.data(name)` throws if the dataset is missing.
-        void view.data(storeName);
-        view.change(
-          storeName,
-          changeset().remove(() => true),
-        );
-        cleared += 1;
-      } catch {
-        // Fall back below.
-      }
-    }
-
-    if (!cleared) {
-      // Best-effort fallback: clear only the signals that carry tuple/value
-      // information. Never clobber `<name>_tuple_fields` (metadata).
-      const watched = helpers.watchedSignalsByParam.get(name) ?? [name];
-      watched.forEach((sig) => {
-        if (helpers.allSignals.length && !helpers.allSignals.includes(sig)) return;
-
-        if (sig.endsWith('_tuple_fields')) return;
-
-        if (sig !== name && !sig.endsWith('_tuple') && !sig.endsWith('_modify')) return;
-
-        if (trySetSignal(view, sig, null)) cleared += 1;
-      });
-    }
-
-    await view.runAsync();
-
-    return { ok: true, cleared };
-  }
-
-  throw new Error(`Unsupported action: ${call.name}`);
+      throw new Error(`Unsupported action: ${call.name}`);
+    },
+  };
 }

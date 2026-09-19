@@ -155,6 +155,11 @@ export function createParallelCoordsChart(args: {
     args.tooltip.style.display = 'none';
   };
 
+  let brushBounds: (
+    dimension: string,
+    range: BrushRange,
+  ) => { element: SVGGraphicsElement; x: number; y: number; width: number; height: number } | null = () => null;
+
   const render = (): void => {
     d3.select(args.root).selectAll('*').remove();
 
@@ -182,6 +187,15 @@ export function createParallelCoordsChart(args: {
       const [lo, hi] = extents[dim] ?? [0, 0];
       scales[dim] = { x, scale: d3.scaleLinear().domain([lo, hi]).range([plotHeight, 0]) };
     });
+
+    brushBounds = (dimension, range) => {
+      const axis = scales[dimension];
+      const element = g.node();
+      if (!axis || !element) return null;
+      const a = axis.scale(range[0]),
+        b = axis.scale(range[1]);
+      return { element, x: axis.x - 8, y: Math.min(a, b), width: 16, height: Math.abs(a - b) };
+    };
 
     const line = d3
       .line<number>()
@@ -525,6 +539,7 @@ export function createParallelCoordsChart(args: {
     render,
     destroy,
     getState,
+    getBrushBounds: (dimension: string, range: BrushRange) => brushBounds(dimension, range),
     getSelectedIds: () => Array.from(selectedIds),
     setBrushRanges,
     resetBrushes,

@@ -10,12 +10,16 @@
   "devDependencies": {
     "@playwright/test": "^1.63.0",
     "@types/node": "catalog:",
+    "@vacp/adapter-vega-lite": "workspace:*",
     "@vacp/adapter-vgplot": "workspace:*",
+    "@vacp/presence-browser": "workspace:*",
     "@vacp/protocol": "workspace:*",
+    "@vacp/runtime": "workspace:*",
     "@vacp/sdk": "workspace:*",
     "@vacp/transport-webmcp": "workspace:*",
     "portless": "catalog:",
     "typescript": "catalog:",
+    "vega-embed": "^7.2.0",
     "webmcp-types": "catalog:"
   }
 }

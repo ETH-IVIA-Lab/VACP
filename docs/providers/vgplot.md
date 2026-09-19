@@ -1,6 +1,6 @@
 # VGPlot
 
-`@vacp/adapter-vgplot` exposes Mosaic VGPlot marks, selections, interactors, input widgets, and tables.
+`@vacp/adapter-vgplot` exposes Mosaic VGPlot marks, selections, interactors, input widgets, legends, and tables.
 
 Bind an existing rendered visualization, then compose its provider into a runtime:
 
@@ -31,5 +31,7 @@ Applications can expose the same provider through `installVacpRuntime({ provider
 For dashboards, supply several `plots` and optional `tables`. Each plot supplies a `plotId` and the VGPlot object. Each table supplies a `tableId` and the table object.
 
 Actions update existing Mosaic selections so linked views respond through their usual dataflow. Pass `options.duckdbClient` to expose data queries through the dashboard's database connection. Set `enableSql: false` to retain schema discovery while omitting SQL execution.
+
+Categorical legends expose their shared visible selection and support state restoration. Table sorting uses native schema columns and waits for Mosaic to update its rows. Presence bindings locate legend entries and sort headers directly.
 
 Try the [VGPlot gallery](https://examples.vacp.dev/vgplot/).

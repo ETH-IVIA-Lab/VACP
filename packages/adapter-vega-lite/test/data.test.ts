@@ -1,3 +1,4 @@
+import { executeVacpAction } from '@vacp/runtime';
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import type { VacpDuckDbClient } from '@vacp/data-duckdb';
@@ -100,7 +101,7 @@ test('live data revisions include later rows and columns and refresh schema meta
   );
   assert.ok(schemaAction);
   const schema = () =>
-    provider.execute({ callId: 'schema', name: schemaAction.name, params: { handleRef: handle.ref } });
+    executeVacpAction(provider, { callId: 'schema', name: schemaAction.name, params: { handleRef: handle.ref } });
   const before = await schema();
   assert.equal(before.ok, true);
   assert.equal(db.writes(), 1);
@@ -147,7 +148,7 @@ test('replacing a source preserves shared-client data until its own binding is d
   assert.equal(db.tables.has(oldTable), false);
   assert.equal(db.tables.has(newTable), true);
   const sql = current.graph.actions.find((action) => action.operation.contract === 'vacp.data_sql')!;
-  const result = await replacement.execute({
+  const result = await executeVacpAction(replacement, {
     callId: 'replacement-data',
     name: sql.name,
     params: { handleRef: newHandle.ref, sql: 'SELECT * FROM vacp_handle' },

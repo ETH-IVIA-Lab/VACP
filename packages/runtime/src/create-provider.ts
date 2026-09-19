@@ -51,7 +51,7 @@ export function createVacpProvider<NodeData = Record<string, unknown>>(args: {
         freshness: projected.freshness,
       };
     },
-    execute: (call, options) => args.actions.execute(call, options),
+    prepare: (call, options) => args.actions.prepare(call, options),
     subscribe: args.subscribe,
     dispose: args.dispose,
   };

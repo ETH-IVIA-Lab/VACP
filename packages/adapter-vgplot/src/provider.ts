@@ -10,15 +10,16 @@ import {
 } from '@vacp/runtime';
 
 import { actionDescriptorsForDashboard } from './actions.js';
-import { makeApplyStateHandler } from './apply-state.js';
-import { registerVgplotDashboardActions } from './dashboard-actions.js';
+import { prepareVgplotRestoration } from './apply-state.js';
+import { createVgplotBindings } from './bindings.js';
+import { createVgplotOperations } from './operations.js';
 import { createVgplotDashboardSnapshots } from './dashboard-snapshots.js';
 import { collectVgplotDataHandles, discoverPlotTables } from './data-handles.js';
 import { quoteTableRef, whereClauseForVgplotDashboardSelection } from './duckdb-selection.js';
 import { collectInputs, type CollectedInput } from './inputs.js';
 import { buildDashboardGraph } from './graph.js';
 import { createVgplotObservationBinding } from './observe.js';
-import { makeViewRef } from './refs.js';
+import { makePlotRef, makeViewRef } from './refs.js';
 import { sqlForVgplotTableView } from './table-actions.js';
 import type { VgplotProviderOptions, VgplotPlotLike, VgplotTableLike } from './types.js';
 
@@ -38,57 +39,22 @@ export function createVgplotProvider(args: {
   const inputByRef = new Map<VacpRef, CollectedInput>(inputs.map((i) => [i.ref, i]));
 
   const plotsById = new Map<string, VgplotPlotLike>(plots.map((p) => [p.plotId, p.plot]));
-  const defaultPlotId = plots[0]?.plotId ?? '';
-
-  const resolvePlot = (params: Record<string, unknown>): { plotId: string; plot: VgplotPlotLike } => {
-    if (!defaultPlotId) throw new Error('No plots are available for this VGPlot view');
-    const pid = typeof params.plotId === 'string' && params.plotId ? params.plotId : defaultPlotId;
-    const plot = plotsById.get(pid);
-
-    if (!plot) throw new Error(`Unknown plotId: ${pid}`);
-
-    return { plotId: pid, plot };
-  };
-
   const tablesById = new Map<string, VgplotTableLike>(tables.map((t) => [t.tableId, t.table]));
-  const defaultTableId = tables[0]?.tableId ?? '';
-
-  const resolveTable = (params: Record<string, unknown>): { tableId: string; table: VgplotTableLike } => {
-    if (!defaultTableId) throw new Error('No tables are available for this VGPlot view');
-    const tid = typeof params.tableId === 'string' && params.tableId ? params.tableId : defaultTableId;
-    const table = tablesById.get(tid);
-
-    if (!table) throw new Error(`Unknown tableId: ${tid}`);
-
-    return { tableId: tid, table };
-  };
-
-  const resolveInput = (params: Record<string, unknown>): CollectedInput => {
-    const ref = typeof params.ref === 'string' ? (params.ref as VacpRef) : null;
-
-    if (!ref) throw new Error('Expected params.ref to be a Widget vacp:// ref');
-    const input = inputByRef.get(ref);
-
-    if (!input) throw new Error(`Unknown input ref: ${ref}`);
-
-    return input;
-  };
+  const bindings = createVgplotBindings({ plots, tables, inputs, options });
+  const operations = createVgplotOperations(bindings);
 
   const actionDescriptors = actionDescriptorsForDashboard({
-    plots: plots.map((p) => ({ plotId: p.plotId, plot: p.plot })),
-    tables: tables.map((t) => ({ tableId: t.tableId, table: t.table })),
-    inputs,
+    bindings,
     options,
   });
 
-  const register = (name: string, handler: (params: unknown) => unknown | Promise<unknown>) => {
-    const desc = actionDescriptors.find((a) => a.name === name);
-
-    if (!desc) return;
-    actionRegistry.register({ ...desc, operation: { ...desc.operation, contract: desc.name } }, handler);
-  };
-
-  registerVgplotDashboardActions({ register, resolvePlot, resolveTable, resolveInput });
+  for (const descriptor of actionDescriptors) {
+    actionRegistry.register(
+      { ...descriptor, operation: { ...descriptor.operation, contract: descriptor.name } },
+      (prepared: ReturnType<typeof operations.prepare>) => prepared.execute(),
+      { parse: (raw) => operations.prepare(descriptor.name, raw), focus: (prepared) => prepared.focus },
+    );
+  }
 
   const viewRef = makeViewRef({ appId: options.appId, viewId: options.viewId, suffix: '' });
 
@@ -167,7 +133,7 @@ export function createVgplotProvider(args: {
 
   const applyDesc = registerVacpApplyStateAction(
     actionRegistry,
-    makeApplyStateHandler({ inputByRef, plotsById, tablesById }),
+    (state) => prepareVgplotRestoration(bindings, operations, state),
     {
       affects: [viewRef],
       description: 'Apply a state map to VGPlot plots, tables, and inputs.',
@@ -309,20 +275,16 @@ export function createVgplotProvider(args: {
   }
 
   const graph = buildDashboardGraph({
-    plots: plots.map((p) => ({ plotId: p.plotId, plot: p.plot })),
-    tables: tables.map((t) => ({ tableId: t.tableId, table: t.table })),
-    inputs,
+    bindings,
     options,
     actions: actionRegistry.list(),
     dataHandles,
   });
 
   const projection = createVgplotDashboardSnapshots({
+    bindings,
     graph,
     options,
-    inputs,
-    plots: plots.map((p) => ({ plotId: p.plotId, plot: p.plot })),
-    tables: tables.map((t) => ({ tableId: t.tableId, table: t.table })),
     dataHandles,
     plotsById,
     tablesById,
@@ -338,7 +300,25 @@ export function createVgplotProvider(args: {
       description: options.description,
     },
     actions: actionRegistry,
-    project: projection.project,
+    project: async () => {
+      const projected = await projection.project();
+      const freshness = Object.fromEntries(
+        plots.flatMap(({ plotId, plot }) => {
+          const value = binding.freshness(plot);
+          return value ? [[makePlotRef({ ...options, plotId, suffix: '' }), value]] : [];
+        }),
+      );
+      const statuses = plots.map(({ plot }) => binding.freshness(plot)?.status);
+      const status = statuses.includes('error')
+        ? 'error'
+        : statuses.includes('running')
+          ? 'running'
+          : statuses.length && statuses.every((status) => status === 'current') && !tables.length
+            ? 'current'
+            : undefined;
+      if (status) freshness[viewRef] = { status };
+      return { ...projected, freshness };
+    },
     subscribe: binding.subscribe,
     dispose: binding.dispose,
   });

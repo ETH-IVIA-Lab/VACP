@@ -1,3 +1,4 @@
+import { executeVacpAction } from './action-registry.js';
 import { notify } from './runtime/helpers.js';
 import {
   fnv1a64Hex,
@@ -172,7 +173,7 @@ export function composeVacpProviders(providers: readonly VacpProvider[]) {
     const owners = observation.graph.ownership.actions;
     const sourceId = Object.hasOwn(owners, call.name) ? owners[call.name] : undefined;
     if (!sourceId) return { callId: call.callId, ok: false, error: { message: `Unknown action: ${call.name}` } };
-    return bySource.get(sourceId)!.execute(call, options);
+    return executeVacpAction(bySource.get(sourceId)!, call, options);
   };
 
   return {

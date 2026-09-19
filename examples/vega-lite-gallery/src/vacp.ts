@@ -1,3 +1,6 @@
+import { createBrowserPresence } from '@vacp/presence-browser';
+import { createVegaLitePresentation } from '@vacp/adapter-vega-lite/presentation';
+import { installVacpWebMcp } from '@vacp/transport-webmcp';
 import { installVacpRuntime } from '@vacp/runtime-browser';
 import { exampleOptions } from '../../config';
 /**
@@ -15,6 +18,9 @@ import { createDuckDbWasmClient } from '@vacp/data-duckdb';
 const duckdbClient = createDuckDbWasmClient();
 
 import type { GalleryEntry } from './gallery';
+
+let disposePresentation: (() => void) | undefined;
+let disposeWebMcp: (() => void) | undefined;
 
 export async function installVacp(args: {
   root: HTMLElement;
@@ -48,6 +54,24 @@ export async function installVacp(args: {
     exposeBridge: exampleOptions.exposeBridge,
     injectDomSnapshot: exampleOptions.injectDomSnapshot,
   });
+
+  disposePresentation?.();
+  disposeWebMcp?.();
+  const presence = createBrowserPresence(bridge);
+  presence.attach(
+    provider,
+    createVegaLitePresentation({
+      root: args.root,
+      view: args.view,
+      spec: args.spec,
+      options: { appId, viewId, vizId: args.entry.id },
+    }),
+  );
+  disposePresentation = presence.dispose;
+  if (exampleOptions.webmcp) {
+    const webmcp = await installVacpWebMcp(bridge);
+    disposeWebMcp = () => webmcp?.dispose();
+  }
 
   // Optional analytics: if PostHog is configured, stream VACP history into the session replay.
   const posthogApiKey = import.meta.env.VACP_POSTHOG_API_KEY as string | undefined;

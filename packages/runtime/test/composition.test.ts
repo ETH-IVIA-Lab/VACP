@@ -35,7 +35,10 @@ function provider(args: {
       state: { [args.node]: { result: args.result } },
       freshness: args.freshness ? { [args.node]: { status: args.freshness } } : undefined,
     }),
-    execute: async (call) => ({ callId: call.callId, ok: true, result: args.result }),
+    prepare: async (call) => ({
+      intent: { affects: [] },
+      execute: async () => ({ callId: call.callId, ok: true, result: args.result }),
+    }),
   };
 }
 
@@ -114,7 +117,7 @@ test('composition retries observations invalidated while sources are being read'
         state: { 'vacp://changing': reads },
       };
     },
-    execute: async (call) => ({ callId: call.callId, ok: true }),
+    prepare: async (call) => ({ intent: { affects: [] }, execute: async () => ({ callId: call.callId, ok: true }) }),
   };
   const composed = composeVacpProviders([changing]);
   try {

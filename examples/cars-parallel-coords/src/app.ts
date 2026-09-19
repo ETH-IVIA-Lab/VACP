@@ -45,6 +45,7 @@ export async function run(): Promise<void> {
     data,
     dimensions,
     getState: chart.getState,
+    getBrushBounds: chart.getBrushBounds,
     getSelectedIds: chart.getSelectedIds,
     setBrushRanges: chart.setBrushRanges,
     resetBrushes: chart.resetBrushes,

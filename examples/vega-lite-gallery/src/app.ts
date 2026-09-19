@@ -46,7 +46,12 @@ export async function run(): Promise<void> {
     return null;
   };
 
+  let activeView: Awaited<ReturnType<typeof embed>> | undefined;
+  let renderVersion = 0;
   const render = async (entry: GalleryEntry): Promise<void> => {
+    const version = ++renderVersion;
+    activeView?.finalize();
+    activeView = undefined;
     // Render: mount Vega-Lite into the page, then attach VACP on top of the Vega View.
     metaEl.textContent = entry.meta.description ?? '';
 
@@ -56,6 +61,11 @@ export async function run(): Promise<void> {
 
     try {
       const result = await embed(app, spec as VisualizationSpec, { actions: false, renderer: 'canvas' });
+      if (version !== renderVersion) {
+        result.finalize();
+        return;
+      }
+      activeView = result;
 
       // VACP layer: exposes Vega params/selections as nodes/actions at `window.__vacp`.
       await installVacp({
@@ -66,9 +76,9 @@ export async function run(): Promise<void> {
       });
 
       // Headless Chromium can finish Vega embedding with an empty DOM/canvas.
-      // Queue a follow-up runAsync so screenshots and arena runs see the chart.
+      // Queue a follow-up runAsync so screenshots see the chart.
       setTimeout(() => {
-        void result.view.runAsync();
+        if (activeView === result) void result.view.runAsync();
       }, 0);
     } finally {
       // Keep the Vega View handle off window after installation.

@@ -1,7 +1,4 @@
-import type { VacpActionCall } from '@vacp/protocol';
-
-import type { VgplotPlotLike } from '../types.js';
-import { awaitPlotUpdate } from './plot-update.js';
+import type { VgplotInteractorLike } from '../types.js';
 
 function isSqlLiteralLike(value: unknown): boolean {
   return (
@@ -27,61 +24,25 @@ function assertTogglePoints(points: unknown[][] | null): void {
   }
 }
 
-export async function executeToggleAction(plot: VgplotPlotLike, call: VacpActionCall) {
-  const params = (call.params ?? {}) as Record<string, unknown>;
-  const interactorId = String(params.interactorId ?? '');
-  const interactor = plot.interactors[Number(interactorId)];
-
-  if (!interactor) throw new Error(`Unknown interactorId: ${interactorId}`);
-  const ctorName = interactor.constructor?.name ?? 'Interactor';
-
-  if (ctorName !== 'Toggle') throw new Error(`Expected Toggle interactor, got ${ctorName}`);
-
-  const anyI = interactor;
-
-  if (call.name === 'vgplot.clear_toggle') {
-    if (typeof anyI.selection?.update === 'function' && typeof anyI.clause === 'function') {
-      anyI.value = null;
-      anyI.selection.update(anyI.clause(null));
-      await awaitPlotUpdate(plot);
-
-      return { cleared: true };
-    }
-
-    anyI.value = null;
-    await awaitPlotUpdate(plot);
-
-    return { cleared: true, warning: 'toggle selection.update/clause not available' };
-  }
-
-  if (call.name === 'vgplot.set_toggle') {
-    const raw = params.value;
-
-    const points =
-      raw === null || raw === undefined
-        ? null
-        : Array.isArray(raw) && raw.length === 0
-          ? null
-          : Array.isArray(raw) && Array.isArray(raw[0])
-            ? raw
-            : Array.isArray(raw)
-              ? raw.map((v) => [v])
-              : [[raw]];
-
-    assertTogglePoints(points);
-    anyI.value = points;
-
-    if (typeof anyI.selection?.update === 'function' && typeof anyI.clause === 'function') {
-      anyI.selection.update(anyI.clause(points));
-      await awaitPlotUpdate(plot);
-
-      return { set: true };
-    }
-
-    await awaitPlotUpdate(plot);
-
-    return { set: true, warning: 'toggle selection.update/clause not available' };
-  }
-
-  throw new Error(`Unsupported Toggle action: ${call.name}`);
+/** Toggle and region selections share tuple normalization and validated mutation. */
+export function preparePointSelection(interactor: VgplotInteractorLike, raw: unknown) {
+  const points =
+    raw == null || (Array.isArray(raw) && raw.length === 0)
+      ? null
+      : Array.isArray(raw) && Array.isArray(raw[0])
+        ? raw
+        : Array.isArray(raw)
+          ? raw.map((value) => [value])
+          : [[raw]];
+  assertTogglePoints(points);
+  const selection = interactor.selection;
+  const update = selection?.update;
+  const clause = interactor.clause;
+  if (!update || !clause) throw new Error('Selection is missing selection.update/clause');
+  return () => {
+    if (interactor.selection !== selection) throw new Error('Selection binding changed; prepare again');
+    interactor.value = points;
+    update.call(selection, clause.call(interactor, points));
+    return points ? { set: true } : { cleared: true };
+  };
 }

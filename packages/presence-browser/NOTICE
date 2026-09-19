@@ -1,0 +1,8 @@
+Cursor geometry and activation appearance adapted from agent-browser.
+Copyright 2025 Vercel Inc.
+Licensed under the Apache License, Version 2.0. See licenses/agent-browser.txt.
+
+Source: https://github.com/vercel-labs/agent-browser/blob/44583ac8385d814ab98cbf40feec97620376b50e/cli/src/native/recording-cursor.js
+
+VACP modifications: semantic execution activation, configurable appearance,
+reduced-motion feedback, independent rendering and cancellation lifecycle.

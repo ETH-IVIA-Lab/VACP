@@ -303,91 +303,78 @@ export function collectInputs(root: ParentNode, options: VgplotProviderOptions):
   return out;
 }
 
-export async function executeInputAction(input: CollectedInput, call: { name: string; params?: unknown }) {
+export function prepareInputAction(input: CollectedInput, call: { name: string; params?: unknown }) {
   const params = (call.params ?? {}) as Record<string, unknown>;
   const inst = input.input;
 
-  if (call.name === 'vgplot.clear_input') {
-    if (typeof inst.reset === 'function') {
-      inst.reset();
+  if (call.name === 'vgplot.clear_input')
+    return async () => {
+      if (typeof inst.reset === 'function') {
+        inst.reset();
+        const next = ensureSelectedOption(inst);
+
+        if (typeof inst.publish === 'function') inst.publish(next ?? null);
+        await waitForInputDispatch(inst);
+
+        return { cleared: true, value: next };
+      }
+
+      if (isSelectionLike(inst.selection)) {
+        inst.selection.update({ source: inst });
+        await waitForInputDispatch(inst);
+
+        return { cleared: true, value: undefined };
+      }
+
+      if (isParamLike(inst.selection)) {
+        inst.selection.update(null);
+        await waitForInputDispatch(inst);
+
+        return { cleared: true, value: null };
+      }
+
       const next = ensureSelectedOption(inst);
 
       if (typeof inst.publish === 'function') inst.publish(next ?? null);
       await waitForInputDispatch(inst);
 
       return { cleared: true, value: next };
-    }
-
-    if (isSelectionLike(inst.selection)) {
-      inst.selection.update({ source: inst });
-      await waitForInputDispatch(inst);
-
-      return { cleared: true, value: undefined };
-    }
-
-    if (isParamLike(inst.selection)) {
-      inst.selection.update(null);
-      await waitForInputDispatch(inst);
-
-      return { cleared: true, value: null };
-    }
-
-    const next = ensureSelectedOption(inst);
-
-    if (typeof inst.publish === 'function') inst.publish(next ?? null);
-    await waitForInputDispatch(inst);
-
-    return { cleared: true, value: next };
-  }
+    };
 
   if (call.name === 'vgplot.set_input_option_index') {
     if (!hasIndexedOptions(input)) throw new Error('Input does not expose indexed options');
     const idx = Number(params.index);
 
-    if (!Number.isFinite(idx)) throw new Error('index must be a number');
+    if (!Number.isInteger(idx)) throw new Error('index must be an integer');
 
     if (idx < 0) throw new Error('index must be >= 0');
     const count = optionCount(inst);
 
     if (idx >= count) throw new Error(`index must be < ${count}`);
 
-    if (inst.select && typeof inst.select.selectedIndex === 'number') inst.select.selectedIndex = idx;
-    let next = optionValueAt(inst, idx);
+    const next = structuredClone(optionValueAt(inst, idx));
+    return async () => {
+      if (inst.select && typeof inst.select.selectedIndex === 'number') inst.select.selectedIndex = idx;
+      if (typeof inst.publish === 'function') inst.publish(next);
+      await waitForInputDispatch(inst);
 
-    if (next === undefined && typeof inst.selectedValue === 'function') {
-      try {
-        next = inst.selectedValue();
-      } catch {
-        next = inst.select ? inst.select.value : undefined;
-      }
-    }
-
-    if (next === undefined && inst.select) {
-      next = inst.select.value;
-    }
-
-    if (typeof inst.publish === 'function') inst.publish(next);
-    await waitForInputDispatch(inst);
-
-    return { set: true, index: idx, value: next };
+      return { set: true, index: idx, value: next };
+    };
   }
 
   if (call.name === 'vgplot.set_input_value') {
-    let value = params.value;
+    const value = inst.slider ? coerceFiniteSliderValue(inst, params.value) : params.value;
+    return async () => {
+      if (inst.slider) setSliderDomValue(inst, Number(value));
 
-    if (inst.slider) {
-      const sliderValue = coerceFiniteSliderValue(inst, value);
-      setSliderDomValue(inst, sliderValue);
-      value = sliderValue;
-    }
+      if (typeof inst.selectedValue === 'function') inst.selectedValue(value);
+      selectMenuValue(inst, value);
 
-    if (typeof inst.selectedValue === 'function') inst.selectedValue(value);
-    selectMenuValue(inst, value);
+      if (typeof inst.publish === 'function') inst.publish(value);
+      await waitForInputDispatch(inst);
 
-    if (typeof inst.publish === 'function') inst.publish(value);
-    await waitForInputDispatch(inst);
-
-    return { set: true, value };
+      return { set: true, value };
+    };
   }
 
   throw new Error(`Unsupported input action: ${call.name}`);

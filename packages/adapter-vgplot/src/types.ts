@@ -26,11 +26,14 @@ export interface VgplotScaleLike<Value = number | Date> {
 
 export interface VgplotSelectionLike<Value = unknown> {
   value?: Value;
+  single?: boolean;
+  valueFor?: (source: VgplotInteractorLike) => unknown;
   update?: (value: Value) => unknown;
   predicate?: (...args: unknown[]) => unknown;
 }
 
 export interface VgplotInteractorLike<Value = unknown> {
+  channel?: string;
   constructor: { name: string };
   value?: Value;
   selection?: VgplotSelectionLike;
@@ -45,12 +48,14 @@ export interface VgplotInteractorLike<Value = unknown> {
   yfield?: unknown;
   clause?: (value: unknown, field?: unknown, scale?: unknown) => unknown;
   publish?: (value: unknown) => unknown;
-  g?: { call(callback: (...args: never[]) => unknown, value: unknown): unknown };
+  g?: { call(callback: (...args: never[]) => unknown, value: unknown): unknown; nodes?: () => SVGGraphicsElement[] };
   brush?: { moveSilent: (...args: never[]) => unknown };
   init?: (svg: SVGElement) => unknown;
 }
 
 export interface VgplotPlotLike {
+  pending?: (...args: unknown[]) => unknown;
+  render?: (...args: unknown[]) => unknown;
   element?: HTMLElement;
   marks: VgplotMarkLike[];
   interactors: VgplotInteractorLike[];
@@ -60,6 +65,14 @@ export interface VgplotPlotLike {
   getAttribute?: (name: string) => unknown;
 }
 
+export interface VgplotLegendLike {
+  channel: string;
+  handler?: VgplotInteractorLike | null;
+  selection?: VgplotSelectionLike;
+  element?: HTMLElement;
+  legend?: Element | null;
+}
+
 /**
  * Structural type for VGPlot/vgplot `table` surfaces.
  *
@@ -67,6 +80,9 @@ export interface VgplotPlotLike {
  * interactive surface over a backing DuckDB table (sort + scroll/pagination).
  */
 export interface VgplotTableLike {
+  schema?: Array<{ column: string }>;
+  readonly pending?: Promise<unknown>;
+  sortHeader?: HTMLElement | null;
   constructor?: { name?: string };
   element?: HTMLElement;
   from?: string;

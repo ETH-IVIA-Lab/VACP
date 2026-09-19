@@ -45,6 +45,12 @@
     },
     {
       "path": "packages/inspector-core"
+    },
+    {
+      "path": "packages/presence-core"
+    },
+    {
+      "path": "packages/presence-browser"
     }
   ]
 }

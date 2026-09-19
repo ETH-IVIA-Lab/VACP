@@ -227,8 +227,7 @@ export function installVacpRuntimeAnalytics(args: InstallVacpRuntimeAnalyticsArg
         const initProps: Record<string, unknown> = {
           ...baseProps(args.options),
           vacp_version: bridge.version,
-          mode: r.mode,
-          cursor: r.cursor,
+          observationRevision: r.observation.revision,
           historyLength: r.history.length,
         };
 

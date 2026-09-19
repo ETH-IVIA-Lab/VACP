@@ -61,7 +61,7 @@ is running.
 - **Human** interaction updates Vega signals/*Param*s through Vega's runtime.
 - `@vacp/adapter-vega-lite` reads those _Param_ values and exposes them via `window.__vacp.getState()`.
 - **Agent** calls `vega_lite.set_param` / `vega_lite.clear_selection`, which updates Vega signals directly.
-- Both paths are recorded in the VACP runtime history so debugging/time travel works uniformly.
+- Both paths are recorded in the VACP runtime history so inspection sees both kinds of interaction.
 
 ## Entry points
 

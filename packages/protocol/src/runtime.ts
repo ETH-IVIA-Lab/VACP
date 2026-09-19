@@ -3,27 +3,15 @@ import type {
   VacpActionExecutionOptions,
   VacpActionResult,
   VacpCapabilitiesSnapshot,
-  VacpGraph,
   VacpObservation,
-  VacpRef,
   VacpStateSnapshot,
   VacpWindowBridge,
 } from './schema.js';
 
-/**
- * Runtime change tracking (project concepts).
- *
- * VACP as a protocol is intentionally "stateless": snapshots + actions.
- * However, many workflows (debugging, replay, time travel, undo/redo) benefit
- * from a *runtime* that records a timeline of snapshots and action results.
- *
- * The runtime layer is transport-neutral. MCP is one transport that can read
- * and invoke the protocol surface. The runtime exists in the app and can be
- * used by humans (inspector), agents, or other tooling.
- */
+/** Attribution shared by live execution and observation recording. */
 export type VacpChangeSource = 'human' | 'agent' | 'inspector' | 'system';
 
-export type VacpHistoryEntryKind = 'snapshot' | 'action' | 'state_override' | 'graph_override' | 'mode';
+export type VacpHistoryEntryKind = 'snapshot' | 'action' | 'session';
 
 export type VacpHistoryEntry = {
   id: string;
@@ -33,7 +21,7 @@ export type VacpHistoryEntry = {
   message?: string;
   call?: VacpActionCall;
   result?: VacpActionResult;
-  /** Optional snapshot captured at this entry (used for time travel). */
+  /** Coherent observation captured at this entry for independent inspection. */
   observation?: VacpObservation;
   capabilities?: VacpCapabilitiesSnapshot;
   state?: VacpStateSnapshot;
@@ -42,41 +30,17 @@ export type VacpHistoryEntry = {
   afterState?: VacpStateSnapshot;
 };
 
-export type VacpRuntimeMode = 'live' | 'inspect';
-
+/** Live source state and its recording. Historical selection belongs to the consumer. */
 export type VacpRuntimeSnapshot = {
-  /** Protocol version. */
   version: VacpCapabilitiesSnapshot['version'];
-  /** Stable identifier for the in-page runtime instance (debugging only). */
   runtimeId?: string;
-  /**
-   * Optional session identifier for the currently attached visualization/view.
-   *
-   * When present, tooling can use this to correlate analytics, replays, and
-   * history boundaries across view switches.
-   */
   sessionKey?: string;
-  mode: VacpRuntimeMode;
-  cursor: number;
-  /** Timeline of observed snapshots and action calls/results. */
   history: VacpHistoryEntry[];
-  /** Latest coherent graph/state/freshness observation from live providers. */
-  liveObservation: VacpObservation;
-  /** Selected historical observation, or an inspection projection when overrides are active. */
-  currentObservation: VacpObservation;
-  /** Latest observed capabilities/state from the live app. */
-  liveCapabilities: VacpCapabilitiesSnapshot;
-  liveState: VacpStateSnapshot;
-  /**
-   * Current "inspected" capabilities/state (can be overridden for debugging).
-   * In `mode="live"` these match the live snapshots.
-   */
-  currentCapabilities: VacpCapabilitiesSnapshot;
-  currentState: VacpStateSnapshot;
+  observation: VacpObservation;
 };
 
 /**
- * Optional extended in-page bridge contract for debugging and time travel.
+ * Optional live recording and execution capabilities.
  *
  * Runtime instrumentation for in-page tools such as the inspector.
  */
@@ -91,20 +55,6 @@ export interface VacpRuntimeBridge extends VacpWindowBridge {
   subscribe?: (listener: (entry: VacpHistoryEntry) => void) => () => void;
   /** Capture a fresh state snapshot after human-driven UI changes. */
   refresh?: (options?: { source?: VacpChangeSource; message?: string }) => Promise<VacpStateSnapshot>;
-  /** Switch between live and time-travel inspection. */
-  setMode?: (mode: VacpRuntimeMode, options?: { source?: VacpChangeSource; message?: string }) => void;
-  /** Select runtime history and replay it when the provider declares the `vacp.apply_state` contract. */
-  setCursor?: (cursor: number, options?: { source?: VacpChangeSource; message?: string }) => void;
-  undo?: (options?: { source?: VacpChangeSource; message?: string }) => void;
-  redo?: (options?: { source?: VacpChangeSource; message?: string }) => void;
-  /** Override state/graph for inspection (does not affect the live app). */
-  setStateOverride?: (
-    state: Record<VacpRef, unknown>,
-    options?: { source?: VacpChangeSource; message?: string },
-  ) => void;
-  setGraphOverride?: (graph: VacpGraph, options?: { source?: VacpChangeSource; message?: string }) => void;
-  clearOverrides?: (options?: { source?: VacpChangeSource; message?: string }) => void;
-
   /**
    * Dispatch an action with an explicit source label for the local runtime
    * timeline. `execute()` remains MCP-friendly and defaults to `source="agent"`.

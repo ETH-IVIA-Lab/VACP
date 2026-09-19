@@ -16,7 +16,9 @@
     "@vacp/adapter-vega-lite": "workspace:*",
     "@vacp/analytics-posthog": "workspace:*",
     "@vacp/data-duckdb": "workspace:*",
+    "@vacp/presence-browser": "workspace:*",
     "@vacp/runtime-browser": "workspace:*",
+    "@vacp/transport-webmcp": "workspace:*",
     "vega": "^6.4.0",
     "vega-embed": "^7.2.0",
     "vega-lite": "^6.4.3"

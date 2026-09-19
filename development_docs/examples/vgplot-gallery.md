@@ -82,7 +82,7 @@ Everything under `meta` is ignored by the VGPlot runtime and only used by the ga
 - **Human** updates the VGPlot interactor state (brush/toggle/menu).
 - `@vacp/adapter-vgplot` observes/reads the current _Selection_ state and exposes it via `window.__vacp.getState()`.
 - **Agent** dispatches an equivalent semantic action via `window.__vacp.execute(...)` (or `dispatch(...)` when available).
-- Both paths record into the same runtime history so time travel/debugging works across both.
+- Both paths record into the same runtime history so inspection sees both kinds of interaction.
 
 ## Entry points
 

@@ -1,3 +1,4 @@
+import { webMcpExecutionSignal } from './execution.js';
 import type { WebMCP } from 'webmcp-types';
 import { stableStringify, type VacpGraph } from '@vacp/protocol';
 import { compileVacpWebMcpTools } from './compile.js';
@@ -103,7 +104,7 @@ export async function installVacpWebMcp(
             ...tool,
             execute: async (input, execution) => {
               registrationSignal.throwIfAborted();
-              const executionSignal = AbortSignal.any([signal, execution.signal]);
+              const executionSignal = webMcpExecutionSignal(execution, signal);
               executionSignal.throwIfAborted();
               return entry.tool.execute(input, { signal: executionSignal });
             },

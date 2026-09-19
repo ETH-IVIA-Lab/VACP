@@ -255,7 +255,7 @@ test('vgplot: menu option indices update the chart and clear restores the defaul
   }
 });
 
-test('vgplot: transient hover state stays bounded and read-only during replay', async ({ page }) => {
+test('vgplot: transient hover state stays bounded and read-only during restoration', async ({ page }) => {
   const srv = await startAppServer({ name: 'vgplot-gallery', cwd: exampleDir('vgplot-gallery') });
 
   try {
@@ -327,7 +327,7 @@ test('vgplot: transient hover state stays bounded and read-only during replay', 
         expect.arrayContaining([
           expect.objectContaining({
             ref: result.ref,
-            reason: expect.stringMatching(/Nearest refs are transient hover state/i),
+            reason: expect.stringMatching(/transient/i),
           }),
         ]),
       );

@@ -1,6 +1,15 @@
 import { readFile } from 'node:fs/promises';
 
-const packages = ['protocol', 'runtime', 'inspector-core', 'transport-bridge', 'transport-webmcp', 'agent-ai-sdk'];
+const packages = [
+  'protocol',
+  'runtime',
+  'inspector-core',
+  'presence-core',
+  'presence-browser',
+  'transport-bridge',
+  'transport-webmcp',
+  'agent-ai-sdk',
+];
 
 for (const name of packages) {
   const root = new URL(`../packages/${name}/`, import.meta.url);

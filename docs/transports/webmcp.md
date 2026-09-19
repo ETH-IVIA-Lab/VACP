@@ -54,7 +54,7 @@ Pass `signal` to tie the installation to an application lifetime. Pass `context`
 
 ## Changes and cleanup
 
-The installer follows `runtime.subscribeCapabilities()`. Runtime refreshes, provider replacement, and observation publish changes to the live graph. Runtime history overrides do not change the exported catalog. Unchanged tool definitions keep their registrations. Replacing metadata withdraws the old registration without cancelling a call already in progress.
+The installer follows `runtime.subscribeCapabilities()`. Runtime refreshes, provider replacement, and observation publish changes to the live graph. Historical viewer selection leaves the exported catalog live. Unchanged tool definitions keep their registrations. Replacing metadata withdraws the old registration without cancelling a call already in progress.
 
 Waiting graph revisions are merged into the latest catalog; an in-progress registration finishes before the next catalog is applied. Call `await webmcp?.refresh()` to explicitly re-read and wait for that catalog, or a newer queued revision, to finish registering. Automatic failures are available as `webmcp.error` and sent to `onError`. A failed update withdraws owned tools; a successful refresh clears the error and restores registration.
 
@@ -85,3 +85,5 @@ pnpm --filter @vacp/example-cars-parallel-coords dev
 Open `https://cars-parcoords.examples.vacp.localhost/`. The example registers WebMCP tools when the browser supports the API.
 
 The browser suite exercises native `document.modelContext` registration and invocation in Chromium 153 with experimental Web Platform features enabled, including provider replacement and disposal. Its experimental caller API currently takes serialized JSON input, whereas the newer draft describes object input. This difference is confined to the browser test; the integration only implements tool provision.
+
+Browser-supplied execution context is optional. When the browser provides a cancellation signal, VACP combines it with the runtime lifetime. Runtime and provider disposal remain effective for calls that arrive without a browser signal.

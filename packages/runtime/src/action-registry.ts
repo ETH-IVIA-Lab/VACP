@@ -4,17 +4,31 @@ import type {
   VacpActionResult,
   VacpActionExecutionOptions,
   VacpSourceId,
+  VacpPreparedAction,
+  VacpFocus,
+  VacpRef,
 } from '@vacp/protocol';
 import { fnv1a64Hex } from '@vacp/protocol';
 
 export interface VacpActionExecutor {
   list(): VacpActionDescriptor[];
-  execute(call: VacpActionCall, options?: VacpActionExecutionOptions): Promise<VacpActionResult>;
+  prepare(call: VacpActionCall, options?: VacpActionExecutionOptions): Promise<VacpPreparedAction>;
 }
 
 export interface VacpActionRegistrar {
   register<Result>(descriptor: VacpActionDescriptor, handler: VacpActionHandler<unknown, Result>): VacpActionDescriptor;
+  register<Params, Result>(
+    descriptor: VacpActionDescriptor,
+    handler: VacpActionHandler<Params, Result>,
+    preparation: VacpActionPreparation<Params>,
+  ): VacpActionDescriptor;
 }
+
+export type VacpActionPreparation<Params> = {
+  parse: (value: unknown) => Params | Promise<Params>;
+  focus?: (params: Params) => VacpFocus | undefined;
+  affects?: (params: Params) => VacpRef[];
+};
 
 export type VacpActionHandler<Params = unknown, Result = unknown> = (
   params: Params,
@@ -63,13 +77,23 @@ export function qualifyVacpActionName(sourceId: VacpSourceId, localName: string)
  */
 export class VacpActionRegistry implements VacpActionExecutor, VacpActionRegistrar {
   private readonly descriptors = new Map<string, VacpActionDescriptor>();
-  private readonly handlers = new Map<string, VacpActionHandler>();
+  private readonly handlers = new Map<
+    string,
+    (params: unknown) => Promise<{ execute: VacpActionHandler; focus?: VacpFocus; affects?: VacpRef[] }>
+  >();
 
   constructor(private readonly sourceId?: VacpSourceId) {}
 
-  register<Result>(
+  register<Result>(descriptor: VacpActionDescriptor, handler: VacpActionHandler<unknown, Result>): VacpActionDescriptor;
+  register<Params, Result>(
     descriptor: VacpActionDescriptor,
-    handler: VacpActionHandler<unknown, Result>,
+    handler: VacpActionHandler<Params, Result>,
+    preparation: VacpActionPreparation<Params>,
+  ): VacpActionDescriptor;
+  register<Params = unknown, Result = unknown>(
+    descriptor: VacpActionDescriptor,
+    handler: VacpActionHandler<Params, Result>,
+    preparation?: VacpActionPreparation<Params>,
   ): VacpActionDescriptor {
     const registered = structuredClone(descriptor);
     if (this.sourceId) registered.name = qualifyVacpActionName(this.sourceId, descriptor.name);
@@ -80,7 +104,14 @@ export class VacpActionRegistry implements VacpActionExecutor, VacpActionRegistr
     }
 
     this.descriptors.set(registered.name, registered);
-    this.handlers.set(registered.name, handler);
+    this.handlers.set(registered.name, async (raw) => {
+      const params = preparation ? await preparation.parse(raw) : (raw as Params);
+      return {
+        execute: (_input, options) => handler(params, options),
+        focus: preparation?.focus?.(params),
+        affects: preparation?.affects?.(params),
+      };
+    });
     return structuredClone(registered);
   }
 
@@ -93,22 +124,66 @@ export class VacpActionRegistry implements VacpActionExecutor, VacpActionRegistr
     return structuredClone(Array.from(this.descriptors.values()));
   }
 
-  async execute(call: VacpActionCall, options: VacpActionExecutionOptions = {}): Promise<VacpActionResult> {
+  async prepare(call: VacpActionCall, options: VacpActionExecutionOptions = {}): Promise<VacpPreparedAction> {
     options.signal?.throwIfAborted();
-    const handler = this.handlers.get(call.name);
+    const prepare = this.handlers.get(call.name);
+    const descriptor = this.descriptors.get(call.name);
+    if (!prepare || !descriptor) throw new Error(`Unknown action: ${call.name}`);
+    const prepared = await prepare(call.params);
+    options.signal?.throwIfAborted();
+    let used = false;
+    return {
+      intent: {
+        focus: prepared.focus,
+        affects: [...new Set([...(descriptor.operation.affects ?? []), ...(prepared.affects ?? [])])],
+      },
+      execute: async (executionOptions = {}) => {
+        if (used) throw new Error('Prepared action has already been executed');
+        used = true;
+        const signals = [options.signal, executionOptions.signal].filter((signal): signal is AbortSignal => !!signal);
+        const signal = AbortSignal.any(signals);
+        signal.throwIfAborted();
+        try {
+          const result = await prepared.execute(undefined, { ...options, ...executionOptions, signal });
+          signal.throwIfAborted();
+          return { callId: call.callId, ok: true, result };
+        } catch (error) {
+          signal.throwIfAborted();
+          return actionFailure(call, error);
+        }
+      },
+    };
+  }
 
-    if (!handler) {
-      return { callId: call.callId, ok: false, error: { message: `Unknown action: ${call.name}` } };
-    }
+  /** Execute directly when no runtime instrumentation is needed. */
+  execute(call: VacpActionCall, options?: VacpActionExecutionOptions): Promise<VacpActionResult> {
+    return executeVacpAction(this, call, options);
+  }
+}
 
-    try {
-      const result = await handler(call.params, options);
+export function actionFailure(call: VacpActionCall, error: unknown): Extract<VacpActionResult, { ok: false }> {
+  return {
+    callId: call.callId,
+    ok: false,
+    error: {
+      message: error instanceof Error ? error.message : String(error),
+      details: toSerializableErrorDetails(error),
+    },
+  };
+}
 
-      return { callId: call.callId, ok: true, result: result === undefined ? undefined : result };
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-
-      return { callId: call.callId, ok: false, error: { message, details: toSerializableErrorDetails(error) } };
-    }
+/** Execute the preparation port without lifecycle instrumentation. */
+export async function executeVacpAction(
+  executor: Pick<VacpActionExecutor, 'prepare'>,
+  call: VacpActionCall,
+  options?: VacpActionExecutionOptions,
+): Promise<VacpActionResult> {
+  options?.signal?.throwIfAborted();
+  try {
+    const prepared = await executor.prepare(call, options);
+    return await prepared.execute(options);
+  } catch (error) {
+    options?.signal?.throwIfAborted();
+    return actionFailure(call, error);
   }
 }

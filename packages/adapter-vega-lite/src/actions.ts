@@ -15,6 +15,7 @@ export function actionsForSpec(options: VegaLiteProviderOptions, spec: VegaLiteS
   if (hasParam) {
     actions.push({
       name: 'vega_lite.set_param',
+      title: 'Set parameter',
       description: 'Set a Vega-Lite variable parameter through Vega view signals.',
       operation: { kind: 'mutation', affects: [vizRef] },
       parameters: {
@@ -31,6 +32,7 @@ export function actionsForSpec(options: VegaLiteProviderOptions, spec: VegaLiteS
   if (hasSelection) {
     actions.push({
       name: 'vega_lite.set_selection',
+      title: 'Set selection',
       description: 'Set a Vega-Lite selection parameter. Updates the selection store when possible.',
       operation: { kind: 'mutation', affects: [vizRef] },
       parameters: {
@@ -47,6 +49,7 @@ export function actionsForSpec(options: VegaLiteProviderOptions, spec: VegaLiteS
     });
     actions.push({
       name: 'vega_lite.clear_selection',
+      title: 'Clear selection',
       description: 'Clear a Vega-Lite selection parameter. Uses Vega signals when needed.',
       operation: { kind: 'mutation', affects: [vizRef] },
       parameters: {
@@ -62,6 +65,7 @@ export function actionsForSpec(options: VegaLiteProviderOptions, spec: VegaLiteS
   if (options.includeSetSignalAction) {
     actions.push({
       name: 'vega.set_signal',
+      title: 'Set signal',
       description: 'Set a named Vega signal for debugging.',
       operation: { kind: 'mutation', affects: [vizRef] },
       parameters: {

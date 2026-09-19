@@ -28,3 +28,25 @@ pnpm test:e2e
 pnpm --filter @vacp/e2e typecheck
 pnpm lint
 ```
+
+## Contract evidence
+
+Keep a small set of behavior witnesses at the boundary that can prove them:
+
+- Provider preparation rejects invalid inputs before any native mutation, retains normalized inputs, and produces a single-use execution.
+- Replacing a provider cancels its old binding. Replacing an unrelated source preserves active work.
+- Observation attachment and detachment preserve native controls, rendering, method results, and promise identity. Two consumers can leave in either order. The last restores owned hooks.
+- Failed setup releases partial subscriptions. A subscriber exception cannot interrupt the source or other consumers.
+- Freshness belongs to an input/output revision. Superseded work cannot publish a newer output as current or failed.
+- Viewers can inspect different recorded observations independently. Explicit restoration alone mutates the source and reports partial failures.
+- Passive viewers require no timing authority. Host-installed pacing can be released while viewers remain attached.
+
+Runtime and presence unit tests cover orchestration with controllable promises. Adapter tests cover native resource ownership and pure preparation. Browser tests cover actual native-engine behavior: table row counts and page contents, bound controls after view replacement, linked legend selections, and brush/cursor bounds under SVG, Canvas, padding, scaling, and pixel density.
+
+## Browser and recording discipline
+
+Use a fresh browser session after source changes when validating an integration. Assert the actual visualization state alongside the protocol result. A returned success envelope proves dispatch. It does not prove visible rows, controls, or geometry are correct. Compare physical targets with native mark or brush bounds rather than relying on the adapter's own precision label.
+
+Use short recordings early to inspect motion and lifecycle behavior. Keep scenario input, result assertions, browser version, and recording together in ignored artifacts. Record to temporary filenames and promote the video/result pair only after assertions succeed. Report the tested scenarios and input domain. A sweep of declared defaults is not exhaustive over arbitrary inputs.
+
+Examples remain ordinary applications. Exercise them through public runtime/browser ports from test drivers. Keep diagnostic controls and automation outside example product flows.

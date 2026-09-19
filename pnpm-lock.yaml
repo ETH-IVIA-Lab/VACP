@@ -297,12 +297,21 @@ importers:
       '@types/node':
         specifier: 'catalog:'
         version: 24.13.4
+      '@vacp/adapter-vega-lite':
+        specifier: workspace:*
+        version: link:../../packages/adapter-vega-lite
       '@vacp/adapter-vgplot':
         specifier: workspace:*
         version: link:../../packages/adapter-vgplot
+      '@vacp/presence-browser':
+        specifier: workspace:*
+        version: link:../../packages/presence-browser
       '@vacp/protocol':
         specifier: workspace:*
         version: link:../../packages/protocol
+      '@vacp/runtime':
+        specifier: workspace:*
+        version: link:../../packages/runtime
       '@vacp/sdk':
         specifier: workspace:*
         version: link:../../packages/sdk
@@ -315,6 +324,9 @@ importers:
       typescript:
         specifier: 'catalog:'
         version: 5.9.3
+      vega-embed:
+        specifier: ^7.2.0
+        version: 7.2.0(vega-lite@6.4.3(vega@6.4.0))(vega@6.4.0)
       webmcp-types:
         specifier: 'catalog:'
         version: 0.1.7
@@ -327,6 +339,9 @@ importers:
       '@vacp/data-duckdb':
         specifier: workspace:*
         version: link:../../packages/data-duckdb
+      '@vacp/presence-browser':
+        specifier: workspace:*
+        version: link:../../packages/presence-browser
       '@vacp/protocol':
         specifier: workspace:*
         version: link:../../packages/protocol
@@ -474,9 +489,15 @@ importers:
       '@vacp/data-duckdb':
         specifier: workspace:*
         version: link:../../packages/data-duckdb
+      '@vacp/presence-browser':
+        specifier: workspace:*
+        version: link:../../packages/presence-browser
       '@vacp/runtime-browser':
         specifier: workspace:*
         version: link:../../packages/runtime-browser
+      '@vacp/transport-webmcp':
+        specifier: workspace:*
+        version: link:../../packages/transport-webmcp
       vega:
         specifier: ^6.4.0
         version: 6.4.0
@@ -517,9 +538,15 @@ importers:
       '@vacp/data-duckdb':
         specifier: workspace:*
         version: link:../../packages/data-duckdb
+      '@vacp/presence-browser':
+        specifier: workspace:*
+        version: link:../../packages/presence-browser
       '@vacp/runtime-browser':
         specifier: workspace:*
         version: link:../../packages/runtime-browser
+      '@vacp/transport-webmcp':
+        specifier: workspace:*
+        version: link:../../packages/transport-webmcp
       marked:
         specifier: ^17.0.6
         version: 17.0.6
@@ -542,6 +569,12 @@ importers:
       '@vacp/data-duckdb':
         specifier: workspace:*
         version: link:../data-duckdb
+      '@vacp/presence-browser':
+        specifier: workspace:*
+        version: link:../presence-browser
+      '@vacp/presence-core':
+        specifier: workspace:*
+        version: link:../presence-core
       '@vacp/protocol':
         specifier: workspace:*
         version: link:../protocol
@@ -569,6 +602,12 @@ importers:
       '@vacp/data-duckdb':
         specifier: workspace:*
         version: link:../data-duckdb
+      '@vacp/presence-browser':
+        specifier: workspace:*
+        version: link:../presence-browser
+      '@vacp/presence-core':
+        specifier: workspace:*
+        version: link:../presence-core
       '@vacp/protocol':
         specifier: workspace:*
         version: link:../protocol
@@ -642,6 +681,28 @@ importers:
       zod:
         specifier: 'catalog:'
         version: 4.6.5
+    devDependencies:
+      '@vacp/runtime':
+        specifier: workspace:*
+        version: link:../runtime
+      tsx:
+        specifier: 'catalog:'
+        version: 4.23.13
+
+  packages/presence-browser:
+    dependencies:
+      '@vacp/presence-core':
+        specifier: workspace:*
+        version: link:../presence-core
+      '@vacp/protocol':
+        specifier: workspace:*
+        version: link:../protocol
+
+  packages/presence-core:
+    dependencies:
+      '@vacp/protocol':
+        specifier: workspace:*
+        version: link:../protocol
     devDependencies:
       '@vacp/runtime':
         specifier: workspace:*

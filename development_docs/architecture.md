@@ -25,7 +25,7 @@ Applications and examples choose adapters and own their lifecycle. Runtime and p
 
 ## Ports
 
-`VacpProvider` combines a pure `VacpSourceDescription` with a live binding. Its `observe()` method returns one source revision containing an analytical graph fragment, state, summaries, and output freshness. Its `execute()` method invokes source-owned semantic operations. Optional invalidation and disposal callbacks remain transport-neutral.
+`VacpProvider` combines a pure `VacpSourceDescription` with a live binding. Its `observe()` method returns one source revision containing an analytical graph fragment, state, summaries, and output freshness. Its `prepare()` method validates an operation and returns semantic intent plus a single-use execution closure. Runtime dispatch owns lifecycle events and optional bounded presentation gates. Optional invalidation and disposal callbacks remain transport-neutral.
 
 `createVacpProvider` binds a source description, an analytical projector, and a `VacpActionExecutor`. Discovery adapters can describe source facts before a live binding exists. Profiles can enrich those facts with selections, data handles, visualizations, and analytical relationships.
 
@@ -52,9 +52,13 @@ Applications pass browser exposure and SQL enablement explicitly. The browser in
 
 `uninstallVacpRuntime` stops observation, clears subscribers, and removes owned bridge and snapshot state. Disposing an Inspector Core session cancels its requests and releases its source subscription. Applications dispose these resources when their owning view is removed.
 
-## History and replay
+## Recording and restoration
 
-Live state remains authoritative. Inspection overrides are separate from host state. Cursor replay uses the provider's `vacp.apply_state` action when available. A serialized replay queue and request identity prevent stale replay from overtaking a request to return live. State-token baselines are bounded independently of runtime history.
+`createLiveObservations` owns coherent reads, invalidation, and live publication. `createRuntimeHistory` owns recorded copies. Runtime snapshots contain `observation` and `history`; a viewer retains whichever record it wants to inspect. Selecting a record performs no source operation.
+
+`createVacpRestorer` owns a queue of explicit restoration requests. It checks source ownership and unambiguous `vacp.apply_state` contracts before dispatching any action, routes each source only its state, and waits for every source result before starting its next request. Calls go through normal runtime execution and history. Failures report per-source results. Restoration is not a transaction across engines. Unsupported ownership fails before mutation. Provider-specific read-only or transient refs are reported in the provider result. An application may supply the restorer through an Inspector client's optional `restore` port.
+
+Ordinary execution does not coordinate with a viewer's historical selection. State-token baselines are bounded independently of runtime history.
 
 Runtime and session metadata are public properties and snapshot fields. Analytics consumes these fields rather than implementation-private properties.
 
@@ -81,7 +85,7 @@ Names group implementations by capability family:
 
 `@vacp/transport-webmcp` consumes protocol records and structural runtime ports. Its compiler turns a graph into executable tool definitions using an injected client; it does not read browser globals. Its installer owns asynchronous browser registration, incremental replacement, cancellation, and cleanup. Applications opt in by passing their runtime instance. No provider or core package imports WebMCP.
 
-The runtime owns capability and observation subscriptions and its lifetime signal. DOM publication subscribes to composed observations, so it preserves execution options and shares lifecycle cleanup with other output adapters. These subscriptions are independent of the runtime history stream. Provider invalidation triggers a new coherent read. Replacing a provider aborts pending calls from its prior binding. Runtime execution owns return-to-live behavior and forwards cancellation to handlers.
+The runtime owns capability and observation subscriptions and its lifetime signal. DOM publication subscribes to composed observations, so it preserves execution options and shares lifecycle cleanup with other output adapters. These subscriptions are independent of the runtime history stream. Provider invalidation triggers a new coherent read. Replacing a provider aborts pending calls from its prior binding. Runtime execution forwards caller and source-lifetime cancellation to handlers.
 
 The integration targets upstream WebMCP commit `f5645e9` (2026-09-17), with the mature `webmcp-types` 0.1.7 declarations for its registration surface. Browser verification uses native Chromium APIs, not a polyfill.
 
@@ -94,3 +98,40 @@ The integration targets upstream WebMCP commit `f5645e9` (2026-09-17), with the 
 `createInspectionIndex` resolves entities, ownership, relationships, freshness, and operations against one observation. UI selection, historical navigation, parameter editing, and result rendering belong to consumers. They can retain a recorded observation independently of the live source. Restoration is an explicit capability and operation.
 
 HTTP clients resolve a session identity before making reads or operations. The Python ASGI endpoint checks that identity on every request. The application owns authentication and authorization.
+
+## Agent presence
+
+`protocol` defines semantic focus, actor context, prepared operations, and execution events. Runtime dispatch emits the same lifecycle for SDK, MCP, and WebMCP calls. Each provider generation has a binding ID and abort signal. Presentation bindings use both to reject stale target lookups.
+
+`presence-core` consumes execution events and coherent observations through ports. It coalesces visual focus per actor and reports output freshness independently of execution success. It never dispatches actions. `presence-browser` implements a passive cursor renderer and live geometry helpers. Adapter `./presentation` entry points project domain targets through their rendering engines. Application modules compose the provider, runtime, and viewer.
+
+Provider `prepare` validates inputs and resolves targets before mutation. `createVacpProvider` delegates preparation to the action registry. Direct execution remains available through `runtime.execute` or `executeVacpAction(provider, call)`. Prepared operations are single-use and cancellation-aware. Action parsers run before optional presentation pacing.
+
+## Native adapter bindings
+
+A binding inventory assigns semantic refs to native resources for one provider generation. VGPlot graph construction, state reads, restoration, and presentation use the same inventory. Operation preparation retains its resolved resource and normalized inputs. Adding a capability extends the owning family; redispatch through reconstructed calls or interpretation of operation-name substrings is unnecessary.
+
+Vega-Lite bindings own parameter identity, watched signals, mark ownership, and native context traversal. Serialized state paths retain nested unit identity. Native scene conversion owns padding, renderer origin, and viewport transforms. Compiler signal allocation remains an adapter detail with native-engine tests.
+
+Restoration uses the same validation and mutation functions as direct operations. `registerVacpApplyStateAction` accepts a preparation function returning an execution closure. Every supported target is prepared before the first mutation. Read-only and transient states are reported as skipped. Failures during effects are reported as partial application. Preparation does not promise rollback.
+
+## Native observation ownership
+
+`createSharedSubscription` connects one resource once while it has consumers and disconnects after the last consumer leaves. The visualization adapters use it for native method instrumentation. Each consumer still owns its invalidation subscription and debounce lifetime. Failed connection setup must release every hook already acquired.
+
+Vega observation retains the exact native `runAsync` promise. VGPlot instrumentation preserves synchronous results and native promises from pending/render/init/update methods. Cleanup restores a method only when the method is still owned by that connection. If a replacement controller cannot be instrumented, native initialization retains its result and invalidates the provider for a fresh read. The application owns destruction of its native view. A provider releases its subscriptions.
+
+## Completion and settlement
+
+| Boundary            | Meaning                                                                     | Evidence                                |
+| ------------------- | --------------------------------------------------------------------------- | --------------------------------------- |
+| Prepared            | Inputs and native target are validated. No analytical mutation has occurred | Adapter preparation                     |
+| Execution succeeded | The operation's mutation contract completed                                 | Native operation result                 |
+| Output current      | A native output represents the reported input revision                      | Run/render completion for that revision |
+| Visual arrival      | A presentation reached its resolved target                                  | Renderer arrival callback               |
+
+Vega run completion can witness its output revision. VGPlot requests updates and observes pending/render revisions separately because superseded update promises may never resolve. An update timeout cannot establish current output. A source lacking a settlement witness leaves freshness absent, which consumers display as unknown. Native asynchronous failures are attached to the matching observation generation. Older work must not overwrite a newer revision.
+
+## Presentation authority
+
+`VacpExecutionSource` is passive. `VacpExecutionControl` grants bounded gate registration. Creating a headless or browser presence viewer subscribes to events and observations. A host may separately call `paceAgentPresence(control, viewer, timing)` to grant that viewer pacing authority, then release pacing while keeping the viewer attached. Disposing either owner releases waits. Hosts choose which viewer may pace; additional viewers remain independent observers.

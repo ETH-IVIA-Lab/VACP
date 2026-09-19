@@ -30,7 +30,7 @@ const state = Object.fromEntries(graph.nodes.map(({ ref }, i) => [ref, { value: 
 const provider: VacpProvider = {
   source: { id: 'vacp-source://benchmark', type: 'benchmark', title: 'Runtime benchmark' },
   observe: () => ({ revision: 'static', observedAt: '', graph, state }),
-  execute: async (call) => ({ callId: call.callId, ok: true }),
+  prepare: async (call) => ({ intent: { affects: [] }, execute: async () => ({ callId: call.callId, ok: true }) }),
 };
 
 async function measure(name: string, run: () => unknown | Promise<unknown>) {

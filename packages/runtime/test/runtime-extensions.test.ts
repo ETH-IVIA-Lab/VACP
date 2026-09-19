@@ -29,13 +29,12 @@ function descriptor(name: string): VacpActionDescriptor {
   return { name, description: `${name} value`, operation: { kind: 'mutation', affects: ['vacp://view'] } };
 }
 
-test('capability observers see the live graph even during inspection, and disposal cancels reads', async () => {
+test('capability observers follow live replacements, and disposal cancels reads', async () => {
   const runtime = createVacpRuntime({ providers: [provider('live')] });
   const titles: string[] = [];
   runtime.subscribeCapabilities((value) => titles.push(value.graph.nodes[0]?.title ?? ''));
   try {
-    const live = await runtime.getCapabilities();
-    runtime.setGraphOverride({ ...live.graph, nodes: [], edges: [], ownership: { nodes: {}, actions: {} } });
+    await runtime.getCapabilities();
     await runtime.getRuntime();
     assert.deepEqual(titles, ['live']);
     runtime.update({ providers: [provider('replacement')] });
@@ -53,7 +52,7 @@ test('a late observation from a replaced provider cannot overwrite current capab
   const old: VacpProvider = {
     source,
     observe: () => new Promise((resolve) => (complete = resolve)),
-    execute: async (call) => ({ callId: call.callId, ok: true }),
+    prepare: async (call) => ({ intent: { affects: [] }, execute: async () => ({ callId: call.callId, ok: true }) }),
   };
   const runtime = createVacpRuntime({ providers: [old] });
   try {
@@ -67,7 +66,7 @@ test('a late observation from a replaced provider cannot overwrite current capab
   }
 });
 
-test('execution owns live-mode recovery and honours cancellation before calling a handler', async () => {
+test('execution honours cancellation before calling a handler', async () => {
   let executions = 0;
   const actions = new VacpActionRegistry();
   actions.register(descriptor('set'), () => {
@@ -75,9 +74,7 @@ test('execution owns live-mode recovery and honours cancellation before calling 
   });
   const runtime = createVacpRuntime({ providers: [provider('live', actions)] });
   try {
-    runtime.setMode('inspect');
     await runtime.execute({ callId: 'first', name: 'set' });
-    assert.equal((await runtime.getRuntime()).mode, 'live');
     assert.equal(executions, 1);
     const controller = new AbortController();
     controller.abort();
@@ -99,7 +96,7 @@ test('a queued action cannot execute against a replacement provider', async () =
   const old: VacpProvider = {
     source,
     observe: () => new Promise((resolve) => (complete = resolve)),
-    execute: (call, options) => actions.execute(call, options),
+    prepare: (call, options) => actions.prepare(call, options),
   };
   const runtime = createVacpRuntime({ providers: [old] });
   try {
@@ -125,7 +122,7 @@ test('a late post-action observation cannot attach an old call to a new session 
   const base = provider('old', actions);
   const old: VacpProvider = {
     source,
-    execute: (call, options) => actions.execute(call, options),
+    prepare: (call, options) => actions.prepare(call, options),
     observe: async () => {
       if (++reads === 2) {
         afterStarted();
@@ -216,11 +213,10 @@ test('freshness changes publish observations and history retains the observed re
     status = 'stale';
     await runtime.refresh();
     assert.deepEqual(published, ['current', 'stale']);
-    runtime.setCursor(0);
     const inspected = await runtime.getRuntime();
-    assert.equal(inspected.currentObservation.revision, first.revision);
-    assert.equal(inspected.currentObservation.freshness!['vacp://view'].status, 'current');
-    assert.equal(inspected.liveObservation.freshness!['vacp://view'].status, 'stale');
+    assert.equal(inspected.history[0]!.observation!.revision, first.revision);
+    assert.equal(inspected.history[0]!.observation!.freshness!['vacp://view'].status, 'current');
+    assert.equal(inspected.observation.freshness!['vacp://view'].status, 'stale');
   } finally {
     stop();
     runtime.dispose();
@@ -282,7 +278,7 @@ test('recorded observations are isolated from providers, read results, and other
     await runtime.refresh();
     const first = await runtime.getRuntime();
     first.history[0]!.observation!.graph.nodes[0]!.title = 'consumer mutation';
-    first.liveState.state['vacp://view'] = { value: 99 };
+    first.observation.state['vacp://view'] = { value: 99 };
     graph.nodes[0]!.title = 'second';
     state['vacp://view'].value = 2;
     await runtime.refresh();

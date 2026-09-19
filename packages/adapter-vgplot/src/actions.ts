@@ -1,15 +1,10 @@
+import type { VgplotBindings } from './bindings.js';
 import type { VacpActionDescriptor } from '@vacp/protocol';
 
 import { isSelectionBackedNearest } from './interactors/nearest.js';
 import { hasIndexedOptions, readInputValue, type CollectedInput } from './inputs.js';
 import { makeViewRef } from './refs.js';
-import type {
-  VgplotProviderOptions,
-  VgplotPlotLike,
-  VgplotTableLike,
-  VgplotInteractorLike,
-  VgplotScaleLike,
-} from './types.js';
+import type { VgplotProviderOptions, VgplotTableLike, VgplotInteractorLike, VgplotScaleLike } from './types.js';
 
 type CollectedInteractor = {
   plotId: string;
@@ -157,14 +152,12 @@ function readScaleDomain(scale: VgplotScaleLike | undefined): unknown[] | undefi
 }
 
 function firstInteractor(
-  plots: Array<{ plotId: string; plot: VgplotPlotLike }>,
+  bindings: VgplotBindings,
   kind: string,
   predicate: (interactor: VgplotInteractorLike) => boolean = () => true,
 ): CollectedInteractor | null {
-  for (const { plotId, plot } of plots) {
-    for (let index = 0; index < plot.interactors.length; index++) {
-      const interactor = plot.interactors[index];
-
+  for (const { plotId, plot } of bindings.plots) {
+    for (const { index, interactor } of bindings.interactors(plot)) {
       if (!interactor || typeof interactor !== 'object') continue;
 
       if (interactor.constructor?.name !== kind) continue;
@@ -207,16 +200,18 @@ function inputDefaultValue(input: CollectedInput) {
 }
 
 function firstTableColumn(table: VgplotTableLike): string | null {
+  if (table.schema?.length) return table.schema[0]!.column;
   const columns = table.columns;
 
   if (Array.isArray(columns)) {
     for (const column of columns) {
-      if (typeof column === 'string' && column) return column;
+      if (typeof column === 'string' && column && column !== '*') return column;
 
       if (column && typeof column === 'object' && typeof (column as { name?: unknown }).name === 'string') {
         return (column as { name: string }).name;
       }
     }
+    return null;
   }
 
   if (columns instanceof Map) {
@@ -248,47 +243,54 @@ function objectSchema(
 }
 
 export function actionDescriptorsForDashboard(args: {
-  plots: Array<{ plotId: string; plot: VgplotPlotLike }>;
-  tables?: Array<{ tableId: string; table: VgplotTableLike }>;
-  inputs: CollectedInput[];
+  bindings: VgplotBindings;
   options: VgplotProviderOptions;
 }): VacpActionDescriptor[] {
-  const hasInterval1D = args.plots.some((p) => p.plot.interactors.some((i) => i.constructor?.name === 'Interval1D'));
-  const hasInterval2D = args.plots.some((p) => p.plot.interactors.some((i) => i.constructor?.name === 'Interval2D'));
-  const hasToggle = args.plots.some((p) => p.plot.interactors.some((i) => i.constructor?.name === 'Toggle'));
-  const hasNearest = args.plots.some((p) => p.plot.interactors.some(isSelectionBackedNearest));
-  const hasRegion = args.plots.some((p) => p.plot.interactors.some((i) => i.constructor?.name === 'Region'));
-  const hasPanZoom = args.plots.some((p) => p.plot.interactors.some((i) => i.constructor?.name === 'PanZoom'));
-
-  const hasLegendToggle = args.plots.some((p) =>
-    (p.plot.legends ?? []).some((raw) => {
-      const legend = raw && typeof raw === 'object' && 'legend' in raw ? raw.legend : (raw as any);
-
-      return !!legend?.selection;
-    }),
+  const hasInterval1D = args.bindings.plots.some((p) =>
+    args.bindings.interactors(p.plot).some(({ interactor: i }) => i.constructor?.name === 'Interval1D'),
+  );
+  const hasInterval2D = args.bindings.plots.some((p) =>
+    args.bindings.interactors(p.plot).some(({ interactor: i }) => i.constructor?.name === 'Interval2D'),
+  );
+  const hasToggle = args.bindings.plots.some((p) =>
+    args.bindings.interactors(p.plot).some(({ interactor: i }) => i.constructor?.name === 'Toggle'),
+  );
+  const hasNearest = args.bindings.plots.some((p) =>
+    args.bindings.interactors(p.plot).some(({ interactor }) => isSelectionBackedNearest(interactor)),
+  );
+  const hasRegion = args.bindings.plots.some((p) =>
+    args.bindings.interactors(p.plot).some(({ interactor: i }) => i.constructor?.name === 'Region'),
+  );
+  const hasPanZoom = args.bindings.plots.some((p) =>
+    args.bindings.interactors(p.plot).some(({ interactor: i }) => i.constructor?.name === 'PanZoom'),
   );
 
-  const hasTables = (args.tables ?? []).length > 0;
-  const hasInputs = args.inputs.length > 0;
-  const hasOptionInputs = args.inputs.some(hasIndexedOptions);
+  const legendEntry = args.bindings.plots
+    .flatMap(({ plotId, plot }) => args.bindings.legends(plot).map(({ legend }) => ({ plotId, legend })))
+    .find(({ legend }) => legend.selection && legend.handler?.constructor.name === 'Toggle');
+  const hasLegendToggle = !!legendEntry;
+  const hasTables = (args.bindings.tables ?? []).length > 0;
+  const hasInputs = args.bindings.inputs.length > 0;
+  const hasOptionInputs = args.bindings.inputs.some(hasIndexedOptions);
 
   const viewRef = makeViewRef({ appId: args.options.appId, viewId: args.options.viewId, suffix: '' });
   const actions: VacpActionDescriptor[] = [];
-  const interval1d = firstInteractor(args.plots, 'Interval1D');
-  const interval2d = firstInteractor(args.plots, 'Interval2D');
-  const toggle = firstInteractor(args.plots, 'Toggle');
-  const nearest = firstInteractor(args.plots, 'Nearest', isSelectionBackedNearest);
-  const region = firstInteractor(args.plots, 'Region');
-  const panZoom = firstInteractor(args.plots, 'PanZoom');
-  const optionInput = args.inputs.find(hasIndexedOptions) ?? null;
-  const input = args.inputs[0] ?? null;
-  const tableEntry = args.tables?.[0] ?? null;
+  const interval1d = firstInteractor(args.bindings, 'Interval1D');
+  const interval2d = firstInteractor(args.bindings, 'Interval2D');
+  const toggle = firstInteractor(args.bindings, 'Toggle');
+  const nearest = firstInteractor(args.bindings, 'Nearest', isSelectionBackedNearest);
+  const region = firstInteractor(args.bindings, 'Region');
+  const panZoom = firstInteractor(args.bindings, 'PanZoom');
+  const optionInput = args.bindings.inputs.find(hasIndexedOptions) ?? null;
+  const input = args.bindings.inputs[0] ?? null;
+  const tableEntry = args.bindings.tables?.[0] ?? null;
 
   if (hasInterval1D) {
     const current = pairFromValue(interval1d?.interactor.value ?? selectedValue(interval1d?.interactor ?? {}));
     const domain = current ?? innerDomainPair(readScaleDomain(interval1d?.interactor.scale));
     actions.push({
       name: 'vgplot.set_interval_1d',
+      title: 'Filter range',
       description: 'Set a 1D interval selection (domain units).',
       operation: { kind: 'mutation', affects: [viewRef] },
       parameters: objectSchema(
@@ -306,6 +308,7 @@ export function actionDescriptorsForDashboard(args: {
     });
     actions.push({
       name: 'vgplot.clear_interval_1d',
+      title: 'Clear range',
       description: 'Clear a 1D interval selection.',
       operation: { kind: 'mutation', affects: [viewRef] },
       parameters: objectSchema(
@@ -327,6 +330,7 @@ export function actionDescriptorsForDashboard(args: {
     const y = currentY ?? innerDomainPair(readScaleDomain(interval2d?.interactor.yscale));
     actions.push({
       name: 'vgplot.set_interval_2d',
+      title: 'Filter region',
       description: 'Set a 2D interval selection (x/y domain units).',
       operation: { kind: 'mutation', affects: [viewRef] },
       parameters: objectSchema(
@@ -346,6 +350,7 @@ export function actionDescriptorsForDashboard(args: {
     });
     actions.push({
       name: 'vgplot.clear_interval_2d',
+      title: 'Clear region',
       description: 'Clear a 2D interval selection.',
       operation: { kind: 'mutation', affects: [viewRef] },
       parameters: objectSchema(
@@ -359,6 +364,7 @@ export function actionDescriptorsForDashboard(args: {
   if (hasToggle) {
     actions.push({
       name: 'vgplot.set_toggle',
+      title: 'Select values',
       description: 'Set a Toggle interactor value.',
       operation: { kind: 'mutation', affects: [viewRef] },
       parameters: objectSchema(
@@ -369,6 +375,7 @@ export function actionDescriptorsForDashboard(args: {
     });
     actions.push({
       name: 'vgplot.clear_toggle',
+      title: 'Clear selection',
       description: 'Clear a Toggle interactor value.',
       operation: { kind: 'mutation', affects: [viewRef] },
       parameters: objectSchema(
@@ -382,6 +389,7 @@ export function actionDescriptorsForDashboard(args: {
   if (hasNearest) {
     actions.push({
       name: 'vgplot.clear_nearest',
+      title: 'Clear hover',
       description:
         'Clear a selection-backed Nearest hover or inspect interactor. Param-backed Nearest values are pointer-derived and are not exposed as semantic actions.',
       operation: { kind: 'mutation', affects: [viewRef] },
@@ -396,6 +404,7 @@ export function actionDescriptorsForDashboard(args: {
   if (hasRegion) {
     actions.push({
       name: 'vgplot.set_region',
+      title: 'Select regions',
       description: 'Set a Region categorical selection value.',
       operation: { kind: 'mutation', affects: [viewRef] },
       parameters: objectSchema(
@@ -406,6 +415,7 @@ export function actionDescriptorsForDashboard(args: {
     });
     actions.push({
       name: 'vgplot.clear_region',
+      title: 'Clear regions',
       description: 'Clear a Region selection.',
       operation: { kind: 'mutation', affects: [viewRef] },
       parameters: objectSchema(
@@ -421,6 +431,7 @@ export function actionDescriptorsForDashboard(args: {
     const y = innerDomainPair(panZoom?.interactor.y ?? readScaleDomain(panZoom?.interactor.yscale), true);
     actions.push({
       name: 'vgplot.set_pan_zoom',
+      title: 'Change view',
       description: 'Set a PanZoom view domain.',
       operation: { kind: 'mutation', affects: [viewRef] },
       parameters: objectSchema(
@@ -444,6 +455,7 @@ export function actionDescriptorsForDashboard(args: {
     });
     actions.push({
       name: 'vgplot.clear_pan_zoom',
+      title: 'Reset view',
       description: 'Clear a PanZoom view domain.',
       operation: { kind: 'mutation', affects: [viewRef] },
       parameters: objectSchema(
@@ -457,21 +469,25 @@ export function actionDescriptorsForDashboard(args: {
   if (hasLegendToggle) {
     actions.push({
       name: 'vgplot.set_legend_toggle',
+      title: 'Select legend values',
       description: 'Set an interactive legend (categorical) selection.',
       operation: { kind: 'mutation', affects: [viewRef] },
       parameters: {
         type: 'object',
         properties: { plotId: { type: 'string' }, channel: { type: 'string' }, value: {} },
+        default: { plotId: legendEntry?.plotId, channel: legendEntry?.legend.channel, value: null },
         required: ['value'],
       },
     });
     actions.push({
       name: 'vgplot.clear_legend_toggle',
+      title: 'Clear legend selection',
       description: 'Clear an interactive legend selection.',
       operation: { kind: 'mutation', affects: [viewRef] },
       parameters: {
         type: 'object',
         properties: { plotId: { type: 'string' }, channel: { type: 'string' } },
+        default: { plotId: legendEntry?.plotId, channel: legendEntry?.legend.channel },
       },
     });
   }
@@ -479,6 +495,7 @@ export function actionDescriptorsForDashboard(args: {
   if (hasOptionInputs) {
     actions.push({
       name: 'vgplot.set_input_option_index',
+      title: 'Select option',
       description: 'Set a VGPlot input widget by option index.',
       operation: { kind: 'mutation', affects: [viewRef] },
       parameters: objectSchema(
@@ -492,6 +509,7 @@ export function actionDescriptorsForDashboard(args: {
   if (hasInputs) {
     actions.push({
       name: 'vgplot.set_input_value',
+      title: 'Set control',
       description: 'Set a VGPlot input widget value.',
       operation: { kind: 'mutation', affects: [viewRef] },
       parameters: objectSchema(
@@ -502,6 +520,7 @@ export function actionDescriptorsForDashboard(args: {
     });
     actions.push({
       name: 'vgplot.clear_input',
+      title: 'Reset control',
       description: 'Clear or reset a VGPlot input widget.',
       operation: { kind: 'mutation', affects: [viewRef] },
       parameters: objectSchema({ ref: { type: 'string' } }, ['ref'], input ? { ref: input.ref } : null),
@@ -509,17 +528,19 @@ export function actionDescriptorsForDashboard(args: {
   }
 
   if (hasTables) {
+    const sortColumn = tableEntry ? tableEntry.table.sortColumn || firstTableColumn(tableEntry.table) : null;
     actions.push({
       name: 'vgplot.table_set_sort',
+      title: 'Sort table',
       description: 'Sort a VGPlot table by a column.',
       operation: { kind: 'mutation', affects: [viewRef] },
       parameters: objectSchema(
         { tableId: { type: 'string' }, column: { type: 'string' }, desc: { type: 'boolean' } },
         ['column'],
-        tableEntry
+        tableEntry && sortColumn
           ? {
               tableId: tableEntry.tableId,
-              column: tableEntry.table.sortColumn || firstTableColumn(tableEntry.table),
+              column: sortColumn,
               desc: Boolean(tableEntry.table.sortDesc),
             }
           : null,
@@ -527,6 +548,7 @@ export function actionDescriptorsForDashboard(args: {
     });
     actions.push({
       name: 'vgplot.table_clear_sort',
+      title: 'Reset sorting',
       description: 'Clear the sort order for a VGPlot table.',
       operation: { kind: 'mutation', affects: [viewRef] },
       parameters: objectSchema(
@@ -537,6 +559,7 @@ export function actionDescriptorsForDashboard(args: {
     });
     actions.push({
       name: 'vgplot.table_set_page',
+      title: 'Change table page',
       description: 'Set VGPlot table pagination (offset/limit).',
       operation: { kind: 'mutation', affects: [viewRef] },
       parameters: objectSchema(

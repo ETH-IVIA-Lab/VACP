@@ -1,0 +1,29 @@
+{
+  "name": "@vacp/presence-browser",
+  "version": "0.1.0",
+  "private": true,
+  "files": [
+    "dist",
+    "NOTICE",
+    "licenses"
+  ],
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./targets": {
+      "types": "./dist/targets.d.ts",
+      "default": "./dist/targets.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -b",
+    "typecheck": "tsc -b"
+  },
+  "dependencies": {
+    "@vacp/presence-core": "workspace:*",
+    "@vacp/protocol": "workspace:*"
+  }
+}

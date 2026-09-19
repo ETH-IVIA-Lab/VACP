@@ -1,5 +1,11 @@
 import type { WebMCP } from 'webmcp-types';
-import type { VacpActionDescriptor, VacpCapabilitiesSnapshot, VacpGraph, VacpWindowBridge } from '@vacp/protocol';
+import type {
+  VacpActionDescriptor,
+  VacpCapabilitiesSnapshot,
+  VacpGraph,
+  VacpWindowBridge,
+  VacpActor,
+} from '@vacp/protocol';
 
 /** The executable protocol surface needed by the compiler; no browser globals. */
 export type VacpWebMcpClient = Pick<VacpWindowBridge, 'observe' | 'getCapabilities' | 'getState' | 'execute'>;
@@ -16,6 +22,8 @@ export type VacpWebMcpRegistry = {
 };
 
 export type VacpWebMcpOptions = {
+  /** Host attribution shared by WebMCP action executions. */
+  actor?: VacpActor;
   /** Namespace shared by the context tools and action tools. Defaults to "vacp". */
   namespace?: string;
   /** Choose which graph actions become callable tools. The graph itself remains available. */

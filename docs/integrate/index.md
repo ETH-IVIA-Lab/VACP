@@ -37,6 +37,33 @@ Use `mutation` for changes to live analytical state, `creation` for operations t
 
 Parameter descriptions remain JSON Schema-like objects owned by the application. VACP does not generate schemas from TypeScript types.
 
+## Support state restoration
+
+Prepare restoration by parsing desired state and returning a mutation closure. Validation runs before execution and optional presentation pacing:
+
+```ts
+import { createVacpActions } from '@vacp/sdk';
+import { z } from 'zod';
+
+const actions = createVacpActions();
+const ref = 'vacp://example/threshold';
+const threshold = z.number().min(0).max(100);
+let value = 50;
+
+actions.standard.applyState(
+  (state) => {
+    const next = threshold.parse(state[ref]);
+    return () => {
+      value = next;
+      return { applied: 1 };
+    };
+  },
+  { affects: [ref] },
+);
+```
+
+Expose the same value through the provider's `project()` function. Consumers explicitly apply recorded state using the [runtime restorer](../reference/runtime#history-and-explicit-restoration).
+
 ## Add semantic enrichment
 
 Introspection can identify safe mechanical facts such as names, types, bounds, and synchronized values. Library and application adapters add analytical meaning such as selections, data handles, visualizations, and relationships between them.
@@ -48,5 +75,7 @@ Keep large datasets with their owning system. Expose a `DataHandle` and a query 
 `bridge.observe()` returns graph, state, source ownership, source revisions, and output freshness from one coherent read.
 
 Call `integration.refresh(source, message)` after a human interaction when the provider does not publish invalidations. Call `integration.dispose()` when the source unmounts. Disposal removes the integration's source IDs and leaves unrelated providers attached.
+
+Add [agent presence](../presence/) to show operation focus on your own surface.
 
 See [provider composition](../providers/composition) and the [runtime reference](../reference/runtime).

@@ -22,6 +22,7 @@ export function connectThreshold(input: ThresholdControl) {
       },
       thresholdParams,
     )
+    .focus(() => ({ ref }))
     .handle(({ value }) => {
       input.value = String(value);
 

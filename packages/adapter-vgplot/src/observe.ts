@@ -1,3 +1,10 @@
+import { plotLegends } from './legends.js';
+import {
+  observeNativeUpdate,
+  observeNativePlot,
+  observeNativeInteractor,
+  plotFreshness,
+} from './native-observation.js';
 import type { CollectedInput } from './inputs.js';
 import type { VgplotPlotLike, VgplotTableLike } from './types.js';
 
@@ -13,7 +20,6 @@ export function createVgplotObservationBinding(args: {
 
   const bind = () => {
     const cleanup: Array<() => void> = [];
-    const wrappedOwners = new WeakSet<object>();
     let active = true;
     let timer: ReturnType<typeof setTimeout> | undefined;
     const notify = () => {
@@ -29,19 +35,8 @@ export function createVgplotObservationBinding(args: {
         }
       }, 120);
     };
-    const observeUpdate = (owner: { update?: (...args: any[]) => unknown } | undefined) => {
-      if (!owner?.update || wrappedOwners.has(owner)) return;
-      wrappedOwners.add(owner);
-      const original = owner.update;
-      const wrapped = (...values: unknown[]) => {
-        const result = original.apply(owner, values);
-        notify();
-        return result;
-      };
-      owner.update = wrapped;
-      cleanup.push(() => {
-        if (owner.update === wrapped) owner.update = original;
-      });
+    const observeUpdate = (owner: Parameters<typeof observeNativeUpdate>[0] | undefined) => {
+      if (owner) cleanup.push(observeNativeUpdate(owner, notify));
     };
     const detach = () => {
       active = false;
@@ -61,22 +56,9 @@ export function createVgplotObservationBinding(args: {
         observeUpdate(table.selection);
       }
       for (const { plot } of args.plots) {
-        for (const interactor of plot.interactors) {
-          observeUpdate(interactor.selection);
-          const original = interactor.init;
-          const wrapped = async (svg: SVGElement) => {
-            const result = await original?.call(interactor, svg);
-            if (active) {
-              observeUpdate(interactor.selection);
-              notify();
-            }
-            return result;
-          };
-          interactor.init = wrapped;
-          cleanup.push(() => {
-            if (interactor.init === wrapped) interactor.init = original;
-          });
-        }
+        for (const legend of plotLegends(plot)) observeUpdate(legend.selection);
+        cleanup.push(observeNativePlot(plot, notify));
+        for (const interactor of plot.interactors) cleanup.push(observeNativeInteractor(interactor, notify));
       }
       return detach;
     } catch (error) {
@@ -85,6 +67,7 @@ export function createVgplotObservationBinding(args: {
     }
   };
   return {
+    freshness: plotFreshness,
     subscribe(listener: () => void) {
       if (disposed) throw new Error('VGPlot provider is disposed');
       const notify = () => listener();

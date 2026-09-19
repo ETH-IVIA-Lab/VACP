@@ -1,3 +1,5 @@
+import type { VgplotBindings } from './bindings.js';
+import { legendValue } from './legends.js';
 import type { VacpGraphFragment, VacpRef } from '@vacp/protocol';
 import type { VacpAnalyticalProjection } from '@vacp/runtime';
 import {
@@ -6,11 +8,10 @@ import {
   type VacpDuckDbTableMetadata,
 } from '@vacp/data-duckdb';
 
-import { readInputValue, type CollectedInput } from './inputs.js';
+import { readInputValue } from './inputs.js';
 import { discoverPlotTables, type VgplotDataHandle } from './data-handles.js';
 import { whereClauseForVgplotDashboardSelection } from './duckdb-selection.js';
 import { isSelectionBackedNearest } from './interactors/nearest.js';
-import { makePlotRef } from './refs.js';
 import type {
   VgplotProviderOptions,
   VgplotPlotLike,
@@ -113,14 +114,13 @@ function readNearestValue(interactor: VgplotInteractorLike, rawValue: unknown) {
 export function createVgplotDashboardSnapshots(args: {
   graph: VacpGraphFragment;
   options: VgplotProviderOptions;
-  inputs: CollectedInput[];
-  plots: Array<{ plotId: string; plot: VgplotPlotLike }>;
-  tables: Array<{ tableId: string; table: VgplotTableLike }>;
+  bindings: VgplotBindings;
   dataHandles: VgplotDataHandle[];
   plotsById: PlotsById;
   tablesById: TablesById;
 }): { project: () => Promise<VacpAnalyticalProjection> } {
-  const { inputs, plots, tables, options, dataHandles, plotsById, tablesById } = args;
+  const { bindings, options, dataHandles, plotsById, tablesById } = args;
+  const { inputs, plots, tables } = bindings;
 
   const dataHandleNodesByRef = new Map<VacpRef, any>();
 
@@ -202,14 +202,14 @@ export function createVgplotDashboardSnapshots(args: {
     }
 
     for (const { plotId, plot } of plots) {
-      plot.interactors.forEach((interactor, i) => {
-        const interactorRef = makePlotRef({
-          appId: options.appId,
-          viewId: options.viewId,
-          plotId,
-          suffix: `/interactor/${i}`,
-        });
-
+      bindings.legends(plot).forEach(({ legend, ref }) => {
+        state[ref] = {
+          kind: 'Legend',
+          channel: legend.channel,
+          value: safeStateValue(legendValue(legend)),
+        };
+      });
+      bindings.interactors(plot).forEach(({ interactor, ref: interactorRef }) => {
         const anyI = interactor;
         const ctorName = interactor.constructor?.name ?? 'Interactor';
         const rawValue = interactor.value;
@@ -247,8 +247,7 @@ export function createVgplotDashboardSnapshots(args: {
       });
     }
 
-    for (const { tableId, table } of tables) {
-      const tableRef = makePlotRef({ appId: options.appId, viewId: options.viewId, plotId: tableId, suffix: '' });
+    for (const { tableId, table, ref: tableRef } of tables) {
       state[tableRef] = {
         kind: 'Table',
         tableId,

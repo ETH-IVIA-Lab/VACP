@@ -306,7 +306,8 @@ export function installVacpForReactDashboard(args: { globalKey?: string; title?:
     });
 
   actions.standard.applyState(
-    async (state) => {
+    (state) => {
+      const mutations: Array<() => unknown | Promise<unknown>> = [];
       let applied = 0;
 
       // Scatter encodings (+ optional dataset switch).
@@ -318,7 +319,7 @@ export function installVacpForReactDashboard(args: { globalKey?: string; title?:
           const datasetId = typeof obj.datasetId === 'string' ? obj.datasetId : null;
 
           if (datasetId && isDatasetId(datasetId)) {
-            await args.model.setDatasetId(datasetId);
+            mutations.push(() => args.model.setDatasetId(datasetId));
             applied += 1;
           }
 
@@ -331,7 +332,7 @@ export function installVacpForReactDashboard(args: { globalKey?: string; title?:
           if (obj.color === null || typeof obj.color === 'string') patch.color = obj.color;
 
           if (Object.keys(patch).length) {
-            args.model.setEncoding(patch);
+            mutations.push(() => args.model.setEncoding(patch));
             applied += 1;
           }
         }
@@ -345,10 +346,10 @@ export function installVacpForReactDashboard(args: { globalKey?: string; title?:
           const v = unwrapVacpValue(rec);
 
           if (Array.isArray(v)) {
-            args.model.setSelectedIds(v.map(String));
+            mutations.push(() => args.model.setSelectedIds(v.map(String)));
             applied += 1;
           } else if (v === null) {
-            args.model.clearSelection();
+            mutations.push(() => args.model.clearSelection());
             applied += 1;
           }
         }
@@ -372,16 +373,22 @@ export function installVacpForReactDashboard(args: { globalKey?: string; title?:
           const y1 = obj ? Number(obj.y1) : NaN;
 
           if (![x0, x1, y0, y1].every((v) => Number.isFinite(v))) {
-            args.model.clearBrush2d();
+            mutations.push(() => args.model.clearBrush2d());
             applied += 1;
           } else {
-            args.model.setBrush2d({ x0, x1, y0, y1 });
+            mutations.push(() => args.model.setBrush2d({ x0, x1, y0, y1 }));
             applied += 1;
           }
         }
       }
 
-      return { applied };
+      return async ({ signal }) => {
+        for (const mutate of mutations) {
+          signal?.throwIfAborted();
+          await mutate();
+        }
+        return { applied };
+      };
     },
     { affects: [vizRef], description: 'Apply dashboard state (dataset/encoding/selection).' },
   );

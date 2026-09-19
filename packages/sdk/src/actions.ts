@@ -3,11 +3,12 @@ import type {
   VacpOperationKind,
   VacpOperationResultDescriptor,
   VacpRef,
+  VacpFocus,
   VacpSourceId,
 } from '@vacp/protocol';
 import {
   registerVacpApplyStateAction,
-  type VacpApplyStateHandler,
+  type VacpApplyStatePreparation,
   registerVacpDataSchemaAction,
   type VacpDataSchemaHandler,
   registerVacpDataSqlAction,
@@ -23,7 +24,7 @@ export type VacpActions = {
   operation: (kind: VacpOperationKind, name: string, description: string) => VacpActionDefinition;
   standard: {
     applyState: <Result>(
-      handler: VacpApplyStateHandler<Result>,
+      prepare: VacpApplyStatePreparation<Result>,
       options?: { affects?: VacpRef[]; description?: string },
     ) => VacpActionDescriptor;
     dataSchema: (
@@ -49,7 +50,7 @@ export function createVacpActions(sourceId?: VacpSourceId): VacpActions {
     operation: (kind, name, description) =>
       new VacpActionDefinition(registry, { name, description, operation: { kind } }, (value) => value),
     standard: {
-      applyState: (handler, options) => registerVacpApplyStateAction(registry, handler, options),
+      applyState: (prepare, options) => registerVacpApplyStateAction(registry, prepare, options),
       dataSchema: (handler, options) => registerVacpDataSchemaAction(registry, handler, options),
       dataSql: (handler, options) => registerVacpDataSqlAction(registry, handler, options),
       widgetOptions: (handler, options) => registerVacpWidgetOptionsAction(registry, handler, options),
@@ -63,6 +64,7 @@ export type VacpActionParser<Params> = { parse: (value: unknown) => Params | Pro
 export class VacpActionDefinition<Params = unknown> {
   private readonly registry: VacpActionRegistry;
   private readonly descriptor: VacpActionDescriptor;
+  private focusTarget?: (params: Params) => VacpFocus | undefined;
 
   constructor(
     registry: VacpActionRegistry,
@@ -116,11 +118,12 @@ export class VacpActionDefinition<Params = unknown> {
       : new VacpActionDefinition(this.registry, descriptor, (value) => value);
   }
 
+  focus<Detail>(resolve: (params: Params) => VacpFocus<Detail> | undefined): this {
+    this.focusTarget = resolve;
+    return this;
+  }
+
   handle<Result>(handler: VacpActionHandler<Params, Result>): VacpActionDescriptor {
-    return this.registry.register(this.descriptor, async (params, options) => {
-      const parsed = await this.parse(params);
-      options.signal?.throwIfAborted();
-      return handler(parsed, options);
-    });
+    return this.registry.register(this.descriptor, handler, { parse: this.parse, focus: this.focusTarget });
   }
 }

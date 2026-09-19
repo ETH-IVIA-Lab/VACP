@@ -34,7 +34,7 @@ function installDomSnapshotHooks(runtime: VacpRuntime, options: { enabled: boole
  * This keeps `window.__vacp` stable across rerenders and view switches:
  * - the bridge object stays the same
  * - providers update the underlying snapshot/action adapters
- * - history remains continuous by default (enables real time travel and replay)
+ * - history remains continuous within a session for independent inspection
  *
  * If `sessionKey` is provided and changes between installs, the runtime bridge
  * will treat it as a new session and reset its history.

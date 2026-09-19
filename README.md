@@ -50,6 +50,7 @@ Visit [https://docs.vacp.dev/](https://docs.vacp.dev/) for the documentation and
 - Docs site entry: [docs/index.md](docs/index.md)
 - Get started: [docs/get-started/index.md](docs/get-started/index.md)
 - Overview: [docs/what-is-vacp/index.md](docs/what-is-vacp/index.md)
+- Agent presence: [docs/presence/index.md](docs/presence/index.md)
 - Core runtime: [docs/reference/runtime.md](docs/reference/runtime.md)
 - Tool contract: [docs/reference/tool-contract.md](docs/reference/tool-contract.md)
 - Runtime configuration: [docs/reference/configuration.md](docs/reference/configuration.md)

@@ -1,3 +1,6 @@
+import { createBrowserPresence } from '@vacp/presence-browser';
+import { createVgplotPresentation } from '@vacp/adapter-vgplot/presentation';
+import { installVacpWebMcp } from '@vacp/transport-webmcp';
 import { installVacpRuntime } from '@vacp/runtime-browser';
 import { exampleOptions } from '../../config';
 /**
@@ -13,8 +16,11 @@ import type { VacpDuckDbClient } from '@vacp/data-duckdb';
 
 import type { GalleryEntry } from './gallery';
 
+let disposePresentation: (() => void) | undefined;
+let disposeWebMcp: (() => void) | undefined;
+
 export async function installVacp(args: {
-  root: ParentNode;
+  root: Element;
   plots: Array<{ plotId: string; plot: VgplotPlotLike; element: Element; svg?: SVGElement }>;
   tables: Array<{ tableId: string; table: VgplotTableLike; element: Element }>;
   entry: GalleryEntry;
@@ -44,6 +50,24 @@ export async function installVacp(args: {
     exposeBridge: exampleOptions.exposeBridge,
     injectDomSnapshot: exampleOptions.injectDomSnapshot,
   });
+
+  disposePresentation?.();
+  disposeWebMcp?.();
+  const presence = createBrowserPresence(bridge);
+  presence.attach(
+    provider,
+    createVgplotPresentation({
+      root: args.root,
+      plots: args.plots,
+      tables: args.tables,
+      options: { appId, viewId },
+    }),
+  );
+  disposePresentation = presence.dispose;
+  if (exampleOptions.webmcp) {
+    const webmcp = await installVacpWebMcp(bridge);
+    disposeWebMcp = () => webmcp?.dispose();
+  }
 
   // Optional analytics: if PostHog is configured, stream VACP history into the session replay.
   const posthogApiKey = import.meta.env.VACP_POSTHOG_API_KEY as string | undefined;

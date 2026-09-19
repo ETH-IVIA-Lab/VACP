@@ -1,3 +1,4 @@
+import { matchingSceneItems, sceneOffset, scenePointToViewport } from './scene.js';
 import type { VacpActionDescriptor, VacpRef } from '@vacp/protocol';
 import type { VacpActionRegistry } from '@vacp/runtime';
 import type { VegaLiteSpecLike, VegaViewLike } from './types.js';
@@ -108,57 +109,6 @@ function stableJson(value: unknown): string {
   }
 }
 
-function parseFiniteNumber(value: unknown): number | null {
-  if (typeof value === 'number') return Number.isFinite(value) ? value : null;
-
-  if (typeof value !== 'string') return null;
-  const n = Number(value);
-
-  return Number.isFinite(n) ? n : null;
-}
-
-function parseDateMs(value: unknown): number | null {
-  if (typeof value === 'number') return Number.isFinite(value) ? value : null;
-
-  if (value instanceof Date) {
-    const t = value.getTime();
-
-    return Number.isFinite(t) ? t : null;
-  }
-
-  if (typeof value !== 'string') return null;
-  const s = value.trim();
-  // Avoid Date.parse() treating numeric strings (e.g. "11.1") as dates.
-  const looksLikeDate = /[a-z]/i.test(s) || s.includes('-') || s.includes('T') || s.includes(':') || s.includes('/');
-
-  if (!looksLikeDate) return null;
-  const t = Date.parse(s);
-
-  return Number.isFinite(t) ? t : null;
-}
-
-function valuesMatch(a: unknown, b: unknown): boolean {
-  if (a === b) return true;
-
-  const aDate = parseDateMs(a);
-  const bDate = parseDateMs(b);
-
-  if (aDate !== null && bDate !== null) return aDate === bDate;
-
-  const aNum = parseFiniteNumber(a);
-  const bNum = parseFiniteNumber(b);
-
-  if (aNum !== null && bNum !== null) return aNum === bNum;
-
-  if (typeof a === 'string' && typeof b === 'string') return a.trim() === b.trim();
-
-  if (typeof a === 'string' && typeof b === 'number') return a.trim() === String(b);
-
-  if (typeof a === 'number' && typeof b === 'string') return String(a) === b.trim();
-
-  return false;
-}
-
 function sanitizeHoverValue(value: unknown) {
   if (value === undefined) return null;
 
@@ -266,11 +216,11 @@ export function createVegaLiteTooltipBinding({
   let suppressed = false;
   const hasTooltip = specHasTooltip(spec);
 
+  const tooltipInfo = collectTooltipFieldInfo(spec);
   if (hasTooltip) {
-    const tooltipInfo = collectTooltipFieldInfo(spec);
-
     const hoverDescriptor: VacpActionDescriptor = {
       name: VEGA_LITE_TOOLTIP_HOVER_ACTION,
+      title: 'Inspect mark',
       description:
         'Set the current tooltip-hover focus for this Vega-Lite view (enables agents to treat hovered points as an explicit selection).',
       operation: { kind: 'mutation', contract: VEGA_LITE_TOOLTIP_HOVER_ACTION, affects: [vizRef] },
@@ -288,44 +238,12 @@ export function createVegaLiteTooltipBinding({
       },
     };
 
-    actionRegistry.register(hoverDescriptor, async (params) => {
+    const parseHover = (params: unknown) => {
       const p = isRecord(params) ? params : {};
       const clear = p.clear === true;
       const fieldsParam = p.fields;
       const valueParam = p.value;
       const markName = typeof p.markName === 'string' ? p.markName : '';
-
-      const viewAny = view;
-
-      if (clear) {
-        hover = null;
-
-        // Best-effort: explicitly hide the tooltip via Vega's tooltip handler.
-        try {
-          if (typeof viewAny.tooltip === 'function') {
-            const handler = viewAny.tooltip();
-
-            if (typeof handler === 'function') {
-              suppressed = true;
-              handler(
-                null,
-                new MouseEvent('mousemove', { bubbles: true, cancelable: true, clientX: 0, clientY: 0 }),
-                null,
-                null,
-              );
-            }
-          }
-        } catch {
-          // ignore
-        } finally {
-          queueMicrotask(() => {
-            suppressed = false;
-          });
-        }
-
-        return { cleared: true };
-      }
-
       const fields: Record<string, unknown> = (() => {
         if (isRecord(fieldsParam)) {
           const out: Record<string, unknown> = {};
@@ -360,137 +278,142 @@ export function createVegaLiteTooltipBinding({
 
         return {};
       })();
+      return { clear, fields, valueParam, markName };
+    };
+    actionRegistry.register(
+      hoverDescriptor,
+      async (prepared: ReturnType<typeof parseHover>) => {
+        const { clear, fields, valueParam, markName } = prepared;
+        const viewAny = view;
 
-      hover = {
-        fields,
-        markName,
-        value: valueParam ?? null,
-      };
+        if (clear) {
+          hover = null;
 
-      // Best-effort: programmatically show the tooltip for a matching mark.
-      // This keeps semantic hover actions visible and stable in the UI.
-      let tooltipShown = false;
+          // Best-effort: explicitly hide the tooltip via Vega's tooltip handler.
+          try {
+            if (typeof viewAny.tooltip === 'function') {
+              const handler = viewAny.tooltip();
 
-      try {
-        if (typeof viewAny.tooltip !== 'function') return { fields, markName, value: valueParam ?? null, tooltipShown };
-        const tooltipHandler = viewAny.tooltip();
-
-        if (typeof tooltipHandler !== 'function') return { fields, markName, value: valueParam ?? null, tooltipShown };
-
-        const target = root?.querySelector('canvas,svg');
-        const scene = view.scenegraph?.();
-        const sceneRoot = scene && 'root' in scene ? scene.root : undefined;
-
-        if (target && sceneRoot && Object.keys(fields).length) {
-          const matchesDatum = (datum: unknown): boolean => {
-            if (!datum || typeof datum !== 'object') return false;
-            const d = datum as Record<string, unknown>;
-
-            return Object.entries(fields).every(
-              ([k, v]) => Object.prototype.hasOwnProperty.call(d, k) && valuesMatch(d[k], v),
-            );
-          };
-
-          const seen = new WeakSet<object>();
-          let match: any = null;
-
-          const visit = (node: any) => {
-            if (!node || typeof node !== 'object') return;
-
-            if (seen.has(node)) return;
-            seen.add(node);
-
-            if (match) return;
-
-            const items = node.items;
-
-            if (Array.isArray(items)) {
-              for (const it of items) {
-                if (match) break;
-
-                if (!it || typeof it !== 'object') continue;
-                const datum = (it as any).datum;
-                const itMarkName = typeof (it as any)?.mark?.name === 'string' ? ((it as any).mark.name as string) : '';
-                const okMark = !markName || itMarkName === markName;
-
-                if (okMark && matchesDatum(datum)) {
-                  match = it;
-                  break;
-                }
-
-                visit(it);
+              if (typeof handler === 'function') {
+                suppressed = true;
+                handler(
+                  null,
+                  new MouseEvent('mousemove', { bubbles: true, cancelable: true, clientX: 0, clientY: 0 }),
+                  null,
+                  null,
+                );
               }
             }
-
-            if (node.group) visit(node.group);
-          };
-
-          visit(sceneRoot);
-
-          const bounds = match?.bounds;
-          const x1 = Number(bounds?.x1);
-          const y1 = Number(bounds?.y1);
-          const x2 = Number(bounds?.x2);
-          const y2 = Number(bounds?.y2);
-
-          if (Number.isFinite(x1) && Number.isFinite(y1) && Number.isFinite(x2) && Number.isFinite(y2)) {
-            const rect = target.getBoundingClientRect();
-            const clientX = rect.left + (x1 + x2) / 2;
-            const clientY = rect.top + (y1 + y2) / 2;
-            suppressed = true;
-            const tooltipValue = (match as any).tooltip ?? valueParam ?? (Object.keys(fields).length ? fields : null);
-            tooltipHandler(
-              null,
-              new MouseEvent('mousemove', { bubbles: true, cancelable: true, clientX, clientY }),
-              match,
-              tooltipValue,
-            );
-            tooltipShown = tooltipValue != null;
+          } catch {
+            // ignore
+          } finally {
+            queueMicrotask(() => {
+              suppressed = false;
+            });
           }
-        }
-      } catch {
-        // ignore
-      } finally {
-        queueMicrotask(() => {
-          suppressed = false;
-        });
-      }
 
-      return { fields, markName, value: valueParam ?? null, tooltipShown };
-    });
+          return { cleared: true };
+        }
+
+        hover = {
+          fields,
+          markName,
+          value: valueParam ?? null,
+        };
+
+        // Best-effort: programmatically show the tooltip for a matching mark.
+        // This keeps semantic hover actions visible and stable in the UI.
+        let tooltipShown = false;
+
+        try {
+          if (typeof viewAny.tooltip !== 'function')
+            return { fields, markName, value: valueParam ?? null, tooltipShown };
+          const tooltipHandler = viewAny.tooltip();
+
+          if (typeof tooltipHandler !== 'function')
+            return { fields, markName, value: valueParam ?? null, tooltipShown };
+
+          const target = root?.querySelector('canvas,svg');
+          if (target && Object.keys(fields).length) {
+            const match = matchingSceneItems(view, fields, markName, 1)[0];
+            const bounds = match?.bounds;
+            const x1 = Number(bounds?.x1);
+            const y1 = Number(bounds?.y1);
+            const x2 = Number(bounds?.x2);
+            const y2 = Number(bounds?.y2);
+
+            if (Number.isFinite(x1) && Number.isFinite(y1) && Number.isFinite(x2) && Number.isFinite(y2)) {
+              const offset = sceneOffset(match?.mark?.group);
+              const point = scenePointToViewport(view, target, {
+                x: offset.x + (x1 + x2) / 2,
+                y: offset.y + (y1 + y2) / 2,
+              });
+              if (!point) return { fields, markName, value: valueParam ?? null, tooltipShown };
+              const { x: clientX, y: clientY } = point;
+              suppressed = true;
+              const tooltipValue = match?.tooltip ?? valueParam ?? (Object.keys(fields).length ? fields : null);
+              tooltipHandler(
+                null,
+                new MouseEvent('mousemove', { bubbles: true, cancelable: true, clientX, clientY }),
+                match,
+                tooltipValue,
+              );
+              tooltipShown = tooltipValue != null;
+            }
+          }
+        } catch {
+          // ignore
+        } finally {
+          queueMicrotask(() => {
+            suppressed = false;
+          });
+        }
+
+        return { fields, markName, value: valueParam ?? null, tooltipShown };
+      },
+      {
+        parse: parseHover,
+        focus: (prepared) => ({
+          ref: vizRef,
+          detail: prepared.clear ? undefined : { fields: prepared.fields, markName: prepared.markName },
+        }),
+      },
+    );
     actionDescriptors.push(hoverDescriptor);
   }
 
   return {
     fields: () => hover?.fields ?? null,
     subscribe(invalidate: () => void) {
-      if (!hasTooltip || !view.tooltip) return () => {};
-      const original = view.tooltip();
-      if (typeof original !== 'function') return () => {};
-      const tooltipInfo = collectTooltipFieldInfo(spec);
+      if (!hasTooltip || !view.addEventListener || !view.removeEventListener) return () => {};
       let lastKey: string | null = null;
-      const wrapped = (handler: any, event: MouseEvent, item: any, value: any) => {
-        if (!suppressed) {
-          const markName = typeof item?.mark?.name === 'string' ? item.mark.name : '';
-          const key = value == null || value === '' ? null : `${markName}|${stableJson(value)}`;
-          if (key !== lastKey) {
-            lastKey = key;
-            hover =
-              key === null
-                ? null
-                : {
-                    fields: computeHoverFields({ tooltipInfo, allowed: null, item, value }),
-                    markName,
-                    value,
-                  };
-            invalidate();
-          }
-        }
-        return original(handler, event, item, value);
+      const update = (item: unknown) => {
+        if (suppressed) return;
+        const node = isRecord(item) ? item : undefined;
+        const value = node?.tooltip;
+        const mark = isRecord(node?.mark) ? node.mark : undefined;
+        const markName = typeof mark?.name === 'string' ? mark.name : '';
+        const key = value == null || value === '' ? null : `${markName}|${stableJson(value)}`;
+        if (key === lastKey) return;
+        lastKey = key;
+        hover =
+          key === null
+            ? null
+            : { fields: computeHoverFields({ tooltipInfo, allowed: null, item, value }), markName, value };
+        invalidate();
       };
-      view.tooltip(wrapped);
+      const move = (_event: Event, item?: unknown) => update(item);
+      const leave = () => update(undefined);
+      view.addEventListener('pointermove', move);
+      try {
+        view.addEventListener('pointerout', leave);
+      } catch (error) {
+        view.removeEventListener('pointermove', move);
+        throw error;
+      }
       return () => {
-        if (view.tooltip?.() === wrapped) view.tooltip(original);
+        view.removeEventListener?.('pointermove', move);
+        view.removeEventListener?.('pointerout', leave);
       };
     },
   };

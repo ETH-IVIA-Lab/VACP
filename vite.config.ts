@@ -60,10 +60,14 @@ export default defineConfig({
       'adapter-vega-lite': ['protocol', 'runtime', 'data-duckdb'],
       'adapter-vgplot': ['protocol', 'runtime', 'data-duckdb'],
       'inspector-core': ['protocol'],
+      'presence-core': ['protocol'],
+      'presence-browser': ['protocol', 'presence-core'],
+      'adapter-vega-lite/src/presentation.ts': ['protocol', 'presence-core', 'presence-browser/targets'],
+      'adapter-vgplot/src/presentation.ts': ['protocol', 'presence-core', 'presence-browser/targets'],
     }).map(
       ([owner, dependencies]) =>
         ({
-          files: [`packages/${owner}/src/**`],
+          files: [owner.includes('/') ? `packages/${owner}` : `packages/${owner}/src/**`],
           rules: {
             'no-restricted-imports': [
               'error',

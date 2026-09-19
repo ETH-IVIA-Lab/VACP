@@ -1,3 +1,4 @@
+import { webMcpExecutionSignal } from './execution.js';
 import type { WebMCP } from 'webmcp-types';
 import { primaryOperationRef, type VacpGraph, type VacpActionDescriptor } from '@vacp/protocol';
 import type { VacpWebMcpClient, VacpWebMcpOptions } from './types.js';
@@ -39,7 +40,8 @@ export function compileVacpWebMcpTools(
       name: `${namespace}.observe`,
       description: 'Read one coherent VACP observation: sources, ownership, graph, state, summaries, and freshness.',
       annotations: { readOnlyHint: true },
-      execute: async (_input, { signal }) => {
+      execute: async (_input, context) => {
+        const signal = webMcpExecutionSignal(context);
         signal.throwIfAborted();
         const result = await client.observe();
         signal.throwIfAborted();
@@ -51,7 +53,8 @@ export function compileVacpWebMcpTools(
       description:
         'Read the live VACP graph: entities, stable references, relationships, and available semantic actions.',
       annotations: { readOnlyHint: true },
-      execute: async (_input, { signal }) => {
+      execute: async (_input, context) => {
+        const signal = webMcpExecutionSignal(context);
         signal.throwIfAborted();
         const result = await client.getCapabilities();
         signal.throwIfAborted();
@@ -62,7 +65,8 @@ export function compileVacpWebMcpTools(
       name: `${namespace}.state`,
       description: 'Read current visualization state and summaries keyed by the stable references in the VACP graph.',
       annotations: { readOnlyHint: true },
-      execute: async (_input, { signal }) => {
+      execute: async (_input, context) => {
+        const signal = webMcpExecutionSignal(context);
         signal.throwIfAborted();
         const result = await client.getState();
         signal.throwIfAborted();
@@ -88,7 +92,8 @@ export function compileVacpWebMcpTools(
       description: `${action.description}${context}`,
       inputSchema: input.schema,
       annotations: options.annotations?.(action),
-      execute: async (args, { signal }) => {
+      execute: async (args, context) => {
+        const signal = webMcpExecutionSignal(context);
         signal.throwIfAborted();
         const result = await client.execute(
           {
@@ -96,7 +101,7 @@ export function compileVacpWebMcpTools(
             name: action.name,
             params: input.wrapped ? args.params : args,
           },
-          { signal },
+          { signal, actor: options.actor ?? { id: 'webmcp', label: 'Agent', kind: 'agent' } },
         );
         signal.throwIfAborted();
         return result;

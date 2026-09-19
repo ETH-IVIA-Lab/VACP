@@ -3,7 +3,9 @@ import { expect, test } from '@playwright/test';
 import { startAppServer } from '../../helpers/devserver';
 import { exampleDir } from '../../helpers/paths';
 
-test('vgplot: time travel apply_state preserves Toggle selection values (Seattle Weather)', async ({ page }) => {
+test('vgplot: explicit restoration apply_state preserves Toggle selection values (Seattle Weather)', async ({
+  page,
+}) => {
   const srv = await startAppServer({ name: 'vgplot-gallery', cwd: exampleDir('vgplot-gallery') });
   const suspiciousConsole: string[] = [];
   page.on('console', (msg) => {
@@ -53,65 +55,18 @@ test('vgplot: time travel apply_state preserves Toggle selection values (Seattle
     });
     await brush(0.6, 0.9);
 
-    const prevCursor = await page.evaluate(async () => {
+    const outcome = await page.evaluate(async () => {
       const b = globalThis.__vacp;
-      const rt = await b.getRuntime();
-      const stateFromEntry = (entry: any) => entry?.state ?? entry?.afterState ?? entry?.beforeState ?? null;
-
-      const findPrevIndexWithState = (history: any[], startIdx: number): number | null => {
-        for (let i = Math.min(startIdx, history.length - 1); i >= 0; i--) {
-          if (stateFromEntry(history[i])) return i;
-        }
-
-        return null;
-      };
-
-      // Choose a prior stateful history entry to force a replay.
-      const cursor = Number.isFinite(rt.cursor) ? rt.cursor : rt.history.length - 1;
-
-      return findPrevIndexWithState(rt.history, cursor - 1) ?? Math.max(0, cursor - 1);
+      const current = await b.observe();
+      const history = (await b.getRuntime()).history;
+      const selected = history.find((entry: any) => entry.observation)?.observation;
+      if (!selected) throw new Error('Missing historical observation');
+      const action = current.graph.actions.find((action: any) => action.operation.contract === 'vacp.apply_state');
+      if (!action) throw new Error('Missing restoration action');
+      return b.execute({ callId: 'restore', name: action.name, params: { state: selected.state } });
     });
-
-    await page.evaluate(
-      ({ idx }) => {
-        const b = globalThis.__vacp;
-        b.setCursor?.(idx, { source: 'inspector', message: `cursor=${idx}` });
-      },
-      { idx: prevCursor },
-    );
-
-    await expect
-      .poll(async () => {
-        return await page.evaluate(async () => {
-          const b = globalThis.__vacp;
-          const rt = await b.getRuntime();
-          const st = await b.getState();
-
-          const hasPlainObject = (value: unknown): boolean => {
-            if (value == null) return false;
-
-            if (value instanceof Date) return false;
-
-            if (Array.isArray(value)) return value.some((v) => hasPlainObject(v));
-
-            return typeof value === 'object';
-          };
-
-          const entries = Object.entries(st.state ?? {}).filter(([, v]) => v && typeof v === 'object' && 'kind' in v);
-
-          const toggle = entries.find(([, v]) => (v as any).kind === 'Toggle')?.[1] as any;
-          const bad = hasPlainObject(toggle?.value) || hasPlainObject(toggle?.selectionValue);
-
-          return { mode: rt.mode, cursor: rt.cursor, bad };
-        });
-      })
-      .toMatchObject({ mode: 'inspect', cursor: prevCursor, bad: false });
-
-    // Return to live and ensure subsequent brushing remains functional.
-    await page.evaluate(() => {
-      const b = globalThis.__vacp;
-      b.setMode?.('live', { source: 'inspector', message: 'mode=live' });
-    });
+    expect(outcome.ok).toBe(true);
+    // Restoration is explicit. Further human input operates directly on the restored live source.
     await brush(0.25, 0.55);
 
     await expect

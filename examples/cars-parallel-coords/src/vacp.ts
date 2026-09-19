@@ -1,3 +1,9 @@
+import {
+  createBrowserPresence,
+  elementPresenceTarget,
+  observePresenceLayout,
+  svgPresenceTarget,
+} from '@vacp/presence-browser';
 import { exampleOptions } from '../../config';
 import { z } from 'zod';
 
@@ -38,6 +44,10 @@ export function installVacpForCarsParallelCoords(args: {
   data: CarDatum[];
   dimensions: string[];
   getState: () => ParallelCoordsState;
+  getBrushBounds: (
+    dimension: string,
+    range: BrushRange,
+  ) => { element: SVGGraphicsElement; x: number; y: number; width: number; height: number } | null;
   getSelectedIds: () => number[];
   setBrushRanges: (ranges: Partial<Record<string, BrushRange | null>>, source: ParallelCoordsSource) => void;
   resetBrushes: (source: ParallelCoordsSource) => void;
@@ -103,6 +113,7 @@ export function installVacpForCarsParallelCoords(args: {
       'parallel_coords.set_brush_ranges',
       'Set one or more per-axis brush ranges (data units). Use null to clear.',
     )
+    .title('Filter cars')
     .affects(brushRef)
     .params(
       {
@@ -119,6 +130,7 @@ export function installVacpForCarsParallelCoords(args: {
       },
       z.object({ ranges: z.record(z.string(), z.tuple([z.coerce.number(), z.coerce.number()]).nullable()) }),
     )
+    .focus((params) => ({ ref: brushRef, detail: { ranges: params.ranges } }))
     .handle((params) => {
       const rec = params ?? {};
       const rangesRaw = rec.ranges;
@@ -144,6 +156,7 @@ export function installVacpForCarsParallelCoords(args: {
     .operation('mutation', 'parallel_coords.reset_brushes', 'Reset all brushes to the full data extents.')
     .affects(brushRef)
     .params({ type: 'object', properties: {} })
+    .focus(() => ({ ref: brushRef }))
     .handle(() => {
       args.resetBrushes('agent');
 
@@ -280,6 +293,7 @@ export function installVacpForCarsParallelCoords(args: {
 
   actions.standard.applyState(
     (state) => {
+      const mutations: Array<() => unknown | Promise<unknown>> = [];
       let applied = 0;
 
       const order = state[orderRef];
@@ -289,7 +303,7 @@ export function installVacpForCarsParallelCoords(args: {
         const v = rec.value ?? rec.order ?? order;
 
         if (Array.isArray(v)) {
-          args.setDimensionOrder(v.map(String), 'agent');
+          mutations.push(() => args.setDimensionOrder(v.map(String), 'agent'));
           applied += 1;
         }
       }
@@ -301,7 +315,7 @@ export function installVacpForCarsParallelCoords(args: {
         const v = rec.ranges ?? rec.brushRanges ?? rec.value ?? sel;
 
         if (v === null) {
-          args.resetBrushes('agent');
+          mutations.push(() => args.resetBrushes('agent'));
           applied += 1;
         } else if (v && typeof v === 'object') {
           const patch: Partial<Record<string, BrushRange | null>> = {};
@@ -311,7 +325,7 @@ export function installVacpForCarsParallelCoords(args: {
             patch[dim] = parseRange(raw);
           }
 
-          args.setBrushRanges(patch, 'agent');
+          mutations.push(() => args.setBrushRanges(patch, 'agent'));
           applied += 1;
         }
       }
@@ -323,15 +337,21 @@ export function installVacpForCarsParallelCoords(args: {
         const v = rec.hoveredId ?? rec.id ?? rec.value ?? hover;
 
         if (v === null) {
-          args.setHoveredId(null, 'agent');
+          mutations.push(() => args.setHoveredId(null, 'agent'));
           applied += 1;
         } else if (typeof v === 'number' && Number.isFinite(v)) {
-          args.setHoveredId(Math.floor(v), 'agent');
+          mutations.push(() => args.setHoveredId(Math.floor(v), 'agent'));
           applied += 1;
         }
       }
 
-      return { applied };
+      return async ({ signal }) => {
+        for (const mutate of mutations) {
+          signal?.throwIfAborted();
+          await mutate();
+        }
+        return { applied };
+      };
     },
     { affects: [vizRef], description: 'Apply brush ranges, axis order, and hover state.' },
   );
@@ -479,6 +499,30 @@ export function installVacpForCarsParallelCoords(args: {
     providers: [provider],
   });
 
+  const presence = createBrowserPresence(vacp.bridge);
+  presence.attach(provider, {
+    resolve: (focus) => {
+      if (focus.ref !== brushRef) return null;
+      const parsed = z
+        .object({ ranges: z.record(z.string(), z.tuple([z.number(), z.number()]).nullable()) })
+        .safeParse(focus.detail);
+      const first = parsed.success ? Object.entries(parsed.data.ranges).find(([, range]) => range !== null) : undefined;
+      if (first?.[1]) {
+        const bounds = args.getBrushBounds(first[0], first[1]);
+        if (bounds)
+          return svgPresenceTarget(bounds.element, {
+            kind: 'region',
+            x: bounds.x,
+            y: bounds.y,
+            width: bounds.width,
+            height: bounds.height,
+          });
+      }
+      return elementPresenceTarget(args.root);
+    },
+    subscribe: (invalidate) => observePresenceLayout(args.root, invalidate),
+  });
+
   // Optional analytics: if PostHog is configured, stream VACP history into the session replay.
   const posthogApiKey = import.meta.env.VACP_POSTHOG_API_KEY as string | undefined;
 
@@ -501,5 +545,12 @@ export function installVacpForCarsParallelCoords(args: {
     });
   }
 
-  return { ...vacp, refs: { viewRef, vizRef, brushRef, orderRef, hoverRef, handleRef } };
+  return {
+    ...vacp,
+    dispose: () => {
+      presence.dispose();
+      vacp.dispose();
+    },
+    refs: { viewRef, vizRef, brushRef, orderRef, hoverRef, handleRef },
+  };
 }

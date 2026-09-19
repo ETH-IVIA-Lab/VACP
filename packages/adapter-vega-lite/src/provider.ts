@@ -1,15 +1,14 @@
-import type { VacpActionCall, VacpActionDescriptor, VacpProvider, VacpSourceId } from '@vacp/protocol';
+import type { VacpActionDescriptor, VacpProvider, VacpSourceId, VacpRef } from '@vacp/protocol';
 import { formatDuckDbTableMetadataSummary } from '@vacp/data-duckdb';
 import { createVacpProvider, registerVacpApplyStateAction, VacpActionRegistry } from '@vacp/runtime';
 
 import { actionsForSpec } from './actions.js';
 import { buildGraph } from './graph.js';
-import { buildParamLookup, executeAction } from './execute.js';
+import { prepareVegaLiteAction } from './execute.js';
 import { createVegaLiteDataBinding } from './duckdb-handle.js';
 import { whereClauseForCurrentSelections } from './duckdb-selection.js';
-import { collectVegaLiteParams } from './params.js';
+import { createVegaLiteBindings } from './bindings.js';
 import { makeRef } from './refs.js';
-import { tryGetSignal } from './signals.js';
 import type { VegaLiteProviderOptions, VegaLiteSpecLike, VegaViewLike } from './types.js';
 
 import { createVegaLiteTooltipBinding } from './tooltip.js';
@@ -52,14 +51,18 @@ export function createVegaLiteProvider(args: {
   const sourceId: VacpSourceId = `vacp-source://${options.appId}/${options.viewId}/${options.vizId}/vega-lite`;
   const actionRegistry = new VacpActionRegistry(sourceId);
 
-  const helpers = buildParamLookup(spec, view, options);
+  const helpers = createVegaLiteBindings(spec, view, options);
 
   const actionDescriptors: VacpActionDescriptor[] = actionsForSpec(options, spec);
   actionDescriptors.forEach((desc) => {
-    actionRegistry.register({ ...desc, operation: { ...desc.operation, contract: desc.name } }, async (params) => {
-      const call: VacpActionCall = { callId: crypto.randomUUID(), name: desc.name, params };
-      return executeAction(view, call, helpers);
-    });
+    actionRegistry.register(
+      { ...desc, operation: { ...desc.operation, contract: desc.name } },
+      (prepared: ReturnType<typeof prepareVegaLiteAction>) => prepared.execute(),
+      {
+        parse: (params) => prepareVegaLiteAction(view, { callId: '', name: desc.name, params }, helpers),
+        focus: (prepared) => prepared.focus,
+      },
+    );
   });
 
   // Standard action for applying a desired state map through provider refs.
@@ -67,34 +70,48 @@ export function createVegaLiteProvider(args: {
 
   const applyDescriptor = registerVacpApplyStateAction(
     actionRegistry,
-    async (state) => {
-      const errors: Array<{ ref: string; message: string }> = [];
-      let applied = 0;
-
+    (state) => {
+      const plans: Array<{ ref: string; operation: ReturnType<typeof prepareVegaLiteAction> }> = [];
+      const skipped: Array<{ ref: string; reason: string }> = [];
       for (const [ref, raw] of Object.entries(state)) {
-        if (!helpers.paramByRef.has(ref)) continue;
-        const rec = raw && typeof raw === 'object' ? (raw as Record<string, unknown>) : {};
-        const desired = (rec.value ?? raw) as unknown;
-        const callId = crypto.randomUUID();
-
-        try {
-          if (desired === null || desired === undefined) {
-            await executeAction(view, { callId, name: 'vega_lite.clear_selection', params: { ref } }, helpers);
-          } else {
-            await executeAction(
-              view,
-              { callId, name: 'vega_lite.set_param', params: { ref, value: desired } },
-              helpers,
-            );
-          }
-
-          applied += 1;
-        } catch (err) {
-          errors.push({ ref, message: err instanceof Error ? err.message : String(err) });
+        const binding = helpers.paramByRef.get(ref as VacpRef);
+        if (!binding) {
+          skipped.push({ ref, reason: 'State has no parameter restoration operation' });
+          continue;
         }
+        const record = raw && typeof raw === 'object' ? (raw as Record<string, unknown>) : undefined;
+        const desired = record && Object.hasOwn(record, 'value') ? record.value : raw;
+        const name =
+          binding.kind === 'Param'
+            ? 'vega_lite.set_param'
+            : desired == null
+              ? 'vega_lite.clear_selection'
+              : 'vega_lite.set_selection';
+        plans.push({
+          ref,
+          operation: prepareVegaLiteAction(view, { callId: '', name, params: { ref, value: desired } }, helpers),
+        });
       }
-
-      return { applied, errors };
+      return async ({ signal }) => {
+        const errors: Array<{ ref: string; message: string }> = [];
+        let applied = 0;
+        for (const { ref, operation } of plans) {
+          signal?.throwIfAborted();
+          try {
+            await operation.execute();
+            applied++;
+          } catch (error) {
+            signal?.throwIfAborted();
+            errors.push({ ref, message: error instanceof Error ? error.message : String(error) });
+          }
+        }
+        if (errors.length)
+          throw new AggregateError(
+            errors.map(({ ref, message }) => new Error(`${ref}: ${message}`)),
+            `State restoration applied ${applied} refs; failed: ${errors.map(({ ref, message }) => `${ref}: ${message}`).join('; ')}`,
+          );
+        return { applied, skipped };
+      };
     },
     { affects: [vizRef], description: 'Apply a state map to Vega-Lite params.' },
   );
@@ -121,6 +138,7 @@ export function createVegaLiteProvider(args: {
 
   const dataHandles = data.handles;
   const graph = buildGraph({
+    bindings: helpers,
     spec,
     options,
     actions: actionRegistry.list(),
@@ -157,19 +175,11 @@ export function createVegaLiteProvider(args: {
       });
 
       const state: Record<string, unknown> = {};
-      collectVegaLiteParams(spec).forEach((p) => {
-        const pref = makeRef({
-          appId: options.appId,
-          viewId: options.viewId,
-          vizId: options.vizId,
-          suffix: `/param/${p.name}`,
-        });
-
-        const kind = p.select ? 'Selection' : 'Param';
-        state[pref] = p.select
-          ? { kind, name: p.name, value: tryGetSignal(view, p.name), select: p.select }
-          : { kind, name: p.name, value: tryGetSignal(view, p.name), bind: p.bind };
-      });
+      for (const [ref, { param, kind, read }] of helpers.paramByRef) {
+        state[ref] = param.select
+          ? { kind, name: param.name, value: read(), select: param.select }
+          : { kind, name: param.name, value: read(), bind: param.bind };
+      }
       dataHandles.forEach((h) => {
         state[h.ref] = {
           kind: 'DataHandle',
@@ -180,11 +190,12 @@ export function createVegaLiteProvider(args: {
       });
 
       const { actions: _actions, ...graphFragment } = graph;
-      return { graph: { ...graphFragment, nodes }, state };
+      const freshness = binding.freshness();
+      return { graph: { ...graphFragment, nodes }, state, freshness: freshness ? { [vizRef]: freshness } : undefined };
     },
   };
 
-  const binding = createVegaLiteObservationBinding({ view, spec, helpers, tooltip });
+  const binding = createVegaLiteObservationBinding({ view, helpers, tooltip });
   return createVacpProvider({
     source: {
       id: sourceId,

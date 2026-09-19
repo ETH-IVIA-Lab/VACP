@@ -15,7 +15,7 @@ A `VacpProvider` exposes:
 
 - `source`: stable source identity, type, title, and optional metadata.
 - `observe()`: one atomic graph, state, summary, and freshness contribution.
-- `execute(call, options)`: semantic operation execution.
+- `prepare(call, options)`: validate and normalize an operation, returning its intent and a single-use `execute(options)` function.
 - `subscribe(invalidate)`: optional push invalidation.
 - `dispose()`: optional source cleanup.
 
@@ -42,12 +42,28 @@ The composer retries when a provider invalidates while sources are being read. E
 
 `getCapabilities()` and `getState()` are scoped views derived from provider observations. Use `observe()` when graph, state, ownership, and freshness must share a revision.
 
-## History and replay
+## History and explicit restoration
 
-`getRuntime()` returns the current mode, cursor, history, live observation, and inspected observation. `subscribe(listener)` receives runtime entries.
+`getRuntime()` returns `{ observation, history, runtimeId, sessionKey, version }`. `subscribe(listener)` receives recording entries. `refresh({ source, message })` records an observation after an application change. Keep historical selection in your viewer. Reading a recorded observation leaves live state unchanged.
 
-`refresh({ source, message })` records an observation after an application change. `setCursor(index)`, `undo()`, and `redo()` inspect history. A provider that declares the `vacp.apply_state` operation contract can replay supported state into its application. Providers should report refs that cannot be restored.
+To restore a chosen observation, create a host-owned restorer:
 
-Execution enters live mode before invoking an operation. Caller cancellation and runtime lifetime are combined in the handler's `{ signal }` option.
+```ts
+import { createVacpRestorer } from '@vacp/runtime';
+
+const recorded = await runtime.observe();
+const restorer = createVacpRestorer(runtime);
+const result = await restorer.restore(recorded.state);
+```
+
+Each source must expose an unambiguous `vacp.apply_state` operation. The restorer routes state by ownership and serializes its own requests. It waits for all source results and reports partial failures. Each outcome identifies its `sourceId`, action name, and action result. Providers report read-only and transient refs that they skip. Ordinary actions continue to target the live application.
+
+Caller cancellation and runtime lifetime are combined in the handler's `{ signal }` option.
 
 `dispose()` aborts the runtime, releases provider subscriptions, stops observation, and disposes attached providers.
+
+## Execution activity
+
+`subscribeExecutions(listener)` publishes action lifecycle events independently of history. `getProviderBinding(provider)` returns the current attachment identity and lifetime signal for local presentation bindings. The separate `VacpExecutionControl` port grants timing authority: `addExecutionGate(gate, { timeoutMs, stage })` installs a bounded presentation gate. `stage` defaults to `before`. `after` holds the completed result and cannot change its outcome. The method returns its removal function.
+
+Applications continue to invoke `runtime.execute(call, options)`. The runtime prepares and executes the owned operation once. See [agent presence](../presence/) for actor attribution, presentation bindings, and custom viewers.

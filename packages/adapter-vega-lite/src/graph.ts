@@ -1,7 +1,7 @@
 import type { VacpActionDescriptor, VacpEdge, VacpGraphFragment, VacpNode, VacpRef } from '@vacp/protocol';
 import { VACP_SCHEMA_VERSION } from '@vacp/protocol';
 
-import { collectVegaLiteParams } from './params.js';
+import type { VegaLiteBindings } from './bindings.js';
 import { makeRef } from './refs.js';
 import type { VegaLiteProviderOptions, VegaLiteParamLike, VegaLiteSpecLike } from './types.js';
 
@@ -193,6 +193,7 @@ function collectChannelBindings(spec: VegaLiteSpecLike): ExtractedBinding[] {
 }
 
 export function buildGraph(args: {
+  bindings: VegaLiteBindings;
   spec: VegaLiteSpecLike;
   options: VegaLiteProviderOptions;
   actions: VacpActionDescriptor[];
@@ -320,15 +321,8 @@ export function buildGraph(args: {
       });
   });
 
-  collectVegaLiteParams(args.spec).forEach((p) => {
+  args.bindings.paramByRef.forEach(({ param: p }, pref) => {
     const { kind, details } = classifyParam(p);
-
-    const pref = makeRef({
-      appId: args.options.appId,
-      viewId: args.options.viewId,
-      vizId: args.options.vizId,
-      suffix: `/param/${p.name}`,
-    });
 
     nodes.push({
       ref: pref,
