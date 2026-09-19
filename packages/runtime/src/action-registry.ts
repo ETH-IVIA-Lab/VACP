@@ -140,15 +140,19 @@ export class VacpActionRegistry implements VacpActionExecutor, VacpActionRegistr
       execute: async (executionOptions = {}) => {
         if (used) throw new Error('Prepared action has already been executed');
         used = true;
-        const signals = [options.signal, executionOptions.signal].filter((signal): signal is AbortSignal => !!signal);
-        const signal = AbortSignal.any(signals);
-        signal.throwIfAborted();
+        const preparedSignal = options.signal;
+        const executionSignal = executionOptions.signal;
+        const signal =
+          preparedSignal && executionSignal && preparedSignal !== executionSignal
+            ? AbortSignal.any([preparedSignal, executionSignal])
+            : (preparedSignal ?? executionSignal);
+        signal?.throwIfAborted();
         try {
           const result = await prepared.execute(undefined, { ...options, ...executionOptions, signal });
-          signal.throwIfAborted();
+          signal?.throwIfAborted();
           return { callId: call.callId, ok: true, result };
         } catch (error) {
-          signal.throwIfAborted();
+          signal?.throwIfAborted();
           return actionFailure(call, error);
         }
       },

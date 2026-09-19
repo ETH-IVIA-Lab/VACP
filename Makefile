@@ -102,10 +102,11 @@ e2e: build-apps ## Test examples and the published documentation in Chromium.
 
 ci: build check package ## Run the source-validation CI pipeline.
 
-bench: build-libs ## Measure runtime, adapter, inspection, presence, and transport hot paths.
+bench: build-libs ## Measure runtime, SDK, adapter, inspection, presence, and transport hot paths.
 	$(PNPM) --filter @vacp/runtime bench
 	$(PNPM) --filter @vacp/runtime bench:memory
 	$(PNPM) --filter @vacp/runtime bench:discovery
+	$(PNPM) --filter @vacp/sdk bench
 	$(PNPM) --filter @vacp/transport-webmcp bench
 	$(PNPM) --filter @vacp/inspector-core bench
 	$(PNPM) --filter @vacp/adapter-vega-lite bench

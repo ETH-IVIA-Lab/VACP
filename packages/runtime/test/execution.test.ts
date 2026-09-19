@@ -88,6 +88,33 @@ test('a prepared operation is single use, including concurrent attempts', async 
   }
 });
 
+test('prepared execution observes cancellation from either context and preserves its reason', async () => {
+  for (const mode of ['preparation', 'execution', 'shared', 'both-preparation', 'both-execution'] as const) {
+    const preparation = new AbortController();
+    const execution = mode === 'shared' ? preparation : new AbortController();
+    const reason = new Error(mode);
+    const actions = new VacpActionRegistry();
+    actions.register(
+      { name: 'cancel', description: 'Cancel during execution', operation: { kind: 'query' } },
+      (_params, { signal }) => {
+        assert.ok(signal);
+        const cancelled = mode === 'execution' || mode === 'both-execution' ? execution : preparation;
+        cancelled.abort(reason);
+        assert.equal(signal.aborted, true, mode);
+        return 'finished';
+      },
+    );
+    const prepared = await actions.prepare(
+      { callId: mode, name: 'cancel' },
+      mode === 'execution' ? {} : { signal: preparation.signal },
+    );
+    await assert.rejects(
+      prepared.execute(mode === 'preparation' ? {} : { signal: execution.signal }),
+      (error) => error === reason,
+    );
+  }
+});
+
 test('presentation gates fail open, but provider replacement aborts prepared execution', async () => {
   const f = fixture();
   try {
