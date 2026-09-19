@@ -11,6 +11,7 @@ type VgplotInputLike = {
   reset?: () => unknown;
   selectedValue?: (value?: unknown) => unknown;
   slider?: HTMLInputElement;
+  searchbox?: HTMLInputElement;
   curval?: HTMLElement;
   selectionType?: string;
   from?: string;
@@ -143,6 +144,8 @@ export function readInputValue(input: CollectedInput): InputValueRead {
 
     return { ok: true, value: Number.isFinite(n) ? n : inst.slider.value };
   }
+
+  if (inst.searchbox) return { ok: true, value: inst.searchbox.value };
 
   if (inst.select) return { ok: true, value: inst.select.value };
 
@@ -363,9 +366,13 @@ export function prepareInputAction(input: CollectedInput, call: { name: string; 
   }
 
   if (call.name === 'vgplot.set_input_value') {
+    const searchbox = inst.searchbox;
+    if (searchbox && typeof params.value !== 'string') throw new Error('Search value must be a string');
     const value = inst.slider ? coerceFiniteSliderValue(inst, params.value) : params.value;
     return async () => {
+      if (inst.searchbox !== searchbox) throw new Error('Search input binding changed; prepare again');
       if (inst.slider) setSliderDomValue(inst, Number(value));
+      if (searchbox) searchbox.value = String(value);
 
       if (typeof inst.selectedValue === 'function') inst.selectedValue(value);
       selectMenuValue(inst, value);

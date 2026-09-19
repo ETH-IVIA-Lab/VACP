@@ -336,3 +336,39 @@ test('vgplot: transient hover state stays bounded and read-only during restorati
     await srv.stop();
   }
 });
+
+test('vgplot: search actions update native text, selection and observable state together', async ({ page }) => {
+  const srv = await startAppServer({ name: 'vgplot-gallery', cwd: exampleDir('vgplot-gallery') });
+  try {
+    await page.goto(`${srv.url}#athletes`, { waitUntil: 'domcontentloaded' });
+    await waitForBridge(page);
+    const search = page.getByLabel('Name', { exact: true });
+    await expect(search).toBeVisible();
+    const inputRef = await page.evaluate(async () => {
+      const { state } = await globalThis.__vacp.getState();
+      const entry = Object.entries(state).find(
+        ([, value]) => value && typeof value === 'object' && 'widgetKind' in value && value.widgetKind === 'Search',
+      );
+      if (!entry) throw new Error('Missing search input');
+      return entry[0];
+    });
+    const set = await executeOperation(page, 'vgplot.set_input_value', { ref: inputRef, value: 'Smith' });
+    expect(set.ok).toBe(true);
+    await expect(search).toHaveValue('Smith');
+    const state = await page.evaluate(async (ref) => (await globalThis.__vacp.getState()).state[ref], inputRef);
+    expect(state.value).toBe('Smith');
+    expect(JSON.stringify(state.selectionValue)).toContain('Smith');
+    await search.fill('Jones');
+    await expect
+      .poll(async () => page.evaluate(async (ref) => (await globalThis.__vacp.getState()).state[ref].value, inputRef))
+      .toBe('Jones');
+    const clear = await executeOperation(page, 'vgplot.clear_input', { ref: inputRef });
+    expect(clear.ok).toBe(true);
+    await expect(search).toHaveValue('');
+    const invalid = await executeOperation(page, 'vgplot.set_input_value', { ref: inputRef, value: 42 });
+    expect(invalid.ok).toBe(false);
+    await expect(search).toHaveValue('');
+  } finally {
+    await srv.stop();
+  }
+});

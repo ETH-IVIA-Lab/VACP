@@ -21,7 +21,10 @@ export function createVgplotPresentation(args: {
     signal.throwIfAborted();
     const binding = bindings.byRef.get(focus.ref);
     if (!binding) return null;
-    if (binding.kind === 'input') return elementPresenceTarget(binding.input.element, 'exact');
+    if (binding.kind === 'input') {
+      const { input, element } = binding.input;
+      return elementPresenceTarget(input.searchbox ?? input.slider ?? input.select ?? element, 'exact');
+    }
     if (binding.kind === 'table') {
       const { table } = binding;
       if (!table.element) return null;
