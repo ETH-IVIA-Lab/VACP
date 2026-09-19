@@ -1,4 +1,4 @@
-import type { VacpAgentInteractionPolicy } from './types.js';
+import type { VacpAgentInteractionPolicy } from './types';
 
 export const defaultVacpAgentInstructions = [
   'You are a VACP protocol assistant.',

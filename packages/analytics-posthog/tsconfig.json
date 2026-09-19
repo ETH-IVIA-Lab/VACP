@@ -1,17 +1,8 @@
 {
   "extends": "../../tsconfig.base.json",
+  "include": ["src/**/*.ts"],
   "compilerOptions": {
     "rootDir": "src",
-    "outDir": "dist",
-    "composite": true
-  },
-  "references": [
-    {
-      "path": "../protocol"
-    },
-    {
-      "path": "../analytics"
-    }
-  ],
-  "include": ["src/**/*.ts"]
+    "outDir": "dist"
+  }
 }

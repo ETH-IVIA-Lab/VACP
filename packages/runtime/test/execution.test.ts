@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { VACP_SCHEMA_VERSION, type VacpExecution } from '@vacp/protocol';
-import { createVacpProvider, createVacpRuntime, VacpActionRegistry } from '../src/index.js';
+import { createVacpProvider, createVacpRuntime, VacpActionRegistry } from '../src/index';
 
 function fixture() {
   const actions = new VacpActionRegistry();

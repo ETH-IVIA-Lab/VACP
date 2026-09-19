@@ -1,7 +1,7 @@
-import { matchingSceneItems, sceneOffset, scenePointToViewport } from './scene.js';
+import { matchingSceneItems, sceneOffset, scenePointToViewport } from './scene';
 import type { VacpActionDescriptor, VacpRef } from '@vacp/protocol';
 import type { VacpActionRegistry } from '@vacp/runtime';
-import type { VegaLiteSpecLike, VegaViewLike } from './types.js';
+import type { VegaLiteSpecLike, VegaViewLike } from './types';
 
 const VEGA_LITE_TOOLTIP_HOVER_ACTION = 'vega_lite.hover_tooltip';
 

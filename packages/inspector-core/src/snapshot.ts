@@ -1,4 +1,4 @@
-import type { InspectionSnapshot } from './types.js';
+import type { InspectionSnapshot } from './types';
 
 /** Capture JSON-shaped payloads, preserving undefined and serializing dates. */
 export function snapshot<T>(value: T): InspectionSnapshot<T> {

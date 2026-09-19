@@ -1,10 +1,10 @@
-import { intervalVisualSignals } from './selection-signals.js';
+import { intervalVisualSignals } from './selection-signals';
 import type { VacpActionCall, VacpFocus, VacpRef } from '@vacp/protocol';
 import { changeset } from 'vega';
 
-import { findSignalContext, readStateSignal, runtimeUnit, type VegaLiteBindings } from './bindings.js';
-import { tryGetSignal, trySetSignal } from './signals.js';
-import type { VegaViewLike, VegaRuntimeContext } from './types.js';
+import { findSignalContext, readStateSignal, runtimeUnit, type VegaLiteBindings } from './bindings';
+import { tryGetSignal, trySetSignal } from './signals';
+import type { VegaViewLike, VegaRuntimeContext } from './types';
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return !!value && typeof value === 'object' && !Array.isArray(value);

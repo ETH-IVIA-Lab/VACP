@@ -1,20 +1,20 @@
-export * from './action-registry.js';
+export * from './action-registry';
 
-export * from './apply-state.js';
+export * from './apply-state';
 
-export * from './data-schema.js';
+export * from './data-schema';
 
-export * from './data-sql.js';
+export * from './data-sql';
 
-export * from './widget-options.js';
+export * from './widget-options';
 
-export type { VacpLiveSnapshots, VacpRuntimeUpdate, VacpRuntime } from './runtime/types.js';
+export type { VacpLiveSnapshots, VacpRuntimeUpdate, VacpRuntime } from './runtime/types';
 
-export * from './runtime/create-runtime.js';
+export * from './runtime/create-runtime';
 
-export * from './composition.js';
+export * from './composition';
 
-export * from './create-provider.js';
+export * from './create-provider';
 
-export { createVacpRestorer, type VacpRestorationOutcome, type VacpRestorationResult } from './restoration.js';
-export { createSharedSubscription } from './shared-subscription.js';
+export { createVacpRestorer, type VacpRestorationOutcome, type VacpRestorationResult } from './restoration';
+export { createSharedSubscription } from './shared-subscription';

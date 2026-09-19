@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { VACP_SCHEMA_VERSION, type VacpFreshness } from '@vacp/protocol';
 import { createVacpProvider, createVacpRuntime, VacpActionRegistry } from '@vacp/runtime';
-import { createAgentPresence, paceAgentPresence, type PresenceActivity, type PresenceTarget } from '../src/index.js';
+import { createAgentPresence, paceAgentPresence, type PresenceActivity, type PresenceTarget } from '../src/index';
 
 const target: PresenceTarget = {
   surface: 'test',

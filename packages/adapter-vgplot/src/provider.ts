@@ -9,19 +9,19 @@ import {
   VacpActionRegistry,
 } from '@vacp/runtime';
 
-import { actionDescriptorsForDashboard } from './actions.js';
-import { prepareVgplotRestoration } from './apply-state.js';
-import { createVgplotBindings } from './bindings.js';
-import { createVgplotOperations } from './operations.js';
-import { createVgplotDashboardSnapshots } from './dashboard-snapshots.js';
-import { collectVgplotDataHandles, discoverPlotTables } from './data-handles.js';
-import { quoteTableRef, whereClauseForVgplotDashboardSelection } from './duckdb-selection.js';
-import { collectInputs, type CollectedInput } from './inputs.js';
-import { buildDashboardGraph } from './graph.js';
-import { createVgplotObservationBinding } from './observe.js';
-import { makePlotRef, makeViewRef } from './refs.js';
-import { sqlForVgplotTableView } from './table-actions.js';
-import type { VgplotProviderOptions, VgplotPlotLike, VgplotTableLike } from './types.js';
+import { actionDescriptorsForDashboard } from './actions';
+import { prepareVgplotRestoration } from './apply-state';
+import { createVgplotBindings } from './bindings';
+import { createVgplotOperations } from './operations';
+import { createVgplotDashboardSnapshots } from './dashboard-snapshots';
+import { collectVgplotDataHandles, discoverPlotTables } from './data-handles';
+import { quoteTableRef, whereClauseForVgplotDashboardSelection } from './duckdb-selection';
+import { collectInputs, type CollectedInput } from './inputs';
+import { buildDashboardGraph } from './graph';
+import { createVgplotObservationBinding } from './observe';
+import { makePlotRef, makeViewRef } from './refs';
+import { sqlForVgplotTableView } from './table-actions';
+import type { VgplotProviderOptions, VgplotPlotLike, VgplotTableLike } from './types';
 
 export function createVgplotProvider(args: {
   root?: ParentNode;

@@ -8,8 +8,8 @@ import {
 } from '@vacp/data-duckdb';
 import { registerVacpDataSchemaAction, registerVacpDataSqlAction, type VacpActionRegistry } from '@vacp/runtime';
 
-import { whereClauseForCurrentSelections } from './duckdb-selection.js';
-import { collectMonthdateDerivedFields, normalizeDataRows } from './data-rows.js';
+import { whereClauseForCurrentSelections } from './duckdb-selection';
+import { collectMonthdateDerivedFields, normalizeDataRows } from './data-rows';
 import {
   collectSelectionFields,
   collectSpecDataSources,
@@ -17,9 +17,9 @@ import {
   selectRowsFromView,
   scoreDataRows,
   type SpecDataSource,
-} from './data-sources.js';
-import { makeRef } from './refs.js';
-import type { VegaLiteProviderOptions, VegaLiteSpecLike, VegaViewLike } from './types.js';
+} from './data-sources';
+import { makeRef } from './refs';
+import type { VegaLiteProviderOptions, VegaLiteSpecLike, VegaViewLike } from './types';
 
 export type VegaLiteDuckDbDataHandle = {
   ref: VacpRef;

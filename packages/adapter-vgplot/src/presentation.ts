@@ -1,9 +1,9 @@
 import type { PresenceResolver } from '@vacp/presence-core';
 import { elementPresenceTarget, observePresenceLayout, svgPresenceTarget } from '@vacp/presence-browser/targets';
-import { collectInputs } from './inputs.js';
-import { createVgplotBindings } from './bindings.js';
-import { intervalDomainValue } from './interactors/interval.js';
-import type { VgplotPlotLike, VgplotProviderOptions, VgplotTableLike } from './types.js';
+import { collectInputs } from './inputs';
+import { createVgplotBindings } from './bindings';
+import { intervalDomainValue } from './interactors/interval';
+import type { VgplotPlotLike, VgplotProviderOptions, VgplotTableLike } from './types';
 
 /** Project semantic interaction refs through the live interactor's scales and facet groups. */
 export function createVgplotPresentation(args: {

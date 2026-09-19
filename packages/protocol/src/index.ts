@@ -1,13 +1,13 @@
-export * from './schema.js';
+export * from './schema';
 
-export * from './runtime.js';
+export * from './runtime';
 
-export * from './util.js';
+export * from './util';
 
-export * from './hash.js';
+export * from './hash';
 
-export * from './value.js';
+export * from './value';
 
-export * from './provider.js';
+export * from './provider';
 
-export * from './execution.js';
+export * from './execution';

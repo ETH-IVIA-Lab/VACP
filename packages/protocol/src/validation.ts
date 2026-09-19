@@ -1,6 +1,6 @@
 import { z } from 'zod';
-import { VACP_SCHEMA_VERSION, type VacpActionResult, type VacpObservation } from './schema.js';
-import { vacpRefSchema } from './util.js';
+import { VACP_SCHEMA_VERSION, type VacpActionResult, type VacpObservation } from './schema';
+import { vacpRefSchema } from './util';
 const fields = z.record(z.string(), z.unknown());
 const sourceId = z.templateLiteral(['vacp-source://', z.string()]);
 const operation = z.object({

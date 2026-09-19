@@ -23,6 +23,12 @@ VACP separates the visualization's state from the ways people and agents access 
 
 Applications and examples choose adapters and own their lifecycle. Runtime and protocol source must not access browser globals or import providers, databases, model SDKs, or UI code. Import restrictions in `vite.config.ts` enforce workspace dependency direction.
 
+## Source and distribution boundaries
+
+Workspace packages import each other through their public names. Relative TypeScript imports are extensionless. Shared Vite+ Pack configuration emits unbundled ESM and declarations with valid runtime paths. TypeScript checks source with bundler resolution and emits no files. Package manifests expose the distribution, which is validated in native Node and a NodeNext type consumer.
+
+The JavaScript workspace keeps one pnpm catalog and lockfile. The Python workspace keeps its uv sources, lockfile, and QA policy at the repository root. Build policy is shared by the native toolchain configurations. Package consumers require the exported distribution, independent of the development loader or workspace aliases.
+
 ## Ports
 
 `VacpProvider` combines a pure `VacpSourceDescription` with a live binding. Its `observe()` method returns one source revision containing an analytical graph fragment, state, summaries, and output freshness. Its `prepare()` method validates an operation and returns semantic intent plus a single-use execution closure. Runtime dispatch owns lifecycle events and optional bounded presentation gates. Optional invalidation and disposal callbacks remain transport-neutral.

@@ -6,7 +6,7 @@ import type {
   VacpSourceId,
   VacpWindowBridge,
 } from '@vacp/protocol';
-import { makeEntryId } from './runtime/helpers.js';
+import { makeEntryId } from './runtime/helpers';
 
 export type VacpRestorationOutcome = { sourceId: VacpSourceId; action: string; result: VacpActionResult };
 export type VacpRestorationResult = VacpActionResult<

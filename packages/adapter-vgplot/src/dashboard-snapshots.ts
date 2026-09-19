@@ -1,5 +1,5 @@
-import type { VgplotBindings } from './bindings.js';
-import { legendValue } from './legends.js';
+import type { VgplotBindings } from './bindings';
+import { legendValue } from './legends';
 import type { VacpGraphFragment, VacpRef } from '@vacp/protocol';
 import type { VacpAnalyticalProjection } from '@vacp/runtime';
 import {
@@ -8,17 +8,17 @@ import {
   type VacpDuckDbTableMetadata,
 } from '@vacp/data-duckdb';
 
-import { readInputValue } from './inputs.js';
-import { discoverPlotTables, type VgplotDataHandle } from './data-handles.js';
-import { whereClauseForVgplotDashboardSelection } from './duckdb-selection.js';
-import { isSelectionBackedNearest } from './interactors/nearest.js';
+import { readInputValue } from './inputs';
+import { discoverPlotTables, type VgplotDataHandle } from './data-handles';
+import { whereClauseForVgplotDashboardSelection } from './duckdb-selection';
+import { isSelectionBackedNearest } from './interactors/nearest';
 import type {
   VgplotProviderOptions,
   VgplotPlotLike,
   VgplotTableLike,
   VgplotInteractorLike,
   VgplotScaleLike,
-} from './types.js';
+} from './types';
 
 type TablesById = Map<string, VgplotTableLike>;
 

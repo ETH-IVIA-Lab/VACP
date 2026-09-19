@@ -2,7 +2,7 @@ export interface VegaRuntimeContext {
   signals?: Record<string, unknown>;
   data?: Record<string, unknown>;
   subcontext?: Record<string, VegaRuntimeContext>;
-  group?: import('./scene.js').VegaSceneItem;
+  group?: import('./scene').VegaSceneItem;
   scales?: Record<string, { value: (value: unknown) => number }>;
   setState?: (state: unknown) => void;
 }

@@ -1,4 +1,4 @@
-import posthog, { type PostHogConfig } from 'posthog-js';
+import { posthog, type PostHogConfig } from 'posthog-js';
 
 import type { VacpAnalyticsProvider } from '@vacp/analytics';
 

@@ -1,5 +1,5 @@
-import { executeVacpAction } from './action-registry.js';
-import { notify } from './runtime/helpers.js';
+import { executeVacpAction } from './action-registry';
+import { notify } from './runtime/helpers';
 import {
   fnv1a64Hex,
   stableStringify,

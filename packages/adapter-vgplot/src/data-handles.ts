@@ -1,7 +1,7 @@
 import type { VacpRef } from '@vacp/protocol';
 
-import { makePlotRef, makeViewRef } from './refs.js';
-import type { VgplotProviderOptions, VgplotPlotLike, VgplotTableLike } from './types.js';
+import { makePlotRef, makeViewRef } from './refs';
+import type { VgplotProviderOptions, VgplotPlotLike, VgplotTableLike } from './types';
 
 export type VgplotDataHandle = {
   ref: VacpRef;

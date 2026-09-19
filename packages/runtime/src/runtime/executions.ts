@@ -1,5 +1,5 @@
 import { nowIso, type VacpExecution, type VacpExecutionGate } from '@vacp/protocol';
-import { notify } from './helpers.js';
+import { notify } from './helpers';
 
 /** Optional presentation work never owns action success or cancellation. */
 export function createExecutionChannel(lifetime: AbortSignal) {

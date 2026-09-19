@@ -1,14 +1,9 @@
 {
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
+    "types": ["node", "emscripten"],
     "rootDir": "src",
-    "outDir": "dist",
-    "composite": true
+    "outDir": "dist"
   },
-  "references": [
-    {
-      "path": "../protocol"
-    }
-  ],
   "include": ["src/**/*.ts"]
 }

@@ -4,7 +4,7 @@ import { vacpRefSchema } from '@vacp/protocol';
 import type { VacpActionDescriptor, VacpRef, VacpWidgetOptionsParams, VacpWidgetOptionsResult } from '@vacp/protocol';
 import { VACP_WIDGET_OPTIONS_ACTION } from '@vacp/protocol';
 
-import type { VacpActionRegistrar } from './action-registry.js';
+import type { VacpActionRegistrar } from './action-registry';
 
 export type VacpWidgetOptionsHandler = (
   params: VacpWidgetOptionsParams,

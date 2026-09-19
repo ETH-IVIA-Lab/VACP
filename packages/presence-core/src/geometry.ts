@@ -1,4 +1,4 @@
-import type { PresenceGeometry, PresencePoint, PresenceTarget } from './types.js';
+import type { PresenceGeometry, PresencePoint, PresenceTarget } from './types';
 
 export function presenceAnchor(geometry: PresenceGeometry): PresencePoint | null {
   switch (geometry.kind) {

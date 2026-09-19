@@ -4,7 +4,7 @@ import type {
   InstallVacpRuntimeAnalyticsArgs,
   VacpRuntimeAnalyticsInstallation,
   VacpRuntimeAnalyticsOptions,
-} from './types.js';
+} from './types';
 
 type VacpRuntimeMeta = Readonly<{
   runtimeId?: string;

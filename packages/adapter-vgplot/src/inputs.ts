@@ -1,7 +1,7 @@
 import type { VacpRef } from '@vacp/protocol';
 
-import { makeViewRef } from './refs.js';
-import type { VgplotProviderOptions } from './types.js';
+import { makeViewRef } from './refs';
+import type { VgplotProviderOptions } from './types';
 
 type VgplotInputLike = {
   constructor?: { name?: string };

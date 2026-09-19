@@ -1,6 +1,6 @@
 import { fileURLToPath } from 'node:url';
 import { defineConfig } from 'vitepress';
-import { createMermaidDiagrams } from './diagrams.mts';
+import { createMermaidDiagrams } from './diagrams';
 
 const YEAR = new Date().getFullYear();
 const diagrams = createMermaidDiagrams({

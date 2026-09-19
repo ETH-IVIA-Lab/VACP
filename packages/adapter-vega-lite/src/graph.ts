@@ -1,9 +1,9 @@
 import type { VacpActionDescriptor, VacpEdge, VacpGraphFragment, VacpNode, VacpRef } from '@vacp/protocol';
 import { VACP_SCHEMA_VERSION } from '@vacp/protocol';
 
-import type { VegaLiteBindings } from './bindings.js';
-import { makeRef } from './refs.js';
-import type { VegaLiteProviderOptions, VegaLiteParamLike, VegaLiteSpecLike } from './types.js';
+import type { VegaLiteBindings } from './bindings';
+import { makeRef } from './refs';
+import type { VegaLiteProviderOptions, VegaLiteParamLike, VegaLiteSpecLike } from './types';
 
 function classifyParam(p: VegaLiteParamLike): { kind: 'Param' | 'Selection'; details: Record<string, unknown> } {
   if (p.select) {

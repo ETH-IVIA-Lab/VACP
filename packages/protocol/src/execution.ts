@@ -1,4 +1,4 @@
-import type { VacpActionExecutionOptions, VacpActionResult, VacpRef, VacpSourceId } from './schema.js';
+import type { VacpActionExecutionOptions, VacpActionResult, VacpRef, VacpSourceId } from './schema';
 
 /** Identity supplied by the calling host, separate from action parameters. */
 export type VacpActor = { id: string; label?: string; kind: 'agent' | 'human' | 'system' };

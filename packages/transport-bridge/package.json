@@ -13,8 +13,8 @@
     }
   },
   "scripts": {
-    "build": "tsc -b",
-    "typecheck": "tsc -b"
+    "build": "vp pack",
+    "typecheck": "tsc -p tsconfig.json"
   },
   "dependencies": {
     "@vacp/protocol": "workspace:*"

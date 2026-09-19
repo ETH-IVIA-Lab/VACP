@@ -38,6 +38,23 @@ make browser-install e2e
 
 Use `make help` for the command list. The root pnpm scripts delegate to these targets. CI calls `make setup ci` and `make setup-web browser-install e2e`.
 
+### Source imports and library output
+
+Use extensionless relative source imports and re-exports:
+
+```ts
+import type { InspectionObservation } from './types';
+export { createInspectorSession } from './session';
+```
+
+Use package names for workspace boundaries, for example `@vacp/protocol`. Every library's `vp pack` command inherits the `pack` configuration from the root `vite.config.ts`. Its [unbundled mode](https://tsdown.dev/options/unbundle) preserves the source module structure and produces JavaScript and declaration imports that work in native Node. Vite+ manages this through its [library packaging command](https://viteplus.dev/guide/pack).
+
+`tsconfig.base.json` configures TypeScript for no-emit checking with bundler resolution. Package type-check commands use `tsc -p`, independently of packaging, and cannot overwrite built declarations. Vite+ schedules library builds using workspace dependencies. Oxlint enforces extensionless imports for owned TypeScript modules. Asset filenames retain their extensions.
+
+`make test-package-imports` builds libraries, imports every public JavaScript entry through its package manifest in native Node, and checks the same entries in a strict NodeNext consumer. The Node consumer runs emitted JavaScript with type stripping disabled. The type consumer verifies that declarations resolve independently of workspace source files and require no source-import compiler options. Keep ambient types referenced by public declarations in package dependencies.
+
+### Lint policy
+
 Anti-slop rules are vendored unchanged under `tools/oxlint/anti-slop`. The local `preset.ts` disables blanket bans on boundary `unknown`, runtime narrowing, open dictionaries, ordinary assertions, conditional property spreads, and naming or spacing conventions. These restrictions otherwise force duplicated validators and obscure the public API. The remaining rules reject chained assertions, widening followed by assertion, reflection shortcuts, module mocking, repeated array passes, and accumulator copying. Strict TypeScript checks stay enabled for library code.
 
 For focused work:
@@ -51,7 +68,7 @@ pnpm --filter @vacp/docs dev
 
 ## Python QA
 
-The root `pyproject.toml` declares the development tools once and configures all three Python workspace members. `pytest-asyncio` is shared there too. Member manifests contain package metadata and runtime dependencies.
+The root `pyproject.toml` declares the development tools once and configures Python QA across the workspace. `pytest-asyncio` is shared there too. Member manifests contain package metadata and runtime dependencies.
 
 ```bash
 make python-check       # Ruff, ty, basedpyright, pyrefly, and pytest
@@ -61,7 +78,7 @@ make python-typecheck   # All three type checkers
 make python-test        # Combined test suite
 ```
 
-Checks cover package source, tests, and the analysis workbench. The type checkers use Python 3.12 and the root virtual environment. `make check` and `make ci` run the same gates without per-package duplicates. Each Python command installs the locked workspace packages and dev tools as needed.
+Checks cover Python source and tests under `packages`, `apps`, `examples`, and `tools`. The type checkers use Python 3.12 and the root virtual environment. `make check` and `make ci` run the same gates without per-package duplicates. Each Python command installs the locked workspace packages and dev tools as needed.
 
 For one suite, pass its path to pytest from the root. The shared pytest configuration also handles duplicate test module names across packages.
 

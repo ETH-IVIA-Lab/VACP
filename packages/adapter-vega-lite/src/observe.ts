@@ -1,8 +1,8 @@
 import { createSharedSubscription } from '@vacp/runtime';
 import type { VacpFreshness } from '@vacp/protocol';
-import type { VegaLiteBindings } from './bindings.js';
-import type { createVegaLiteTooltipBinding } from './tooltip.js';
-import type { VegaViewLike } from './types.js';
+import type { VegaLiteBindings } from './bindings';
+import type { createVegaLiteTooltipBinding } from './tooltip';
+import type { VegaViewLike } from './types';
 
 const outputs = new WeakMap<VegaViewLike, VacpFreshness>();
 

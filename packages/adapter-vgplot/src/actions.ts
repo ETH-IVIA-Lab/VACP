@@ -1,10 +1,10 @@
-import type { VgplotBindings } from './bindings.js';
+import type { VgplotBindings } from './bindings';
 import type { VacpActionDescriptor } from '@vacp/protocol';
 
-import { isSelectionBackedNearest } from './interactors/nearest.js';
-import { hasIndexedOptions, readInputValue, type CollectedInput } from './inputs.js';
-import { makeViewRef } from './refs.js';
-import type { VgplotProviderOptions, VgplotTableLike, VgplotInteractorLike, VgplotScaleLike } from './types.js';
+import { isSelectionBackedNearest } from './interactors/nearest';
+import { hasIndexedOptions, readInputValue, type CollectedInput } from './inputs';
+import { makeViewRef } from './refs';
+import type { VgplotProviderOptions, VgplotTableLike, VgplotInteractorLike, VgplotScaleLike } from './types';
 
 type CollectedInteractor = {
   plotId: string;

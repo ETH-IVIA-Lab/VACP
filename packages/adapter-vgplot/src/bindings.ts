@@ -1,14 +1,14 @@
 import type { VacpRef } from '@vacp/protocol';
-import { plotLegends } from './legends.js';
-import { makePlotRef } from './refs.js';
-import type { CollectedInput } from './inputs.js';
+import { plotLegends } from './legends';
+import { makePlotRef } from './refs';
+import type { CollectedInput } from './inputs';
 import type {
   VgplotInteractorLike,
   VgplotLegendLike,
   VgplotPlotLike,
   VgplotProviderOptions,
   VgplotTableLike,
-} from './types.js';
+} from './types';
 
 type PlotBinding = { kind: 'plot'; ref: VacpRef; plotId: string; plot: VgplotPlotLike };
 type TableBinding = { kind: 'table'; ref: VacpRef; tableId: string; table: VgplotTableLike };

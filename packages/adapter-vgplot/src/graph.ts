@@ -1,9 +1,9 @@
 import type { VacpActionDescriptor, VacpEdge, VacpGraphFragment, VacpNode, VacpRef } from '@vacp/protocol';
 import { VACP_SCHEMA_VERSION } from '@vacp/protocol';
 
-import { makePlotRef, makeViewRef } from './refs.js';
-import type { VgplotBindings } from './bindings.js';
-import type { VgplotProviderOptions } from './types.js';
+import { makePlotRef, makeViewRef } from './refs';
+import type { VgplotBindings } from './bindings';
+import type { VgplotProviderOptions } from './types';
 
 function stableStringify(value: unknown): string {
   const seen = new WeakSet<object>();

@@ -4,8 +4,8 @@ import {
   defaultVacpDomSnapshotScriptId,
   removeVacpDomSnapshotScript,
   writeVacpDomSnapshotScript,
-} from './dom-snapshot.js';
-import { resolveVacpGlobalKey } from './window-globals.js';
+} from './dom-snapshot';
+import { resolveVacpGlobalKey } from './window-globals';
 
 const runtimes = new Map<string, VacpRuntime>();
 const domSnapshotHooks = new WeakMap<VacpRuntime, () => void>();

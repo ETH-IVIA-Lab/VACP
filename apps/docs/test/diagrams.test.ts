@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
 import { createMarkdownRenderer } from 'vitepress';
-import { createMermaidDiagrams } from '../.vitepress/diagrams.mts';
+import { createMermaidDiagrams } from '../.vitepress/diagrams';
 
 test('failed renders are retryable and valid diagrams are ready before publication', async () => {
   const sourceDir = await mkdtemp(join(tmpdir(), 'vacp-docs-diagrams-'));

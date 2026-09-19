@@ -4,7 +4,7 @@ import { vacpRefSchema } from '@vacp/protocol';
 import type { VacpActionDescriptor, VacpRef } from '@vacp/protocol';
 import { VACP_APPLY_STATE_ACTION } from '@vacp/protocol';
 
-import type { VacpActionRegistrar } from './action-registry.js';
+import type { VacpActionRegistrar } from './action-registry';
 
 export type VacpApplyStatePreparation<Result = unknown> = (
   state: Record<VacpRef, unknown>,

@@ -47,13 +47,21 @@ make build check
 make browser-install e2e
 ```
 
-`pnpm dev` starts the gallery at `https://examples.vacp.localhost`. `make docs-serve` serves `https://docs.vacp.localhost`. `make dev-all` starts these plus the standalone `*.examples.vacp.localhost` apps. Names live in each app's `package.json` under `portless`. Vite+ receives its port from Portless. VitePress reads `PORT` in its config. Preserve the `PORTLESS=0` bypass and explicit ports in the Playwright server helper. Use `pnpm --filter <package-name> <script>` for focused work. Vite+ owns JavaScript task orchestration, formatting, linting, and application builds. TypeScript owns library declarations. uv owns the Python workspace and Ruff, ty, basedpyright, pyrefly, and pytest tools. The root Makefile defines the workflows; pnpm scripts and GitHub Actions call those targets. Run `make help` for focused commands.
+`pnpm dev` starts the gallery at `https://examples.vacp.localhost`. `make docs-serve` serves `https://docs.vacp.localhost`. `make dev-all` starts these plus the standalone `*.examples.vacp.localhost` apps. Names live in each app's `package.json` under `portless`. Vite+ receives its port from Portless. VitePress reads `PORT` in its config. Preserve the `PORTLESS=0` bypass and explicit ports in the Playwright server helper. Use `pnpm --filter <package-name> <script>` for focused work. Vite+ owns JavaScript task orchestration, formatting, linting, and application builds. Vite+ Pack emits library JavaScript and declarations. TypeScript checks source without emitting files. uv owns the Python workspace and Ruff, ty, basedpyright, pyrefly, and pytest tools. The root Makefile defines the workflows; pnpm scripts and GitHub Actions call those targets. Run `make help` for focused commands.
 
 ## Python QA
 
 The root `pyproject.toml` owns the shared Python dev dependencies and configurations for pytest, Ruff, ty, basedpyright, and pyrefly. Do not duplicate these in workspace members. All Python source and tests are checked from the root against the same environment and Python version.
 
 Use `make python-check` for all Python gates, or `make python-lint`, `make python-typecheck`, and `make python-test` for focused checks. `make check` and CI invoke these same targets once. Python-only packages are managed by uv. They do not need npm task wrappers.
+
+## TypeScript imports and builds
+
+Use extensionless relative imports and re-exports in owned TypeScript source, including type imports: `./types` and `./Component`. Workspace dependencies use public package exports such as `@vacp/protocol`. Keep actual asset filenames and vendored source conventions intact.
+
+The root `vite.config.ts` owns library packaging policy. Each library runs `vp pack`, which inherits that configuration, preserves module structure with `unbundle`, and emits Node-compatible ESM and declarations. `tsconfig.base.json` owns no-emit type checking with bundler resolution. Vite+ orders package tasks using the pnpm workspace dependency graph. Do not add import-rewriting scripts, custom loaders, or source aliases for package consumers.
+
+`make test-package-imports` exercises every JavaScript package export in native Node and a strict NodeNext TypeScript consumer using the built declarations. Keep this check working alongside browser builds when changing imports, exports, or compiler options. Public declaration dependencies belong in the declaring package's dependencies.
 
 ## Public types and validation
 

@@ -1,6 +1,6 @@
 import { createSharedSubscription } from '@vacp/runtime';
 import type { VacpFreshness } from '@vacp/protocol';
-import type { VgplotInteractorLike, VgplotPlotLike } from './types.js';
+import type { VgplotInteractorLike, VgplotPlotLike } from './types';
 
 const outputs = new WeakMap<VgplotPlotLike, VacpFreshness>();
 const failures = new WeakMap<VgplotPlotLike, (error: unknown) => void>();

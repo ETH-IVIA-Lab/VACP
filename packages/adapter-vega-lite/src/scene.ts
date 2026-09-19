@@ -1,4 +1,4 @@
-import type { VegaViewLike } from './types.js';
+import type { VegaViewLike } from './types';
 
 export type VegaSceneItem = {
   x?: number;

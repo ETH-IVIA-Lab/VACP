@@ -1,7 +1,7 @@
 import type { VacpDataSqlParams, VacpDataSqlResult, VacpRef } from '@vacp/protocol';
 
-import type { VacpDuckDbClient } from './client.js';
-import { normalizeSingleStatementSql } from './sql.js';
+import type { VacpDuckDbClient } from './client';
+import { normalizeSingleStatementSql } from './sql';
 
 type VacpDuckDbHandle = { allSql: string; selectedSql: string };
 

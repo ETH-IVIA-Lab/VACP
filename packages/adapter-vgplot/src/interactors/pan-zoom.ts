@@ -1,4 +1,4 @@
-import type { VgplotInteractorLike } from '../types.js';
+import type { VgplotInteractorLike } from '../types';
 
 /** Validate both axes before applying either one. */
 export function preparePanZoom(interactor: VgplotInteractorLike, params: Record<string, unknown> | null) {

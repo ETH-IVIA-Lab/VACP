@@ -1,9 +1,9 @@
 import type { PresenceGeometry, PresenceResolver, PresenceTarget } from '@vacp/presence-core';
 import { browserPresenceSurface, elementPresenceTarget, observePresenceLayout } from '@vacp/presence-browser/targets';
-import { createVegaLiteBindings } from './bindings.js';
-import { makeRef } from './refs.js';
-import { matchingSceneItems, sceneOffset, scenePointToViewport } from './scene.js';
-import type { VegaLiteProviderOptions, VegaLiteSpecLike, VegaViewLike } from './types.js';
+import { createVegaLiteBindings } from './bindings';
+import { makeRef } from './refs';
+import { matchingSceneItems, sceneOffset, scenePointToViewport } from './scene';
+import type { VegaLiteProviderOptions, VegaLiteSpecLike, VegaViewLike } from './types';
 
 function record(value: unknown): Record<string, unknown> | undefined {
   return value && typeof value === 'object' && !Array.isArray(value) ? (value as Record<string, unknown>) : undefined;

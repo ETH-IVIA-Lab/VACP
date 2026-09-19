@@ -1,5 +1,5 @@
 import type { VacpExecutionControl } from '@vacp/protocol';
-import type { PresencePacing, PresenceArrival } from './types.js';
+import type { PresencePacing, PresenceArrival } from './types';
 
 /** Abort releases presentation time, never the application's execution signal. */
 function pause(ms: number, signal: AbortSignal): Promise<void> {

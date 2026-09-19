@@ -2,7 +2,7 @@ import type { VacpRuntimeBridge } from '@vacp/protocol';
 
 import { installVacpRuntimeAnalytics } from '@vacp/analytics';
 import type { VacpRuntimeAnalyticsInstallation, VacpRuntimeAnalyticsOptions } from '@vacp/analytics';
-import { createPosthogProvider, type VacpPosthogOptions } from './provider.js';
+import { createPosthogProvider, type VacpPosthogOptions } from './provider';
 
 export type InstallVacpPosthogAnalyticsArgs = Readonly<{
   bridge: VacpRuntimeBridge;

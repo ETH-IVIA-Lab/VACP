@@ -1,7 +1,7 @@
 import { createOpenAICompatible } from '@ai-sdk/openai-compatible';
 import type { LanguageModel } from 'ai';
 
-import type { VacpLLMConfig, VacpLLMModelListOptions, VacpLLMModelOption } from './types.js';
+import type { VacpLLMConfig, VacpLLMModelListOptions, VacpLLMModelOption } from './types';
 
 const OPENAI_COMPATIBLE_PROVIDER = 'openai-compatible';
 

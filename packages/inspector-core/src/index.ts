@@ -9,6 +9,6 @@ export type {
   InspectionSnapshot,
   InspectionObservation,
   InspectionRecord,
-} from './types.js';
-export { createInspectorSession } from './session.js';
-export { createInspectionIndex, type InspectionIndex, type InspectionEntity } from './graph.js';
+} from './types';
+export { createInspectorSession } from './session';
+export { createInspectionIndex, type InspectionIndex, type InspectionEntity } from './graph';

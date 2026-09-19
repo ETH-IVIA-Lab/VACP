@@ -1,5 +1,5 @@
-export * from './refs.js';
+export * from './refs';
 
-export * from './actions.js';
+export * from './actions';
 
-export * from './provider.js';
+export * from './provider';

@@ -6,7 +6,7 @@ import type {
   VacpObservation,
   VacpStateSnapshot,
   VacpWindowBridge,
-} from './schema.js';
+} from './schema';
 
 /** Attribution shared by live execution and observation recording. */
 export type VacpChangeSource = 'human' | 'agent' | 'inspector' | 'system';

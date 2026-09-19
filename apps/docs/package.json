@@ -8,11 +8,12 @@
     "build": "vitepress build .",
     "preview": "vitepress preview .",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "node --test test/*.test.mts"
+    "test": "tsx --test test/*.test.ts"
   },
   "devDependencies": {
     "oxc-minify": "^0.116.0",
     "portless": "catalog:",
+    "tsx": "catalog:",
     "vitepress": "2.0.0-alpha.19"
   },
   "portless": "docs.vacp"

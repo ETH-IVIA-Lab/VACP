@@ -1,6 +1,6 @@
 import { sqlIdentifier, sqlStringLiteral } from '@vacp/data-duckdb';
-import type { VegaLiteSpecLike, VegaViewLike } from './types.js';
-import { collectVegaLiteParams } from './params.js';
+import type { VegaLiteSpecLike, VegaViewLike } from './types';
+import { collectVegaLiteParams } from './params';
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return !!value && typeof value === 'object' && !Array.isArray(value);

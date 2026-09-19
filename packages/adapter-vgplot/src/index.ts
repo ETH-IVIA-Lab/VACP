@@ -1,2 +1,2 @@
-export * from './types.js';
-export { createVgplotProvider } from './provider.js';
+export * from './types';
+export { createVgplotProvider } from './provider';

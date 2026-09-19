@@ -4,7 +4,7 @@ import { vacpRefSchema } from '@vacp/protocol';
 import type { VacpActionDescriptor, VacpDataSqlParams, VacpRef } from '@vacp/protocol';
 import { VACP_DATA_SQL_ACTION } from '@vacp/protocol';
 
-import type { VacpActionRegistrar } from './action-registry.js';
+import type { VacpActionRegistrar } from './action-registry';
 
 export type VacpDataSqlHandler = (
   params: VacpDataSqlParams,

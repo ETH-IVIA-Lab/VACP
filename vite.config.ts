@@ -1,5 +1,5 @@
 import { defineConfig } from 'vite-plus';
-import { antiSlopIgnorePatterns, antiSlopRules } from './tools/oxlint/anti-slop/preset.ts';
+import { antiSlopIgnorePatterns, antiSlopRules } from './tools/oxlint/anti-slop/preset';
 import type { OxlintOverride } from 'vite-plus/lint';
 
 const ignoredPaths = [
@@ -27,7 +27,25 @@ const ignoredPaths = [
   '**/.vitepress/dist/**',
 ];
 
+const sourceImportRestrictions = [
+  {
+    regex: '^\\.{1,2}/.*\\.[cm]?[jt]sx?$',
+    message: 'Use extensionless imports for TypeScript modules.',
+  },
+];
+
 export default defineConfig({
+  pack: {
+    entry: ['src/**/*.{ts,tsx,mts,cts}'],
+    unbundle: true,
+    root: 'src',
+    format: 'esm',
+    platform: 'neutral',
+    target: 'es2022',
+    dts: true,
+    sourcemap: true,
+    report: false,
+  },
   fmt: {
     semi: true,
     singleQuote: true,
@@ -45,51 +63,78 @@ export default defineConfig({
       'eslint/no-console': 'off',
       'import/no-cycle': 'error',
     },
-    overrides: Object.entries({
-      protocol: [],
-      runtime: ['protocol'],
-      'runtime-browser': ['protocol', 'runtime'],
-      'transport-bridge': ['protocol'],
-      'transport-webmcp': ['protocol'],
-      'data-duckdb': ['protocol'],
-      'diagram-mermaid': ['protocol'],
-      analytics: ['protocol'],
-      'analytics-posthog': ['protocol', 'analytics'],
-      'agent-ai-sdk': ['protocol', 'transport-bridge'],
-      sdk: ['protocol', 'runtime', 'runtime-browser'],
-      'adapter-vega-lite': ['protocol', 'runtime', 'data-duckdb'],
-      'adapter-vgplot': ['protocol', 'runtime', 'data-duckdb'],
-      'inspector-core': ['protocol'],
-      'presence-core': ['protocol'],
-      'presence-browser': ['protocol', 'presence-core'],
-      'adapter-vega-lite/src/presentation.ts': ['protocol', 'presence-core', 'presence-browser/targets'],
-      'adapter-vgplot/src/presentation.ts': ['protocol', 'presence-core', 'presence-browser/targets'],
-    }).map(
-      ([owner, dependencies]) =>
-        ({
-          files: [owner.includes('/') ? `packages/${owner}` : `packages/${owner}/src/**`],
-          rules: {
-            'no-restricted-imports': [
-              'error',
-              {
-                patterns: [
-                  {
-                    group: [
-                      '@vacp/*',
-                      '@vacp/*/**',
-                      ...dependencies.flatMap((name) => [`!@vacp/${name}`, `!@vacp/${name}/**`]),
-                    ],
-                    message: 'Keep dependencies inward. Compose adapters in applications.',
-                  },
-                  {
-                    group: ['../**/apps/**', '../**/packages/**', '../**/src/**'],
-                    message: 'Import workspace packages through their public exports.',
-                  },
-                ],
+    overrides: [
+      {
+        files: ['**/*.ts', '**/*.tsx', '**/*.mts', '**/*.cts'],
+        rules: {
+          'no-restricted-imports': ['error', { patterns: sourceImportRestrictions }],
+          'import/extensions': [
+            'error',
+            'ignorePackages',
+            {
+              ignorePackages: true,
+              checkTypeImports: true,
+              pattern: {
+                ts: 'never',
+                tsx: 'never',
+                mts: 'never',
+                cts: 'never',
+                js: 'never',
+                jsx: 'never',
+                mjs: 'never',
+                cjs: 'never',
               },
-            ],
-          },
-        }) satisfies OxlintOverride,
-    ),
+            },
+          ],
+        },
+      },
+      ...Object.entries({
+        protocol: [],
+        runtime: ['protocol'],
+        'runtime-browser': ['protocol', 'runtime'],
+        'transport-bridge': ['protocol'],
+        'transport-webmcp': ['protocol'],
+        'data-duckdb': ['protocol'],
+        'diagram-mermaid': ['protocol'],
+        analytics: ['protocol'],
+        'analytics-posthog': ['protocol', 'analytics'],
+        'agent-ai-sdk': ['protocol', 'transport-bridge'],
+        sdk: ['protocol', 'runtime', 'runtime-browser'],
+        'adapter-vega-lite': ['protocol', 'runtime', 'data-duckdb'],
+        'adapter-vgplot': ['protocol', 'runtime', 'data-duckdb'],
+        'inspector-core': ['protocol'],
+        'presence-core': ['protocol'],
+        'presence-browser': ['protocol', 'presence-core'],
+        'adapter-vega-lite/src/presentation.ts': ['protocol', 'presence-core', 'presence-browser/targets'],
+        'adapter-vgplot/src/presentation.ts': ['protocol', 'presence-core', 'presence-browser/targets'],
+      }).map(
+        ([owner, dependencies]) =>
+          ({
+            files: [owner.includes('/') ? `packages/${owner}` : `packages/${owner}/src/**`],
+            rules: {
+              'no-restricted-imports': [
+                'error',
+                {
+                  patterns: [
+                    ...sourceImportRestrictions,
+                    {
+                      group: [
+                        '@vacp/*',
+                        '@vacp/*/**',
+                        ...dependencies.flatMap((name) => [`!@vacp/${name}`, `!@vacp/${name}/**`]),
+                      ],
+                      message: 'Keep dependencies inward. Compose adapters in applications.',
+                    },
+                    {
+                      group: ['../**/apps/**', '../**/packages/**', '../**/src/**'],
+                      message: 'Import workspace packages through their public exports.',
+                    },
+                  ],
+                },
+              ],
+            },
+          }) satisfies OxlintOverride,
+      ),
+    ],
   },
 });

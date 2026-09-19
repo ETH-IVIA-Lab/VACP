@@ -15,16 +15,16 @@ import type {
   VacpStateUpdate,
 } from '@vacp/protocol';
 import { nowIso, VACP_SCHEMA_VERSION } from '@vacp/protocol';
-import { actionFailure } from '../action-registry.js';
-import { createExecutionChannel } from './executions.js';
-import { composeVacpProviders } from '../composition.js';
-import { createRuntimeObserver } from './observer.js';
-import type { VacpRuntime } from './types.js';
-import { scopeCapabilitiesSnapshot } from './capabilities-scope.js';
-import { buildStateUpdate } from './state-update.js';
-import { entryMessage, entrySource, makeEntryId, notify } from './helpers.js';
-import { createRuntimeHistory } from './history.js';
-import { createLiveObservations } from './observations.js';
+import { actionFailure } from '../action-registry';
+import { createExecutionChannel } from './executions';
+import { composeVacpProviders } from '../composition';
+import { createRuntimeObserver } from './observer';
+import type { VacpRuntime } from './types';
+import { scopeCapabilitiesSnapshot } from './capabilities-scope';
+import { buildStateUpdate } from './state-update';
+import { entryMessage, entrySource, makeEntryId, notify } from './helpers';
+import { createRuntimeHistory } from './history';
+import { createLiveObservations } from './observations';
 
 const stateRequestSchema = z.object({
   mode: z.enum(['auto', 'full', 'delta']).default('auto'),

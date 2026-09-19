@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { VACP_SCHEMA_VERSION, type VacpRuntimeBridge } from '@vacp/protocol';
-import { resolveVacpGlobalKey } from './window-globals.js';
+import { resolveVacpGlobalKey } from './window-globals';
 
 const bridgeContract = z.object({
   version: z.literal(VACP_SCHEMA_VERSION),

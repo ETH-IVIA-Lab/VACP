@@ -5,8 +5,8 @@ import type {
   VacpGraphFragment,
   VacpRef,
   VacpSourceDescription,
-} from './schema.js';
-import type { VacpPreparedAction } from './execution.js';
+} from './schema';
+import type { VacpPreparedAction } from './execution';
 
 /** Atomic contribution published by one analytical source. */
 export type VacpProviderObservation<NodeData = Record<string, unknown>> = {

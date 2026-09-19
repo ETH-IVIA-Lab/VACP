@@ -1,2 +1,2 @@
-export * from './types.js';
-export { createVegaLiteProvider } from './provider.js';
+export * from './types';
+export { createVegaLiteProvider } from './provider';

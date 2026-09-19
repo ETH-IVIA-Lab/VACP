@@ -1,8 +1,8 @@
-import { webMcpExecutionSignal } from './execution.js';
+import { webMcpExecutionSignal } from './execution';
 import type { WebMCP } from 'webmcp-types';
 import { stableStringify, type VacpGraph } from '@vacp/protocol';
-import { compileVacpWebMcpTools } from './compile.js';
-import type { VacpWebMcpOptions, VacpWebMcpRegistry, VacpWebMcpSource } from './types.js';
+import { compileVacpWebMcpTools } from './compile';
+import type { VacpWebMcpOptions, VacpWebMcpRegistry, VacpWebMcpSource } from './types';
 
 export type VacpWebMcpInstallation = {
   /** Await registration of the live graph or a newer queued revision. Failures reject. */

@@ -1,5 +1,5 @@
 import type { UIMessage, InferUITools } from 'ai';
-import type { createVacpTools } from './vacp-tools.js';
+import type { createVacpTools } from './vacp-tools';
 import type { VacpTransport } from '@vacp/transport-bridge';
 
 export type VacpAgentToolName = 'vacp_observe' | 'vacp_capabilities' | 'vacp_state' | 'vacp_execute';

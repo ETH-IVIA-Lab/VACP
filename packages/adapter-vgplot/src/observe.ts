@@ -1,12 +1,7 @@
-import { plotLegends } from './legends.js';
-import {
-  observeNativeUpdate,
-  observeNativePlot,
-  observeNativeInteractor,
-  plotFreshness,
-} from './native-observation.js';
-import type { CollectedInput } from './inputs.js';
-import type { VgplotPlotLike, VgplotTableLike } from './types.js';
+import { plotLegends } from './legends';
+import { observeNativeUpdate, observeNativePlot, observeNativeInteractor, plotFreshness } from './native-observation';
+import type { CollectedInput } from './inputs';
+import type { VgplotPlotLike, VgplotTableLike } from './types';
 
 /** Observe a live dashboard while consumers are subscribed. */
 export function createVgplotObservationBinding(args: {

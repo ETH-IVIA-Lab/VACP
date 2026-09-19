@@ -1,11 +1,11 @@
 import { DirectChatTransport, ToolLoopAgent, stepCountIs } from 'ai';
 import type { LanguageModelUsage } from 'ai';
 
-import { createVacpLLMModel, normalizeVacpLLMConfig } from './create-llm-model.js';
-import { wrapTransportWithVacpContextCompaction } from './context-compaction.js';
-import { buildVacpAgentInstructions } from './instructions.js';
-import type { VacpAgentFactoryOptions, VacpChatMessageMetadata, VacpTokenUsage } from './types.js';
-import { createVacpTools } from './vacp-tools.js';
+import { createVacpLLMModel, normalizeVacpLLMConfig } from './create-llm-model';
+import { wrapTransportWithVacpContextCompaction } from './context-compaction';
+import { buildVacpAgentInstructions } from './instructions';
+import type { VacpAgentFactoryOptions, VacpChatMessageMetadata, VacpTokenUsage } from './types';
+import { createVacpTools } from './vacp-tools';
 
 const DEFAULT_MAX_STEPS = 8;
 

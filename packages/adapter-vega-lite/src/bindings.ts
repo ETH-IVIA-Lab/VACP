@@ -1,14 +1,14 @@
 import type { VacpRef } from '@vacp/protocol';
-import { collectVegaLiteParams, selectionMarkTypes } from './params.js';
-import { makeRef } from './refs.js';
-import { signalNamesFromView, tryGetSignal } from './signals.js';
+import { collectVegaLiteParams, selectionMarkTypes } from './params';
+import { makeRef } from './refs';
+import { signalNamesFromView, tryGetSignal } from './signals';
 import type {
   VegaLiteParamLike,
   VegaLiteSpecLike,
   VegaLiteProviderOptions,
   VegaViewLike,
   VegaRuntimeContext,
-} from './types.js';
+} from './types';
 
 /** Shared traversal for serialized state and native runtime scopes. Paths retain nested unit identity. */
 function* contexts(

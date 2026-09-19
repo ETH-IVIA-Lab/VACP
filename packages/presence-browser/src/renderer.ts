@@ -1,6 +1,6 @@
-import { createCursorGraphic, cursorStyle, type CursorAppearance } from './cursor.js';
+import { createCursorGraphic, cursorStyle, type CursorAppearance } from './cursor';
 import { presenceAnchor, type PresenceActivity, type PresencePoint, type PresenceRenderer } from '@vacp/presence-core';
-import { browserPresenceSurface } from './targets.js';
+import { browserPresenceSurface } from './targets';
 
 export type BrowserPresenceOptions = CursorAppearance & {
   document?: Document;

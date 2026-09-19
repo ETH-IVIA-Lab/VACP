@@ -1,3 +1,3 @@
-export type { VacpTransport } from './types.js';
+export type { VacpTransport } from './types';
 
-export { createVacpTransport } from './bridge-transport.js';
+export { createVacpTransport } from './bridge-transport';

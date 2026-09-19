@@ -1,4 +1,4 @@
-import type { VgplotInteractorLike, VgplotScaleLike } from '../types.js';
+import type { VgplotInteractorLike, VgplotScaleLike } from '../types';
 
 type DomainValue = number | Date;
 

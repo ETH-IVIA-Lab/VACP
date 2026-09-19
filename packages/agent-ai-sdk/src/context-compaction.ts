@@ -1,8 +1,8 @@
 import type { UIMessage, ChatTransport } from 'ai';
 
-import { sanitizeToolPayload } from './sanitize-tool-payload.js';
+import { sanitizeToolPayload } from './sanitize-tool-payload';
 
-import type { VacpContextCompactionOptions, VacpContextCompactionPolicy } from './types.js';
+import type { VacpContextCompactionOptions, VacpContextCompactionPolicy } from './types';
 
 export const defaultVacpContextCompactionPolicy: Required<VacpContextCompactionPolicy> = {
   enabled: true,

@@ -8,7 +8,7 @@ import {
   type VacpRef,
   type VacpSourceDescription,
 } from '@vacp/protocol';
-import type { VacpActionExecutor } from './action-registry.js';
+import type { VacpActionExecutor } from './action-registry';
 
 export type VacpAnalyticalProjection<NodeData = Record<string, unknown>> = {
   graph: Omit<VacpGraphFragment<NodeData>, 'actions'>;

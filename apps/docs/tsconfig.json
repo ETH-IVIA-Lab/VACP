@@ -3,9 +3,8 @@
   "compilerOptions": {
     "module": "ESNext",
     "moduleResolution": "Bundler",
-    "allowImportingTsExtensions": true,
     "noEmit": true,
     "types": ["node"]
   },
-  "include": [".vitepress/**/*.ts", ".vitepress/**/*.mts", "test/**/*.mts"]
+  "include": [".vitepress/**/*.ts", ".vitepress/**/*.mts", "test/**/*.ts"]
 }

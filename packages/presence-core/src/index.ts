@@ -1,4 +1,4 @@
-export * from './types.js';
-export * from './geometry.js';
-export * from './presence.js';
-export { paceAgentPresence } from './pacing.js';
+export * from './types';
+export * from './geometry';
+export * from './presence';
+export { paceAgentPresence } from './pacing';

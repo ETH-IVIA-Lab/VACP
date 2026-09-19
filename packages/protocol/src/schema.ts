@@ -446,7 +446,7 @@ export type VacpActionResult<Result = unknown, ErrorDetails = unknown> =
 export type VacpActionExecutionOptions = {
   signal?: AbortSignal;
   /** Host attribution, never inferred from model-supplied action parameters. */
-  actor?: import('./execution.js').VacpActor;
+  actor?: import('./execution').VacpActor;
 };
 
 /**

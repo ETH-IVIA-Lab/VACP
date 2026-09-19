@@ -1,19 +1,19 @@
-export type { VacpDuckDbClient, VacpDuckDbWasmClient } from './client.js';
+export type { VacpDuckDbClient, VacpDuckDbWasmClient } from './client';
 
-export { createDuckDbWasmClient } from './client.js';
+export { createDuckDbWasmClient } from './client';
 
-export { createDuckDbDataSqlHandler } from './data-sql.js';
+export { createDuckDbDataSqlHandler } from './data-sql';
 
-export type { VacpDuckDbTableMetadata, VacpDuckDbColumnInfo } from './metadata.js';
+export type { VacpDuckDbTableMetadata, VacpDuckDbColumnInfo } from './metadata';
 
-export { getDuckDbTableMetadata } from './metadata.js';
+export { getDuckDbTableMetadata } from './metadata';
 
-export { formatDuckDbTableMetadataSummary } from './summary.js';
+export { formatDuckDbTableMetadataSummary } from './summary';
 
-export { makeVacpDuckDbTableName } from './table-name.js';
+export { makeVacpDuckDbTableName } from './table-name';
 
-export { normalizeSingleStatementSql, sqlIdentifier, sqlStringLiteral } from './sql.js';
+export { normalizeSingleStatementSql, sqlIdentifier, sqlStringLiteral } from './sql';
 
-export { createDuckDbSqlRouter } from './router.js';
+export { createDuckDbSqlRouter } from './router';
 
-export type { VacpDuckDbHandleSpec } from './router.js';
+export type { VacpDuckDbHandleSpec } from './router';

@@ -1,7 +1,7 @@
 import { duckDBCodeGenerator, isNode } from '@uwdata/mosaic-sql';
 
-import type { CollectedInput } from './inputs.js';
-import type { VgplotPlotLike } from './types.js';
+import type { CollectedInput } from './inputs';
+import type { VgplotPlotLike } from './types';
 
 function exprToSql(expr: unknown): string | null {
   if (expr === true) return 'true';

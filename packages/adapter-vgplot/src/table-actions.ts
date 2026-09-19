@@ -1,4 +1,4 @@
-import type { VgplotTableLike } from './types.js';
+import type { VgplotTableLike } from './types';
 
 function quoteIdent(part: string): string {
   return `"${part.replaceAll('"', '""')}"`;

@@ -1,5 +1,5 @@
 import type { VacpRef, VacpSourceId } from '@vacp/protocol';
-import type { InspectionObservation } from './types.js';
+import type { InspectionObservation } from './types';
 
 type Graph = InspectionObservation['graph'];
 type Action = Graph['actions'][number];

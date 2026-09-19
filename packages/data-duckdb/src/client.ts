@@ -1,8 +1,8 @@
 import * as duckdb from '@duckdb/duckdb-wasm';
 
-import { base64FromBytes } from './base64.js';
-import { arrowTableToJson } from './json.js';
-import { normalizeSingleStatementSql } from './sql.js';
+import { base64FromBytes } from './base64';
+import { arrowTableToJson } from './json';
+import { normalizeSingleStatementSql } from './sql';
 
 export type VacpDuckDbClient = {
   exec(sql: string): Promise<void>;

@@ -1,7 +1,7 @@
-import { webMcpExecutionSignal } from './execution.js';
+import { webMcpExecutionSignal } from './execution';
 import type { WebMCP } from 'webmcp-types';
 import { primaryOperationRef, type VacpGraph, type VacpActionDescriptor } from '@vacp/protocol';
-import type { VacpWebMcpClient, VacpWebMcpOptions } from './types.js';
+import type { VacpWebMcpClient, VacpWebMcpOptions } from './types';
 
 function copySchema(schema: Record<string, unknown>): Record<string, unknown> {
   const value = JSON.parse(JSON.stringify(schema));

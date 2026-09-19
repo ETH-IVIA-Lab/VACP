@@ -5,10 +5,10 @@ import type {
   InspectorSession,
   InspectorSessionOptions,
   InspectorState,
-} from './types.js';
-import { asError, request } from './request.js';
-import { snapshot } from './snapshot.js';
-import { notify } from './notify.js';
+} from './types';
+import { asError, request } from './request';
+import { snapshot } from './snapshot';
+import { notify } from './notify';
 
 export function createInspectorSession<Params = unknown, Result = unknown>(
   client: InspectorClient<Params, Result>,

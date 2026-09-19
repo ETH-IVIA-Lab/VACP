@@ -1,4 +1,4 @@
-import type { VgplotInteractorLike } from '../types.js';
+import type { VgplotInteractorLike } from '../types';
 
 function isSqlLiteralLike(value: unknown): boolean {
   return (

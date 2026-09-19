@@ -4,16 +4,5 @@
     "noEmit": true,
     "types": ["vite/client"]
   },
-  "include": ["src/**/*.ts"],
-  "references": [
-    {
-      "path": "../../packages/runtime-browser"
-    },
-    {
-      "path": "../../packages/presence-browser"
-    },
-    {
-      "path": "../../packages/transport-webmcp"
-    }
-  ]
+  "include": ["src/**/*.ts"]
 }

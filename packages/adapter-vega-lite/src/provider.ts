@@ -2,17 +2,17 @@ import type { VacpActionDescriptor, VacpProvider, VacpSourceId, VacpRef } from '
 import { formatDuckDbTableMetadataSummary } from '@vacp/data-duckdb';
 import { createVacpProvider, registerVacpApplyStateAction, VacpActionRegistry } from '@vacp/runtime';
 
-import { actionsForSpec } from './actions.js';
-import { buildGraph } from './graph.js';
-import { prepareVegaLiteAction } from './execute.js';
-import { createVegaLiteDataBinding } from './duckdb-handle.js';
-import { whereClauseForCurrentSelections } from './duckdb-selection.js';
-import { createVegaLiteBindings } from './bindings.js';
-import { makeRef } from './refs.js';
-import type { VegaLiteProviderOptions, VegaLiteSpecLike, VegaViewLike } from './types.js';
+import { actionsForSpec } from './actions';
+import { buildGraph } from './graph';
+import { prepareVegaLiteAction } from './execute';
+import { createVegaLiteDataBinding } from './duckdb-handle';
+import { whereClauseForCurrentSelections } from './duckdb-selection';
+import { createVegaLiteBindings } from './bindings';
+import { makeRef } from './refs';
+import type { VegaLiteProviderOptions, VegaLiteSpecLike, VegaViewLike } from './types';
 
-import { createVegaLiteTooltipBinding } from './tooltip.js';
-import { createVegaLiteObservationBinding } from './observe.js';
+import { createVegaLiteTooltipBinding } from './tooltip';
+import { createVegaLiteObservationBinding } from './observe';
 
 const DATA_HANDLE_META_TIMEOUT_MS = 1_500;
 

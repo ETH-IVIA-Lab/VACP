@@ -1,6 +1,6 @@
 import type { VacpRef, VacpActionExecutionOptions } from '@vacp/protocol';
-import type { VgplotBindings } from './bindings.js';
-import type { createVgplotOperations, VgplotOperation } from './operations.js';
+import type { VgplotBindings } from './bindings';
+import type { createVgplotOperations, VgplotOperation } from './operations';
 
 /** Validate the entire supported restoration before executing any mutation. Read-only refs are reported. */
 export function prepareVgplotRestoration(

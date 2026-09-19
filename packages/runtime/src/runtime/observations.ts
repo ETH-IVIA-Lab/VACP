@@ -1,7 +1,7 @@
 import { stableStringify } from '@vacp/protocol';
 import type { VacpCapabilitiesSnapshot, VacpObservation, VacpStateSnapshot } from '@vacp/protocol';
-import type { VacpLiveSnapshots } from './types.js';
-import { notify } from './helpers.js';
+import type { VacpLiveSnapshots } from './types';
+import { notify } from './helpers';
 
 /** Owns coherent live reads and invalidation; never selects or restores history. */
 export function createLiveObservations(read: () => Promise<VacpObservation>, signal: AbortSignal) {

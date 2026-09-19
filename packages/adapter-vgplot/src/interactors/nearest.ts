@@ -1,5 +1,5 @@
-import { preparePointSelection } from './toggle.js';
-import type { VgplotInteractorLike } from '../types.js';
+import { preparePointSelection } from './toggle';
+import type { VgplotInteractorLike } from '../types';
 
 type SelectionBackedNearest = VgplotInteractorLike & {
   selection: { update(value: unknown): unknown; predicate(...args: unknown[]): unknown };

@@ -1,4 +1,4 @@
-import type { VgplotLegendLike, VgplotPlotLike } from './types.js';
+import type { VgplotLegendLike, VgplotPlotLike } from './types';
 
 /** Resolve Mosaic legend wrappers once for discovery, execution, and presentation. */
 export function plotLegends(plot: VgplotPlotLike): VgplotLegendLike[] {

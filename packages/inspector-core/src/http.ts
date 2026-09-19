@@ -1,7 +1,7 @@
 import { z } from 'zod';
-import type { InspectorClient, InspectorRequest } from './types.js';
+import type { InspectorClient, InspectorRequest } from './types';
 import { parseObservation, parseActionResult } from '@vacp/protocol/validation';
-import { notify } from './notify.js';
+import { notify } from './notify';
 
 export type HttpInspectorOptions = {
   url: string;

@@ -77,7 +77,7 @@ test-tools: ## Validate the vendored anti-slop rules and their CLI integration.
 knip: ## Check unused files, exports, and dependencies.
 	$(PNPM) exec knip --treat-config-hints-as-errors
 
-test-package-imports: build-libs ## Verify built headless packages import in native Node.
+test-package-imports: build-libs ## Verify public package exports in native Node and TypeScript.
 	$(PNPM) exec node tools/check-package-imports.mjs
 
 test: build-libs test-package-imports python-test ## Run JavaScript and Python unit tests.

@@ -1,13 +1,13 @@
 import type { VacpFocus } from '@vacp/protocol';
-import type { VgplotBinding, VgplotBindings } from './bindings.js';
-import { prepareInputAction } from './inputs.js';
-import { plotLegends } from './legends.js';
-import { prepareInterval } from './interactors/interval.js';
-import { prepareNearestClear } from './interactors/nearest.js';
-import { preparePanZoom } from './interactors/pan-zoom.js';
-import { requestPlotUpdate } from './native-observation.js';
-import { preparePointSelection } from './interactors/toggle.js';
-import { prepareTableAction } from './table-actions.js';
+import type { VgplotBinding, VgplotBindings } from './bindings';
+import { prepareInputAction } from './inputs';
+import { plotLegends } from './legends';
+import { prepareInterval } from './interactors/interval';
+import { prepareNearestClear } from './interactors/nearest';
+import { preparePanZoom } from './interactors/pan-zoom';
+import { requestPlotUpdate } from './native-observation';
+import { preparePointSelection } from './interactors/toggle';
+import { prepareTableAction } from './table-actions';
 
 type Params = Record<string, unknown>;
 export type VgplotOperation = { focus: VacpFocus; execute(): unknown | Promise<unknown> };

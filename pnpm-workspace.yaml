@@ -27,6 +27,7 @@ catalog:
   tsx: ^4.23.13
   typescript: ^5.9.3
   zustand: ^5.0.15
+  '@types/emscripten': ^1.41.6
 overrides:
   yaml: 'catalog:'
   vite: 'catalog:'

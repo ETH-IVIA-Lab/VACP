@@ -1,7 +1,7 @@
 import { createGoogleGenerativeAI } from '@ai-sdk/google';
 import type { LanguageModel } from 'ai';
 
-import type { VacpLLMConfig, VacpLLMModelListOptions, VacpLLMModelOption } from './types.js';
+import type { VacpLLMConfig, VacpLLMModelListOptions, VacpLLMModelOption } from './types';
 
 const GEMINI_PROVIDER = 'gemini';
 

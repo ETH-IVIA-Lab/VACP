@@ -1,5 +1,5 @@
 import type { VacpWindowBridge } from '@vacp/protocol';
-import type { InspectorClient } from './types.js';
+import type { InspectorClient } from './types';
 
 export type InspectorRuntime = Pick<VacpWindowBridge, 'observe' | 'execute'> & {
   subscribe?(invalidate: () => void): () => void;

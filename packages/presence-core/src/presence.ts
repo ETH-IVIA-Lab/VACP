@@ -1,6 +1,6 @@
 import type { VacpExecution, VacpObservation } from '@vacp/protocol';
-import { validPresenceTarget } from './geometry.js';
-import type { PresenceActivity, PresenceBinding, PresenceOptions, PresenceSource } from './types.js';
+import { validPresenceTarget } from './geometry';
+import type { PresenceActivity, PresenceBinding, PresenceOptions, PresenceSource } from './types';
 
 type Active = {
   activity: PresenceActivity;
