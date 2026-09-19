@@ -1,0 +1,43 @@
+examples/react-dashboard/src/vacp/restoration.ts
+  s_ad28489153bcf7::t_4da0251d71e8fd 1-69
+examples/react-dashboard/src/vacp/actions.ts
+  s_ad28489153bcf7::t_017e5c2a2de2de 2,5-6,8-47,54-56,58-68,73-74,76-179,184-186,188-203,209
+  s_ad28489153bcf7::t_28db4a73b2df59 4,48-53,57,69-72,75,180-183,187
+  s_ad28489153bcf7::t_4da0251d71e8fd 3,7,204-208
+examples/react-dashboard/src/lib/dashboard.ts
+  s_ad28489153bcf7::t_017e5c2a2de2de 18-38,61
+  s_ad28489153bcf7::t_28db4a73b2df59 1,39-42,47,49-54,59-60
+  s_ad28489153bcf7::t_4da0251d71e8fd 43-46,48,55-58
+examples/react-dashboard/src/vacp/projection.ts
+  s_ad28489153bcf7::t_017e5c2a2de2de 1-212
+examples/react-dashboard/src/vacp.ts
+  s_ad28489153bcf7::t_017e5c2a2de2de 1-2,4-9,11,13,16-17,25,27-28,30,39-44,67
+examples/react-dashboard/src/vacp/refs.ts
+  s_ad28489153bcf7::t_017e5c2a2de2de 1-45
+examples/react-dashboard/src/vacp/model.ts
+  s_ad28489153bcf7::t_017e5c2a2de2de 1-13,15-34
+  s_ad28489153bcf7::t_4da0251d71e8fd 14
+examples/react-dashboard/src/bootstrap.tsx
+  s_ad28489153bcf7::t_017e5c2a2de2de 15-17
+apps/e2e/tests/bridge/availability.spec.ts
+  s_ad28489153bcf7::t_6b7f48751262d0 14-127,130-166
+  s_ad28489153bcf7::t_7254f3adab443f 128,167-171
+examples/react-dashboard/src/vacp/data.ts
+  s_ad28489153bcf7::t_017e5c2a2de2de 1-140
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "7f91d6a3cb4362ac4c63be2a8f3e15e47ba9d194",
+  "prompts": {},
+  "sessions": {
+    "s_ad28489153bcf7": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a0b393-234e-74d3-8b65-e0faa6b8456b",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Péter Ferenc Gyarmati <peterferenc.gyarmati@inf.ethz.ch>"
+    }
+  }
+}
