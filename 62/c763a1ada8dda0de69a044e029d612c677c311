@@ -1,0 +1,26 @@
+examples/vgplot-gallery/src/mfe.ts
+  s_ad28489153bcf7::t_963c615b74fa7b 8
+examples/shell.css
+  s_ad28489153bcf7::t_963c615b74fa7b 15,30,86,92
+  s_ad28489153bcf7::t_6464fed62a9d2a 93
+examples/vega-lite-gallery/src/mfe.ts
+  s_ad28489153bcf7::t_963c615b74fa7b 8
+examples/cars-parallel-coords/src/styles.css
+  s_ad28489153bcf7::t_963c615b74fa7b 15
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "62c763a1ada8dda0de69a044e029d612c677c311",
+  "prompts": {},
+  "sessions": {
+    "s_ad28489153bcf7": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a0b393-234e-74d3-8b65-e0faa6b8456b",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Péter Ferenc Gyarmati <peterferenc.gyarmati@inf.ethz.ch>"
+    }
+  }
+}
