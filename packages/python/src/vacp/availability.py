@@ -23,6 +23,9 @@ class AvailabilityStatus:
     reason: str | None = None
 
 
+_AVAILABLE = AvailabilityStatus(True)
+
+
 class AvailabilityError(ValueError):
     """An invocation rejected by the shared eligibility contract."""
 
@@ -50,10 +53,12 @@ def resolve_availability(graph: GraphFragment) -> tuple[dict[str, AvailabilitySt
     remaining: dict[str, int] = {}
     ready: list[str] = []
     for node in graph.nodes:
-        requirements = dict.fromkeys(node.availability.requires if node.availability else ())
-        remaining[node.ref] = len(requirements)
-        if not requirements:
+        declared = node.availability.requires if node.availability else ()
+        if not declared:
             ready.append(node.ref)
+            continue
+        requirements = dict.fromkeys(declared)
+        remaining[node.ref] = len(requirements)
         for ref in requirements:
             if ref not in definitions:
                 raise ValueError(f'Missing prerequisite {ref} for {node.ref}')
@@ -63,12 +68,17 @@ def resolve_availability(graph: GraphFragment) -> tuple[dict[str, AvailabilitySt
         reason = availability.unavailable if availability else None
         if reason is not None and not reason.strip():
             raise ValueError(f'Availability for {subject} requires a nonempty reason')
-        requirements = tuple(dict.fromkeys(availability.requires)) if availability else ()
-        for ref in requirements:
+        blocked: dict[str, None] | None = None
+        for ref in availability.requires if availability else ():
             if ref not in nodes:
                 raise ValueError(f'Missing prerequisite {ref} for {subject}')
-        blocked = tuple(ref for ref in requirements if not nodes[ref].available)
-        return AvailabilityStatus(reason is None and not blocked, blocked, reason)
+            if not nodes[ref].available:
+                if blocked is None:
+                    blocked = {}
+                blocked[ref] = None
+        if reason is None and blocked is None:
+            return _AVAILABLE
+        return AvailabilityStatus(False, tuple(blocked) if blocked else (), reason)
 
     for ref in ready:
         nodes[ref] = status(ref, definitions[ref].availability)

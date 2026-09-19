@@ -58,3 +58,5 @@ Node unit-test commands use a 10-second outer deadline so a missing asynchronous
 Run `make bench` for runtime reads, inspection, WebMCP registration, native Vega parameter observations, and coalesced presence work. The shared measurement helper warms the operation and reports the median of five rounds. Runtime scenarios include both unchanged and changing observations. Benchmark operations must verify that their results completed successfully.
 
 The runtime memory benchmark holds disposed handles across garbage collection and reports retained heap. It checks release of private history, delta caches, and provider references. Heap measurements are diagnostic, with no correctness threshold.
+
+Discovery benchmarks cover unrestricted catalogs, partially hidden catalogs, deep prerequisite chains, and large capability/state scopes. Python runs the same availability shapes. Scoped reads index exact refs and slash-delimited ancestors once; they do not cache source observations. Availability may share an immutable ready status, but each coherent read validates its own dependencies and produces its own status maps.

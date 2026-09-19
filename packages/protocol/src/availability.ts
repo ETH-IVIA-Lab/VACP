@@ -46,6 +46,12 @@ type AvailabilityGraph = {
   readonly actions: readonly Pick<VacpActionDescriptor, 'name' | 'availability'>[];
 };
 
+const AVAILABLE: VacpAvailabilityStatus = Object.freeze({
+  available: true,
+  blockedBy: Object.freeze([]),
+  reason: undefined,
+});
+
 /** Resolve explicit prerequisites. Containment, inputs, and effects do not imply availability. */
 export function resolveVacpAvailability(graph: AvailabilityGraph): VacpAvailabilityResolution {
   const nodes = new Map<VacpRef, VacpAvailabilityStatus>();
@@ -59,9 +65,13 @@ export function resolveVacpAvailability(graph: AvailabilityGraph): VacpAvailabil
   const remaining = new Map<VacpRef, number>();
   const ready: VacpRef[] = [];
   for (const node of graph.nodes) {
-    const requirements = new Set(node.availability?.requires ?? []);
+    const declared = node.availability?.requires;
+    if (!declared?.length) {
+      ready.push(node.ref);
+      continue;
+    }
+    const requirements = new Set(declared);
     remaining.set(node.ref, requirements.size);
-    if (!requirements.size) ready.push(node.ref);
     for (const ref of requirements) {
       if (!definitions.has(ref)) throw new Error(`Missing prerequisite ${ref} for ${node.ref}`);
       const children = dependents.get(ref) ?? [];
@@ -70,17 +80,20 @@ export function resolveVacpAvailability(graph: AvailabilityGraph): VacpAvailabil
     }
   }
   const status = (subject: string, availability?: VacpAvailability): VacpAvailabilityStatus => {
-    if (availability?.unavailable !== undefined && !availability.unavailable.trim())
+    const reason = availability?.unavailable;
+    if (reason !== undefined && !reason.trim())
       throw new Error(`Availability for ${subject} requires a nonempty reason`);
-    const blockedBy = [...new Set(availability?.requires ?? [])].filter((ref) => {
+    let blocked: Set<VacpRef> | undefined;
+    for (const ref of availability?.requires ?? []) {
       const dependency = nodes.get(ref);
       if (!dependency) throw new Error(`Missing prerequisite ${ref} for ${subject}`);
-      return !dependency.available;
-    });
+      if (!dependency.available) (blocked ??= new Set()).add(ref);
+    }
+    if (reason === undefined && !blocked) return AVAILABLE;
     return Object.freeze({
-      available: availability?.unavailable === undefined && blockedBy.length === 0,
-      blockedBy: Object.freeze(blockedBy),
-      reason: availability?.unavailable,
+      available: false,
+      blockedBy: blocked ? Object.freeze([...blocked]) : AVAILABLE.blockedBy,
+      reason,
     });
   };
   for (let index = 0; index < ready.length; index++) {

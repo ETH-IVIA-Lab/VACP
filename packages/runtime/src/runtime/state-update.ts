@@ -1,3 +1,4 @@
+import { matchesRefScope } from './ref-scope';
 import type {
   VacpStateDeltaPayload,
   VacpRef,
@@ -15,10 +16,6 @@ function normalizeRefs(refs: VacpRef[] | undefined): VacpRef[] | undefined {
   if (uniq.length === 0) return undefined;
 
   return uniq.sort();
-}
-
-function matchesScopedRef(ref: string, scopeRefs: VacpRef[]): boolean {
-  return scopeRefs.some((scopeRef) => ref === scopeRef || ref.startsWith(`${scopeRef}/`));
 }
 
 // Apply request scope (`refs`, `includeSummary`) to a full snapshot.
@@ -40,10 +37,11 @@ export function scopeStateSnapshot(snapshot: VacpStateSnapshot, request: VacpSta
     };
   }
 
+  const scopeRefs = new Set(refs);
   const state: Record<VacpRef, unknown> = {};
 
   for (const [ref, value] of Object.entries(snapshot.state)) {
-    if (isVacpRef(ref) && matchesScopedRef(ref, refs)) {
+    if (isVacpRef(ref) && matchesRefScope(ref, scopeRefs)) {
       state[ref] = value;
     }
   }
@@ -54,7 +52,7 @@ export function scopeStateSnapshot(snapshot: VacpStateSnapshot, request: VacpSta
     summary = {};
 
     for (const [ref, value] of Object.entries(snapshot.summary)) {
-      if (isVacpRef(ref) && matchesScopedRef(ref, refs)) {
+      if (isVacpRef(ref) && matchesRefScope(ref, scopeRefs)) {
         summary[ref] = value;
       }
     }

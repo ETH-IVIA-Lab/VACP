@@ -17,7 +17,8 @@
     "typecheck": "tsc -p tsconfig.json",
     "test": "pnpm exec tsx --test --test-timeout=10000 test/*.test.ts",
     "bench": "tsx bench/runtime.ts",
-    "bench:memory": "node --expose-gc --import tsx bench/lifetime.ts"
+    "bench:memory": "node --expose-gc --import tsx bench/lifetime.ts",
+    "bench:discovery": "tsx bench/discovery.ts"
   },
   "dependencies": {
     "@vacp/protocol": "workspace:*",

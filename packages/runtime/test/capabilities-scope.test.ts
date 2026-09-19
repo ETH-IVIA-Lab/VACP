@@ -74,3 +74,74 @@ test('scoped capabilities retain prerequisite context without expanding the requ
     runtime.dispose();
   }
 });
+
+test('ref scoping preserves exact matches, ancestor actions, and slash boundaries', async () => {
+  const refs = [
+    'vacp://scope/a',
+    'vacp://scope/a/item',
+    'vacp://scope/ab',
+    'vacp://scope/a%2Fb',
+    'vacp://scope/a/',
+  ] as const;
+  const runtime = createVacpRuntime({
+    providers: [
+      {
+        source: { id: 'vacp-source://scope', type: 'test', title: 'Scope' },
+        observe: () => ({
+          revision: '1',
+          observedAt: '',
+          graph: {
+            version: VACP_SCHEMA_VERSION,
+            nodes: refs.map((ref) => ({ ref, kind: 'Param', layer: 'ConfigLayer' })),
+            edges: [],
+            actions: refs.map((ref) => ({
+              name: ref,
+              description: ref,
+              operation: { kind: 'mutation', affects: [ref] },
+            })),
+          },
+          state: Object.fromEntries(refs.map((ref) => [ref, ref])),
+          summary: Object.fromEntries(refs.map((ref) => [ref, { title: ref }])),
+        }),
+        prepare: async () => {
+          throw new Error('Read-only fixture');
+        },
+      },
+    ],
+  });
+  try {
+    const exact = await runtime.getCapabilities({ refs: ['vacp://scope/a/item'] });
+    assert.deepEqual(
+      exact.graph.nodes.map((node) => node.ref),
+      ['vacp://scope/a/item'],
+    );
+    assert.deepEqual(
+      exact.graph.actions.map((action) => action.name),
+      ['vacp://scope/a', 'vacp://scope/a/item'],
+    );
+    const nested = await runtime.getCapabilities({ prefixes: ['vacp://scope/a'] });
+    const selected = ['vacp://scope/a', 'vacp://scope/a/item', 'vacp://scope/a/'];
+    assert.deepEqual(
+      nested.graph.nodes.map((node) => node.ref),
+      selected,
+    );
+    const state = await runtime.getState({ mode: 'full', refs: ['vacp://scope/a'] });
+    assert.equal(state.mode, 'full');
+    if (state.mode === 'full') {
+      assert.deepEqual(Object.keys(state.snapshot.state), selected);
+      assert.deepEqual(Object.keys(state.snapshot.summary!), selected);
+    }
+    const opaque = await runtime.getCapabilities({ prefixes: ['vacp://scope/a%2Fb'] });
+    assert.deepEqual(
+      opaque.graph.nodes.map((node) => node.ref),
+      ['vacp://scope/a%2Fb'],
+    );
+    const trailing = await runtime.getCapabilities({ prefixes: ['vacp://scope/a/'] });
+    assert.deepEqual(
+      trailing.graph.nodes.map((node) => node.ref),
+      ['vacp://scope/a/'],
+    );
+  } finally {
+    runtime.dispose();
+  }
+});

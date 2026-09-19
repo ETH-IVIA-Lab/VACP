@@ -1,3 +1,4 @@
+import { refAncestors, matchesRefScope } from './ref-scope';
 import type {
   VacpActionDescriptor,
   VacpCapabilitiesRequest,
@@ -9,8 +10,8 @@ import type {
 } from '@vacp/protocol';
 
 type NormalizedScope = {
-  refs?: VacpRef[];
-  prefixes?: VacpRef[];
+  refs?: Set<string>;
+  prefixes?: Set<string>;
   kinds?: Set<VacpNodeKind>;
   layers?: Set<VacpLayer>;
   includeActions: boolean;
@@ -18,13 +19,10 @@ type NormalizedScope = {
   includeNodeData: boolean;
 };
 
-function normalizeRefs(values: VacpRef[] | undefined): VacpRef[] | undefined {
+function normalizeRefs(values: VacpRef[] | undefined): Set<string> | undefined {
   if (!Array.isArray(values) || values.length === 0) return undefined;
-  const uniq = Array.from(new Set(values.filter((x) => x.length > 0)));
-
-  if (!uniq.length) return undefined;
-
-  return uniq.sort();
+  const refs = new Set(values.filter((ref) => ref.length > 0));
+  return refs.size ? refs : undefined;
 }
 
 function normalizeKinds(values: VacpNodeKind[] | undefined): Set<VacpNodeKind> | undefined {
@@ -51,20 +49,10 @@ function normalizeRequest(request: VacpCapabilitiesRequest): NormalizedScope {
   };
 }
 
-function matchesPrefix(ref: VacpRef, prefixes: VacpRef[] | undefined): boolean {
-  if (!prefixes || prefixes.length === 0) return false;
-
-  return prefixes.some((prefix) => ref === prefix || ref.startsWith(`${prefix}/`));
-}
-
 function includeByRefScope(node: VacpNode, scope: NormalizedScope): boolean {
-  const hasRefScope = Boolean((scope.refs && scope.refs.length) || (scope.prefixes && scope.prefixes.length));
-
-  if (!hasRefScope) return true;
-
-  if (scope.refs?.includes(node.ref)) return true;
-
-  return matchesPrefix(node.ref, scope.prefixes);
+  if (!scope.refs && !scope.prefixes) return true;
+  if (scope.refs?.has(node.ref)) return true;
+  return !!scope.prefixes && matchesRefScope(node.ref, scope.prefixes);
 }
 
 function includeByTypeScope(node: VacpNode, scope: NormalizedScope): boolean {
@@ -75,16 +63,14 @@ function includeByTypeScope(node: VacpNode, scope: NormalizedScope): boolean {
   return true;
 }
 
-function scopeAction(action: VacpActionDescriptor, survivingRefs: Set<VacpRef>): boolean {
+function scopeAction(action: VacpActionDescriptor, relatedRefs: Set<string>): boolean {
   const refs = [
     ...(action.availability?.requires ?? []),
     ...(action.operation.inputRefs ?? []),
     ...(action.operation.affects ?? []),
   ];
   if (!refs.length) return true;
-  return refs.some(
-    (actionRef) => survivingRefs.has(actionRef) || [...survivingRefs].some((ref) => ref.startsWith(`${actionRef}/`)),
-  );
+  return refs.some((ref) => relatedRefs.has(ref));
 }
 
 export function scopeCapabilitiesSnapshot(
@@ -98,9 +84,14 @@ export function scopeCapabilitiesSnapshot(
       .filter((node) => includeByRefScope(node, scope) && includeByTypeScope(node, scope))
       .map((node) => node.ref),
   );
+  // Index relationships once rather than rescanning every selected ref for every action.
+  const relatedRefs = new Set<string>();
+  if (scope.includeActions) {
+    for (const ref of survivingRefs) for (const ancestor of refAncestors(ref)) relatedRefs.add(ancestor);
+  }
   // Select actions against the requested scope before adding prerequisite context.
   const scopedActions = scope.includeActions
-    ? snapshot.graph.actions.filter((action) => scopeAction(action, survivingRefs))
+    ? snapshot.graph.actions.filter((action) => scopeAction(action, relatedRefs))
     : [];
   for (const action of scopedActions) {
     for (const ref of action.availability?.requires ?? []) survivingRefs.add(ref);
