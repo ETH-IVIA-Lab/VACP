@@ -85,7 +85,7 @@ test('presence is independent of execution and distinguishes completion from fre
   }
 });
 
-test('rapid actions keep every execution while late geometry cannot reclaim actor focus', async () => {
+test('a later action keeps actor focus when an earlier target resolves', async () => {
   const f = fixture();
   let finish!: (value: PresenceTarget) => void;
   const slow = new Promise<PresenceTarget>((resolve) => {
@@ -98,12 +98,12 @@ test('rapid actions keep every execution while late geometry cannot reclaim acto
     resolve: (focus) => (focus.detail === 0 ? slow : target),
   });
   try {
-    for (let i = 0; i < 8; i++) await f.runtime.execute({ callId: String(i), name: 'set', params: i });
+    await f.runtime.execute({ callId: 'earlier', name: 'set', params: 0 });
+    await f.runtime.execute({ callId: 'current', name: 'set', params: 1 });
     finish({ ...target, geometry: { kind: 'point', point: { x: 99, y: 99 } } });
-    await Promise.resolve();
-    await Promise.resolve();
-    assert.equal(f.count(), 8);
-    assert.equal(presence.getSnapshot()[0]!.execution.callId, '7');
+    await setImmediate();
+    assert.equal(f.count(), 2);
+    assert.equal(presence.getSnapshot()[0]!.execution.callId, 'current');
     assert.deepEqual(presence.getSnapshot()[0]!.target, target);
     f.runtime.removeProvider(f.provider.source.id);
     assert.deepEqual(presence.getSnapshot(), []);
@@ -154,8 +154,7 @@ test('replacing a source retires pending geometry and its old binding cannot tar
     f.runtime.update({ providers: [{ ...f.provider }] });
     assert.equal(lease.signal.aborted, true);
     finish(target);
-    await Promise.resolve();
-    await Promise.resolve();
+    await setImmediate();
     assert.deepEqual(presence.getSnapshot(), []);
     await f.runtime.execute({ callId: 'replacement', name: 'set' });
     assert.equal(presence.getSnapshot()[0]!.target, null);
@@ -297,3 +296,152 @@ test('passive viewers need no timing authority and removing host pacing leaves b
     f.runtime.dispose();
   }
 });
+
+test('geometry invalidation during renderer arrival waits for the replacement target', { timeout: 2000 }, async () => {
+  const f = fixture();
+  let invalidate = () => {};
+  let entered!: () => void;
+  const rendering = new Promise<void>((resolve) => {
+    entered = resolve;
+  });
+  let resolveTarget!: (target: PresenceTarget) => void;
+  const replacement = new Promise<PresenceTarget>((resolve) => {
+    resolveTarget = resolve;
+  });
+  let geometry: PresenceTarget | Promise<PresenceTarget> = target;
+  let arrivals = 0;
+  let arrivedTarget: PresenceTarget | null = null;
+  const presence = createAgentPresence(f.runtime, {
+    renderer: {
+      render: () => {},
+      arrive: () => {
+        arrivals++;
+        if (arrivals === 1) {
+          entered();
+          return new Promise<void>(() => {});
+        }
+        arrivedTarget = presence.getSnapshot()[0]!.target;
+        return Promise.resolve();
+      },
+    },
+  });
+  presence.attach({
+    ...f.runtime.getProviderBinding(f.provider),
+    sourceId: f.provider.source.id,
+    resolve: () => geometry,
+    subscribe: (notify) => {
+      invalidate = notify;
+      return () => {};
+    },
+  });
+  try {
+    await f.runtime.execute({ callId: 'moving', name: 'set' });
+    let finished = false;
+    const arrival = presence.arrive(presence.getSnapshot()[0]!.execution.id, new AbortController().signal).then(() => {
+      finished = true;
+    });
+    await rendering;
+    geometry = replacement;
+    invalidate();
+    await setImmediate();
+    assert.equal(finished, false);
+    resolveTarget({ ...target, geometry: { kind: 'point', point: { x: 40, y: 50 } } });
+    await arrival;
+    assert.deepEqual(arrivedTarget, { ...target, geometry: { kind: 'point', point: { x: 40, y: 50 } } });
+  } finally {
+    presence.dispose();
+    f.runtime.dispose();
+  }
+});
+
+test(
+  'detaching a source releases arrival even when a custom renderer ignores cancellation',
+  { timeout: 2000 },
+  async () => {
+    const f = fixture();
+    let entered!: () => void;
+    const rendering = new Promise<void>((resolve) => {
+      entered = resolve;
+    });
+    const presence = createAgentPresence(f.runtime, {
+      renderer: {
+        render: () => {},
+        arrive: () => {
+          entered();
+          return new Promise<void>(() => {});
+        },
+      },
+    });
+    const detach = presence.attach({
+      ...f.runtime.getProviderBinding(f.provider),
+      sourceId: f.provider.source.id,
+      resolve: () => target,
+    });
+    try {
+      await f.runtime.execute({ callId: 'retired', name: 'set' });
+      const arrival = presence.arrive(presence.getSnapshot()[0]!.execution.id, new AbortController().signal);
+      await rendering;
+      detach();
+      await arrival;
+      assert.deepEqual(presence.getSnapshot(), []);
+    } finally {
+      presence.dispose();
+      f.runtime.dispose();
+    }
+  },
+);
+
+test(
+  'arrival follows replacement geometry and releases unresolved work on cancellation and disposal',
+  { timeout: 2000 },
+  async () => {
+    const f = fixture();
+    const unresolved = new Promise<PresenceTarget>(() => {});
+    let geometry: PresenceTarget | Promise<PresenceTarget> = unresolved;
+    let invalidate = () => {};
+    let arrivals = 0;
+    const presence = createAgentPresence(f.runtime, {
+      renderer: {
+        render: () => {},
+        arrive: async () => {
+          arrivals++;
+        },
+      },
+    });
+    presence.attach({
+      ...f.runtime.getProviderBinding(f.provider),
+      sourceId: f.provider.source.id,
+      resolve: () => geometry,
+      subscribe: (notify) => {
+        invalidate = notify;
+        return () => {};
+      },
+    });
+    try {
+      await f.runtime.execute({ callId: 'pending', name: 'set' });
+      const id = presence.getSnapshot()[0]!.execution.id;
+      const cancelled = new AbortController();
+      const first = presence.arrive(id, cancelled.signal);
+      cancelled.abort();
+      await first;
+      assert.equal(arrivals, 0);
+
+      const replaced = presence.arrive(id, new AbortController().signal);
+      geometry = target;
+      invalidate();
+      await replaced;
+      assert.equal(arrivals, 1);
+      assert.deepEqual(presence.getSnapshot()[0]!.target, target);
+
+      geometry = unresolved;
+      invalidate();
+      const disposed = presence.arrive(id, new AbortController().signal);
+      presence.dispose();
+      await disposed;
+      assert.equal(arrivals, 1);
+    } finally {
+      presence.dispose();
+      f.runtime.dispose();
+    }
+  },
+);

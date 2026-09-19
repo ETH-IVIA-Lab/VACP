@@ -4,13 +4,31 @@ import type { PresenceActivity, PresenceBinding, PresenceOptions, PresenceSource
 
 type Active = {
   activity: PresenceActivity;
+  lifetime: AbortController;
   lookup?: AbortController;
+  queued: boolean;
   pending?: Promise<void>;
   retire?: ReturnType<typeof setTimeout>;
 };
 
 function terminal(execution: VacpExecution): boolean {
   return execution.phase === 'succeeded' || execution.phase === 'failed' || execution.phase === 'cancelled';
+}
+
+/** Presentation work may ignore cancellation; it must not retain an arrival waiter. */
+function untilAborted(work: Promise<void>, signal: AbortSignal): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const finish = () => {
+      signal.removeEventListener('abort', finish);
+      resolve();
+    };
+    signal.addEventListener('abort', finish, { once: true });
+    if (signal.aborted) finish();
+    void work.then(finish, (error) => {
+      signal.removeEventListener('abort', finish);
+      reject(error);
+    });
+  });
 }
 
 /** One independent viewer. Coalescing changes presentation only, never execution. */
@@ -44,12 +62,15 @@ export function createAgentPresence(source: PresenceSource, options: PresenceOpt
   };
   const release = (actorId: string) => {
     const entry = active.get(actorId);
-    entry?.lookup?.abort();
+    entry?.lifetime.abort();
     clearTimeout(entry?.retire);
     active.delete(actorId);
   };
   const locate = (entry: Active) => {
+    // A queued lookup reads the latest surface once for a burst of invalidations.
+    if (entry.queued) return;
     entry.lookup?.abort();
+    entry.pending = undefined;
     const execution = entry.activity.execution;
     const focus = execution.intent?.focus;
     const binding = execution.bindingId ? bindings.get(execution.bindingId) : undefined;
@@ -59,26 +80,31 @@ export function createAgentPresence(source: PresenceSource, options: PresenceOpt
     }
     const lookup = new AbortController();
     entry.lookup = lookup;
-    const signal = AbortSignal.any([lookup.signal, binding.signal, lifetime.signal]);
-    entry.pending = Promise.resolve()
-      .then(() => {
-        if (!signal.aborted) return binding.resolve(focus, { signal });
-      })
-      .then(
-        (target) => {
-          if (signal.aborted) return;
-          entry.activity.target = target && validPresenceTarget(target) ? target : null;
-          publish();
-        },
-        (error) => {
-          if (signal.aborted) return;
-          entry.activity.target = null;
-          safe(() => {
-            throw error;
-          });
-          publish();
-        },
-      );
+    entry.queued = true;
+    const signal = AbortSignal.any([lookup.signal, binding.signal, entry.lifetime.signal]);
+    entry.pending = untilAborted(
+      Promise.resolve()
+        .then(() => {
+          entry.queued = false;
+          if (!signal.aborted) return binding.resolve(focus, { signal });
+        })
+        .then(
+          (target) => {
+            if (signal.aborted) return;
+            entry.activity.target = target && validPresenceTarget(target) ? target : null;
+            publish();
+          },
+          (error) => {
+            if (signal.aborted) return;
+            entry.activity.target = null;
+            safe(() => {
+              throw error;
+            });
+            publish();
+          },
+        ),
+      signal,
+    );
   };
   const retire = (actorId: string, entry: Active) => {
     clearTimeout(entry.retire);
@@ -107,19 +133,24 @@ export function createAgentPresence(source: PresenceSource, options: PresenceOpt
     if (!entry) {
       if (execution.phase === 'running') return;
       while (active.size >= maxActors) release(active.keys().next().value!);
-      entry = { activity: { execution, target: null, freshness: 'unknown' } };
+      entry = {
+        activity: { execution, target: null, freshness: 'unknown' },
+        lifetime: new AbortController(),
+        queued: false,
+      };
       active.set(actorId, entry);
     }
     entry.activity.execution = execution;
     if (execution.phase === 'prepared') locate(entry);
     if (execution.phase === 'cancelled') {
-      entry.lookup?.abort();
+      entry.lifetime.abort();
       entry.activity.target = null;
     }
     if (terminal(execution)) retire(actorId, entry);
     publish();
   };
   const onObservation = (observation: VacpObservation) => {
+    if (!active.size) return;
     for (const entry of active.values()) {
       // Canvas and other surfaces can change geometry without a DOM layout event.
       if (entry.activity.execution.phase !== 'failed' && entry.activity.execution.phase !== 'cancelled') locate(entry);
@@ -143,6 +174,7 @@ export function createAgentPresence(source: PresenceSource, options: PresenceOpt
   } catch (error) {
     lifetime.abort();
     for (const release of subscriptions.reverse()) safe(release);
+    for (const actorId of active.keys()) release(actorId);
     safe(() => options.renderer?.dispose?.());
     throw error;
   }
@@ -166,9 +198,19 @@ export function createAgentPresence(source: PresenceSource, options: PresenceOpt
     async arrive(executionId: string, signal: AbortSignal) {
       const entry = [...active.values()].find((value) => value.activity.execution.id === executionId);
       if (!entry) return;
-      await entry.pending;
-      if (signal.aborted || lifetime.signal.aborted || !entry.activity.target) return;
-      await options.renderer?.arrive?.(executionId, AbortSignal.any([signal, lifetime.signal]));
+      const waiting = AbortSignal.any([signal, lifetime.signal, entry.lifetime.signal]);
+      while (!waiting.aborted && active.get(entry.activity.execution.actor.id) === entry) {
+        const pending = entry.pending;
+        if (pending) await untilAborted(pending, waiting);
+        if (waiting.aborted || active.get(entry.activity.execution.actor.id) !== entry) return;
+        if (pending !== entry.pending) continue;
+        if (entry.activity.target && options.renderer?.arrive) {
+          const arrival = entry.lookup ? AbortSignal.any([waiting, entry.lookup.signal]) : waiting;
+          await untilAborted(options.renderer.arrive(executionId, arrival), arrival);
+          if (pending !== entry.pending) continue;
+        }
+        return;
+      }
     },
     subscribe(listener: (activities: readonly PresenceActivity[]) => void) {
       lifetime.signal.throwIfAborted();
