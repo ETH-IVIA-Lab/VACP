@@ -18,8 +18,8 @@ function copySchema(schema: Record<string, unknown>): Record<string, unknown> {
 
 function actionInput(action: VacpActionDescriptor, name: string, mode?: 'object' | 'params') {
   const schema = action.parameters ? copySchema(action.parameters) : undefined;
-  // Object schemas (including $ref/allOf schemas) retain their original resource root.
-  const wrapped = mode ? mode === 'params' : schema && 'type' in schema && schema.type !== 'object';
+  // Only explicit object roots can pass through WebMCP's object-only input boundary.
+  const wrapped = mode ? mode === 'params' : schema !== undefined && schema.type !== 'object';
   if (!wrapped) return { schema, wrapped: false };
 
   // Give the nested schema its own resource so its local $refs retain their meaning.

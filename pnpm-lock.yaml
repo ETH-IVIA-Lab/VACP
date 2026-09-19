@@ -336,6 +336,9 @@ importers:
       webmcp-types:
         specifier: 'catalog:'
         version: 0.1.7
+      zod:
+        specifier: 'catalog:'
+        version: 4.6.5
 
   examples/cars-parallel-coords:
     dependencies:

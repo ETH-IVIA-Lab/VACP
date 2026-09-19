@@ -30,9 +30,11 @@ An action's related nodes supply context for its tool description. Its existing 
 
 ## Inputs and results
 
-Object inputs pass directly to the action. For an action named `threshold.set`, an agent calls `vacp.action.threshold.set` with `{ "value": 42 }`.
+Schemas with an explicit `type: 'object'` pass inputs directly to the action. For an action named `threshold.set`, an agent calls `vacp.action.threshold.set` with `{ "value": 42 }`.
 
-Schemas with an explicit non-object `type` use a `params` envelope. For an action accepting a string, the tool input is `{ "params": "hello" }`. The nested schema retains its own schema resource for local references. For indirect scalar schemas such as a root `$ref`, choose `inputMode: () => 'params'` explicitly. Actions without a schema accept object inputs by default.
+Other schemas, including unions, nullable objects, and root `$ref` schemas, use a `params` envelope. For an action accepting a string, the tool input is `{ "params": "hello" }`. The nested schema retains its own schema resource for local references. Use `inputMode: () => 'object'` to pass through an indirect schema known to accept only objects, or `'params'` to require an envelope. Actions without a schema accept object inputs by default.
+
+An envelope requires an explicit `params` value, including `null` when accepted. To expose optional values or defaults through WebMCP, place them in object properties, for example `.params(z.object({ limit: z.number().default(10) }))`. Agents can then invoke the action with `{}`.
 
 Handlers retain responsibility for validation. The action result is the normal VACP envelope: `{ callId, ok, result }` or `{ callId, ok: false, error }`. No source files or schemas are generated from TypeScript types.
 

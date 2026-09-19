@@ -20,6 +20,7 @@
     "portless": "catalog:",
     "typescript": "catalog:",
     "vega-embed": "^7.2.0",
-    "webmcp-types": "catalog:"
+    "webmcp-types": "catalog:",
+    "zod": "catalog:"
   }
 }

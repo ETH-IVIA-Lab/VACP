@@ -92,6 +92,22 @@ test('native WebMCP projects composed providers and unregisters them on disposal
     });
     expect(results.valid.ok).toBe(true);
     expect(results.invalid.ok).toBe(false);
+    expect(results.invalid.error.details).toEqual({
+      code: 'invalid-params',
+      issues: [expect.objectContaining({ path: ['value'], code: 'too_big', message: expect.any(String) })],
+    });
+    expect(results.observation.graph.actions).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          name: 'threshold.set',
+          parameters: expect.objectContaining({
+            type: 'object',
+            required: ['value'],
+            properties: { value: { type: 'number', minimum: 0, maximum: 100 } },
+          }),
+        }),
+      ]),
+    );
     expect(results.observation.graph.sources.map((source: { type: string }) => source.type)).toEqual(
       expect.arrayContaining(['parallel-coordinates', 'control']),
     );
@@ -107,6 +123,54 @@ test('native WebMCP projects composed providers and unregisters them on disposal
     await expect
       .poll(() => page.evaluate(async () => (await document.modelContext?.getTools())?.map((tool) => tool.name)))
       .toEqual(['unrelated']);
+  } finally {
+    await server.stop();
+  }
+});
+
+test('native WebMCP accepts generated unions, nullable inputs, and recursive references', async ({ page }) => {
+  const server = await startAppServer({ name: 'webmcp-schemas', cwd: exampleDir('cars-parallel-coords') });
+  try {
+    await page.addInitScript(() => {
+      globalThis.__vacpExampleOptions = { webmcp: false };
+    });
+    await page.goto(server.url);
+    const results = await page.evaluate(async (root) => {
+      const { exerciseWebMcpSchemas } = await import(`/@fs${root}/apps/e2e/fixtures/webmcp.ts`);
+      return exerciseWebMcpSchemas();
+    }, repoRoot);
+    expect(results.schemas['schema.action.scalar']).toMatchObject({
+      type: 'object',
+      required: ['params'],
+      properties: {
+        params: {
+          anyOf: [
+            { type: 'string', minLength: 1 },
+            { type: 'number', minimum: 0 },
+          ],
+        },
+      },
+    });
+    const schema = results.schemas['schema.action.tree'].properties.params;
+    const resolve = (reference: string) => {
+      expect(reference).toMatch(/^#\//);
+      return reference
+        .slice(2)
+        .split('/')
+        .reduce((value, key) => value[key.replace(/~1/g, '/').replace(/~0/g, '~')], schema);
+    };
+    const tree = resolve(schema.$ref);
+    const children = tree.properties.children.$ref ? resolve(tree.properties.children.$ref) : tree.properties.children;
+    expect(schema.$id).toEqual(expect.any(String));
+    expect(tree).toMatchObject({ type: 'object', properties: { label: { type: 'string' } } });
+    expect(children.type).toBe('array');
+    const item = children.items.$ref ? resolve(children.items.$ref) : children.items;
+    expect(item).toEqual(tree);
+    expect(results.scalar).toMatchObject({ ok: true, result: 4 });
+    expect(results.text).toMatchObject({ ok: true, result: 'hello' });
+    expect(results.nullable).toMatchObject({ ok: true, result: null });
+    expect(results.object).toMatchObject({ ok: true, result: { label: 'leaf' } });
+    expect(results.tree).toMatchObject({ ok: true, result: ['root', 'leaf'] });
   } finally {
     await server.stop();
   }

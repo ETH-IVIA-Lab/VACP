@@ -30,7 +30,7 @@ export type VacpWebMcpOptions = {
   includeAction?: (action: VacpActionDescriptor, graph: VacpGraph) => boolean;
   /** Override the full tool name for application action names that are not valid WebMCP names. */
   actionName?: (action: VacpActionDescriptor) => string;
-  /** Use an envelope for indirect or scalar schemas; object mode passes inputs through. */
+  /** Override automatic wrapping. Only explicit object schemas pass through by default. */
   inputMode?: (action: VacpActionDescriptor) => 'object' | 'params';
   annotations?: (action: VacpActionDescriptor) => WebMCP.ToolAnnotations;
 };

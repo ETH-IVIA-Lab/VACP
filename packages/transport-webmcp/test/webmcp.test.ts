@@ -183,6 +183,39 @@ test('automatic registration follows graph changes, preserves foreign tools, and
   await assert.rejects(again.refresh(), /abort/i);
 });
 
+test('indirect input schemas retain references inside an object envelope unless the host opts into pass-through', async () => {
+  const { runtime, actions } = fixture();
+  const parameters = {
+    $schema: 'https://json-schema.org/draft/2020-12/schema',
+    $ref: '#/$defs/input',
+    $defs: { input: { anyOf: [{ type: 'string', minLength: 1 }, { type: 'null' }] } },
+  };
+  actions.register(
+    { name: 'indirect', description: 'Echo an indirect input', operation: { kind: 'query' }, parameters },
+    (input) => input,
+  );
+  try {
+    const graph = (await runtime.getCapabilities()).graph;
+    const tool = compileVacpWebMcpTools(graph, runtime).find((entry) => entry.name === 'vacp.action.indirect')!;
+    assert.deepEqual(tool.inputSchema, {
+      type: 'object',
+      properties: { params: { ...parameters, $id: 'urn:vacp:webmcp:vacp.action.indirect' } },
+      required: ['params'],
+      additionalProperties: false,
+    });
+    assert.equal(
+      ((await tool.execute({ params: null }, { signal: new AbortController().signal })) as { result: unknown }).result,
+      null,
+    );
+    const direct = compileVacpWebMcpTools(graph, runtime, { inputMode: () => 'object' }).find(
+      (entry) => entry.name === 'vacp.action.indirect',
+    )!;
+    assert.deepEqual(direct.inputSchema, parameters);
+  } finally {
+    runtime.dispose();
+  }
+});
+
 test('a conflicting registration rolls back only this adapter and releases subscriptions', async () => {
   const { runtime } = fixture();
   const context = new Registry();

@@ -20,7 +20,7 @@
     },
     "apps/e2e": {
       // Loaded in the browser through Vite's /@fs route.
-      "entry": ["fixtures/presence.ts"],
+      "entry": ["fixtures/presence.ts", "fixtures/webmcp.ts"],
     },
     "apps/docs": {
       // VitePress loads this optional minifier dynamically for Rolldown builds.
