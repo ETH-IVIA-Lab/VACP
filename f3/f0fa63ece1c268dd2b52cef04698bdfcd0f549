@@ -1,0 +1,40 @@
+tools/check-package-imports.mjs
+  s_ad28489153bcf7::t_0c9a4435e28dc0 1-6,8-14,18-27,29-35,38-57,59,61-68
+  s_ad28489153bcf7::t_a30a0f620e4ea5 15-17,28
+  s_ad28489153bcf7::t_a418e135a3702b 36
+development_docs/architecture.md
+  s_ad28489153bcf7::t_d558236ca97a9f 28
+vite.config.ts
+  s_ad28489153bcf7::t_d558236ca97a9f 39
+  s_ad28489153bcf7::t_20a5cc3423f680 66-69,71-72,74-85,87-118,120-138
+  s_ad28489153bcf7::t_0e20e750bc52ec 30-31,35-36,70,119
+pnpm-lock.yaml
+  ai_agent 176-178,291-293,672-674,2406-2408,5726
+tsconfig.base.json
+  s_ad28489153bcf7::t_20a5cc3423f680 10
+pnpm-workspace.yaml
+  s_ad28489153bcf7::t_114579184f9411 30
+AGENTS.md
+  s_ad28489153bcf7::t_d558236ca97a9f 50,58-62
+Makefile
+  s_ad28489153bcf7::t_59d7825af4db2e 80
+development_docs/contributing.md
+  s_ad28489153bcf7::t_a418e135a3702b 54
+  s_ad28489153bcf7::t_d558236ca97a9f 43-52
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "f3f0fa63ece1c268dd2b52cef04698bdfcd0f549",
+  "prompts": {},
+  "sessions": {
+    "s_ad28489153bcf7": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a0b393-234e-74d3-8b65-e0faa6b8456b",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Péter Ferenc Gyarmati <peterferenc.gyarmati@inf.ethz.ch>"
+    }
+  }
+}
