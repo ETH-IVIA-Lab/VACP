@@ -1,24 +1,26 @@
 import { stableStringify } from '@vacp/protocol';
-import type { VacpCapabilitiesSnapshot, VacpObservation, VacpStateSnapshot } from '@vacp/protocol';
+import type { VacpCapabilitiesSnapshot, VacpResolvedObservation, VacpStateSnapshot } from '@vacp/protocol';
 import type { VacpLiveSnapshots } from './types';
 import { notify } from './helpers';
 
+type LiveRead = VacpLiveSnapshots & VacpResolvedObservation;
+
 /** Owns coherent live reads and invalidation; never selects or restores history. */
-export function createLiveObservations(read: () => Promise<VacpObservation>, signal: AbortSignal) {
+export function createLiveObservations(read: () => Promise<VacpResolvedObservation>, signal: AbortSignal) {
   const capabilityListeners = new Set<(snapshot: VacpCapabilitiesSnapshot) => void>();
   const snapshotListeners = new Set<(snapshots: VacpLiveSnapshots) => void>();
   let snapshotKey: string | undefined;
   let capabilitiesKey: string | undefined;
   let graphObservationKey: string | undefined;
   let observationGeneration = 0;
-  let pendingRead: { generation: number; promise: Promise<VacpLiveSnapshots> } | undefined;
-  let current: VacpLiveSnapshots | undefined;
-  const readLive = async (generation: number): Promise<VacpLiveSnapshots> => {
+  let pendingRead: { generation: number; promise: Promise<LiveRead> } | undefined;
+  let current: LiveRead | undefined;
+  const readLive = async (generation: number): Promise<LiveRead> => {
     signal.throwIfAborted();
     if (generation !== observationGeneration) return ensureLive();
-    let observation: VacpObservation;
+    let resolved: VacpResolvedObservation;
     try {
-      observation = await read();
+      resolved = await read();
     } catch (error) {
       signal.throwIfAborted();
       if (generation !== observationGeneration) return ensureLive();
@@ -26,6 +28,7 @@ export function createLiveObservations(read: () => Promise<VacpObservation>, sig
     }
     signal.throwIfAborted();
     if (generation !== observationGeneration) return ensureLive();
+    const { observation } = resolved;
     const cap: VacpCapabilitiesSnapshot = {
       version: observation.version,
       createdAt: observation.observedAt,
@@ -37,7 +40,7 @@ export function createLiveObservations(read: () => Promise<VacpObservation>, sig
       state: observation.state,
       summary: observation.summary,
     };
-    current = { observation, capabilities: cap, state: st };
+    current = { ...resolved, capabilities: cap, state: st };
 
     if (capabilityListeners.size > 0 || snapshotListeners.size > 0) {
       // Source descriptions can change independently of analytical source revisions.
@@ -58,10 +61,10 @@ export function createLiveObservations(read: () => Promise<VacpObservation>, sig
         }
       }
     }
-    return { observation, capabilities: cap, state: st };
+    return { ...resolved, capabilities: cap, state: st };
   };
 
-  const ensureLive = (): Promise<VacpLiveSnapshots> => {
+  const ensureLive = (): Promise<LiveRead> => {
     signal.throwIfAborted();
     if (pendingRead?.generation === observationGeneration) return pendingRead.promise;
     const generation = observationGeneration;

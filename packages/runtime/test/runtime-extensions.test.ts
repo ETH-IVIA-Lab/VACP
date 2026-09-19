@@ -19,6 +19,7 @@ function provider(title: string, actions = new VacpActionRegistry()): VacpProvid
         version: VACP_SCHEMA_VERSION,
         nodes: [{ ref: 'vacp://view', title, kind: 'View', layer: 'ViewLayer' }],
         edges: [],
+        actions: actions.list(),
       },
       state: {},
     }),
@@ -153,6 +154,7 @@ test('subscribed snapshots detect in-place graph and summary edits without times
     version: VACP_SCHEMA_VERSION,
     nodes: [{ ref: 'vacp://view' as const, title: 'before subscription', kind: 'View', layer: 'ViewLayer' }],
     edges: [],
+    actions: [],
   };
   const summary: Record<'vacp://view', string> = { 'vacp://view': 'first' };
   const description = { ...source };
@@ -204,6 +206,7 @@ test('freshness changes publish observations and history retains the observed re
             version: VACP_SCHEMA_VERSION,
             nodes: [{ ref: 'vacp://view', kind: 'Visualization', layer: 'VisualizationLayer' }],
             edges: [],
+            actions: [],
           },
           state: {},
           freshness: { 'vacp://view': { status } },
@@ -255,7 +258,7 @@ test('replacing an unrelated source preserves an in-flight action', async () => 
       createVacpProvider({
         source: { id: 'vacp-source://unrelated', type: 'test', title: 'Unrelated' },
         actions: new VacpActionRegistry(),
-        project: () => ({ graph: { version: VACP_SCHEMA_VERSION, nodes: [], edges: [] }, state: {} }),
+        project: () => ({ graph: { version: VACP_SCHEMA_VERSION, nodes: [], edges: [], actions: [] }, state: {} }),
       }),
     ]);
     finish();
@@ -271,6 +274,7 @@ test('recorded observations are isolated from providers, read results, and other
     version: VACP_SCHEMA_VERSION,
     nodes: [{ ref: 'vacp://view' as const, title: 'first', kind: 'View', layer: 'ViewLayer' }],
     edges: [],
+    actions: [],
   };
   const state = { 'vacp://view': { value: 1 } };
   const runtime = createVacpRuntime({
@@ -391,6 +395,7 @@ test('human invalidations and semantic actions keep distinct history attribution
             version: VACP_SCHEMA_VERSION,
             nodes: [{ ref: 'vacp://view', kind: 'View', layer: 'ViewLayer' }],
             edges: [],
+            actions: actions.list(),
           },
           state: { 'vacp://view': value },
         }),
@@ -465,7 +470,8 @@ test('an unsettled provider reports a bounded coherence failure', { timeout: 200
   }
 });
 
-test('capabilities follow action catalog changes independently of a host projection revision', async () => {
+test('host revisions cover the complete projected action catalog', async () => {
+  let revision = 0;
   const actions = new VacpActionRegistry();
   actions.register(descriptor('first'), () => {});
   const runtime = createVacpRuntime({
@@ -474,11 +480,12 @@ test('capabilities follow action catalog changes independently of a host project
         source,
         actions,
         project: () => ({
-          revision: 'host-version',
+          revision: String(revision),
           graph: {
             version: VACP_SCHEMA_VERSION,
             nodes: [{ ref: 'vacp://view', kind: 'View', layer: 'ViewLayer' }],
             edges: [],
+            actions: actions.list(),
           },
           state: {},
         }),
@@ -493,8 +500,10 @@ test('capabilities follow action catalog changes independently of a host project
   try {
     await runtime.getCapabilities();
     actions.register(descriptor('second'), () => {});
+    revision++;
     await runtime.getCapabilities();
     actions.unregister('first');
+    revision++;
     await runtime.getCapabilities();
     assert.deepEqual(catalogs, [['first'], ['first', 'second'], ['second']]);
   } finally {

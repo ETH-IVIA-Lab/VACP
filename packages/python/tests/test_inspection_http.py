@@ -1,5 +1,8 @@
+import asyncio
+
 from starlette.testclient import TestClient
 from vacp import (
+    Availability,
     GraphFragment,
     Invocation,
     InvocationResult,
@@ -23,7 +26,14 @@ def test_http_client_observes_and_executes_one_host_owned_session() -> None:
             str(current),
             '2026-09-18T12:00:00Z',
             GraphFragment(
-                (Node('vacp://value', 'Param', 'ConfigLayer'),),
+                (
+                    Node(
+                        'vacp://value',
+                        'Param',
+                        'ConfigLayer',
+                        availability=Availability(unavailable='Not initialized' if current == 0 else None),
+                    ),
+                ),
                 (),
                 (
                     OperationDescriptor(
@@ -48,10 +58,12 @@ def test_http_client_observes_and_executes_one_host_owned_session() -> None:
     session = ProviderComposer(
         [SimpleProvider(SourceDescription('vacp-source://test', 'test', 'Test'), observe, execute, close=close)]
     )
+    assert asyncio.run(session.observe()).graph.nodes == ()
     with TestClient(create_inspection_app(session)) as client:
         client.headers['X-VACP-Session'] = client.get('/api/vacp/session').json()['id']
         observation = client.get('/api/vacp/observation').json()
         assert observation['state'] == {'vacp://value': 0}
+        assert observation['graph']['nodes'][0]['availability'] == {'unavailable': 'Not initialized'}
         assert observation['graph']['actions'][0]['operation']['contract'] == 'counter.increment'
         result = client.post('/api/vacp/operations', json={'callId': 'call', 'name': 'increment'})
         assert result.json() == {'callId': 'call', 'ok': True, 'result': 1}

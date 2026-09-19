@@ -42,6 +42,7 @@ export default defineConfig({
         items: [
           { text: 'Choose a provider', link: '/providers/' },
           { text: 'Compose providers', link: '/providers/composition' },
+          { text: 'Availability', link: '/providers/availability' },
           { text: 'Vega-Lite', link: '/providers/vega-lite' },
           { text: 'VGPlot', link: '/providers/vgplot' },
         ],

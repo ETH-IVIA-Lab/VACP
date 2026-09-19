@@ -1,6 +1,11 @@
 import { webMcpExecutionSignal } from './execution';
 import type { WebMCP } from 'webmcp-types';
-import { primaryOperationRef, type VacpGraph, type VacpActionDescriptor } from '@vacp/protocol';
+import {
+  primaryOperationRef,
+  resolveVacpAvailability,
+  type VacpGraph,
+  type VacpActionDescriptor,
+} from '@vacp/protocol';
 import type { VacpWebMcpClient, VacpWebMcpOptions } from './types';
 
 function copySchema(schema: Record<string, unknown>): Record<string, unknown> {
@@ -34,6 +39,7 @@ export function compileVacpWebMcpTools(
   options: VacpWebMcpOptions = {},
 ): WebMCP.ModelContextTool[] {
   const namespace = options.namespace ?? 'vacp';
+  const availability = resolveVacpAvailability(graph);
   const nodes = new Map(graph.nodes.map((node) => [node.ref, node]));
   const tools: WebMCP.ModelContextTool[] = [
     {
@@ -76,6 +82,7 @@ export function compileVacpWebMcpTools(
   ];
 
   for (const action of graph.actions) {
+    if (!availability.actions.get(action.name)!.available) continue;
     if (options.includeAction && !options.includeAction(action, graph)) continue;
     const name = options.actionName?.(action) ?? `${namespace}.action.${action.name}`;
     const primaryRef = primaryOperationRef(action);

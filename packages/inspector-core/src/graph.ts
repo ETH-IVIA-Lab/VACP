@@ -1,4 +1,4 @@
-import type { VacpRef, VacpSourceId } from '@vacp/protocol';
+import { resolveVacpAvailability, type VacpRef, type VacpSourceId } from '@vacp/protocol';
 import type { InspectionObservation } from './types';
 
 type Graph = InspectionObservation['graph'];
@@ -8,9 +8,20 @@ type Edge = Graph['edges'][number];
 /** Build once per displayed observation. Custom kinds, layers, and relationships remain intact. */
 export function createInspectionIndex(observation: InspectionObservation) {
   const graph = observation.graph;
+  const availability = resolveVacpAvailability(graph);
   const nodes = new Map(graph.nodes.map((node) => [node.ref, node]));
   const sources = new Map(graph.sources.map((source) => [source.id, source]));
   const actions = new Map(graph.actions.map((action) => [action.name, action]));
+  const dependents = new Map<VacpRef, Graph['nodes'][number][]>();
+  for (const node of graph.nodes) {
+    for (const ref of new Set(node.availability?.requires ?? [])) {
+      const entries = dependents.get(ref) ?? [];
+      entries.push(node);
+      dependents.set(ref, entries);
+    }
+  }
+  const prerequisites = (refs: readonly VacpRef[] = []) =>
+    Object.freeze([...new Set(refs)].map((ref) => nodes.get(ref)!));
   const incoming = new Map<VacpRef, Edge[]>();
   const outgoing = new Map<VacpRef, Edge[]>();
   const operations = new Map<VacpRef, Action[]>();
@@ -24,6 +35,7 @@ export function createInspectionIndex(observation: InspectionObservation) {
   }
   for (const action of graph.actions) {
     const refs = new Set([
+      ...(action.availability?.requires ?? []),
       ...(action.operation.inputRefs ?? []),
       ...(action.operation.affects ?? []),
       ...(action.operation.results?.flatMap((result) => (result.ref ? [result.ref] : [])) ?? []),
@@ -36,16 +48,27 @@ export function createInspectionIndex(observation: InspectionObservation) {
   }
   return {
     observation,
+    availableActions: Object.freeze(graph.actions.filter((action) => availability.actions.get(action.name)!.available)),
     source: (id: VacpSourceId) => sources.get(id),
     action: (name: string) => {
       const descriptor = actions.get(name);
-      return descriptor ? { descriptor, source: sources.get(graph.ownership.actions[name]) } : undefined;
+      return descriptor
+        ? {
+            descriptor,
+            availability: availability.actions.get(name)!,
+            prerequisites: prerequisites(descriptor.availability?.requires),
+            source: sources.get(graph.ownership.actions[name]),
+          }
+        : undefined;
     },
     entity: (ref: VacpRef) => {
       const node = nodes.get(ref);
       if (!node) return undefined;
       return {
         node,
+        availability: availability.nodes.get(ref)!,
+        prerequisites: prerequisites(node.availability?.requires),
+        dependents: Object.freeze(dependents.get(ref) ?? []),
         source: sources.get(graph.ownership.nodes[ref]),
         hasValue: Object.hasOwn(observation.state, ref),
         value: observation.state[ref],

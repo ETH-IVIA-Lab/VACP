@@ -88,7 +88,8 @@ Workflow:
 4) Read `vacp_state()` again to verify the state change.
 
 Efficient defaults:
-1) Call `vacp_capabilities()` once initially. Use scoped options when the task is localized.
+1) Read `vacp_observe()` initially and after state changes. Only currently available actions are disclosed.
+   Use scoped capabilities when the task is localized.
 2) Call `vacp_state()` once for a baseline.
 3) After actions, prefer `vacp_state(options={mode:"delta", since:"<token>"})`.
 4) Add `refs` once target refs are known. Set `includeSummary=false` unless summary fields are needed.

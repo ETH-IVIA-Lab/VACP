@@ -33,7 +33,7 @@ The JavaScript workspace keeps one pnpm catalog and lockfile. The Python workspa
 
 `VacpProvider` combines a pure `VacpSourceDescription` with a live binding. Its `observe()` method returns one source revision containing an analytical graph fragment, state, summaries, and output freshness. Its `prepare()` method validates an operation and returns semantic intent plus a single-use execution closure. Runtime dispatch owns lifecycle events and optional bounded presentation gates. Optional invalidation and disposal callbacks remain transport-neutral.
 
-`createVacpProvider` binds a source description, an analytical projector, and a `VacpActionExecutor`. Discovery adapters can describe source facts before a live binding exists. Profiles can enrich those facts with selections, data handles, visualizations, and analytical relationships.
+`createVacpProvider` binds a source description, an analytical projector, and an action preparation port. The projector owns the complete graph, including current action descriptions; execution binding does not overwrite it. Discovery adapters can describe source facts before a live binding exists. Profiles can enrich those facts with selections, data handles, visualizations, and analytical relationships.
 
 `composeVacpProviders` validates one owner per node and action, permits cross-source edges, routes action calls to their owner, and retries observations invalidated during a read. The composed graph publishes source descriptions and ownership maps.
 
@@ -62,7 +62,7 @@ Applications pass browser exposure and SQL enablement explicitly. The browser in
 
 `createLiveObservations` owns coherent reads, invalidation, and live publication. `createRuntimeHistory` owns recorded copies. Runtime snapshots contain `observation` and `history`; a viewer retains whichever record it wants to inspect. Selecting a record performs no source operation.
 
-`createVacpRestorer` owns a queue of explicit restoration requests. It checks source ownership and unambiguous `vacp.apply_state` contracts before dispatching any action, routes each source only its state, and waits for every source result before starting its next request. Calls go through normal runtime execution and history. Failures report per-source results. Restoration is not a transaction across engines. Unsupported ownership fails before mutation. Provider-specific read-only or transient refs are reported in the provider result. An application may supply the restorer through an Inspector client's optional `restore` port.
+`createVacpRestorer` owns a queue of explicit restoration requests. It checks complete source ownership through `inspect()` and unambiguous `vacp.apply_state` contracts before dispatching any action, routes each source only its state, and waits for every source result before starting its next request. Calls go through normal runtime execution and history, including current action availability checks. Full inspection supplies ownership, never an execution bypass. Failures report per-source results. Restoration is not a transaction across engines. Unsupported ownership fails before mutation. Provider-specific read-only or transient refs are reported in the provider result. An application may supply the restorer through an Inspector client's optional `restore` port.
 
 Ordinary execution does not coordinate with a viewer's historical selection. State-token baselines are bounded independently of runtime history.
 
@@ -144,6 +144,14 @@ Vega run completion can witness its output revision. VGPlot requests updates and
 
 ## Observation work
 
-Every runtime read still consults the source and preserves consumer isolation. Capability publication reuses its graph fingerprint when the analytical revision and source descriptions are unchanged. A provider revision covers its graph, state, summary, and freshness. `createVacpProvider` incorporates action catalog changes into a supplied projection revision so dynamic operations remain discoverable.
+Every runtime read still consults the source and preserves consumer isolation. Capability publication reuses its graph fingerprint when the analytical revision and source descriptions are unchanged. A provider revision covers its graph, state, summary, and freshness. `createVacpProvider` computes a content revision when none is supplied. Host-supplied revisions cover the complete projection, including action descriptions and availability.
 
 Vega parameter projection reads one native snapshot and indexes its signal scopes once per observation. Root scope precedence and direct-signal fallback remain explicit in the binding. Presence discards superseded geometry work before invoking the resolver, while the execution stream retains every semantic operation.
+
+## Capability availability
+
+Providers publish their complete current catalog with `availability.requires` and optional `availability.unavailable` reasons. The protocol resolver owns conjunctive prerequisites, cycle and missing-ref validation, disclosure, and execution eligibility. Effects, inputs, and containment do not implicitly become prerequisites.
+
+Composition and runtime expose `observe()` for the disclosed surface and `inspect()` for the complete observation. One runtime read retains both views; only the disclosed observation enters capability/state subscriptions and DOM snapshots. Local history retains the complete observation. Inspection clients use `inspect()` and cannot bypass execution guards.
+
+Runtime dispatch checks availability before preparation and again after preparation and presentation waits. Native effects that follow provider-owned asynchronous work remain the provider's responsibility. WebMCP projects the disclosed catalog and invocation rechecks live eligibility, including while registration catches up with a state change. Python composition follows the same contract, checked by fixtures shared with the TypeScript protocol suite.

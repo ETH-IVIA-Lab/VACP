@@ -3,6 +3,13 @@ import { VACP_SCHEMA_VERSION, type VacpActionResult, type VacpObservation } from
 import { vacpRefSchema } from './util';
 const fields = z.record(z.string(), z.unknown());
 const sourceId = z.templateLiteral(['vacp-source://', z.string()]);
+const availability = z.object({
+  requires: z.array(vacpRefSchema).optional(),
+  unavailable: z
+    .string()
+    .refine((reason) => reason.trim().length > 0)
+    .optional(),
+});
 const operation = z.object({
   kind: z.enum(['mutation', 'creation', 'evaluation', 'query']),
   contract: z.string().optional(),
@@ -40,6 +47,7 @@ const observationSchema = z.object({
     nodes: z.array(
       z.object({
         ref: vacpRefSchema,
+        availability: availability.optional(),
         kind: z.string(),
         layer: z.string(),
         title: z.string().optional(),
@@ -51,6 +59,7 @@ const observationSchema = z.object({
     actions: z.array(
       z.object({
         name: z.string(),
+        availability: availability.optional(),
         title: z.string().optional(),
         description: z.string(),
         parameters: fields.optional(),

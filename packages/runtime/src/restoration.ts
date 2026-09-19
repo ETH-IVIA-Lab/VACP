@@ -4,7 +4,7 @@ import type {
   VacpActionResult,
   VacpRef,
   VacpSourceId,
-  VacpWindowBridge,
+  VacpRuntimeBridge,
 } from '@vacp/protocol';
 import { makeEntryId } from './runtime/helpers';
 
@@ -14,7 +14,7 @@ export type VacpRestorationResult = VacpActionResult<
   { sources: VacpRestorationOutcome[] }
 >;
 
-type RestorationClient = Pick<VacpWindowBridge, 'observe' | 'execute'> & { readonly signal: AbortSignal };
+type RestorationClient = Pick<VacpRuntimeBridge, 'inspect' | 'execute'> & { readonly signal: AbortSignal };
 
 /** Explicit host-owned restoration. Only requests made through this controller are serialized. */
 export function createVacpRestorer(client: RestorationClient) {
@@ -27,7 +27,7 @@ export function createVacpRestorer(client: RestorationClient) {
       const run = async (): Promise<VacpRestorationResult> => {
         signal.throwIfAborted();
         try {
-          const { graph } = await client.observe();
+          const { graph } = await client.inspect();
           signal.throwIfAborted();
           const restorers = new Map<string, string>();
           for (const action of graph.actions) {

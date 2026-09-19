@@ -15,7 +15,7 @@ const webmcp = await installVacpWebMcp(integration.bridge, {
 });
 ```
 
-The call returns an installation handle, or `undefined` when the browser does not expose `document.modelContext`. It does not require `window.__vacp` to be exposed. Initial registration errors reject the promise.
+The call returns an installation handle, or `undefined` when the browser does not expose `document.modelContext`. It does not require `window.__vacp` to be exposed. Initial registration errors reject the promise. Registration errors identify the failed tool and retain the browser error as their cause.
 
 By default, agents discover:
 

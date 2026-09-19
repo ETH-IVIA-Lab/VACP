@@ -35,10 +35,12 @@ Construction and subscription perform no I/O. `start()` reads the source and sub
 
 ## Read analytical context
 
-An observation contains the graph, source ownership, values, summaries, and output freshness from one revision. Create an index for the observation your interface displays:
+The runtime connector reads `inspect()`, retaining unavailable catalog entries. Inspection does not bypass execution checks. An observation contains the graph, source ownership, values, summaries, and output freshness from one revision. Create an index for the observation your interface displays:
 
 - `entity(ref)` returns the node, source, value, summary, freshness, incoming and outgoing edges, and related actions.
-- `action(name)` returns the descriptor and owning source.
+- `action(name)` returns the descriptor, owning source, availability, and prerequisites.
+- `availableActions` contains only currently executable actions.
+- Entity lookups also include availability, prerequisites, and dependent nodes.
 - `source(id)` returns the source description.
 
 Entity lookup distinguishes a missing state entry through `hasValue`. Related actions include declared inputs, affected entities, and result references. Dynamic reference parameters remain in each action's `operation.refParameters` for the application to resolve with its chosen inputs. Custom node kinds, layers, relationships, metadata, and operation schemas retain their protocol meaning.
@@ -49,7 +51,7 @@ Build an index once per displayed observation. Selection, filtering, sorting, an
 
 ## Execute operations
 
-Read descriptors from `state.observation.graph.actions`, collect parameters, and submit the protocol call:
+Read executable descriptors from `createInspectionIndex(state.observation).availableActions`, collect parameters, and submit the protocol call:
 
 ```ts
 const result = await session.execute({

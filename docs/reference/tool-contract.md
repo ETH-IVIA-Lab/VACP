@@ -17,6 +17,8 @@ Returns one observation with graph, state, source ownership, revision, summaries
 
 Returns a capabilities snapshot. This includes source descriptions, ownership, a semantic graph, and action descriptors for the current interface.
 
+Scoped capability reads retain the transitive prerequisites of matching nodes and actions as context, even when those prerequisites fall outside the requested refs, kinds, or layers. Context nodes do not pull in additional actions.
+
 For a broad read, omit `refs` and `prefixes`. Do not use bare `vacp://` as a scope token.
 
 ## vacp_state

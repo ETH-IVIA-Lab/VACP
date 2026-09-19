@@ -71,6 +71,8 @@ The vendored anti-slop sources remain unchanged. Local rule choices live in `too
 
 ## Behavioral boundaries
 
+- Providers describe the full catalog and current availability. Use explicit node prerequisites and host readiness reasons; do not infer prerequisites from containment or effects. Keep disclosure and execution guards in the shared protocol resolver. Agent reads disclose the current surface; inspection reads retain the catalog. Python and TypeScript availability semantics share conformance fixtures.
+
 - Preparation validates every supplied input and resolves its native target before mutation. Retain normalized values and the target in a single-use execution closure. Recheck lifetime before applying effects. Runtime errors can still occur after preparation. Report partial effects honestly.
 - Share one adapter-local binding inventory across discovery, state, execution, restoration, and optional presentation. Keep compiler names, native unit scopes, selection plumbing, and coordinate transforms inside the adapter. Consumers use refs. They do not decode paths to rediscover native objects.
 - Observation must preserve native behavior, return values, promise identity, rendering, and ownership. Prefer host subscriptions. When instrumentation is necessary, one shared connection owns each resource and fans out to consumers. Detach only owned hooks, including on failed setup. Borrowing a visualization never grants permission to finalize it.

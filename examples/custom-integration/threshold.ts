@@ -37,6 +37,7 @@ export function connectThreshold(input: ThresholdControl) {
         version: VACP_SCHEMA_VERSION,
         nodes: [{ ref, kind: 'Param', layer: 'ConfigLayer', title: 'Threshold' }],
         edges: [],
+        actions: actions.registry.list(),
       },
       state: { [ref]: { value: input.valueAsNumber } },
     }),

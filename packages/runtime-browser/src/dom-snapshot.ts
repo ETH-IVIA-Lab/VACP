@@ -99,11 +99,15 @@ function nextRefScriptId(cache: DomSnapshotCache, rootId: string, ref: VacpRef):
   return id;
 }
 
-type CompactNode = { ref: VacpRef; kind: string; layer: string; title?: string };
+type CompactNode = Pick<
+  VacpCapabilitiesSnapshot['graph']['nodes'][number],
+  'ref' | 'kind' | 'layer' | 'title' | 'availability'
+>;
 
 type CompactAction = {
   name: string;
   operation: VacpCapabilitiesSnapshot['graph']['actions'][number]['operation'];
+  availability?: VacpCapabilitiesSnapshot['graph']['actions'][number]['availability'];
   title?: string;
   description?: string;
 };
@@ -121,6 +125,7 @@ function compactGraph(capabilities: VacpCapabilitiesSnapshot): CompactGraph {
     const compact: CompactNode = { ref: node.ref, kind: node.kind, layer: node.layer };
 
     if (node.title) compact.title = node.title;
+    if (node.availability) compact.availability = node.availability;
 
     return compact;
   });
@@ -129,6 +134,7 @@ function compactGraph(capabilities: VacpCapabilitiesSnapshot): CompactGraph {
     const compact: CompactAction = { name: action.name, operation: action.operation };
 
     if (action.title) compact.title = action.title;
+    if (action.availability) compact.availability = action.availability;
 
     if (action.description) compact.description = action.description;
 

@@ -85,8 +85,17 @@ export type VacpEdgeKind = VacpCoreEdgeKind | (string & {});
  * Prefer small, stable summaries and handles over raw data. Large plots should
  * expose queryable handles instead of embedding complete datasets in the graph.
  */
+/** Current host readiness and conjunctive node prerequisites. Omission means available. */
+export type VacpAvailability = {
+  /** All listed nodes must be available. Cycles and missing refs are invalid. */
+  requires?: readonly VacpRef[];
+  /** A host-supplied reason this capability cannot currently be used. */
+  unavailable?: string;
+};
+
 export type VacpNode<Data = Record<string, unknown>> = {
   ref: VacpRef;
+  availability?: VacpAvailability;
   kind: VacpNodeKind;
   layer: VacpLayer;
   title?: string;
@@ -141,6 +150,7 @@ export type VacpOperationSemantics = {
 export type VacpActionDescriptor<Parameters = Record<string, unknown>> = {
   /** Unique execution identity across the composed graph. */
   name: string;
+  availability?: VacpAvailability;
   title?: string;
   description: string;
   /** JSON schema-like object, kept intentionally minimal. */

@@ -63,7 +63,7 @@ test('composition preserves source ownership, cross-source relationships, freshn
   ];
   const composed = composeVacpProviders(Object.freeze(sources));
   try {
-    const observation = await composed.observe();
+    const { observation } = await composed.read();
     assert.deepEqual(
       observation.graph.sources.map((source) => source.id),
       ['vacp-source://widget', 'vacp-source://notebook'],
@@ -81,7 +81,7 @@ test('composition preserves source ownership, cross-source relationships, freshn
     composed.dispose();
   }
   assert.equal(sources.length, 2);
-  await assert.rejects(composed.observe(), /disposed/);
+  await assert.rejects(composed.read(), /disposed/);
 });
 
 test('composition rejects competing ownership instead of silently replacing providers', async () => {
@@ -90,7 +90,7 @@ test('composition rejects competing ownership instead of silently replacing prov
     provider({ id: 'vacp-source://second', node: 'vacp://shared', action: 'second', result: 'second' }),
   ]);
   try {
-    await assert.rejects(composed.observe(), /owned by both/);
+    await assert.rejects(composed.read(), /owned by both/);
   } finally {
     composed.dispose();
   }
@@ -124,7 +124,7 @@ test('composition retries observations invalidated while sources are being read'
   };
   const composed = composeVacpProviders([changing]);
   try {
-    const observation = await composed.observe();
+    const { observation } = await composed.read();
     assert.equal(reads, 2);
     assert.equal(observation.state['vacp://changing'], 2);
   } finally {
@@ -193,7 +193,7 @@ test('shared relationships deduplicate by endpoints and kind without delimiter a
     }),
   ]);
   try {
-    assert.deepEqual((await composed.observe()).graph.edges, [shared, reverse, different]);
+    assert.deepEqual((await composed.read()).observation.graph.edges, [shared, reverse, different]);
   } finally {
     composed.dispose();
   }

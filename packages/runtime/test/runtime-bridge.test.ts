@@ -24,7 +24,12 @@ function fixture(names: string[], apply: (name: string, state: Record<VacpRef, u
         source,
         actions,
         project: () => ({
-          graph: { version: VACP_SCHEMA_VERSION, nodes: [{ ref, kind: 'Widget', layer: 'ConfigLayer' }], edges: [] },
+          graph: {
+            version: VACP_SCHEMA_VERSION,
+            nodes: [{ ref, kind: 'Widget', layer: 'ConfigLayer' }],
+            edges: [],
+            actions: actions.list(),
+          },
           state: { [ref]: values[name] },
         }),
       });
@@ -66,6 +71,69 @@ test('independent historical selections remain passive; explicit restoration fol
   assert.deepEqual(otherViewer.state, { 'vacp://restore/one': 'live-one', 'vacp://restore/two': 'live-two' });
 });
 
+test('restoration uses complete ownership while execution still requires an available restorer', async (t) => {
+  let visible = true;
+  let enabled = true;
+  let value: unknown = 'recorded';
+  let preparations = 0;
+  const ref = 'vacp://selection';
+  const actions = new VacpActionRegistry();
+  const restore = registerVacpApplyStateAction(actions, (state) => {
+    preparations++;
+    return () => {
+      value = state[ref];
+    };
+  });
+  const runtime = createVacpRuntime({
+    providers: [
+      createVacpProvider({
+        source: { id: 'vacp-source://chart', type: 'chart', title: 'Chart' },
+        actions,
+        project: () => ({
+          graph: {
+            version: VACP_SCHEMA_VERSION,
+            nodes: [
+              {
+                ref,
+                kind: 'Selection',
+                layer: 'ViewLayer',
+                availability: visible ? undefined : { unavailable: 'Chart hidden' },
+              },
+            ],
+            edges: [],
+            actions: [{ ...restore, availability: enabled ? undefined : { unavailable: 'Restoration disabled' } }],
+          },
+          state: { [ref]: value },
+        }),
+      }),
+    ],
+  });
+  t.after(() => runtime.dispose());
+  const recorded = await runtime.inspect();
+  visible = false;
+  value = 'live';
+  assert.deepEqual((await runtime.observe()).state, {});
+  const restorer = createVacpRestorer(runtime);
+  assert.equal((await restorer.restore(recorded.state)).ok, true);
+  assert.equal(value, 'recorded');
+  assert.equal(preparations, 1);
+  enabled = false;
+  const blocked = await restorer.restore({ [ref]: 'blocked' });
+  assert.equal(blocked.ok, false);
+  if (!blocked.ok) {
+    const failure = blocked.error.details?.sources[0]?.result;
+    assert.equal(failure?.ok, false);
+    if (failure && !failure.ok)
+      assert.deepEqual(failure.error.details, {
+        code: 'action-unavailable',
+        action: restore.name,
+        status: { available: false, blockedBy: [], reason: 'Restoration disabled' },
+      });
+  }
+  assert.equal(value, 'recorded');
+  assert.equal(preparations, 1);
+});
+
 test('unknown restoration ownership fails before any source is mutated', async (t) => {
   let calls = 0;
   const f = fixture(['one'], () => {
@@ -103,6 +171,7 @@ test('ambiguous restoration contracts fail before invoking any handler', async (
             version: VACP_SCHEMA_VERSION,
             nodes: [{ ref: 'vacp://one', kind: 'Widget', layer: 'ConfigLayer' }],
             edges: [],
+            actions: actions.list(),
           },
           state: { 'vacp://one': 1 },
         }),

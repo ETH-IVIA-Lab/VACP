@@ -45,6 +45,8 @@ export type VacpRuntimeSnapshot = {
  * Runtime instrumentation for in-page tools such as the inspector.
  */
 export interface VacpRuntimeBridge extends VacpWindowBridge {
+  /** Full catalog and state for inspection. Execution still enforces current availability. */
+  inspect(): Promise<VacpObservation> | VacpObservation;
   readonly runtimeId?: string;
   readonly sessionKey?: string;
   getRuntime?: () => Promise<VacpRuntimeSnapshot> | VacpRuntimeSnapshot;

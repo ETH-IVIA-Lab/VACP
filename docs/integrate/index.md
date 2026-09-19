@@ -9,7 +9,7 @@ The threshold example connects an HTML range input:
 `createVacpProvider()` keeps three concerns explicit:
 
 - `source` describes stable identity and provenance.
-- `project()` returns the current analytical graph and state in one call.
+- `project()` returns the complete analytical graph and state in one call. Include `actions: actions.registry.list()` in the graph, or project current action descriptions from the same state.
 - `actions` validates and invokes operations against the owning application.
 
 `installVacp({ providers: [provider] })` attaches the provider to the browser runtime. Providers with distinct source IDs compose at the same global key. Installing a replacement with the same source ID changes that source while preserving the other providers.
@@ -35,7 +35,7 @@ actions
 
 Use `mutation` for changes to live analytical state, `creation` for operations that create entities, `evaluation` for parameterized analyses, and `query` for reads that produce data. Add `.input(ref)`, `.affects(ref)`, and `.produces(result)` when those relationships are known.
 
-Parameter descriptions remain JSON Schema-like objects owned by the application. VACP does not generate schemas from TypeScript types.
+Parameter descriptions remain JSON Schema-like objects owned by the application. Define `.params(description, parser)` once, before `.focus()` or `.handle()`, so those callbacks receive the parsed type. VACP does not generate schemas from TypeScript types.
 
 ## Support state restoration
 

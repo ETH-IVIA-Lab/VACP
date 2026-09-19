@@ -1,4 +1,4 @@
-import type { VacpActionExecutionOptions } from '@vacp/protocol';
+import type { VacpActionExecutionOptions, VacpAvailability } from '@vacp/protocol';
 import { z } from 'zod';
 import { vacpRefSchema } from '@vacp/protocol';
 import type { VacpActionDescriptor, VacpRef } from '@vacp/protocol';
@@ -24,9 +24,10 @@ const paramsSchema = z.object({ state: z.record(vacpRefSchema, z.unknown()) });
 export function registerVacpApplyStateAction<Result>(
   registry: VacpActionRegistrar,
   prepare: VacpApplyStatePreparation<Result>,
-  options?: { affects?: VacpRef[]; description?: string },
+  options?: { availability?: VacpAvailability; affects?: VacpRef[]; description?: string },
 ): VacpActionDescriptor {
   const descriptor: VacpActionDescriptor = {
+    availability: options?.availability,
     name: VACP_APPLY_STATE_ACTION,
     description:
       options?.description ??

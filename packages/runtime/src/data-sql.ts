@@ -1,4 +1,4 @@
-import type { VacpActionExecutionOptions } from '@vacp/protocol';
+import type { VacpActionExecutionOptions, VacpAvailability } from '@vacp/protocol';
 import { z } from 'zod';
 import { vacpRefSchema } from '@vacp/protocol';
 import type { VacpActionDescriptor, VacpDataSqlParams, VacpRef } from '@vacp/protocol';
@@ -32,11 +32,12 @@ const paramsSchema = z.object({
 export function registerVacpDataSqlAction(
   registry: VacpActionRegistrar,
   handler: VacpDataSqlHandler,
-  options?: { enabled?: boolean; inputRefs?: VacpRef[]; description?: string },
+  options?: { availability?: VacpAvailability; enabled?: boolean; inputRefs?: VacpRef[]; description?: string },
 ): VacpActionDescriptor | null {
   if (options?.enabled === false) return null;
 
   const descriptor: VacpActionDescriptor = {
+    availability: options?.availability,
     name: VACP_DATA_SQL_ACTION,
     description:
       options?.description ??

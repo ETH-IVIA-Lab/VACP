@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { vacpRefSchema } from '@vacp/protocol';
+import { vacpRefSchema, assertVacpActionAvailable } from '@vacp/protocol';
 import type {
   VacpActionCall,
   VacpExecution,
@@ -83,7 +83,7 @@ export function createVacpRuntime(args: {
     providerLifetimes.get(id)?.abort();
     providerLifetimes.delete(id);
   };
-  const observations = createLiveObservations(() => adapter.observe(), lifetime.signal);
+  const observations = createLiveObservations(() => adapter.read(), lifetime.signal);
   const ensureLive = observations.read;
   const hasSubscribers = () => listeners.size > 0 || observations.subscribed;
   const runtimeId = args.runtimeId?.trim() || makeEntryId();
@@ -110,7 +110,7 @@ export function createVacpRuntime(args: {
 
   const record = (entry: VacpHistoryEntry): void => {
     if (entry.kind === 'snapshot' || entry.kind === 'action') {
-      entry.observation = observations.current?.observation;
+      entry.observation = observations.current?.inspection;
     }
     const captured = history.record(entry);
     notify(listeners, captured);
@@ -127,7 +127,7 @@ export function createVacpRuntime(args: {
   let detachProviderInvalidations = followProviderInvalidations();
 
   const { recordIfStateChanged, startObserving, stopObserving } = createRuntimeObserver({
-    getLive: () => observations.current?.observation ?? null,
+    getLive: () => observations.current?.inspection ?? null,
     ensureLive,
     record,
     shouldRecord: () => activeActions === 0,
@@ -169,7 +169,9 @@ export function createVacpRuntime(args: {
     activeActions += 1;
     try {
       signal.throwIfAborted();
-      const { observation: initial } = await ensureLive();
+      const resolved = await ensureLive();
+      const { inspection: initial, state: initialState } = resolved;
+      assertVacpActionAvailable(resolved, call);
       const owner = initial.graph.ownership.actions[call.name];
       const provider = owner ? providers.get(owner) : undefined;
       if (!provider) throw new Error(`Unknown action: ${call.name}`);
@@ -185,8 +187,8 @@ export function createVacpRuntime(args: {
       before = {
         version: initial.version,
         createdAt: initial.observedAt,
-        state: initial.state,
-        summary: initial.summary,
+        state: initialState.state,
+        summary: initialState.summary,
       };
       signal.throwIfAborted();
       const prepared = await provider.prepare(call, { ...options, signal });
@@ -197,6 +199,9 @@ export function createVacpRuntime(args: {
       if (presentation) await presentation;
       signal.throwIfAborted();
       emit('running');
+      const current = await ensureLive();
+      signal.throwIfAborted();
+      assertVacpActionAvailable(current, call);
       const result = await prepared.execute({ ...options, signal });
       signal.throwIfAborted();
       emit(result.ok ? 'succeeded' : 'failed', result.ok ? undefined : result.error.message);
@@ -395,6 +400,7 @@ export function createVacpRuntime(args: {
       listeners.clear();
     },
 
+    inspect: async () => structuredClone((await ensureLive()).inspection),
     observe: async () => structuredClone((await ensureLive()).observation),
 
     getCapabilities: async (request?: VacpCapabilitiesRequest) => {
@@ -412,7 +418,7 @@ export function createVacpRuntime(args: {
     },
 
     getRuntime: async (): Promise<VacpRuntimeSnapshot> => {
-      const { observation } = await ensureLive();
+      const { inspection } = await ensureLive();
       recordIfStateChanged('system', 'observed state');
 
       return {
@@ -420,7 +426,7 @@ export function createVacpRuntime(args: {
         runtimeId,
         sessionKey: sessionKey ?? undefined,
         history: history.snapshot(),
-        observation: structuredClone(observation),
+        observation: structuredClone(inspection),
       };
     },
 

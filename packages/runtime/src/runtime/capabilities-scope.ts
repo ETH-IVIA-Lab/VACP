@@ -76,7 +76,11 @@ function includeByTypeScope(node: VacpNode, scope: NormalizedScope): boolean {
 }
 
 function scopeAction(action: VacpActionDescriptor, survivingRefs: Set<VacpRef>): boolean {
-  const refs = [...(action.operation.inputRefs ?? []), ...(action.operation.affects ?? [])];
+  const refs = [
+    ...(action.availability?.requires ?? []),
+    ...(action.operation.inputRefs ?? []),
+    ...(action.operation.affects ?? []),
+  ];
   if (!refs.length) return true;
   return refs.some(
     (actionRef) => survivingRefs.has(actionRef) || [...survivingRefs].some((ref) => ref.startsWith(`${actionRef}/`)),
@@ -89,24 +93,31 @@ export function scopeCapabilitiesSnapshot(
 ): VacpCapabilitiesSnapshot {
   const scope = normalizeRequest(request);
 
-  const scopedNodes = snapshot.graph.nodes.flatMap((node) => {
-    if (!includeByRefScope(node, scope) || !includeByTypeScope(node, scope)) return [];
-
-    if (scope.includeNodeData) return [node];
-
-    const { data: _data, ...rest } = node;
-
-    return [rest];
-  });
-
-  const survivingRefs = new Set(scopedNodes.map((node) => node.ref));
-
-  const scopedEdges = scope.includeEdges
-    ? snapshot.graph.edges.filter((edge) => survivingRefs.has(edge.from) && survivingRefs.has(edge.to))
-    : [];
-
+  const survivingRefs = new Set(
+    snapshot.graph.nodes
+      .filter((node) => includeByRefScope(node, scope) && includeByTypeScope(node, scope))
+      .map((node) => node.ref),
+  );
+  // Select actions against the requested scope before adding prerequisite context.
   const scopedActions = scope.includeActions
     ? snapshot.graph.actions.filter((action) => scopeAction(action, survivingRefs))
+    : [];
+  for (const action of scopedActions) {
+    for (const ref of action.availability?.requires ?? []) survivingRefs.add(ref);
+  }
+  const nodes = new Map(snapshot.graph.nodes.map((node) => [node.ref, node]));
+  // Set iteration visits newly added refs, retaining the full prerequisite closure.
+  for (const ref of survivingRefs) {
+    for (const required of nodes.get(ref)?.availability?.requires ?? []) survivingRefs.add(required);
+  }
+  const scopedNodes = snapshot.graph.nodes.flatMap((node) => {
+    if (!survivingRefs.has(node.ref)) return [];
+    if (scope.includeNodeData) return [node];
+    const { data: _data, ...rest } = node;
+    return [rest];
+  });
+  const scopedEdges = scope.includeEdges
+    ? snapshot.graph.edges.filter((edge) => survivingRefs.has(edge.from) && survivingRefs.has(edge.to))
     : [];
 
   return {

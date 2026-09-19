@@ -47,3 +47,7 @@ Freshness belongs to outputs whose values may lag behind their inputs:
 - `error`: recomputation failed and `message` describes the failure.
 
 Providers set the completion boundary. VACP records the status and revisions supplied by the owner.
+
+## Availability
+
+[Declare prerequisites](./availability) to disclose nodes and actions only when their dependencies are ready. Discovery returns the available surface; `runtime.inspect()` retains the full catalog for inspection.

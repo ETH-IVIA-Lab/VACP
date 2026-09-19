@@ -190,9 +190,8 @@ export function createVegaLiteProvider(args: {
         };
       });
 
-      const { actions: _actions, ...graphFragment } = graph;
       const freshness = binding.freshness();
-      return { graph: { ...graphFragment, nodes }, state, freshness: freshness ? { [vizRef]: freshness } : undefined };
+      return { graph: { ...graph, nodes }, state, freshness: freshness ? { [vizRef]: freshness } : undefined };
     },
   };
 

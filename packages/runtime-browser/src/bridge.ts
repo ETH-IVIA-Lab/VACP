@@ -4,6 +4,7 @@ import { resolveVacpGlobalKey } from './window-globals';
 
 const bridgeContract = z.object({
   version: z.literal(VACP_SCHEMA_VERSION),
+  inspect: z.custom<(...args: never[]) => unknown>((value) => typeof value === 'function'),
   observe: z.custom<(...args: never[]) => unknown>((value) => typeof value === 'function'),
   getCapabilities: z.custom<(...args: never[]) => unknown>((value) => typeof value === 'function'),
   getState: z.custom<(...args: never[]) => unknown>((value) => typeof value === 'function'),

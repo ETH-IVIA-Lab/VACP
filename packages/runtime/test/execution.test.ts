@@ -32,6 +32,7 @@ function fixture() {
         version: VACP_SCHEMA_VERSION,
         nodes: [{ ref: 'vacp://plot', kind: 'View', layer: 'ViewLayer' }],
         edges: [],
+        actions: actions.list(),
       },
       state: { 'vacp://plot': value },
     }),

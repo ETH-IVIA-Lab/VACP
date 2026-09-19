@@ -27,6 +27,7 @@ function fixture() {
         version: VACP_SCHEMA_VERSION,
         nodes: [{ ref: 'vacp://plot', kind: 'View', layer: 'ViewLayer' }],
         edges: [],
+        actions: actions.list(),
       },
       state: { 'vacp://plot': executions },
       freshness: { 'vacp://plot': freshness },
@@ -46,7 +47,10 @@ function fixture() {
 test('presence is independent of execution and distinguishes completion from freshness', async () => {
   const f = fixture();
   let rendered: readonly PresenceActivity[] = [];
-  const countsAtResolution: number[] = [];
+  let resolveTarget!: (value: PresenceTarget) => void;
+  const pendingTarget = new Promise<PresenceTarget>((resolve) => {
+    resolveTarget = resolve;
+  });
   const presence = createAgentPresence(f.runtime, {
     renderer: {
       render: (activities) => {
@@ -57,17 +61,16 @@ test('presence is independent of execution and distinguishes completion from fre
   presence.attach({
     ...f.runtime.getProviderBinding(f.provider),
     sourceId: f.provider.source.id,
-    resolve: () => {
-      countsAtResolution.push(f.count());
-      return target;
-    },
+    resolve: () => pendingTarget,
   });
   try {
     await f.runtime.execute({ callId: 'set', name: 'set' });
     assert.equal(f.count(), 1);
-    assert.ok(countsAtResolution.length > 0 && countsAtResolution.every((count) => count === 1));
+    assert.equal(rendered[0]!.target, null);
     assert.equal(rendered[0]!.execution.phase, 'succeeded');
     assert.equal(rendered[0]!.freshness, 'updating');
+    resolveTarget(target);
+    await setImmediate();
     assert.deepEqual(rendered[0]!.target, target);
     f.settle();
     await f.runtime.refresh();

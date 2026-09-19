@@ -1,0 +1,401 @@
+[
+  {
+    "name": "unselected dataset hides chart and dependent operations, not acquisition",
+    "nodes": [
+      {
+        "ref": "vacp://data",
+        "availability": {
+          "unavailable": "Select a dataset"
+        }
+      },
+      {
+        "ref": "vacp://chart",
+        "availability": {
+          "requires": ["vacp://data"]
+        }
+      },
+      {
+        "ref": "vacp://bar",
+        "availability": {
+          "requires": ["vacp://chart"]
+        }
+      },
+      {
+        "ref": "vacp://menu"
+      }
+    ],
+    "actions": [
+      {
+        "name": "load"
+      },
+      {
+        "name": "click",
+        "availability": {
+          "requires": ["vacp://bar"]
+        }
+      }
+    ],
+    "statuses": {
+      "nodes": {
+        "vacp://data": {
+          "available": false,
+          "blockedBy": [],
+          "reason": "Select a dataset"
+        },
+        "vacp://chart": {
+          "available": false,
+          "blockedBy": ["vacp://data"]
+        },
+        "vacp://bar": {
+          "available": false,
+          "blockedBy": ["vacp://chart"]
+        },
+        "vacp://menu": {
+          "available": true,
+          "blockedBy": []
+        }
+      },
+      "actions": {
+        "load": {
+          "available": true,
+          "blockedBy": []
+        },
+        "click": {
+          "available": false,
+          "blockedBy": ["vacp://bar"]
+        }
+      }
+    },
+    "calls": [
+      {
+        "name": "load"
+      },
+      {
+        "name": "click",
+        "error": {
+          "code": "action-unavailable",
+          "action": "click",
+          "status": {
+            "available": false,
+            "blockedBy": ["vacp://bar"]
+          }
+        }
+      },
+      {
+        "name": "missing",
+        "error": {
+          "code": "unknown-action",
+          "action": "missing"
+        }
+      }
+    ]
+  },
+  {
+    "name": "all prerequisites must hold, including a host gate",
+    "nodes": [
+      {
+        "ref": "vacp://data"
+      },
+      {
+        "ref": "vacp://chart",
+        "availability": {
+          "requires": ["vacp://data"],
+          "unavailable": "Rendering"
+        }
+      },
+      {
+        "ref": "vacp://bar",
+        "availability": {
+          "requires": ["vacp://chart", "vacp://data"]
+        }
+      }
+    ],
+    "actions": [
+      {
+        "name": "load"
+      },
+      {
+        "name": "click",
+        "availability": {
+          "requires": ["vacp://bar"]
+        }
+      },
+      {
+        "name": "restricted",
+        "availability": {
+          "unavailable": "Read only"
+        }
+      }
+    ],
+    "statuses": {
+      "nodes": {
+        "vacp://data": {
+          "available": true,
+          "blockedBy": []
+        },
+        "vacp://chart": {
+          "available": false,
+          "blockedBy": [],
+          "reason": "Rendering"
+        },
+        "vacp://bar": {
+          "available": false,
+          "blockedBy": ["vacp://chart"]
+        }
+      },
+      "actions": {
+        "load": {
+          "available": true,
+          "blockedBy": []
+        },
+        "click": {
+          "available": false,
+          "blockedBy": ["vacp://bar"]
+        },
+        "restricted": {
+          "available": false,
+          "blockedBy": [],
+          "reason": "Read only"
+        }
+      }
+    },
+    "calls": [
+      {
+        "name": "restricted",
+        "error": {
+          "code": "action-unavailable",
+          "action": "restricted",
+          "status": {
+            "available": false,
+            "blockedBy": [],
+            "reason": "Read only"
+          }
+        }
+      }
+    ]
+  },
+  {
+    "name": "ready dependencies disclose the full surface without duplicate prerequisites",
+    "nodes": [
+      {
+        "ref": "vacp://bar",
+        "availability": {
+          "requires": ["vacp://chart", "vacp://chart"]
+        }
+      },
+      {
+        "ref": "vacp://chart",
+        "availability": {
+          "requires": ["vacp://data"]
+        }
+      },
+      {
+        "ref": "vacp://data"
+      }
+    ],
+    "actions": [
+      {
+        "name": "load"
+      },
+      {
+        "name": "click",
+        "availability": {
+          "requires": ["vacp://bar"]
+        }
+      }
+    ],
+    "statuses": {
+      "nodes": {
+        "vacp://bar": {
+          "available": true,
+          "blockedBy": []
+        },
+        "vacp://chart": {
+          "available": true,
+          "blockedBy": []
+        },
+        "vacp://data": {
+          "available": true,
+          "blockedBy": []
+        }
+      },
+      "actions": {
+        "load": {
+          "available": true,
+          "blockedBy": []
+        },
+        "click": {
+          "available": true,
+          "blockedBy": []
+        }
+      }
+    }
+  },
+  {
+    "name": "missing node prerequisite",
+    "nodes": [
+      {
+        "ref": "vacp://chart",
+        "availability": {
+          "requires": ["vacp://missing"]
+        }
+      }
+    ],
+    "actions": [],
+    "error": "Missing prerequisite vacp://missing for vacp://chart"
+  },
+  {
+    "name": "missing action prerequisite",
+    "nodes": [],
+    "actions": [
+      {
+        "name": "click",
+        "availability": {
+          "requires": ["vacp://missing"]
+        }
+      }
+    ],
+    "error": "Missing prerequisite vacp://missing for click"
+  },
+  {
+    "name": "cycles remain invalid behind a host gate",
+    "nodes": [
+      {
+        "ref": "vacp://a",
+        "availability": {
+          "requires": ["vacp://b"],
+          "unavailable": "Hidden"
+        }
+      },
+      {
+        "ref": "vacp://b",
+        "availability": {
+          "requires": ["vacp://a"]
+        }
+      }
+    ],
+    "actions": [],
+    "error": "Cyclic availability prerequisites; unresolved nodes: vacp://a, vacp://b"
+  },
+  {
+    "name": "unavailability explains its cause",
+    "nodes": [
+      {
+        "ref": "vacp://chart",
+        "availability": {
+          "unavailable": " "
+        }
+      }
+    ],
+    "actions": [],
+    "error": "Availability for vacp://chart requires a nonempty reason"
+  },
+  {
+    "name": "duplicate node identifies its ref",
+    "nodes": [
+      {
+        "ref": "vacp://data"
+      },
+      {
+        "ref": "vacp://data"
+      }
+    ],
+    "actions": [],
+    "error": "Duplicate availability node vacp://data"
+  },
+  {
+    "name": "duplicate action identifies its name",
+    "nodes": [],
+    "actions": [
+      {
+        "name": "load"
+      },
+      {
+        "name": "load"
+      }
+    ],
+    "error": "Duplicate availability action load"
+  },
+  {
+    "name": "parameterized input references require current availability",
+    "nodes": [
+      {
+        "ref": "vacp://ready"
+      },
+      {
+        "ref": "vacp://hidden",
+        "availability": {
+          "unavailable": "Choose data"
+        }
+      }
+    ],
+    "actions": [
+      {
+        "name": "query",
+        "operation": {
+          "kind": "query",
+          "refParameters": [
+            {
+              "parameter": "ref",
+              "role": "input"
+            }
+          ]
+        }
+      }
+    ],
+    "statuses": {
+      "nodes": {
+        "vacp://ready": {
+          "available": true,
+          "blockedBy": []
+        },
+        "vacp://hidden": {
+          "available": false,
+          "blockedBy": [],
+          "reason": "Choose data"
+        }
+      },
+      "actions": {
+        "query": {
+          "available": true,
+          "blockedBy": []
+        }
+      }
+    },
+    "calls": [
+      {
+        "name": "query",
+        "params": {
+          "ref": "vacp://ready"
+        }
+      },
+      {
+        "name": "query",
+        "params": {
+          "ref": "vacp://hidden"
+        },
+        "error": {
+          "code": "input-unavailable",
+          "action": "query",
+          "ref": "vacp://hidden",
+          "status": {
+            "available": false,
+            "blockedBy": [],
+            "reason": "Choose data"
+          }
+        }
+      },
+      {
+        "name": "query",
+        "params": {
+          "ref": "vacp://missing"
+        },
+        "error": {
+          "code": "input-unavailable",
+          "action": "query",
+          "ref": "vacp://missing"
+        }
+      }
+    ]
+  }
+]

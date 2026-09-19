@@ -1,5 +1,6 @@
 """Python providers and integrations for the Visual Analytics Context Protocol."""
 
+from vacp.availability import Availability, AvailabilityError, AvailabilityStatus, resolve_availability
 from vacp.provider import (
     Edge,
     Freshness,
@@ -21,6 +22,10 @@ from vacp.provider import (
 )
 
 __all__ = [
+    'Availability',
+    'AvailabilityError',
+    'AvailabilityStatus',
+    'resolve_availability',
     'Edge',
     'Freshness',
     'GraphFragment',

@@ -1,7 +1,9 @@
-import { executeVacpAction } from './action-registry';
+import { actionFailure, executeVacpAction } from './action-registry';
 import { notify } from './runtime/helpers';
 import {
   fnv1a64Hex,
+  assertVacpActionAvailable,
+  resolveVacpObservation,
   stableStringify,
   VACP_SCHEMA_VERSION,
   type VacpActionCall,
@@ -9,6 +11,7 @@ import {
   type VacpActionResult,
   type VacpGraph,
   type VacpObservation,
+  type VacpResolvedObservation,
   type VacpProvider,
   type VacpProviderObservation,
   type VacpRef,
@@ -155,7 +158,7 @@ export function composeVacpProviders(inputProviders: readonly VacpProvider[]) {
     throw error;
   }
 
-  const observe = async (): Promise<VacpObservation> => {
+  const read = async (): Promise<VacpResolvedObservation> => {
     if (disposed) throw new Error('VACP composition is disposed');
     for (let attempt = 0; attempt < MAX_COHERENCE_RETRIES; attempt++) {
       const before = epoch;
@@ -164,22 +167,48 @@ export function composeVacpProviders(inputProviders: readonly VacpProvider[]) {
       );
       if (disposed) throw new Error('VACP composition is disposed');
       if (before !== epoch) continue;
-      return composeObservations(providers, observations);
+      return resolveVacpObservation(composeObservations(providers, observations));
     }
     throw new Error('VACP sources did not settle into one coherent observation');
   };
 
-  const execute = async (call: VacpActionCall, options?: VacpActionExecutionOptions): Promise<VacpActionResult> => {
-    const observation = await observe();
+  const execute = async (
+    inputCall: VacpActionCall,
+    options?: VacpActionExecutionOptions,
+  ): Promise<VacpActionResult> => {
+    const call = structuredClone(inputCall);
+    options?.signal?.throwIfAborted();
+    const resolved = await read();
+    options?.signal?.throwIfAborted();
     if (disposed) throw new Error('VACP composition is disposed');
-    const owners = observation.graph.ownership.actions;
-    const sourceId = Object.hasOwn(owners, call.name) ? owners[call.name] : undefined;
-    if (!sourceId) return { callId: call.callId, ok: false, error: { message: `Unknown action: ${call.name}` } };
-    return executeVacpAction(bySource.get(sourceId)!, call, options);
+    try {
+      assertVacpActionAvailable(resolved, call);
+    } catch (error) {
+      return actionFailure(call, error);
+    }
+    const sourceId = resolved.inspection.graph.ownership.actions[call.name]!;
+    return executeVacpAction(
+      {
+        prepare: async (input, controls) => {
+          const prepared = await bySource.get(sourceId)!.prepare(input, controls);
+          return {
+            ...prepared,
+            execute: async (executionOptions) => {
+              const current = await read();
+              executionOptions?.signal?.throwIfAborted();
+              assertVacpActionAvailable(current, input);
+              return prepared.execute(executionOptions);
+            },
+          };
+        },
+      },
+      call,
+      options,
+    );
   };
 
   return {
-    observe,
+    read,
     execute,
     subscribe(listener: () => void) {
       listeners.add(listener);

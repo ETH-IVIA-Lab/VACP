@@ -723,7 +723,7 @@ export function installVacpForReactDashboard(args: { globalKey?: string; title?:
           },
         };
       })();
-      return { graph, state, summary };
+      return { graph: { ...graph, actions: actions.registry.list() }, state, summary };
     },
   });
   const vacp = installVacp({

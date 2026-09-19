@@ -99,18 +99,23 @@ export async function installVacpWebMcp(
         const registrationSignal = AbortSignal.any([signal, controller.signal]);
         const entry: Registration = { controller, key, tool };
         registrations.set(tool.name, entry);
-        await context.registerTool(
-          {
-            ...tool,
-            execute: async (input, execution) => {
-              registrationSignal.throwIfAborted();
-              const executionSignal = webMcpExecutionSignal(execution, signal);
-              executionSignal.throwIfAborted();
-              return entry.tool.execute(input, { signal: executionSignal });
+        try {
+          await context.registerTool(
+            {
+              ...tool,
+              execute: async (input, execution) => {
+                registrationSignal.throwIfAborted();
+                const executionSignal = webMcpExecutionSignal(execution, signal);
+                executionSignal.throwIfAborted();
+                return entry.tool.execute(input, { signal: executionSignal });
+              },
             },
-          },
-          { signal: registrationSignal, exposedTo: options.exposedTo },
-        );
+            { signal: registrationSignal, exposedTo: options.exposedTo },
+          );
+        } catch (cause) {
+          signal.throwIfAborted();
+          throw new Error(`WebMCP registration failed for ${tool.name}`, { cause });
+        }
       }
       error = undefined;
     } catch (cause) {

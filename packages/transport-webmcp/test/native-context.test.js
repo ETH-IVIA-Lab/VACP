@@ -11,7 +11,10 @@ test('native callers may omit execution context while runtime disposal remains a
   const provider = createVacpProvider({
     source: { id: 'vacp-source://native', type: 'test', title: 'Native' },
     actions,
-    project: () => ({ graph: { version: VACP_SCHEMA_VERSION, nodes: [], edges: [] }, state: {} }),
+    project: () => ({
+      graph: { version: VACP_SCHEMA_VERSION, nodes: [], edges: [], actions: actions.list() },
+      state: {},
+    }),
   });
   const runtime = createVacpRuntime({ providers: [provider] });
   try {

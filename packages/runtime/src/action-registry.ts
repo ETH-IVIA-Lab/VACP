@@ -8,7 +8,7 @@ import type {
   VacpFocus,
   VacpRef,
 } from '@vacp/protocol';
-import { fnv1a64Hex } from '@vacp/protocol';
+import { fnv1a64Hex, VacpAvailabilityError } from '@vacp/protocol';
 
 export interface VacpActionExecutor {
   list(): VacpActionDescriptor[];
@@ -167,7 +167,7 @@ export function actionFailure(call: VacpActionCall, error: unknown): Extract<Vac
     ok: false,
     error: {
       message: error instanceof Error ? error.message : String(error),
-      details: toSerializableErrorDetails(error),
+      details: error instanceof VacpAvailabilityError ? error.details : toSerializableErrorDetails(error),
     },
   };
 }

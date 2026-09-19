@@ -30,6 +30,7 @@ test('runtime connections observe and execute against a host-owned provider', as
             version: VACP_SCHEMA_VERSION,
             nodes: [{ ref: 'vacp://value', kind: 'Param', layer: 'ConfigLayer' }],
             edges: [],
+            actions: actions.list(),
           },
           state: { 'vacp://value': value },
         }),

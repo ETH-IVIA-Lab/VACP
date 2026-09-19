@@ -34,3 +34,23 @@ test('entity context preserves custom semantics, ownership and operation relatio
   assert.equal(index.action('set')?.descriptor.operation.contract, 'custom.domain.evaluate');
   assert.equal(index.entity('vacp://missing'), undefined);
 });
+
+test('inspection retains unavailable catalog entries and explains prerequisite chains', () => {
+  const value = observation();
+  value.graph.nodes[0].availability = { unavailable: 'Choose a dataset' };
+  value.graph.nodes.push({
+    ref: 'vacp://chart',
+    kind: 'Visualization',
+    layer: 'ViewLayer',
+    availability: { requires: ['vacp://value'] },
+  });
+  value.graph.actions[0].availability = { requires: ['vacp://chart'] };
+  const index = createInspectionIndex(value);
+  assert.deepEqual(index.availableActions, []);
+  assert.deepEqual(index.action('set')?.availability.blockedBy, ['vacp://chart']);
+  assert.equal(index.action('set')?.prerequisites[0].ref, 'vacp://chart');
+  assert.deepEqual(index.entity('vacp://chart')?.availability.blockedBy, ['vacp://value']);
+  assert.equal(index.entity('vacp://value')?.availability.reason, 'Choose a dataset');
+  assert.equal(index.entity('vacp://value')?.dependents[0].ref, 'vacp://chart');
+  assert.equal(index.entity('vacp://value')?.value, 0);
+});

@@ -153,7 +153,10 @@ test('native cancellation reaches SDK handlers with DOM publication enabled', as
       const provider = createVacpProvider({
         source: { id: 'vacp-source://webmcp-cancellation', type: 'test', title: 'Cancellation test' },
         actions: actions.registry,
-        project: () => ({ graph: { version: '0.1.0', nodes: [], edges: [] }, state: {} }),
+        project: () => ({
+          graph: { version: '0.1.0', nodes: [], edges: [], actions: actions.registry.list() },
+          state: {},
+        }),
       });
       const integration = installVacp({ providers: [provider] });
       const webmcp = await installVacpWebMcp(integration.bridge);

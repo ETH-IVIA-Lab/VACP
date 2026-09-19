@@ -64,8 +64,7 @@ function fixture() {
     source: { id: 'vacp-source://webmcp-test', type: 'test', title: 'WebMCP test' },
     actions,
     project: () => {
-      const { actions: _actions, ...projection } = graph;
-      return { graph: projection, state: { 'vacp://app/threshold': { value } } };
+      return { graph: { ...graph, actions: actions.list() }, state: { 'vacp://app/threshold': { value } } };
     },
   });
   const runtime = createVacpRuntime({ providers: [provider] });
@@ -194,7 +193,13 @@ test('a conflicting registration rolls back only this adapter and releases subsc
   };
   await context.registerTool(foreign);
   try {
-    await assert.rejects(installVacpWebMcp(runtime, { context }), /Duplicate/);
+    await assert.rejects(installVacpWebMcp(runtime, { context }), (error) => {
+      assert.ok(error instanceof Error);
+      assert.match(error.message, /registration failed for vacp.action.threshold.set/);
+      assert.ok(error.cause instanceof Error);
+      assert.match(error.cause.message, /Duplicate/);
+      return true;
+    });
     assert.deepEqual([...context.tools.values()], [foreign]);
   } finally {
     runtime.dispose();

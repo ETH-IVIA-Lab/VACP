@@ -19,7 +19,7 @@ class InspectionSession(Protocol):
     @property
     def session_id(self) -> str: ...
 
-    async def observe(self) -> Observation: ...
+    async def inspect(self) -> Observation: ...
     async def invoke(self, call: Invocation) -> InvocationResult: ...
 
 
@@ -46,7 +46,7 @@ def create_inspection_app(
         if wrong_session(request):
             return JSONResponse({'error': 'Analytical session changed. Reconnect the viewer.'}, status_code=409)
         async with gate:
-            return JSONResponse(as_dict(await session.observe()))
+            return JSONResponse(as_dict(await session.inspect()))
 
     async def execute(request: Request) -> JSONResponse:
         if wrong_session(request):

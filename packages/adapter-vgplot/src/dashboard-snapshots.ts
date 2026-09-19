@@ -282,8 +282,7 @@ export function createVgplotDashboardSnapshots(args: {
   return {
     project: async () => {
       await ensureDuckdbMeta();
-      const { actions: _actions, ...graph } = args.graph;
-      return { graph, state: await getState() };
+      return { graph: args.graph, state: await getState() };
     },
   };
 }

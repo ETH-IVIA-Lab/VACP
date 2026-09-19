@@ -6,6 +6,7 @@ export type InspectorRequest = { signal: AbortSignal };
 export interface InspectorClient<Params = unknown, Result = unknown> {
   readonly id: string;
   readonly title: string;
+  /** Complete catalog, including unavailable entities and operations. */
   observe(options: InspectorRequest): Promise<VacpObservation>;
   execute?(call: VacpActionCall<Params>, options: InspectorRequest): Promise<VacpActionResult<Result>>;
   subscribe?(invalidate: () => void): () => void;

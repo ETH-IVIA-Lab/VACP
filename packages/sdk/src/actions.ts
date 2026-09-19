@@ -21,15 +21,15 @@ import {
 
 export type VacpActions = {
   registry: VacpActionRegistry;
-  operation: (kind: VacpOperationKind, name: string, description: string) => VacpActionDefinition;
+  operation: (kind: VacpOperationKind, name: string, description: string) => VacpActionBuilder;
   standard: {
     applyState: <Result>(
       prepare: VacpApplyStatePreparation<Result>,
-      options?: { affects?: VacpRef[]; description?: string },
+      options?: Parameters<typeof registerVacpApplyStateAction>[2],
     ) => VacpActionDescriptor;
     dataSchema: (
       handler: VacpDataSchemaHandler,
-      options?: { inputRefs?: VacpRef[]; description?: string },
+      options?: Parameters<typeof registerVacpDataSchemaAction>[2],
     ) => VacpActionDescriptor;
     dataSql: (
       handler: VacpDataSqlHandler,
@@ -37,7 +37,7 @@ export type VacpActions = {
     ) => VacpActionDescriptor | null;
     widgetOptions: (
       handler: VacpWidgetOptionsHandler,
-      options?: { inputRefs?: VacpRef[]; description?: string },
+      options?: Parameters<typeof registerVacpWidgetOptionsAction>[2],
     ) => VacpActionDescriptor;
   };
 };
@@ -48,7 +48,7 @@ export function createVacpActions(sourceId?: VacpSourceId): VacpActions {
   return {
     registry,
     operation: (kind, name, description) =>
-      new VacpActionDefinition(registry, { name, description, operation: { kind } }, (value) => value),
+      new ActionDefinition(registry, { name, description, operation: { kind } }, (value) => value),
     standard: {
       applyState: (prepare, options) => registerVacpApplyStateAction(registry, prepare, options),
       dataSchema: (handler, options) => registerVacpDataSchemaAction(registry, handler, options),
@@ -61,7 +61,30 @@ export function createVacpActions(sourceId?: VacpSourceId): VacpActions {
 /** A Zod schema or an application-owned parser. No schema generation is required. */
 export type VacpActionParser<Params> = { parse: (value: unknown) => Params | Promise<Params> };
 
-export class VacpActionDefinition<Params = unknown> {
+type VacpActionMetadata<Next> = {
+  title(title: string): Next;
+  contract(contract: string): Next;
+  requires(...refs: VacpRef[]): Next;
+  input(ref: VacpRef): Next;
+  affects(ref: VacpRef): Next;
+  produces(result: VacpOperationResultDescriptor): Next;
+};
+
+/** Parsed parameters stay fixed once execution or presentation behavior is bound. */
+export interface VacpActionDefinition<Params = unknown> extends VacpActionMetadata<VacpActionDefinition<Params>> {
+  focus<Detail>(resolve: (params: Params) => VacpFocus<Detail> | undefined): VacpActionDefinition<Params>;
+  handle<Result>(handler: VacpActionHandler<Params, Result>): VacpActionDescriptor;
+}
+
+/** Describe parameters before binding callbacks that consume them. */
+export interface VacpActionBuilder extends VacpActionMetadata<VacpActionBuilder> {
+  params<Schema extends object>(schema: Schema): VacpActionDefinition;
+  params<Input, Schema extends object>(schema: Schema, parser: VacpActionParser<Input>): VacpActionDefinition<Input>;
+  focus<Detail>(resolve: (params: unknown) => VacpFocus<Detail> | undefined): VacpActionDefinition;
+  handle<Result>(handler: VacpActionHandler<unknown, Result>): VacpActionDescriptor;
+}
+
+class ActionDefinition<Params = unknown> {
   private readonly registry: VacpActionRegistry;
   private readonly descriptor: VacpActionDescriptor;
   private focusTarget?: (params: Params) => VacpFocus | undefined;
@@ -83,6 +106,14 @@ export class VacpActionDefinition<Params = unknown> {
 
   contract(contract: string): this {
     this.descriptor.operation.contract = contract;
+    return this;
+  }
+
+  requires(...refs: VacpRef[]): this {
+    this.descriptor.availability = {
+      ...this.descriptor.availability,
+      requires: [...new Set([...(this.descriptor.availability?.requires ?? []), ...refs])],
+    };
     return this;
   }
 
@@ -110,12 +141,14 @@ export class VacpActionDefinition<Params = unknown> {
     schema: Schema,
     parser?: VacpActionParser<Input>,
   ): VacpActionDefinition<Input> | VacpActionDefinition {
+    if (this.descriptor.parameters !== undefined || this.focusTarget)
+      throw new Error('Define action parameters once, before focus');
     const parameters: { [Key in keyof Schema]: Schema[Key] } = schema;
-    const descriptor = { ...this.descriptor, parameters };
+    const descriptor = { ...structuredClone(this.descriptor), parameters };
 
     return parser
-      ? new VacpActionDefinition(this.registry, descriptor, (value) => parser.parse(value))
-      : new VacpActionDefinition(this.registry, descriptor, (value) => value);
+      ? new ActionDefinition(this.registry, descriptor, (value) => parser.parse(value))
+      : new ActionDefinition(this.registry, descriptor, (value) => value);
   }
 
   focus<Detail>(resolve: (params: Params) => VacpFocus<Detail> | undefined): this {

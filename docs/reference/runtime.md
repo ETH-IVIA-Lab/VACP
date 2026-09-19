@@ -19,7 +19,7 @@ A `VacpProvider` exposes:
 - `subscribe(invalidate)`: optional push invalidation.
 - `dispose()`: optional source cleanup.
 
-`createVacpProvider({ source, actions, project })` builds this port for application integrations. `project()` returns an analytical projection. Browser installation and transports consume the provider through the same runtime contract.
+`createVacpProvider({ source, actions, project })` builds this port for application integrations. `project()` owns the complete analytical graph, including action descriptors, plus state, summary, and freshness. The `actions` port prepares execution without changing that projection. Omit `revision` for a content-derived revision, or change it whenever any projected content changes. Browser installation and transports consume the provider through the same runtime contract.
 
 ## Composition and ownership
 
@@ -51,12 +51,12 @@ To restore a chosen observation, create a host-owned restorer:
 ```ts
 import { createVacpRestorer } from '@vacp/runtime';
 
-const recorded = await runtime.observe();
+const recorded = await runtime.inspect();
 const restorer = createVacpRestorer(runtime);
 const result = await restorer.restore(recorded.state);
 ```
 
-Each source must expose an unambiguous `vacp.apply_state` operation. The restorer routes state by ownership and serializes its own requests. It waits for all source results and reports partial failures. Each outcome identifies its `sourceId`, action name, and action result. Providers report read-only and transient refs that they skip. Ordinary actions continue to target the live application.
+Each source must expose an unambiguous `vacp.apply_state` operation. The restorer reads complete ownership through `inspect()`, so currently unavailable entities can be restored when their source permits it. It routes state by ownership and serializes its own requests. Restoration still executes through the runtime and requires an available `vacp.apply_state` action. It waits for all source results and reports partial failures. Each outcome identifies its `sourceId`, action name, and action result. Providers report read-only and transient refs that they skip. Ordinary actions continue to target the live application.
 
 Caller cancellation and runtime lifetime are combined in the handler's `{ signal }` option.
 
@@ -67,3 +67,7 @@ Caller cancellation and runtime lifetime are combined in the handler's `{ signal
 `subscribeExecutions(listener)` publishes action lifecycle events independently of history. `getProviderBinding(provider)` returns the current attachment identity and lifetime signal for local presentation bindings. The separate `VacpExecutionControl` port grants timing authority: `addExecutionGate(gate, { timeoutMs, stage })` installs a bounded presentation gate. `stage` defaults to `before`. `after` holds the completed result and cannot change its outcome. The method returns its removal function.
 
 Applications continue to invoke `runtime.execute(call, options)`. The runtime prepares and executes the owned operation once. See [agent presence](../presence/) for actor attribution, presentation bindings, and custom viewers.
+
+## Current capabilities and full inspection
+
+`observe()`, capability reads, and state reads disclose only currently available entities and actions. `inspect()` returns the complete observation, including availability declarations. See [availability](../providers/availability) for prerequisites, execution guards, and inspection lookups. Provider `observe()` still supplies the complete source catalog; the runtime owns disclosure.

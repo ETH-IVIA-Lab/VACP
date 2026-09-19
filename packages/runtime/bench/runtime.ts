@@ -66,7 +66,7 @@ const composition = composeVacpProviders([
   },
 ]);
 try {
-  await measure('composition with 8,000 edges', () => composition.observe());
+  await measure('composition with 8,000 edges', () => composition.read());
 } finally {
   composition.dispose();
 }

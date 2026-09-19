@@ -409,7 +409,8 @@ export function installVacpForCarsParallelCoords(args: {
     },
   );
 
-  const graph: Omit<VacpGraphFragment, 'actions'> = {
+  const graph: VacpGraphFragment = {
+    actions: actions.registry.list(),
     version: VACP_SCHEMA_VERSION,
     nodes: [
       { ref: viewRef, kind: 'View', layer: 'ViewLayer', title: args.title },

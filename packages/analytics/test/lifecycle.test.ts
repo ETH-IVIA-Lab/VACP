@@ -15,7 +15,7 @@ test('telemetry replaces subscriptions without mutating the bridge or emitting d
   const provider = createVacpProvider({
     source: { id: 'vacp-source://analytics-test', type: 'test', title: 'Analytics test' },
     actions: new VacpActionRegistry(),
-    project: () => ({ graph: { version: '0.1.0', nodes: [], edges: [] }, state: {} }),
+    project: () => ({ graph: { version: '0.1.0', nodes: [], edges: [], actions: [] }, state: {} }),
   });
   const runtime = createVacpRuntime({
     runtimeId: 'runtime-1',

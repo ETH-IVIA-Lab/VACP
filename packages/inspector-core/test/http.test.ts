@@ -54,6 +54,8 @@ test('wire validation retains custom entity metadata and rejects incomplete obse
   const value = observation();
   value.graph.actions[0].operation.contract = 'custom.domain.inspect';
   value.graph.nodes[0].data = { nested: { domain: [1, 2] } };
+  value.graph.nodes[0].availability = { unavailable: 'Select dataset' };
+  value.graph.actions[0].availability = { requires: ['vacp://value'] };
   assert.deepEqual(parseObservation(value), value);
   const invalid = structuredClone(value);
   Object.assign(invalid.graph.actions[0].operation, { contract: 42 });

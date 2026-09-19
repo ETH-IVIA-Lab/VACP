@@ -7,9 +7,12 @@ import json
 import logging
 from collections.abc import Awaitable, Callable, Mapping, Sequence
 from contextlib import ExitStack
+from copy import deepcopy
 from dataclasses import asdict, dataclass
 from typing import Literal, Protocol, cast
 from uuid import uuid4
+
+from vacp.availability import Availability, AvailabilityError, ResolvedObservation, require_action, resolve_observation
 
 VACP_SCHEMA_VERSION = '0.1.0'
 MAX_COHERENCE_RETRIES = 8
@@ -33,6 +36,7 @@ class Node:
     title: str | None = None
     description: str | None = None
     data: Mapping[str, object] | None = None
+    availability: Availability | None = None
 
 
 @dataclass(frozen=True)
@@ -74,6 +78,7 @@ class OperationDescriptor:
     operation: OperationSemantics
     title: str | None = None
     parameters: Mapping[str, object] | None = None
+    availability: Availability | None = None
 
 
 @dataclass(frozen=True)
@@ -216,6 +221,12 @@ class ProviderComposer:
             raise RuntimeError('VACP composer is disposed')
 
     async def observe(self) -> Observation:
+        return (await self._read()).observation
+
+    async def inspect(self) -> Observation:
+        return (await self._read()).inspection
+
+    async def _read(self) -> ResolvedObservation:
         self._ensure_active()
         for _ in range(MAX_COHERENCE_RETRIES):
             before = self._epoch
@@ -223,12 +234,17 @@ class ProviderComposer:
             self._ensure_active()
             if before != self._epoch:
                 continue
-            return _compose(self._providers, observations)
+            return resolve_observation(_compose(self._providers, observations))
         raise RuntimeError('VACP sources did not settle into one coherent observation')
 
     async def invoke(self, call: Invocation) -> InvocationResult:
-        observation = await self.observe()
-        source_id = observation.action_owners.get(call.name)
+        call = deepcopy(call)
+        resolved = await self._read()
+        try:
+            require_action(resolved, call)
+        except AvailabilityError as error:
+            return InvocationResult(call.call_id, False, error={'message': str(error), 'details': error.details})
+        source_id = resolved.inspection.action_owners.get(call.name)
         if source_id is None:
             return InvocationResult(call.call_id, False, error={'message': f'Unknown operation: {call.name}'})
         result = await _resolve(self._by_source[source_id].invoke(call))
@@ -332,7 +348,10 @@ def as_dict(value: Observation) -> dict[str, object]:
             'nodes': dict(value.node_owners),
             'actions': dict(value.action_owners),
         },
-        'nodes': [_compact(asdict(node)) for node in value.graph.nodes],
+        'nodes': [
+            _compact({**asdict(node), 'availability': _availability_dict(node.availability)})
+            for node in value.graph.nodes
+        ],
         'edges': [{'from': edge.from_ref, 'to': edge.to_ref, 'kind': edge.kind} for edge in value.graph.edges],
         'actions': [_operation_dict(action) for action in value.graph.actions],
     }
@@ -349,6 +368,12 @@ def as_dict(value: Observation) -> dict[str, object]:
     )
 
 
+def _availability_dict(value: Availability | None) -> dict[str, object] | None:
+    if value is None:
+        return None
+    return _compact({'requires': list(value.requires) or None, 'unavailable': value.unavailable})
+
+
 def _operation_dict(action: OperationDescriptor) -> dict[str, object]:
     semantics = action.operation
     return _compact(
@@ -357,6 +382,7 @@ def _operation_dict(action: OperationDescriptor) -> dict[str, object]:
             'title': action.title,
             'description': action.description,
             'parameters': dict(action.parameters) if action.parameters else None,
+            'availability': _availability_dict(action.availability),
             'operation': _compact(
                 {
                     'kind': semantics.kind,

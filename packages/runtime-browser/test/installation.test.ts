@@ -15,6 +15,7 @@ const provider = (value: number, id = 'value') =>
         version: VACP_SCHEMA_VERSION,
         nodes: [{ ref: `vacp://example/${id}` as const, kind: 'Param', layer: 'ConfigLayer' }],
         edges: [],
+        actions: [],
       },
       state: { [`vacp://example/${id}`]: value },
     }),
