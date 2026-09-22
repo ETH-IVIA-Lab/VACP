@@ -34,6 +34,8 @@ Actions update existing Mosaic selections so linked views respond through their 
 
 Interval actions take data-domain endpoints in either order. Mosaic crossfilters retain the source plot as context and filter other marks subscribed through `filterBy`. In NYC Taxi Rides, brushing pickups filters the dropoff map. The hour histogram controls both maps but remains unfiltered itself. A visible brush identifies the selected region. Check the linked output to see the filtering effect.
 
+Each interactor's `selectionValue` describes its own selection clause, with `null` for an inactive clause. Setting a time range preserves existing spatial crossfilters. Clear actions explicitly remove the targeted brush, so agents should preserve unrelated selections unless the user requests their removal.
+
 Categorical legends expose their shared visible selection and support state restoration. Table sorting uses native schema columns and waits for Mosaic to update its rows. Presence bindings locate legend entries and sort headers directly.
 
 Try the [VGPlot gallery](https://examples.vacp.dev/vgplot/).

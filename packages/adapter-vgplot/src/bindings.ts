@@ -23,6 +23,14 @@ type LegendBinding = { kind: 'legend'; ref: VacpRef; plot: VgplotPlotLike; legen
 type InputBinding = { kind: 'input'; ref: VacpRef; input: CollectedInput };
 export type VgplotBinding = PlotBinding | TableBinding | InteractorBinding | LegendBinding | InputBinding;
 
+/** Mosaic Selection.value is the latest shared clause, not necessarily this source's clause. */
+export function readInteractorSelection(interactor: VgplotInteractorLike | undefined): unknown {
+  const selection = interactor?.selection;
+  return selection?.valueFor && interactor
+    ? (selection.valueFor(interactor) ?? null)
+    : (selection?.value ?? interactor?.value ?? null);
+}
+
 /** Native identities for one provider generation. No consumer decodes reference paths. */
 export function createVgplotBindings(args: {
   plots: Array<{ plotId: string; plot: VgplotPlotLike }>;

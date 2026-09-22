@@ -7,6 +7,71 @@ test.use({
   launchOptions: { args: ['--enable-experimental-web-platform-features', '--enable-features=WebMCPTesting'] },
 });
 
+test('WebMCP time changes and reads preserve a human spatial brush with source-specific state', async ({ page }) => {
+  const server = await startAppServer({ name: 'vgplot-shared-brush', cwd: exampleDir('vgplot-gallery') });
+  try {
+    await page.goto(`${server.url}#nyc-taxi-rides`);
+    await expect
+      .poll(
+        () =>
+          page.evaluate(
+            async () =>
+              (await document.modelContext?.getTools())?.some((tool) => tool.name === 'vacp.observe') ?? false,
+          ),
+        { timeout: 60_000 },
+      )
+      .toBe(true);
+    const plots = page.locator('#app svg');
+    const overlay = plots.nth(1).locator('rect.overlay');
+    const box = await overlay.boundingBox();
+    if (!box) throw new Error('Missing dropoff brush surface');
+    await page.mouse.move(box.x + box.width * 0.3, box.y + box.height * 0.4);
+    await page.mouse.down();
+    await page.mouse.move(box.x + box.width * 0.5, box.y + box.height * 0.6, { steps: 5 });
+    await page.mouse.up();
+    const ref = (plot: number) => `vacp://vacp-examples/vgplot/nyc-taxi-rides/plot-${plot}/interactor/0`;
+    const manual = await plots.nth(1).evaluate((svg) => {
+      const host = svg.parentElement as HTMLElement & { value: { interactors: Array<{ value: unknown }> } };
+      return host.value.interactors[0]!.value;
+    });
+    expect(manual).toHaveLength(2);
+    expect(Array.isArray(manual) && Array.isArray(manual[0])).toBe(true);
+    expect(
+      (await execute(page, 'vgplot.set_interval_1d', { plotId: 'plot-2', interactorId: '0', min: 20, max: 22 })).ok,
+    ).toBe(true);
+    await expect
+      .poll(async () => {
+        const state = (await execute(page, 'vacp.state')).state;
+        return [0, 1, 2].map((index) => state[ref(index)].selectionValue);
+      })
+      .toEqual([null, manual, [20, 22]]);
+    const observation = await execute(page, 'vacp.observe');
+    expect(observation.state[ref(0)].selectionValue).toBeNull();
+    expect(observation.state[ref(1)].selectionValue).toEqual(manual);
+    expect(observation.state[ref(2)].selectionValue).toEqual([20, 22]);
+    const handleRef = 'vacp://vacp-examples/vgplot/nyc-taxi-rides/data/main';
+    await execute(page, 'vacp.data_schema', { handleRef });
+    expect(
+      (await execute(page, 'vacp.data_sql', { handleRef, sql: 'SELECT count(*)::INTEGER AS n FROM vacp_handle' })).ok,
+    ).toBe(true);
+    expect((await execute(page, 'vgplot.clear_interval_2d', { plotId: 'plot-0', interactorId: '0' })).ok).toBe(true);
+    expect((await execute(page, 'vacp.state')).state[ref(1)].selectionValue).toEqual(manual);
+    await expect(plots.nth(1).locator('rect.selection')).toBeVisible();
+    expect((await execute(page, 'vgplot.clear_interval_2d', { plotId: 'plot-1', interactorId: '0' })).ok).toBe(true);
+    await expect(plots.nth(1).locator('rect.selection')).toBeHidden();
+    expect((await execute(page, 'vacp.apply_state', { state: observation.state })).ok).toBe(true);
+    await expect
+      .poll(async () => {
+        const state = (await execute(page, 'vacp.state')).state;
+        return [0, 1, 2].map((index) => state[ref(index)].selectionValue);
+      })
+      .toEqual([null, manual, [20, 22]]);
+    await expect(plots.nth(1).locator('rect.selection')).toBeVisible();
+  } finally {
+    await server.stop();
+  }
+});
+
 async function execute(page: Page, suffix: string, params: unknown = {}) {
   return page.evaluate(
     async ({ suffix, params }) => {

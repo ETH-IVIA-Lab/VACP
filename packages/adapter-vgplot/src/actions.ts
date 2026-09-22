@@ -1,4 +1,4 @@
-import type { VgplotBindings } from './bindings';
+import { readInteractorSelection, type VgplotBindings } from './bindings';
 import type { VacpActionDescriptor } from '@vacp/protocol';
 
 import { isSelectionBackedNearest } from './interactors/nearest';
@@ -175,15 +175,6 @@ function interactorParams(entry: CollectedInteractor | null): Record<string, unk
   return entry ? { plotId: entry.plotId, interactorId: entry.interactorId } : null;
 }
 
-function selectedValue(interactor: VgplotInteractorLike) {
-  if (Object.hasOwn(interactor, 'value') && interactor.value !== undefined) return interactor.value;
-  const selection = interactor.selection;
-
-  if (selection && typeof selection === 'object' && 'value' in selection) return selection.value;
-
-  return null;
-}
-
 function inputDefaultValue(input: CollectedInput) {
   const selected = readInputValue(input).value;
 
@@ -286,12 +277,13 @@ export function actionDescriptorsForDashboard(args: {
   const tableEntry = args.bindings.tables?.[0] ?? null;
 
   if (hasInterval1D) {
-    const current = pairFromValue(interval1d?.interactor.value ?? selectedValue(interval1d?.interactor ?? {}));
+    const current = pairFromValue(readInteractorSelection(interval1d?.interactor));
     const domain = current ?? innerDomainPair(readScaleDomain(interval1d?.interactor.scale));
     actions.push({
       name: 'vgplot.set_interval_1d',
       title: 'Filter range',
-      description: 'Set a 1D interval selection (domain units).',
+      description:
+        'Set this brush range in domain units. Existing crossfilters remain active. Preserve unrelated selections unless the user requests changing them.',
       operation: { kind: 'mutation', affects: [viewRef] },
       parameters: objectSchema(
         {
@@ -309,7 +301,8 @@ export function actionDescriptorsForDashboard(args: {
     actions.push({
       name: 'vgplot.clear_interval_1d',
       title: 'Clear range',
-      description: 'Clear a 1D interval selection.',
+      description:
+        'Remove this brush range. Use when the user requests clearing this filter. Changing another filter does not require clearing this one.',
       operation: { kind: 'mutation', affects: [viewRef] },
       parameters: objectSchema(
         { plotId: { type: 'string' }, interactorId: { type: 'string' } },
@@ -320,9 +313,7 @@ export function actionDescriptorsForDashboard(args: {
   }
 
   if (hasInterval2D) {
-    const current = Array.isArray(interval2d?.interactor.value)
-      ? interval2d.interactor.value
-      : selectedValue(interval2d?.interactor ?? {});
+    const current = readInteractorSelection(interval2d?.interactor);
 
     const currentX = Array.isArray(current) ? pairFromValue(current[0]) : null;
     const currentY = Array.isArray(current) ? pairFromValue(current[1]) : null;
@@ -331,7 +322,8 @@ export function actionDescriptorsForDashboard(args: {
     actions.push({
       name: 'vgplot.set_interval_2d',
       title: 'Filter region',
-      description: 'Set a 2D interval selection (x/y domain units).',
+      description:
+        'Set this brush region in x/y domain units. Existing crossfilters remain active. Preserve unrelated selections unless the user requests changing them.',
       operation: { kind: 'mutation', affects: [viewRef] },
       parameters: objectSchema(
         {
@@ -351,7 +343,8 @@ export function actionDescriptorsForDashboard(args: {
     actions.push({
       name: 'vgplot.clear_interval_2d',
       title: 'Clear region',
-      description: 'Clear a 2D interval selection.',
+      description:
+        'Remove this brush region. Use when the user requests clearing this filter. Changing another filter does not require clearing this one.',
       operation: { kind: 'mutation', affects: [viewRef] },
       parameters: objectSchema(
         { plotId: { type: 'string' }, interactorId: { type: 'string' } },
@@ -370,7 +363,9 @@ export function actionDescriptorsForDashboard(args: {
       parameters: objectSchema(
         { plotId: { type: 'string' }, interactorId: { type: 'string' }, value: {} },
         ['interactorId', 'value'],
-        toggle ? { ...interactorParams(toggle), value: safeActionValue(selectedValue(toggle.interactor)) } : null,
+        toggle
+          ? { ...interactorParams(toggle), value: safeActionValue(readInteractorSelection(toggle.interactor)) }
+          : null,
       ),
     });
     actions.push({
@@ -410,7 +405,9 @@ export function actionDescriptorsForDashboard(args: {
       parameters: objectSchema(
         { plotId: { type: 'string' }, interactorId: { type: 'string' }, value: {} },
         ['interactorId', 'value'],
-        region ? { ...interactorParams(region), value: safeActionValue(selectedValue(region.interactor)) } : null,
+        region
+          ? { ...interactorParams(region), value: safeActionValue(readInteractorSelection(region.interactor)) }
+          : null,
       ),
     });
     actions.push({

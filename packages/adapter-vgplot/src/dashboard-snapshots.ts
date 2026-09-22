@@ -1,4 +1,4 @@
-import type { VgplotBindings } from './bindings';
+import { readInteractorSelection, type VgplotBindings } from './bindings';
 import { legendValue } from './legends';
 import type { VacpGraphFragment, VacpRef } from '@vacp/protocol';
 import type { VacpAnalyticalProjection } from '@vacp/runtime';
@@ -212,12 +212,12 @@ export function createVgplotDashboardSnapshots(args: {
       bindings.interactors(plot).forEach(({ interactor, ref: interactorRef }) => {
         const anyI = interactor;
         const ctorName = interactor.constructor?.name ?? 'Interactor';
-        const rawValue = interactor.value;
+        const rawValue = interactor.selection?.valueFor ? readInteractorSelection(interactor) : interactor.value;
 
         const selectionValue =
           ctorName === 'Nearest'
             ? safeStateValue(readNearestValue(anyI, rawValue))
-            : safeStateValue(anyI.selection?.value ?? undefined);
+            : safeStateValue(readInteractorSelection(interactor));
 
         const domain =
           ctorName === 'Interval1D'
