@@ -17,6 +17,7 @@ const surfaces = [
   { name: 'vega-lite.examples.vacp', path: '/', kind: 'example' },
   { name: 'vgplot.examples.vacp', path: '/', kind: 'example' },
   { name: 'react-dashboard.examples.vacp', path: '/', kind: 'example' },
+  { name: 'athletes.examples.vacp', path: '/', kind: 'example' },
   { name: 'cars-parcoords.examples.vacp', path: '/', kind: 'example' },
 ];
 
@@ -96,7 +97,9 @@ test('Portless routes docs, gallery and standalone examples with working HMR', a
         if (surface.kind === 'docs') {
           await expect(page.locator('.vp-doc h1')).toHaveText('Connect an analytical source');
         } else if (surface.kind === 'gallery') {
-          await expect(page.locator('.gallery-card')).toHaveCount(4);
+          await expect(page.locator('.gallery-card')).toHaveCount(
+            surfaces.filter((surface) => surface.kind === 'example').length,
+          );
         } else {
           await page.waitForFunction(() => Boolean(window.__vacp));
         }

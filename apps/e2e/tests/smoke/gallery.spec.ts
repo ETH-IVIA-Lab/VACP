@@ -12,7 +12,7 @@ test.afterAll(async () => {
   await server?.stop();
 });
 
-for (const route of ['vgplot', 'vega-lite', 'react-dashboard', 'cars-parcoords']) {
+for (const route of ['athletes', 'vgplot', 'vega-lite', 'react-dashboard', 'cars-parcoords']) {
   test(`built gallery serves ${route} with its semantic bridge`, async ({ page }, testInfo) => {
     const errors: string[] = [];
     page.on('pageerror', (error) => errors.push(error.message));

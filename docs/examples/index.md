@@ -4,6 +4,7 @@ Each example exposes the same observation and operation contract.
 
 | Example                                                           | Explore                                                   |
 | ----------------------------------------------------------------- | --------------------------------------------------------- |
+| [Athlete explorer](https://examples.vacp.dev/athletes/)           | One cohort composed across Vega-Lite, vgplot, and D3.     |
 | [VGPlot](https://examples.vacp.dev/vgplot/)                       | Linked selections, menus, plots, and tables.              |
 | [Vega-Lite](https://examples.vacp.dev/vega-lite/)                 | Parameters, selections, and encoding graphs.              |
 | [Parallel coordinates](https://examples.vacp.dev/cars-parcoords/) | A custom D3 integration with reorderable dimensions.      |

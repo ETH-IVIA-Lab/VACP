@@ -10,6 +10,7 @@
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
+    "@vacp/example-athlete-explorer": "workspace:*",
     "@vacp/example-cars-parallel-coords": "workspace:*",
     "@vacp/example-react-dashboard": "workspace:*",
     "@vacp/example-vega-lite-gallery": "workspace:*",

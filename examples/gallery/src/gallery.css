@@ -164,6 +164,17 @@ a {
   min-height: 0;
 }
 
+.gallery-route[data-layout='document'] {
+  height: auto;
+  overflow: visible;
+}
+.gallery-route[data-layout='document'] .gallery-route__content {
+  overflow: visible;
+}
+.gallery-route[data-layout='document'] #gallery-example-mount {
+  height: auto;
+}
+
 .gallery-error {
   margin: 0;
   border-radius: 12px;

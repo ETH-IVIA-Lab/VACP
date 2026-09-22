@@ -8,10 +8,20 @@ type ExampleEntry = {
   title: string;
   description: string;
   folder: string;
+  layout?: 'document';
   load(): Promise<ExampleModule>;
 };
 
 export const examples: readonly ExampleEntry[] = [
+  {
+    id: 'athletes',
+    route: 'athletes',
+    title: 'Olympic Athlete Explorer',
+    description: 'One cohort across Vega-Lite, vgplot, and a custom D3 sport comparison.',
+    folder: 'athlete-explorer',
+    layout: 'document',
+    load: () => import('@vacp/example-athlete-explorer'),
+  },
   {
     id: 'vgplot',
     route: 'vgplot',

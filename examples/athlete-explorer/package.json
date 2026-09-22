@@ -1,0 +1,38 @@
+{
+  "name": "@vacp/example-athlete-explorer",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/mfe.ts"
+  },
+  "scripts": {
+    "dev": "portless run vp dev",
+    "build": "vp build",
+    "preview": "vp preview --host 127.0.0.1 --strictPort",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@uwdata/mosaic-core": "^0.21.1",
+    "@uwdata/mosaic-sql": "^0.21.1",
+    "@uwdata/vgplot": "^0.21.1",
+    "@vacp/adapter-vega-lite": "workspace:*",
+    "@vacp/adapter-vgplot": "workspace:*",
+    "@vacp/data-duckdb": "workspace:*",
+    "@vacp/presence-browser": "workspace:*",
+    "@vacp/protocol": "workspace:*",
+    "@vacp/sdk": "workspace:*",
+    "@vacp/transport-webmcp": "workspace:*",
+    "d3": "^7.9.0",
+    "vega": "^6.4.0",
+    "vega-embed": "^7.2.0",
+    "vega-lite": "^6.4.3",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@types/d3": "^7.4.3",
+    "portless": "catalog:",
+    "vite-plus": "catalog:"
+  },
+  "portless": "athletes.examples.vacp"
+}
