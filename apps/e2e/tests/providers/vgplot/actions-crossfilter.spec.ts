@@ -14,6 +14,10 @@ test('vgplot: set_interval_1d triggers downstream crossfilters (Seattle Weather)
     const beforeRows = await selectedAndAllRowCounts(page);
     expect(beforeRows.selected).toBe(beforeRows.all);
     expect(beforeRows.all).toBeGreaterThan(0);
+    const linkedBars = page.locator('#app [aria-label="bar"][data-index="1"] rect');
+    const barWidths = () => linkedBars.evaluateAll((bars) => bars.map((bar) => Number(bar.getAttribute('width'))));
+    const beforeWidths = await barWidths();
+    expect(beforeWidths.length).toBeGreaterThan(0);
 
     // Programmatic brush (June-Aug) on the scatter plot should change the bottom bar chart.
     const res = await executeOperation(page, 'vgplot.set_interval_1d', {
@@ -39,6 +43,8 @@ test('vgplot: set_interval_1d triggers downstream crossfilters (Seattle Weather)
     expect(afterRows.selected).toBeGreaterThan(0);
     expect(afterRows.selected).toBeLessThan(afterRows.all);
     expect(afterRows.selectionWhere).toMatch(/BETWEEN|>=|<=|date/i);
+    await expect.poll(barWidths).not.toEqual(beforeWidths);
+    expect((await barWidths()).some((width, i) => width > 0 && width < beforeWidths[i]!)).toBe(true);
 
     // Ensure the brush rect renders. Visual geometry is checked in the browser, not by snapshotting SVG markup.
     await page.waitForFunction(() => {

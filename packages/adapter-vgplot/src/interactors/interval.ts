@@ -84,8 +84,7 @@ export function prepareInterval(interactor: VgplotInteractorLike, dimension: 1 |
   const selection = interactor.selection;
   const update = selection?.update;
   const clause = interactor.clause;
-  const publish = interactor.publish;
-  if ((!update || !clause) && !publish) throw new Error('Interval has no writable selection');
+  if (!update || !clause) throw new Error('Interval is missing selection.update/clause');
   const values =
     raw?.map((value, index) =>
       intervalDomainValue(
@@ -93,7 +92,14 @@ export function prepareInterval(interactor: VgplotInteractorLike, dimension: 1 |
         dimension === 1 ? interactor.scale : index < 2 ? interactor.xscale : interactor.yscale,
       ),
     ) ?? null;
+  if (values) {
+    for (let i = 0; i < values.length; i += 2) {
+      // Native brushes sort domain endpoints regardless of gesture direction.
+      if (Number(values[i]) > Number(values[i + 1])) [values[i], values[i + 1]] = [values[i + 1]!, values[i]!];
+    }
+  }
   const value = values && (dimension === 1 ? values : [values.slice(0, 2), values.slice(2, 4)]);
+  const selectionClause = clause.call(interactor, value);
   const detail = values
     ? Object.fromEntries(
         (dimension === 1 ? ['min', 'max'] : ['x0', 'x1', 'y0', 'y1']).map((key, index) => [
@@ -113,7 +119,7 @@ export function prepareInterval(interactor: VgplotInteractorLike, dimension: 1 |
         else if (dimension === 1 && scale)
           g.call(
             brush.moveSilent,
-            values.map((v) => scale.apply(v)),
+            values.map((v) => scale.apply(v)).sort((a, b) => a - b),
           );
         else if (dimension === 2 && xscale && yscale) {
           const x = values.slice(0, 2).map((v) => xscale.apply(v));
@@ -124,8 +130,7 @@ export function prepareInterval(interactor: VgplotInteractorLike, dimension: 1 |
           ]);
         }
       }
-      if (update && clause) update.call(selection, clause.call(interactor, value));
-      else publish!.call(interactor, value);
+      update.call(selection, selectionClause);
       return value ? { set: true } : { cleared: true };
     },
   };

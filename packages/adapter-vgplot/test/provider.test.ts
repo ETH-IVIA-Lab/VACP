@@ -320,3 +320,40 @@ test('pan and zoom semantics use the rendered domain after prior programmatic ch
     provider.dispose?.();
   }
 });
+
+test('interval preparation orders domain and inverted-axis brush extents before mutation', async () => {
+  const writes: unknown[] = [];
+  const brushes: unknown[] = [];
+  const interactor: VgplotInteractorLike = {
+    constructor: { name: 'Interval1D' },
+    channel: 'y',
+    scale: { domain: [0, 100], apply: (value) => 100 - Number(value) },
+    selection: { update: (value) => writes.push(value) },
+    clause: (value) => value,
+    brush: { moveSilent() {} },
+    g: { call: (_, value) => brushes.push(value) },
+  };
+  const provider = createVgplotProvider({
+    plots: [{ plotId: 'plot', plot: { marks: [], interactors: [interactor] } }],
+    options: { appId: 'test', viewId: 'interval', enableSql: false },
+  });
+  try {
+    const { graph } = await provider.observe();
+    const action = graph.actions.find((action) => action.operation.contract === 'vgplot.set_interval_1d')!;
+    const call = { callId: 'range', name: action.name, params: { interactorId: '0', min: 60, max: 20 } };
+    const plan = await provider.prepare(call);
+    assert.deepEqual(writes, []);
+    assert.deepEqual(brushes, []);
+    assert.equal((await plan.execute()).ok, true);
+    assert.deepEqual(writes, [[20, 60]]);
+    assert.deepEqual(brushes, [[40, 80]]);
+    interactor.clause = () => {
+      throw new Error('Invalid native field');
+    };
+    await assert.rejects(provider.prepare(call), /Invalid native field/);
+    assert.equal(brushes.length, 1);
+    assert.equal(writes.length, 1);
+  } finally {
+    provider.dispose?.();
+  }
+});
