@@ -1,0 +1,31 @@
+packages/adapter-vgplot/src/dashboard-snapshots.ts
+  s_ad28489153bcf7::t_d7367bb9dfd701 215,220
+  s_ad28489153bcf7::t_80e9d3208cd4ce 1
+docs/providers/vgplot.md
+  s_ad28489153bcf7::t_d7367bb9dfd701 37-38
+apps/e2e/tests/providers/vgplot/webmcp-crossfilter.spec.ts
+  s_ad28489153bcf7::t_d74770983ee13c 14-23,28,30,39-41,54-56
+  s_ad28489153bcf7::t_01f2179376081d 10-13,24-27,29,31-37,48-53,57-74
+packages/adapter-vgplot/src/actions.ts
+  s_ad28489153bcf7::t_80e9d3208cd4ce 1,280,285-286,304-305,316,325-326,346-347
+  s_ad28489153bcf7::t_d74770983ee13c 366-368,408-410
+packages/adapter-vgplot/src/bindings.ts
+  s_ad28489153bcf7::t_80e9d3208cd4ce 26-28,32-33
+  s_ad28489153bcf7::t_893a2403bb5f36 29-31
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "0bfed9b8f5527b30d792d41224564cebab0c756d",
+  "prompts": {},
+  "sessions": {
+    "s_ad28489153bcf7": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a0b393-234e-74d3-8b65-e0faa6b8456b",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Péter Ferenc Gyarmati <peterferenc.gyarmati@inf.ethz.ch>"
+    }
+  }
+}
