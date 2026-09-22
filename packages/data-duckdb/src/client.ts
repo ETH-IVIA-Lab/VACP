@@ -11,7 +11,14 @@ export type VacpDuckDbClient = {
   loadObjectsAsTable(tableName: string, rows: Record<string, unknown>[], options?: { create?: boolean }): Promise<void>;
 };
 
-type DuckDbConnection = Pick<duckdb.AsyncDuckDBConnection, 'close' | 'query' | 'useUnsafe' | 'insertJSONFromPath'>;
+type DuckDbConnection = Pick<duckdb.AsyncDuckDBConnection, 'close' | 'query' | 'insertJSONFromPath'> & {
+  useUnsafe<Result>(
+    callback: (
+      bindings: { runQuery(connectionId: number, sql: string): Promise<Uint8Array> },
+      connectionId: number,
+    ) => Result,
+  ): Result;
+};
 type DuckDbDatabase = Pick<duckdb.AsyncDuckDB, 'registerFileText'> & {
   connect(): Promise<DuckDbConnection>;
 };
