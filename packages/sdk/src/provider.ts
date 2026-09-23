@@ -1,4 +1,4 @@
-import type { VacpChangeSource, VacpProvider } from '@vacp/protocol';
+import type { VacpActor, VacpProvider } from '@vacp/protocol';
 import { type VacpRuntime } from '@vacp/runtime';
 import { installVacpRuntime } from '@vacp/runtime-browser';
 
@@ -8,7 +8,7 @@ export type VacpIntegration = {
   bridge: VacpRuntime;
   providers: readonly VacpProvider[];
   dispose: () => void;
-  refresh: (source: VacpChangeSource, message: string) => void;
+  refresh: (actor: VacpActor, message: string) => void;
 };
 
 /** Install or replace the composed source set for one browser runtime. */
@@ -30,8 +30,8 @@ export function installVacp(args: {
     domSnapshotScriptId: args.domSnapshotScriptId,
   });
   const bridge = installation.runtime;
-  const refresh = (source: VacpChangeSource, message: string) => {
-    void bridge.refresh({ source, message }).catch(() => {});
+  const refresh = (actor: VacpActor, message: string) => {
+    void bridge.refresh({ actor, message }).catch(() => {});
   };
   return {
     bridge,

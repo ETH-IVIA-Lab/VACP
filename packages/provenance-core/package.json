@@ -1,0 +1,28 @@
+{
+  "name": "@vacp/provenance-core",
+  "version": "0.1.0",
+  "private": true,
+  "files": [
+    "dist"
+  ],
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "vp pack",
+    "typecheck": "tsc -p tsconfig.json && tsc -p tsconfig.test.json",
+    "test": "tsx --test --test-timeout=10000 test/*.test.ts",
+    "bench": "tsx bench/replay.ts"
+  },
+  "dependencies": {
+    "@vacp/protocol": "workspace:*"
+  },
+  "devDependencies": {
+    "@vacp/runtime": "workspace:*",
+    "tsx": "catalog:"
+  }
+}

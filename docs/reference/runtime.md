@@ -42,9 +42,15 @@ The composer retries when a provider invalidates while sources are being read. E
 
 `getCapabilities()` and `getState()` are scoped views derived from provider observations. Use `observe()` when graph, state, ownership, and freshness must share a revision.
 
-## History and explicit restoration
+## Provenance and explicit restoration
 
-`getRuntime()` returns `{ observation, history, runtimeId, sessionKey, version }`. `subscribe(listener)` receives recording entries. `refresh({ source, message })` records an observation after an application change. Keep historical selection in your viewer. Reading a recorded observation leaves live state unchanged.
+`getProvenance()` synchronously returns a frozen `{ runtimeId, sessionKey, epoch, revision, limit, records }` snapshot. Records are captured once and deeply frozen, so every reader and subscriber shares them and none can alter what another sees. `limit` is the retention bound; a consumer that mirrors events applies the same bound. `subscribeProvenance(listener)` receives `{ epoch, revision, record }` events. A `null` record marks a reset to a new epoch. `inspect()` reads the complete live observation independently of this journal.
+
+Records are discriminated by `kind`: `action`, `observation`, or `session`. An action retains its call, result, terminal execution, captured public message, and available before/after observations. Its actor belongs to `execution.actor`. Observation and session records carry their actor directly. Use the accessors in `@vacp/provenance-core` when consuming multiple record kinds.
+
+Before-state capture occurs after preparation and execution gates, immediately before effects. Failed or cancelled operations retain their outcome. A failed observation read leaves that observation absent. If a result payload cannot be cloned, its journal envelope preserves the outcome and reports omitted payload data in `captureErrors`. The caller still receives the original result.
+
+Recording retains the most recent 256 records by default. `historyLimit` accepts a positive safe integer. The runtime owns retention, and session changes clear the journal. `refresh({ actor, message, focus })` records explicit host attribution after an application change. Unattributed observations use a system actor. An observation concurrent with effects records the active execution identities as coincidence evidence, not proof of causation. See [provenance](../provenance/) for checkpoint projection and viewer lifecycles.
 
 To restore a chosen observation, create a host-owned restorer:
 
@@ -58,16 +64,18 @@ const result = await restorer.restore(recorded.state);
 
 Each source must expose an unambiguous `vacp.apply_state` operation. The restorer reads complete ownership through `inspect()`, so currently unavailable entities can be restored when their source permits it. It routes state by ownership and serializes its own requests. Restoration still executes through the runtime and requires an available `vacp.apply_state` action. It waits for all source results and reports partial failures. Each outcome identifies its `sourceId`, action name, and action result. Providers report read-only and transient refs that they skip. Ordinary actions continue to target the live application.
 
+Restoration defaults to a human actor and stamps `execution.restoration` with a correlation ID and optional recorded entry ID. It remains in provenance while checkpoint projection excludes it from the original trail.
+
 Caller cancellation and runtime lifetime are combined in the handler's `{ signal }` option.
 
 `dispose()` aborts the runtime, releases provider subscriptions, stops observation, and disposes attached providers.
 
 ## Execution activity
 
-`subscribeExecutions(listener)` publishes action lifecycle events independently of history. `getProviderBinding(provider)` returns the current attachment identity and lifetime signal for local presentation bindings. The separate `VacpExecutionControl` port grants timing authority: `addExecutionGate(gate, { timeoutMs, stage })` installs a bounded presentation gate. `stage` defaults to `before`. `after` holds the completed result and cannot change its outcome. The method returns its removal function.
+`getActiveExecutions()` returns current pending executions. `subscribeExecutions(listener)` publishes action lifecycle events independently of provenance. `getProviderBinding(provider)` returns the current attachment identity and lifetime signal for local presentation bindings. The separate `VacpExecutionControl` port grants timing authority: `addExecutionGate(gate, { timeoutMs, stage })` installs a bounded presentation gate. `stage` defaults to `before`. `after` holds the completed result and cannot change its outcome. The method returns its removal function.
 
 Applications continue to invoke `runtime.execute(call, options)`. The runtime prepares and executes the owned operation once. See [agent presence](../presence/) for actor attribution, presentation bindings, and custom viewers.
 
 ## Current capabilities and full inspection
 
-`observe()`, capability reads, and state reads disclose only currently available entities and actions. `inspect()` returns the complete observation, including availability declarations. See [availability](../providers/availability) for prerequisites, execution guards, and inspection lookups. Provider `observe()` still supplies the complete source catalog; the runtime owns disclosure.
+`observe()`, capability reads, and state reads disclose only currently available entities and actions. `inspect()` returns the complete observation, including availability declarations. See [availability](../providers/availability) for prerequisites, execution guards, and inspection lookups. Provider `observe()` still supplies the complete source catalog. The runtime owns disclosure.

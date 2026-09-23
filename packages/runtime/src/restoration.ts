@@ -53,7 +53,16 @@ export function createVacpRestorer(client: RestorationClient) {
             name,
             params: { state: values },
           }));
-          const outcomes = await Promise.allSettled(calls.map((call) => client.execute(call, { ...options, signal })));
+          const outcomes = await Promise.allSettled(
+            calls.map((call) =>
+              client.execute(call, {
+                ...options,
+                signal,
+                actor: options.actor ?? { id: 'human', kind: 'human' },
+                restoration: options.restoration ?? { id: callId },
+              }),
+            ),
+          );
           signal.throwIfAborted();
           const sources = outcomes.map((outcome, index): VacpRestorationOutcome => {
             const call = calls[index]!;

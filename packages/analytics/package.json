@@ -18,7 +18,8 @@
     "test": "tsx --test --test-timeout=10000 test/*.test.ts"
   },
   "dependencies": {
-    "@vacp/protocol": "workspace:*"
+    "@vacp/protocol": "workspace:*",
+    "@vacp/provenance-core": "workspace:*"
   },
   "devDependencies": {
     "@vacp/runtime": "workspace:*"

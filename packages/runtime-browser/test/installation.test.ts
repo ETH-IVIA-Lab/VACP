@@ -28,9 +28,9 @@ test('browser installation preserves bridge identity while replacing provider po
     const second = installVacpRuntime({ globalKey: key, providers: [provider(2)], injectDomSnapshot: false }).runtime;
     assert.equal(first, second);
     assert.equal((await second.getState()).state['vacp://example/value'], 2);
-    assert.equal(first.runtimeId, (await first.getRuntime()).runtimeId);
+    assert.equal(first.runtimeId, (await first.getProvenance()).runtimeId);
     let events = 0;
-    first.subscribe(() => {
+    first.subscribeProvenance(() => {
       events += 1;
     });
     uninstallVacpRuntime({ globalKey: key });

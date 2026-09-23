@@ -13,3 +13,9 @@ export * from './provider';
 export * from './execution';
 
 export * from './availability';
+
+export * from './activity';
+
+export * from './provenance';
+
+export * from './capture';

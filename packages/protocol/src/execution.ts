@@ -43,9 +43,11 @@ export type VacpExecution = {
   callId: string;
   name: string;
   title?: string;
+  operationKind?: import('./schema').VacpOperationKind;
   actor: VacpActor;
   sourceId?: VacpSourceId;
   bindingId?: string;
+  restoration?: VacpActionExecutionOptions['restoration'];
   phase: 'accepted' | 'prepared' | 'running' | 'succeeded' | 'failed' | 'cancelled';
   at: string;
   intent?: VacpActionIntent;
@@ -57,6 +59,8 @@ export type VacpExecutionGate = (execution: VacpExecution, signal: AbortSignal) 
 
 export interface VacpExecutionSource {
   readonly signal: AbortSignal;
+  /** Active execution snapshot, so late subscribers do not miss in-flight work. */
+  getActiveExecutions(): readonly VacpExecution[];
   subscribeExecutions(listener: (execution: VacpExecution) => void): () => void;
 }
 

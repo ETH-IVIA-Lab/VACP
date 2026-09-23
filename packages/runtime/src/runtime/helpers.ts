@@ -1,4 +1,4 @@
-import type { VacpChangeSource } from '@vacp/protocol';
+import type { VacpActor } from '@vacp/protocol';
 
 export function makeEntryId(): string {
   const id = globalThis.crypto?.randomUUID?.();
@@ -18,8 +18,8 @@ export function notify<Value>(listeners: Set<(entry: Value) => void>, entry: Val
   });
 }
 
-export function entrySource(source?: VacpChangeSource): VacpChangeSource {
-  return source ?? 'system';
+export function entryActor(actor?: VacpActor): VacpActor {
+  return actor ? structuredClone(actor) : { id: 'system', kind: 'system' };
 }
 
 export function entryMessage(message?: string): string | undefined {

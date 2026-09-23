@@ -10,6 +10,21 @@ export function createExecutionChannel(lifetime: AbortSignal) {
   >();
   const pending = new Map<string, VacpExecution>();
   let closed = false;
+  let latestSequence = 0;
+  let retiredThrough = 0;
+  const reset = (message: string) => {
+    retiredThrough = latestSequence;
+    const cancelled = [...pending.values()].map((execution): VacpExecution => ({
+      ...execution,
+      phase: 'cancelled',
+      at: nowIso(),
+      message,
+    }));
+    pending.clear();
+    return () => {
+      for (const execution of cancelled) notify(listeners, execution);
+    };
+  };
 
   const waitForGate = (gate: VacpExecutionGate, timeoutMs: number, execution: VacpExecution, signal: AbortSignal) =>
     new Promise<void>((resolve) => {
@@ -36,9 +51,7 @@ export function createExecutionChannel(lifetime: AbortSignal) {
     'abort',
     () => {
       closed = true;
-      for (const execution of pending.values())
-        notify(listeners, { ...execution, phase: 'cancelled', at: nowIso(), message: 'Runtime disposed' });
-      pending.clear();
+      reset('Runtime disposed')();
       for (const gate of gates.values()) gate.lifetime.abort();
       listeners.clear();
       gates.clear();
@@ -47,13 +60,16 @@ export function createExecutionChannel(lifetime: AbortSignal) {
   );
 
   return {
+    reset,
     emit: (execution: VacpExecution) => {
-      if (closed) return;
+      if (closed || execution.sequence <= retiredThrough) return;
+      latestSequence = Math.max(latestSequence, execution.sequence);
       if (execution.phase === 'succeeded' || execution.phase === 'failed' || execution.phase === 'cancelled')
         pending.delete(execution.id);
       else pending.set(execution.id, { ...execution });
       notify(listeners, execution);
     },
+    getActiveExecutions: () => structuredClone([...pending.values()]),
     subscribeExecutions(listener: (execution: VacpExecution) => void) {
       lifetime.throwIfAborted();
       listeners.add(listener);

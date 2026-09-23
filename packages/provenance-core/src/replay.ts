@@ -1,0 +1,240 @@
+import type {
+  VacpObservation,
+  VacpProvenanceEvent,
+  VacpProvenanceRecord,
+  VacpProvenanceSnapshot,
+} from '@vacp/protocol';
+import {
+  isRestorationRecord,
+  createCheckpointProjection,
+  sameAnalyticalState,
+  type ProvenanceCheckpoint,
+} from './checkpoints';
+import type {
+  ProvenanceReplayController,
+  ProvenanceReplayOptions,
+  ProvenanceReplaySource,
+  ProvenanceReplayState,
+} from './types';
+
+/** Cancellation releases a viewer even if its host ignores the signal. */
+function wait<T>(work: Promise<T>, signal: AbortSignal): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const abort = () => {
+      signal.removeEventListener('abort', abort);
+      reject(signal.reason);
+    };
+    signal.addEventListener('abort', abort, { once: true });
+    if (signal.aborted) abort();
+    void work.then(resolve, reject).finally(() => signal.removeEventListener('abort', abort));
+  });
+}
+
+/** Viewer-owned navigation over runtime-owned recording, with explicit restoration authority. */
+export function createProvenanceReplay(
+  source: ProvenanceReplaySource,
+  options: ProvenanceReplayOptions,
+): ProvenanceReplayController {
+  source.signal.throwIfAborted();
+  const lifetime = new AbortController();
+  const viewerId = globalThis.crypto.randomUUID();
+  const listeners = new Set<() => void>();
+  const running = new Set<string>();
+  // A mirror of the retained journal, extended by events instead of re-reading the whole journal.
+  let journal: VacpProvenanceSnapshot = source.getProvenance();
+  const projection = createCheckpointProjection();
+  projection.reset(journal);
+  let epoch = journal.epoch;
+  let steps: readonly ProvenanceCheckpoint[] = [];
+  let latest: ProvenanceCheckpoint | null = null;
+  let baseline: VacpObservation | undefined;
+  let currentObservation: VacpObservation | undefined;
+  let selected = -1;
+  let phase: ProvenanceReplayState['phase'] = 'live';
+  let error: string | undefined;
+  let request: AbortController | undefined;
+
+  let view: ProvenanceReplayState | undefined;
+  const synchronize = () => {
+    journal = source.getProvenance();
+    projection.reset(journal);
+    epoch = journal.epoch;
+  };
+  const project = () => {
+    latest = projection.latest();
+    if (!baseline && phase !== 'restoring') steps = projection.snapshot();
+  };
+  const publish = () => {
+    for (const listener of listeners) {
+      try {
+        listener();
+      } catch {
+        /* Presentation cannot change restoration. */
+      }
+    }
+  };
+  const resume = () => {
+    request?.abort();
+    request = undefined;
+    baseline = undefined;
+    currentObservation = undefined;
+    selected = -1;
+    phase = 'live';
+    error = undefined;
+    project();
+    publish();
+  };
+  const externalChange = (record: VacpProvenanceRecord) => {
+    if (isRestorationRecord(record)) return false;
+    if (record.kind === 'session') return true;
+    if (record.kind === 'action') return record.execution.operationKind !== 'query';
+    if (record.cause.kind === 'concurrent')
+      return !request || record.cause.executions.some((execution) => execution.restoration?.id !== viewerId);
+    return !currentObservation || !sameAnalyticalState(currentObservation, record.observation);
+  };
+  const onRecord = (event: VacpProvenanceEvent) => {
+    if (event.epoch !== epoch || !event.record) {
+      synchronize();
+      running.clear();
+      resume();
+      return;
+    }
+    if (event.revision <= journal.revision) return;
+    if (event.revision === journal.revision + 1) {
+      projection.append(event.record);
+      journal = { ...journal, revision: event.revision };
+    } else synchronize();
+    if ((baseline || phase === 'restoring') && externalChange(event.record)) resume();
+    else {
+      project();
+      publish();
+    }
+  };
+  let detachRecords = () => {};
+  let detachExecutions = () => {};
+  const dispose = () => {
+    if (lifetime.signal.aborted) return;
+    lifetime.abort();
+    request?.abort();
+    detachRecords();
+    detachExecutions();
+    listeners.clear();
+    source.signal.removeEventListener('abort', dispose);
+  };
+  try {
+    project();
+    detachRecords = source.subscribeProvenance(onRecord);
+    detachExecutions = source.subscribeExecutions((execution) => {
+      if (execution.restoration?.id === viewerId || !execution.operationKind || execution.operationKind === 'query')
+        return;
+      if (execution.phase === 'prepared') {
+        running.add(execution.id);
+        if (baseline || phase === 'restoring') resume();
+      } else if (execution.phase === 'succeeded' || execution.phase === 'failed' || execution.phase === 'cancelled')
+        running.delete(execution.id);
+      publish();
+    });
+    for (const execution of source.getActiveExecutions()) {
+      if (execution.operationKind && execution.operationKind !== 'query' && execution.restoration?.id !== viewerId)
+        running.add(execution.id);
+    }
+    project();
+    source.signal.addEventListener('abort', dispose, { once: true });
+  } catch (cause) {
+    dispose();
+    throw cause;
+  }
+
+  const run = async (operation: (signal: AbortSignal) => Promise<void>) => {
+    const current = new AbortController();
+    request = current;
+    const signal = AbortSignal.any([lifetime.signal, source.signal, current.signal]);
+    phase = 'restoring';
+    error = undefined;
+    publish();
+    try {
+      await wait(
+        Promise.resolve().then(() => {
+          signal.throwIfAborted();
+          return operation(signal);
+        }),
+        signal,
+      );
+    } catch (cause) {
+      if (!signal.aborted) {
+        phase = 'error';
+        error = cause instanceof Error ? cause.message : String(cause);
+        publish();
+      }
+    } finally {
+      if (request === current) request = undefined;
+    }
+  };
+  const restore = async (observation: VacpObservation, signal: AbortSignal, entryId?: string) => {
+    currentObservation = observation;
+    const result = await options.restore(structuredClone(observation), {
+      signal,
+      actor: { id: 'human', kind: 'human', label: 'You' },
+      restoration: { id: viewerId, entryId },
+    });
+    signal.throwIfAborted();
+    if (!result.ok) throw new Error(result.error.message);
+  };
+  const review = async (checkpointId: string) => {
+    lifetime.signal.throwIfAborted();
+    if (phase === 'restoring' || running.size) return;
+    const checkpoint = steps.find((step) => step.id === checkpointId);
+    if (!checkpoint) throw new Error(`Unknown provenance checkpoint: ${checkpointId}`);
+    await run(async (signal) => {
+      if (!baseline) {
+        const observation = await source.inspect();
+        signal.throwIfAborted();
+        baseline = structuredClone(observation);
+      }
+      selected = steps.findIndex((step) => step.id === checkpointId);
+      await restore(checkpoint.observation, signal, checkpoint.record.id);
+      phase = 'reviewing';
+      publish();
+    });
+  };
+  return {
+    getState: () => {
+      const current = selected < 0 ? null : (steps[selected] ?? null);
+      if (
+        view?.phase !== phase ||
+        view.steps !== steps ||
+        view.latest !== latest ||
+        view.selected !== current ||
+        view.error !== error
+      )
+        view = Object.freeze({ phase, steps, latest, selected: current, error });
+      return view;
+    },
+    subscribe(listener) {
+      lifetime.signal.throwIfAborted();
+      listeners.add(listener);
+      return () => {
+        listeners.delete(listener);
+      };
+    },
+    review,
+    interrupt: () => {
+      lifetime.signal.throwIfAborted();
+      resume();
+    },
+    close: async () => {
+      lifetime.signal.throwIfAborted();
+      if (phase === 'restoring') return;
+      if (!baseline) {
+        resume();
+        return;
+      }
+      const saved = baseline;
+      await run(async (signal) => {
+        await restore(saved, signal);
+        resume();
+      });
+    },
+    dispose,
+  };
+}

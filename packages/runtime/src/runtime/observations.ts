@@ -14,7 +14,6 @@ export function createLiveObservations(read: () => Promise<VacpResolvedObservati
   let graphObservationKey: string | undefined;
   let observationGeneration = 0;
   let pendingRead: { generation: number; promise: Promise<LiveRead> } | undefined;
-  let current: LiveRead | undefined;
   const readLive = async (generation: number): Promise<LiveRead> => {
     signal.throwIfAborted();
     if (generation !== observationGeneration) return ensureLive();
@@ -40,7 +39,6 @@ export function createLiveObservations(read: () => Promise<VacpResolvedObservati
       state: observation.state,
       summary: observation.summary,
     };
-    current = { ...resolved, capabilities: cap, state: st };
 
     if (capabilityListeners.size > 0 || snapshotListeners.size > 0) {
       // Source descriptions can change independently of analytical source revisions.
@@ -83,9 +81,6 @@ export function createLiveObservations(read: () => Promise<VacpResolvedObservati
 
   return {
     read: ensureLive,
-    get current() {
-      return current;
-    },
     get subscribed() {
       return capabilityListeners.size > 0 || snapshotListeners.size > 0;
     },
@@ -94,7 +89,6 @@ export function createLiveObservations(read: () => Promise<VacpResolvedObservati
     },
     reset() {
       observationGeneration++;
-      current = undefined;
       snapshotKey = undefined;
       capabilitiesKey = undefined;
       graphObservationKey = undefined;
@@ -117,7 +111,6 @@ export function createLiveObservations(read: () => Promise<VacpResolvedObservati
     dispose() {
       capabilityListeners.clear();
       snapshotListeners.clear();
-      current = undefined;
       pendingRead = undefined;
       snapshotKey = undefined;
       capabilitiesKey = undefined;

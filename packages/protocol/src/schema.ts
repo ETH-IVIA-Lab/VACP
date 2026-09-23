@@ -457,6 +457,8 @@ export type VacpActionExecutionOptions = {
   signal?: AbortSignal;
   /** Host attribution, never inferred from model-supplied action parameters. */
   actor?: import('./execution').VacpActor;
+  /** Host-owned provenance for restoring a recorded state, not a new analytical step. */
+  restoration?: { id: string; entryId?: string };
 };
 
 /**

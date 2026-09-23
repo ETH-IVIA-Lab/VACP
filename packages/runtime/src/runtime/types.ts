@@ -6,6 +6,8 @@ import type {
   VacpStateSnapshot,
   VacpExecutionSource,
   VacpExecutionControl,
+  VacpAgentActivitySource,
+  VacpAgentActivityControl,
 } from '@vacp/protocol';
 
 export type VacpRuntimeUpdate = {
@@ -18,7 +20,12 @@ export type VacpRuntimeUpdate = {
 };
 
 export interface VacpRuntime
-  extends Required<Omit<VacpRuntimeBridge, 'runtimeId' | 'sessionKey'>>, VacpExecutionSource, VacpExecutionControl {
+  extends
+    Required<Omit<VacpRuntimeBridge, 'runtimeId' | 'sessionKey'>>,
+    VacpExecutionSource,
+    VacpExecutionControl,
+    VacpAgentActivitySource,
+    VacpAgentActivityControl {
   /** Aborted when this runtime is disposed. */
   readonly signal: AbortSignal;
   readonly runtimeId: string;

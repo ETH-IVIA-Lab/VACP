@@ -45,11 +45,13 @@ test('independent historical selections remain passive; explicit restoration fol
   });
   t.after(() => f.runtime.dispose());
   await f.runtime.refresh();
-  const historical = (await f.runtime.getRuntime()).history[0]!.observation!;
+  const historical = f.runtime
+    .getProvenance()
+    .records.filter((record) => record.kind === 'observation')[0]!.observation;
   f.values.one = 'live-one';
   f.values.two = 'live-two';
   await f.runtime.refresh();
-  const otherViewer = (await f.runtime.getRuntime()).observation;
+  const otherViewer = await f.runtime.inspect();
   assert.deepEqual(Object.values(historical.state), ['old', 'old']);
   assert.deepEqual(Object.values(otherViewer.state), ['live-one', 'live-two']);
   assert.deepEqual(received, []);
@@ -67,7 +69,7 @@ test('independent historical selections remain passive; explicit restoration fol
     );
   assert.deepEqual(received, [{ 'vacp://restore/one': 'old' }, { 'vacp://restore/two': 'old' }]);
   assert.equal(phases.filter((phase) => phase === 'succeeded').length, 2);
-  assert.equal((await f.runtime.getRuntime()).history.filter((entry) => entry.kind === 'action').length, 2);
+  assert.equal(f.runtime.getProvenance().records.filter((entry) => entry.kind === 'action').length, 2);
   assert.deepEqual(otherViewer.state, { 'vacp://restore/one': 'live-one', 'vacp://restore/two': 'live-two' });
 });
 
@@ -216,8 +218,10 @@ test('failed restoration waits for all sources before the next explicit restorat
   release();
   const failed = await first;
   assert.equal(failed.ok, false);
-  const entries = (await f.runtime.getRuntime()).history;
-  assert.ok(entries.some((entry) => entry.afterState?.state['vacp://restore/two'] === 'fail'));
+  const entries = f.runtime.getProvenance().records;
+  assert.ok(
+    entries.some((entry) => entry.kind !== 'session' && entry.observation?.state['vacp://restore/two'] === 'fail'),
+  );
   assert.equal((await next).ok, true);
   assert.deepEqual(f.values, { one: 'next', two: 'next' });
 });

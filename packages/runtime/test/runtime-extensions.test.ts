@@ -36,7 +36,6 @@ test('capability observers follow live replacements, and disposal cancels reads'
   runtime.subscribeCapabilities((value) => titles.push(value.graph.nodes[0]?.title ?? ''));
   try {
     await runtime.getCapabilities();
-    await runtime.getRuntime();
     assert.deepEqual(titles, ['live']);
     runtime.update({ providers: [provider('replacement')] });
     await runtime.getCapabilities();
@@ -45,7 +44,7 @@ test('capability observers follow live replacements, and disposal cancels reads'
     runtime.dispose();
   }
   assert.equal(runtime.signal.aborted, true);
-  await assert.rejects(runtime.getCapabilities(), /abort/i);
+  await assert.rejects(async () => runtime.getCapabilities(), /abort/i);
 });
 
 test('a late observation from a replaced provider cannot overwrite current capabilities', async () => {
@@ -125,7 +124,7 @@ test('a late post-action observation cannot attach an old call to a new session 
     source,
     prepare: (call, options) => actions.prepare(call, options),
     observe: async () => {
-      if (++reads === 2) {
+      if (++reads === 3) {
         afterStarted();
         await new Promise<void>((resolve) => (finishRead = resolve));
       }
@@ -135,13 +134,12 @@ test('a late post-action observation cannot attach an old call to a new session 
   const runtime = createVacpRuntime({ providers: [old], sessionKey: 'old' });
   try {
     const execution = runtime.execute({ callId: 'old-call', name: 'set' });
-    const rejected = assert.rejects(execution, /abort/i);
     await after;
     runtime.update({ providers: [provider('new', actions)], sessionKey: 'new' });
     finishRead();
-    await rejected;
+    assert.deepEqual(await execution, { callId: 'old-call', ok: true, result: 'old result' });
     assert.equal(
-      (await runtime.getRuntime()).history.some((entry) => entry.call?.callId === 'old-call'),
+      runtime.getProvenance().records.some((entry) => entry.kind === 'action' && entry.call.callId === 'old-call'),
       false,
     );
   } finally {
@@ -224,10 +222,12 @@ test('freshness changes publish observations and history retains the observed re
     status = 'stale';
     await runtime.refresh();
     assert.deepEqual(published, ['current', 'stale']);
-    const inspected = await runtime.getRuntime();
-    assert.equal(inspected.history[0]!.observation!.revision, first.revision);
-    assert.equal(inspected.history[0]!.observation!.freshness!['vacp://view'].status, 'current');
-    assert.equal(inspected.observation.freshness!['vacp://view'].status, 'stale');
+    const inspected = runtime.getProvenance();
+    const checkpoint = inspected.records[0]!;
+    assert.ok(checkpoint.kind === 'observation');
+    assert.equal(checkpoint.observation.revision, first.revision);
+    assert.equal(checkpoint.observation.freshness!['vacp://view'].status, 'current');
+    assert.equal((await runtime.inspect()).freshness!['vacp://view'].status, 'stale');
   } finally {
     stop();
     runtime.dispose();
@@ -288,17 +288,20 @@ test('recorded observations are isolated from providers, read results, and other
   runtime.stopObserving();
   try {
     await runtime.refresh();
-    const first = await runtime.getRuntime();
-    first.history[0]!.observation!.graph.nodes[0]!.title = 'consumer mutation';
-    first.observation.state['vacp://view'] = { value: 99 };
+    const first = runtime.getProvenance();
+    assert.throws(() => {
+      first.records.filter((record) => record.kind === 'observation')[0]!.observation.graph.nodes[0]!.title =
+        'consumer mutation';
+    }, TypeError);
+    (await runtime.inspect()).state['vacp://view'] = { value: 99 };
     graph.nodes[0]!.title = 'second';
     state['vacp://view'].value = 2;
     await runtime.refresh();
-    const next = await runtime.getRuntime();
+    const next = runtime.getProvenance().records.filter((record) => record.kind === 'observation');
     assert.deepEqual(titles, ['first', 'second']);
-    assert.equal(next.history[0]!.observation!.graph.nodes[0]!.title, 'first');
-    assert.deepEqual(next.history[0]!.observation!.state['vacp://view'], { value: 1 });
-    assert.deepEqual(next.history.at(-1)!.observation!.state['vacp://view'], { value: 2 });
+    assert.equal(next[0]!.observation.graph.nodes[0]!.title, 'first');
+    assert.deepEqual(next[0]!.observation.state['vacp://view'], { value: 1 });
+    assert.deepEqual(next.at(-1)!.observation.state['vacp://view'], { value: 2 });
   } finally {
     runtime.dispose();
   }
@@ -336,7 +339,11 @@ test('concurrent reads coalesce and explicit refresh supersedes an older pending
     release(await original.observe());
     assert.equal((await first).graph.nodes[0]!.title, 'current');
     assert.equal((await second).graph.nodes[0]!.title, 'current');
-    assert.equal((await runtime.getRuntime()).history[0]!.observation!.graph.nodes[0]!.title, 'current');
+    assert.equal(
+      runtime.getProvenance().records.filter((record) => record.kind === 'observation')[0]!.observation.graph.nodes[0]!
+        .title,
+      'current',
+    );
   } finally {
     runtime.dispose();
   }
@@ -377,7 +384,7 @@ test('a failed provider replacement preserves the live owner and its subscriptio
   assert.equal(disposed, 1);
 });
 
-test('human invalidations and semantic actions keep distinct history attribution', async () => {
+test('unattributed invalidations and semantic actions keep distinct history attribution', async () => {
   let value = 1;
   let invalidate = () => {};
   const actions = new VacpActionRegistry();
@@ -407,14 +414,14 @@ test('human invalidations and semantic actions keep distinct history attribution
     ],
   });
   try {
-    runtime.subscribe(() => {});
+    runtime.subscribeProvenance(() => {});
     await runtime.refresh();
     runtime.stopObserving();
-    await runtime.getRuntime();
+    await runtime.getState();
     const changed = () =>
       new Promise<void>((resolve) => {
-        const unsubscribe = runtime.subscribe((entry) => {
-          if (entry.source !== 'human') return;
+        const unsubscribe = runtime.subscribeProvenance(({ record: entry }) => {
+          if (!entry || entry.kind === 'action' || entry.actor.kind !== 'system') return;
           unsubscribe();
           resolve();
         });
@@ -423,13 +430,21 @@ test('human invalidations and semantic actions keep distinct history attribution
     value = 2;
     invalidate();
     await firstHuman;
-    assert.equal((await runtime.getRuntime()).history.at(-1)!.state!.state['vacp://view'], 2);
+    assert.equal(
+      runtime
+        .getProvenance()
+        .records.filter((record) => record.kind === 'observation')
+        .at(-1)!.observation.state['vacp://view'],
+      2,
+    );
     await runtime.execute({ callId: 'set', name: 'set' });
     assert.deepEqual(
-      (await runtime.getRuntime()).history.map((entry) => [entry.kind, entry.source]),
+      runtime
+        .getProvenance()
+        .records.map((entry) => [entry.kind, entry.kind === 'action' ? entry.execution.actor.kind : entry.actor.kind]),
       [
-        ['snapshot', 'system'],
-        ['snapshot', 'human'],
+        ['observation', 'system'],
+        ['observation', 'system'],
         ['action', 'agent'],
       ],
     );
@@ -437,9 +452,9 @@ test('human invalidations and semantic actions keep distinct history attribution
     value = 4;
     invalidate();
     await nextHuman;
-    const history = (await runtime.getRuntime()).history;
-    assert.equal(history.at(-1)!.source, 'human');
-    assert.equal(history.at(-1)!.state!.state['vacp://view'], 4);
+    const history = runtime.getProvenance().records.filter((record) => record.kind === 'observation');
+    assert.equal(history.at(-1)!.actor.kind, 'system');
+    assert.equal(history.at(-1)!.observation!.state['vacp://view'], 4);
   } finally {
     runtime.dispose();
   }
@@ -464,7 +479,7 @@ test('an unsettled provider reports a bounded coherence failure', { timeout: 200
     ],
   });
   try {
-    await assert.rejects(runtime.observe(), /did not settle/);
+    await assert.rejects(async () => runtime.observe(), /did not settle/);
   } finally {
     runtime.dispose();
   }
@@ -509,4 +524,78 @@ test('host revisions cover the complete projected action catalog', async () => {
   } finally {
     runtime.dispose();
   }
+});
+
+test('session reset retires old operations and causal scopes before publishing the new epoch', async (t) => {
+  let begin!: () => void;
+  let finish!: () => void;
+  const began = new Promise<void>((resolve) => {
+    begin = resolve;
+  });
+  const blocked = new Promise<void>((resolve) => {
+    finish = resolve;
+  });
+  const oldActions = new VacpActionRegistry();
+  oldActions.register(descriptor('old'), async () => {
+    begin();
+    await blocked;
+  });
+  let value = 0;
+  const nextActions = new VacpActionRegistry();
+  nextActions.register(descriptor('next'), () => {
+    value++;
+  });
+  const replacement = createVacpProvider({
+    source,
+    actions: nextActions,
+    project: () => ({
+      graph: {
+        version: VACP_SCHEMA_VERSION,
+        nodes: [{ ref: 'vacp://view', kind: 'View', layer: 'ViewLayer' }],
+        edges: [],
+        actions: nextActions.list(),
+      },
+      state: { 'vacp://view': value },
+    }),
+  });
+  const runtime = createVacpRuntime({ providers: [provider('old', oldActions)], sessionKey: 'old' });
+  t.after(() => {
+    finish();
+    runtime.dispose();
+  });
+  const terminal: string[] = [];
+  runtime.subscribeExecutions((execution) => {
+    if (execution.phase === 'cancelled') terminal.push(execution.callId);
+  });
+  const old = runtime.execute({ callId: 'old', name: 'old' });
+  const rejected = assert.rejects(old, /abort/i);
+  await began;
+  let newAction: Promise<unknown> | undefined;
+  runtime.subscribeProvenance((event) => {
+    if (!event.record) newAction = runtime.execute({ callId: 'new-on-reset', name: 'next' });
+  });
+  runtime.update({ providers: [replacement], sessionKey: 'new' });
+  assert.equal(
+    runtime.getActiveExecutions().some((execution) => execution.callId === 'old'),
+    false,
+  );
+  await newAction;
+  assert.deepEqual(terminal, ['old']);
+  runtime.stopObserving();
+  await runtime.getState();
+  value = 10;
+  await runtime.getState();
+  const observations = runtime.getProvenance().records.filter((record) => record.kind === 'observation');
+  const changed = observations.at(-1)!;
+  assert.equal(changed.observation.state['vacp://view'], 10);
+  assert.deepEqual(changed.cause, { kind: 'external' });
+  finish();
+  await rejected;
+  assert.deepEqual(terminal, ['old']);
+  assert.deepEqual(runtime.getActiveExecutions(), []);
+  const actions = runtime.getProvenance().records.filter((record) => record.kind === 'action');
+  assert.deepEqual(
+    actions.map((record) => record.call.callId),
+    ['new-on-reset'],
+  );
 });

@@ -37,7 +37,7 @@ export function connectThreshold(input: ThresholdControl) {
   });
   const integration = installVacp({ providers: [provider] });
 
-  const onInput = () => integration.refresh('human', 'Threshold changed');
+  const onInput = () => integration.refresh({ id: 'human', kind: 'human' }, 'Threshold changed');
   input.addEventListener('input', onInput);
 
   return {

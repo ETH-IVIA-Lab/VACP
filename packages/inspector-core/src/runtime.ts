@@ -1,9 +1,7 @@
 import type { VacpRuntimeBridge } from '@vacp/protocol';
 import type { InspectorClient } from './types';
 
-export type InspectorRuntime = Pick<VacpRuntimeBridge, 'inspect' | 'execute'> & {
-  subscribe?(invalidate: () => void): () => void;
-};
+export type InspectorRuntime = Pick<VacpRuntimeBridge, 'inspect' | 'execute' | 'subscribeProvenance'>;
 
 export function createRuntimeInspectorClient(options: {
   id: string;
@@ -21,7 +19,7 @@ export function createRuntimeInspectorClient(options: {
       return await runtime.inspect();
     },
     execute: (call, controls) => runtime.execute(call, controls),
-    subscribe: runtime.subscribe?.bind(runtime),
+    subscribe: (invalidate) => runtime.subscribeProvenance(() => invalidate()),
     restore: options.restore,
     reveal: options.reveal,
   };

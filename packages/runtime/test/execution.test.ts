@@ -68,9 +68,11 @@ test('preparation normalizes once, focus sees the executed value, and actor iden
     );
     assert.notEqual(f.events[0]!.id, f.events[4]!.id);
     assert.deepEqual(f.counts(), { parsed: 2, executed: 1, value: 14 });
-    const last = (await f.runtime.getRuntime()).history.at(-1)!;
-    assert.equal(last.result?.ok, false);
-    assert.deepEqual(last.afterState?.state, last.beforeState?.state);
+    const last = f.runtime.getProvenance().records.at(-1)!;
+    assert.ok(last.kind === 'action');
+    assert.equal(last.result.ok, false);
+    assert.equal(last.before, undefined);
+    assert.deepEqual(last.observation?.state, { 'vacp://plot': 14 });
   } finally {
     f.runtime.dispose();
   }
@@ -247,9 +249,115 @@ test('cancellation during an after-execution wait preserves the completed result
     await waiting;
     abort.abort();
     assert.equal((await result).ok, true);
-    assert.equal((await f.runtime.getRuntime()).history.at(-1)!.result?.ok, true);
+    assert.equal(
+      f.runtime
+        .getProvenance()
+        .records.filter((record) => record.kind === 'action')
+        .at(-1)!.result.ok,
+      true,
+    );
     assert.equal(f.events.at(-1)!.phase, 'succeeded');
   } finally {
     f.runtime.dispose();
   }
+});
+
+test('before checkpoint is captured after pacing and includes intervening human changes', async (t) => {
+  const f = fixture();
+  t.after(() => f.runtime.dispose());
+  const release = f.runtime.addExecutionGate(
+    async () => {
+      const prepared = await f.provider.prepare({ callId: 'human-edit', name: 'set', params: 9 });
+      await prepared.execute();
+      await f.runtime.refresh({ actor: { id: 'person', kind: 'human' } });
+    },
+    { timeoutMs: 1000 },
+  );
+  await f.runtime.execute({ callId: 'agent-edit', name: 'set', params: 2 });
+  release();
+  const records = f.runtime.getProvenance().records;
+  const action = records.find((record) => record.kind === 'action');
+  assert.ok(action?.kind === 'action');
+  assert.equal(action.before?.state['vacp://plot'], 18);
+  assert.equal(action.observation?.state['vacp://plot'], 4);
+  assert.ok(records.some((record) => record.kind === 'observation' && record.actor.kind === 'human'));
+});
+
+test('abort during post-action observation preserves one successful outcome and one record', async (t) => {
+  const f = fixture();
+  t.after(() => f.runtime.dispose());
+  const abort = new AbortController();
+  f.runtime.subscribeExecutions((event) => {
+    if (event.phase === 'succeeded') abort.abort(new Error('Stopped viewing'));
+  });
+  const result = await f.runtime.execute(
+    { callId: 'completed-before-abort', name: 'set', params: 3 },
+    { signal: abort.signal },
+  );
+  assert.equal(result.ok, true);
+  const records = f.runtime.getProvenance().records.filter((record) => record.kind === 'action');
+  assert.equal(records.length, 1);
+  assert.equal(records[0]!.result.ok, true);
+  assert.equal(records[0]!.execution.phase, 'succeeded');
+  assert.equal(f.events.filter((event) => ['succeeded', 'failed', 'cancelled'].includes(event.phase)).length, 1);
+});
+
+test('failed post-action observation preserves the successful result without inventing freshness', async (t) => {
+  const f = fixture();
+  t.after(() => f.runtime.dispose());
+  f.runtime.subscribeExecutions((event) => {
+    if (event.phase === 'succeeded')
+      f.provider.observe = async () => {
+        throw new Error('Cannot read output');
+      };
+  });
+  const result = await f.runtime.execute({ callId: 'unreadable', name: 'set', params: 3 });
+  assert.equal(result.ok, true);
+  const records = f.runtime.getProvenance().records.filter((record) => record.kind === 'action');
+  assert.equal(records.length, 1);
+  assert.equal(records[0]!.execution.phase, 'succeeded');
+  assert.equal(records[0]!.observation, undefined);
+});
+
+test('an uncloneable post-action state is unavailable evidence, not a failed completed action', async (t) => {
+  let value: unknown = 0;
+  const actions = new VacpActionRegistry();
+  actions.register(
+    { name: 'callback-state', description: 'Set callback state', operation: { kind: 'mutation' } },
+    () => {
+      value = { threshold: 2, callback: () => 'native-only' };
+      return 'applied';
+    },
+  );
+  const runtime = createVacpRuntime({
+    providers: [
+      createVacpProvider({
+        source: { id: 'vacp-source://capture-state', type: 'test', title: 'Capture state' },
+        actions,
+        project: () => ({
+          graph: {
+            version: VACP_SCHEMA_VERSION,
+            nodes: [{ ref: 'vacp://value', kind: 'Param', layer: 'ConfigLayer' }],
+            edges: [],
+            actions: actions.list(),
+          },
+          state: { 'vacp://value': value },
+        }),
+      }),
+    ],
+  });
+  t.after(() => runtime.dispose());
+  const phases: string[] = [];
+  runtime.subscribeExecutions((event) => phases.push(event.phase));
+  const result = await runtime.execute({ callId: 'capture-state', name: 'callback-state' });
+  assert.deepEqual(result, { callId: 'capture-state', ok: true, result: 'applied' });
+  const records = runtime.getProvenance().records;
+  assert.equal(records.length, 1);
+  const record = records[0]!;
+  assert.ok(record.kind === 'action');
+  assert.equal(record.execution.phase, 'succeeded');
+  assert.deepEqual(record.result, result);
+  assert.equal(record.before?.state['vacp://value'], 0);
+  assert.equal(record.observation, undefined);
+  assert.deepEqual(phases, ['accepted', 'prepared', 'running', 'succeeded']);
 });

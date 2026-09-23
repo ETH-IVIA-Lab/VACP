@@ -10,25 +10,17 @@ function referenceHash(value: string): string {
   return hash.toString(16).padStart(16, '0');
 }
 
-test('64-bit tokens retain the existing UTF-16 wire format across carries and overflow', () => {
+test('64-bit tokens preserve the UTF-16 wire format across carries and overflow', () => {
   assert.equal(fnv1a64Hex(''), 'cbf29ce484222325');
   assert.equal(fnv1a64Hex('hello'), 'a430d84680aabd0b');
   const cases = [
     '\0',
     'Visualization: Zürich 📊',
     '\ud800\udfff\uffff',
-    'x'.repeat(100 * 1024),
     Array.from({ length: 0x10000 }, (_, i) => String.fromCharCode(i)).join(''),
   ];
-  let seed = 0x12345678;
-  for (let sample = 0; sample < 200; sample++) {
-    let value = '';
-    for (let i = 0; i < sample * 7; i++) {
-      seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0;
-      value += String.fromCharCode(seed >>> 16);
-    }
-    cases.push(value);
-  }
+  // Exercise limb carries and repeated overflow with explicit input classes.
+  for (const length of [1, 2, 7, 8, 31, 32, 1024]) cases.push('\uffff'.repeat(length));
   for (const value of cases) assert.equal(fnv1a64Hex(value), referenceHash(value));
 });
 

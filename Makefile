@@ -111,4 +111,5 @@ bench: build-libs ## Measure runtime, SDK, adapter, inspection, presence, and tr
 	$(PNPM) --filter @vacp/inspector-core bench
 	$(PNPM) --filter @vacp/adapter-vega-lite bench
 	$(PNPM) --filter @vacp/presence-core bench
+	$(PNPM) --filter @vacp/provenance-core bench
 	$(UV_RUN) python packages/python/bench/availability.py

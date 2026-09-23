@@ -51,6 +51,7 @@ export default defineConfig({
         text: 'Use VACP',
         items: [
           { text: 'Inspection surfaces', link: '/inspector/' },
+          { text: 'Provenance', link: '/provenance/' },
           { text: 'Agent presence', link: '/presence/' },
           { text: 'Connect an agent', link: '/transports/' },
           { text: 'WebMCP', link: '/transports/webmcp' },
