@@ -1,7 +1,7 @@
-import { expect, test, type Page } from '@playwright/test';
+import { expect, type Page } from '@playwright/test';
+import { test } from '../helpers/test';
 
-import { startAppServer } from '../helpers/devserver';
-import { exampleDir } from '../helpers/paths';
+import { appServer } from '../helpers/servers';
 import { executeOperation, operationNames } from '../providers/operations';
 
 async function waitForVacpBridge(page: Page, timeoutMs = 45_000): Promise<void> {
@@ -9,7 +9,7 @@ async function waitForVacpBridge(page: Page, timeoutMs = 45_000): Promise<void> 
     () =>
       !!globalThis.__vacp &&
       typeof globalThis.__vacp.getCapabilities === 'function' &&
-      typeof globalThis.__vacp.getRuntime === 'function',
+      typeof globalThis.__vacp.getProvenance === 'function',
     undefined,
     { timeout: timeoutMs },
   );
@@ -82,8 +82,8 @@ async function getState(page: Page): Promise<any> {
   return page.evaluate(() => globalThis.__vacp.getState());
 }
 
-async function getRuntime(page: Page): Promise<any> {
-  return page.evaluate(() => globalThis.__vacp.getRuntime());
+async function getProvenance(page: Page): Promise<any> {
+  return page.evaluate(() => globalThis.__vacp.getProvenance());
 }
 
 async function dataSql(page: Page, args: { handleRef: string; sql: string; maxRows?: number }): Promise<any> {
@@ -110,7 +110,7 @@ async function dispatchOperation(page: Page, contract: string, params: Record<st
     ({ name, params }) =>
       globalThis.__vacp.dispatch(
         { callId: crypto.randomUUID(), name, params },
-        { source: 'inspector', message: `smoke:${name}` },
+        { actor: { id: 'inspector', kind: 'human' }, message: `smoke:${name}` },
       ),
     { name: names[contract]!, params },
   );
@@ -130,7 +130,7 @@ async function waitForCapabilityRefContains(page: Page, needle: string, timeout 
 
 async function waitForHistoryLenAtLeast(page: Page, count: number, timeout = 15_000): Promise<void> {
   await expect
-    .poll(async () => (await getRuntime(page)).history.length, {
+    .poll(async () => (await getProvenance(page)).records.length, {
       timeout,
       message: `History contains at least ${count} entries`,
     })
@@ -150,16 +150,9 @@ function firstRowFromResult(res: any): Record<string, unknown> {
   return row as Record<string, unknown>;
 }
 
-async function expectDataSchemaWorks(page: Page, handleRef?: string): Promise<void> {
+async function expectDataSchemaWorks(page: Page, target: string): Promise<void> {
   const cap = await getCapabilities(page);
-  const graph = cap?.graph ?? {};
-  const nodes = graph.nodes ?? [];
-  const actions = graph.actions ?? [];
-
-  const handles = nodes.filter((n: any) => n?.kind === 'DataHandle' && typeof n?.ref === 'string');
-  const target = handleRef ?? (handles[0]?.ref as string | undefined);
-
-  if (!target) return;
+  const actions = cap?.graph?.actions ?? [];
 
   expect(actions.some((a: any) => a?.operation?.contract === 'vacp.data_schema')).toBeTruthy();
 
@@ -205,8 +198,8 @@ async function expectVgplotIntervalActionWorks(
 
   const beforeRows = await selectedCount(page, handleRef);
   expect(beforeRows).toBe(allRows);
-  const runtimeBefore = await getRuntime(page);
-  const historyBefore = Array.isArray(runtimeBefore?.history) ? runtimeBefore.history.length : 0;
+  const runtimeBefore = await getProvenance(page);
+  const historyBefore = Array.isArray(runtimeBefore?.records) ? runtimeBefore.records.length : 0;
 
   const boundsResult = await dataSql(page, {
     handleRef,
@@ -248,9 +241,16 @@ async function expectVgplotIntervalActionWorks(
     )
     .toBe(true);
 
+  // The published predicate selects exactly the rows the handle exposes.
   const state = await getState(page);
-  const handleState = state?.state?.[handleRef];
-  expect(String(handleState?.selectionWhere ?? '')).toMatch(/date|BETWEEN|>=|<=/i);
+  const where = String(state?.state?.[handleRef]?.selectionWhere ?? '');
+  expect(where).not.toBe('');
+  const matching = await dataSql(page, {
+    handleRef,
+    sql: `SELECT COUNT(*)::INTEGER AS n FROM vacp_all WHERE ${where}`,
+  });
+  expect(matching.ok).toBeTruthy();
+  expect(countFromResult(matching)).toBe(await selectedCount(page, handleRef));
 }
 
 async function expectVegaLiteIntervalSelectionWorks(
@@ -291,249 +291,238 @@ async function expectVegaLiteIntervalSelectionWorks(
   const handleState = state?.state?.[handleRef];
   const brushValue = brushState && typeof brushState === 'object' ? brushState.value : undefined;
   expect(brushValue).toEqual(expect.objectContaining({ monthdate_date: intervalValue }));
-  expect(String(handleState?.selectionWhere ?? '')).toMatch(/date|monthdate|>=|<=|BETWEEN/i);
+  const where = String(handleState?.selectionWhere ?? '');
+  expect(where).not.toBe('');
+  const matching = await dataSql(page, {
+    handleRef,
+    sql: `SELECT COUNT(*)::INTEGER AS n FROM vacp_all WHERE ${where}`,
+  });
+  expect(countFromResult(matching)).toBe(await selectedCount(page, handleRef));
 }
 
 test('examples: application options control raw SQL action registration', async ({ page }) => {
-  const srv = await startAppServer({ name: 'vgplot-gallery', cwd: exampleDir('vgplot-gallery') });
+  const srv = appServer('vgplot-gallery');
 
-  try {
-    await page.goto(`${srv.url}#weather`, { waitUntil: 'domcontentloaded' });
-    await expectBridge(page);
-    await waitForCapabilityRefContains(page, '/vgplot/weather');
+  await page.goto(`${srv.url}#weather`, { waitUntil: 'domcontentloaded' });
+  await expectBridge(page);
+  await waitForCapabilityRefContains(page, '/vgplot/weather');
 
-    const enabledCaps = await getCapabilities(page);
-    const enabledGraph = enabledCaps?.graph ?? {};
-    const enabledActions = enabledGraph.actions ?? [];
+  const enabledCaps = await getCapabilities(page);
+  const enabledGraph = enabledCaps?.graph ?? {};
+  const enabledActions = enabledGraph.actions ?? [];
 
-    const enabledHandle = (enabledGraph.nodes ?? []).find(
-      (node: any) => node?.kind === 'DataHandle' && String(node?.ref ?? '').includes('/vgplot/weather/'),
-    );
+  const enabledHandle = (enabledGraph.nodes ?? []).find(
+    (node: any) => node?.kind === 'DataHandle' && String(node?.ref ?? '').includes('/vgplot/weather/'),
+  );
 
-    expect(typeof enabledHandle?.ref).toBe('string');
-    expect(enabledActions.some((action: any) => action?.operation?.contract === 'vacp.data_sql')).toBeTruthy();
+  expect(typeof enabledHandle?.ref).toBe('string');
+  expect(enabledActions.some((action: any) => action?.operation?.contract === 'vacp.data_sql')).toBeTruthy();
 
-    const enabledSql = await dataSql(page, {
-      handleRef: enabledHandle.ref as string,
-      sql: 'SELECT COUNT(*)::INTEGER AS n FROM vacp_all',
-    });
+  const enabledSql = await dataSql(page, {
+    handleRef: enabledHandle.ref as string,
+    sql: 'SELECT COUNT(*)::INTEGER AS n FROM vacp_all',
+  });
 
-    expect(enabledSql.ok).toBeTruthy();
-    expect(typeof countFromResult(enabledSql)).toBe('number');
-    const sqlOperationNames = await operationNames(page, ['vacp.data_sql']);
+  expect(enabledSql.ok).toBeTruthy();
+  expect(typeof countFromResult(enabledSql)).toBe('number');
+  const sqlOperationNames = await operationNames(page, ['vacp.data_sql']);
 
-    await page.addInitScript(() => {
-      globalThis.__vacpExampleOptions = { enableSql: false };
-    });
-    await page.reload({ waitUntil: 'domcontentloaded' });
-    await expectBridge(page);
-    await waitForCapabilityRefContains(page, '/vgplot/weather');
+  await page.addInitScript(() => {
+    globalThis.__vacpExampleOptions = { ...globalThis.__vacpExampleOptions, enableSql: false };
+  });
+  await page.reload({ waitUntil: 'domcontentloaded' });
+  await expectBridge(page);
+  await waitForCapabilityRefContains(page, '/vgplot/weather');
 
-    const disabledCaps = await getCapabilities(page);
-    const disabledGraph = disabledCaps?.graph ?? {};
-    const disabledActions = disabledGraph.actions ?? [];
+  const disabledCaps = await getCapabilities(page);
+  const disabledGraph = disabledCaps?.graph ?? {};
+  const disabledActions = disabledGraph.actions ?? [];
 
-    const disabledHandle = (disabledGraph.nodes ?? []).find(
-      (node: any) => node?.kind === 'DataHandle' && String(node?.ref ?? '').includes('/vgplot/weather/'),
-    );
+  const disabledHandle = (disabledGraph.nodes ?? []).find(
+    (node: any) => node?.kind === 'DataHandle' && String(node?.ref ?? '').includes('/vgplot/weather/'),
+  );
 
-    expect(typeof disabledHandle?.ref).toBe('string');
-    expect(disabledActions.some((action: any) => action?.operation?.contract === 'vacp.data_sql')).toBeFalsy();
-    expect(disabledActions.some((action: any) => action?.operation?.contract === 'vacp.data_schema')).toBeTruthy();
+  expect(typeof disabledHandle?.ref).toBe('string');
+  expect(disabledActions.some((action: any) => action?.operation?.contract === 'vacp.data_sql')).toBeFalsy();
+  expect(disabledActions.some((action: any) => action?.operation?.contract === 'vacp.data_schema')).toBeTruthy();
 
-    await expectDataSchemaWorks(page, disabledHandle.ref as string);
+  await expectDataSchemaWorks(page, disabledHandle.ref as string);
 
-    const disabledSql = await executeVacp(page, {
-      name: sqlOperationNames['vacp.data_sql']!,
-      params: { handleRef: disabledHandle.ref, sql: 'SELECT COUNT(*)::INTEGER AS n FROM vacp_all' },
-    });
-    expect(disabledSql.ok).toBe(false);
-    expect(disabledSql.error?.message).toContain('Unknown action');
-  } finally {
-    await srv.stop();
-  }
+  const disabledSql = await executeVacp(page, {
+    name: sqlOperationNames['vacp.data_sql']!,
+    params: { handleRef: disabledHandle.ref, sql: 'SELECT COUNT(*)::INTEGER AS n FROM vacp_all' },
+  });
+  expect(disabledSql.ok).toBe(false);
+  expect(disabledSql.error?.message).toContain('Unknown action');
 });
 
 test('examples: vgplot-gallery', async ({ page }) => {
-  const srv = await startAppServer({ name: 'vgplot-gallery', cwd: exampleDir('vgplot-gallery') });
+  const srv = appServer('vgplot-gallery');
+  await page.goto(`${srv.url}`, { waitUntil: 'domcontentloaded' });
+  await expectBridge(page);
+  await expectDomSnapshotScript(page);
 
-  try {
-    await page.goto(`${srv.url}`, { waitUntil: 'domcontentloaded' });
+  // Avoid specs that require external network to load large parquet datasets. These can be
+  // flaky/slow in CI (and are not essential for validating VACP wiring).
+  const skipSpecs = new Set(['gaia', 'nyc-taxi-rides', 'observable-latency']);
+
+  const specs = await page.evaluate(() =>
+    Array.from(document.querySelectorAll<HTMLSelectElement>('#spec option')).map((o) => o.value),
+  );
+
+  expect(specs.length).toBeGreaterThanOrEqual(2);
+
+  for (const specId of specs.filter((id) => !skipSpecs.has(id))) {
+    await page.evaluate((id) => {
+      const sel = document.querySelector<HTMLSelectElement>('#spec');
+
+      if (!sel) throw new Error('Missing #spec');
+      sel.value = id;
+      sel.dispatchEvent(new Event('change', { bubbles: true }));
+    }, specId);
+
     await expectBridge(page);
-    await expectDomSnapshotScript(page);
+    await waitForCapabilityRefContains(page, `/vgplot/${specId}`);
 
-    // Avoid specs that require external network to load large parquet datasets. These can be
-    // flaky/slow in CI (and are not essential for validating VACP wiring).
-    const skipSpecs = new Set(['gaia', 'nyc-taxi-rides', 'observable-latency']);
+    const caps = await getCapabilities(page);
+    const graph = caps?.graph ?? {};
+    const actions = graph.actions ?? [];
+    const nodes = graph.nodes ?? [];
+    const hasDataSql = actions.some((a: any) => a?.operation?.contract === 'vacp.data_sql');
 
-    const specs = await page.evaluate(() =>
-      Array.from(document.querySelectorAll<HTMLSelectElement>('#spec option')).map((o) => o.value),
+    const handle = nodes.find(
+      (n: any) => n?.kind === 'DataHandle' && String(n?.ref ?? '').includes(`/vgplot/${specId}/`),
     );
 
-    expect(specs.length).toBeGreaterThanOrEqual(2);
-
-    for (const specId of specs.filter((id) => !skipSpecs.has(id))) {
-      await page.evaluate((id) => {
-        const sel = document.querySelector<HTMLSelectElement>('#spec');
-
-        if (!sel) throw new Error('Missing #spec');
-        sel.value = id;
-        sel.dispatchEvent(new Event('change', { bubbles: true }));
-      }, specId);
-
-      await expectBridge(page);
-      await waitForCapabilityRefContains(page, `/vgplot/${specId}`);
-
-      const caps = await getCapabilities(page);
-      const graph = caps?.graph ?? {};
-      const actions = graph.actions ?? [];
-      const nodes = graph.nodes ?? [];
-      const hasDataSql = actions.some((a: any) => a?.operation?.contract === 'vacp.data_sql');
-
-      const handle = nodes.find(
-        (n: any) => n?.kind === 'DataHandle' && String(n?.ref ?? '').includes(`/vgplot/${specId}/`),
-      );
-
-      if (!handle) {
-        expect(hasDataSql).toBeFalsy();
-        continue;
-      }
-
-      expect(hasDataSql).toBeTruthy();
-
-      expect(typeof handle?.ref).toBe('string');
-      const handleRef = handle.ref as string;
-      const handleTable = (handle as any)?.data?.table;
-
-      const resAll = await dataSql(page, { handleRef, sql: 'SELECT COUNT(*)::INTEGER AS n FROM vacp_all' });
-      expect(resAll.ok).toBeTruthy();
-      const nAll = countFromResult(resAll);
-      expect(typeof nAll).toBe('number');
-
-      if (typeof handleTable === 'string' && handleTable) expect(nAll).toBeGreaterThan(0);
-
-      if (typeof handleTable === 'string' && handleTable) {
-        await expectDataSchemaWorks(page, handleRef);
-      }
-
-      if (specId === 'weather') {
-        await expectVgplotIntervalActionWorks(page, graph, handleRef, nAll);
-      }
+    if (!handle) {
+      expect(hasDataSql).toBeFalsy();
+      continue;
     }
-  } finally {
-    await srv.stop();
+
+    expect(hasDataSql).toBeTruthy();
+
+    expect(typeof handle?.ref).toBe('string');
+    const handleRef = handle.ref as string;
+    const handleTable = (handle as any)?.data?.table;
+
+    const resAll = await dataSql(page, { handleRef, sql: 'SELECT COUNT(*)::INTEGER AS n FROM vacp_all' });
+    expect(resAll.ok).toBeTruthy();
+    const nAll = countFromResult(resAll);
+    expect(typeof nAll).toBe('number');
+
+    if (typeof handleTable === 'string' && handleTable) expect(nAll).toBeGreaterThan(0);
+
+    if (typeof handleTable === 'string' && handleTable) {
+      await expectDataSchemaWorks(page, handleRef);
+    }
+
+    if (specId === 'weather') {
+      await expectVgplotIntervalActionWorks(page, graph, handleRef, nAll);
+    }
   }
 });
 
 test('examples: vega-lite-gallery', async ({ page }) => {
-  const srv = await startAppServer({ name: 'vega-lite-gallery', cwd: exampleDir('vega-lite-gallery') });
+  const srv = appServer('vega-lite-gallery');
+  await page.goto(`${srv.url}`, { waitUntil: 'domcontentloaded' });
+  await expectBridge(page);
 
-  try {
-    await page.goto(`${srv.url}`, { waitUntil: 'domcontentloaded' });
+  const specIds = await page.evaluate(() =>
+    Array.from(document.querySelectorAll<HTMLSelectElement>('#spec option')).map((o) => o.value),
+  );
+
+  expect(specIds.length).toBeGreaterThanOrEqual(2);
+
+  for (const specId of specIds) {
+    await page.evaluate((id) => {
+      const sel = document.querySelector<HTMLSelectElement>('#spec');
+
+      if (!sel) throw new Error('Missing #spec');
+      sel.value = id;
+      sel.dispatchEvent(new Event('change', { bubbles: true }));
+    }, specId);
+
+    await page.waitForSelector('#app canvas.marks, #app svg.marks', { timeout: 30_000 });
     await expectBridge(page);
-
-    const specIds = await page.evaluate(() =>
-      Array.from(document.querySelectorAll<HTMLSelectElement>('#spec option')).map((o) => o.value),
-    );
-
-    expect(specIds.length).toBeGreaterThanOrEqual(2);
-
-    for (const specId of specIds) {
-      await page.evaluate((id) => {
-        const sel = document.querySelector<HTMLSelectElement>('#spec');
-
-        if (!sel) throw new Error('Missing #spec');
-        sel.value = id;
-        sel.dispatchEvent(new Event('change', { bubbles: true }));
-      }, specId);
-
-      await page.waitForSelector('#app canvas.marks, #app svg.marks', { timeout: 30_000 });
-      await expectBridge(page);
-      await waitForCapabilityRefContains(page, `/vega-lite/${specId}/${specId}`);
-
-      const caps = await getCapabilities(page);
-      const graph = caps?.graph ?? {};
-      const actions = graph.actions ?? [];
-      const nodes = graph.nodes ?? [];
-      expect(actions.some((a: any) => a?.operation?.contract === 'vacp.data_sql')).toBeTruthy();
-
-      const handle = nodes.find(
-        (n: any) => n?.kind === 'DataHandle' && String(n?.ref ?? '').includes(`/vega-lite/${specId}/`),
-      );
-
-      expect(typeof handle?.ref).toBe('string');
-      const handleRef = handle.ref as string;
-
-      const resAll = await dataSql(page, { handleRef, sql: 'SELECT COUNT(*)::INTEGER AS n FROM vacp_all' });
-      expect(resAll.ok).toBeTruthy();
-      const nAll = countFromResult(resAll);
-      expect(typeof nAll).toBe('number');
-      expect(nAll).toBeGreaterThan(0);
-
-      await expectDataSchemaWorks(page, handleRef);
-
-      const resBase = await dataSql(page, { handleRef, sql: 'SELECT COUNT(*)::INTEGER AS n FROM vacp_handle' });
-      expect(resBase.ok).toBeTruthy();
-      const nBase = countFromResult(resBase);
-      expect(typeof nBase).toBe('number');
-      expect(nBase).toBeGreaterThan(0);
-      expect(nBase).toBeLessThanOrEqual(nAll);
-
-      if (specId === 'seattle-weather') {
-        await expectVegaLiteIntervalSelectionWorks(page, graph, handleRef, nAll);
-      }
-
-      // Interaction-heavy hover/click SQL semantics are covered in dedicated
-      // Vega-Lite tests. Keep this suite focused on cross-example smoke wiring.
-      const state = await getState(page);
-      expect(state && typeof state === 'object').toBeTruthy();
-    }
-  } finally {
-    await srv.stop();
-  }
-});
-
-test('examples: react-dashboard', async ({ page }) => {
-  const srv = await startAppServer({ name: 'react-dashboard', cwd: exampleDir('react-dashboard') });
-
-  try {
-    await page.goto(`${srv.url}`, { waitUntil: 'domcontentloaded' });
-    await expectBridge(page);
-
-    await executeVacp(page, { name: 'dashboard.set_dataset', params: { id: 'iris' } });
-    await executeVacp(page, {
-      name: 'dashboard.set_encoding',
-      params: { x: 'SepalLengthCm', y: 'PetalLengthCm', color: 'Species' },
-    });
+    await waitForCapabilityRefContains(page, `/vega-lite/${specId}/${specId}`);
 
     const caps = await getCapabilities(page);
     const graph = caps?.graph ?? {};
+    const actions = graph.actions ?? [];
     const nodes = graph.nodes ?? [];
-    const handle = nodes.find((n: any) => n?.kind === 'DataHandle');
+    expect(actions.some((a: any) => a?.operation?.contract === 'vacp.data_sql')).toBeTruthy();
+
+    const handle = nodes.find(
+      (n: any) => n?.kind === 'DataHandle' && String(n?.ref ?? '').includes(`/vega-lite/${specId}/`),
+    );
+
     expect(typeof handle?.ref).toBe('string');
     const handleRef = handle.ref as string;
 
     const resAll = await dataSql(page, { handleRef, sql: 'SELECT COUNT(*)::INTEGER AS n FROM vacp_all' });
     expect(resAll.ok).toBeTruthy();
     const nAll = countFromResult(resAll);
+    expect(typeof nAll).toBe('number');
     expect(nAll).toBeGreaterThan(0);
 
     await expectDataSchemaWorks(page, handleRef);
 
-    await page.waitForSelector('svg circle[data-point-id]', { timeout: 30_000 });
+    const resBase = await dataSql(page, { handleRef, sql: 'SELECT COUNT(*)::INTEGER AS n FROM vacp_handle' });
+    expect(resBase.ok).toBeTruthy();
+    const nBase = countFromResult(resBase);
+    expect(typeof nBase).toBe('number');
+    expect(nBase).toBeGreaterThan(0);
+    expect(nBase).toBeLessThanOrEqual(nAll);
 
-    const rtBefore = await getRuntime(page);
-    const beforeHist = (rtBefore.history ?? []).length;
+    if (specId === 'seattle-weather') {
+      await expectVegaLiteIntervalSelectionWorks(page, graph, handleRef, nAll);
+    }
 
-    await page.locator('svg circle[data-point-id]').first().click({ force: true });
-    await waitForHistoryLenAtLeast(page, beforeHist + 1);
-
-    const resSel = await dataSql(page, { handleRef, sql: 'SELECT COUNT(*)::INTEGER AS n FROM vacp_handle' });
-    expect(resSel.ok).toBeTruthy();
-    const nSel = countFromResult(resSel);
-    expect(nSel).toBe(1);
-    expect(nSel).toBeLessThanOrEqual(nAll);
-  } finally {
-    await srv.stop();
+    // Interaction-heavy hover/click SQL semantics are covered in dedicated
+    // Vega-Lite tests. Keep this suite focused on cross-example smoke wiring.
   }
+});
+
+test('examples: react-dashboard', async ({ page }) => {
+  const srv = appServer('react-dashboard');
+
+  await page.goto(`${srv.url}`, { waitUntil: 'domcontentloaded' });
+  await expectBridge(page);
+
+  expect((await executeVacp(page, { name: 'dashboard.set_dataset', params: { id: 'iris' } })).ok).toBe(true);
+  expect(
+    (
+      await executeVacp(page, {
+        name: 'dashboard.set_encoding',
+        params: { x: 'SepalLengthCm', y: 'PetalLengthCm', color: 'Species' },
+      })
+    ).ok,
+  ).toBe(true);
+
+  const caps = await getCapabilities(page);
+  const graph = caps?.graph ?? {};
+  const nodes = graph.nodes ?? [];
+  const handle = nodes.find((n: any) => n?.kind === 'DataHandle');
+  expect(typeof handle?.ref).toBe('string');
+  const handleRef = handle.ref as string;
+
+  const resAll = await dataSql(page, { handleRef, sql: 'SELECT COUNT(*)::INTEGER AS n FROM vacp_all' });
+  expect(resAll.ok).toBeTruthy();
+  const nAll = countFromResult(resAll);
+  expect(nAll).toBeGreaterThan(0);
+
+  await expectDataSchemaWorks(page, handleRef);
+
+  await page.waitForSelector('svg circle[data-point-id]', { timeout: 30_000 });
+
+  const rtBefore = await getProvenance(page);
+  const beforeHist = (rtBefore.records ?? []).length;
+
+  await page.locator('svg circle[data-point-id]').first().click({ force: true });
+  await waitForHistoryLenAtLeast(page, beforeHist + 1);
+
+  const resSel = await dataSql(page, { handleRef, sql: 'SELECT COUNT(*)::INTEGER AS n FROM vacp_handle' });
+  expect(resSel.ok).toBeTruthy();
+  const nSel = countFromResult(resSel);
+  expect(nSel).toBe(1);
 });

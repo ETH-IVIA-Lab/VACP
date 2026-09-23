@@ -10,7 +10,3 @@ const examplesRoot = resolve(repoRoot, 'examples');
 export function exampleDir(name: string): string {
   return resolve(examplesRoot, name);
 }
-
-export function artifactDir(name: string): string {
-  return resolve(repoRoot, '.artifacts', name);
-}

@@ -44,7 +44,7 @@ export async function mountPresenceChart(
     appearance: { motion: 'reduced' },
     ...presenceOptions,
   });
-  presence.attach(provider, createVegaLitePresentation(config));
+  presence.attach(provider, createVegaLitePresentation({ provider, root: config.root }));
   const graph = (await runtime.getCapabilities()).graph;
   const action = graph.actions.find((action) => action.operation.contract === 'vega_lite.set_selection')!;
   const ref = graph.nodes.find((node) => node.ref.endsWith('/param/brush'))!.ref;
@@ -92,25 +92,30 @@ function cursorFixture() {
     kind?: string,
     phase: 'prepared' | 'succeeded' = 'prepared',
   ) => {
-    renderer.render([
-      {
-        execution: {
-          id,
-          callId: id,
-          sequence: 1,
-          name: 'demo',
-          at: '',
-          phase,
+    renderer.render({
+      reason: 'activity',
+      activities: [
+        {
           actor: { id: 'agent', kind: 'agent' },
-          intent: { affects: [], focus: { ref: 'vacp://target', interaction: kind ? { kind } : undefined } },
+          phase: phase === 'prepared' ? 'acting' : 'completed',
+          execution: {
+            id,
+            callId: id,
+            sequence: 1,
+            name: 'demo',
+            at: '',
+            phase,
+            actor: { id: 'agent', kind: 'agent' },
+            intent: { affects: [], focus: { ref: 'vacp://target', interaction: kind ? { kind } : undefined } },
+          },
+          target:
+            x === null
+              ? null
+              : { surface: 'viewport', precision: 'exact', geometry: { kind: 'point', point: { x, y: 100 } } },
+          freshness: 'current',
         },
-        target:
-          x === null
-            ? null
-            : { surface: 'viewport', precision: 'exact', geometry: { kind: 'point', point: { x, y: 100 } } },
-        freshness: 'current',
-      },
-    ]);
+      ],
+    });
   };
   const read = () => {
     const shadow = doc.querySelector('[data-vacp-presence]')!.shadowRoot!;
@@ -152,18 +157,26 @@ export function measureCursorMotion() {
     const middle = read();
     render(renderer, 'interrupted', 400, 'brush');
     const interruption = read();
-    tick(600);
+    tick(1000);
     const settled = read();
     const glyph = doc
       .querySelector('[data-vacp-presence]')!
       .shadowRoot!.querySelector<SVGPathElement>('[data-vacp-cursor] path')!;
     const hotspot = new DOMPoint(12, 12).matrixTransform(glyph.getScreenCTM()!);
     render(renderer, 'resume', 900, 'brush');
-    tick(800);
+    tick(1200);
     render(renderer, 'resume', null, 'brush');
     render(renderer, 'resume', 900, 'brush');
-    tick(1200);
+    tick(2000);
     const recovered = new DOMPoint(12, 12).matrixTransform(glyph.getScreenCTM()!);
+    render(renderer, 'next', 600, 'brush');
+    tick(2050);
+    render(renderer, 'read', null);
+    tick(3000);
+    const pointer = doc
+      .querySelector('[data-vacp-presence]')!
+      .shadowRoot!.querySelector<SVGGElement>('g[data-vacp-phase]')!;
+    const afterRead = new DOMPoint(0, 0).matrixTransform(pointer.getScreenCTM()!);
     renderer.dispose?.();
     const reduced = fixture.create({ motion: 'reduced' });
     render(reduced, 'start', 100);
@@ -175,6 +188,7 @@ export function measureCursorMotion() {
       still: read(),
       hotspot: { x: hotspot.x, y: hotspot.y },
       recovered: { x: recovered.x, y: recovered.y },
+      afterRead: { x: afterRead.x, y: afterRead.y },
     };
   } finally {
     fixture.dispose();
@@ -205,7 +219,7 @@ export function measureCursorAppearance() {
       travel: false,
       cursor: {
         resolve: (activity) => ({
-          shape: activity.execution.intent?.focus?.interaction ? 'app-target' : 'toString',
+          shape: activity.execution?.intent?.focus?.interaction ? 'app-target' : 'toString',
           feedback: false,
         }),
         assets: {
@@ -235,5 +249,72 @@ export function measureCursorAppearance() {
     };
   } finally {
     fixture.dispose();
+  }
+}
+
+/** Check the rendered overlay against independent target rectangles, including during motion. */
+export async function measureBubblePlacement() {
+  const renderer = createBrowserPresenceRenderer({ motion: 'full', hover: false });
+  const host = [...document.querySelectorAll('[data-vacp-presence]')].at(-1)!.shadowRoot!;
+  const actor = { id: 'bubble-test', kind: 'agent' as const, label: 'Analyst' };
+  const rectangles = [
+    { x: 400, y: 300, width: 300, height: 240 },
+    { x: innerWidth - 200, y: 20, width: 160, height: 160 },
+    { x: 20, y: innerHeight - 200, width: 300, height: 160 },
+    { x: 20, y: 20, width: innerWidth - 40, height: 120 },
+  ];
+  const samples: Array<{ clear: boolean; withinViewport: boolean }> = [];
+  const render = (summary: string, rect = rectangles[0]!, phase: 'thinking' | 'acting' = 'thinking') =>
+    renderer.render({
+      reason: 'activity',
+      activities: [
+        {
+          actor,
+          phase,
+          summary,
+          freshness: 'unknown',
+          target: { surface: 'viewport', precision: 'exact', geometry: { kind: 'region', ...rect } },
+        },
+      ],
+    });
+  try {
+    for (const rect of rectangles) {
+      render('Comparing these athletes', rect);
+      const until = performance.now() + 360;
+      do {
+        await new Promise(requestAnimationFrame);
+        const label = host.querySelector<HTMLElement>('[data-vacp-bubble]')!.getBoundingClientRect();
+        samples.push({
+          clear:
+            label.right <= rect.x ||
+            label.left >= rect.x + rect.width ||
+            label.bottom <= rect.y ||
+            label.top >= rect.y + rect.height,
+          withinViewport: label.left >= 0 && label.top >= 0 && label.right <= innerWidth && label.bottom <= innerHeight,
+        });
+      } while (performance.now() < until);
+    }
+    const label = host.querySelector<HTMLElement>('[data-vacp-bubble]')!;
+    const summary = label.querySelector('[data-vacp-summary]')!;
+    const changes: string[] = [];
+    const observer = new MutationObserver(() => changes.push(summary.textContent!));
+    observer.observe(summary, { childList: true, subtree: true, characterData: true });
+    render('Narrowing the height range');
+    await new Promise(requestAnimationFrame);
+    render('Narrowing the height range', rectangles[0], 'acting');
+    await new Promise(requestAnimationFrame);
+    render('Narrowing the height');
+    await new Promise(requestAnimationFrame);
+    render('NARROWING the height');
+    await new Promise(requestAnimationFrame);
+    observer.disconnect();
+    return {
+      samples,
+      changes,
+      displayed: summary.textContent,
+      announced: host.querySelector('[role="status"]')!.textContent,
+    };
+  } finally {
+    renderer.dispose?.();
   }
 }

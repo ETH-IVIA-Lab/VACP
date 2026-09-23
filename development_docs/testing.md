@@ -12,8 +12,12 @@ tests/
     vega-lite/  # Vega-Lite provider-specific behavior
     vgplot/     # VGPlot provider-specific behavior
   smoke/        # cross-example integration smoke coverage
-  helpers/      # shared test utilities (paths, dev server lifecycle)
+  helpers/      # shared test utilities (paths, served applications, presence probes)
 ```
+
+## Servers
+
+Playwright starts every application once per run through `webServer` in `apps/e2e/playwright.config.ts`, on explicit ports from `apps/e2e/tests/helpers/servers.ts`. `VACP_E2E_PORT` moves the whole range. Specs call `appServer(name)` for the development servers and for the built gallery and documentation previews, which `make e2e` builds first. Servers hold no application state between page loads, and every test still receives a fresh page, runtime, and journal. The `warm` setup project visits each development server before the tests, so Vite's first dependency optimization never reloads a page under test. Tests run fully parallel across Playwright's default worker count. Keep each test independent of the others in its file. Import `test` from `helpers/test`. Its `exampleOptions` option runs examples without agent-step pacing, and presence specs restore pacing with `test.use({ exampleOptions: { paceAgentSteps: true } })`. A spec's own init script extends these options. Worker options such as WebMCP launch flags belong in a file-level `test.use` at the top of the spec.
 
 ## Naming
 

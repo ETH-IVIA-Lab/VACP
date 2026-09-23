@@ -1,10 +1,11 @@
 import type { ExampleOptions } from '../../../examples/config';
-import type { VacpRuntimeBridge } from '@vacp/protocol';
+import type { VacpAgentActivityControl, VacpAgentActivityHandle, VacpRuntimeBridge } from '@vacp/protocol';
 
 declare global {
   var __vacpExampleOptions: Partial<ExampleOptions> | undefined;
   interface Window {
-    __vacp?: VacpRuntimeBridge;
+    __vacpStream?: VacpAgentActivityHandle;
+    __vacp?: VacpRuntimeBridge & VacpAgentActivityControl;
     __vacpDownloadProbe?: Array<{ filename: string; text: string }>;
     __vacpHostHooks?: {
       fetch: typeof fetch;

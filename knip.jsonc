@@ -19,8 +19,8 @@
       "vite": { "config": "vite.config.ts" },
     },
     "apps/e2e": {
-      // Loaded in the browser through Vite's /@fs route.
-      "entry": ["fixtures/presence.ts", "fixtures/webmcp.ts"],
+      // Browser fixtures load through Vite's /@fs route; setup files run as a Playwright project.
+      "entry": ["fixtures/presence.ts", "fixtures/webmcp.ts", "tests/*.setup.ts"],
     },
     "apps/docs": {
       // VitePress loads this optional minifier dynamically for Rolldown builds.
