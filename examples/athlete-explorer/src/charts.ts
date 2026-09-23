@@ -44,7 +44,7 @@ export async function createCharts(
     );
     const spec: TopLevelSpec = {
       width: 'container',
-      height: 310,
+      height: 182,
       data: { name: 'athletes', values: model.athletes },
       mark: { type: 'point', filled: true, size: 16, clip: true },
       params: [{ name: 'body', select: { type: 'interval', encodings: ['x', 'y'] } }],
@@ -95,7 +95,7 @@ export async function createCharts(
       }),
       vg.intervalX({ as: selection }),
       vg.width(Math.max(260, ageRoot.clientWidth)),
-      vg.height(210),
+      vg.height(262),
       vg.xDomain([10, 70]),
       vg.yDomain(vg.Fixed),
       vg.xLabel('Age at Rio 2016'),

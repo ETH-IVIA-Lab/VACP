@@ -81,7 +81,7 @@ Keep large datasets with their owning system. Expose a `DataHandle` and a query 
 
 `bridge.observe()` returns graph, state, source ownership, source revisions, and output freshness from one coherent read.
 
-Call `integration.refresh(source, message)` after a human interaction when the provider does not publish invalidations. Call `integration.dispose()` when the source unmounts. Disposal removes the integration's source IDs and leaves unrelated providers attached.
+Call `integration.refresh({ id: 'human', kind: 'human', label: 'You' }, message)` after a native human interaction to record its attribution. Provider invalidation alone reports a system change. Call `integration.dispose()` when the source unmounts. Disposal removes the integration's source IDs and leaves unrelated providers attached.
 
 Add [agent presence](../presence/) to show operation focus on your own surface.
 

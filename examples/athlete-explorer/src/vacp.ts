@@ -1,10 +1,12 @@
+import { createExamplePresence } from '@vacp/example-shared';
 import { z } from 'zod';
+import { registerVacpApplyStateAction } from '@vacp/runtime';
 import { createVacpActions, createVacpProvider, installVacp } from '@vacp/sdk';
 import { createVegaLiteProvider } from '@vacp/adapter-vega-lite';
 import { createVegaLitePresentation } from '@vacp/adapter-vega-lite/presentation';
 import { createVgplotProvider, type VgplotPlotLike } from '@vacp/adapter-vgplot';
 import { createVgplotPresentation } from '@vacp/adapter-vgplot/presentation';
-import { createBrowserPresence, createElementPresenceResolver } from '@vacp/presence-browser';
+import { createElementPresenceResolver, observePresenceLayout } from '@vacp/presence-browser';
 import { installVacpWebMcp } from '@vacp/transport-webmcp';
 import { VACP_SCHEMA_VERSION } from '@vacp/protocol';
 import { exampleOptions } from '../../config';
@@ -46,6 +48,26 @@ export async function connectVacp(model: Cohort, charts: Charts, dashboard: Dash
       model.setSex(sex);
       return model.summary();
     });
+  registerVacpApplyStateAction(actions.registry, (state) => {
+    const selected =
+      state[sports] === undefined
+        ? undefined
+        : z.object({ value: sportsInput.shape.sports }).parse(state[sports]).value;
+    const selectedSex =
+      state[sex] === undefined
+        ? undefined
+        : z.object({ value: z.enum(['all', 'female', 'male']) }).parse(state[sex]).value;
+    for (const ref of Object.keys(state))
+      if (![controls, sports, sex].includes(ref)) throw new Error(`Unknown cohort state: ${ref}`);
+    return () => {
+      if (selected !== undefined) model.setSports(selected);
+      if (selectedSex !== undefined) model.setSex(selectedSex);
+      return {
+        applied: [selected !== undefined ? sports : null, selectedSex !== undefined ? sex : null].filter(Boolean),
+        skipped: state[controls] === undefined ? [] : [controls],
+      };
+    };
+  });
   const custom = createVacpProvider({
     source: { id: 'vacp-source://vacp-examples/athletes/cohort', type: 'cohort', title: 'Sport comparison' },
     actions: actions.registry,
@@ -104,11 +126,29 @@ export async function connectVacp(model: Cohort, charts: Charts, dashboard: Dash
     exposeBridge: exampleOptions.exposeBridge,
     injectDomSnapshot: exampleOptions.injectDomSnapshot,
   });
-  const presence = createBrowserPresence(integration.bridge);
+  await integration.bridge.refresh({ actor: { id: 'system', kind: 'system' }, message: 'Initial athlete view' });
+  const root = dashboard.body.closest('.athlete-explorer')!;
+  const presence = createExamplePresence(integration.bridge, root);
+  const releaseHuman = dashboard.subscribeInteractions((control) => {
+    const message =
+      control === 'sex'
+        ? `Selected ${model.filters.sex === 'all' ? 'all' : model.filters.sex} athletes`
+        : model.filters.sports.length
+          ? `Selected ${model.filters.sports.join(' and ')}`
+          : 'Selected all sports';
+    void integration.bridge
+      .refresh({
+        actor: { id: 'human', kind: 'human', label: 'You' },
+        message,
+        focus: { ref: control === 'sex' ? sex : sports, detail: { sports: [...model.filters.sports] } },
+      })
+      .catch(() => {});
+  });
   try {
-    presence.attach(body, createVegaLitePresentation(bodyArgs));
-    presence.attach(age, createVgplotPresentation(ageArgs));
+    presence.attach(body, createVegaLitePresentation({ provider: body, root: dashboard.body }));
+    presence.attach(age, createVgplotPresentation({ provider: age, root: dashboard.age }));
     presence.attach(custom, {
+      subscribe: (invalidate) => observePresenceLayout(root, invalidate),
       resolve: createElementPresenceResolver((focus) => {
         if (focus.ref === sex) return dashboard.sex;
         const input = sportsInput.safeParse(focus.detail);
@@ -117,10 +157,12 @@ export async function connectVacp(model: Cohort, charts: Charts, dashboard: Dash
     });
     if (exampleOptions.webmcp) await installVacpWebMcp(integration.bridge);
     return () => {
+      releaseHuman();
       presence.dispose();
       integration.dispose();
     };
   } catch (error) {
+    releaseHuman();
     presence.dispose();
     integration.dispose();
     throw error;

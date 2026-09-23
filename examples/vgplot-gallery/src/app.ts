@@ -7,7 +7,7 @@ import { marked } from 'marked';
 
 import type { GalleryEntry } from './gallery';
 import { loadGallery } from './gallery';
-import { installVacp, waitForActionInteractors } from './vacp';
+import { installVacp } from './vacp';
 import { waitForSvgMaybe } from './vgplot-helpers';
 
 function isPlotLike(value: unknown): value is VgplotPlotLike {
@@ -59,8 +59,9 @@ export async function run(): Promise<void> {
   const app = document.querySelector<HTMLDivElement>('#app');
   const selectEl = document.querySelector<HTMLSelectElement>('#spec');
   const metaEl = document.querySelector<HTMLDivElement>('#spec-meta');
+  const titleEl = document.querySelector<HTMLHeadingElement>('#spec-title');
 
-  if (!app || !selectEl || !metaEl) {
+  if (!app || !selectEl || !metaEl || !titleEl) {
     throw new Error('Missing root elements');
   }
 
@@ -141,10 +142,15 @@ export async function run(): Promise<void> {
     return findGalleryEntry(rawHash) ? rawHash : null;
   };
 
+  let integrationLifetime: AbortController | undefined;
   const render = async (entry: GalleryEntry): Promise<void> => {
+    integrationLifetime?.abort();
+    const lifetime = new AbortController();
+    integrationLifetime = lifetime;
     const token = (renderToken += 1);
     // Render: translate the spec to VGPlot DOM, then attach VACP on top of the resulting plots.
     const description = entry.meta.description ?? '';
+    titleEl.textContent = entry.meta.title;
     metaEl.innerHTML = description ? renderDescriptionMarkdown(description) : '';
 
     const ast = parseSpec(entry.spec);
@@ -173,16 +179,8 @@ export async function run(): Promise<void> {
       return { tableId: `table-${idx}`, table, element: host };
     });
 
-    const interactorsReady = await waitForActionInteractors({
-      entryId: entry.id,
-      plots,
-      isStale: () => token !== renderToken,
-    });
-
-    if (!interactorsReady || token !== renderToken) return;
-
     // VACP layer: attaches a bridge (`window.__vacp`), actions, state snapshots, and DuckDB access.
-    await installVacp({ root: element, plots, tables, entry, duckdbClient });
+    await installVacp({ root: element, plots, tables, entry, duckdbClient, signal: lifetime.signal });
   };
 
   const renderById = (id: string): void => {
@@ -192,7 +190,8 @@ export async function run(): Promise<void> {
 
     if (selectEl.value !== id) selectEl.value = id;
     void render(entry).catch((err) => {
-      metaEl.textContent = `Render failed: ${String(err)}`;
+      if (!(err instanceof DOMException && err.name === 'AbortError'))
+        metaEl.textContent = `Render failed: ${String(err)}`;
     });
   };
 
@@ -218,7 +217,8 @@ export async function run(): Promise<void> {
     if (initialEntry) {
       if (selectEl.value !== initialId) selectEl.value = initialId;
       await render(initialEntry).catch((err) => {
-        metaEl.textContent = `Render failed: ${String(err)}`;
+        if (!(err instanceof DOMException && err.name === 'AbortError'))
+          metaEl.textContent = `Render failed: ${String(err)}`;
       });
     }
   } else if (gallery[0]) selectOption(selectEl, gallery[0].id);

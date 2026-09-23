@@ -1,7 +1,5 @@
-import { createBrowserPresence } from '@vacp/presence-browser';
+import { installGalleryIntegration } from '@vacp/example-shared';
 import { createVegaLitePresentation } from '@vacp/adapter-vega-lite/presentation';
-import { installVacpWebMcp } from '@vacp/transport-webmcp';
-import { installVacpRuntime } from '@vacp/runtime-browser';
 import { exampleOptions } from '../../config';
 /**
  * VACP integration layer.
@@ -10,7 +8,6 @@ import { exampleOptions } from '../../config';
  * Vega parameters/selections as semantic nodes/actions.
  */
 
-import { installVacpPosthogAnalytics, type VacpPosthogOptions } from '@vacp/analytics-posthog';
 import { createVegaLiteProvider, type VegaViewLike } from '@vacp/adapter-vega-lite';
 import type { VisualizationSpec } from 'vega-embed';
 import { createDuckDbWasmClient } from '@vacp/data-duckdb';
@@ -19,26 +16,26 @@ const duckdbClient = createDuckDbWasmClient();
 
 import type { GalleryEntry } from './gallery';
 
-let disposePresentation: (() => void) | undefined;
-let disposeWebMcp: (() => void) | undefined;
-
 export async function installVacp(args: {
   root: HTMLElement;
   view: VegaViewLike;
   spec: VisualizationSpec;
   entry: GalleryEntry;
   globalKey?: string;
+  signal: AbortSignal;
 }): Promise<void> {
   const appId = 'vacp-examples';
   const viewId = `vega-lite/${args.entry.id}`;
 
+  const client = await duckdbClient;
+  args.signal.throwIfAborted();
   const provider = createVegaLiteProvider({
     root: args.root,
     view: args.view,
     spec: args.spec,
     options: {
       enableSql: exampleOptions.enableSql,
-      duckdbClient: await duckdbClient,
+      duckdbClient: client,
       appId,
       viewId,
       vizId: args.entry.id,
@@ -47,51 +44,13 @@ export async function installVacp(args: {
     },
   });
 
-  const { runtime: bridge } = installVacpRuntime({
-    providers: [provider],
-    globalKey: args.globalKey,
-    sessionKey: viewId,
-    exposeBridge: exampleOptions.exposeBridge,
-    injectDomSnapshot: exampleOptions.injectDomSnapshot,
-  });
-
-  disposePresentation?.();
-  disposeWebMcp?.();
-  const presence = createBrowserPresence(bridge);
-  presence.attach(
+  await installGalleryIntegration({
     provider,
-    createVegaLitePresentation({
-      root: args.root,
-      view: args.view,
-      spec: args.spec,
-      options: { appId, viewId, vizId: args.entry.id },
-    }),
-  );
-  disposePresentation = presence.dispose;
-  if (exampleOptions.webmcp) {
-    const webmcp = await installVacpWebMcp(bridge);
-    disposeWebMcp = () => webmcp?.dispose();
-  }
-
-  // Optional analytics: if PostHog is configured, stream VACP history into the session replay.
-  const posthogApiKey = import.meta.env.VACP_POSTHOG_API_KEY as string | undefined;
-
-  if (posthogApiKey) {
-    const posthogDefaults = import.meta.env.VACP_POSTHOG_DEFAULTS as string | undefined;
-    const captureSnapshots = (import.meta.env.VACP_POSTHOG_CAPTURE_SNAPSHOTS as string | undefined) === '1';
-    installVacpPosthogAnalytics({
-      bridge,
-      posthog: {
-        apiKey: posthogApiKey,
-        apiHost: import.meta.env.VACP_POSTHOG_API_HOST as string | undefined,
-        config: posthogDefaults
-          ? { defaults: posthogDefaults as NonNullable<VacpPosthogOptions['config']>['defaults'] }
-          : undefined,
-      },
-      analytics: {
-        getBaseProperties: () => ({ vacp_app_id: appId, vacp_view_id: viewId, vacp_viz_id: args.entry.id }),
-        captureSnapshots,
-      },
-    });
-  }
+    root: args.root,
+    presentation: createVegaLitePresentation({ provider, root: args.root }),
+    sessionKey: viewId,
+    globalKey: args.globalKey,
+    signal: args.signal,
+    analyticsProperties: { vacp_app_id: appId, vacp_view_id: viewId, vacp_viz_id: args.entry.id },
+  });
 }

@@ -9,14 +9,11 @@ function renderError(root: HTMLElement, message: string): void {
   root.innerHTML = `<pre class="gallery-error">${escapeHtml(message)}</pre>`;
 }
 
-function renderRouteShell(root: HTMLElement, title: string, layout = 'viewport'): HTMLElement {
-  const safeTitle = escapeHtml(title);
+/** A shared frame only: each example owns its own heading and describes its own data. */
+function renderRouteShell(root: HTMLElement, layout = 'viewport'): HTMLElement {
   root.innerHTML = `
     <main class="gallery-route" data-layout="${layout}">
-      <header class="gallery-route__header">
-        <a class="gallery-route__back" href="../">VACP Examples</a>
-        <h1>${safeTitle}</h1>
-      </header>
+      <nav class="gallery-route__nav" aria-label="Examples"><a href="../">All examples</a></nav>
       <section class="gallery-route__content">
         <div id="gallery-example-mount"></div>
       </section>
@@ -43,7 +40,7 @@ async function mountRoute(): Promise<void> {
     return;
   }
 
-  const mountRoot = renderRouteShell(root, entry.title, entry.layout);
+  const mountRoot = renderRouteShell(root, entry.layout);
 
   let unmount: void | (() => void | Promise<void>);
 

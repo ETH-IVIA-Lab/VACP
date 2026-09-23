@@ -26,7 +26,7 @@ export async function run(): Promise<void> {
 
   if (!data.length || !dimensions.length) throw new Error('Cars dataset is empty');
 
-  let notify = (_source: 'human' | 'agent' | 'inspector' | 'system', _message: string) => {};
+  let notify = (_actor: import('@vacp/protocol').VacpActor, _message: string) => {};
 
   const chart = createParallelCoordsChart({
     root: chartRoot,
@@ -34,7 +34,7 @@ export async function run(): Promise<void> {
     data,
     dimensions,
     onStateChange: (st, change) => {
-      if (change.source === 'human') notify('human', change.message);
+      if (change.source === 'human') notify({ id: 'human', kind: 'human' }, change.message);
       void st;
     },
   });
@@ -65,5 +65,5 @@ export async function run(): Promise<void> {
 
   window.addEventListener('resize', () => chart.render());
 
-  notify('system', 'init');
+  notify({ id: 'system', kind: 'system' }, 'init');
 }

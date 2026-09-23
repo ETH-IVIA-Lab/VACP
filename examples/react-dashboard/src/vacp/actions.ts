@@ -17,6 +17,7 @@ export function registerDashboardActions(actions: VacpActions, model: ReactDashb
     )
     .affects(handleRef)
     .params(z.object({ id: z.enum(datasetIds) }))
+    .focus(() => ({ ref: handleRef, detail: { control: 'dataset' }, interaction: { kind: 'activate' } }))
     .handle(async (params) => {
       const { id } = params;
       await model.setDatasetId(id);
@@ -36,6 +37,7 @@ export function registerDashboardActions(actions: VacpActions, model: ReactDashb
           return params;
         }),
     )
+    .focus(() => ({ ref: scatterRef, detail: { control: 'encoding' }, interaction: { kind: 'activate' } }))
     .handle((params) => {
       const { x, y, color } = params;
       assertDashboardEncoding(model.read().dataset, params);
@@ -54,6 +56,7 @@ export function registerDashboardActions(actions: VacpActions, model: ReactDashb
         return params;
       }),
     )
+    .focus(({ ids }) => ({ ref: selectionRef, detail: { ids } }))
     .handle((params) => {
       assertDashboardSelection(model.read().dataset, params.ids);
       model.setSelectedIds(params.ids);
@@ -70,6 +73,7 @@ export function registerDashboardActions(actions: VacpActions, model: ReactDashb
     .requires(scatterRef)
     .affects(brush2dRef)
     .params(z.object({ x0: z.number(), x1: z.number(), y0: z.number(), y1: z.number() }))
+    .focus(() => ({ ref: brush2dRef, interaction: { kind: 'brush' } }))
     .handle((params) => {
       const { x0, x1, y0, y1 } = params;
       model.setBrush2d({ x0, x1, y0, y1 });
@@ -95,6 +99,7 @@ export function registerDashboardActions(actions: VacpActions, model: ReactDashb
         })
         .default({ xMinQ: 0, xMaxQ: 0.35, yMinQ: 0, yMaxQ: 0.35 }),
     )
+    .focus(() => ({ ref: brush2dRef, interaction: { kind: 'brush' } }))
     .handle((params) => {
       const { dataset, encoding } = model.read();
 
@@ -127,6 +132,7 @@ export function registerDashboardActions(actions: VacpActions, model: ReactDashb
     .requires(brush2dRef)
     .affects(brush2dRef)
     .params(z.object({}).default({}))
+    .focus(() => ({ ref: brush2dRef }))
     .handle(() => {
       model.clearBrush2d();
 
@@ -143,6 +149,7 @@ export function registerDashboardActions(actions: VacpActions, model: ReactDashb
         return params;
       }),
     )
+    .focus(({ id }) => ({ ref: selectionRef, detail: { ids: [id] }, interaction: { kind: 'activate' } }))
     .handle((params) => {
       const { id } = params;
       assertDashboardSelection(model.read().dataset, [id]);
@@ -156,6 +163,7 @@ export function registerDashboardActions(actions: VacpActions, model: ReactDashb
     .requires(selectionRef)
     .affects(selectionRef)
     .params(z.object({}).default({}))
+    .focus(() => ({ ref: selectionRef }))
     .handle(() => {
       model.clearSelection();
 

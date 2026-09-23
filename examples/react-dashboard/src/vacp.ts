@@ -1,4 +1,7 @@
 import { createVacpActions, createVacpProvider, installVacp } from '@vacp/sdk';
+import { createExamplePresence } from '@vacp/example-shared';
+import { elementPresenceTarget, observePresenceLayout } from '@vacp/presence-browser';
+import type { PresenceTarget } from '@vacp/presence-core';
 import { installVacpWebMcp } from '@vacp/transport-webmcp';
 import { installVacpPosthogAnalytics, type VacpPosthogOptions } from '@vacp/analytics-posthog';
 import { exampleOptions } from '../../config';
@@ -8,8 +11,13 @@ import { projectDashboard } from './vacp/projection';
 import { dashboardRefs, dashboardIdentity } from './vacp/refs';
 import type { ReactDashboardModel } from './vacp/model';
 
-/** Compose host ports, analytical projection, and optional browser transports. */
-export function installVacpForReactDashboard(args: { globalKey?: string; title?: string; model: ReactDashboardModel }) {
+/** Compose host ports, analytical projection, presence, and optional browser transports. */
+export function installVacpForReactDashboard(args: {
+  root: HTMLElement;
+  globalKey?: string;
+  title?: string;
+  model: ReactDashboardModel;
+}) {
   const { appId, viewId, vizId } = dashboardIdentity;
   const title = args.title ?? 'React dashboard';
   const actions = createVacpActions();
@@ -34,6 +42,35 @@ export function installVacpForReactDashboard(args: { globalKey?: string; title?:
     exposeBridge: exampleOptions.exposeBridge,
     injectDomSnapshot: exampleOptions.injectDomSnapshot,
     providers: [provider],
+  });
+
+  // React re-renders replace nodes, so every lookup starts from the current DOM.
+  const presence = createExamplePresence(vacp.bridge, args.root);
+  const { root } = args;
+  const query = (selector: string) => root.querySelector<HTMLElement>(selector);
+  const exact = (element: HTMLElement | null): PresenceTarget | null =>
+    element ? elementPresenceTarget(element, 'exact') : null;
+  const scatter = () => query('[data-dashboard-view="scatter"]');
+  presence.attach(provider, {
+    subscribe: (invalidate) => observePresenceLayout(root, invalidate),
+    resolve: (focus, { signal }) => {
+      signal.throwIfAborted();
+      const { handleRef, scatterRef, selectionRef, brush2dRef } = dashboardRefs;
+      if (focus.ref === handleRef) return exact(query('[data-dashboard-control="dataset"]'));
+      if (focus.ref === scatterRef) return exact(query('[data-dashboard-control="encoding"]') ?? scatter());
+      if (focus.ref === brush2dRef) {
+        const brush = query('[data-dashboard-view="scatter"] svg rect[rx]');
+        return brush ? elementPresenceTarget(brush, 'region') : exact(scatter());
+      }
+      if (focus.ref === selectionRef) {
+        const ids = (focus.detail as { ids?: string[] } | undefined)?.ids ?? [];
+        const point = ids.length
+          ? query(`[data-dashboard-view="scatter"] circle[data-point-id="${CSS.escape(ids[0]!)}"]`)
+          : null;
+        return point ? elementPresenceTarget(point, 'exact') : exact(scatter());
+      }
+      return null;
+    },
   });
 
   if (exampleOptions.webmcp) {
@@ -64,5 +101,12 @@ export function installVacpForReactDashboard(args: { globalKey?: string; title?:
     });
   }
 
-  return { ...vacp, refs: dashboardRefs };
+  return {
+    ...vacp,
+    dispose: () => {
+      presence.dispose();
+      vacp.dispose();
+    },
+    refs: dashboardRefs,
+  };
 }

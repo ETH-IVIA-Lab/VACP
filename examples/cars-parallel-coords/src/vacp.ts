@@ -1,9 +1,5 @@
-import {
-  createBrowserPresence,
-  elementPresenceTarget,
-  observePresenceLayout,
-  svgPresenceTarget,
-} from '@vacp/presence-browser';
+import { elementPresenceTarget, observePresenceLayout, svgPresenceTarget } from '@vacp/presence-browser';
+import { createExamplePresence } from '@vacp/example-shared';
 import { exampleOptions } from '../../config';
 import { z } from 'zod';
 
@@ -448,7 +444,7 @@ export function installVacpForCarsParallelCoords(args: {
     providers: [provider],
   });
 
-  const presence = createBrowserPresence(vacp.bridge);
+  const presence = createExamplePresence(vacp.bridge, args.root);
   presence.attach(provider, {
     resolve: (focus) => {
       if (focus.ref !== brushRef) return null;

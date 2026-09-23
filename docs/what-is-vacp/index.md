@@ -27,4 +27,4 @@ Large datasets stay with their owning system. A provider exposes data handles, q
 
 Vega-Lite and VGPlot providers map their visualization runtimes into VACP. Custom providers can bind another visualization, widget system, notebook, or analytical service through the same source, projection, observation, and operation ports.
 
-Custom [inspection surfaces](../inspector/) and [agents](../transports/) consume the composed contract. The [runtime](../reference/runtime) adds history, replay, subscriptions, and provider lifecycle. The [browser adapter](../reference/browser) exposes the runtime at `window.__vacp` and publishes DOM observations.
+Custom [inspection surfaces](../inspector/) and [agents](../transports/) consume the composed contract. The [runtime](../reference/runtime) records provenance and owns subscriptions and provider lifecycle. [Provenance consumers](../provenance/) derive checkpoints and restore them through an explicit host capability. The [browser adapter](../reference/browser) exposes the runtime at `window.__vacp` and publishes DOM observations.

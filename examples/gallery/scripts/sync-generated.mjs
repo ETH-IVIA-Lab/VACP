@@ -51,40 +51,43 @@ function syncRoutePages(entries) {
   for (const entry of entries) {
     const routeDir = resolve(galleryDir, entry.route);
     fs.mkdirSync(routeDir, { recursive: true });
-    fs.writeFileSync(resolve(routeDir, generatedMarker), `${entry.id}\n`, 'utf8');
-    fs.writeFileSync(
-      resolve(routeDir, 'index.html'),
-      renderRouteHtml({ title: entry.title, route: entry.route }),
-      'utf8',
-    );
+    writeIfChanged(resolve(routeDir, generatedMarker), `${entry.id}\n`);
+    writeIfChanged(resolve(routeDir, 'index.html'), renderRouteHtml({ title: entry.title, route: entry.route }));
   }
+}
+
+/** Running dev servers reload on every write, so unchanged output is left untouched. */
+function writeIfChanged(path, content) {
+  const next = Buffer.isBuffer(content) ? content : Buffer.from(content, 'utf8');
+  if (fs.existsSync(path) && fs.readFileSync(path).equals(next)) return;
+  fs.writeFileSync(path, next);
 }
 
 function syncPublicAssets(entries) {
   const outDir = resolve(galleryDir, '.generated-public');
-  fs.rmSync(outDir, { recursive: true, force: true });
-  fs.mkdirSync(outDir, { recursive: true });
-
+  const sources = new Map();
   for (const entry of entries) {
     const srcDir = resolve(galleryDir, '..', entry.folder, 'public');
-
-    if (!fs.existsSync(srcDir)) continue;
-    const dstDir = resolve(outDir, entry.route);
-    copyDir(srcDir, dstDir);
+    if (fs.existsSync(srcDir)) sources.set(entry.route, srcDir);
   }
+  mirrorDir(outDir, sources);
 }
 
-function copyDir(src, dst) {
+/** Make `dst` hold exactly the named sources, copying only files whose bytes differ. */
+function mirrorDir(dst, sources) {
   fs.mkdirSync(dst, { recursive: true });
+  for (const item of fs.readdirSync(dst, { withFileTypes: true }))
+    if (!sources.has(item.name)) fs.rmSync(resolve(dst, item.name), { recursive: true, force: true });
 
-  for (const item of fs.readdirSync(src, { withFileTypes: true })) {
-    const srcPath = resolve(src, item.name);
-    const dstPath = resolve(dst, item.name);
-
-    if (item.isDirectory()) {
-      copyDir(srcPath, dstPath);
-    } else if (item.isFile()) {
-      fs.copyFileSync(srcPath, dstPath);
+  for (const [name, srcPath] of sources) {
+    const dstPath = resolve(dst, name);
+    if (fs.statSync(srcPath).isDirectory()) {
+      if (fs.existsSync(dstPath) && !fs.statSync(dstPath).isDirectory()) fs.rmSync(dstPath, { force: true });
+      const children = new Map(fs.readdirSync(srcPath).map((child) => [child, resolve(srcPath, child)]));
+      mirrorDir(dstPath, children);
+    } else {
+      if (fs.existsSync(dstPath) && fs.statSync(dstPath).isDirectory()) fs.rmSync(dstPath, { recursive: true });
+      writeIfChanged(dstPath, fs.readFileSync(srcPath));
     }
   }
 }

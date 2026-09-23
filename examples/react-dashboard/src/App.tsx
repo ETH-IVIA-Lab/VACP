@@ -141,7 +141,11 @@ export default function App({ onInteraction }: Props) {
                     onSetDataset(v as DatasetId);
                   }}
                 >
-                  <SelectTrigger className={!datasetId ? 'border-primary/40 ring-1 ring-primary/20' : undefined}>
+                  <SelectTrigger
+                    aria-label="Dataset"
+                    data-dashboard-control="dataset"
+                    className={!datasetId ? 'border-primary/40 ring-1 ring-primary/20' : undefined}
+                  >
                     <SelectValue placeholder="Select dataset" />
                   </SelectTrigger>
                   <SelectContent>
@@ -186,6 +190,8 @@ export default function App({ onInteraction }: Props) {
                     disabled={!numericColumns.length}
                   >
                     <SelectTrigger
+                      aria-label="X field"
+                      data-dashboard-control="encoding"
                       className={
                         dataset && !loading && !encoding.x ? 'border-primary/40 ring-1 ring-primary/20' : undefined
                       }
@@ -233,6 +239,7 @@ export default function App({ onInteraction }: Props) {
                     disabled={!numericColumns.length}
                   >
                     <SelectTrigger
+                      aria-label="Y field"
                       className={
                         dataset && !loading && !encoding.y ? 'border-primary/40 ring-1 ring-primary/20' : undefined
                       }
@@ -259,7 +266,7 @@ export default function App({ onInteraction }: Props) {
                     onValueChange={(v) => onSetEncoding({ color: v === COLOR_NONE ? null : v })}
                     disabled={!allColumns.length}
                   >
-                    <SelectTrigger>
+                    <SelectTrigger aria-label="Color field">
                       <SelectValue placeholder="color" />
                     </SelectTrigger>
                     <SelectContent>
@@ -304,6 +311,15 @@ export default function App({ onInteraction }: Props) {
         </aside>
 
         <main className="min-w-0 flex-1 flex min-h-0 flex-col overflow-auto pr-1">
+          <header className="mb-4 max-w-[70ch]">
+            <h1 className="text-[clamp(22px,2vw,28px)] font-[550] leading-tight tracking-[-0.03em]">
+              Iris and Motor Trend explorer
+            </h1>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Pick a dataset and two measures, then brush the scatter or click points to see their distributions and
+              rows.
+            </p>
+          </header>
           <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
             <Card className="flex flex-col">
               <CardHeader>
@@ -318,7 +334,7 @@ export default function App({ onInteraction }: Props) {
               </CardHeader>
               <CardContent className="flex min-h-0 flex-1 flex-col">
                 {dataset && encoding.x && encoding.y ? (
-                  <div className={chartPanelHeight}>
+                  <div className={chartPanelHeight} data-dashboard-view="scatter">
                     <ScatterView
                       dataset={dataset}
                       rows={dataset.rows}

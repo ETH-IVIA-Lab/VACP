@@ -10,7 +10,8 @@ export function mountReactDashboard(rootEl: HTMLElement): () => void {
   void useDashboardStore.getState().actions.init();
 
   const vacp = installVacpForReactDashboard({
-    title: 'React dashboard',
+    root: rootEl,
+    title: 'Iris and Motor Trend explorer',
     model: {
       read: () => useDashboardStore.getState(),
       subscribe: (invalidate) => useDashboardStore.subscribe(invalidate),
@@ -21,11 +22,11 @@ export function mountReactDashboard(rootEl: HTMLElement): () => void {
   const root: Root = createRoot(rootEl);
   root.render(
     <StrictMode>
-      <App onInteraction={(msg) => vacp.refresh('human', msg)} />
+      <App onInteraction={(msg) => vacp.refresh({ id: 'human', kind: 'human' }, msg)} />
     </StrictMode>,
   );
 
-  vacp.refresh('system', 'init');
+  vacp.refresh({ id: 'system', kind: 'system' }, 'init');
 
   return () => {
     root.unmount();

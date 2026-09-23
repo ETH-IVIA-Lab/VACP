@@ -9,8 +9,9 @@ export async function run(): Promise<void> {
   const app = document.querySelector<HTMLDivElement>('#app');
   const selectEl = document.querySelector<HTMLSelectElement>('#spec');
   const metaEl = document.querySelector<HTMLDivElement>('#spec-meta');
+  const titleEl = document.querySelector<HTMLHeadingElement>('#spec-title');
 
-  if (!app || !selectEl || !metaEl) {
+  if (!app || !selectEl || !metaEl || !titleEl) {
     throw new Error('Missing root elements');
   }
 
@@ -48,11 +49,16 @@ export async function run(): Promise<void> {
 
   let activeView: Awaited<ReturnType<typeof embed>> | undefined;
   let renderVersion = 0;
+  let integrationLifetime: AbortController | undefined;
   const render = async (entry: GalleryEntry): Promise<void> => {
+    integrationLifetime?.abort();
+    const lifetime = new AbortController();
+    integrationLifetime = lifetime;
     const version = ++renderVersion;
     activeView?.finalize();
     activeView = undefined;
     // Render: mount Vega-Lite into the page, then attach VACP on top of the Vega View.
+    titleEl.textContent = entry.meta.title;
     metaEl.textContent = entry.meta.description ?? '';
 
     app.replaceChildren();
@@ -73,6 +79,7 @@ export async function run(): Promise<void> {
         view: result.view as VegaViewLike,
         spec: spec as VisualizationSpec,
         entry,
+        signal: lifetime.signal,
       });
 
       // Headless Chromium can finish Vega embedding with an empty DOM/canvas.
@@ -93,7 +100,8 @@ export async function run(): Promise<void> {
 
     if (selectEl.value !== id) selectEl.value = id;
     void render(entry).catch((err) => {
-      metaEl.textContent = `Render failed: ${String(err)}`;
+      if (!(err instanceof DOMException && err.name === 'AbortError'))
+        metaEl.textContent = `Render failed: ${String(err)}`;
     });
   };
 
@@ -119,7 +127,8 @@ export async function run(): Promise<void> {
     if (initialEntry) {
       if (selectEl.value !== initialId) selectEl.value = initialId;
       await render(initialEntry).catch((err) => {
-        metaEl.textContent = `Render failed: ${String(err)}`;
+        if (!(err instanceof DOMException && err.name === 'AbortError'))
+          metaEl.textContent = `Render failed: ${String(err)}`;
       });
     }
   }

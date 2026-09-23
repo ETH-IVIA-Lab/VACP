@@ -25,9 +25,8 @@ function renderHome(root: HTMLElement): void {
   root.innerHTML = `
     <main class="gallery-home">
       <header class="gallery-home__header">
-        <p class="gallery-home__eyebrow">VACP</p>
         <h1>Visual analysis, shared.</h1>
-        <p class="gallery-home__intro">Explore the charts, change a selection, and open VACP to see the state and actions available to an agent.</p>
+        <p class="gallery-home__intro">Five interactive dashboards. Brush, filter, and compare them yourself, or let an agent work alongside you.</p>
       </header>
 
       <section class="gallery-home__grid">

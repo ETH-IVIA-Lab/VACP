@@ -15,6 +15,7 @@
   "dependencies": {
     "@vacp/analytics-posthog": "workspace:*",
     "@vacp/data-duckdb": "workspace:*",
+    "@vacp/example-shared": "workspace:*",
     "@vacp/presence-browser": "workspace:*",
     "@vacp/protocol": "workspace:*",
     "@vacp/sdk": "workspace:*",

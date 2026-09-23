@@ -4,7 +4,7 @@
   color: #171717;
   max-width: 1280px;
   margin: auto;
-  padding: 38px 28px 48px;
+  padding: 18px 28px 14px;
   box-sizing: border-box;
   overflow-anchor: none;
 }
@@ -25,56 +25,55 @@
   outline-offset: 4px;
 }
 .athlete-intro {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 24px;
-  margin-bottom: 32px;
+  display: grid;
+  grid-template-columns: minmax(0, auto) minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 40px;
+  margin-bottom: 18px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid #eee;
 }
 .athlete-kicker {
   font-size: 11px;
   letter-spacing: 0.1em;
   color: #666;
-  margin: 0 0 10px;
+  margin: 0 0 6px;
 }
 .athlete-intro h2 {
-  font-size: clamp(24px, 2.5vw, 34px);
+  font-size: clamp(22px, 2vw, 28px);
   line-height: 1.15;
   font-weight: 550;
   letter-spacing: -0.045em;
-  margin: 0 0 10px;
-}
-.athlete-intro p:last-child {
-  color: #666;
-  font-size: 14px;
   margin: 0;
+  white-space: nowrap;
 }
 .athlete-sex {
   display: grid;
-  gap: 8px;
+  gap: 4px;
   color: #666;
   font-size: 12px;
-  min-width: 145px;
+  min-width: 140px;
 }
 .athlete-sex select {
-  padding: 9px 12px;
-  font-size: 14px;
+  padding: 7px 10px;
+  font-size: 13px;
 }
 .athlete-summary {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 24px;
-  max-width: 760px;
-  margin: 0 0 42px;
+  gap: 20px;
+  max-width: 560px;
+  justify-self: center;
+  width: 100%;
   font-variant-numeric: tabular-nums;
 }
 .athlete-summary div {
   display: grid;
-  gap: 5px;
+  gap: 1px;
 }
 .athlete-summary strong {
-  font-size: 30px;
-  line-height: 36px;
+  font-size: 24px;
+  line-height: 30px;
   font-weight: 500;
   letter-spacing: -0.04em;
 }
@@ -88,10 +87,10 @@
 .athlete-details {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  gap: 44px;
+  column-gap: 44px;
 }
 .athlete-details {
-  margin-top: 44px;
+  margin-top: 12px;
 }
 .athlete-charts section,
 .athlete-details section {
@@ -102,7 +101,7 @@
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  min-height: 28px;
+  min-height: 26px;
 }
 .athlete-section-heading h3 {
   font-size: 16px;
@@ -116,42 +115,38 @@
 }
 .athlete-section-heading button {
   font-size: 12px;
-  padding: 5px 10px;
+  padding: 3px 10px;
 }
 .athlete-caption {
-  margin: 6px 0 12px;
+  margin: 0 0 6px;
 }
 .athlete-plot {
   overflow: visible;
-  padding-top: 10px;
-}
-.athlete-plot[data-view='body'] {
-  height: 410px;
-}
-.athlete-plot[data-view='age'] {
-  height: 240px;
+  height: 266px;
 }
 .athlete-plot:empty::before {
   content: 'Loading chart…';
   font-size: 12px;
   color: #888;
 }
-[data-missing] {
-  min-height: 40px;
-}
 .athlete-plot .vega-embed {
   padding: 0 !important;
 }
-.athlete-active {
-  color: #0070f3;
-  font-size: 12px;
-  line-height: 1.6;
-  margin: 18px 0 0;
-  min-height: 58px;
-}
 .athlete-ranking {
-  height: calc(var(--athlete-page-size) * 36px);
-  margin-top: 16px;
+  height: calc(24px + var(--athlete-page-size) * 30px);
+}
+.athlete-ranking-head {
+  display: grid;
+  grid-template-columns: 140px minmax(30px, 1fr) 100px;
+  align-items: end;
+  gap: 14px;
+  height: 24px;
+  padding: 0 10px 6px;
+  color: #888;
+  font-size: 12px;
+}
+.athlete-ranking-head span:last-child {
+  text-align: right;
 }
 .athlete-explorer .athlete-sport {
   display: grid;
@@ -159,17 +154,18 @@
   align-items: center;
   gap: 14px;
   width: 100%;
-  padding: 9px 10px;
+  padding: 0 10px;
   border: 0;
   border-radius: 0;
   text-align: left;
   font-size: 12px;
-  height: 36px;
+  height: 30px;
 }
 .athlete-sport svg {
   display: block;
   width: 100%;
-  height: 12px;
+  height: 10px;
+  border-radius: 2px;
 }
 .athlete-sport-name {
   text-transform: capitalize;
@@ -190,9 +186,8 @@
   color: #0065da;
 }
 .athlete-roster {
-  height: calc(28px + var(--athlete-page-size) * 36px);
+  height: calc(24px + var(--athlete-page-size) * 30px);
   position: relative;
-  margin-top: 16px;
 }
 .athlete-roster table {
   width: 100%;
@@ -217,17 +212,18 @@
   background: #fff;
   color: #888;
   font-weight: 400;
-  padding: 0 10px 10px 0;
-  height: 28px;
+  padding: 0 10px 6px 0;
+  height: 24px;
+  vertical-align: bottom;
 }
 .athlete-roster tr {
-  height: 36px;
+  height: 30px;
 }
 .athlete-roster thead tr {
-  height: 28px;
+  height: 24px;
 }
 .athlete-roster td {
-  padding: 9px 10px 9px 0;
+  padding: 0 10px 0 0;
   vertical-align: middle;
   white-space: nowrap;
   overflow: hidden;
@@ -236,10 +232,6 @@
 .athlete-roster th:last-child,
 .athlete-roster td:last-child {
   text-align: right;
-}
-.athlete-footer {
-  margin-top: 38px;
-  max-width: 70ch;
 }
 .athlete-empty {
   position: absolute;
@@ -252,8 +244,8 @@
   grid-template-columns: 80px 1fr 80px;
   align-items: center;
   gap: 12px;
-  margin-top: 12px;
-  height: 32px;
+  margin-top: 8px;
+  height: 28px;
 }
 .athlete-pages span {
   text-align: center;
@@ -262,7 +254,7 @@
   font-variant-numeric: tabular-nums;
 }
 .athlete-pages button {
-  padding: 6px 10px;
+  padding: 4px 10px;
   font-size: 12px;
 }
 .athlete-pages button:disabled {
@@ -279,7 +271,21 @@
     max-width: 100%;
   }
   .athlete-intro {
-    align-items: flex-start;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: start;
+  }
+  .athlete-intro .athlete-summary {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    justify-self: stretch;
+    max-width: none;
+  }
+  .athlete-intro h2 {
+    white-space: normal;
+  }
+  .athlete-plot {
+    height: auto;
+    min-height: 260px;
   }
   .athlete-summary {
     gap: 26px;
@@ -293,12 +299,13 @@
 }
 @media (max-width: 520px) {
   .athlete-intro {
-    flex-direction: column;
+    grid-template-columns: 1fr;
   }
   .athlete-sex {
     width: 100%;
   }
-  .athlete-explorer .athlete-sport {
+  .athlete-explorer .athlete-sport,
+  .athlete-ranking-head {
     grid-template-columns: 110px minmax(25px, 1fr) 92px;
     gap: 8px;
   }
