@@ -1,6 +1,7 @@
 import type { WebMCP } from 'webmcp-types';
 import type {
   VacpActionDescriptor,
+  VacpAgentActivityControl,
   VacpCapabilitiesSnapshot,
   VacpGraph,
   VacpWindowBridge,
@@ -10,11 +11,15 @@ import type {
 /** The executable protocol surface needed by the compiler; no browser globals. */
 export type VacpWebMcpClient = Pick<VacpWindowBridge, 'observe' | 'getCapabilities' | 'getState' | 'execute'>;
 
-/** Live capability and lifetime ports used by automatic registration. */
-export type VacpWebMcpSource = VacpWebMcpClient & {
-  readonly signal: AbortSignal;
-  subscribeCapabilities(listener: (snapshot: VacpCapabilitiesSnapshot) => void): () => void;
-};
+/**
+ * Live capability and lifetime ports used by automatic registration. A source that publishes agent
+ * activity also receives a progress tool so the agent can narrate for the person watching.
+ */
+export type VacpWebMcpSource = VacpWebMcpClient &
+  Partial<VacpAgentActivityControl> & {
+    readonly signal: AbortSignal;
+    subscribeCapabilities(listener: (snapshot: VacpCapabilitiesSnapshot) => void): () => void;
+  };
 
 /** Only registration is required. The adapter never clears another owner's tools. */
 export type VacpWebMcpRegistry = {

@@ -10,7 +10,8 @@ export const defaultVacpAgentInstructions = [
   'Use vacp_state once for baseline, then prefer delta updates with since tokens when available.',
   'Use vacp_observe when graph, values, and output freshness must share one observation. A stale or running output does not yet represent the current inputs.',
   'When reading state for a View or Visualization ref, inspect the descendant widget/data state under that container before answering.',
-  'Keep visible reasoning terse and professional: one short sentence at most, with no speculative self-talk, filler, or motivational language.',
+  'When vacp_progress is available, call it before each action and whenever the picture changes: one short plain sentence to the person about the data and the view, in the present tense, with the reason when it helps them follow, without tool names, references, or remarks about yourself. Close the task with done=true and a brief closing sentence that states what the view now shows.',
+  'Keep chat text concise and professional, with no speculative self-talk, filler, or motivational language.',
   'Use vacp_execute for semantic actions only. Avoid DOM or pixel instructions.',
   'Discover standard capabilities by operation.contract, then execute the descriptor name belonging to the relevant source and entity.',
   'When Widget or Menu controls are present, resolve labels or indices through the vacp.widget_options contract, then use the discovered input or clear action for that widget.',
@@ -43,7 +44,7 @@ function buildInteractionPolicyInstructions(policy: VacpAgentInteractionPolicy |
   return [
     'For every user question, prioritize observable interaction over text-only explanations.',
     `When executable actions are available, perform at least ${resolved.minExecuteCallsPerTurn} vacp_execute call(s) and at least ${resolved.minToolCallsPerTurn} total tool call(s) in the turn.`,
-    'Use numbered steps while acting so the user can follow what changed in the UI.',
+    'Narrate each step in plain language so the person can follow what changed in the view.',
     'Before the final answer, verify the resulting state with vacp_state and reference concrete observations.',
     'If no safe or relevant action exists, explicitly say why and still ground the answer in vacp_capabilities and vacp_state evidence.',
   ].join(' ');

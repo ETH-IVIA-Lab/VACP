@@ -1,8 +1,9 @@
+import type { VacpAgentActivityControl } from '@vacp/protocol';
 import type { UIMessage, InferUITools } from 'ai';
-import type { createVacpTools } from './vacp-tools';
+import type { createVacpProgressTool, createVacpTools } from './vacp-tools';
 import type { VacpTransport } from '@vacp/transport-bridge';
 
-export type VacpAgentToolName = 'vacp_observe' | 'vacp_capabilities' | 'vacp_state' | 'vacp_execute';
+export type VacpAgentToolName = 'vacp_observe' | 'vacp_capabilities' | 'vacp_state' | 'vacp_execute' | 'vacp_progress';
 
 export type VacpAgentToolEvent = {
   at: string;
@@ -82,6 +83,8 @@ export type VacpAgentInteractionPolicy = {
 };
 
 export type VacpAgentFactoryOptions = {
+  /** Optional host activity channel. Enables the `vacp_progress` tool and turn lifecycle summaries. */
+  activity?: VacpAgentActivityControl;
   config: VacpLLMConfig;
   transport: VacpTransport;
   instructions?: string;
@@ -93,5 +96,5 @@ export type VacpAgentFactoryOptions = {
 export type VacpChatMessage = UIMessage<
   VacpChatMessageMetadata,
   never,
-  InferUITools<ReturnType<typeof createVacpTools>>
+  InferUITools<ReturnType<typeof createVacpTools> & ReturnType<typeof createVacpProgressTool>>
 >;

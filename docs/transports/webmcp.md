@@ -24,7 +24,10 @@ By default, agents discover:
 | `vacp.observe`              | One coherent graph, state, ownership, revision, and freshness observation.      |
 | `vacp.capabilities`         | The live graph, including entities, edges, references, and action descriptions. |
 | `vacp.state`                | Current state and summaries keyed by graph references.                          |
+| `vacp.progress`             | Shows one plain sentence to the person in the agent's presence bubble.          |
 | `vacp.action.<action-name>` | The result of the corresponding VACP action.                                    |
+
+`vacp.progress` is registered when the source publishes agent activity, as the VACP runtime does. Its description asks the agent for one short present-tense sentence about the data and the view, with the reason when it helps the person follow, without tool names or references. The first message of a turn opens a public activity for the WebMCP actor, later messages replace its text, `done: true` closes it with a closing sentence, and a turn with no message for 15 seconds closes on its own. See [agent presence](../presence/#report-thinking-and-public-progress).
 
 An action's related nodes supply context for its tool description. Its existing parameter schema is reused. The adapter does not infer handlers from graph nodes or create a separate application action registry.
 

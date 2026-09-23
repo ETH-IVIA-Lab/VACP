@@ -26,6 +26,7 @@ test('default instructions remain part of composed output', () => {
   assert.match(instructions, /operation\.contract/i);
   assert.match(instructions, /do not use bare vacp:\/\//i);
   assert.match(instructions, /includeNodeData=false/i);
-  assert.match(instructions, /visible reasoning terse and professional/i);
+  assert.match(instructions, /vacp_progress.*one short plain sentence to the person/i);
+  assert.match(instructions, /without tool names, references, or remarks about yourself/i);
   assert.match(instructions, /no item\/filter\/selection is active/i);
 });

@@ -15,6 +15,7 @@ class _FakeClient(VacpBridgeClient):
     def __init__(self) -> None:
         self.last_capabilities_request: VacpCapabilitiesRequestOptions | None = None
         self.last_state_request: VacpStateRequestOptions | None = None
+        self.narrated: list[tuple[str, bool]] = []
 
     async def observe(self) -> dict[str, object]:
         return {'revision': 'test', 'graph': {'nodes': [], 'edges': [], 'actions': []}, 'state': {}}
@@ -41,6 +42,9 @@ class _FakeClient(VacpBridgeClient):
             result={'name': call.name, 'params': call.params},
             error=None,
         )
+
+    async def progress(self, message: str, *, done: bool = False) -> None:
+        self.narrated.append((message, done))
 
 
 class _FakePage:
@@ -79,7 +83,13 @@ class _FakePage:
 async def test_create_mcp_registers_expected_tools() -> None:
     mcp = create_mcp(_FakeClient())
     tools = await mcp.list_tools()
-    assert {tool.name for tool in tools} == {'vacp_observe', 'vacp_capabilities', 'vacp_state', 'vacp_execute'}
+    assert {tool.name for tool in tools} == {
+        'vacp_observe',
+        'vacp_capabilities',
+        'vacp_state',
+        'vacp_execute',
+        'vacp_progress',
+    }
 
 
 @pytest.mark.asyncio
@@ -260,6 +270,7 @@ async def test_create_mcp_registers_page_tools_when_page_provided() -> None:
         'vacp_capabilities',
         'vacp_state',
         'vacp_execute',
+        'vacp_progress',
         'vacp_open_url',
         'vacp_page_info',
     }
@@ -298,3 +309,43 @@ async def test_capabilities_accept_provider_defined_analytical_vocabulary() -> N
     options = {'kinds': ['AnalysisOutput'], 'layers': ['AnalysisLayer']}
     await tool.fn(options=options)
     assert client.last_capabilities_request == options
+
+
+@pytest.mark.asyncio
+async def test_vacp_progress_narrates_and_closes_a_turn() -> None:
+    client = _FakeClient()
+    mcp = create_mcp(client)
+    tool = await mcp.get_tool('vacp_progress')
+    assert isinstance(tool, FunctionTool)
+    assert 'one short plain sentence' in (tool.description or '')
+    await tool.run({'message': '  Narrowing to sprinters under 25 '})
+    await tool.run({'message': 'Sprinters under 25 win most medals.', 'done': True})
+    assert client.narrated == [
+        ('Narrowing to sprinters under 25', False),
+        ('Sprinters under 25 win most medals.', True),
+    ]
+    with pytest.raises(ValueError, match='requires a message'):
+        await tool.run({'message': '   '})
+
+
+@pytest.mark.asyncio
+async def test_browser_bridge_progress_keeps_one_page_side_turn() -> None:
+    page = AsyncMock(spec=Page)
+    payloads: list[object] = []
+
+    def evaluate(_expression: str, argument: str | dict[str, object]) -> object:
+        if isinstance(argument, str):
+            return True
+        payloads.append(argument)
+        return None
+
+    page.evaluate.side_effect = evaluate
+    client = PlaywrightVacpBridgeClient(page)
+    await client.progress('Looking at the age spread')
+    await client.progress('Done.', done=True)
+    assert payloads == [
+        {'key': '__vacp', 'message': 'Looking at the age spread', 'done': False},
+        {'key': '__vacp', 'message': 'Done.', 'done': True},
+    ]
+    expression = page.evaluate.call_args_list[-1].args[0]
+    assert 'beginAgentActivity' in expression and 'Symbol.for' in expression

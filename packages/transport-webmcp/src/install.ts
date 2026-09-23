@@ -2,6 +2,7 @@ import { webMcpExecutionSignal } from './execution';
 import type { WebMCP } from 'webmcp-types';
 import { stableStringify, type VacpGraph } from '@vacp/protocol';
 import { compileVacpWebMcpTools } from './compile';
+import { createVacpWebMcpProgressTool } from './progress';
 import type { VacpWebMcpOptions, VacpWebMcpRegistry, VacpWebMcpSource } from './types';
 
 export type VacpWebMcpInstallation = {
@@ -49,6 +50,16 @@ export async function installVacpWebMcp(
   const signal = AbortSignal.any(signals);
   signal.throwIfAborted();
   const registrations = new Map<string, Registration>();
+  const progress = source.beginAgentActivity
+    ? createVacpWebMcpProgressTool(
+        { beginAgentActivity: source.beginAgentActivity.bind(source) },
+        {
+          actor: options.actor ?? { id: 'webmcp', label: 'Agent', kind: 'agent' },
+          name: `${options.namespace ?? 'vacp'}.progress`,
+          signal,
+        },
+      )
+    : undefined;
   let pending: Promise<void> = Promise.resolve();
   let latest = pending;
   let discovery = 0;
@@ -73,6 +84,7 @@ export async function installVacpWebMcp(
   const synchronize = async (graph: VacpGraph) => {
     signal.throwIfAborted();
     const tools = compileVacpWebMcpTools(graph, source, options);
+    if (progress) tools.push(progress);
     const names = new Set(tools.map((tool) => tool.name));
     for (const [name, entry] of registrations) {
       if (!names.has(name)) {

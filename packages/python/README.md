@@ -16,7 +16,7 @@ uv pip install 'vacp[server]'
 vacp --url http://127.0.0.1:5173/vgplot/
 ```
 
-The default MCP endpoint is `http://localhost:8000/mcp`. Pass `--transport stdio` for standard input and output.
+The default MCP endpoint is `http://localhost:8000/mcp`. Pass `--transport stdio` for standard input and output. The server exposes `vacp_observe`, `vacp_capabilities`, `vacp_state`, `vacp_execute`, and `vacp_progress`, which shows one plain sentence to the person watching the page.
 
 `SimpleProvider` binds Python source metadata, observation, invocation, invalidation, and cleanup callbacks. `ProviderComposer` validates node and operation ownership, permits cross-source edges, and produces one revisioned observation.
 

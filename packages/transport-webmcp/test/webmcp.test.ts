@@ -89,7 +89,13 @@ test('graph projection preserves schemas and context, and executes through runti
     const result = await action.execute({ value: 35 }, options);
     assert.equal((result as { ok: boolean }).ok, true);
     assert.deepEqual((await runtime.getState()).state['vacp://app/threshold'], { value: 35 });
-    assert.equal((await runtime.getRuntime()).history.at(-1)?.call?.name, 'threshold.set');
+    assert.equal(
+      runtime
+        .getProvenance()
+        .records.filter((record) => record.kind === 'action')
+        .at(-1)?.call.name,
+      'threshold.set',
+    );
   } finally {
     runtime.dispose();
   }
@@ -341,7 +347,7 @@ test('an invalid updated catalog withdraws owned tools and can recover on refres
     assert.ok(registration.error instanceof Error);
     actions.unregister('invalid/name');
     await registration.refresh();
-    assert.equal(context.tools.size, 4);
+    assert.equal(context.tools.size, 5);
     assert.equal(registration.error, undefined);
   } finally {
     runtime.dispose();
@@ -491,7 +497,10 @@ test('a subscription supersedes a pending discovery read without restoring withd
     release(snapshot);
     const registration = await installing;
     assert.ok(registration);
-    assert.deepEqual(new Set(context.tools.keys()), new Set(['vacp.observe', 'vacp.capabilities', 'vacp.state']));
+    assert.deepEqual(
+      new Set(context.tools.keys()),
+      new Set(['vacp.observe', 'vacp.capabilities', 'vacp.state', 'vacp.progress']),
+    );
     assert.deepEqual(new Set(registration.toolNames), new Set(context.tools.keys()));
     registration.dispose();
   } finally {
@@ -547,4 +556,40 @@ test('overlapping refreshes await the newest discovery and ignore stale failures
     registration.dispose();
     runtime.dispose();
   }
+});
+
+test('a progress tool narrates one public activity per turn and closes forgotten turns', async (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  const { runtime } = fixture();
+  const context = new Registry();
+  const phases: string[] = [];
+  runtime.subscribeAgentActivities((activity) => phases.push(`${activity.phase}:${activity.summary ?? ''}`));
+  const registration = await installVacpWebMcp(runtime, { context });
+  assert.ok(registration);
+  try {
+    const progress = context.tools.get('vacp.progress');
+    assert.ok(progress, 'a runtime that publishes activity receives the progress tool');
+    assert.match(progress.description, /one short plain sentence/);
+    await context.call('vacp.progress', { message: 'Looking at the threshold' });
+    await context.call('vacp.progress', { message: 'Raising it to 35' });
+    await context.call('vacp.action.threshold.set', { value: 35 });
+    assert.equal(runtime.getAgentActivities()[0]?.summary, 'Raising it to 35');
+    assert.equal(runtime.getAgentActivities()[0]?.actor.id, 'webmcp', 'narration joins the WebMCP execution actor');
+    await context.call('vacp.progress', { message: 'The threshold is 35.', done: true });
+    assert.deepEqual(phases, [
+      'thinking:Looking at the threshold',
+      'thinking:Raising it to 35',
+      'completed:The threshold is 35.',
+    ]);
+    await assert.rejects(context.call('vacp.progress', { message: '' }), /requires a message/);
+    await context.call('vacp.progress', { message: 'Checking again' });
+    t.mock.timers.tick(15_000);
+    assert.equal(runtime.getAgentActivities().length, 0, 'a quiet turn closes on its own');
+    assert.equal(phases.at(-1), 'completed:Checking again', 'a quiet close keeps the last words');
+    await context.call('vacp.progress', { message: 'One more look' });
+  } finally {
+    registration.dispose();
+  }
+  assert.equal(phases.at(-1), 'cancelled:One more look', 'disposal releases an open turn');
+  runtime.dispose();
 });

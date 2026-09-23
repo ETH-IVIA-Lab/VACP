@@ -15,3 +15,5 @@ export * from './sanitize-tool-payload';
 export * from './context-compaction';
 
 export * from './create-vacp-agent';
+
+export { createAgentTurns, vacpProgressGuidance, type AgentTurns } from './agent-turn';

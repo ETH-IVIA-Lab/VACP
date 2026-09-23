@@ -85,8 +85,9 @@ the capability graph, state snapshots, and action semantics.
 Workflow:
 1) Read `vacp_observe()` for coherent graph, state, and output freshness.
 2) Read `vacp_state()` for the current semantic state.
-3) Call `vacp_execute()` with one action from the capabilities snapshot.
-4) Read `vacp_state()` again to verify the state change.
+3) Call `vacp_progress()` with one plain sentence for the person, then `vacp_execute()` with one action
+   from the capabilities snapshot.
+4) Read `vacp_state()` again to verify the state change. Close the task with `vacp_progress(done=true)`.
 
 Efficient defaults:
 1) Read `vacp_observe()` initially and after state changes. Only currently available actions are disclosed.
@@ -188,6 +189,25 @@ Efficient defaults:
         )
         res = await client.execute(call)
         return {'callId': res.call_id, 'ok': res.ok, 'result': res.result, 'error': res.error}
+
+    @mcp.tool(title='Tell the person what you are doing')
+    async def vacp_progress(message: str, done: bool = False) -> dict[str, object]:
+        """
+        Tell the person what you are doing, in one short plain sentence they can read on screen while you work.
+
+        Speak to them directly in the present tense about the data and the view, and add the reason
+        when it helps them follow, for example "Narrowing to sprinters under 25 to compare medalists at
+        their peak age". Leave out tool names, references, ids, and remarks about yourself. Call it
+        before each action and again when the picture changes. Set `done` to true with a brief closing
+        sentence that states what the view now shows.
+        """
+        text = message.strip()
+        if not text:
+            raise ValueError('progress requires a message')
+        if len(text) > 280:
+            raise ValueError('progress messages are at most 280 characters')
+        await client.progress(text, done=done)
+        return {'ok': True}
 
     if page is not None:
 

@@ -41,6 +41,8 @@ class VacpBridgeClient(Protocol):
 
     async def execute(self, call: ActionCall) -> ActionResult: ...
 
+    async def progress(self, message: str, *, done: bool = False) -> None: ...
+
 
 class PlaywrightVacpBridgeClient(VacpBridgeClient):
     """
@@ -110,3 +112,33 @@ class PlaywrightVacpBridgeClient(VacpBridgeClient):
                 error=raw.get('error') if isinstance(raw.get('error'), dict) else None,
             )
         return ActionResult(call_id=call.call_id, ok=False, error={'message': 'Invalid execute() response', 'raw': raw})
+
+    async def progress(self, message: str, *, done: bool = False) -> None:
+        """
+        Narrate for the person watching the page through the bridge's public activity channel.
+
+        One activity spans a turn: the first message opens it, later messages replace its text, and
+        `done` closes it. The open handle lives on the page under a registry symbol because handles
+        cannot cross the Playwright boundary.
+        """
+        await self._require_bridge()
+        await self._page.evaluate(
+            """
+            ({ key, message, done }) => {
+              const bridge = globalThis[key];
+              if (typeof bridge.beginAgentActivity !== 'function') return;
+              const slot = Symbol.for(`vacp.mcp.progress:${key}`);
+              // The same actor as execute(), so narration and actions share one presence entry and record.
+              const actor = { id: 'agent', kind: 'agent', label: 'Agent' };
+              const open = globalThis[slot];
+              if (done) {
+                (open ?? bridge.beginAgentActivity({ actor })).end({ summary: message });
+                delete globalThis[slot];
+                return;
+              }
+              if (open) open.update(message);
+              else globalThis[slot] = bridge.beginAgentActivity({ actor, summary: message });
+            }
+            """,
+            {'key': self._global_key, 'message': message, 'done': done},
+        )

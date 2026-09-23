@@ -7,6 +7,7 @@ import type { VacpAgentToolEvent, VacpAgentToolName } from './types';
 import type { VacpCapabilitiesRequest, VacpStateRequest } from '@vacp/protocol';
 import type { VacpTransport } from '@vacp/transport-bridge';
 import { sanitizeToolPayload } from './sanitize-tool-payload';
+import { vacpProgressGuidance } from './agent-turn';
 
 type ToolOptions = {
   transport: VacpTransport;
@@ -197,6 +198,23 @@ export function createVacpTools(options: ToolOptions) {
       inputSchema: executeSchema,
       execute: async (input) =>
         await run('vacp_execute', { input }, () => transport.vacp_execute(input.name, input.params, input.call_id)),
+    }),
+  };
+}
+
+/** Lets the model narrate for the person watching the visualization; the host supplies the channel. */
+export function createVacpProgressTool(progress: (message: string, done: boolean) => boolean) {
+  return {
+    vacp_progress: tool({
+      description: vacpProgressGuidance,
+      inputSchema: z.object({
+        message: z.string().trim().min(1).max(280).describe('One plain sentence for the person.'),
+        done: z.boolean().default(false).describe('True when this message closes the current task.'),
+      }),
+      execute: async ({ message, done }) =>
+        progress(message, done)
+          ? { ok: true }
+          : { ok: false, reason: 'Progress is not being shown to the person right now; continue the task.' },
     }),
   };
 }
