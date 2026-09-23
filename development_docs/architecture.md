@@ -4,22 +4,26 @@ VACP separates the visualization's state from the ways people and agents access 
 
 ## Package ownership
 
-| Package             | Owns                                                               | Workspace dependencies                   |
-| ------------------- | ------------------------------------------------------------------ | ---------------------------------------- |
-| `protocol`          | Protocol records, refs, hashes, and consumer interfaces            | None                                     |
-| `runtime`           | Action registration, snapshot scoping, deltas, history, and replay | `protocol`                               |
-| `runtime-browser`   | Browser options, bridge installation, and DOM snapshots            | `protocol`, `runtime`                    |
-| `sdk`               | Custom integration builders and browser composition                | `protocol`, `runtime`, `runtime-browser` |
-| `data-duckdb`       | Database execution, metadata, serialization, and handle routing    | `protocol`                               |
-| `adapter-vega-lite` | Vega-Lite entities, selections, and actions                        | `data-duckdb`, `protocol`, `runtime`     |
-| `adapter-vgplot`    | VGPlot entities, selections, and actions                           | `data-duckdb`, `protocol`, `runtime`     |
-| `transport-bridge`  | Bridge-to-tool mapping and readiness behavior                      | `protocol`                               |
-| `agent-ai-sdk`      | Models, AI SDK tools, agent policy, and context compaction         | `protocol`, `transport-bridge`           |
-| `inspector-core`    | Observation sessions, graph indexes, and connection ports          | `protocol`                               |
-| `diagram-mermaid`   | Semantic graph to Mermaid source                                   | `protocol`                               |
-| `analytics`         | Provider-independent runtime event subscriptions                   | `protocol`                               |
-| `analytics-posthog` | PostHog implementation of the telemetry provider port              | `protocol`, `analytics`                  |
-| `python`            | Python MCP tools and Playwright browser ownership                  | None                                     |
+| Package             | Owns                                                                           | Workspace dependencies                                                    |
+| ------------------- | ------------------------------------------------------------------------------ | ------------------------------------------------------------------------- |
+| `protocol`          | Protocol records, refs, hashes, and consumer interfaces                        | None                                                                      |
+| `runtime`           | Action registration, observations, deltas, provenance journal, and restoration | `protocol`                                                                |
+| `provenance-core`   | Checkpoint projection and viewer-owned replay                                  | `protocol`                                                                |
+| `presence-core`     | Agent activity, target resolution, and presentation arbitration                | `protocol`, `provenance-core`                                             |
+| `presence-browser`  | Cursor, bubbles, viewport geometry, and optional Streamdown text               | `protocol`, `presence-core`                                               |
+| `runtime-browser`   | Browser options, bridge installation, and DOM snapshots                        | `protocol`, `runtime`                                                     |
+| `sdk`               | Custom integration builders and browser composition                            | `protocol`, `runtime`, `runtime-browser`                                  |
+| `data-duckdb`       | Database execution, metadata, serialization, and handle routing                | `protocol`                                                                |
+| `adapter-vega-lite` | Vega-Lite entities, selections, and actions                                    | `data-duckdb`, `protocol`, `runtime`, `presence-core`, `presence-browser` |
+| `adapter-vgplot`    | VGPlot entities, selections, and actions                                       | `data-duckdb`, `protocol`, `runtime`, `presence-core`, `presence-browser` |
+| `transport-webmcp`  | Native tool projection and browser registration                                | `protocol`                                                                |
+| `transport-bridge`  | Bridge-to-tool mapping and readiness behavior                                  | `protocol`                                                                |
+| `agent-ai-sdk`      | Models, AI SDK tools, agent policy, and context compaction                     | `protocol`, `transport-bridge`                                            |
+| `inspector-core`    | Observation sessions, graph indexes, and connection ports                      | `protocol`                                                                |
+| `diagram-mermaid`   | Semantic graph to Mermaid source                                               | `protocol`                                                                |
+| `analytics`         | Provider-independent runtime event subscriptions                               | `protocol`, `provenance-core`                                             |
+| `analytics-posthog` | PostHog implementation of the telemetry provider port                          | `protocol`, `analytics`                                                   |
+| `python`            | Python MCP tools and Playwright browser ownership                              | None                                                                      |
 
 Applications and examples choose adapters and own their lifecycle. Runtime and protocol source must not access browser globals or import providers, databases, model SDKs, or UI code. Import restrictions in `vite.config.ts` enforce workspace dependency direction.
 
@@ -33,11 +37,11 @@ The JavaScript workspace keeps one pnpm catalog and lockfile. The Python workspa
 
 `VacpProvider` combines a pure `VacpSourceDescription` with a live binding. Its `observe()` method returns one source revision containing an analytical graph fragment, state, summaries, and output freshness. Its `prepare()` method validates an operation and returns semantic intent plus a single-use execution closure. Runtime dispatch owns lifecycle events and optional bounded presentation gates. Optional invalidation and disposal callbacks remain transport-neutral.
 
-`createVacpProvider` binds a source description, an analytical projector, and an action preparation port. The projector owns the complete graph, including current action descriptions; execution binding does not overwrite it. Discovery adapters can describe source facts before a live binding exists. Profiles can enrich those facts with selections, data handles, visualizations, and analytical relationships.
+`createVacpProvider` binds a source description, an analytical projector, and an action preparation port. The projector owns the complete graph, including current action descriptions. Execution binding preserves that projection. Discovery adapters can describe source facts before a live binding exists. Profiles can enrich those facts with selections, data handles, visualizations, and analytical relationships.
 
 `composeVacpProviders` validates one owner per node and action, permits cross-source edges, routes action calls to their owner, and retries observations invalidated during a read. The composed graph publishes source descriptions and ownership maps.
 
-`VacpWindowBridge.observe()` is the canonical coherent read. Capability and state methods provide scoped projections for compact consumers. `VacpRuntimeBridge` adds history and inspection capabilities. `VacpRuntime` adds provider attachment, source removal, session replacement, invalidation subscriptions, and disposal.
+`VacpWindowBridge.observe()` is the canonical coherent read. Capability and state methods provide scoped projections for compact consumers. `VacpRuntimeBridge` adds provenance and inspection capabilities. `VacpRuntime` adds provider attachment, source removal, session replacement, invalidation subscriptions, and disposal.
 
 `VacpTransport` defines the four agent tools independently of any model SDK. `VacpDuckDbClient` is the database adapter contract used by providers and data actions.
 
@@ -60,13 +64,21 @@ Applications pass browser exposure and SQL enablement explicitly. The browser in
 
 ## Recording and restoration
 
-`createLiveObservations` owns coherent reads, invalidation, and live publication. `createRuntimeHistory` owns recorded copies. Runtime snapshots contain `observation` and `history`; a viewer retains whichever record it wants to inspect. Selecting a record performs no source operation.
+`createLiveObservations` owns coherent reads, invalidation, and live publication. The runtime provenance journal owns record identity, retention, epoch/revision ordering, and immutability: each record is cloned once, deeply frozen, and shared by every reader. Consumers mirror appended records by revision and resynchronize from `getProvenance()` only after an epoch change or a revision gap. `getProvenance()` reads that journal synchronously. `subscribeProvenance()` publishes appended records or an epoch reset. `inspect()` reads the live full observation separately.
+
+`VacpProvenanceRecord` is a discriminated union of actions, observations, and session markers. An action owns its terminal execution, call, result, captured public message, and available before/after observations. Actor and focus come from its execution. Observation records carry explicit actor and cause evidence. Unattributed native changes remain system observations. Concurrent observations list overlapping executions without claiming exclusive causality. Failed payload capture preserves the known action outcome and records `captureErrors`.
+
+Dispatch captures before-state after preparation and bounded gates, immediately before effects. Terminal recording happens once. Later cancellation, read failure, or presentation failure cannot replace a known operation outcome. Session epochs prevent late reads from entering a newer journal.
+
+`provenance-core` owns analytical state comparison, metadata accessors, and checkpoint projection. Projection classifies the complete chronology before consumer filtering. It retains changed effects from failed operations and excludes queries, restoration records, and intermediate concurrent evidence. A checkpoint refers to its original record rather than copying actor or action metadata.
+
+`createProvenanceReplay` owns a viewer's selected checkpoint, review trail, and saved return observation. Its host supplies restoration separately. It reads retention from the runtime journal and owns no second bounded recording. The controller accepts checkpoint IDs. Actor filters and arrow navigation belong to the consuming UI. Foreign mutations, changed external observations, and session resets interrupt review. Hosts can call `interrupt()` at native input intent to cancel a pending restore before a later observation can detect that input. Interruption abandons the saved return state, and cannot roll back effects already applied.
 
 `createVacpRestorer` owns a queue of explicit restoration requests. It checks complete source ownership through `inspect()` and unambiguous `vacp.apply_state` contracts before dispatching any action, routes each source only its state, and waits for every source result before starting its next request. Calls go through normal runtime execution and history, including current action availability checks. Full inspection supplies ownership, never an execution bypass. Failures report per-source results. Restoration is not a transaction across engines. Unsupported ownership fails before mutation. Provider-specific read-only or transient refs are reported in the provider result. An application may supply the restorer through an Inspector client's optional `restore` port.
 
 Ordinary execution does not coordinate with a viewer's historical selection. State-token baselines are bounded independently of runtime history.
 
-Runtime and session metadata are public properties and snapshot fields. Analytics consumes these fields rather than implementation-private properties.
+Runtime and session metadata are public properties and journal fields. Analytics subscribes to the canonical journal and uses provenance accessors for record metadata.
 
 ## Documentation
 
@@ -85,11 +97,11 @@ Names group implementations by capability family:
 - `runtime-*`: runtime hosting, currently browser installation.
 - `config-*`: shared development tooling.
 
-`protocol`, `runtime`, `sdk`, `analytics`, `inspector-core`, and `python` name the shared contract, engine, integration entry point, event pipeline, inspection primitives, and Python distribution. Keep package directories flat and use the same name in the package manifest, imports, and references.
+`protocol`, `runtime`, `sdk`, `analytics`, `inspector-core`, `provenance-core`, and `python` name the shared contract, engine, integration entry point, event pipeline, inspection primitives, provenance consumers, and Python distribution. Keep package directories flat and use the same name in the package manifest, imports, and references.
 
 ## WebMCP projection
 
-`@vacp/transport-webmcp` consumes protocol records and structural runtime ports. Its compiler turns a graph into executable tool definitions using an injected client; it does not read browser globals. Its installer owns asynchronous browser registration, incremental replacement, cancellation, and cleanup. Applications opt in by passing their runtime instance. No provider or core package imports WebMCP.
+`@vacp/transport-webmcp` consumes protocol records and structural runtime ports. Its compiler turns a graph into executable tool definitions using an injected client. Its installer owns asynchronous browser registration, incremental replacement, cancellation, and cleanup. Applications opt in by passing their runtime instance. No provider or core package imports WebMCP.
 
 The runtime owns capability and observation subscriptions and its lifetime signal. DOM publication subscribes to composed observations, so it preserves execution options and shares lifecycle cleanup with other output adapters. These subscriptions are independent of the runtime history stream. Provider invalidation triggers a new coherent read. Replacing a provider aborts pending calls from its prior binding. Runtime execution forwards caller and source-lifetime cancellation to handlers.
 
@@ -107,15 +119,25 @@ HTTP clients resolve a session identity before making reads or operations. The P
 
 ## Agent presence
 
+Hosts use `VacpAgentActivityControl` to begin, update, and end public progress. The runtime broadcasts these ephemeral records through `VacpAgentActivitySource`, separately from analytical snapshots and history. The protocol carries actor identity and a short summary. It carries no browser geometry or model reasoning tokens. Viewers merge progress and execution by actor, and ignore completions from executions superseded by a newer host turn. A summary that arrives between an actor's steps waits in the viewer until the next execution begins, bounded by `narrationHoldMs`, so words and cursor movement start together. Ending a turn without a summary keeps the last one. Browser hover, spring motion, bloom, and bubble layout remain renderer policy.
+
 `protocol` defines semantic focus, actor context, prepared operations, and execution events. Runtime dispatch emits the same lifecycle for SDK, MCP, and WebMCP calls. Each provider generation has a binding ID and abort signal. Presentation bindings use both to reject stale target lookups.
 
-`presence-core` consumes execution events and coherent observations through ports. It coalesces visual focus per actor and reports output freshness independently of execution success. It never dispatches actions. `presence-browser` implements a passive cursor renderer and live geometry helpers. Adapter `./presentation` entry points project domain targets through their rendering engines. Application modules compose the provider, runtime, and viewer.
+`presence-core` consumes host activity, execution events, and coherent observations through passive ports. Each actor has one entry holding the host's progress record, the shown execution, where the cursor rests, and its target; every published `PresenceActivity` is a projection of that entry. One actor predicate controls live, retained, and replayed presentation, with agent actors visible by default. One presentation coordinator selects the frame, and one target registry resolves live and historical semantic focus. `PresenceFrame` carries displayed activities, layout/activity cause, and optional navigation. Live activity subscribers remain independent of historical presentation.
+
+A host can supply an independently owned `ProvenanceReplayController` to presence. Presence renders navigation and selects checkpoints through that controller. It neither constructs nor disposes the controller. Runtime and provenance packages remain independent of presence. Restoration correlations stay in protocol execution and journal records.
+
+`presence-browser` owns cursor motion, contextual bubble placement, and content rendering. A pointer is a resting point, an optional flight toward it, and the located geometry its label sits beside; one paint step derives the cursor, cue, and label from that state. Authoritative public text updates accept appends and corrections. Exact duplicates preserve rendering identity. Browser installation owns viewport and nested scroll invalidation. Provider geometry subscriptions observe native surface changes. Targets use viewport coordinates clipped to visible scroll ancestors. The same target refresh path serves live activity, retained feedback, and replay.
+
+Adapter `./presentation` entry points borrow the provider generation's binding inventory through `{ provider, root }`. Applications compose providers, runtime, restoration, replay, and optional presence. `examples/shared` centralizes the examples' Streamdown and replay policy, including native input interruption and lifecycle cleanup.
 
 Provider `prepare` validates inputs and resolves targets before mutation. `createVacpProvider` delegates preparation to the action registry. Direct execution remains available through `runtime.execute` or `executeVacpAction(provider, call)`. Prepared operations are single-use and cancellation-aware. Action parsers run before optional presentation pacing.
 
 ## Native adapter bindings
 
-A binding inventory assigns semantic refs to native resources for one provider generation. VGPlot graph construction, state reads, restoration, and presentation use the same inventory. Operation preparation retains its resolved resource and normalized inputs. Adding a capability extends the owning family; redispatch through reconstructed calls or interpretation of operation-name substrings is unnecessary.
+A binding inventory assigns semantic refs to native resources for one provider generation. Graph construction, state reads, execution, restoration, native observation, and optional presentation use the adapter-owned inventory. Operation preparation retains its resolved resource and normalized inputs. Adding a capability extends the owning family through its binding.
+
+VGPlot classifies interactors, legend handlers, and inputs once, by Mosaic class identity, in its binding inventory, because constructor names do not survive minification. VGPlot inventories each shared native Mosaic selection once. Its state records `activeSource` as a bound interaction ref or `null`, because active-clause identity affects crossfilter output independently of clause values. Restoration applies clause values before active-source identity. An unrepresented native source leaves that field undefined and restoration reports the entry as skipped. This native state contract belongs to the adapter. The provenance journal and checkpoint model retain it as ordinary provider state.
 
 Vega-Lite bindings own parameter identity, watched signals, mark ownership, and native context traversal. Serialized state paths retain nested unit identity. Native scene conversion owns padding, renderer origin, and viewport transforms. Compiler signal allocation remains an adapter detail with native-engine tests.
 
@@ -140,7 +162,7 @@ Vega run completion can witness its output revision. VGPlot requests updates and
 
 ## Presentation authority
 
-`VacpExecutionSource` is passive. `VacpExecutionControl` grants bounded gate registration. Creating a headless or browser presence viewer subscribes to events and observations. A host may separately call `paceAgentPresence(control, viewer, timing)` to grant that viewer pacing authority, then release pacing while keeping the viewer attached. Disposing either owner releases waits. Hosts choose which viewer may pace; additional viewers remain independent observers.
+`VacpExecutionSource` is passive. `VacpExecutionControl` grants bounded gate registration. Creating a headless or browser presence viewer subscribes to events and observations. A host may separately call `paceAgentPresence(control, viewer, timing)` to grant that viewer pacing authority, then release pacing while keeping the viewer attached. Disposing either owner releases waits. Hosts choose which viewer may pace. Additional viewers remain independent observers.
 
 ## Observation work
 
@@ -152,10 +174,10 @@ Vega parameter projection reads one native snapshot and indexes its signal scope
 
 Providers publish their complete current catalog with `availability.requires` and optional `availability.unavailable` reasons. The protocol resolver owns conjunctive prerequisites, cycle and missing-ref validation, disclosure, and execution eligibility. Effects, inputs, and containment do not implicitly become prerequisites.
 
-Composition and runtime expose `observe()` for the disclosed surface and `inspect()` for the complete observation. One runtime read retains both views; only the disclosed observation enters capability/state subscriptions and DOM snapshots. Local history retains the complete observation. Inspection clients use `inspect()` and cannot bypass execution guards.
+Composition and runtime expose `observe()` for the disclosed surface and `inspect()` for the complete observation. One runtime read retains both views. The disclosed observation enters capability/state subscriptions and DOM snapshots. Provenance records retain the complete observation. Inspection clients use `inspect()` and cannot bypass execution guards.
 
 Runtime dispatch checks availability before preparation and again after preparation and presentation waits. Native effects that follow provider-owned asynchronous work remain the provider's responsibility. WebMCP projects the disclosed catalog and invocation rechecks live eligibility, including while registration catches up with a state change. Python composition follows the same contract, checked by fixtures shared with the TypeScript protocol suite.
 
 ## Interaction presentation
 
-Validated focus may carry a small optional interaction hint (kind, axis, direction). Providers own that meaning; presence-core transports it unchanged, including custom kinds. Browser cursor selection and inline vector assets belong to presence-browser. Glyph hotspots, travel scale, and press feedback use separate SVG transforms. Visual arrival and gesture feedback never authorize or delay an operation unless the host has installed pacing.
+Validated focus may carry a small optional interaction hint (kind, axis, direction). Providers own that meaning. Presence-core transports it unchanged, including custom kinds. Browser cursor selection and inline vector assets belong to presence-browser. Glyph hotspots, travel scale, and press feedback use separate SVG transforms. Visual arrival and gesture feedback never authorize or delay an operation unless the host has installed pacing.

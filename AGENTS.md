@@ -13,12 +13,14 @@ VACP composes analytical sources, state, freshness, and semantic operations thro
 - `packages/sdk`: application integration helpers.
 - `packages/adapter-vega-lite`, `packages/adapter-vgplot`: visualization providers.
 - `packages/agent-ai-sdk`, `packages/python`: model orchestration and MCP transport.
+- `packages/provenance-core`: checkpoint projection and independently owned replay controllers.
 - `packages/presence-core`: headless agent activity, semantic target resolution, and presentation ports.
 - `packages/presence-browser`: optional cursor rendering and browser geometry helpers.
 - `packages/inspector-core`: viewer contracts, local history, and client connections.
 - `packages/diagram-mermaid`, `packages/analytics`: graph rendering and telemetry.
 - `packages/analytics-posthog`: PostHog implementation of the telemetry provider port.
 - `vite.shared.ts`: shared Vite configuration for applications.
+- `examples/shared`: example-only presence and gallery lifecycle composition.
 - `examples/gallery`: gallery composition and generated routes.
 - `examples/cars-parallel-coords`, `examples/react-dashboard`, `examples/vega-lite-gallery`, `examples/vgplot-gallery`: runnable examples.
 - `apps/e2e`: Playwright tests through the browser and public bridge.
@@ -79,6 +81,8 @@ The vendored anti-slop sources remain unchanged. Local rule choices live in `too
 - Distinguish operation completion, output freshness, and visual arrival. Claim current outputs only from a native revision or settlement witness. Missing freshness means unknown. Elapsed time does not establish settlement. Rendering errors must not trigger a second mutation through another route.
 - The runtime owns live observations and recording. Each viewer owns historical selection. Restoration is an explicit operation against live sources, with visible results and cancellation. Multiple viewers must remain independent.
 - Passive observation ports grant no execution authority. Hosts supply optional pacing separately. Presentation waits are bounded, disposable, and cannot change a known action result. Pacing does not serialize otherwise concurrent operations.
+- Agents narrate for the person, never for themselves. Every transport offers one progress tool whose description asks for a short present-tense sentence about the data and the view; lifecycle wording only fills the gaps. Words about a step start with the step: a viewer holds narration that arrives between an actor's steps until the next execution begins. Hosts grant pacing separately, and only executions shown by a presence viewer wait.
+- Captured facts are immutable and shared. Clone once at capture, freeze, and extend consumer mirrors by revision instead of re-reading or re-copying whole histories. Presentation work follows native change witnesses and runs on the compositor where possible. Measure performance claims with `make bench` before and after a change.
 - Examples remain ordinary analytical applications with a thin VACP integration. Put automation, diagnostic controls, and recording drivers in test tooling or ignored local artifacts. Add packages for independent consumers or dependency boundaries, not to distribute one responsibility across more files.
 
 See [architecture.md](development_docs/architecture.md) for these ownership contracts and [testing.md](development_docs/testing.md) for their verification boundaries.
