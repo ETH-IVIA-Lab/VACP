@@ -53,7 +53,7 @@ test('presence is independent of execution and distinguishes completion from fre
   });
   const presence = createAgentPresence(f.runtime, {
     renderer: {
-      render: (activities) => {
+      render: ({ activities }) => {
         rendered = activities;
       },
     },
@@ -67,7 +67,7 @@ test('presence is independent of execution and distinguishes completion from fre
     await f.runtime.execute({ callId: 'set', name: 'set' });
     assert.equal(f.count(), 1);
     assert.equal(rendered[0]!.target, null);
-    assert.equal(rendered[0]!.execution.phase, 'succeeded');
+    assert.equal(rendered[0]!.execution!.phase, 'succeeded');
     assert.equal(rendered[0]!.freshness, 'updating');
     resolveTarget(target);
     await setImmediate();
@@ -103,7 +103,7 @@ test('a later action keeps actor focus when an earlier target resolves', async (
     finish({ ...target, geometry: { kind: 'point', point: { x: 99, y: 99 } } });
     await setImmediate();
     assert.equal(f.count(), 2);
-    assert.equal(presence.getSnapshot()[0]!.execution.callId, 'current');
+    assert.equal(presence.getSnapshot()[0]!.execution!.callId, 'current');
     assert.deepEqual(presence.getSnapshot()[0]!.target, target);
     f.runtime.removeProvider(f.provider.source.id);
     assert.deepEqual(presence.getSnapshot(), []);
@@ -132,7 +132,7 @@ test('missing targets and throwing renderers do not alter results, and viewers a
     assert.ok(errors.length > 0);
     broken.dispose();
     await f.runtime.execute({ callId: 'next', name: 'set' });
-    assert.equal(healthy.getSnapshot()[0]!.execution.callId, 'next');
+    assert.equal(healthy.getSnapshot()[0]!.execution!.callId, 'next');
   } finally {
     broken.dispose();
     healthy.dispose();
@@ -269,6 +269,7 @@ test('passive viewers need no timing authority and removing host pacing leaves b
   const passive = {
     signal: f.runtime.signal,
     subscribeExecutions: f.runtime.subscribeExecutions,
+    getActiveExecutions: f.runtime.getActiveExecutions,
     subscribeSnapshots: f.runtime.subscribeSnapshots,
   };
   const first = createAgentPresence(passive),
@@ -287,8 +288,8 @@ test('passive viewers need no timing authority and removing host pacing leaves b
     assert.equal(f.count(), 0);
     remove();
     assert.equal((await action).ok, true);
-    assert.equal(first.getSnapshot()[0]!.execution.phase, 'succeeded');
-    assert.equal(second.getSnapshot()[0]!.execution.phase, 'succeeded');
+    assert.equal(first.getSnapshot()[0]!.execution!.phase, 'succeeded');
+    assert.equal(second.getSnapshot()[0]!.execution!.phase, 'succeeded');
   } finally {
     remove();
     first.dispose();
@@ -303,9 +304,11 @@ test('custom interaction meaning reaches headless consumers without granting exe
   try {
     await f.runtime.execute({ callId: 'custom', name: 'set' });
     const observation = presence.getSnapshot();
-    assert.deepEqual(observation[0]!.execution.intent?.focus?.interaction, { kind: 'lasso', axis: 'xy' });
-    observation[0]!.execution.intent!.focus!.interaction!.kind = 'changed by viewer';
-    assert.equal(presence.getSnapshot()[0]!.execution.intent?.focus?.interaction?.kind, 'lasso');
+    assert.deepEqual(observation[0]!.execution!.intent?.focus?.interaction, { kind: 'lasso', axis: 'xy' });
+    assert.throws(() => {
+      observation[0]!.execution!.intent!.focus!.interaction!.kind = 'changed by viewer';
+    });
+    assert.equal(presence.getSnapshot()[0]!.execution!.intent?.focus?.interaction?.kind, 'lasso');
     assert.equal(f.count(), 1);
   } finally {
     presence.dispose();
@@ -353,7 +356,7 @@ test('geometry invalidation during renderer arrival waits for the replacement ta
   try {
     await f.runtime.execute({ callId: 'moving', name: 'set' });
     let finished = false;
-    const arrival = presence.arrive(presence.getSnapshot()[0]!.execution.id, new AbortController().signal).then(() => {
+    const arrival = presence.arrive(presence.getSnapshot()[0]!.execution!.id, new AbortController().signal).then(() => {
       finished = true;
     });
     await rendering;
@@ -395,7 +398,7 @@ test(
     });
     try {
       await f.runtime.execute({ callId: 'retired', name: 'set' });
-      const arrival = presence.arrive(presence.getSnapshot()[0]!.execution.id, new AbortController().signal);
+      const arrival = presence.arrive(presence.getSnapshot()[0]!.execution!.id, new AbortController().signal);
       await rendering;
       detach();
       await arrival;
@@ -435,7 +438,7 @@ test(
     });
     try {
       await f.runtime.execute({ callId: 'pending', name: 'set' });
-      const id = presence.getSnapshot()[0]!.execution.id;
+      const id = presence.getSnapshot()[0]!.execution!.id;
       const cancelled = new AbortController();
       const first = presence.arrive(id, cancelled.signal);
       cancelled.abort();
@@ -461,3 +464,239 @@ test(
     }
   },
 );
+
+test('host thinking stays visible before and between actions and is replayed to new viewers', async (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  const f = fixture();
+  const actor = { id: 'analyst', kind: 'agent' as const, label: 'Analyst' };
+  const turn = f.runtime.beginAgentActivity({ actor, summary: 'Comparing sports' });
+  const presence = createAgentPresence(f.runtime, { lingerMs: 100, narrationHoldMs: 0 });
+  try {
+    assert.equal(presence.getSnapshot()[0]?.phase, 'thinking');
+    assert.equal(presence.getSnapshot()[0]?.execution, undefined);
+    await f.runtime.execute({ name: 'set', callId: 'set' }, { actor });
+    assert.equal(presence.getSnapshot()[0]?.phase, 'thinking');
+    t.mock.timers.tick(200);
+    assert.equal(presence.getSnapshot().length, 1);
+    turn.update('Checking the result');
+    assert.equal(presence.getSnapshot()[0]?.summary, 'Checking the result');
+    turn.end({ summary: 'The comparison is ready' });
+    assert.equal(presence.getSnapshot()[0]?.phase, 'completed');
+    t.mock.timers.tick(100);
+    assert.deepEqual(presence.getSnapshot(), []);
+  } finally {
+    presence.dispose();
+    f.runtime.dispose();
+  }
+});
+
+test('words about the next step wait for that step while the cursor rests on the last one', async (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  const f = fixture();
+  const actor = { id: 'analyst', kind: 'agent' as const };
+  const turn = f.runtime.beginAgentActivity({ actor, summary: 'Selecting rowing first' });
+  const summaries: Array<string | undefined> = [];
+  const presence = createAgentPresence(f.runtime, { narrationHoldMs: 1000 });
+  presence.subscribe((activities) => summaries.push(activities[0]?.summary));
+  try {
+    // The first words of a turn have no earlier step to contradict, so they show at once.
+    assert.equal(presence.getSnapshot()[0]?.summary, 'Selecting rowing first');
+    await f.runtime.execute({ name: 'set', callId: 'first' }, { actor });
+    assert.equal(presence.getSnapshot()[0]?.execution?.phase, 'succeeded');
+
+    turn.update('Now narrowing the age range');
+    assert.equal(presence.getSnapshot()[0]?.summary, 'Selecting rowing first');
+    assert.equal(presence.getSnapshot()[0]?.phase, 'thinking');
+    turn.update('Now narrowing the ages to the twenties');
+    assert.equal(presence.getSnapshot()[0]?.summary, 'Selecting rowing first');
+    await f.runtime.execute({ name: 'set', callId: 'second' }, { actor });
+    assert.equal(presence.getSnapshot()[0]?.summary, 'Now narrowing the ages to the twenties');
+    assert.equal(presence.getSnapshot()[0]?.execution?.phase, 'succeeded');
+    assert.ok(!summaries.includes('Now narrowing the age range'));
+
+    // Without a following step, the wait is bounded.
+    turn.update('Reading the medal table');
+    assert.equal(presence.getSnapshot()[0]?.summary, 'Now narrowing the ages to the twenties');
+    t.mock.timers.tick(999);
+    assert.equal(presence.getSnapshot()[0]?.summary, 'Now narrowing the ages to the twenties');
+    t.mock.timers.tick(1);
+    assert.equal(presence.getSnapshot()[0]?.summary, 'Reading the medal table');
+    assert.equal(summaries.at(-1), 'Reading the medal table');
+
+    // Closing words describe what is already on screen, so they never wait.
+    turn.end({ summary: 'Rowers in their twenties are in view' });
+    assert.equal(presence.getSnapshot()[0]?.summary, 'Rowers in their twenties are in view');
+    assert.equal(presence.getSnapshot()[0]?.phase, 'completed');
+  } finally {
+    presence.dispose();
+    f.runtime.dispose();
+  }
+});
+
+test('a new turn stops claiming the last step is current, while the cursor keeps resting on it', async () => {
+  const f = fixture();
+  const actor = { id: 'analyst', kind: 'agent' as const };
+  const presence = createAgentPresence(f.runtime, { narrationHoldMs: 0 });
+  presence.attach({
+    ...f.runtime.getProviderBinding(f.provider),
+    sourceId: f.provider.source.id,
+    resolve: () => target,
+  });
+  try {
+    const first = f.runtime.beginAgentActivity({ actor, summary: 'Selecting a range' });
+    await f.runtime.execute({ name: 'set', callId: 'ranged' }, { actor });
+    f.settle();
+    await f.runtime.refresh();
+    assert.equal(presence.getSnapshot()[0]?.freshness, 'current');
+    assert.deepEqual(presence.getSnapshot()[0]?.target, target);
+    first.end({ summary: 'The range is selected' });
+    const second = f.runtime.beginAgentActivity({ actor, summary: 'Looking at the medal table' });
+    const shown = presence.getSnapshot()[0]!;
+    assert.equal(shown.execution, undefined);
+    assert.equal(shown.freshness, 'unknown');
+    assert.deepEqual(shown.target, target, 'the cursor rests where the actor last acted');
+    second.end();
+  } finally {
+    presence.dispose();
+    f.runtime.dispose();
+  }
+});
+
+test('held words are dropped with their entry instead of surfacing after disposal', async (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  const f = fixture();
+  const actor = { id: 'analyst', kind: 'agent' as const };
+  const turn = f.runtime.beginAgentActivity({ actor, summary: 'Selecting rowing' });
+  const presence = createAgentPresence(f.runtime, { narrationHoldMs: 500 });
+  let published = 0;
+  presence.subscribe(() => published++);
+  await f.runtime.execute({ name: 'set', callId: 'first' }, { actor });
+  turn.update('Narrowing the ages');
+  presence.dispose();
+  const after = published;
+  t.mock.timers.tick(600);
+  assert.equal(published, after);
+  turn.end();
+  f.runtime.dispose();
+});
+
+test('a new host turn keeps focus when an older execution finishes', async () => {
+  const f = fixture();
+  const actor = { id: 'analyst', kind: 'agent' as const };
+  let releaseGate!: () => void;
+  const gate = new Promise<void>((resolve) => {
+    releaseGate = resolve;
+  });
+  f.runtime.addExecutionGate(() => gate, { timeoutMs: 5000 });
+  const presence = createAgentPresence(f.runtime);
+  try {
+    const old = f.runtime.execute({ name: 'set', callId: 'old' }, { actor });
+    await setImmediate();
+    const turn = f.runtime.beginAgentActivity({ actor, summary: 'A new comparison' });
+    releaseGate();
+    assert.equal((await old).ok, true);
+    assert.equal(f.count(), 1);
+    assert.equal(presence.getSnapshot()[0]?.phase, 'thinking');
+    assert.equal(presence.getSnapshot()[0]?.execution, undefined);
+    turn.end();
+  } finally {
+    releaseGate();
+    presence.dispose();
+    f.runtime.dispose();
+  }
+});
+
+test('a viewer attached during host thinking and a prepared operation follows that action through completion', async () => {
+  const f = fixture();
+  let entered!: () => void;
+  let proceed!: () => void;
+  const prepared = new Promise<void>((resolve) => {
+    entered = resolve;
+  });
+  const blocked = new Promise<void>((resolve) => {
+    proceed = resolve;
+  });
+  const ungate = f.runtime.addExecutionGate(
+    () => {
+      entered();
+      return blocked;
+    },
+    { timeoutMs: 1000 },
+  );
+  const thinking = f.runtime.beginAgentActivity({
+    actor: { id: 'agent', kind: 'agent' },
+    summary: 'Selecting a range',
+  });
+  const operation = f.runtime.execute(
+    { callId: 'already-prepared', name: 'set' },
+    { actor: { id: 'agent', kind: 'agent' } },
+  );
+  await prepared;
+  const presence = createAgentPresence(f.runtime);
+  presence.attach({
+    ...f.runtime.getProviderBinding(f.provider),
+    sourceId: f.provider.source.id,
+    resolve: () => target,
+  });
+  await setImmediate();
+  assert.equal(presence.getSnapshot()[0]?.execution?.phase, 'prepared');
+  assert.equal(presence.getSnapshot()[0]?.phase, 'acting');
+  assert.equal(presence.getSnapshot()[0]?.summary, 'Selecting a range');
+  assert.deepEqual(presence.getSnapshot()[0]?.target, target);
+  proceed();
+  await operation;
+  assert.equal(presence.getSnapshot()[0]?.execution?.phase, 'succeeded');
+  assert.equal(presence.getSnapshot()[0]?.phase, 'thinking');
+  thinking.end({ summary: 'The range is selected' });
+  assert.equal(presence.getSnapshot()[0]?.phase, 'completed');
+  presence.dispose();
+  ungate();
+  f.runtime.dispose();
+});
+
+test('published activity protects nested focus and geometry across viewers and later progress updates', async () => {
+  const f = fixture();
+  const work = f.runtime.beginAgentActivity({ actor: { id: 'agent', kind: 'agent' }, summary: 'Inspecting points' });
+  const geometry: PresenceTarget = {
+    surface: 'test',
+    precision: 'exact',
+    geometry: { kind: 'path', points: [{ x: 1, y: 2 }] },
+  };
+  const presence = createAgentPresence(f.runtime, { narrationHoldMs: 0 });
+  presence.attach({
+    ...f.runtime.getProviderBinding(f.provider),
+    sourceId: f.provider.source.id,
+    resolve: () => geometry,
+  });
+  let newest: readonly PresenceActivity[] = [];
+  presence.subscribe((activities) => {
+    const item = activities[0];
+    if (item?.target?.geometry.kind === 'path')
+      assert.throws(() => {
+        item.target!.geometry = { kind: 'point', point: { x: 99, y: 99 } };
+      });
+    const detail = item?.execution?.intent?.focus?.detail;
+    if (detail && typeof detail === 'object' && 'date' in detail && detail.date instanceof Date)
+      detail.date.setFullYear(2040);
+  });
+  presence.subscribe((activities) => {
+    newest = activities;
+  });
+  try {
+    await f.runtime.execute(
+      { callId: 'isolated', name: 'set', params: { date: new Date('2020-01-01T00:00:00Z') } },
+      { actor: { id: 'agent', kind: 'agent' } },
+    );
+    const first = presence.getSnapshot()[0]!;
+    assert.deepEqual(first.target, geometry);
+    const detail = newest[0]!.execution!.intent!.focus!.detail as { date: Date };
+    assert.equal(detail.date.getUTCFullYear(), 2020);
+    geometry.geometry = { kind: 'point', point: { x: 30, y: 40 } };
+    work.update('Inspecting points, still');
+    assert.deepEqual(presence.getSnapshot()[0]!.target, first.target);
+    assert.equal(newest[0]!.target, first.target);
+  } finally {
+    presence.dispose();
+    f.runtime.dispose();
+  }
+});

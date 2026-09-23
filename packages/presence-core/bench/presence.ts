@@ -12,6 +12,7 @@ async function burst() {
   let publish!: (event: VacpExecution) => void;
   const source: PresenceSource = {
     signal: lifetime.signal,
+    getActiveExecutions: () => [],
     subscribeExecutions: (listener) => {
       publish = listener;
       return () => {};
@@ -45,7 +46,7 @@ async function burst() {
       });
     await setImmediate();
     const activity = presence.getSnapshot()[0];
-    if (activity?.execution.callId !== String(size - 1) || !activity.target)
+    if (activity?.execution!.callId !== String(size - 1) || !activity.target)
       throw new Error('Latest focus was not resolved');
   } finally {
     presence.dispose();
@@ -55,3 +56,52 @@ async function burst() {
 console.log(`Node ${process.version}; ${size} coalesced executions; 10,000-mark resolver`);
 await measure('Presence burst', burst, 20);
 console.log(`Resolver invocations per burst: ${resolutions}`);
+
+// Streaming text with a retained spatial intent should not recopy its large geometry each token.
+let progress!: (event: import('@vacp/protocol').VacpAgentActivity) => void;
+let execution!: (event: VacpExecution) => void;
+const streamingSource: PresenceSource = {
+  signal: new AbortController().signal,
+  getActiveExecutions: () => [],
+  getAgentActivities: () => [],
+  subscribeExecutions: (listener) => {
+    execution = listener;
+    return () => {};
+  },
+  subscribeAgentActivities: (listener) => {
+    progress = listener;
+    return () => {};
+  },
+  subscribeSnapshots: () => () => {},
+};
+const streamed = createAgentPresence(streamingSource, { renderer: { render: () => {} } });
+streamed.subscribe(() => {});
+streamed.attach({
+  id: 'stream-binding',
+  sourceId: 'vacp-source://stream',
+  signal: streamingSource.signal,
+  resolve: () => ({ surface: 'benchmark', precision: 'exact', geometry: { kind: 'path', points } }),
+});
+const activity = { id: 'work', actor: { id: 'agent', kind: 'agent' as const }, phase: 'thinking' as const, at: '' };
+progress({ ...activity, summary: 'Comparing rows' });
+execution({
+  id: 'step',
+  callId: 'step',
+  sequence: 1,
+  name: 'select',
+  at: '',
+  phase: 'prepared',
+  actor: activity.actor,
+  sourceId: 'vacp-source://stream',
+  bindingId: 'stream-binding',
+  intent: { affects: [], focus: { ref: 'vacp://plot' } },
+});
+await setImmediate();
+await measure(
+  'Presence text with 10,000-point target and subscriber',
+  () => {
+    for (let index = 0; index < 50; index++) progress({ ...activity, summary: `Comparing ${index} rows` });
+  },
+  5,
+);
+streamed.dispose();

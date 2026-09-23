@@ -53,7 +53,7 @@ export function paceAgentPresence(
   control.signal.throwIfAborted();
   presence.signal.throwIfAborted();
   const timing = presenceTiming(options);
-  const includes = (id: string) => presence.getSnapshot().some(({ execution }) => execution.id === id);
+  const includes = (id: string) => presence.getSnapshot().some(({ execution }) => execution?.id === id);
   const removeBefore = control.addExecutionGate(
     async (execution, signal) => {
       if (!includes(execution.id)) return;

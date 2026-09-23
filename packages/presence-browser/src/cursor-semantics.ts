@@ -11,7 +11,8 @@ export type CursorPresentation = {
 
 /** Visual policy belongs to the renderer; custom surfaces can interpret the same intent differently. */
 export function defaultCursorPresentation(activity: PresenceActivity): CursorPresentation {
-  const interaction = activity.execution.intent?.focus?.interaction;
+  if (!activity.target || !activity.execution?.intent?.focus) return { shape: 'arrow', feedback: false };
+  const interaction = activity.execution?.intent?.focus?.interaction;
   switch (interaction?.kind) {
     case 'point':
       return { shape: 'pointer', feedback: false };

@@ -10,12 +10,10 @@ import { createBrowserPresenceRenderer, type BrowserPresenceOptions } from './re
 type BrowserPresenceSource = PresenceSource & {
   getProviderBinding(provider: VacpProvider): { id: string; signal: AbortSignal };
 };
+type Options = Omit<PresenceOptions, 'renderer'> & { appearance?: BrowserPresenceOptions };
 
-/** Compose the default renderer with a headless viewer and generation-scoped source bindings. */
-export function createBrowserPresence(
-  runtime: BrowserPresenceSource,
-  options: Omit<PresenceOptions, 'renderer'> & { appearance?: BrowserPresenceOptions } = {},
-) {
+/** Browser wiring only. The host owns any supplied provenance replay controller. */
+export function createBrowserPresence(runtime: BrowserPresenceSource, options: Options = {}) {
   const renderer = createBrowserPresenceRenderer(options.appearance);
   let presence: ReturnType<typeof createAgentPresence>;
   try {
@@ -24,8 +22,36 @@ export function createBrowserPresence(
     renderer.dispose?.();
     throw error;
   }
+  const view = (options.appearance?.document ?? document).defaultView!;
+  let frame = 0;
+  const invalidate = () => {
+    renderer.invalidateLayout();
+    if (!frame)
+      frame = view.requestAnimationFrame(() => {
+        frame = 0;
+        presence.invalidateTargets();
+      });
+  };
+  view.addEventListener('scroll', invalidate, { capture: true, passive: true });
+  view.addEventListener('resize', invalidate);
+  view.visualViewport?.addEventListener('scroll', invalidate);
+  view.visualViewport?.addEventListener('resize', invalidate);
+  let disposed = false;
+  const dispose = () => {
+    if (disposed) return;
+    disposed = true;
+    view.cancelAnimationFrame(frame);
+    view.removeEventListener('scroll', invalidate, true);
+    view.removeEventListener('resize', invalidate);
+    view.visualViewport?.removeEventListener('scroll', invalidate);
+    view.visualViewport?.removeEventListener('resize', invalidate);
+    presence.dispose();
+    runtime.signal.removeEventListener('abort', dispose);
+  };
+  runtime.signal.addEventListener('abort', dispose, { once: true });
   return {
     ...presence,
+    dispose,
     attach(provider: VacpProvider, targets: Pick<PresenceBinding, 'resolve' | 'subscribe'>) {
       return presence.attach({ ...targets, ...runtime.getProviderBinding(provider), sourceId: provider.source.id });
     },

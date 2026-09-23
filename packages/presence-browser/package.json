@@ -16,14 +16,27 @@
     "./targets": {
       "types": "./dist/targets.d.ts",
       "default": "./dist/targets.js"
+    },
+    "./streamdown": {
+      "types": "./dist/streamdown.d.ts",
+      "default": "./dist/streamdown.js"
     }
   },
   "scripts": {
     "build": "vp pack",
-    "typecheck": "tsc -p tsconfig.json"
+    "typecheck": "tsc -p tsconfig.json && tsc -p tsconfig.test.json",
+    "test": "tsx --test --test-timeout=10000 test/*.test.ts"
   },
   "dependencies": {
     "@vacp/presence-core": "workspace:*",
-    "@vacp/protocol": "workspace:*"
+    "@vacp/protocol": "workspace:*",
+    "react": "catalog:",
+    "react-dom": "catalog:",
+    "streamdown": "2.6.0"
+  },
+  "devDependencies": {
+    "@types/react": "catalog:",
+    "@types/react-dom": "catalog:",
+    "tsx": "catalog:"
   }
 }

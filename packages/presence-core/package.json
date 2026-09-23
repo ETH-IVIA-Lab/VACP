@@ -19,7 +19,8 @@
     "bench": "tsx bench/presence.ts"
   },
   "dependencies": {
-    "@vacp/protocol": "workspace:*"
+    "@vacp/protocol": "workspace:*",
+    "@vacp/provenance-core": "workspace:*"
   },
   "devDependencies": {
     "@vacp/runtime": "workspace:*",

@@ -2,6 +2,13 @@ import { resolve } from 'node:path';
 import type { Alias } from 'vite-plus';
 
 const workspacePackages = [
+  ['@vacp/provenance-core', 'packages/provenance-core/src/index.ts'],
+  ['@vacp/presence-core', 'packages/presence-core/src/index.ts'],
+  ['@vacp/presence-browser', 'packages/presence-browser/src/index.ts'],
+  ['@vacp/presence-browser/streamdown', 'packages/presence-browser/src/streamdown.ts'],
+  ['@vacp/presence-browser/targets', 'packages/presence-browser/src/targets.ts'],
+  ['@vacp/adapter-vega-lite/presentation', 'packages/adapter-vega-lite/src/presentation.ts'],
+  ['@vacp/adapter-vgplot/presentation', 'packages/adapter-vgplot/src/presentation.ts'],
   ['@vacp/inspector-core', 'packages/inspector-core/src/index.ts'],
   ['@vacp/inspector-core/runtime', 'packages/inspector-core/src/runtime.ts'],
   ['@vacp/inspector-core/http', 'packages/inspector-core/src/http.ts'],

@@ -4,6 +4,7 @@ import { defaultCursorPresentation, type CursorPresentation } from './cursor-sem
 import { updateAttribute } from './svg';
 
 export type CursorAppearance = {
+  bloom?: false | { color?: string; radius?: number };
   cursor?: {
     size?: number;
     fill?: string;
@@ -26,6 +27,7 @@ export function cursorStyle(options: CursorAppearance) {
     pressMs: options.press === false ? 0 : (options.press?.durationMs ?? 260),
     rippleSize: options.ripple === false ? 0 : (options.ripple?.size ?? 64),
     rippleMs: options.ripple === false ? 0 : (options.ripple?.durationMs ?? 400),
+    bloomRadius: options.bloom === false ? 0 : (options.bloom?.radius ?? 22),
     color: options.ripple === false ? '#60a5fa' : (options.ripple?.color ?? '#60a5fa'),
   };
   for (const [name, value] of Object.entries(style)) {
@@ -49,11 +51,20 @@ export function createCursorGraphic(
 ) {
   const doc = svg.ownerDocument;
   const group = doc.createElementNS(ns, 'g');
+  const halo = doc.createElementNS(ns, 'circle');
+  halo.dataset.vacpBloom = '';
+  halo.setAttribute('r', String(style.bloomRadius));
+  halo.setAttribute('cx', String(style.size / 3));
+  halo.setAttribute('cy', String(style.size / 3));
+  halo.setAttribute('fill', options.bloom === false ? 'none' : (options.bloom?.color ?? '#78b7ff'));
+  halo.style.filter = 'blur(9px)';
+  group.append(halo);
   const travel = doc.createElementNS(ns, 'g');
   travel.dataset.vacpTravel = '';
   const glyph = doc.createElementNS(ns, 'g');
   glyph.dataset.vacpCursor = '';
   glyph.style.transformOrigin = '0 0';
+  if (options.bloom !== false) glyph.style.filter = 'drop-shadow(0 2px 2px rgba(20,35,60,.3))';
   const path = doc.createElementNS(ns, 'path');
   path.setAttribute('stroke', options.cursor?.stroke ?? 'black');
   path.setAttribute('stroke-width', String(style.strokeWidth));
@@ -98,7 +109,8 @@ export function createCursorGraphic(
   return {
     group,
     setActivity(activity: PresenceActivity) {
-      running = activity.execution.phase === 'running';
+      running = activity.execution?.phase === 'running' && activity.phase === 'acting';
+      updateAttribute(halo, 'opacity', activity.phase === 'thinking' ? '0.35' : '0.18');
       const presentation = (options.cursor?.resolve ?? defaultCursorPresentation)(activity);
       resting = presentation.shape;
       active = presentation.activeShape ?? resting;
@@ -144,7 +156,7 @@ export function createCursorGraphic(
       circle.setAttribute('stroke', style.color);
       circle.setAttribute('stroke-width', '2');
       circle.style.transformOrigin = `${point.x}px ${point.y}px`;
-      svg.insertBefore(circle, group);
+      svg.append(circle);
       ripple = circle;
       const remove = () => {
         circle.remove();
