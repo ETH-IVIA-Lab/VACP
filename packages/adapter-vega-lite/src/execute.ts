@@ -1,3 +1,4 @@
+import { selectionTuple, selectionValues, type SelectionTuple } from './selection-state';
 import { intervalVisualSignals } from './selection-signals';
 import type { VacpActionCall, VacpFocus, VacpRef, VacpInteraction } from '@vacp/protocol';
 import { changeset } from 'vega';
@@ -14,17 +15,12 @@ function bestEffortSelectionTuple(args: {
   selectionValue: unknown;
   tupleFields: unknown;
   unit: unknown;
-}): { unit: unknown; fields: unknown[]; values: unknown[] } | null {
-  const { selectionValue, tupleFields, unit } = args;
+}): SelectionTuple | null {
+  const { selectionValue, tupleFields } = args;
+  const unit = typeof args.unit === 'string' ? args.unit : undefined;
 
-  // Advanced escape hatch: allow callers to pass a store tuple directly.
-  if (isRecord(selectionValue) && Array.isArray(selectionValue.fields) && Array.isArray(selectionValue.values)) {
-    return {
-      unit: selectionValue.unit ?? unit,
-      fields: selectionValue.fields,
-      values: selectionValue.values,
-    };
-  }
+  const native = selectionTuple(selectionValue, unit);
+  if (native) return native;
 
   if (!isRecord(selectionValue)) return null;
   const fields = Array.isArray(tupleFields) ? tupleFields : null;
@@ -59,7 +55,7 @@ function bestEffortSelectionTuple(args: {
     values.push(value);
   }
 
-  return { unit, fields, values };
+  return selectionTuple({ unit, fields, values });
 }
 
 function tupleFieldKeys(tupleFields: unknown): string[] {
@@ -90,28 +86,87 @@ function isFiniteNumber(value: unknown): value is number {
   return typeof value === 'number' && Number.isFinite(value);
 }
 
-async function applyViewState(view: VegaViewLike, state: unknown): Promise<void> {
-  // Prefer an awaited, single-pass `runAsync` to avoid racing `view.setState()`'s
-  // internal async run (which does not return a promise).
-  const v = view;
+export type PreparedVegaMutation = {
+  focus: VacpFocus | undefined;
+  visualState?: VegaStateSnapshot;
+  write(): void;
+  read(): unknown;
+};
 
-  if (typeof v.runAsync === 'function' && typeof v?._runtime?.setState === 'function') {
-    await v.runAsync(
-      null,
-      (vv) => {
-        vv._trigger = false;
-        vv._runtime?.setState?.(state);
-      },
-      (vv) => {
-        vv._trigger = true;
-      },
-    );
-
-    return;
+/** A provider state map is one native evaluation, including all stores and visual helpers. */
+export async function executeVegaLiteActions(view: VegaViewLike, plans: readonly PreparedVegaMutation[]) {
+  if (!plans.length) return [];
+  const states: VegaRuntimeContext[] = [];
+  if (plans.some((plan) => plan.visualState) && !view._runtime?.setState)
+    throw new Error('Native interval state application is unavailable');
+  let failure: { error: unknown } | undefined;
+  try {
+    for (const plan of plans) {
+      plan.write();
+      if (plan.visualState) states.push(plan.visualState);
+    }
+  } catch (error) {
+    failure = { error };
   }
+  let previousTrigger: boolean | undefined;
+  let changedTrigger = false;
+  try {
+    if (states.length)
+      await view.runAsync(null, (native) => {
+        previousTrigger = native._trigger;
+        changedTrigger = true;
+        native._trigger = false;
+        for (const state of states) native._runtime!.setState!(state);
+      });
+    else await view.runAsync();
+  } finally {
+    if (changedTrigger) view._trigger = previousTrigger;
+  }
+  if (failure) throw failure.error;
+  return plans.map((plan) => plan.read());
+}
 
-  if (typeof view.setState === 'function') view.setState(state);
-  await view.runAsync();
+/** Queue only this interval's visual helpers alongside its store change in one native evaluation. */
+function intervalState(
+  view: VegaViewLike,
+  name: string,
+  fields: readonly unknown[],
+  values: readonly unknown[] | undefined,
+  unit?: string,
+): VegaStateSnapshot {
+  if (!view.getState) return undefined;
+  const visual = intervalVisualSignals(name, fields);
+  const names = new Set(visual.values());
+  const state = view.getState({
+    signals: (signal: string) => names.has(signal),
+    data: () => false,
+    recurse: true,
+  }) as VegaStateSnapshot;
+  if (!state) return undefined;
+  let touched = false;
+  for (let index = 0; index < fields.length; index++) {
+    const field = fields[index];
+    const channel = isRecord(field) ? field.channel : undefined;
+    if (channel !== 'x' && channel !== 'y') continue;
+    const signal = visual.get(channel);
+    if (!signal) continue;
+    const context = findSignalContext(state, signal)?.context;
+    if (!context?.signals) continue;
+    let pixels = [0, 0];
+    if (values) {
+      const value = values[index];
+      if (!Array.isArray(value) || value.length !== 2) continue;
+      const scale = (unit ? tryGetScaleFn(view, `${unit}_${channel}`) : null) ?? tryGetScaleFn(view, channel);
+      if (!scale) continue;
+      const first = scale(value[0]),
+        second = scale(value[1]);
+      if (!isFiniteNumber(first) || !isFiniteNumber(second)) continue;
+      pixels = first <= second ? [first, second] : [second, first];
+    }
+    context.signals[signal] = pixels;
+    touched = true;
+  }
+  return touched ? state : undefined;
 }
 
 function prepareSelectionStore(view: VegaViewLike, name: string, selectionValue: unknown, helpers: VegaLiteBindings) {
@@ -124,7 +179,9 @@ function prepareSelectionStore(view: VegaViewLike, name: string, selectionValue:
   } catch {
     return null;
   }
-  const tupleFromState = readStateSignal(view, `${name}_tuple`);
+  // One native export serves every signal this preparation reads.
+  const signal = (key: string) => findSignalContext(snapshotBefore, key)?.context.signals?.[key];
+  const tupleFromState = signal(`${name}_tuple`);
 
   const ctxKey =
     findSignalContext(snapshotBefore, `${name}_tuple_fields`)?.path ??
@@ -133,15 +190,14 @@ function prepareSelectionStore(view: VegaViewLike, name: string, selectionValue:
   const unitCandidate =
     (isRecord(existing?.[0]) ? existing[0].unit : undefined) ??
     (isRecord(tupleFromState) ? tupleFromState.unit : undefined) ??
-    readStateSignal(view, `${name}_unit`) ??
+    signal(`${name}_unit`) ??
     (ctxKey?.length ? runtimeUnit(view, ctxKey) : ctxKey ? helpers.rootUnit : undefined);
 
   const unit = typeof unitCandidate === 'string' ? unitCandidate : undefined;
 
-  const tupleFields =
-    readStateSignal(view, `${name}_tuple_fields`) ?? (isRecord(existing?.[0]) ? existing[0].fields : undefined);
+  const tupleFields = signal(`${name}_tuple_fields`) ?? (isRecord(existing?.[0]) ? existing[0].fields : undefined);
 
-  const values = Array.isArray(selectionValue) ? selectionValue : [selectionValue];
+  const values = selectionValues(selectionValue);
   const keys = tupleFieldKeys(tupleFields);
 
   const tuples = values
@@ -198,7 +254,11 @@ function interactionForParameter(
   return { kind: 'activate' };
 }
 
-export function prepareVegaLiteAction(view: VegaViewLike, call: VacpActionCall, helpers: VegaLiteBindings) {
+export function prepareVegaLiteAction(
+  view: VegaViewLike,
+  call: VacpActionCall,
+  helpers: VegaLiteBindings,
+): PreparedVegaMutation {
   const input = structuredClone(call.params ?? {});
   if (typeof input !== 'object' || Array.isArray(input)) throw new Error('Expected action parameters');
   const params = input as Record<string, unknown>;
@@ -210,14 +270,10 @@ export function prepareVegaLiteAction(view: VegaViewLike, call: VacpActionCall, 
     view.signal(name);
     return {
       focus: undefined,
-      execute: async () => {
-        const ok = trySetSignal(view, name, params.value);
-
-        if (!ok) throw new Error(`Failed to set signal: ${name}`);
-        await view.runAsync();
-
-        return { ok: true };
+      write: () => {
+        if (!trySetSignal(view, name, params.value)) throw new Error(`Failed to set signal: ${name}`);
       },
+      read: () => ({ ok: true }),
     };
   }
 
@@ -236,140 +292,90 @@ export function prepareVegaLiteAction(view: VegaViewLike, call: VacpActionCall, 
     throw new Error(`Unsupported action: ${call.name}`);
   const store =
     call.name === 'vega_lite.set_selection' ? prepareSelectionStore(view, name, params.value, helpers) : null;
+  const definition = found.param.select;
+  const interval = definition === 'interval' || (isRecord(definition) && definition.type === 'interval');
+  const fields = store?.tuples[0]?.fields ?? readStateSignal(view, `${name}_tuple_fields`);
+  const visualState =
+    interval && Array.isArray(fields)
+      ? intervalState(
+          view,
+          name,
+          fields,
+          call.name === 'vega_lite.clear_selection' ? undefined : store?.tuples[0]?.values,
+          store?.unit,
+        )
+      : undefined;
   const focus: VacpFocus = {
     ref: ref as VacpRef,
     detail: { value: params.value },
     interaction: interactionForParameter(call, found.param, store?.tuples[0]?.fields),
   };
+  if (call.name === 'vega_lite.set_param' || (call.name === 'vega_lite.set_selection' && !store)) {
+    view.signal(name);
+    return {
+      focus,
+      write: () => {
+        if (!trySetSignal(view, name, params.value)) throw new Error(`Failed to set parameter signal: ${name}`);
+      },
+      read: () => ({
+        ok: true,
+        ...(call.name === 'vega_lite.set_selection' ? { method: 'signal' } : {}),
+        value: tryGetSignal(view, name),
+      }),
+    };
+  }
+  if (store)
+    return {
+      focus,
+      visualState,
+      write: () => {
+        view.change!(
+          store.storeName,
+          changeset()
+            .remove(() => true)
+            .insert(store.tuples),
+        );
+      },
+      read: () => ({ ok: true, method: 'store', value: tryGetSignal(view, name) }),
+    };
+
+  // Resolve the clear route during preparation; native failures never trigger a second mutation route.
+  const storeName = `${name}_store`;
+  let hasStore = false;
+  if (view.data && view.change) {
+    try {
+      view.data(storeName);
+      hasStore = true;
+    } catch {
+      /* This source exposes only signals. */
+    }
+  }
+  const signals = hasStore
+    ? []
+    : found.signals.filter((signal) => {
+        if (helpers.allSignals.length && !helpers.allSignals.includes(signal)) return false;
+        if (signal !== name && !signal.endsWith('_tuple') && !signal.endsWith('_modify')) return false;
+        try {
+          view.signal(signal);
+          return true;
+        } catch {
+          return false;
+        }
+      });
   return {
     focus,
-    execute: async () => {
-      if (call.name === 'vega_lite.set_param') {
-        const ok = trySetSignal(view, name, params.value);
-
-        if (!ok) throw new Error(`Failed to set param signal: ${name}`);
-        await view.runAsync();
-
-        return { ok: true, value: tryGetSignal(view, name) };
-      }
-
-      if (call.name === 'vega_lite.set_selection') {
-        const selectionValue = params.value;
-        if (store) {
-          const { storeName, tuples, unit } = store;
-          const cs = changeset().remove(() => true);
-
-          if (tuples.length) {
-            cs.insert(tuples);
-          }
-
-          view.change!(storeName, cs);
-          await view.runAsync();
-
-          // Interval selections draw a brush rectangle using helper signals such
-          // as `<name>_x` / `<name>_y` (pixel extents). When we update the store
-          // programmatically, those signals don't change, so the rectangle stays
-          // invisible even though the selection predicates work. For interval
-          // selections that have these helper signals, set them via `setState`.
-          const selectDef = found.param.select;
-          const isInterval = isRecord(selectDef) && selectDef.type === 'interval';
-
-          if (isInterval && typeof view.getState === 'function') {
-            const snapshotAfter = view.getState() as VegaStateSnapshot;
-            const next = snapshotAfter;
-            const tuple = tuples[0];
-
-            if (next && tuple && Array.isArray(tuple.fields) && Array.isArray(tuple.values)) {
-              let touched = 0;
-              const visualSignals = intervalVisualSignals(name, tuple.fields);
-
-              for (let i = 0; i < tuple.fields.length; i += 1) {
-                const f = isRecord(tuple.fields[i]) ? (tuple.fields[i] as Record<string, unknown>) : null;
-                const channel = typeof f?.channel === 'string' ? f.channel : null;
-
-                if (channel !== 'x' && channel !== 'y') continue;
-
-                const v = tuple.values[i];
-
-                if (!Array.isArray(v) || v.length !== 2) continue;
-                const a = v[0];
-                const b = v[1];
-
-                const scale =
-                  (unit ? tryGetScaleFn(view, `${unit}_${channel}`) : null) ?? tryGetScaleFn(view, channel) ?? null;
-
-                if (!scale) continue;
-                const p0 = scale(a);
-                const p1 = scale(b);
-
-                if (!isFiniteNumber(p0) || !isFiniteNumber(p1)) continue;
-
-                const signalName = visualSignals.get(channel);
-                if (!signalName) continue;
-                const context = findSignalContext(next, signalName)?.context;
-                if (!context?.signals) continue;
-                context.signals[signalName] = p0 <= p1 ? [p0, p1] : [p1, p0];
-                touched += 1;
-              }
-
-              if (touched) await applyViewState(view, next);
-            }
-          }
-
-          return { ok: true, method: 'store', value: tryGetSignal(view, name) };
+    visualState,
+    write: () => {
+      if (hasStore)
+        view.change!(
+          storeName,
+          changeset().remove(() => true),
+        );
+      else
+        for (const signal of signals) {
+          if (!trySetSignal(view, signal, null)) throw new Error(`Failed to clear selection signal: ${signal}`);
         }
-
-        // Sources without a selection store expose the resolved signal directly.
-        const ok = trySetSignal(view, name, selectionValue);
-
-        if (!ok) throw new Error(`Failed to set selection signal: ${name}`);
-        await view.runAsync();
-
-        return { ok: true, method: 'signal', value: tryGetSignal(view, name) };
-      }
-
-      if (call.name === 'vega_lite.clear_selection') {
-        // Prefer clearing the Vega-Lite selection *store* (a dataset like
-        // `<param>_store`). This avoids mutating internal helper signals such as
-        // `<param>_tuple_fields`, which can break subsequent human interaction.
-        const storeName = `${name}_store`;
-        let cleared = 0;
-
-        if (typeof view.data === 'function' && typeof view.change === 'function') {
-          try {
-            // Accessing `view.data(name)` throws if the dataset is missing.
-            void view.data(storeName);
-            view.change(
-              storeName,
-              changeset().remove(() => true),
-            );
-            cleared += 1;
-          } catch {
-            // Fall back below.
-          }
-        }
-
-        if (!cleared) {
-          // Best-effort fallback: clear only the signals that carry tuple/value
-          // information. Never clobber `<name>_tuple_fields` (metadata).
-          const watched = found.signals;
-          watched.forEach((sig) => {
-            if (helpers.allSignals.length && !helpers.allSignals.includes(sig)) return;
-
-            if (sig.endsWith('_tuple_fields')) return;
-
-            if (sig !== name && !sig.endsWith('_tuple') && !sig.endsWith('_modify')) return;
-
-            if (trySetSignal(view, sig, null)) cleared += 1;
-          });
-        }
-
-        await view.runAsync();
-
-        return { ok: true, cleared };
-      }
-
-      throw new Error(`Unsupported action: ${call.name}`);
     },
+    read: () => ({ ok: true, cleared: hasStore ? 1 : signals.length }),
   };
 }

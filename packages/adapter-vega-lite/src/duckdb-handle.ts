@@ -139,12 +139,36 @@ export function createVegaLiteDataBinding(args: {
       return s.values ?? (fallback ? selectRowsFromView(spec, view) : null) ?? [];
     };
 
+    // Rows are normalized and serialized again only when Vega reports a dataset change.
+    let dataVersion = 0;
+    const onData = () => {
+      dataVersion++;
+    };
+    const { datasetName } = s;
+    const listening = (() => {
+      if (!datasetName || !view.addDataListener || !view.removeDataListener) return false;
+      try {
+        view.addDataListener(datasetName, onData);
+        return true;
+      } catch {
+        // Without a native witness every read serializes the rows it loads.
+        return false;
+      }
+    })();
+    const witnessed = listening || (!datasetName && !!s.values);
+    let prepared: { version: number; rows: Record<string, unknown>[]; revision: string } | undefined;
+    const currentRows = () => {
+      if (witnessed && prepared?.version === dataVersion) return prepared;
+      const rows = normalizeDataRows(readCurrentDataRows(), monthdateDerivations);
+      prepared = { version: dataVersion, rows, revision: JSON.stringify(rows) };
+      return prepared;
+    };
+
     const ensureDuckDbData = (): Promise<void> => {
       if (disposed) return Promise.reject(new Error('Vega-Lite data handle is disposed'));
-      const rows = normalizeDataRows(readCurrentDataRows(), monthdateDerivations);
+      const { rows, revision } = currentRows();
       if (!rows.length)
         return Promise.reject(new Error(`No Vega-Lite rows available to load into DuckDB (${s.title})`));
-      const revision = JSON.stringify(rows);
       // Serialize table replacement. Compare after the previous write so failed loads can be retried.
       const next = loading.then(async () => {
         if (revision === loadedRevision) return;
@@ -191,6 +215,8 @@ export function createVegaLiteDataBinding(args: {
       dispose: async () => {
         if (disposed) return;
         disposed = true;
+        if (listening && datasetName) view.removeDataListener!(datasetName, onData);
+        prepared = undefined;
         await loading;
         if (tableTouched) await (await duckdbPromise).exec(`DROP TABLE IF EXISTS main.${tableName}`);
       },

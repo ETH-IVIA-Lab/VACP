@@ -1,3 +1,4 @@
+import { createVegaLitePresentation } from '../src/presentation';
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createVegaLiteProvider, type VegaViewLike } from '../src/index';
@@ -296,4 +297,22 @@ test('prepared focus describes brushing, pointing and bound-control interaction 
   } finally {
     provider.dispose?.();
   }
+});
+
+test('presentation belongs to one live provider generation', () => {
+  const create = () =>
+    createVegaLiteProvider({
+      view: { signal: () => 0, runAsync: async () => {} },
+      spec: { mark: 'point' },
+      options: { appId: 'test', viewId: 'presentation', vizId: 'chart', enableDuckDbDataHandle: false },
+    });
+  const first = create();
+  const second = create();
+  // Creating presentation does not touch DOM or install observers.
+  const root = {} as HTMLElement;
+  assert.equal(typeof createVegaLitePresentation({ provider: first, root }).resolve, 'function');
+  first.dispose!();
+  assert.throws(() => createVegaLitePresentation({ provider: first, root }), /live .* provider/);
+  assert.equal(typeof createVegaLitePresentation({ provider: second, root }).resolve, 'function');
+  second.dispose!();
 });

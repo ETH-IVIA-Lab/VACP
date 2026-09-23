@@ -31,6 +31,12 @@ Applications can expose the same provider through `installVacpRuntime({ provider
 
 The IDs define stable references for the view and visualization. Parameter and selection actions operate on the supplied Vega view.
 
+Selection state includes a readable resolved `value` and, when the native selection store is available, captured `tuples`. The tuples preserve native unit identity and correlations between selected fields, including selections resolved by intersection across views. `vacp.apply_state` restores captured tuples when present. Retain the complete selection state when saving observations for replay, since the resolved value alone can lose those relationships.
+
+Restoration validates the complete parameter map, then updates native stores, variables, and brush geometry in one Vega evaluation. Linked marks observe the restored parameters together.
+
+The adapter owns this representation and its native restoration. Provenance records it as ordinary provider state. A resolved intersected point selection without captured tuples is rejected when its native selection cannot be reconstructed.
+
 Pass `options.duckdbClient` to reuse a data connection. Otherwise the provider creates a browser DuckDB instance when data is requested. Set `enableDuckDbDataHandle: false` to disable data handles, or `enableSql: false` to omit SQL execution while retaining schema discovery.
 
 `includeSetSignalAction` enables arbitrary named Vega signal writes. It defaults to false. Enable it when signal writes belong to the application's action surface.

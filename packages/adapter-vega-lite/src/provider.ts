@@ -1,10 +1,12 @@
+import { readSelectionTuples } from './selection-state';
+import { providerBindings } from './provider-bindings';
 import type { VacpActionDescriptor, VacpProvider, VacpSourceId, VacpRef } from '@vacp/protocol';
 import { formatDuckDbTableMetadataSummary } from '@vacp/data-duckdb';
 import { createVacpProvider, registerVacpApplyStateAction, VacpActionRegistry } from '@vacp/runtime';
 
 import { actionsForSpec } from './actions';
 import { buildGraph } from './graph';
-import { prepareVegaLiteAction } from './execute';
+import { executeVegaLiteActions, prepareVegaLiteAction } from './execute';
 import { createVegaLiteDataBinding } from './duckdb-handle';
 import { whereClauseForCurrentSelections } from './duckdb-selection';
 import { createVegaLiteBindings } from './bindings';
@@ -57,7 +59,7 @@ export function createVegaLiteProvider(args: {
   actionDescriptors.forEach((desc) => {
     actionRegistry.register(
       { ...desc, operation: { ...desc.operation, contract: desc.name } },
-      (prepared: ReturnType<typeof prepareVegaLiteAction>) => prepared.execute(),
+      async (prepared: ReturnType<typeof prepareVegaLiteAction>) => (await executeVegaLiteActions(view, [prepared]))[0],
       {
         parse: (params) => prepareVegaLiteAction(view, { callId: '', name: desc.name, params }, helpers),
         focus: (prepared) => prepared.focus,
@@ -71,7 +73,7 @@ export function createVegaLiteProvider(args: {
   const applyDescriptor = registerVacpApplyStateAction(
     actionRegistry,
     (state) => {
-      const plans: Array<{ ref: string; operation: ReturnType<typeof prepareVegaLiteAction> }> = [];
+      const plans: Array<ReturnType<typeof prepareVegaLiteAction>> = [];
       const skipped: Array<{ ref: string; reason: string }> = [];
       for (const [ref, raw] of Object.entries(state)) {
         const binding = helpers.paramByRef.get(ref as VacpRef);
@@ -80,37 +82,21 @@ export function createVegaLiteProvider(args: {
           continue;
         }
         const record = raw && typeof raw === 'object' ? (raw as Record<string, unknown>) : undefined;
-        const desired = record && Object.hasOwn(record, 'value') ? record.value : raw;
+        const hasTuples = binding.kind === 'Selection' && record && Object.hasOwn(record, 'tuples');
+        if (hasTuples && !Array.isArray(record.tuples)) throw new Error('Expected captured selection tuples');
+        const desired = hasTuples ? record.tuples : record && Object.hasOwn(record, 'value') ? record.value : raw;
         const name =
           binding.kind === 'Param'
             ? 'vega_lite.set_param'
-            : desired == null
+            : desired == null || (typeof desired === 'object' && Object.keys(desired).length === 0)
               ? 'vega_lite.clear_selection'
               : 'vega_lite.set_selection';
-        plans.push({
-          ref,
-          operation: prepareVegaLiteAction(view, { callId: '', name, params: { ref, value: desired } }, helpers),
-        });
+        plans.push(prepareVegaLiteAction(view, { callId: '', name, params: { ref, value: desired } }, helpers));
       }
       return async ({ signal }) => {
-        const errors: Array<{ ref: string; message: string }> = [];
-        let applied = 0;
-        for (const { ref, operation } of plans) {
-          signal?.throwIfAborted();
-          try {
-            await operation.execute();
-            applied++;
-          } catch (error) {
-            signal?.throwIfAborted();
-            errors.push({ ref, message: error instanceof Error ? error.message : String(error) });
-          }
-        }
-        if (errors.length)
-          throw new AggregateError(
-            errors.map(({ ref, message }) => new Error(`${ref}: ${message}`)),
-            `State restoration applied ${applied} refs; failed: ${errors.map(({ ref, message }) => `${ref}: ${message}`).join('; ')}`,
-          );
-        return { applied, skipped };
+        signal?.throwIfAborted();
+        await executeVegaLiteActions(view, plans);
+        return { applied: plans.length, skipped };
       };
     },
     { affects: [vizRef], description: 'Apply a state map to Vega-Lite params.' },
@@ -178,7 +164,13 @@ export function createVegaLiteProvider(args: {
       const values = helpers.readValues();
       for (const [ref, { param, kind }] of helpers.paramByRef) {
         state[ref] = param.select
-          ? { kind, name: param.name, value: values.get(ref), select: param.select }
+          ? {
+              kind,
+              name: param.name,
+              value: values.get(ref),
+              tuples: readSelectionTuples(view, param.name),
+              select: param.select,
+            }
           : { kind, name: param.name, value: values.get(ref), bind: param.bind };
       }
       dataHandles.forEach((h) => {
@@ -196,7 +188,7 @@ export function createVegaLiteProvider(args: {
   };
 
   const binding = createVegaLiteObservationBinding({ view, helpers, tooltip });
-  return createVacpProvider({
+  const provider = createVacpProvider({
     source: {
       id: sourceId,
       type: 'vega-lite',
@@ -207,8 +199,11 @@ export function createVegaLiteProvider(args: {
     project: projection.project,
     subscribe: binding.subscribe,
     dispose: () => {
+      providerBindings.delete(provider);
       binding.dispose();
       void data.dispose().catch(() => {});
     },
   });
+  providerBindings.set(provider, { bindings: helpers, view, vizRef });
+  return provider;
 }

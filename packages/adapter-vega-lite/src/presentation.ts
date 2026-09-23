@@ -1,9 +1,9 @@
 import type { PresenceGeometry, PresenceResolver, PresenceTarget } from '@vacp/presence-core';
-import { browserPresenceSurface, elementPresenceTarget, observePresenceLayout } from '@vacp/presence-browser/targets';
-import { createVegaLiteBindings } from './bindings';
-import { makeRef } from './refs';
+import { viewportPresenceTarget, elementPresenceTarget, observePresenceLayout } from '@vacp/presence-browser/targets';
+import { providerBindings } from './provider-bindings';
+import type { VacpProvider } from '@vacp/protocol';
 import { matchingSceneItems, sceneOffset, scenePointToViewport } from './scene';
-import type { VegaLiteProviderOptions, VegaLiteSpecLike, VegaViewLike } from './types';
+import type { VegaViewLike } from './types';
 
 function record(value: unknown): Record<string, unknown> | undefined {
   return value && typeof value === 'object' && !Array.isArray(value) ? (value as Record<string, unknown>) : undefined;
@@ -26,11 +26,7 @@ function project(view: VegaViewLike, root: HTMLElement, geometry: PresenceGeomet
           ];
   const mapped = points.map((point) => scenePointToViewport(view, target, point));
   if (mapped.some((point) => point === null)) return null;
-  return {
-    surface: browserPresenceSurface,
-    precision: 'exact',
-    geometry: { kind: 'path', points: mapped.filter((point) => point !== null) },
-  };
+  return viewportPresenceTarget(target, { kind: 'path', points: mapped.filter((point) => point !== null) });
 }
 
 function projectDatum(
@@ -55,15 +51,14 @@ function projectDatum(
 }
 
 /** Optional browser projection. Semantic provider creation does not install presentation. */
-export function createVegaLitePresentation(args: {
-  view: VegaViewLike;
-  root: HTMLElement;
-  spec: VegaLiteSpecLike;
-  options: VegaLiteProviderOptions;
-}): { resolve: PresenceResolver; subscribe: (invalidate: () => void) => () => void } {
-  const { view, root, spec, options } = args;
-  const bindings = createVegaLiteBindings(spec, view, options);
-  const vizRef = makeRef({ ...options, suffix: '' });
+export function createVegaLitePresentation(args: { provider: VacpProvider; root: HTMLElement }): {
+  resolve: PresenceResolver;
+  subscribe: (invalidate: () => void) => () => void;
+} {
+  const { root, provider } = args;
+  const native = providerBindings.get(provider);
+  if (!native) throw new Error('Vega-Lite presentation requires a live Vega-Lite provider');
+  const { bindings, view, vizRef } = native;
   const resolve: PresenceResolver = (focus, { signal }) => {
     signal.throwIfAborted();
     if (!elementPresenceTarget(root)) return null;

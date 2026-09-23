@@ -46,6 +46,9 @@ export interface VegaViewLike {
    */
   addSignalListener?: (name: string, handler: (name: string, value: any) => void) => void;
   removeSignalListener?: (name: string, handler: (name: string, value: any) => void) => void;
+  /** Optional Vega View API: a native witness that a named dataset changed. */
+  addDataListener?: (name: string, handler: (name: string, value: any) => void) => void;
+  removeDataListener?: (name: string, handler: (name: string, value: any) => void) => void;
   /**
    * Optional Vega View API for listing available signal names.
    * When absent, the provider skips signal-name discovery.
