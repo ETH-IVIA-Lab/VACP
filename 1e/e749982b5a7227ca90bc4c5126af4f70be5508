@@ -1,0 +1,11 @@
+AGENTS.md
+  ai_agent 16,23,84-85
+development_docs/architecture.md
+  ai_agent 7-26,40,44,67-75,81,100,104,122-123,126-132,138-140,165,177,183
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "1ee749982b5a7227ca90bc4c5126af4f70be5508",
+  "prompts": {}
+}
