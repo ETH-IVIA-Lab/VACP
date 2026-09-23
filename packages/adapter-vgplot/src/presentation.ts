@@ -1,22 +1,16 @@
 import type { PresenceResolver } from '@vacp/presence-core';
 import { elementPresenceTarget, observePresenceLayout, svgPresenceTarget } from '@vacp/presence-browser/targets';
-import { collectInputs } from './inputs';
-import { createVgplotBindings } from './bindings';
+import { providerBindings } from './provider-bindings';
+import type { VacpProvider } from '@vacp/protocol';
 import { intervalDomainValue } from './interactors/interval';
-import type { VgplotPlotLike, VgplotProviderOptions, VgplotTableLike } from './types';
 
 /** Project semantic interaction refs through the live interactor's scales and facet groups. */
-export function createVgplotPresentation(args: {
-  root: Element;
-  plots: Array<{ plotId: string; plot: VgplotPlotLike }>;
-  tables?: Array<{ tableId: string; table: VgplotTableLike }>;
-  options: VgplotProviderOptions;
-}): { resolve: PresenceResolver; subscribe: (invalidate: () => void) => () => void } {
-  const bindings = createVgplotBindings({
-    ...args,
-    tables: args.tables ?? [],
-    inputs: collectInputs(args.root, args.options),
-  });
+export function createVgplotPresentation(args: { provider: VacpProvider; root: Element }): {
+  resolve: PresenceResolver;
+  subscribe: (invalidate: () => void) => () => void;
+} {
+  const bindings = providerBindings.get(args.provider);
+  if (!bindings) throw new Error('VGPlot presentation requires a live VGPlot provider');
   const resolve: PresenceResolver = (focus, { signal }) => {
     signal.throwIfAborted();
     const binding = bindings.byRef.get(focus.ref);
@@ -55,7 +49,7 @@ export function createVgplotPresentation(args: {
     }
     if (binding.kind === 'plot') return binding.plot.element ? elementPresenceTarget(binding.plot.element) : null;
     if (binding.kind === 'interactor') {
-      const { interactor, plot } = binding;
+      const { interactor, plot, type } = binding;
       const element = plot.element;
       if (!element) return null;
       const detail = focus.detail && typeof focus.detail === 'object' ? (focus.detail as Record<string, unknown>) : {};
@@ -69,7 +63,9 @@ export function createVgplotPresentation(args: {
       let x = [box.x, box.x + box.width],
         y = [box.y, box.y + box.height];
       let projected = false;
-      if (interactor.scale && detail.min !== undefined && detail.max !== undefined) {
+      // A brush step projects its data-domain extent through the rendered scales; other interactors
+      // outline the plot area they act on.
+      if (type === 'Interval1D' && interactor.scale && detail.min !== undefined && detail.max !== undefined) {
         const values = [detail.min, detail.max].map((value) =>
           interactor.scale!.apply(intervalDomainValue(value, interactor.scale)),
         );
@@ -77,6 +73,7 @@ export function createVgplotPresentation(args: {
         else x = values;
         projected = true;
       } else if (
+        type === 'Interval2D' &&
         interactor.xscale &&
         interactor.yscale &&
         detail.x0 !== undefined &&

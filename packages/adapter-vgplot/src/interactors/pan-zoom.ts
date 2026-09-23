@@ -1,10 +1,11 @@
 import type { VacpInteraction } from '@vacp/protocol';
 import { readScaleDomain } from './interval';
+import { interactorType } from '../native-classes';
 import type { VgplotInteractorLike } from '../types';
 
 /** Validate both axes before applying either one. */
 export function preparePanZoom(interactor: VgplotInteractorLike, params: Record<string, unknown> | null) {
-  if (interactor.constructor.name !== 'PanZoom') throw new Error('Expected PanZoom interactor');
+  if (interactorType(interactor) !== 'PanZoom') throw new Error('Expected PanZoom interactor');
   const clause = interactor.clause;
   if (!clause) throw new Error('PanZoom interactor is missing clause');
   const mutations: Array<{ current(): boolean; apply(): void }> = [];

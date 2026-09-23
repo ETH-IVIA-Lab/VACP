@@ -9,8 +9,8 @@
  */
 
 /**
- * Minimal structural types for vgplot Plot/Mark/Interactor objects.
- * This keeps `@vacp/adapter-vgplot` usable even if VGPlot types are not installed.
+ * Structural views of the Mosaic objects the provider reads and writes. Which class an
+ * object is comes from `native-classes`, never from these shapes.
  */
 export interface VgplotMarkLike {
   type?: string;
@@ -25,16 +25,17 @@ export interface VgplotScaleLike<Value = number | Date> {
 }
 
 export interface VgplotSelectionLike<Value = unknown> {
+  readonly active?: { source?: unknown };
   value?: Value;
   single?: boolean;
   valueFor?: (source: VgplotInteractorLike) => unknown;
   update?: (value: Value) => unknown;
+  pending?: (type: string) => Promise<unknown>;
   predicate?: (...args: unknown[]) => unknown;
 }
 
 export interface VgplotInteractorLike<Value = unknown> {
   channel?: string;
-  constructor: { name: string };
   value?: Value;
   selection?: VgplotSelectionLike;
   scale?: VgplotScaleLike;
@@ -84,7 +85,6 @@ export interface VgplotTableLike {
   schema?: Array<{ column: string }>;
   readonly pending?: Promise<unknown>;
   sortHeader?: HTMLElement | null;
-  constructor?: { name?: string };
   element?: HTMLElement;
   from?: string;
   columns?: unknown;

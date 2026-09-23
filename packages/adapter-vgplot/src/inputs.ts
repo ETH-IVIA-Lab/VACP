@@ -1,10 +1,10 @@
 import type { VacpRef } from '@vacp/protocol';
 
+import { inputType } from './native-classes';
 import { makeViewRef } from './refs';
 import type { VgplotProviderOptions } from './types';
 
 type VgplotInputLike = {
-  constructor?: { name?: string };
   element?: HTMLElement;
   selection?: { value?: unknown; update?: (...args: unknown[]) => unknown; pending?: (type: string) => Promise<void> };
   publish?: (value: unknown) => unknown;
@@ -263,10 +263,8 @@ async function waitForInputDispatch(input: VgplotInputLike): Promise<void> {
 export function collectInputs(root: ParentNode, options: VgplotProviderOptions): CollectedInput[] {
   /**
    * VGPlot inputs (Menu/Slider/etc.) are not plot interactors, but they are part
-   * of the semantic interaction surface.
-   *
-   * The shared input base assigns `element.value = this`, so we can locate
-   * and control widgets without depending on VGPlot types at build time.
+   * of the semantic interaction surface. Mosaic's Input base assigns
+   * `element.value = this`, so each widget is found through its container.
    */
   const nodes = Array.from(root.querySelectorAll<HTMLElement>('.input'));
   const out: CollectedInput[] = [];
@@ -277,14 +275,14 @@ export function collectInputs(root: ParentNode, options: VgplotProviderOptions):
 
     if (!inst || typeof inst !== 'object') continue;
     const input = inst as VgplotInputLike;
-    const kind = input.constructor?.name ?? 'Input';
+    const kind = inputType(input) ?? 'Input';
 
     const label =
       (typeof input.label === 'string' && input.label) || el.querySelector('label')?.textContent?.trim() || undefined;
 
     const inputId = String(i);
     const ref = makeViewRef({ appId: options.appId, viewId: options.viewId, suffix: `/input/${inputId}` });
-    const menuOptions = /menu/i.test(kind) ? collectMenuOptions(input) : null;
+    const menuOptions = kind === 'Menu' ? collectMenuOptions(input) : null;
     out.push({
       inputId,
       ref,

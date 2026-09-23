@@ -1,4 +1,5 @@
 import { preparePointSelection } from './toggle';
+import { interactorType } from '../native-classes';
 import type { VgplotInteractorLike } from '../types';
 
 type SelectionBackedNearest = VgplotInteractorLike & {
@@ -6,16 +7,13 @@ type SelectionBackedNearest = VgplotInteractorLike & {
   clause(value: unknown): unknown;
 };
 
+/** Nearest can publish to a Param instead of a Selection; only a Selection-backed one is controllable. */
 export function isSelectionBackedNearest(interactor: VgplotInteractorLike): interactor is SelectionBackedNearest {
-  if (!interactor || typeof interactor !== 'object') return false;
-
-  const candidate = interactor;
-
   return (
-    candidate.constructor?.name === 'Nearest' &&
-    typeof candidate.selection?.predicate === 'function' &&
-    typeof candidate.selection.update === 'function' &&
-    typeof candidate.clause === 'function'
+    interactorType(interactor) === 'Nearest' &&
+    typeof interactor.selection?.predicate === 'function' &&
+    typeof interactor.selection.update === 'function' &&
+    typeof interactor.clause === 'function'
   );
 }
 

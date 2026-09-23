@@ -1,4 +1,4 @@
-import type { VacpFocus, VacpInteraction } from '@vacp/protocol';
+import type { VacpFocus, VacpInteraction, VacpActionExecutionOptions } from '@vacp/protocol';
 import type { VgplotBinding, VgplotBindings } from './bindings';
 import { prepareInputAction } from './inputs';
 import { plotLegends } from './legends';
@@ -8,9 +8,13 @@ import { preparePanZoom } from './interactors/pan-zoom';
 import { requestPlotUpdate } from './native-observation';
 import { preparePointSelection } from './interactors/toggle';
 import { prepareTableAction } from './table-actions';
+import { interactorType } from './native-classes';
 
 type Params = Record<string, unknown>;
-export type VgplotOperation = { focus: VacpFocus; execute(): unknown | Promise<unknown> };
+export type VgplotOperation = {
+  focus: VacpFocus;
+  execute(options?: VacpActionExecutionOptions): unknown | Promise<unknown>;
+};
 type Prepare = (params: Params) => VgplotOperation;
 
 /** A closed native target plus a validated mutation; execution never resolves the target again. */
@@ -22,12 +26,41 @@ function bound(
 ): VgplotOperation {
   return {
     focus: { ref: binding.ref, detail, interaction },
-    execute: async () => {
+    execute: async (options = {}) => {
+      options.signal?.throwIfAborted();
       if (binding.kind === 'interactor' && binding.plot.interactors[binding.index] !== binding.interactor)
         throw new Error('Interactor binding changed; prepare the operation again');
       if (binding.kind === 'legend' && plotLegends(binding.plot)[binding.index] !== binding.legend)
         throw new Error('Legend binding changed; prepare the operation again');
       const result = await execute();
+      // Mosaic may queue selection events behind an earlier asynchronous update.
+      // Wait for the native event boundary so the recorded controls include this operation.
+      const selection =
+        binding.kind === 'interactor'
+          ? binding.interactor.selection
+          : binding.kind === 'legend'
+            ? binding.legend.handler?.selection
+            : undefined;
+      const pending = selection?.pending?.('value');
+      if (pending) {
+        const signal = options.signal;
+        signal?.throwIfAborted();
+        let abort = () => {};
+        try {
+          await (signal
+            ? Promise.race([
+                pending,
+                new Promise<never>((_, reject) => {
+                  abort = () => reject(signal.reason);
+                  signal.addEventListener('abort', abort, { once: true });
+                }),
+              ])
+            : pending);
+        } finally {
+          signal?.removeEventListener('abort', abort);
+        }
+      }
+      options.signal?.throwIfAborted();
       if ('plot' in binding) requestPlotUpdate(binding.plot);
       return result;
     },
@@ -55,7 +88,7 @@ export function createVgplotOperations(bindings: VgplotBindings) {
   };
   const points = (params: Params, kind: 'Toggle' | 'Region', clear: boolean) => {
     const binding = interactor(params);
-    if (binding.interactor.constructor.name !== kind) throw new Error(`Expected ${kind} interactor`);
+    if (binding.type !== kind) throw new Error(`Expected ${kind} interactor`);
     return bound(
       binding,
       preparePointSelection(binding.interactor, clear ? null : params.value),
@@ -170,13 +203,13 @@ export function createVgplotOperations(bindings: VgplotBindings) {
       }
       if (binding.kind === 'legend') {
         const handler = binding.legend.handler;
-        return handler?.constructor.name === 'Toggle'
+        return handler && interactorType(handler) === 'Toggle'
           ? [bound(binding, preparePointSelection(handler, desired))]
           : null;
       }
       if (binding.kind !== 'interactor') return null;
       const target = binding.interactor;
-      const kind = target.constructor.name;
+      const kind = binding.type;
       // Hover is transient. It cannot be recreated from recorded pointer-derived values.
       if (kind === 'Nearest') return null;
       const value = state?.selectionValue !== undefined ? state.selectionValue : desired;

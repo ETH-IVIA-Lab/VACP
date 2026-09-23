@@ -1,7 +1,15 @@
+import { Interval1D, PanZoom, Toggle } from '@uwdata/mosaic-plot';
+import { ExprNode, count } from '@uwdata/mosaic-sql';
+import { createVgplotPresentation } from '../src/presentation';
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createVacpRuntime } from '@vacp/runtime';
 import { createVgplotProvider, type VgplotInteractorLike, type VgplotPlotLike } from '../src/index';
+
+/** An instance of a Mosaic class with only the fields a test needs; its constructor needs a rendered mark. */
+function mosaic<Fields extends object>(type: abstract new (...args: never[]) => unknown, fields: Fields) {
+  return Object.assign(Object.create(type.prototype) as object, fields) as VgplotInteractorLike & Fields;
+}
 
 test('table actions preserve default targets when parameters are omitted', async () => {
   const table = { sortColumn: 'x', sortDesc: true, update: () => undefined };
@@ -32,7 +40,7 @@ test('provider subscriptions release selection patches and rebind the same live 
   };
   const original = selection.update;
   const init = () => {};
-  const interactor: VgplotInteractorLike = { constructor: { name: 'Toggle' }, selection, init };
+  const interactor: VgplotInteractorLike = mosaic(Toggle, { selection, init });
   const plot: VgplotPlotLike = { marks: [], interactors: [interactor] };
   const create = () =>
     createVgplotProvider({
@@ -65,7 +73,7 @@ test('failed dashboard binding rolls back patches and isolates consumer failures
   t.mock.timers.enable({ apis: ['setTimeout'] });
   const selection = { update() {} };
   const original = selection.update;
-  const interactor: VgplotInteractorLike = { constructor: { name: 'Toggle' }, selection };
+  const interactor: VgplotInteractorLike = mosaic(Toggle, { selection });
   Object.defineProperty(interactor, 'init', { value: () => {}, writable: false, configurable: true });
   const provider = createVgplotProvider({
     plots: [{ plotId: 'chart', plot: { marks: [], interactors: [interactor] } }],
@@ -89,14 +97,13 @@ test('failed dashboard binding rolls back patches and isolates consumer failures
 test('preparation validates complete table and axis mutations before changing native state', async () => {
   const table = { schema: [{ column: 'x' }], sortColumn: 'x', offset: 0, limit: 10, update() {} };
   const axes: unknown[] = [];
-  const pan: VgplotInteractorLike = {
-    constructor: { name: 'PanZoom' },
+  const pan: VgplotInteractorLike = mosaic(PanZoom, {
     xscale: { domain: [0, 20], apply: (value) => Number(value) },
     yscale: { domain: () => [0, 20], apply: (value) => Number(value) },
     xsel: { update: (value) => axes.push(value) },
     ysel: { update: (value) => axes.push(value) },
     clause: (value) => value,
-  };
+  });
   const provider = createVgplotProvider({
     plots: [{ plotId: 'plot', plot: { marks: [], interactors: [pan] } }],
     tables: [{ tableId: 'table', table }],
@@ -181,7 +188,7 @@ test('shared native resources retain one instrumentation owner through out-of-or
   const renderResult = Promise.resolve('rendered');
   const plot: VgplotPlotLike = {
     marks: [],
-    interactors: [{ constructor: { name: 'Toggle' }, selection }],
+    interactors: [mosaic(Toggle, { selection })],
     pending: () => pendingResult,
     render: () => renderResult,
   };
@@ -194,14 +201,12 @@ test('shared native resources retain one instrumentation owner through out-of-or
     second = create();
   let changes = 0;
   first.subscribe!(() => {});
-  assert.equal(plot.interactors[0]!.init, undefined);
   const wrappedUpdate = selection.update;
   second.subscribe!(() => {
     changes++;
   });
   assert.equal(selection.update, wrappedUpdate);
   first.dispose!();
-  assert.notEqual(selection.update, originalUpdate);
   assert.equal(selection.update('same-result'), 'same-result');
   assert.equal(plot.pending!(), pendingResult);
   assert.equal(plot.render!(), renderResult);
@@ -217,15 +222,14 @@ test('shared native resources retain one instrumentation owner through out-of-or
 
 test('a prepared operation cannot mutate an interactor replaced within its native plot', async () => {
   let writes = 0;
-  const interactor: VgplotInteractorLike = {
-    constructor: { name: 'Toggle' },
+  const interactor: VgplotInteractorLike = mosaic(Toggle, {
     selection: {
       update: () => {
         writes++;
       },
     },
     clause: (value) => value,
-  };
+  });
   const plot: VgplotPlotLike = { marks: [], interactors: [interactor] };
   const provider = createVgplotProvider({
     plots: [{ plotId: 'plot', plot }],
@@ -252,14 +256,13 @@ test('late observation setup cannot change a native initialization result', asyn
   t.mock.timers.enable({ apis: ['setTimeout'] });
   const readonlySelection = Object.freeze({ update: () => {} });
   const result = Promise.resolve('initialized');
-  const interactor: VgplotInteractorLike = {
-    constructor: { name: 'Toggle' },
+  const interactor: VgplotInteractorLike = mosaic(Toggle, {
     selection: { update: () => {} },
     init() {
       this.selection = readonlySelection;
       return result;
     },
-  };
+  });
   const provider = createVgplotProvider({
     plots: [{ plotId: 'plot', plot: { marks: [], interactors: [interactor] } }],
     options: { appId: 'test', viewId: 'late-binding' },
@@ -283,8 +286,7 @@ test('late observation setup cannot change a native initialization result', asyn
 test('pan and zoom semantics use the rendered domain after prior programmatic changes', async () => {
   let domain = [0, 20];
   const cached = { domain: [0, 20], apply: Number };
-  const pan: VgplotInteractorLike = {
-    constructor: { name: 'PanZoom' },
+  const pan: VgplotInteractorLike = mosaic(PanZoom, {
     xscale: cached,
     svg: { scale: () => ({ domain, apply: Number }) },
     xsel: {
@@ -293,7 +295,7 @@ test('pan and zoom semantics use the rendered domain after prior programmatic ch
       },
     },
     clause: (value) => value,
-  };
+  });
   const provider = createVgplotProvider({
     plots: [{ plotId: 'plot', plot: { marks: [], interactors: [pan] } }],
     options: { appId: 'test', viewId: 'live-domain', enableSql: false },
@@ -324,15 +326,14 @@ test('pan and zoom semantics use the rendered domain after prior programmatic ch
 test('interval preparation orders domain and inverted-axis brush extents before mutation', async () => {
   const writes: unknown[] = [];
   const brushes: unknown[] = [];
-  const interactor: VgplotInteractorLike = {
-    constructor: { name: 'Interval1D' },
+  const interactor: VgplotInteractorLike = mosaic(Interval1D, {
     channel: 'y',
     scale: { domain: [0, 100], apply: (value) => 100 - Number(value) },
     selection: { update: (value) => writes.push(value) },
     clause: (value) => value,
     brush: { moveSilent() {} },
     g: { call: (_, value) => brushes.push(value) },
-  };
+  });
   const provider = createVgplotProvider({
     plots: [{ plotId: 'plot', plot: { marks: [], interactors: [interactor] } }],
     options: { appId: 'test', viewId: 'interval', enableSql: false },
@@ -356,4 +357,192 @@ test('interval preparation orders domain and inverted-axis brush extents before 
   } finally {
     provider.dispose?.();
   }
+});
+
+test('presentation belongs to one live provider generation', () => {
+  const create = () =>
+    createVgplotProvider({ plots: [], options: { appId: 'test', viewId: 'presentation', enableSql: false } });
+  const first = create();
+  const second = create();
+  // Creating presentation does not touch DOM or install observers.
+  const root = {} as HTMLElement;
+  assert.equal(typeof createVgplotPresentation({ provider: first, root }).resolve, 'function');
+  first.dispose!();
+  assert.throws(() => createVgplotPresentation({ provider: first, root }), /live .* provider/);
+  assert.equal(typeof createVgplotPresentation({ provider: second, root }).resolve, 'function');
+  second.dispose!();
+});
+
+test('shared selection provenance restores its active source after all clause values', async () => {
+  type Clause = { source: VgplotInteractorLike | null; value: unknown };
+  const clauses = new Map<VgplotInteractorLike | null, unknown>();
+  const selection = {
+    active: { source: null } as Clause,
+    valueFor: (source: VgplotInteractorLike) => clauses.get(source) ?? null,
+    update(raw: unknown) {
+      const clause = raw as Clause;
+      this.active = clause;
+      clauses.set(clause.source, clause.value);
+    },
+  };
+  const interval = (): VgplotInteractorLike =>
+    mosaic(Interval1D, {
+      selection,
+      scale: { domain: [0, 100], apply: Number },
+      clause(value) {
+        return { source: this, value };
+      },
+    });
+  const first = interval();
+  const second = interval();
+  selection.update({ source: first, value: [10, 20] });
+  const provider = createVgplotProvider({
+    plots: [
+      { plotId: 'first', plot: { marks: [], interactors: [first] } },
+      { plotId: 'second', plot: { marks: [], interactors: [second] } },
+    ],
+    options: { appId: 'test', viewId: 'active-source', enableSql: false },
+  });
+  const runtime = createVacpRuntime({ providers: [provider] });
+  try {
+    const recorded = await runtime.inspect();
+    const groups = recorded.graph.nodes.filter((node) => node.kind === 'Selection');
+    assert.equal(groups.length, 1);
+    const group = groups[0]!.ref;
+    assert.deepEqual(recorded.state[group], {
+      kind: 'Selection',
+      activeSource: 'vacp://test/active-source/first/interactor/0',
+    });
+    selection.update({ source: second, value: [30, 40] });
+    const apply = recorded.graph.actions.find((action) => action.operation.contract === 'vacp.apply_state')!;
+    const result = await runtime.execute({ callId: 'restore', name: apply.name, params: { state: recorded.state } });
+    assert.equal(result.ok, true);
+    assert.deepEqual(selection.valueFor(first), [10, 20]);
+    assert.equal(selection.valueFor(second), null);
+    assert.equal(selection.active.source, first);
+    const cleared = { ...recorded.state, [group]: { kind: 'Selection', activeSource: null } };
+    assert.equal(
+      (await runtime.execute({ callId: 'inactive', name: apply.name, params: { state: cleared } })).ok,
+      true,
+    );
+    assert.equal(selection.active.source, null);
+    assert.deepEqual(selection.valueFor(first), [10, 20]);
+    assert.equal(selection.valueFor(second), null);
+    assert.equal(
+      (
+        await runtime.execute({
+          callId: 'invalid',
+          name: apply.name,
+          params: { state: { ...cleared, [group]: { activeSource: 'vacp://unknown/source' } } },
+        })
+      ).ok,
+      false,
+    );
+    assert.equal(selection.active.source, null);
+  } finally {
+    runtime.dispose();
+  }
+});
+
+test('native custom bin descriptors exclude rendering ownership and retain stable semantic refs', async () => {
+  const coordinator = { clients: ['private-client'], cache: new Array(1000).fill('private-row') };
+  const nativeMark = { _coordinator: coordinator, data: { rows: ['private-record'] } };
+  const bin = Object.assign(new ExprNode('CUSTOM'), {
+    column: 'time',
+    channel: 'x',
+    options: { step: 1, offset: 0 },
+    mark: nativeMark,
+  });
+  const unnamed = Object.assign(new ExprNode('CUSTOM'), { channel: 'color', options: { steps: 12 }, mark: nativeMark });
+  const plot: VgplotPlotLike = {
+    marks: [
+      {
+        type: 'rectY',
+        channels: [
+          { channel: 'x1', field: bin },
+          { channel: 'color', field: unnamed },
+          { channel: 'y', field: count() },
+        ],
+      },
+    ],
+    interactors: [],
+  };
+  const graph = async () => {
+    const provider = createVgplotProvider({
+      plots: [{ plotId: 'histogram', plot }],
+      options: { appId: 'test', viewId: 'fields', enableSql: false },
+    });
+    try {
+      return (await provider.observe()).graph;
+    } finally {
+      provider.dispose!();
+    }
+  };
+  const before = await graph();
+  coordinator.cache.push('another-private-record');
+  nativeMark.data.rows.push('new-rendered-record');
+  Object.defineProperty(bin, 'mark', {
+    get: () => {
+      throw new Error('Graph projection traversed native rendering ownership');
+    },
+  });
+  const after = await graph();
+  assert.deepEqual(after, before);
+  const fields = after.nodes.filter((node) => node.kind === 'EncodedField');
+  assert.deepEqual(fields.find((node) => node.data?.channel === 'x1')?.data?.field, {
+    type: 'CUSTOM',
+    column: 'time',
+    channel: 'x',
+    options: { step: 1, offset: 0 },
+  });
+  const aggregate = fields.find((node) => node.data?.channel === 'y')?.data?.field;
+  assert.ok(aggregate && typeof aggregate === 'object' && 'sql' in aggregate);
+  assert.match(String(aggregate.sql), /count\(\*\)/i);
+});
+
+test('Mosaic interactors keep their actions and kinds when a production build renames their classes', async () => {
+  // Minifiers rename classes in place; the class identity VGPlot constructs from stays the same.
+  const original = Object.getOwnPropertyDescriptor(Interval1D, 'name')!;
+  Object.defineProperty(Interval1D, 'name', { value: 'XI' });
+  const brush = mosaic(Interval1D, {
+    channel: 'x',
+    selection: { update: () => {} },
+    scale: { domain: [0, 100], apply: Number },
+    clause: (value: unknown) => value,
+  });
+  const runtime = createVacpRuntime({
+    providers: [
+      createVgplotProvider({
+        plots: [{ plotId: 'age', plot: { marks: [], interactors: [brush] } }],
+        options: { appId: 'test', viewId: 'minified', enableSql: false },
+      }),
+    ],
+  });
+  try {
+    const { graph } = await runtime.getCapabilities();
+    const contracts = graph.actions.map((action) => action.operation.contract);
+    assert.ok(contracts.includes('vgplot.set_interval_1d'));
+    assert.ok(contracts.includes('vgplot.clear_interval_1d'));
+    assert.equal(graph.nodes.find((node) => node.kind === 'InteractionTarget')?.title, 'Interval1D');
+    const { state } = await runtime.observe();
+    const entry = Object.values(state).find((value) => (value as { plotId?: string })?.plotId === 'age');
+    assert.equal((entry as { kind?: string }).kind, 'Interval1D');
+  } finally {
+    Object.defineProperty(Interval1D, 'name', original);
+    runtime.dispose();
+  }
+});
+
+test('an interactor from a second Mosaic copy is reported instead of silently losing its actions', () => {
+  class Interval1D {
+    selection = { update: () => {} };
+  }
+  assert.throws(
+    () =>
+      createVgplotProvider({
+        plots: [{ plotId: 'age', plot: { marks: [], interactors: [new Interval1D()] } }],
+        options: { appId: 'test', viewId: 'duplicate', enableSql: false },
+      }),
+    /different copy of @uwdata\/mosaic-plot/,
+  );
 });

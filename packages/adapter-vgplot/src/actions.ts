@@ -3,6 +3,7 @@ import type { VacpActionDescriptor } from '@vacp/protocol';
 
 import { isSelectionBackedNearest } from './interactors/nearest';
 import { hasIndexedOptions, readInputValue, type CollectedInput } from './inputs';
+import { interactorType, type VgplotInteractorType } from './native-classes';
 import { makeViewRef } from './refs';
 import type { VgplotProviderOptions, VgplotTableLike, VgplotInteractorLike, VgplotScaleLike } from './types';
 
@@ -36,7 +37,7 @@ function safeActionValue(value: unknown, seen = new WeakSet<object>(), depth = 0
   if (typeof value === 'object') {
     if (seen.has(value)) return '[circular]';
 
-    if (depth >= 2) return `[${value.constructor?.name ?? 'Object'}]`;
+    if (depth >= 2) return '[Object]';
     seen.add(value);
 
     try {
@@ -153,16 +154,12 @@ function readScaleDomain(scale: VgplotScaleLike | undefined): unknown[] | undefi
 
 function firstInteractor(
   bindings: VgplotBindings,
-  kind: string,
+  kind: VgplotInteractorType,
   predicate: (interactor: VgplotInteractorLike) => boolean = () => true,
 ): CollectedInteractor | null {
   for (const { plotId, plot } of bindings.plots) {
-    for (const { index, interactor } of bindings.interactors(plot)) {
-      if (!interactor || typeof interactor !== 'object') continue;
-
-      if (interactor.constructor?.name !== kind) continue;
-
-      if (!predicate(interactor)) continue;
+    for (const { index, interactor, type } of bindings.interactors(plot)) {
+      if (type !== kind || !predicate(interactor)) continue;
 
       return { plotId, interactorId: String(index), interactor };
     }
@@ -238,27 +235,27 @@ export function actionDescriptorsForDashboard(args: {
   options: VgplotProviderOptions;
 }): VacpActionDescriptor[] {
   const hasInterval1D = args.bindings.plots.some((p) =>
-    args.bindings.interactors(p.plot).some(({ interactor: i }) => i.constructor?.name === 'Interval1D'),
+    args.bindings.interactors(p.plot).some(({ type }) => type === 'Interval1D'),
   );
   const hasInterval2D = args.bindings.plots.some((p) =>
-    args.bindings.interactors(p.plot).some(({ interactor: i }) => i.constructor?.name === 'Interval2D'),
+    args.bindings.interactors(p.plot).some(({ type }) => type === 'Interval2D'),
   );
   const hasToggle = args.bindings.plots.some((p) =>
-    args.bindings.interactors(p.plot).some(({ interactor: i }) => i.constructor?.name === 'Toggle'),
+    args.bindings.interactors(p.plot).some(({ type }) => type === 'Toggle'),
   );
   const hasNearest = args.bindings.plots.some((p) =>
     args.bindings.interactors(p.plot).some(({ interactor }) => isSelectionBackedNearest(interactor)),
   );
   const hasRegion = args.bindings.plots.some((p) =>
-    args.bindings.interactors(p.plot).some(({ interactor: i }) => i.constructor?.name === 'Region'),
+    args.bindings.interactors(p.plot).some(({ type }) => type === 'Region'),
   );
   const hasPanZoom = args.bindings.plots.some((p) =>
-    args.bindings.interactors(p.plot).some(({ interactor: i }) => i.constructor?.name === 'PanZoom'),
+    args.bindings.interactors(p.plot).some(({ type }) => type === 'PanZoom'),
   );
 
   const legendEntry = args.bindings.plots
     .flatMap(({ plotId, plot }) => args.bindings.legends(plot).map(({ legend }) => ({ plotId, legend })))
-    .find(({ legend }) => legend.selection && legend.handler?.constructor.name === 'Toggle');
+    .find(({ legend }) => legend.selection && interactorType(legend.handler) === 'Toggle');
   const hasLegendToggle = !!legendEntry;
   const hasTables = (args.bindings.tables ?? []).length > 0;
   const hasInputs = args.bindings.inputs.length > 0;

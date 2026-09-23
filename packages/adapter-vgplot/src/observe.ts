@@ -1,14 +1,8 @@
-import { plotLegends } from './legends';
 import { observeNativeUpdate, observeNativePlot, observeNativeInteractor, plotFreshness } from './native-observation';
-import type { CollectedInput } from './inputs';
-import type { VgplotPlotLike, VgplotTableLike } from './types';
+import type { VgplotBindings } from './bindings';
 
-/** Observe a live dashboard while consumers are subscribed. */
-export function createVgplotObservationBinding(args: {
-  inputs: CollectedInput[];
-  plots: Array<{ plot: VgplotPlotLike }>;
-  tables: Array<{ table: VgplotTableLike }>;
-}) {
+/** Observe the same native identities used by state, actions and presentation. */
+export function createVgplotObservationBinding(bindings: VgplotBindings) {
   const listeners = new Set<() => void>();
   let release: (() => void) | undefined;
   let disposed = false;
@@ -45,15 +39,16 @@ export function createVgplotObservationBinding(args: {
       }
     };
     try {
-      for (const input of args.inputs) observeUpdate(input.input.selection);
-      for (const { table } of args.tables) {
+      for (const input of bindings.inputs) observeUpdate(input.input.selection);
+      for (const { table } of bindings.tables) {
         observeUpdate(table);
         observeUpdate(table.selection);
       }
-      for (const { plot } of args.plots) {
-        for (const legend of plotLegends(plot)) observeUpdate(legend.selection);
+      for (const { plot } of bindings.plots) {
+        for (const { legend } of bindings.legends(plot)) observeUpdate(legend.selection);
         cleanup.push(observeNativePlot(plot, notify));
-        for (const interactor of plot.interactors) cleanup.push(observeNativeInteractor(interactor, notify));
+        for (const { interactor } of bindings.interactors(plot))
+          cleanup.push(observeNativeInteractor(interactor, notify));
       }
       return detach;
     } catch (error) {

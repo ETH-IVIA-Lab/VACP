@@ -30,6 +30,8 @@
     "@vacp/runtime": "workspace:*"
   },
   "peerDependencies": {
-    "@uwdata/mosaic-core": "*"
+    "@uwdata/mosaic-core": "*",
+    "@uwdata/mosaic-inputs": "*",
+    "@uwdata/mosaic-plot": "*"
   }
 }

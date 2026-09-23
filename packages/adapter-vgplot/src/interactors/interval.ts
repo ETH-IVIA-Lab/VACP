@@ -1,3 +1,4 @@
+import { interactorType } from '../native-classes';
 import type { VgplotInteractorLike, VgplotScaleLike } from '../types';
 
 type DomainValue = number | Date;
@@ -79,7 +80,7 @@ export function intervalDomainValue(value: unknown, scale: VgplotScaleLike | und
 
 /** Resolve domain values and selection plumbing before any mutation. */
 export function prepareInterval(interactor: VgplotInteractorLike, dimension: 1 | 2, raw: unknown[] | null) {
-  if (interactor.constructor.name !== `Interval${dimension}D`)
+  if (interactorType(interactor) !== `Interval${dimension}D`)
     throw new Error(`Expected Interval${dimension}D interactor`);
   const selection = interactor.selection;
   const update = selection?.update;

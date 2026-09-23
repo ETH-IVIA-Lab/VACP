@@ -1,57 +1,46 @@
 import type { VacpActionDescriptor, VacpEdge, VacpGraphFragment, VacpNode, VacpRef } from '@vacp/protocol';
-import { VACP_SCHEMA_VERSION } from '@vacp/protocol';
+import { VACP_SCHEMA_VERSION, stableStringify, fnv1a64Hex } from '@vacp/protocol';
+import { isNode } from '@uwdata/mosaic-sql';
 
 import { makePlotRef, makeViewRef } from './refs';
 import type { VgplotBindings } from './bindings';
 import type { VgplotProviderOptions } from './types';
 
-function stableStringify(value: unknown): string {
-  const seen = new WeakSet<object>();
-
-  const walk = (v: unknown): unknown => {
-    if (v == null) return v;
-
-    if (typeof v === 'function' || typeof v === 'symbol') return undefined;
-
-    if (typeof v !== 'object') return v;
-    const obj = v;
-
-    if (seen.has(obj)) return '[Circular]';
-    seen.add(obj);
-
-    if (Array.isArray(v)) return v.map(walk);
-    const rec = v as Record<string, unknown>;
-    const out: Record<string, unknown> = {};
-    Object.keys(rec)
-      .sort()
-      .forEach((k) => {
-        out[k] = walk(rec[k]);
-      });
-
-    return out;
-  };
-
-  return JSON.stringify(walk(value)) ?? 'null';
-}
-
-function safeJsonValue(value: unknown) {
-  try {
-    return JSON.parse(stableStringify(value));
-  } catch {
-    return String(value);
+/** Describe analytical fields without following native mark, plot or coordinator ownership. */
+function fieldDescriptor(raw: unknown): unknown {
+  if (typeof raw === 'string' || typeof raw === 'number' || typeof raw === 'boolean' || raw == null) return raw;
+  if (Array.isArray(raw)) return raw.slice(0, 2).filter((value) => typeof value === 'string');
+  if (typeof raw !== 'object') return { type: 'unknown' };
+  const field = raw as Record<string, unknown>;
+  const descriptor: Record<string, unknown> = {};
+  for (const key of ['type', 'name', 'column', 'field', 'col', 'channel']) {
+    if (typeof field[key] === 'string') descriptor[key] = field[key];
   }
-}
-
-function fnv1a32(input: string): string {
-  let hash = 0x811c9dc5;
-
-  for (let i = 0; i < input.length; i++) {
-    hash ^= input.charCodeAt(i);
-    hash = Math.imul(hash, 0x01000193);
+  if (field.type === 'CUSTOM') {
+    const options = field.options;
+    if (options && typeof options === 'object') {
+      const values: Record<string, unknown> = {};
+      for (const key of ['step', 'steps', 'minstep', 'nice', 'base', 'offset', 'interval']) {
+        const value = (options as Record<string, unknown>)[key];
+        if (
+          typeof value === 'string' ||
+          typeof value === 'boolean' ||
+          (typeof value === 'number' && Number.isFinite(value))
+        )
+          values[key] = value;
+      }
+      descriptor.options = values;
+    }
+  } else if (isNode(raw)) {
+    try {
+      const sql = raw.toString();
+      descriptor.sql = sql.slice(0, 4096);
+      if (sql.length > 4096) descriptor.sqlHash = fnv1a64Hex(sql);
+    } catch {
+      // An unevaluated native expression may not have a SQL representation yet.
+    }
   }
-
-  // Unsigned 32-bit hex.
-  return (hash >>> 0).toString(16).padStart(8, '0');
+  return descriptor;
 }
 
 function channelName(raw: unknown, fallback: string): string {
@@ -215,6 +204,7 @@ export function buildDashboardGraph(args: {
         // Channels without a data field or expression do not produce graph nodes.
         if (rawField == null) return;
 
+        const field = fieldDescriptor(rawField);
         const chName = channelName(ch?.channel, `channel-${channelIdx}`);
 
         const channelRef = makePlotRef({
@@ -237,22 +227,14 @@ export function buildDashboardGraph(args: {
             markOccurrence: (markBaseCounts.get(baseId) ?? 1) > 1 ? occurrence : undefined,
             channel: chName,
             as: typeof ch?.as === 'string' ? ch.as : undefined,
-            field: safeJsonValue(rawField),
+            field,
           },
         });
         edges.push({ from: markRef, to: channelRef, kind: 'contains' });
 
         const name = fieldNameFromDescriptor(rawField);
 
-        const hashInput = (() => {
-          try {
-            return stableStringify(rawField);
-          } catch {
-            return String(rawField);
-          }
-        })();
-
-        const fieldId = name ? `field-${encodeURIComponent(name)}` : `field-${fnv1a32(hashInput)}`;
+        const fieldId = name ? `field-${encodeURIComponent(name)}` : `field-${fnv1a64Hex(stableStringify(field))}`;
 
         const fieldRef = makePlotRef({
           appId: args.options.appId,
@@ -277,7 +259,7 @@ export function buildDashboardGraph(args: {
             as: typeof ch?.as === 'string' ? ch.as : undefined,
             table: markTable,
             fieldName: name ?? undefined,
-            field: safeJsonValue(rawField),
+            field,
           },
         });
         edges.push({ from: channelRef, to: fieldRef, kind: 'contains' });
@@ -295,12 +277,12 @@ export function buildDashboardGraph(args: {
       edges.push({ from: plotRef, to: ref, kind: 'contains' });
     });
 
-    args.bindings.interactors(plot).forEach(({ interactor: it, index: i, ref: interactorRef }) => {
+    args.bindings.interactors(plot).forEach(({ type, index: i, ref: interactorRef }) => {
       nodes.push({
         ref: interactorRef,
         kind: 'InteractionTarget',
         layer: 'InteractionFeedbackLayer',
-        title: it.constructor?.name ?? 'Interactor',
+        title: type ?? 'Interactor',
         description: 'VGPlot interactor (selection/brush)',
         data: { plotId, interactorId: String(i) },
       });
@@ -368,6 +350,12 @@ export function buildDashboardGraph(args: {
       });
       edges.push({ from: tableRef, to: h.ref, kind: 'contains' });
     });
+  }
+
+  for (const group of args.bindings.selections) {
+    nodes.push({ ref: group.ref, kind: 'Selection', layer: 'InteractionFeedbackLayer', title: 'Shared selection' });
+    edges.push({ from: viewRef, to: group.ref, kind: 'contains' });
+    for (const ref of group.sources.keys()) edges.push({ from: ref, to: group.ref, kind: 'updates' });
   }
 
   return { version: VACP_SCHEMA_VERSION, nodes, edges, actions: args.actions };

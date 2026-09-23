@@ -59,9 +59,7 @@ function safeStateValue(value: unknown, seen = new WeakSet<object>(), depth = 0)
 
   if (typeof value === 'object') {
     if (seen.has(value)) return '[circular]';
-    const ctor = value.constructor?.name && value.constructor.name !== 'Object' ? value.constructor.name : 'Object';
-
-    if (depth >= 2) return `[${ctor}]`;
+    if (depth >= 2) return '[Object]';
     seen.add(value);
 
     try {
@@ -179,6 +177,12 @@ export function createVgplotDashboardSnapshots(args: {
 
   const getState = async (): Promise<Record<VacpRef, unknown>> => {
     const state: Record<VacpRef, unknown> = {};
+    for (const group of bindings.selections) {
+      const source = group.selection.active?.source;
+      const activeSource =
+        source == null ? null : [...group.sources].find(([, candidate]) => candidate === source)?.[0];
+      state[group.ref] = { kind: 'Selection', activeSource };
+    }
 
     for (const input of inputs) {
       const inst = input.input;
@@ -209,33 +213,33 @@ export function createVgplotDashboardSnapshots(args: {
           value: safeStateValue(legendValue(legend)),
         };
       });
-      bindings.interactors(plot).forEach(({ interactor, ref: interactorRef }) => {
+      bindings.interactors(plot).forEach(({ interactor, type, ref: interactorRef }) => {
         const anyI = interactor;
-        const ctorName = interactor.constructor?.name ?? 'Interactor';
+        const kind = type ?? 'Interactor';
         const rawValue = interactor.selection?.valueFor ? readInteractorSelection(interactor) : interactor.value;
 
         const selectionValue =
-          ctorName === 'Nearest'
+          kind === 'Nearest'
             ? safeStateValue(readNearestValue(anyI, rawValue))
             : safeStateValue(readInteractorSelection(interactor));
 
         const domain =
-          ctorName === 'Interval1D'
+          kind === 'Interval1D'
             ? { domain: readScaleDomain(anyI.scale) }
-            : ctorName === 'Interval2D'
+            : kind === 'Interval2D'
               ? { xDomain: readScaleDomain(anyI.xscale), yDomain: readScaleDomain(anyI.yscale) }
-              : ctorName === 'PanZoom'
+              : kind === 'PanZoom'
                 ? { xDomain: readScaleDomain(anyI.xscale), yDomain: readScaleDomain(anyI.yscale) }
                 : null;
 
         state[interactorRef] = {
-          kind: ctorName,
+          kind,
           plotId,
           value: safeStateValue(rawValue),
           selectionValue,
-          ...(ctorName === 'Nearest' ? { selectionBacked: isSelectionBackedNearest(interactor) } : null),
+          ...(kind === 'Nearest' ? { selectionBacked: isSelectionBackedNearest(interactor) } : null),
           ...domain,
-          ...(ctorName === 'PanZoom'
+          ...(kind === 'PanZoom'
             ? {
                 x: safeStateValue(anyI.xsel?.value ?? null),
                 y: safeStateValue(anyI.ysel?.value ?? null),

@@ -1,3 +1,4 @@
+import { providerBindings } from './provider-bindings';
 import type { VacpRef, VacpProvider, VacpSourceId } from '@vacp/protocol';
 import { createDuckDbDataSqlHandler, getDuckDbTableMetadata } from '@vacp/data-duckdb';
 import {
@@ -51,7 +52,7 @@ export function createVgplotProvider(args: {
   for (const descriptor of actionDescriptors) {
     actionRegistry.register(
       { ...descriptor, operation: { ...descriptor.operation, contract: descriptor.name } },
-      (prepared: ReturnType<typeof operations.prepare>) => prepared.execute(),
+      (prepared: ReturnType<typeof operations.prepare>, options) => prepared.execute(options),
       { parse: (raw) => operations.prepare(descriptor.name, raw), focus: (prepared) => prepared.focus },
     );
   }
@@ -290,9 +291,9 @@ export function createVgplotProvider(args: {
     tablesById,
   });
 
-  const binding = createVgplotObservationBinding({ inputs, plots, tables });
+  const binding = createVgplotObservationBinding(bindings);
 
-  return createVacpProvider({
+  const provider = createVacpProvider({
     source: {
       id: sourceId,
       type: 'vgplot',
@@ -320,6 +321,11 @@ export function createVgplotProvider(args: {
       return { ...projected, freshness };
     },
     subscribe: binding.subscribe,
-    dispose: binding.dispose,
+    dispose: () => {
+      providerBindings.delete(provider);
+      binding.dispose();
+    },
   });
+  providerBindings.set(provider, bindings);
+  return provider;
 }
