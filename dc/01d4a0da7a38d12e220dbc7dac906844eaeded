@@ -1,0 +1,215 @@
+packages/provenance-core/src/index.ts
+  s_ad28489153bcf7::t_10160b457e2757 10-11
+  s_ad28489153bcf7::t_78ed3373685fda 1-9
+Makefile
+  s_2d40e2e67e50cc::t_ff1c9ec73bb04d 114
+packages/runtime/src/runtime/types.ts
+  s_ad28489153bcf7::t_0907172de992a1 23-28
+  s_ad28489153bcf7::t_91d732c98f3f0b 9-10
+packages/protocol/src/runtime.ts
+  s_ad28489153bcf7::t_b4d255c9404387 1-2,17
+  s_ad28489153bcf7::t_d8a1ce06d728a2 23
+packages/analytics/test/lifecycle.test.ts
+  s_ad28489153bcf7::t_31a2232fda749d 6-8,11-12,14-15,17-20,31,33-34,37-46,49,56-61,68-69
+  s_ad28489153bcf7::t_306c923f02c6c6 47-48,50-55,67
+  s_2d40e2e67e50cc::t_bad577d35b8b4e 62-64,66,70-75
+  s_2d40e2e67e50cc::t_a8ad31e7666e72 65
+packages/runtime/test/agent-activity.test.ts
+  s_2d40e2e67e50cc::t_4033a6b08c87f4 49-100
+  s_ad28489153bcf7::t_634aa7d83595f6 1-9,17-22,25-48
+  s_ad28489153bcf7::t_0907172de992a1 10-16,23-24
+docs/provenance/index.md
+  s_2d40e2e67e50cc::t_58018f3bccded1 40
+  s_2d40e2e67e50cc::t_32e67bf09feb25 26
+  s_ad28489153bcf7::t_9bc4ad5c98651c 46
+packages/runtime/src/runtime/provenance.ts
+  s_ad28489153bcf7::t_e67eeace9ded58 6,19,22-24,69
+  s_2d40e2e67e50cc::t_62cdad4b4151cc 4,37-38,40-44,53-58,60
+  s_ad28489153bcf7::t_2d9e7b35bb74b6 1-2,25-28,30-33,45,49-52,61-63,67-68,70-71,74-78,81-87
+  s_ad28489153bcf7::t_306c923f02c6c6 46-48,64-66
+  s_ad28489153bcf7::t_8abf997a08d3ef 3,5,7-18,21,29,34-36,39,59,72-73,79-80
+packages/protocol/src/activity.ts
+  s_ad28489153bcf7::t_0c1983c67adbbb 1-19,21-27
+  s_2d40e2e67e50cc::t_56ee0f743ed1cd 20
+packages/provenance-core/bench/replay.ts
+  s_2d40e2e67e50cc::t_ff1c9ec73bb04d 1-55
+packages/runtime/test/runtime-bridge.test.ts
+  s_ad28489153bcf7::t_fa81bd9900764a 54
+  s_ad28489153bcf7::t_ad97d42707507d 72,221
+  s_ad28489153bcf7::t_1ec3ebb3af2d43 48-50,222-224
+packages/provenance-core/src/types.ts
+  s_ad28489153bcf7::t_10160b457e2757 8-17,22-27,29-33
+  s_ad28489153bcf7::t_b103a08a484e0f 1-7,18-21
+  s_ad28489153bcf7::t_0eb2655bdd6cc2 28
+packages/protocol/src/index.ts
+  s_ad28489153bcf7::t_b4d255c9404387 18-19
+  s_ad28489153bcf7::t_91d732c98f3f0b 16-17
+  s_ad28489153bcf7::t_8abf997a08d3ef 20-21
+packages/provenance-core/test/replay.test.ts
+  s_ad28489153bcf7::t_02fa437a87bac8 1-3,18-23,27-31,40-45,49-50,52,54,59-60,65-80,85,88-90,101-102,109-114,119-121,132,141,154-156,164,169,172-176,183-185,188-190,195,206-207,213-217,223,233,249-250,254,363
+  s_2d40e2e67e50cc::t_a3cea4a4afca80 15,251,256-266
+  s_ad28489153bcf7::t_b5f658660894e5 51,96-98,269-312
+  s_2d40e2e67e50cc::t_12e6525fe0738b 53
+  s_ad28489153bcf7::t_6bf63db64f966e 84
+  s_ad28489153bcf7::t_aa2aa5e2b156b1 366-389
+  s_ad28489153bcf7::t_7679ea7f30bda2 391-415
+  s_ad28489153bcf7::t_f65c3c19725d79 92-95,313-362
+  s_ad28489153bcf7::t_b103a08a484e0f 4-14,16-17,24-26,32-39,46-48,55-58,61-64,81-83,86-87,91,99-100,103-108,115-118,122-131,133-140,142-153,157-163,165-168,170-171,177-182,186-187,191-194,196-205,208-212,219-222,225-232,239-248,252-253,255,267-268
+packages/provenance-core/tsconfig.test.json
+  s_ad28489153bcf7::t_b4d255c9404387 1-8
+packages/analytics/src/runtime.ts
+  s_ad28489153bcf7::t_306c923f02c6c6 10,45,47,52-54,56-57,59-60,68-77,81-83,116-121
+  s_ad28489153bcf7::t_d4de3143ecf4a3 1,3,5,13-16,18,20,27-33,36,39-43,50-51,55,63-67,78,80,86-90,92-115,122,125,128-131,134
+  s_ad28489153bcf7::t_e4600bc8118651 2,11
+  s_ad28489153bcf7::t_d00bdbc3ea68f4 17
+packages/provenance-core/package.json
+  s_2d40e2e67e50cc::t_ff1c9ec73bb04d 18-19,25
+  s_ad28489153bcf7::t_b103a08a484e0f 5-7,9-14,20-22,24,26-27
+  s_ad28489153bcf7::t_b4d255c9404387 1-4,8,15-17,23,28
+packages/provenance-core/src/checkpoints.ts
+  s_ad28489153bcf7::t_b103a08a484e0f 1-7,22-26
+  s_ad28489153bcf7::t_6bf63db64f966e 34
+  s_2d40e2e67e50cc::t_62cdad4b4151cc 37-46,49
+  s_ad28489153bcf7::t_10160b457e2757 8-21,27-33,35-36,47-48,50-51,86-88,90,129
+  s_2d40e2e67e50cc::t_d24722184afc51 100-101
+  s_ad28489153bcf7::t_78ed3373685fda 52-85,89,91-99,103-128
+docs/reference/runtime.md
+  s_ad28489153bcf7::t_ae12da508f2f08 50,52
+  s_ad28489153bcf7::t_261196841a00a9 45,49,51,53,67-68,75,81
+  s_2d40e2e67e50cc::t_32e67bf09feb25 47
+packages/runtime/src/runtime/create-runtime.ts
+  s_ad28489153bcf7::t_92a6e9b59583f1 152
+  s_ad28489153bcf7::t_e67eeace9ded58 112-113,115-121,158-159,255
+  s_ad28489153bcf7::t_306c923f02c6c6 49-53
+  s_ad28489153bcf7::t_a6a4aee31ace28 2,16,148-151,153-155,157
+  s_ad28489153bcf7::t_9b12a72d4d1e4c 362,372-374
+  s_ad28489153bcf7::t_cb4321cdb28cc1 114,193
+  s_ad28489153bcf7::t_91d732c98f3f0b 17,65,191,289-291
+  s_ad28489153bcf7::t_d8a1ce06d728a2 9,357-361
+  s_ad28489153bcf7::t_2d9e7b35bb74b6 24-25,44,48,54,94,304,323,326-327,329-330,332,370-371
+  s_2d40e2e67e50cc::t_b1455c9e3c4bb9 123-129,131-143,145
+  s_ad28489153bcf7::t_2f8b2e94e5606c 192,196-197
+  s_ad28489153bcf7::t_5e731470831da0 254,256-257,363,365-366
+  s_ad28489153bcf7::t_28318398429962 375
+  s_ad28489153bcf7::t_9d08a665930736 288
+packages/runtime/src/runtime/observer.ts
+  s_2d40e2e67e50cc::t_6b7dc10264f264 19-20,45-46,87,107
+  s_ad28489153bcf7::t_9d08a665930736 49,54
+  s_ad28489153bcf7::t_28318398429962 88-89,105-106,108-111
+  s_ad28489153bcf7::t_61b85151291d6f 17,67,71,85
+  s_ad28489153bcf7::t_21bc8b3c05e0be 39-44
+  s_ad28489153bcf7::t_2d9e7b35bb74b6 13,53
+  s_ad28489153bcf7::t_e67eeace9ded58 1-9,11-12,22-38,70,90,98-104
+  s_ad28489153bcf7::t_cb4321cdb28cc1 16,66,68,75,91-95
+  s_ad28489153bcf7::t_125b09280aa736 96-97
+packages/runtime/src/runtime/dispatch.ts
+  s_ad28489153bcf7::t_918dcdcc7e8e52 136-137,139
+  s_ad28489153bcf7::t_24d44d283d43c2 70,101
+  s_ad28489153bcf7::t_8abf997a08d3ef 99-100
+  s_ad28489153bcf7::t_a6a4aee31ace28 1-29,32-41,47-48,57-69,71-98,103-114,121-122,135,140-143,145-147
+  s_ad28489153bcf7::t_9d08a665930736 30-31,102,138,144
+  s_2d40e2e67e50cc::t_58018f3bccded1 45-46,123
+  s_2d40e2e67e50cc::t_f8322901c2ad4d 42-44
+  s_ad28489153bcf7::t_306c923f02c6c6 49-56,115-120,124-134
+packages/runtime/test/execution.test.ts
+  s_ad28489153bcf7::t_009fdf9b508a00 72,280,357
+  s_ad28489153bcf7::t_1ec3ebb3af2d43 73,252-258
+  s_ad28489153bcf7::t_fa81bd9900764a 74-75
+  s_ad28489153bcf7::t_ad97d42707507d 71
+  s_ad28489153bcf7::t_31a2232fda749d 264-267,276-279,281-292,297-308,313-320
+  s_ad28489153bcf7::t_d0cf1b0e8df3e8 321-356,358-363
+  s_ad28489153bcf7::t_306c923f02c6c6 268-275,293-296,309-312
+packages/protocol/src/capture.ts
+  s_ad28489153bcf7::t_8abf997a08d3ef 1-22
+packages/runtime-browser/src/bridge.ts
+  s_ad28489153bcf7::t_b7a5664089a034 12-13
+packages/provenance-core/src/replay.ts
+  s_2d40e2e67e50cc::t_62cdad4b4151cc 1-6,43-44,47-48,57-59,61-62,97,102-103,105-106,201-212
+  s_ad28489153bcf7::t_b103a08a484e0f 7-8,10-18,34-37,69-73,108-111,128-129,133-134,143-146,155-171,216-218,228-231,233-236
+  s_ad28489153bcf7::t_aa2aa5e2b156b1 221-224
+  s_ad28489153bcf7::t_b5f658660894e5 91-92,137-140
+  s_ad28489153bcf7::t_0eb2655bdd6cc2 183,185-187,194,220
+  s_ad28489153bcf7::t_78ed3373685fda 9,45-46,60,64-65,104
+  s_ad28489153bcf7::t_4cb10418df4d82 23-26,95
+  s_ad28489153bcf7::t_a7ddd15a2c8f53 19-22,27-33,38-42,49-56,63,66-68,74-90,93-94,96,98-101,107,112-127,130-132,135-136,141-142,147-154,172-182,184,188-193,195-200,213-215,219,225-227,232,237-240
+packages/protocol/src/provenance.ts
+  s_ad28489153bcf7::t_b5f658660894e5 11-13
+  s_ad28489153bcf7::t_10160b457e2757 2,9-10,15
+  s_ad28489153bcf7::t_b4d255c9404387 1,3-8,16-25,28-30,38-40,42-46,49-62
+  s_ad28489153bcf7::t_6bf63db64f966e 14
+  s_ad28489153bcf7::t_9c885d7d5c5ab4 26-27
+  s_ad28489153bcf7::t_b103a08a484e0f 31-37
+  s_2d40e2e67e50cc::t_62cdad4b4151cc 41,47-48
+packages/runtime/test/runtime-extensions.test.ts
+  s_ad28489153bcf7::t_d30d99c188648a 420
+  s_ad28489153bcf7::t_2f8b2e94e5606c 528-601
+  s_ad28489153bcf7::t_009fdf9b508a00 227
+  s_ad28489153bcf7::t_1ec3ebb3af2d43 226,228-229,300,302-304,342-346,433-439,455
+  s_2d40e2e67e50cc::t_babbf4e383825a 292-295
+  s_ad28489153bcf7::t_d4de3143ecf4a3 446-447
+  s_ad28489153bcf7::t_fa81bd9900764a 230,296,417,423-424
+  s_ad28489153bcf7::t_21673d726ed2f1 127,140
+  s_ad28489153bcf7::t_c99036b1543099 47,482
+  s_ad28489153bcf7::t_ad97d42707507d 142,225,291,442-444
+packages/protocol/src/execution.ts
+  s_ad28489153bcf7::t_b5f658660894e5 62-63
+packages/analytics/package.json
+  s_ad28489153bcf7::t_e4600bc8118651 21-22
+packages/runtime/test/history.test.ts
+  s_ad28489153bcf7::t_31a2232fda749d 59-73,78,83-90,97-100
+  s_ad28489153bcf7::t_98ec32dbe72c73 101-105,112-117,139-140,142-151,153,163,168-173
+  s_ad28489153bcf7::t_009fdf9b508a00 37,164,200
+  s_2d40e2e67e50cc::t_babbf4e383825a 51-53
+  s_ad28489153bcf7::t_306c923f02c6c6 54-57,74-77,82,91-96
+  s_ad28489153bcf7::t_fa81bd9900764a 38,47,49
+  s_ad28489153bcf7::t_28318398429962 1-5,7,32-35,39-40,43-46,48,58
+  s_ad28489153bcf7::t_21bc8b3c05e0be 106-111,118-138,141,152,154-162,165-167
+  s_ad28489153bcf7::t_b7a5664089a034 174-177,191-199,201-202,206
+  s_ad28489153bcf7::t_77e53144a1e5df 207-231
+  s_ad28489153bcf7::t_d00bdbc3ea68f4 178-190,203-205
+  s_ad28489153bcf7::t_ad97d42707507d 36
+  s_ad28489153bcf7::t_9b12a72d4d1e4c 6,11,41-42,50
+  s_ad28489153bcf7::t_a5e99a23b52bfc 8-10,12-31
+packages/runtime/src/restoration.ts
+  s_ad28489153bcf7::t_28318398429962 56-65
+packages/provenance-core/tsconfig.json
+  s_ad28489153bcf7::t_b4d255c9404387 1-8
+packages/runtime/src/runtime/activities.ts
+  s_ad28489153bcf7::t_0c1983c67adbbb 1-8,10-20,26-31,34-51,63-64,68-70,74-77
+  s_2d40e2e67e50cc::t_cab76833727ce7 32-33
+  s_ad28489153bcf7::t_91d732c98f3f0b 9
+  s_2d40e2e67e50cc::t_f8322901c2ad4d 66-67
+  s_ad28489153bcf7::t_0907172de992a1 21-25,52-62,65,71-73
+packages/runtime/src/runtime/executions.ts
+  s_ad28489153bcf7::t_9d08a665930736 72
+  s_ad28489153bcf7::t_2f8b2e94e5606c 17-22,24-26,54
+  s_ad28489153bcf7::t_cb4321cdb28cc1 13-16,23,27,63,65-66
+packages/inspector-core/src/runtime.ts
+  s_ad28489153bcf7::t_2d9e7b35bb74b6 4,22
+packages/runtime-browser/test/installation.test.ts
+  s_ad28489153bcf7::t_b7a5664089a034 31,33
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "dc01d4a0da7a38d12e220dbc7dac906844eaeded",
+  "prompts": {},
+  "sessions": {
+    "s_2d40e2e67e50cc": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1e5736ee-beae-43b9-abbb-61ec4a6aeeba",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Péter Ferenc Gyarmati <peterferenc.gyarmati@inf.ethz.ch>"
+    },
+    "s_ad28489153bcf7": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a0b393-234e-74d3-8b65-e0faa6b8456b",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Péter Ferenc Gyarmati <peterferenc.gyarmati@inf.ethz.ch>"
+    }
+  }
+}
