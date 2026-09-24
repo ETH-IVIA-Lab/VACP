@@ -3,6 +3,7 @@ import type {
   VacpProvenanceEvent,
   VacpProvenanceRecord,
   VacpProvenanceSnapshot,
+  VacpTurnRecord,
 } from '@vacp/protocol';
 import {
   isRestorationRecord,
@@ -46,6 +47,7 @@ export function createProvenanceReplay(
   projection.reset(journal);
   let epoch = journal.epoch;
   let steps: readonly ProvenanceCheckpoint[] = [];
+  let turns: readonly VacpTurnRecord[] = [];
   let latest: ProvenanceCheckpoint | null = null;
   let baseline: VacpObservation | undefined;
   let currentObservation: VacpObservation | undefined;
@@ -62,7 +64,9 @@ export function createProvenanceReplay(
   };
   const project = () => {
     latest = projection.latest();
-    if (!baseline && phase !== 'restoring') steps = projection.snapshot();
+    if (baseline || phase === 'restoring') return;
+    steps = projection.snapshot();
+    turns = projection.turns();
   };
   const publish = () => {
     for (const listener of listeners) {
@@ -85,7 +89,7 @@ export function createProvenanceReplay(
     publish();
   };
   const externalChange = (record: VacpProvenanceRecord) => {
-    if (isRestorationRecord(record)) return false;
+    if (isRestorationRecord(record) || record.kind === 'turn') return false;
     if (record.kind === 'session') return true;
     if (record.kind === 'action') return record.execution.operationKind !== 'query';
     if (record.cause.kind === 'concurrent')
@@ -127,12 +131,12 @@ export function createProvenanceReplay(
     detachExecutions = source.subscribeExecutions((execution) => {
       if (execution.restoration?.id === viewerId || !execution.operationKind || execution.operationKind === 'query')
         return;
+      // Live work outside this viewer ends review; otherwise execution events leave the state unchanged.
       if (execution.phase === 'prepared') {
         running.add(execution.id);
         if (baseline || phase === 'restoring') resume();
       } else if (execution.phase === 'succeeded' || execution.phase === 'failed' || execution.phase === 'cancelled')
         running.delete(execution.id);
-      publish();
     });
     for (const execution of source.getActiveExecutions()) {
       if (execution.operationKind && execution.operationKind !== 'query' && execution.restoration?.id !== viewerId)
@@ -183,15 +187,17 @@ export function createProvenanceReplay(
   const review = async (checkpointId: string) => {
     lifetime.signal.throwIfAborted();
     if (phase === 'restoring' || running.size) return;
-    const checkpoint = steps.find((step) => step.id === checkpointId);
+    const index = steps.findIndex((step) => step.id === checkpointId);
+    const checkpoint = steps[index];
     if (!checkpoint) throw new Error(`Unknown provenance checkpoint: ${checkpointId}`);
+    // The requested checkpoint is selected before restoring publishes, so viewers mark the right frame.
+    selected = index;
     await run(async (signal) => {
       if (!baseline) {
         const observation = await source.inspect();
         signal.throwIfAborted();
-        baseline = structuredClone(observation);
+        baseline = observation;
       }
-      selected = steps.findIndex((step) => step.id === checkpointId);
       await restore(checkpoint.observation, signal, checkpoint.record.id);
       phase = 'reviewing';
       publish();
@@ -203,11 +209,12 @@ export function createProvenanceReplay(
       if (
         view?.phase !== phase ||
         view.steps !== steps ||
+        view.turns !== turns ||
         view.latest !== latest ||
         view.selected !== current ||
         view.error !== error
       )
-        view = Object.freeze({ phase, steps, latest, selected: current, error });
+        view = Object.freeze({ phase, steps, turns, latest, selected: current, error });
       return view;
     },
     subscribe(listener) {
@@ -230,6 +237,7 @@ export function createProvenanceReplay(
         return;
       }
       const saved = baseline;
+      selected = -1;
       await run(async (signal) => {
         await restore(saved, signal);
         resume();

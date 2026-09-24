@@ -1,9 +1,10 @@
 import {
-  stableStringify,
+  sameVacpValue,
   type VacpActor,
   type VacpFocus,
   type VacpObservation,
   type VacpProvenanceRecord,
+  type VacpTurnRecord,
 } from '@vacp/protocol';
 
 /** A captured view of a record. Metadata has one owner: the record itself. */
@@ -26,32 +27,34 @@ export function provenanceFocus(record: VacpProvenanceRecord): VacpFocus | undef
       : undefined;
 }
 
+/** The agent turn, and so the request, a record belongs to. */
+export function provenanceTurn(record: VacpProvenanceRecord): string | undefined {
+  return record.kind === 'action'
+    ? record.execution.activityId
+    : record.kind === 'turn'
+      ? record.activityId
+      : undefined;
+}
+
+/** The words a record shows: a step's own narration, else its change; other records keep their message. */
 export function provenanceMessage(record: VacpProvenanceRecord): string {
-  return record.message ?? (record.kind === 'action' ? record.execution.title : undefined) ?? 'Updated the analysis';
+  const words = record.kind === 'action' ? (record.execution.narration ?? record.execution.title) : record.message;
+  return words ?? 'Updated the analysis';
 }
 
 export function isRestorationRecord(record: VacpProvenanceRecord): boolean {
   return record.kind === 'action' && Boolean(record.execution.restoration);
 }
 
-const stateKeys = new WeakMap<object, string>();
-/** Immutable captured state is serialized once however often checkpoints are projected. */
-function stateKey(observation: VacpObservation): string {
-  const { state } = observation;
-  if (!Object.isFrozen(state)) return stableStringify(state);
-  let key = stateKeys.get(state);
-  if (key === undefined) stateKeys.set(state, (key = stableStringify(state)));
-  return key;
-}
-
 /** State comparison deliberately excludes freshness and observation timestamps. */
 export function sameAnalyticalState(a: VacpObservation, b: VacpObservation): boolean {
-  return a.state === b.state || stateKey(a) === stateKey(b);
+  return sameVacpValue(a.state, b.state);
 }
 
 function checkpointObservations(record: VacpProvenanceRecord) {
   if (
     record.kind === 'session' ||
+    record.kind === 'turn' ||
     isRestorationRecord(record) ||
     (record.kind === 'observation' && record.cause.kind === 'concurrent')
   )
@@ -90,11 +93,25 @@ export function provenanceCheckpoints(records: readonly VacpProvenanceRecord[]):
   return checkpoints;
 }
 
-/** A revision-fed mirror repairs only the retention boundary when its oldest record expires. */
-export function createCheckpointProjection() {
+export type CheckpointProjection = {
+  reset(snapshot: { records: readonly VacpProvenanceRecord[]; limit: number }): void;
+  append(record: VacpProvenanceRecord): void;
+  snapshot(): readonly ProvenanceCheckpoint[];
+  turns(): readonly VacpTurnRecord[];
+  latest(): ProvenanceCheckpoint | null;
+};
+
+/**
+ * A revision-fed mirror repairs only the retention boundary when its oldest record expires. Its
+ * `snapshot()` and `turns()` keep their identity until a record changes them.
+ */
+export function createCheckpointProjection(): CheckpointProjection {
   let records: VacpProvenanceRecord[] = [];
   let checkpoints: ProvenanceCheckpoint[] = [];
+  let turns: VacpTurnRecord[] = [];
   let limit = 0;
+  let steps: readonly ProvenanceCheckpoint[] | undefined;
+  let finished: readonly VacpTurnRecord[] | undefined;
   return {
     reset(snapshot: { records: readonly VacpProvenanceRecord[]; limit: number }) {
       let session = snapshot.records.length - 1;
@@ -102,13 +119,31 @@ export function createCheckpointProjection() {
       records = snapshot.records.slice(Math.max(0, session));
       limit = snapshot.limit;
       checkpoints = provenanceCheckpoints(records);
+      turns = records.filter((record): record is VacpTurnRecord => record.kind === 'turn');
+      steps = finished = undefined;
     },
     append(record: VacpProvenanceRecord) {
-      if (record.kind === 'session') records = [];
+      if (record.kind === 'session') {
+        records = [];
+        turns = [];
+        finished = undefined;
+      }
       records.push(record);
+      const counted = checkpoints.length;
+      const last = checkpoints.at(-1);
       appendCheckpointRecord(checkpoints, record);
+      if (checkpoints.length !== counted || checkpoints.at(-1) !== last) steps = undefined;
+      if (record.kind === 'turn') {
+        turns.push(record);
+        finished = undefined;
+      }
       if (records.length <= limit) return;
       const evicted = records.shift()!;
+      if (evicted.kind === 'turn') {
+        turns.shift();
+        finished = undefined;
+      }
+      steps = undefined;
       const anchor = records.findIndex((entry) => checkpointObservations(entry)?.after !== undefined);
       if (anchor < 0) {
         checkpoints = provenanceCheckpoints(records);
@@ -123,7 +158,8 @@ export function createCheckpointProjection() {
         ...checkpoints.filter((checkpoint) => !replaced.has(checkpoint.record)),
       ];
     },
-    snapshot: () => Object.freeze(checkpoints.slice()),
+    snapshot: () => (steps ??= Object.freeze(checkpoints.slice())),
+    turns: () => (finished ??= Object.freeze(turns.slice())),
     latest: () => checkpoints.at(-1) ?? null,
   };
 }

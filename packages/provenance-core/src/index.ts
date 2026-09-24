@@ -2,6 +2,7 @@ export {
   provenanceActor,
   provenanceFocus,
   provenanceMessage,
+  provenanceTurn,
   isRestorationRecord,
   sameAnalyticalState,
   provenanceCheckpoints,
