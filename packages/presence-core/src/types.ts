@@ -54,13 +54,20 @@ export type PresenceActivity = {
   freshness: PresenceFreshness;
 };
 
+/** A frame of a request's trail: the state it began from, one of its steps, or its conclusion. */
+export type PresenceTrailFrame = 'start' | 'step' | 'conclusion';
+
 export type PresenceNavigation = {
+  /** The request being shown, in order. A request has at most one start and one conclusion. */
+  frames: readonly PresenceTrailFrame[];
+  /** The shown frame in `frames`, or -1 when the shown state lies outside this request. */
+  index: number;
   canBack: boolean;
   canForward: boolean;
   reviewing: boolean;
   restoring: boolean;
-  /** One-based place of the shown step in the agent's trail. */
-  position: { index: number; count: number };
+  /** Show another frame. The conclusion is the live state after the request. */
+  go(index: number): void;
   back(): void;
   forward(): void;
   /** Leave review, or dismiss the retained step. Either hides the trail until the agent starts new work. */

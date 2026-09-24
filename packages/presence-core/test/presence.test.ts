@@ -1,9 +1,15 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { setImmediate } from 'node:timers/promises';
-import { VACP_SCHEMA_VERSION, type VacpFreshness, type VacpInteraction } from '@vacp/protocol';
+import { VACP_SCHEMA_VERSION, type VacpExecution, type VacpFreshness, type VacpInteraction } from '@vacp/protocol';
 import { createVacpProvider, createVacpRuntime, VacpActionRegistry } from '@vacp/runtime';
-import { createAgentPresence, paceAgentPresence, type PresenceActivity, type PresenceTarget } from '../src/index';
+import {
+  createAgentPresence,
+  paceAgentPresence,
+  type PresenceActivity,
+  type PresenceFrame,
+  type PresenceTarget,
+} from '../src/index';
 
 const target: PresenceTarget = {
   surface: 'test',
@@ -699,4 +705,100 @@ test('published activity protects nested focus and geometry across viewers and l
     presence.dispose();
     f.runtime.dispose();
   }
+});
+
+test('a sentence is shown for the step it began with, never repeated on the steps after it', async () => {
+  const f = fixture();
+  const actor = { id: 'analyst', kind: 'agent' as const };
+  const presence = createAgentPresence(f.runtime, { narrationHoldMs: 0 });
+  const during: Array<string | undefined> = [];
+  presence.subscribe((activities) => {
+    if (activities[0]?.phase === 'acting') during.push(activities[0].summary);
+  });
+  const turn = f.runtime.beginAgentActivity({ actor, summary: 'Filtering for female swimmers and gymnasts.' });
+  try {
+    // The trace that motivated this: one sentence, then several actions without new words.
+    await f.runtime.execute({ name: 'set', callId: 'sex' }, { actor });
+    await f.runtime.execute({ name: 'set', callId: 'sports' }, { actor });
+    turn.update('Narrowing to ages 18 to 25.');
+    await f.runtime.execute({ name: 'set', callId: 'age' }, { actor });
+    assert.deepEqual(
+      [...new Set(during)],
+      ['Filtering for female swimmers and gymnasts.', undefined, 'Narrowing to ages 18 to 25.'],
+    );
+    turn.end();
+  } finally {
+    presence.dispose();
+    f.runtime.dispose();
+  }
+});
+
+test('without replay, a completed answer outlives the linger and leaves only when dismissed', async (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  const f = fixture();
+  const actor = { id: 'analyst', kind: 'agent' as const };
+  let frame: PresenceFrame = { activities: [], reason: 'activity' };
+  const presence = createAgentPresence(f.runtime, {
+    lingerMs: 100,
+    renderer: {
+      render: (value) => {
+        frame = value;
+      },
+    },
+  });
+  try {
+    f.runtime.beginAgentActivity({ actor, summary: 'Counting the medalists.' }).end({ summary: '873 medalists.' });
+    t.mock.timers.tick(1000);
+    assert.deepEqual(presence.getSnapshot(), [], 'the live turn has retired');
+    assert.equal(frame.activities[0]?.summary, '873 medalists.');
+    assert.equal(frame.navigation?.canBack, false);
+    frame.navigation!.close();
+    assert.deepEqual(frame.activities, []);
+  } finally {
+    presence.dispose();
+    f.runtime.dispose();
+  }
+});
+
+test('steps sent in the same tick still move the cursor to the latest one', async () => {
+  const lifetime = new AbortController();
+  let publish!: (execution: VacpExecution) => void;
+  const presence = createAgentPresence({
+    signal: lifetime.signal,
+    getActiveExecutions: () => [],
+    subscribeExecutions: (listener) => {
+      publish = listener;
+      return () => {};
+    },
+    subscribeSnapshots: () => () => {},
+  });
+  presence.attach({
+    id: 'binding',
+    sourceId: 'vacp-source://quick',
+    signal: lifetime.signal,
+    resolve: (focus) => ({
+      surface: 'test',
+      precision: 'exact',
+      geometry: { kind: 'point', point: { x: Number(focus.detail), y: 0 } },
+    }),
+  });
+  for (const index of [1, 2, 3])
+    publish({
+      id: String(index),
+      callId: String(index),
+      sequence: index,
+      name: 'focus',
+      at: '',
+      phase: 'prepared',
+      actor: { id: 'agent', kind: 'agent' },
+      sourceId: 'vacp-source://quick',
+      bindingId: 'binding',
+      intent: { affects: [], focus: { ref: 'vacp://plot', detail: index } },
+    });
+  await setImmediate();
+  const [activity] = presence.getSnapshot();
+  assert.equal(activity?.execution?.id, '3');
+  assert.deepEqual(activity?.target?.geometry, { kind: 'point', point: { x: 3, y: 0 } });
+  presence.dispose();
+  lifetime.abort();
 });

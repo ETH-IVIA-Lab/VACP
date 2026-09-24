@@ -21,6 +21,12 @@ import type {
   PresenceTarget,
 } from './types';
 
+/**
+ * The execution an actor shows. Its lifetime ends target lookups and arrival waits made for it.
+ * `shared` is false when the execution holds exotic host values, which each delivery copies.
+ */
+type Step = { value: VacpExecution; read: () => VacpExecution; lifetime: AbortController; shared: boolean };
+
 /** What one actor is doing. Everything published is derived from these fields by `view()`. */
 type Entry = {
   actor: VacpActor;
@@ -29,16 +35,19 @@ type Entry = {
   afterSequence: number;
   /** The host's progress record, never edited. */
   progress?: VacpAgentActivity;
+  /** The host's words when the shown step began. Newer words replace the step's own sentence. */
+  heard?: string;
   /** While the host's newest words wait for their step, the words still on screen. */
   hold?: { shown: string | undefined; timer: ReturnType<typeof setTimeout> };
-  /** The shown execution: one isolated read for decisions, a fresh read for every publication. */
-  step?: { value: VacpExecution; read: () => VacpExecution };
+  step?: Step;
   /** Where the cursor rests: the focus of the latest focused step, kept across turns. */
   rest?: PresenceFocus;
   target?: () => PresenceTarget;
   freshness: PresenceFreshness;
   targets: ReturnType<typeof createTargetTracker>;
   retire?: ReturnType<typeof setTimeout>;
+  /** The last published projection, reused while nothing it shows has changed. */
+  published?: PresenceActivity;
 };
 
 function terminal(execution: VacpExecution): boolean {
@@ -86,32 +95,68 @@ export function createAgentPresence(source: PresenceSource, options: PresenceOpt
     const intent = entry.step?.value.intent;
     return intent?.focus?.ref ?? intent?.affects?.[0] ?? entry.rest?.focus.ref;
   };
-  const view = (entry: Entry): PresenceActivity =>
-    Object.freeze({
-      actor: Object.freeze({ ...(entry.progress?.actor ?? entry.step?.value.actor ?? entry.actor) }),
+  /** A step shows its own sentence until the host says something newer; waiting words hold the old ones. */
+  const displayed = (entry: Entry) =>
+    entry.hold
+      ? entry.hold.shown
+      : entry.step && entry.progress?.summary === entry.heard
+        ? entry.step.value.narration
+        : entry.progress?.summary;
+  const view = (entry: Entry): PresenceActivity => {
+    const actor = entry.progress?.actor ?? entry.step?.value.actor ?? entry.actor;
+    const next = {
       phase: phaseOf(entry.step?.value, entry.progress),
-      summary: entry.hold ? entry.hold.shown : entry.progress?.summary,
+      summary: displayed(entry),
       activityId: entry.progress?.id,
       subject: graph ? presenceSubject(graph, subjectRef(entry)) : undefined,
       execution: entry.step?.read(),
       target: entry.target?.() ?? null,
       freshness: entry.freshness,
-    });
-  const snapshot = () => Object.freeze([...active.values()].map(view));
-  const publish = (reason: 'activity' | 'layout' = 'activity', activityEvent = false) => {
-    if (options.renderer || options.replay) safe(() => presentation.update(snapshot(), reason, activityEvent));
-    if (!listeners.size) return;
-    // Captured ordinary branches are shared; exotic host values are isolated on each delivery.
-    for (const listener of listeners) safe(() => listener(snapshot()));
+    };
+    const previous = entry.published;
+    if (
+      previous &&
+      previous.actor.id === actor.id &&
+      previous.actor.label === actor.label &&
+      previous.actor.kind === actor.kind &&
+      (Object.keys(next) as (keyof typeof next)[]).every((key) => previous[key] === next[key])
+    )
+      return previous;
+    return (entry.published = Object.freeze({ actor: Object.freeze({ ...actor }), ...next }));
   };
-  const create = (actor: VacpActor, carried: Partial<Pick<Entry, 'progress' | 'rest' | 'afterSequence'>>): Entry => {
+  let snapshotted: readonly PresenceActivity[] = Object.freeze([]);
+  /** Unchanged entries keep their projections, and an unchanged snapshot keeps its identity. */
+  const snapshot = () => {
+    const next = [...active.values()].map(view);
+    if (next.length !== snapshotted.length || next.some((activity, index) => activity !== snapshotted[index]))
+      snapshotted = Object.freeze(next);
+    return snapshotted;
+  };
+  let heard: readonly PresenceActivity[] | undefined;
+  const publish = (reason: 'activity' | 'layout' = 'activity', activityEvent = false) => {
+    const activities = snapshot();
+    if (options.renderer || options.replay) safe(() => presentation.update(activities, reason, activityEvent));
+    if (activities === heard) return;
+    heard = activities;
+    // Captured ordinary values are shared; exotic host values are copied for each listener.
+    const isolated = [...active.values()].some((entry) => entry.step && !entry.step.shared);
+    for (const listener of listeners)
+      safe(() =>
+        listener(
+          isolated
+            ? Object.freeze(
+                [...active.values()].map((entry) => Object.freeze({ ...view(entry), execution: entry.step?.read() })),
+              )
+            : activities,
+        ),
+      );
+  };
+  const create = (actor: VacpActor): Entry => {
     while (active.size >= maxActors) releaseActor(active.keys().next().value!);
     const entry: Entry = {
       actor,
       lifetime: new AbortController(),
-      afterSequence: carried.afterSequence ?? -1,
-      progress: carried.progress,
-      rest: carried.rest,
+      afterSequence: -1,
       freshness: 'unknown',
       targets: createTargetTracker(
         targets.resolve,
@@ -129,6 +174,7 @@ export function createAgentPresence(source: PresenceSource, options: PresenceOpt
     const entry = active.get(actorId);
     if (!entry) return;
     entry.lifetime.abort();
+    entry.step?.lifetime.abort();
     clearTimeout(entry.retire);
     clearTimeout(entry.hold?.timer);
     active.delete(actorId);
@@ -140,6 +186,7 @@ export function createAgentPresence(source: PresenceSource, options: PresenceOpt
   };
   /** The shown step is over; the cursor keeps resting where it was. */
   const moveOn = (entry: Entry) => {
+    entry.step?.lifetime.abort();
     entry.step = undefined;
     entry.freshness = 'unknown';
   };
@@ -149,7 +196,9 @@ export function createAgentPresence(source: PresenceSource, options: PresenceOpt
       entry.target = undefined;
       return;
     }
-    entry.targets.track(entry.rest, reason, AbortSignal.any([lifetime.signal, entry.lifetime.signal]));
+    const signals = [lifetime.signal, entry.lifetime.signal];
+    if (entry.step) signals.push(entry.step.lifetime.signal);
+    entry.targets.track(entry.rest, reason, AbortSignal.any(signals));
   };
   const invalidateTargets = (bindingId?: string) => {
     if (lifetime.signal.aborted) return;
@@ -174,7 +223,7 @@ export function createAgentPresence(source: PresenceSource, options: PresenceOpt
     let entry = active.get(progress.actor.id);
     if (!entry) {
       if (progress.phase !== 'thinking') return;
-      entry = create(progress.actor, {});
+      entry = create(progress.actor);
     }
     if (entry.progress?.id !== progress.id) {
       // A new turn: earlier executions of this actor no longer belong to it.
@@ -185,7 +234,7 @@ export function createAgentPresence(source: PresenceSource, options: PresenceOpt
       (entry.step?.value.phase === 'failed' || entry.step?.value.phase === 'cancelled')
     )
       moveOn(entry);
-    const shown = entry.hold ? entry.hold.shown : entry.progress?.summary;
+    const shown = displayed(entry);
     // The cursor rests on a finished step, or on the last focused step of an earlier turn.
     const resting = entry.step ? terminal(entry.step.value) : entry.rest !== undefined;
     entry.progress = { ...progress, actor: { ...progress.actor } };
@@ -200,11 +249,12 @@ export function createAgentPresence(source: PresenceSource, options: PresenceOpt
     ) {
       // Words about the next step wait for it while the cursor still rests on the last one.
       const actorId = progress.actor.id;
+      const waiting = entry;
       entry.hold = {
         shown,
         timer: setTimeout(() => {
-          if (active.get(actorId) !== entry) return;
-          entry.hold = undefined;
+          if (active.get(actorId) !== waiting) return;
+          waiting.hold = undefined;
           publish('activity', true);
         }, narrationHoldMs),
       };
@@ -222,24 +272,25 @@ export function createAgentPresence(source: PresenceSource, options: PresenceOpt
     while (latest.size > maxActors * 4) latest.delete(latest.keys().next().value!);
     // Accepted requests have no validated intention yet. Rejections still get a textual outcome.
     if (execution.phase === 'accepted') return;
-    let entry = active.get(actorId);
-    // A first sighting in any phase starts a new shown step, releasing waits on the old one.
-    if (entry && entry.step?.value.id !== execution.id) {
-      const carried = { progress: entry.progress, rest: entry.rest, afterSequence: entry.afterSequence };
-      releaseActor(actorId);
-      entry = create(execution.actor, carried);
-    }
-    entry ??= create(execution.actor, {});
+    const entry = active.get(actorId) ?? create(execution.actor);
     const read = captureVacpValue(execution);
     const value = read();
-    entry.step = { value, read };
+    if (entry.step?.value.id !== value.id) {
+      // A first sighting in any phase starts a new shown step, releasing waits on the old one.
+      moveOn(entry);
+      entry.targets.cancel();
+      entry.target = undefined;
+      entry.heard = entry.progress?.summary;
+      entry.step = { value, read, lifetime: new AbortController(), shared: read() === value };
+    } else entry.step = { ...entry.step, value, read, shared: read() === value };
     if (value.intent?.focus && value.sourceId)
       entry.rest = { focus: value.intent.focus, sourceId: value.sourceId, bindingId: value.bindingId };
     release(entry);
     if (!terminal(value)) clearTimeout(entry.retire);
     if (value.phase === 'prepared' || value.phase === 'running') locate(entry);
     if (value.phase === 'cancelled') {
-      entry.lifetime.abort();
+      entry.step.lifetime.abort();
+      entry.targets.cancel();
       entry.target = undefined;
     }
     if (terminal(value) && entry.progress?.phase !== 'thinking') retire(actorId, entry);
@@ -257,25 +308,15 @@ export function createAgentPresence(source: PresenceSource, options: PresenceOpt
           : 'unknown';
   };
   const onObservation = (observation: VacpObservation) => {
-    const previous = graph;
     graph = observation.graph;
     if (!active.size) return;
-    let changed = false;
     for (const entry of active.values()) {
-      const ref = subjectRef(entry);
-      changed ||= (previous && presenceSubject(previous, ref)) !== presenceSubject(graph, ref);
       // Canvas and other surfaces can change geometry without a DOM layout event.
-      if (entry.step?.value.phase !== 'failed' && entry.step?.value.phase !== 'cancelled') {
-        const had = entry.target !== undefined;
-        locate(entry);
-        changed ||= had !== (entry.target !== undefined);
-      }
-      const freshness = freshnessOf(entry, observation);
-      changed ||= freshness !== entry.freshness;
-      entry.freshness = freshness;
+      if (entry.step?.value.phase !== 'failed' && entry.step?.value.phase !== 'cancelled') locate(entry);
+      entry.freshness = freshnessOf(entry, observation);
     }
-    // Target lookups publish their own result; an unchanged observation has nothing to present.
-    if (changed) publish();
+    // Target lookups publish their own result; an unchanged projection publishes nothing new.
+    publish();
   };
   const subscriptions: Array<() => void> = [];
   try {
@@ -314,12 +355,14 @@ export function createAgentPresence(source: PresenceSource, options: PresenceOpt
     invalidateTargets,
     async arrive(executionId: string, signal: AbortSignal) {
       const entry = [...active.values()].find((value) => value.step?.value.id === executionId);
-      if (!entry) return;
-      const waiting = AbortSignal.any([signal, lifetime.signal, entry.lifetime.signal]);
-      while (!waiting.aborted && active.get(entry.actor.id) === entry) {
+      const step = entry?.step;
+      if (!entry || !step) return;
+      const waiting = AbortSignal.any([signal, lifetime.signal, entry.lifetime.signal, step.lifetime.signal]);
+      const shown = () => active.get(entry.actor.id) === entry && entry.step?.value.id === executionId;
+      while (!waiting.aborted && shown()) {
         const pending = entry.targets.pending;
         if (pending) await untilAborted(pending, waiting);
-        if (waiting.aborted || active.get(entry.actor.id) !== entry) return;
+        if (waiting.aborted || !shown()) return;
         if (pending !== entry.targets.pending) continue;
         if (entry.target && options.renderer?.arrive) {
           const lookup = entry.targets.signal;

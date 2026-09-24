@@ -1,9 +1,75 @@
-import { provenanceActor, provenanceFocus, provenanceMessage, type ProvenanceCheckpoint } from '@vacp/provenance-core';
-import type { PresenceActivity, PresenceFrame, PresenceOptions, PresenceTarget } from './types';
+import {
+  provenanceActor,
+  provenanceFocus,
+  provenanceMessage,
+  provenanceTurn,
+  type ProvenanceCheckpoint,
+  type ProvenanceReplayState,
+} from '@vacp/provenance-core';
+import type { VacpActor, VacpTurnRecord } from '@vacp/protocol';
+import type { PresenceActivity, PresenceFrame, PresenceNavigation, PresenceOptions, PresenceTarget } from './types';
 import { isAgentActor } from './types';
 import type { PresenceFocus } from './targets';
 import { presenceSubject } from './subject';
 import { createTargetTracker } from './tracker';
+
+/** How a request ended: a recorded turn, or, without a replay controller, a turn that answered without a step. */
+type Conclusion = {
+  id: string;
+  actor: VacpActor;
+  outcome: VacpTurnRecord['outcome'];
+  message?: string;
+  opening?: string;
+};
+/** One frame of the shown request: the state it began from, a step, or its conclusion. */
+type TrailFrame =
+  | { kind: 'start'; checkpoint: ProvenanceCheckpoint }
+  | { kind: 'step'; checkpoint: ProvenanceCheckpoint }
+  | { kind: 'conclusion'; conclusion: Conclusion };
+type Trail = { frames: readonly TrailFrame[]; actor?: VacpActor; opening?: string };
+
+const startWords = "The view before the agent's first change.";
+const conclusionWords = "The view after the agent's last change.";
+const empty: Trail = { frames: [] };
+
+const concluded = (turn: VacpTurnRecord): Conclusion => ({
+  id: turn.id,
+  actor: turn.actor,
+  outcome: turn.outcome,
+  message: turn.message,
+  opening: turn.opening,
+});
+
+/** Frames and their navigation change only when what they show changes. */
+function sameActivity(a: PresenceActivity | undefined, b: PresenceActivity): boolean {
+  return (
+    !!a &&
+    a.actor.id === b.actor.id &&
+    a.actor.label === b.actor.label &&
+    a.phase === b.phase &&
+    a.summary === b.summary &&
+    a.recordId === b.recordId &&
+    a.subject === b.subject &&
+    a.execution === b.execution &&
+    a.target === b.target &&
+    a.freshness === b.freshness
+  );
+}
+
+/**
+ * The request to show: the latest one, by journal order. A request is a turn's steps, or a turn that
+ * completed with an answer and no step. A step's turn recorded before a later turn is superseded by it.
+ */
+function latestRequest(steps: readonly ProvenanceCheckpoint[], turns: readonly VacpTurnRecord[]): string | undefined {
+  const step = steps.at(-1);
+  const last = turns.at(-1);
+  if (!step) return last?.activityId;
+  const turn = provenanceTurn(step.record);
+  if (turn === undefined) return last && last.at > step.record.at ? last.activityId : undefined;
+  let index = turns.length - 1;
+  while (index >= 0 && turns[index]!.activityId !== turn) index--;
+  return index >= 0 && index < turns.length - 1 ? last!.activityId : turn;
+}
 
 /** Select one presentation without giving the renderer knowledge of history or restoration. */
 export function createPresencePresentation(
@@ -14,61 +80,135 @@ export function createPresencePresentation(
   const includes = options.includeActor ?? isAgentActor;
   const replay = options.replay;
   const lifetime = new AbortController();
-  let state = replay?.getState();
-  const visibleCheckpoint = (step: ProvenanceCheckpoint) =>
-    step.position === 'after' && includes(provenanceActor(step.record));
-  let visibleSteps = state?.steps.filter(visibleCheckpoint) ?? [];
-  let navigation: PresenceFrame['navigation'];
+  let state: ProvenanceReplayState | undefined = replay?.getState();
+  let visibleSteps: readonly ProvenanceCheckpoint[] = [];
+  let visibleFrom: ProvenanceReplayState['steps'] | undefined;
+  let trail = empty;
+  let trailFrom: readonly unknown[] = [];
   let live: readonly PresenceActivity[] = [];
-  let completion: PresenceActivity | undefined;
-  let recorded: { id: string; activity: PresenceActivity } | undefined;
-  let shown = false;
+  /** Without a replay controller, the closing words of a turn that took no step. Nothing recorded holds them. */
+  let answer: PresenceActivity | undefined;
+  let recorded: { id: string; activity: PresenceActivity; focus?: PresenceFocus } | undefined;
+  let rendered: { activities: readonly PresenceActivity[]; navigation: PresenceNavigation | undefined } | undefined;
+  let navigation: PresenceNavigation | undefined;
   /**
    * The trail stays hidden after the person dismisses it or changes the analysis themselves, until
    * the agent records a new step or, for a dismissal, starts new work.
    */
   let hidden: 'dismissed' | 'superseded' | undefined;
   const active = (activity: PresenceActivity) => activity.phase === 'thinking' || activity.phase === 'acting';
-  const updateNavigation = () => {
-    const steps = visibleSteps;
-    const selectedId = state?.selected?.id;
-    // A selection made elsewhere may lie outside this viewer's trail; it then has no neighbours here.
-    const at = selectedId ? steps.findIndex((step) => step.id === selectedId) : -1;
-    const position = at >= 0 ? at : state?.latest?.id === steps.at(-1)?.id ? steps.length - 1 : steps.length;
-    const busy = state?.phase === 'restoring';
-    const previous = at >= 0 || !selectedId ? steps[position - 1] : undefined;
-    const next = at >= 0 ? steps[at + 1] : undefined;
-    navigation =
-      state && replay && (steps.length > 0 || state.phase !== 'live')
-        ? {
-            canBack: !busy && !!previous,
-            canForward: !busy && !!next,
-            reviewing: state.phase !== 'live',
-            restoring: !!busy,
-            position: { index: Math.max(0, Math.min(position, steps.length - 1)) + 1, count: steps.length },
-            back: () => {
-              if (lifetime.signal.aborted || !previous || busy) return;
-              hidden = undefined;
-              void replay.review(previous.id).catch(report);
-            },
-            forward: () => {
-              if (lifetime.signal.aborted || !next || busy) return;
-              hidden = undefined;
-              void replay.review(next.id).catch(report);
-            },
-            close: () => {
-              if (lifetime.signal.aborted || busy) return;
-              hidden = 'dismissed';
-              if (state?.phase === 'live') present();
-              else void replay.close().catch(report);
-            },
-          }
-        : undefined;
+  const reviewing = () => !!state && state.phase !== 'live';
+
+  const buildTrail = (): Trail => {
+    if (!state) {
+      if (!answer) return empty;
+      const id = answer.activityId ?? 'answer';
+      const outcome = answer.phase === 'failed' || answer.phase === 'cancelled' ? answer.phase : 'completed';
+      return {
+        actor: answer.actor,
+        frames: [{ kind: 'conclusion', conclusion: { id, actor: answer.actor, outcome, message: answer.summary } }],
+      };
+    }
+    // A turn without steps is a request only when it completed with an answer.
+    const stepped = new Set(visibleSteps.map((step) => provenanceTurn(step.record)));
+    const turns = state.turns.filter(
+      (turn) =>
+        includes(turn.actor) &&
+        (stepped.has(turn.activityId) || (turn.outcome === 'completed' && turn.message !== undefined)),
+    );
+    const key = latestRequest(visibleSteps, turns);
+    const steps = visibleSteps.filter((step) => provenanceTurn(step.record) === key);
+    let turn: VacpTurnRecord | undefined;
+    for (let index = turns.length - 1; index >= 0 && !turn; index--)
+      if (turns[index]!.activityId === key) turn = turns[index];
+    const first = steps[0];
+    const before = first ? state.steps[state.steps.indexOf(first) - 1] : undefined;
+    return {
+      actor: first ? provenanceActor(first.record) : turn?.actor,
+      opening: turn?.opening,
+      frames: [
+        ...(before ? [{ kind: 'start' as const, checkpoint: before }] : []),
+        ...steps.map((checkpoint) => ({ kind: 'step' as const, checkpoint })),
+        ...(turn ? [{ kind: 'conclusion' as const, conclusion: concluded(turn) }] : []),
+      ],
+    };
   };
-  updateNavigation();
+  /** Live shows the request's last frame; review shows the frame of the checkpoint being restored. */
+  const frameIndex = () => {
+    if (!state || state.phase === 'live' || !state.selected) return trail.frames.length - 1;
+    const id = state.selected.id;
+    return trail.frames.findIndex((frame) => frame.kind !== 'conclusion' && frame.checkpoint.id === id);
+  };
+
+  // Stable callbacks read the presentation as it is when the person acts.
+  const go = (target: number) => {
+    const frame = trail.frames[target];
+    if (lifetime.signal.aborted || !replay || state?.phase === 'restoring' || !frame || target === frameIndex()) return;
+    hidden = undefined;
+    // The conclusion is the live state the request left behind, which leaving review restores.
+    if (frame.kind === 'conclusion') {
+      if (reviewing()) void replay.close().catch(report);
+    } else void replay.review(frame.checkpoint.id).catch(report);
+  };
+  const back = () => go(frameIndex() - 1);
+  const forward = () => go(frameIndex() + 1);
+  const close = () => {
+    if (lifetime.signal.aborted || state?.phase === 'restoring') return;
+    hidden = 'dismissed';
+    if (reviewing()) void replay!.close().catch(report);
+    else present();
+  };
+  const refresh = () => {
+    if (state?.steps !== visibleFrom) {
+      visibleFrom = state?.steps;
+      visibleSteps =
+        state?.steps.filter((step) => step.position === 'after' && includes(provenanceActor(step.record))) ?? [];
+    }
+    const inputs = [visibleSteps, state?.turns, answer];
+    if (inputs.some((input, index) => input !== trailFrom[index])) {
+      trailFrom = inputs;
+      trail = buildTrail();
+    }
+    const frames = trail.frames.map((frame) => frame.kind);
+    const index = frameIndex();
+    const restoring = state?.phase === 'restoring';
+    const current = navigation;
+    if (!frames.length) navigation = undefined;
+    else if (
+      !current ||
+      current.index !== index ||
+      current.restoring !== restoring ||
+      current.reviewing !== reviewing() ||
+      current.frames.length !== frames.length ||
+      current.frames.some((kind, position) => kind !== frames[position])
+    )
+      navigation = Object.freeze({
+        frames: Object.freeze(frames),
+        index,
+        canBack: !!replay && !restoring && index > 0,
+        canForward: !!replay && !restoring && index >= 0 && index < frames.length - 1,
+        reviewing: reviewing(),
+        restoring,
+        go,
+        back,
+        forward,
+        close,
+      });
+  };
+
   const render = (activities: readonly PresenceActivity[], reason: PresenceFrame['reason']) => {
     if (lifetime.signal.aborted) return;
-    shown = activities.length > 0;
+    // A frame that shows nothing new is skipped; a layout frame always confirms positions.
+    const last = rendered;
+    if (
+      reason === 'activity' &&
+      last !== undefined &&
+      last.navigation === navigation &&
+      last.activities.length === activities.length &&
+      last.activities.every((activity, index) => activity === activities[index])
+    )
+      return;
+    rendered = { activities, navigation };
     try {
       options.renderer?.render({ activities, reason, navigation });
     } catch (error) {
@@ -84,65 +224,109 @@ export function createPresencePresentation(
     },
     report,
   );
-  const clearRecorded = () => {
+  /** A recorded frame keeps its projection, and its target, while what it shows is unchanged. */
+  const showRecorded = (activity: PresenceActivity, reason: PresenceFrame['reason'], focus?: PresenceFocus) => {
+    const same = recorded?.id === activity.recordId;
+    if (!same) recordedTargets.cancel();
+    const shown = { ...activity, target: same ? recorded!.activity.target : null };
+    recorded = {
+      id: activity.recordId!,
+      activity: sameActivity(recorded?.activity, shown) ? recorded!.activity : shown,
+      focus,
+    };
+    render([recorded.activity], reason);
+    if (same || !focus) return;
+    recordedTargets.track(focus, reason, lifetime.signal);
+  };
+  const leaveRecorded = () => {
     recordedTargets.cancel();
     recorded = undefined;
   };
+
   const present = (reason: PresenceFrame['reason'] = 'activity') => {
-    const selected = state?.selected ?? visibleSteps.at(-1);
     // A hidden trail still shows work in progress; finished live entries wait with the trail. A
     // dismissal made while reviewing keeps the reviewed step until the controller leaves review.
     const shownLive = hidden ? live.filter(active) : live;
-    const trailHidden = hidden === 'superseded' ? state?.phase === 'live' : !!hidden && state?.phase !== 'reviewing';
-    if (!state || trailHidden || (state.phase === 'live' && shownLive.length)) {
-      clearRecorded();
+    const trailHidden = hidden === 'superseded' ? !reviewing() : !!hidden && state?.phase !== 'reviewing';
+    // Live work shows itself. Once nothing is active, the request takes over at once, so a finished
+    // turn's conclusion appears as it ends rather than after its live entry lingers.
+    if (trailHidden || (!reviewing() && shownLive.length && (shownLive.some(active) || !trail.frames.length))) {
+      leaveRecorded();
       render(shownLive, reason);
       return;
     }
-    if (!selected || !includes(provenanceActor(selected.record))) {
-      clearRecorded();
+    const frame = trail.frames[frameIndex()];
+    const actor = trail.actor;
+    if (!frame || !actor) {
+      leaveRecorded();
       render([], reason);
       return;
     }
-    const execution = selected.record.kind === 'action' ? selected.record.execution : undefined;
-    const retained =
-      state.phase === 'live' && completion?.actor.id === provenanceActor(selected.record).id ? completion : undefined;
-    const changed = recorded?.id !== selected.id;
-    if (changed) clearRecorded();
-    const focus = provenanceFocus(selected.record);
-    const activity: PresenceActivity = {
-      actor: retained?.actor ?? provenanceActor(selected.record),
-      recordId: selected.id,
-      phase: state.phase === 'live' ? 'completed' : 'reviewing',
-      subject: presenceSubject(selected.observation.graph, focus?.ref ?? execution?.intent?.affects?.[0]),
-      summary: state.error
-        ? 'This step could not be fully restored.'
-        : (retained?.summary ?? provenanceMessage(selected.record)),
-      execution,
-      target: recorded?.activity.target ?? null,
-      freshness: 'unknown',
-    };
-    recorded = { id: selected.id, activity };
-    render([activity], reason);
-    if (!changed && reason !== 'layout') return;
-    const sourceId = focus && selected.observation.graph.ownership.nodes[focus.ref];
-    if (!focus || !sourceId) return recordedTargets.cancel();
-    recordedTargets.track({ focus, sourceId }, reason, lifetime.signal);
+    const failed = state?.error ? 'This step could not be fully restored.' : undefined;
+    // Start and conclusion frames describe the whole request, so they point at no single target.
+    if (frame.kind === 'conclusion') {
+      const { conclusion } = frame;
+      showRecorded(
+        {
+          actor: conclusion.actor,
+          recordId: conclusion.id,
+          phase: conclusion.outcome,
+          summary: conclusion.message ?? conclusionWords,
+          target: null,
+          freshness: 'unknown',
+        },
+        reason,
+      );
+      return;
+    }
+    if (frame.kind === 'start') {
+      showRecorded(
+        {
+          actor,
+          recordId: frame.checkpoint.id,
+          phase: 'reviewing',
+          summary: failed ?? trail.opening ?? startWords,
+          target: null,
+          freshness: 'unknown',
+        },
+        reason,
+      );
+      return;
+    }
+    const { checkpoint } = frame;
+    const execution = checkpoint.record.kind === 'action' ? checkpoint.record.execution : undefined;
+    const focus = provenanceFocus(checkpoint.record);
+    const sourceId = focus && checkpoint.observation.graph.ownership.nodes[focus.ref];
+    showRecorded(
+      {
+        actor: provenanceActor(checkpoint.record),
+        recordId: checkpoint.id,
+        phase: reviewing() ? 'reviewing' : 'completed',
+        subject: presenceSubject(checkpoint.observation.graph, focus?.ref ?? execution?.intent?.affects?.[0]),
+        summary: failed ?? provenanceMessage(checkpoint.record),
+        execution,
+        target: null,
+        freshness: 'unknown',
+      },
+      reason,
+      focus && sourceId ? { focus, sourceId } : undefined,
+    );
   };
   const release = replay?.subscribe(() => {
+    const next = replay.getState();
+    if (next === state) return;
     const previous = state?.latest?.id;
-    const previousSteps = state?.steps;
-    state = replay.getState();
-    if (state.steps !== previousSteps) visibleSteps = state.steps.filter(visibleCheckpoint);
-    updateNavigation();
+    state = next;
     if (state.latest && state.latest.id !== previous) {
       // A person's change retires agent feedback; the runtime's own observations leave it in place.
       const actor = provenanceActor(state.latest.record);
       if (includes(actor)) hidden = undefined;
       else if (actor.kind !== 'system') hidden = 'superseded';
     }
+    refresh();
     present();
   });
+  refresh();
   // A new viewer shows the retained checkpoint without waiting for unrelated activity.
   if (state) present();
   return {
@@ -150,17 +334,22 @@ export function createPresencePresentation(
       // New agent events supersede retained checkpoints; a dismissal lifts only when new work begins.
       if (activityEvent && (hidden === 'superseded' || activities.some(active))) hidden = undefined;
       live = activities;
-      if (activities.some(active)) completion = undefined;
-      completion = activities.find((activity) => activity.phase === 'completed' && activity.summary) ?? completion;
+      if (!replay) {
+        if (activities.some(active)) answer = undefined;
+        answer =
+          activities.find((activity) => activity.phase === 'completed' && activity.summary && !activity.execution) ??
+          answer;
+      }
+      refresh();
       present(reason);
     },
-    // Layout cannot change an empty presentation; skipping it keeps human interaction free of lookups.
-    invalidate: () => {
-      if (shown) present('layout');
+    /** Layout moves targets: only a recorded step looks its target up again, and its lookup renders. */
+    invalidate() {
+      if (recorded?.focus) recordedTargets.track(recorded.focus, 'layout', lifetime.signal);
     },
     dispose() {
       lifetime.abort();
-      clearRecorded();
+      leaveRecorded();
       release?.();
     },
   };

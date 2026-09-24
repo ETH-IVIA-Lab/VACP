@@ -2,7 +2,13 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { setImmediate } from 'node:timers/promises';
 import type { ProvenanceCheckpoint, ProvenanceReplayController, ProvenanceReplayState } from '@vacp/provenance-core';
-import { VACP_SCHEMA_VERSION, type VacpActor, type VacpObservation, type VacpAgentActivity } from '@vacp/protocol';
+import {
+  VACP_SCHEMA_VERSION,
+  type VacpActor,
+  type VacpObservation,
+  type VacpAgentActivity,
+  type VacpTurnRecord,
+} from '@vacp/protocol';
 import { createAgentPresence, type PresenceFrame } from '../src/index';
 
 const observation: VacpObservation = {
@@ -41,6 +47,48 @@ function checkpoint(
     },
   };
 }
+function turnRecord(activityId: string, message?: string, opening?: string): VacpTurnRecord {
+  return {
+    id: `turn-${activityId}`,
+    at: '9',
+    kind: 'turn',
+    actor: { id: 'agent', kind: 'agent' },
+    activityId,
+    outcome: 'completed',
+    message,
+    opening,
+  };
+}
+
+/** A recorded agent action of one request, with the state it produced. */
+function actionCheckpoint(id: string, activityId: string, message: string, at = '5'): ProvenanceCheckpoint {
+  const actor = { id: 'agent', kind: 'agent' } as const;
+  return {
+    id,
+    position: 'after',
+    observation,
+    record: {
+      id,
+      at,
+      kind: 'action',
+      execution: {
+        id,
+        sequence: 1,
+        callId: id,
+        name: 'set',
+        actor,
+        activityId,
+        narration: message,
+        phase: 'succeeded',
+        at,
+      },
+      call: { callId: id, name: 'set' },
+      result: { callId: id, ok: true },
+      observation,
+    },
+  };
+}
+
 function fixture() {
   const steps = [
     checkpoint('baseline', 'agent', 'before'),
@@ -48,7 +96,7 @@ function fixture() {
     checkpoint('human', 'human'),
     checkpoint('two', 'agent'),
   ];
-  let state: ProvenanceReplayState = { phase: 'live', steps, selected: null, latest: steps.at(-1)! };
+  let state: ProvenanceReplayState = { phase: 'live', steps, turns: [], selected: null, latest: steps.at(-1)! };
   let changed = () => {};
   const visits: string[] = [];
   let disposed = false;
@@ -60,9 +108,14 @@ function fixture() {
         changed = () => {};
       };
     },
+    // Like the runtime controller, the requested checkpoint is selected as restoring begins.
     review: async (id) => {
       visits.push(id);
-      state = { ...state, phase: 'reviewing', selected: steps.find((step) => step.id === id)! };
+      const selected = state.steps.find((step) => step.id === id)!;
+      state = { ...state, phase: 'restoring', selected };
+      changed();
+      await Promise.resolve();
+      state = { ...state, phase: 'reviewing', selected };
       changed();
     },
     interrupt: () => {
@@ -79,6 +132,7 @@ function fixture() {
   };
   let activity = (_value: VacpAgentActivity) => {};
   let frame: PresenceFrame = { activities: [], reason: 'activity' };
+  let frames = 0;
   const presence = createAgentPresence(
     {
       signal: new AbortController().signal,
@@ -96,6 +150,7 @@ function fixture() {
       renderer: {
         render: (value) => {
           frame = value;
+          frames++;
         },
       },
     },
@@ -105,6 +160,7 @@ function fixture() {
     visits,
     activity: (value: VacpAgentActivity) => activity(value),
     frame: () => frame,
+    frames: () => frames,
     disposed: () => disposed,
     change: (next: ProvenanceReplayState) => {
       state = next;
@@ -117,14 +173,22 @@ function fixture() {
 test('presence derives agent-only navigation from complete independent provenance', async () => {
   const f = fixture();
   assert.equal(f.frame().activities[0]?.summary, 'two');
+  // The state before the first agent step is the trail's start; the person's step in between is not a frame.
+  assert.deepEqual(f.frame().navigation?.frames, ['start', 'step', 'step']);
+  assert.equal(f.frame().navigation?.index, 2);
   f.frame().navigation?.back();
   await setImmediate();
   assert.deepEqual(f.visits, ['one']);
-  assert.equal(f.frame().navigation?.canBack, false);
-  assert.equal(f.frame().navigation?.canForward, true);
-  f.frame().navigation?.forward();
+  assert.equal(f.frame().navigation?.index, 1);
+  f.frame().navigation?.back();
   await setImmediate();
-  assert.deepEqual(f.visits, ['one', 'two']);
+  assert.deepEqual(f.visits, ['one', 'baseline']);
+  assert.equal(f.frame().navigation?.index, 0);
+  assert.equal(f.frame().navigation?.canBack, false);
+  assert.equal(f.frame().activities[0]?.target, null, 'the start points at no single target');
+  f.frame().navigation?.go(2);
+  await setImmediate();
+  assert.deepEqual(f.visits, ['one', 'baseline', 'two']);
   assert.equal(f.frame().activities[0]?.phase, 'reviewing');
   f.presence.dispose();
   assert.equal(f.disposed(), false, 'presence does not own the replay controller');
@@ -154,7 +218,7 @@ test('retained and replay targets use the attached provider binding and refresh 
 test('agent progress supersedes older checkpoints and later human edits retire retained presence', () => {
   const f = fixture();
   const initial = checkpoint('initial-view', 'system');
-  f.change({ phase: 'live', selected: null, steps: [initial], latest: initial });
+  f.change({ phase: 'live', selected: null, steps: [initial], turns: [], latest: initial });
   const work: VacpAgentActivity = {
     id: 'host-turn',
     actor: { id: 'writer', kind: 'agent' },
@@ -231,7 +295,7 @@ test('a recorded step is labelled by the view containing its focus, even through
   };
   const f = fixture();
   const step = checkpoint('labelled', 'agent', 'after', seen);
-  f.change({ phase: 'live', selected: null, steps: [step], latest: step });
+  f.change({ phase: 'live', selected: null, steps: [step], turns: [], latest: step });
   assert.equal(f.frame().activities[0]?.subject, 'Age distribution');
   f.presence.dispose();
 });
@@ -239,12 +303,12 @@ test('a recorded step is labelled by the view containing its focus, even through
 test('a single recorded step stays on screen, dismissible, with no neighbours to step to', () => {
   const f = fixture();
   const only = checkpoint('only', 'agent');
-  f.change({ phase: 'live', selected: null, steps: [only], latest: only });
+  f.change({ phase: 'live', selected: null, steps: [only], turns: [], latest: only });
   assert.equal(f.frame().activities[0]?.summary, 'only');
   assert.equal(f.frame().activities[0]?.phase, 'completed');
   assert.equal(f.frame().navigation?.canBack, false);
   assert.equal(f.frame().navigation?.canForward, false);
-  assert.deepEqual(f.frame().navigation?.position, { index: 1, count: 1 });
+  assert.deepEqual(f.frame().navigation?.frames, ['step']);
   f.frame().navigation!.close();
   assert.deepEqual(f.frame().activities, []);
   f.presence.dispose();
@@ -257,7 +321,7 @@ test("a checkpoint selected outside this viewer's trail shows nothing and offers
   assert.deepEqual(f.frame().activities, []);
   assert.equal(f.frame().navigation?.canBack, false);
   assert.equal(f.frame().navigation?.canForward, false);
-  assert.ok(f.frame().navigation!.position.index >= 1);
+  assert.equal(f.frame().navigation?.index, -1);
   f.presence.dispose();
 });
 
@@ -273,5 +337,104 @@ test("a person's change hides the trail until the agent records again, whatever 
   const three = checkpoint('three', 'agent');
   f.change({ ...f.state(), steps: [...f.state().steps, three], latest: three });
   assert.equal(f.frame().activities[0]?.summary, 'three');
+  f.presence.dispose();
+});
+
+test('a turn that answers without a step keeps its recorded answer until the person dismisses it', async () => {
+  const f = fixture();
+  const answer = turnRecord('question', 'The cohort has 873 medalists.');
+  f.change({ ...f.state(), turns: [answer] });
+  const frame = f.frame();
+  assert.equal(frame.activities[0]?.summary, 'The cohort has 873 medalists.');
+  assert.equal(frame.activities[0]?.recordId, answer.id);
+  assert.deepEqual(frame.navigation?.frames, ['conclusion']);
+  assert.equal(frame.navigation?.canBack, false);
+  f.presence.invalidateTargets();
+  await setImmediate();
+  assert.equal(f.frame().activities[0]?.summary, 'The cohort has 873 medalists.');
+  f.frame().navigation!.close();
+  assert.deepEqual(f.frame().activities, []);
+  f.presence.dispose();
+});
+
+test('a request steps from the state it began in, through each step, to its conclusion', async () => {
+  const f = fixture();
+  const before = checkpoint('before-request', 'human');
+  const sex = actionCheckpoint('sex', 'request', 'Keeping only female athletes.');
+  const sports = actionCheckpoint('sports', 'request', 'Comparing swimmers with gymnasts.');
+  const ended = turnRecord(
+    'request',
+    'Female swimmers and gymnasts are in view.',
+    'Filtering for female swimmers and gymnasts.',
+  );
+  f.change({ phase: 'live', selected: null, steps: [before, sex, sports], turns: [ended], latest: sports });
+  const navigation = () => f.frame().navigation!;
+  const words = () => f.frame().activities[0]?.summary;
+  assert.deepEqual(navigation().frames, ['start', 'step', 'step', 'conclusion']);
+  assert.equal(navigation().index, 3, 'after the request the conclusion is shown');
+  assert.equal(words(), 'Female swimmers and gymnasts are in view.');
+  assert.equal(f.frame().activities[0]?.target, null);
+  navigation().back();
+  await setImmediate();
+  assert.equal(navigation().index, 2);
+  assert.equal(words(), 'Comparing swimmers with gymnasts.');
+  navigation().go(0);
+  await setImmediate();
+  assert.deepEqual(f.visits, ['sports', 'before-request']);
+  assert.equal(navigation().index, 0);
+  assert.equal(words(), 'Filtering for female swimmers and gymnasts.', "the start reads the request's opening words");
+  assert.equal(f.frame().activities[0]?.phase, 'reviewing');
+  // Forward to the conclusion leaves review, returning to the state the request left behind.
+  navigation().go(3);
+  await setImmediate();
+  assert.equal(f.state().phase, 'live');
+  assert.equal(navigation().index, 3);
+  assert.equal(words(), 'Female swimmers and gymnasts are in view.');
+  f.presence.dispose();
+});
+
+test('a request is shown on its own, and a newer request replaces it once it records a step', () => {
+  const f = fixture();
+  const first = actionCheckpoint('first', 'earlier', 'Keeping only female athletes.');
+  const earlier = turnRecord('earlier', 'Female athletes are in view.');
+  const second = actionCheckpoint('second', 'later', 'Narrowing the ages.', '99');
+  f.change({ phase: 'live', selected: null, steps: [first], turns: [earlier], latest: first });
+  assert.deepEqual(f.frame().navigation?.frames, ['step', 'conclusion']);
+  f.change({ phase: 'live', selected: null, steps: [first, second], turns: [earlier], latest: second });
+  assert.deepEqual(f.frame().navigation?.frames, ['start', 'step'], 'the new request starts where the last one ended');
+  assert.equal(f.frame().activities[0]?.summary, 'Narrowing the ages.');
+  f.presence.dispose();
+});
+
+test('the frame asked for is shown busy from the moment it is requested until it is restored', async () => {
+  const f = fixture();
+  const index = f.frame().navigation!.index;
+  f.frame().navigation!.back();
+  assert.equal(f.frame().navigation?.index, index - 1);
+  assert.equal(f.frame().navigation?.restoring, true);
+  assert.equal(f.frame().activities[0]?.summary, 'one');
+  await setImmediate();
+  assert.equal(f.frame().navigation?.restoring, false);
+  assert.equal(f.frame().navigation?.index, index - 1);
+  f.presence.dispose();
+});
+
+test('a new request recorded in the same millisecond as the previous turn is the one shown', () => {
+  const f = fixture();
+  const first = actionCheckpoint('first', 'earlier', 'Keeping only female athletes.', '7');
+  const earlier = { ...turnRecord('earlier', 'Female athletes are in view.'), at: '7' };
+  const second = actionCheckpoint('second', 'later', 'Narrowing the ages.', '7');
+  f.change({ phase: 'live', selected: null, steps: [first, second], turns: [earlier], latest: second });
+  assert.deepEqual(f.frame().navigation?.frames, ['start', 'step']);
+  assert.equal(f.frame().activities[0]?.summary, 'Narrowing the ages.');
+  f.presence.dispose();
+});
+
+test('an event that changes nothing on screen draws no new frame', () => {
+  const f = fixture();
+  const drawn = f.frames();
+  f.change({ ...f.state() });
+  f.activity({ id: 'idle', actor: { id: 'human', kind: 'human' }, phase: 'completed', at: '' });
+  assert.equal(f.frames(), drawn);
   f.presence.dispose();
 });
