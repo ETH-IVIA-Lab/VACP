@@ -62,7 +62,7 @@ const restorer = createVacpRestorer(runtime);
 const result = await restorer.restore(recorded.state);
 ```
 
-Each source must expose an unambiguous `vacp.apply_state` operation. The restorer reads complete ownership through `inspect()`, so currently unavailable entities can be restored when their source permits it. It routes state by ownership and serializes its own requests. Restoration still executes through the runtime and requires an available `vacp.apply_state` action. It waits for all source results and reports partial failures. Each outcome identifies its `sourceId`, action name, and action result. Providers report read-only and transient refs that they skip. Ordinary actions continue to target the live application.
+Each source must expose an unambiguous `vacp.apply_state` operation. The restorer reads complete ownership through `inspect()`, so currently unavailable entities can be restored when their source permits it. It routes state by ownership and serializes its own requests. Restoration still executes through the runtime and requires an available `vacp.apply_state` action. `registerVacpApplyStateAction` declares no prerequisites, so replay can restore every recorded state, including one taken before a dataset or chart existed. It waits for all source results and reports partial failures. Each outcome identifies its `sourceId`, action name, and action result. Providers report read-only and transient refs that they skip. Ordinary actions continue to target the live application.
 
 Restoration defaults to a human actor and stamps `execution.restoration` with a correlation ID and optional recorded entry ID. It remains in provenance while checkpoint projection excludes it from the original trail.
 

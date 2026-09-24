@@ -182,3 +182,76 @@ test('stepping waits while the agent works and resumes when its turn ends', asyn
   await expect(page.locator('[data-vacp-bubble] [data-vacp-heading]')).toHaveText('Step 1 of 2');
   await expect(count).toHaveText(sports!);
 });
+
+test('react-dashboard replay returns to the empty dashboard and forward through both datasets', async ({ page }) => {
+  const server = appServer('react-dashboard');
+  const errors: string[] = [];
+  page.on('pageerror', (error) => errors.push(error.message));
+  await page.goto(server.url);
+  await expect
+    .poll(() =>
+      page.evaluate(async () =>
+        ((await document.modelContext?.getTools()) ?? []).some((tool) => tool.name.endsWith('dashboard.set_dataset')),
+      ),
+    )
+    .toBe(true);
+  expect((await tool(page, 'vacp.progress', { message: 'Comparing the two datasets.' })).ok).toBe(true);
+  expect((await tool(page, 'dashboard.set_dataset', { id: 'mtcars', narration: 'Loading the cars.' })).ok).toBe(true);
+  expect(
+    (
+      await tool(page, 'dashboard.set_brush_2d', {
+        x0: 150,
+        x1: 340,
+        y0: 10,
+        y1: 20,
+        narration: 'Brushing the powerful, thirsty cars.',
+      })
+    ).ok,
+  ).toBe(true);
+  expect((await tool(page, 'dashboard.set_dataset', { id: 'iris', narration: 'Switching to iris.' })).ok).toBe(true);
+  expect((await tool(page, 'vacp.progress', { message: 'Iris is in view.', done: true })).ok).toBe(true);
+
+  const bubble = page.locator('[data-vacp-bubble]');
+  const heading = bubble.locator('[data-vacp-heading]');
+  // The controls summary comes first; the empty state repeats the dataset names as quick picks.
+  const dataset = page.getByText(/^(No dataset|Iris|Motor Trend Cars \(mtcars\))$/).first();
+  const rows = page.getByText(/^\d+ rows$/);
+  const selected = page.getByText(/^(\d+ selected|No selection)$/);
+  const settle = async (name: string) => {
+    await expect(heading).toHaveText(name);
+    await expect(bubble).toHaveAttribute('aria-busy', 'false');
+  };
+  await settle('Conclusion');
+  await bubble.hover();
+  const back = page.getByRole('button', { name: 'Previous analytical step' });
+  const next = page.getByRole('button', { name: 'Next analytical step' });
+  for (const name of ['Step 3 of 3', 'Step 2 of 3', 'Step 1 of 3', 'Start']) {
+    await back.click();
+    await settle(name);
+  }
+  // The request began before any dataset was loaded.
+  await expect(dataset).toHaveText('No dataset');
+  await expect(rows).toHaveCount(0);
+
+  const frames = [
+    { name: 'Step 1 of 3', dataset: 'Motor Trend Cars (mtcars)', rows: '32 rows', selection: 'No selection' },
+    { name: 'Step 2 of 3', dataset: 'Motor Trend Cars (mtcars)', rows: '32 rows', selection: /\d+ selected/ },
+    { name: 'Step 3 of 3', dataset: 'Iris', rows: '150 rows', selection: 'No selection' },
+    { name: 'Conclusion', dataset: 'Iris', rows: '150 rows', selection: 'No selection' },
+  ];
+  for (const frame of frames) {
+    await next.click();
+    await settle(frame.name);
+    await expect(dataset).toHaveText(frame.dataset);
+    await expect(rows).toHaveText(frame.rows);
+    await expect(selected).toHaveText(frame.selection);
+  }
+  const restorations = await page.evaluate(async () =>
+    (await window.__vacp!.getProvenance!()).records.filter(
+      (record) => record.kind === 'action' && record.execution.restoration,
+    ),
+  );
+  expect(restorations.length).toBeGreaterThan(0);
+  expect(restorations.every((record) => record.kind === 'action' && record.result.ok)).toBe(true);
+  expect(errors).toEqual([]);
+});

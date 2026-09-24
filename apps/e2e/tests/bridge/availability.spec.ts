@@ -16,8 +16,11 @@ test('dashboard discovery follows dataset, selection, restoration, and native vi
   const server = appServer('react-dashboard');
   const scatterRef = 'vacp://vacp-examples/react/dashboard/recharts/viz/scatter/mark/scatter';
   const chartRef = 'vacp://vacp-examples/react/dashboard/recharts/viz/scatter';
+  // Applying a saved state is acquisition too: replay restores views recorded before any dataset loaded.
+  const acquisitionActions = ['dashboard.set_dataset', 'vacp.apply_state'];
   const acquisitionTools = [
     'vacp.action.dashboard.set_dataset',
+    'vacp.action.vacp.apply_state',
     'vacp.capabilities',
     'vacp.observe',
     'vacp.progress',
@@ -32,7 +35,7 @@ test('dashboard discovery follows dataset, selection, restoration, and native vi
   const tools = () =>
     page.evaluate(async () => (await document.modelContext!.getTools()).map((tool) => tool.name).sort());
   const catalog = await test.step('only acquisition is disclosed before a dataset exists', async () => {
-    await expect.poll(names).toEqual(['dashboard.set_dataset']);
+    await expect.poll(names).toEqual(acquisitionActions);
     await expect.poll(tools).toEqual(acquisitionTools);
     const initial = await page.evaluate(async () => {
       const full = await window.__vacp!.inspect();
@@ -51,8 +54,8 @@ test('dashboard discovery follows dataset, selection, restoration, and native vi
       };
     });
     expect(initial.catalog).toEqual(expect.arrayContaining(['dashboard.set_encoding', 'dashboard.set_brush_2d']));
-    expect(initial.visible).toEqual(['dashboard.set_dataset']);
-    expect(initial.dom.graph.actions.map((action: { name: string }) => action.name)).toEqual(['dashboard.set_dataset']);
+    expect(initial.visible.sort()).toEqual(acquisitionActions);
+    expect(initial.dom.graph.actions.map((action: { name: string }) => action.name).sort()).toEqual(acquisitionActions);
     expect(initial.blocked.ok).toBe(false);
     await expect(page.locator('svg circle[data-point-id]')).toHaveCount(0);
     return initial.catalog;
@@ -158,7 +161,7 @@ test('dashboard discovery follows dataset, selection, restoration, and native vi
 
   await test.step('clearing the dataset returns to acquisition and rejects a stale brush call', async () => {
     await page.getByRole('button', { name: 'Clear dataset', exact: true }).click();
-    await expect.poll(names).toEqual(['dashboard.set_dataset']);
+    await expect.poll(names).toEqual(acquisitionActions);
     await expect.poll(tools).toEqual(acquisitionTools);
     const stale = await page.evaluate(() =>
       window.__vacp!.execute({

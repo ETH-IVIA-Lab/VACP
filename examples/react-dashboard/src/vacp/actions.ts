@@ -170,8 +170,8 @@ export function registerDashboardActions(actions: VacpActions, model: ReactDashb
       return { ok: true };
     });
 
+  // Restoration reaches every recorded state, including the empty dashboard before a dataset loads.
   actions.standard.applyState((state) => prepareDashboardRestoration(model, state), {
-    availability: { requires: [handleRef] },
     affects: [vizRef],
     description: 'Apply dashboard state (dataset/encoding/selection).',
   });
