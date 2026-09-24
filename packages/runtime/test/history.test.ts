@@ -36,7 +36,7 @@ test('bounded provenance preserves the host actor, public summary, and isolated 
   const recorded = runtime.getProvenance().records[0]!;
   assert.ok(recorded.kind === 'action');
   assert.deepEqual(recorded.execution.actor, actor);
-  assert.equal(recorded.message, 'Checking a narrower threshold');
+  assert.equal(recorded.execution.narration, 'Checking a narrower threshold');
   assert.equal(recorded.execution?.phase, 'succeeded');
   assert.deepEqual(recorded.before?.state['vacp://value'], { threshold: 0 });
   assert.deepEqual(recorded.observation?.state['vacp://value'], { threshold: 1 });

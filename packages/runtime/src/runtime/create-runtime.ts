@@ -62,7 +62,23 @@ export function createVacpRuntime(args: {
 
   const lifetime = new AbortController();
   const executions = createExecutionChannel(lifetime.signal);
-  const agentActivities = createAgentActivityChannel(lifetime.signal);
+  // A finished turn is recorded, so replay can show the request from its opening words to its conclusion.
+  const agentActivities = createAgentActivityChannel(lifetime.signal, {
+    ended: (activity, { opening, closing }) => {
+      if (lifetime.signal.aborted) return;
+      record({
+        id: makeEntryId(),
+        at: nowIso(),
+        kind: 'turn',
+        actor: activity.actor,
+        activityId: activity.id,
+        outcome: activity.phase,
+        opening,
+        message: closing,
+      });
+    },
+    busy: (actorId) => executions.getActiveExecutions().some((execution) => execution.actor.id === actorId),
+  });
   const bindingIds = new WeakMap<AbortSignal, string>();
   const providerLifetimes = new Map<string, AbortController>();
   const providerLeases = new Map<string, symbol>();
@@ -287,6 +303,7 @@ export function createVacpRuntime(args: {
     subscribeExecutions: executions.subscribeExecutions,
     getActiveExecutions: executions.getActiveExecutions,
     beginAgentActivity: agentActivities.beginAgentActivity,
+    narrate: agentActivities.narrate,
     getAgentActivities: agentActivities.getAgentActivities,
     subscribeAgentActivities: agentActivities.subscribeAgentActivities,
     addExecutionGate: executions.addExecutionGate,

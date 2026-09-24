@@ -1,6 +1,7 @@
 import {
   assertVacpActionAvailable,
   nowIso,
+  parseVacpNarration,
   type VacpActionCall,
   type VacpActionExecutionOptions,
   type VacpActionResult,
@@ -14,7 +15,7 @@ import { actionFailure } from '../action-registry';
 import type { createAgentActivityChannel } from './activities';
 import type { createExecutionChannel } from './executions';
 import type { createLiveObservations } from './observations';
-import { entryActor, entryMessage, makeEntryId } from './helpers';
+import { entryActor, makeEntryId } from './helpers';
 
 /** Execution has one terminal outcome. Recording and presentation cannot replace it. */
 export function createDispatcher(args: {
@@ -31,19 +32,15 @@ export function createDispatcher(args: {
   actionFinished(id: string): void;
 }) {
   let sequence = 0;
-  return async (
-    inputCall: VacpActionCall,
-    options?: VacpActionExecutionOptions & { message?: string },
-  ): Promise<VacpActionResult> => {
+  return async (inputCall: VacpActionCall, options?: VacpActionExecutionOptions): Promise<VacpActionResult> => {
     const call = structuredClone(inputCall);
     const requestedProviders = new Map(args.providers);
     const epoch = args.getEpoch();
     const actor = entryActor(options?.actor);
-    // The record keeps the last words the actor showed the person while this step ran. A turn that
-    // ends mid-step leaves the words shown at acceptance.
-    const narration = () => args.agentActivities.summaryOf(actor.id);
-    const explicit = entryMessage(options?.message);
-    let message = explicit ?? narration();
+    const step = args.agentActivities.beginStep(
+      actor.id,
+      options?.narration === undefined ? undefined : parseVacpNarration(options.narration),
+    );
     let signal = AbortSignal.any([args.lifetime, ...(options?.signal ? [options.signal] : [])]);
     const execution: VacpExecution = {
       id: makeEntryId(),
@@ -51,6 +48,8 @@ export function createDispatcher(args: {
       callId: call.callId,
       name: call.name,
       actor,
+      activityId: step.activityId,
+      narration: step.narration,
       restoration: options?.restoration ? structuredClone(options.restoration) : undefined,
       phase: 'accepted',
       at: nowIso(),
@@ -120,13 +119,11 @@ export function createDispatcher(args: {
           );
       if (!args.lifetime.aborted && epoch === args.getEpoch() && terminal) {
         if (after) args.acknowledge(after);
-        message = explicit ?? narration() ?? message;
         args.record({
           id: makeEntryId(),
           at: nowIso(),
           kind: 'action',
           execution: terminal,
-          message,
           call,
           result,
           before,

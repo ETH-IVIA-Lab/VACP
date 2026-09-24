@@ -1,4 +1,4 @@
-import type { VacpActor } from '@vacp/protocol';
+import { captureVacpValue, type VacpActor } from '@vacp/protocol';
 
 export function makeEntryId(): string {
   const id = globalThis.crypto?.randomUUID?.();
@@ -8,10 +8,16 @@ export function makeEntryId(): string {
   return `vacp_${Math.random().toString(16).slice(2)}_${Date.now().toString(16)}`;
 }
 
+/**
+ * Deliver an event, captured once. Ordinary records and arrays reach every listener as one frozen
+ * value; exotic host values, such as a Date, are copied for each listener.
+ */
 export function notify<Value>(listeners: Set<(entry: Value) => void>, entry: Value): void {
+  if (!listeners.size) return;
+  const read = captureVacpValue(entry);
   listeners.forEach((fn) => {
     try {
-      fn(structuredClone(entry));
+      fn(read());
     } catch {
       // ignore observer failures
     }

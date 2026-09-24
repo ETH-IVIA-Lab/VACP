@@ -1,4 +1,4 @@
-import { stableStringify } from '@vacp/protocol';
+import { sameVacpValue, type VacpGraph } from '@vacp/protocol';
 import type { VacpCapabilitiesSnapshot, VacpResolvedObservation, VacpStateSnapshot } from '@vacp/protocol';
 import type { VacpLiveSnapshots } from './types';
 import { notify } from './helpers';
@@ -10,8 +10,7 @@ export function createLiveObservations(read: () => Promise<VacpResolvedObservati
   const capabilityListeners = new Set<(snapshot: VacpCapabilitiesSnapshot) => void>();
   const snapshotListeners = new Set<(snapshots: VacpLiveSnapshots) => void>();
   let snapshotKey: string | undefined;
-  let capabilitiesKey: string | undefined;
-  let graphObservationKey: string | undefined;
+  let graph: VacpGraph | undefined;
   let observationGeneration = 0;
   let pendingRead: { generation: number; promise: Promise<LiveRead> } | undefined;
   const readLive = async (generation: number): Promise<LiveRead> => {
@@ -41,16 +40,13 @@ export function createLiveObservations(read: () => Promise<VacpResolvedObservati
     };
 
     if (capabilityListeners.size > 0 || snapshotListeners.size > 0) {
-      // Source descriptions can change independently of analytical source revisions.
-      const observationKey = stableStringify([observation.revision, cap.graph.sources]);
-      let graphChanged = false;
-      if (graphObservationKey !== observationKey) {
-        const nextKey = stableStringify(cap.graph);
-        graphChanged = capabilitiesKey !== nextKey;
-        capabilitiesKey = nextKey;
-        graphObservationKey = observationKey;
+      // Most reads change state only. Source descriptions can change without a new revision, so the
+      // whole graph is compared, in one pass and without serializing it.
+      const graphChanged = !graph || !sameVacpValue(graph, cap.graph);
+      if (graphChanged) {
+        graph = cap.graph;
+        notify(capabilityListeners, cap);
       }
-      if (graphChanged) notify(capabilityListeners, cap);
       if (snapshotListeners.size > 0) {
         const stateKey = observation.revision;
         if (graphChanged || stateKey !== snapshotKey) {
@@ -90,8 +86,7 @@ export function createLiveObservations(read: () => Promise<VacpResolvedObservati
     reset() {
       observationGeneration++;
       snapshotKey = undefined;
-      capabilitiesKey = undefined;
-      graphObservationKey = undefined;
+      graph = undefined;
     },
     subscribeCapabilities(listener: (snapshot: VacpCapabilitiesSnapshot) => void) {
       signal.throwIfAborted();
@@ -113,8 +108,7 @@ export function createLiveObservations(read: () => Promise<VacpResolvedObservati
       snapshotListeners.clear();
       pendingRead = undefined;
       snapshotKey = undefined;
-      capabilitiesKey = undefined;
-      graphObservationKey = undefined;
+      graph = undefined;
     },
   };
 }
