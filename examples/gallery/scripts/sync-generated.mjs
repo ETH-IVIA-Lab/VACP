@@ -111,6 +111,7 @@ function renderRouteHtml(args) {
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>${escapedTitle}</title>
+    <link rel="icon" href="data:," />
   </head>
   <body data-vacp-gallery-route="${escapedRoute}">
     <div id="gallery-example-root"></div>
