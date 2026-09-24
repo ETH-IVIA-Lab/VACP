@@ -97,6 +97,8 @@ export function createPresencePresentation(
    */
   let hidden: 'dismissed' | 'superseded' | undefined;
   const active = (activity: PresenceActivity) => activity.phase === 'thinking' || activity.phase === 'acting';
+  /** An agent's turn is open or another actor's change is not yet in the trail, so stepping waits. */
+  const working = () => !!state?.working || live.some(active);
   const reviewing = () => !!state && state.phase !== 'live';
 
   const buildTrail = (): Trail => {
@@ -143,7 +145,8 @@ export function createPresencePresentation(
   // Stable callbacks read the presentation as it is when the person acts.
   const go = (target: number) => {
     const frame = trail.frames[target];
-    if (lifetime.signal.aborted || !replay || state?.phase === 'restoring' || !frame || target === frameIndex()) return;
+    if (lifetime.signal.aborted || !replay || state?.phase === 'restoring' || working()) return;
+    if (!frame || target === frameIndex()) return;
     hidden = undefined;
     // The conclusion is the live state the request left behind, which leaving review restores.
     if (frame.kind === 'conclusion') {
@@ -172,12 +175,15 @@ export function createPresencePresentation(
     const frames = trail.frames.map((frame) => frame.kind);
     const index = frameIndex();
     const restoring = state?.phase === 'restoring';
+    const waiting = working();
+    const stepping = !!replay && !restoring && !waiting;
     const current = navigation;
     if (!frames.length) navigation = undefined;
     else if (
       !current ||
       current.index !== index ||
       current.restoring !== restoring ||
+      current.working !== waiting ||
       current.reviewing !== reviewing() ||
       current.frames.length !== frames.length ||
       current.frames.some((kind, position) => kind !== frames[position])
@@ -185,10 +191,11 @@ export function createPresencePresentation(
       navigation = Object.freeze({
         frames: Object.freeze(frames),
         index,
-        canBack: !!replay && !restoring && index > 0,
-        canForward: !!replay && !restoring && index >= 0 && index < frames.length - 1,
+        canBack: stepping && index > 0,
+        canForward: stepping && index >= 0 && index < frames.length - 1,
         reviewing: reviewing(),
         restoring,
+        working: waiting,
         go,
         back,
         forward,

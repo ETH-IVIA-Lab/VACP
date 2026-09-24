@@ -139,3 +139,46 @@ test('hover-only replay restores all three athlete sources and yields to new hum
   await page.screenshot({ path: testInfo.outputPath('replay.png'), fullPage: true });
   expect(errors).toEqual([]);
 });
+
+test('stepping waits while the agent works and resumes when its turn ends', async ({ page }) => {
+  const server = appServer('athlete-explorer');
+  await page.goto(server.url);
+  await page.waitForFunction(() => !!window.__vacp?.beginAgentActivity);
+  await page.evaluate(
+    () =>
+      (window.__vacpStream = window.__vacp!.beginAgentActivity({
+        actor: { id: 'webmcp', label: 'Analyst', kind: 'agent' },
+        summary: 'Comparing rowers and canoeists',
+      })),
+  );
+  expect((await tool(page, 'cohort.set_sports', { sports: ['canoe', 'rowing'] })).ok).toBe(true);
+  const count = page.locator('.athlete-summary strong').first();
+  const sports = await count.textContent();
+  const back = page.getByRole('button', { name: 'Previous analytical step' });
+  const waiting = 'Stepping resumes when the agent finishes';
+  await expect(back).toBeDisabled();
+  await expect(back).toHaveAttribute('title', waiting);
+  await expect(back).toHaveAccessibleDescription(waiting);
+
+  // Keyboard focus stays on the control while it waits through the next step.
+  await page.locator('[data-vacp-bubble]').hover();
+  await back.focus();
+  const step = tool(page, 'vgplot.set_interval_1d', { plotId: 'age', interactorId: '0', min: 22, max: 28 });
+  await expect(back).toBeFocused();
+  await back.press('Enter');
+  expect((await step).ok).toBe(true);
+  await expect(back).toBeDisabled();
+  await expect(count).not.toHaveText(sports!);
+  const aged = await count.textContent();
+
+  await page.evaluate(() => window.__vacpStream!.end({ summary: 'The comparison is ready.' }));
+  await expect(back).toBeEnabled();
+  await expect(back).toHaveAttribute('title', 'Previous analytical step');
+  await expect(back).toBeFocused();
+  await back.click();
+  await expect(page.locator('[data-vacp-bubble] [data-vacp-heading]')).toHaveText('Step 2 of 2');
+  await expect(count).toHaveText(aged!);
+  await back.click();
+  await expect(page.locator('[data-vacp-bubble] [data-vacp-heading]')).toHaveText('Step 1 of 2');
+  await expect(count).toHaveText(sports!);
+});

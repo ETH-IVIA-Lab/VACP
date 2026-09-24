@@ -70,6 +70,8 @@ export type PresenceNavigation = {
   canForward: boolean;
   reviewing: boolean;
   restoring: boolean;
+  /** An agent's turn is open, or another actor's change is still on its way into the trail. Stepping waits. */
+  working: boolean;
   /** Show another frame. The conclusion is the live state after the request. */
   go(index: number): void;
   back(): void;

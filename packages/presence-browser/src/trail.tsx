@@ -22,10 +22,11 @@ const styles = stylex.create({
     borderRadius: 4,
     backgroundColor: 'transparent',
     color: { default: color.railPast, [hover]: { ':hover': color.control } },
-    cursor: { default: 'pointer', ':disabled': 'default' },
+    cursor: 'pointer',
     outline: { default: 'none', ':focus-visible': `2px solid ${color.focus}` },
     outlineOffset: 1,
   },
+  markUnavailable: { cursor: 'default' },
   // A mark's state owns its whole colour, including the hover shade, because StyleX merges by property.
   markPast: { color: { default: color.markPast, [hover]: { ':hover': color.control } } },
   markCurrent: { color: color.agent },
@@ -75,16 +76,27 @@ const styles = stylex.create({
     padding: 4,
     borderWidth: 0,
     borderRadius: 5,
-    backgroundColor: { default: 'transparent', ':hover': color.wash, ':disabled': 'transparent' },
-    color: { default: color.control, ':hover': color.controlActive, ':disabled': color.control },
-    cursor: { default: 'pointer', ':disabled': 'default' },
-    opacity: { default: 1, ':disabled': 0.3 },
+    backgroundColor: { default: 'transparent', ':hover': color.wash },
+    color: { default: color.control, ':hover': color.controlActive },
+    cursor: 'pointer',
     outline: { default: 'none', ':focus-visible': `2px solid ${color.focus}` },
     outlineOffset: 1,
   },
+  controlUnavailable: { backgroundColor: 'transparent', color: color.control, cursor: 'default', opacity: 0.3 },
 });
 
+/**
+ * Unavailable controls stay focusable, so keyboard focus survives every step an agent takes. Their
+ * callbacks already ignore a request they cannot take.
+ */
+function unavailable(value: boolean) {
+  return value ? { 'aria-disabled': true as const } : {};
+}
+
 const shapes = { start: styles.start, step: styles.step, conclusion: styles.conclusion } as const;
+
+/** Why stepping is unavailable while live work runs. */
+const waiting = 'Stepping resumes when the agent finishes';
 
 /** Every frame of the request, clickable, below the words it frames. */
 export function Trail({ navigation }: { navigation: PresenceNavigation }) {
@@ -101,14 +113,15 @@ export function Trail({ navigation }: { navigation: PresenceNavigation }) {
             <button
               type="button"
               aria-label={names[index]}
-              title={names[index]}
+              title={navigation.working && !current ? waiting : names[index]}
               aria-current={current ? 'step' : undefined}
-              disabled={navigation.restoring || current}
+              {...unavailable(navigation.restoring || navigation.working || current)}
               onClick={() => navigation.go(index)}
               {...stylex.props(
                 styles.mark,
+                (navigation.restoring || navigation.working || current) && styles.markUnavailable,
                 past && styles.markPast,
-                navigation.restoring && (past ? styles.markWaitingPast : styles.markWaiting),
+                (navigation.restoring || navigation.working) && (past ? styles.markWaitingPast : styles.markWaiting),
                 current && styles.markCurrent,
               )}
             >
@@ -151,7 +164,8 @@ function Chevron({ path }: { path: string }) {
  * dismisses the retained step.
  */
 export function Stepper({ navigation }: { navigation: PresenceNavigation }) {
-  const stepping = navigation.reviewing || navigation.canBack || navigation.canForward;
+  // Arrows belong to a request with somewhere to step, even while live work keeps them waiting.
+  const stepping = navigation.reviewing || navigation.frames.length > 1;
   const close = navigation.reviewing ? 'Return to live analysis' : 'Dismiss';
   return (
     <nav aria-label="Analytical trail" {...stylex.props(styles.stepper)}>
@@ -159,21 +173,21 @@ export function Stepper({ navigation }: { navigation: PresenceNavigation }) {
         <>
           <button
             type="button"
-            title="Previous analytical step"
+            title={navigation.working ? waiting : 'Previous analytical step'}
             aria-label="Previous analytical step"
-            disabled={!navigation.canBack}
+            {...unavailable(!navigation.canBack)}
             onClick={navigation.back}
-            {...stylex.props(styles.control)}
+            {...stylex.props(styles.control, !navigation.canBack && styles.controlUnavailable)}
           >
             <Chevron path="M15 5l-7 7 7 7" />
           </button>
           <button
             type="button"
-            title="Next analytical step"
+            title={navigation.working ? waiting : 'Next analytical step'}
             aria-label="Next analytical step"
-            disabled={!navigation.canForward}
+            {...unavailable(!navigation.canForward)}
             onClick={navigation.forward}
-            {...stylex.props(styles.control)}
+            {...stylex.props(styles.control, !navigation.canForward && styles.controlUnavailable)}
           >
             <Chevron path="M9 5l7 7-7 7" />
           </button>
@@ -183,9 +197,9 @@ export function Stepper({ navigation }: { navigation: PresenceNavigation }) {
         type="button"
         title={close}
         aria-label={close}
-        disabled={navigation.restoring}
+        {...unavailable(navigation.restoring)}
         onClick={navigation.close}
-        {...stylex.props(styles.control)}
+        {...stylex.props(styles.control, navigation.restoring && styles.controlUnavailable)}
       >
         <Chevron path="M6 6l12 12M18 6L6 18" />
       </button>

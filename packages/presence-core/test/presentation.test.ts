@@ -96,7 +96,14 @@ function fixture() {
     checkpoint('human', 'human'),
     checkpoint('two', 'agent'),
   ];
-  let state: ProvenanceReplayState = { phase: 'live', steps, turns: [], selected: null, latest: steps.at(-1)! };
+  let state: ProvenanceReplayState = {
+    phase: 'live',
+    steps,
+    turns: [],
+    selected: null,
+    working: false,
+    latest: steps.at(-1)!,
+  };
   let changed = () => {};
   const visits: string[] = [];
   let disposed = false;
@@ -218,7 +225,7 @@ test('retained and replay targets use the attached provider binding and refresh 
 test('agent progress supersedes older checkpoints and later human edits retire retained presence', () => {
   const f = fixture();
   const initial = checkpoint('initial-view', 'system');
-  f.change({ phase: 'live', selected: null, steps: [initial], turns: [], latest: initial });
+  f.change({ phase: 'live', selected: null, working: false, steps: [initial], turns: [], latest: initial });
   const work: VacpAgentActivity = {
     id: 'host-turn',
     actor: { id: 'writer', kind: 'agent' },
@@ -295,7 +302,7 @@ test('a recorded step is labelled by the view containing its focus, even through
   };
   const f = fixture();
   const step = checkpoint('labelled', 'agent', 'after', seen);
-  f.change({ phase: 'live', selected: null, steps: [step], turns: [], latest: step });
+  f.change({ phase: 'live', selected: null, working: false, steps: [step], turns: [], latest: step });
   assert.equal(f.frame().activities[0]?.subject, 'Age distribution');
   f.presence.dispose();
 });
@@ -303,7 +310,7 @@ test('a recorded step is labelled by the view containing its focus, even through
 test('a single recorded step stays on screen, dismissible, with no neighbours to step to', () => {
   const f = fixture();
   const only = checkpoint('only', 'agent');
-  f.change({ phase: 'live', selected: null, steps: [only], turns: [], latest: only });
+  f.change({ phase: 'live', selected: null, working: false, steps: [only], turns: [], latest: only });
   assert.equal(f.frame().activities[0]?.summary, 'only');
   assert.equal(f.frame().activities[0]?.phase, 'completed');
   assert.equal(f.frame().navigation?.canBack, false);
@@ -367,7 +374,14 @@ test('a request steps from the state it began in, through each step, to its conc
     'Female swimmers and gymnasts are in view.',
     'Filtering for female swimmers and gymnasts.',
   );
-  f.change({ phase: 'live', selected: null, steps: [before, sex, sports], turns: [ended], latest: sports });
+  f.change({
+    phase: 'live',
+    selected: null,
+    working: false,
+    steps: [before, sex, sports],
+    turns: [ended],
+    latest: sports,
+  });
   const navigation = () => f.frame().navigation!;
   const words = () => f.frame().activities[0]?.summary;
   assert.deepEqual(navigation().frames, ['start', 'step', 'step', 'conclusion']);
@@ -398,9 +412,9 @@ test('a request is shown on its own, and a newer request replaces it once it rec
   const first = actionCheckpoint('first', 'earlier', 'Keeping only female athletes.');
   const earlier = turnRecord('earlier', 'Female athletes are in view.');
   const second = actionCheckpoint('second', 'later', 'Narrowing the ages.', '99');
-  f.change({ phase: 'live', selected: null, steps: [first], turns: [earlier], latest: first });
+  f.change({ phase: 'live', selected: null, working: false, steps: [first], turns: [earlier], latest: first });
   assert.deepEqual(f.frame().navigation?.frames, ['step', 'conclusion']);
-  f.change({ phase: 'live', selected: null, steps: [first, second], turns: [earlier], latest: second });
+  f.change({ phase: 'live', selected: null, working: false, steps: [first, second], turns: [earlier], latest: second });
   assert.deepEqual(f.frame().navigation?.frames, ['start', 'step'], 'the new request starts where the last one ended');
   assert.equal(f.frame().activities[0]?.summary, 'Narrowing the ages.');
   f.presence.dispose();
@@ -424,7 +438,7 @@ test('a new request recorded in the same millisecond as the previous turn is the
   const first = actionCheckpoint('first', 'earlier', 'Keeping only female athletes.', '7');
   const earlier = { ...turnRecord('earlier', 'Female athletes are in view.'), at: '7' };
   const second = actionCheckpoint('second', 'later', 'Narrowing the ages.', '7');
-  f.change({ phase: 'live', selected: null, steps: [first, second], turns: [earlier], latest: second });
+  f.change({ phase: 'live', selected: null, working: false, steps: [first, second], turns: [earlier], latest: second });
   assert.deepEqual(f.frame().navigation?.frames, ['start', 'step']);
   assert.equal(f.frame().activities[0]?.summary, 'Narrowing the ages.');
   f.presence.dispose();
@@ -436,5 +450,42 @@ test('an event that changes nothing on screen draws no new frame', () => {
   f.change({ ...f.state() });
   f.activity({ id: 'idle', actor: { id: 'human', kind: 'human' }, phase: 'completed', at: '' });
   assert.equal(f.frames(), drawn);
+  f.presence.dispose();
+});
+
+test('stepping waits while live work is in flight and resumes when it finishes', async () => {
+  const f = fixture();
+  f.change({ ...f.state(), working: true });
+  const waiting = f.frame().navigation!;
+  assert.equal(waiting.working, true);
+  assert.equal(waiting.canBack, false);
+  waiting.back();
+  await setImmediate();
+  assert.deepEqual(f.visits, [], 'a step asked for during live work is not taken');
+  f.change({ ...f.state(), working: false });
+  assert.equal(f.frame().navigation?.canBack, true);
+  f.frame().navigation!.back();
+  await setImmediate();
+  assert.deepEqual(f.visits, ['one']);
+  f.presence.dispose();
+});
+
+test('an open agent turn holds stepping until the agent finishes', async () => {
+  const f = fixture();
+  const turn: VacpAgentActivity = {
+    id: 'turn',
+    actor: { id: 'agent', kind: 'agent' },
+    phase: 'thinking',
+    summary: 'Comparing',
+    at: '',
+  };
+  f.activity(turn);
+  assert.equal(f.frame().navigation?.working, true);
+  f.frame().navigation?.back();
+  await setImmediate();
+  assert.deepEqual(f.visits, []);
+  f.activity({ ...turn, phase: 'completed', summary: 'Done' });
+  assert.equal(f.frame().navigation?.working, false);
+  assert.equal(f.frame().navigation?.canBack, true);
   f.presence.dispose();
 });

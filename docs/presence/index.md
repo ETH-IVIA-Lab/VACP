@@ -307,7 +307,7 @@ presence.attach({
 });
 ```
 
-`PresenceFrame` contains the displayed `activities`, optional `navigation`, and a `reason` of `activity` or `layout`. The same renderer receives live, retained, and replayed presentation. `navigation` lists the shown request's `frames` (`start`, `step`, or `conclusion`) with the shown `index`, and exposes `go(index)`, back, forward, and close callbacks plus their availability and restoration state.
+`PresenceFrame` contains the displayed `activities`, optional `navigation`, and a `reason` of `activity` or `layout`. The same renderer receives live, retained, and replayed presentation. `navigation` lists the shown request's `frames` (`start`, `step`, or `conclusion`) with the shown `index`, and exposes `go(index)`, back, forward, and close callbacks plus their availability and restoration state. `working` is true while an agent's turn is open, or while another actor's change has not yet reached the trail. Stepping waits until both end, so `canBack` and `canForward` are false and `go` does nothing. The browser trail keeps its arrows and frame marks visible and focusable with `aria-disabled`, titled "Stepping resumes when the agent finishes".
 
 For a live activity feed, omit `renderer` and use `getSnapshot()` with `subscribe(listener)`. These methods expose live activities, independently of retained or replayed presentation. Each viewer owns its activity and cleanup. Visual bursts coalesce per actor while the runtime retains every execution event.
 
