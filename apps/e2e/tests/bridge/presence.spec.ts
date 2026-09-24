@@ -49,7 +49,13 @@ test('custom SDK actions produce passive presence through native WebMCP without 
       document.addEventListener('pointerdown', onInput);
       try {
         const result = JSON.parse(
-          await context.executeTool(tool, JSON.stringify({ ranges: { Horsepower: [100, 150] } })),
+          await context.executeTool(
+            tool,
+            JSON.stringify({
+              ranges: { Horsepower: [100, 150] },
+              narration: 'Keeping cars between 100 and 150 horsepower.',
+            }),
+          ),
         );
         return { result, inputEvents, exposed: '__vacp' in globalThis };
       } finally {

@@ -31,7 +31,7 @@ async function sample(page: Page, everyMs: number) {
       if (!pointer || !bubble) return;
       const { e: x, f: y } = pointer.getScreenCTM()!;
       const box = bubble.getBoundingClientRect();
-      const tail = bubble.querySelector('.vacp-streamdown > :last-child');
+      const tail = bubble.querySelector('[data-vacp-prose] > div > :last-child');
       samples.push({
         t: performance.now(),
         text: bubble.querySelector<HTMLElement>('[data-vacp-summary]')?.innerText.replace(/\s+/g, ' ').trim() ?? '',
@@ -76,9 +76,9 @@ test('words about the next step start with the step and ride with the cursor to 
     actor,
   );
   const summary = page.locator('[data-vacp-summary]');
-  const mark = page.locator('[data-vacp-bubble] .vacp-agent-mark');
+  const mark = page.locator('[data-vacp-bubble] [data-vacp-mark]');
   await expect(summary).toContainText('Filtering for women.');
-  expect((await tool(page, 'cohort.set_sex', { sex: 'female' })).ok).toBe(true);
+  expect((await tool(page, 'cohort.set_sex', { sex: 'female', narration: 'Filtering for women.' })).ok).toBe(true);
   const rest = await settled(page);
 
   // Between steps the new sentence waits: the last words stay while the busy mark shows.
@@ -90,7 +90,7 @@ test('words about the next step start with the step and ride with the cursor to 
 
   const samples = await sample(page, 30);
   const fired = await page.evaluate(() => performance.now());
-  const step = tool(page, 'cohort.set_sports', { sports: ['canoe', 'rowing'] });
+  const step = tool(page, 'cohort.set_sports', { sports: ['canoe', 'rowing'], narration: sentence });
   await expect(summary).toContainText('Keeping', { timeout: 5000 });
   expect((await step).ok).toBe(true);
   await expect(summary).toHaveText(sentence);
@@ -115,7 +115,7 @@ test('words about the next step start with the step and ride with the cursor to 
       Math.max(bubble.x - cursor.x, 0, cursor.x - bubble.x - bubble.width),
       Math.max(bubble.y - cursor.y, 0, cursor.y - bubble.y - bubble.height),
     );
-  // The label yields to the region it is heading for, so the gap grows briefly over that region.
+  // The label keeps its offset from the travelling cursor and eases it toward where it will rest.
   for (const entry of flight) expect(gap(entry)).toBeLessThanOrEqual(96);
   expect(new Set(flight.map((entry) => `${entry.bubble.x},${entry.bubble.y}`)).size).toBeGreaterThanOrEqual(3);
   expect(flight.some((entry) => entry.text.startsWith('Keeping'))).toBe(true);
@@ -134,11 +134,11 @@ test('a scroll during travel shifts the flight with the page instead of restarti
     (actor) => (window.__vacpStream = window.__vacp!.beginAgentActivity({ actor, summary: 'Filtering for women.' })),
     actor,
   );
-  expect((await tool(page, 'cohort.set_sex', { sex: 'female' })).ok).toBe(true);
+  expect((await tool(page, 'cohort.set_sex', { sex: 'female', narration: 'Filtering for women.' })).ok).toBe(true);
   await settled(page);
   await page.evaluate(() => window.__vacpStream!.update('Keeping canoe and rowing.'));
   const samples = await sample(page, 30);
-  const step = tool(page, 'cohort.set_sports', { sports: ['canoe', 'rowing'] });
+  const step = tool(page, 'cohort.set_sports', { sports: ['canoe', 'rowing'], narration: 'Keeping canoe and rowing.' });
   await page.waitForTimeout(110);
   const scrolledAt = await page.evaluate(() => {
     scrollBy(0, 160);
@@ -170,7 +170,7 @@ test('the wait for a step is bounded so a read-only remark still shows', async (
     (actor) => (window.__vacpStream = window.__vacp!.beginAgentActivity({ actor, summary: 'Filtering for women.' })),
     actor,
   );
-  expect((await tool(page, 'cohort.set_sex', { sex: 'female' })).ok).toBe(true);
+  expect((await tool(page, 'cohort.set_sex', { sex: 'female', narration: 'Filtering for women.' })).ok).toBe(true);
   const summary = page.locator('[data-vacp-summary]');
   const started = Date.now();
   await page.evaluate(() => window.__vacpStream!.update('Reading the medal table.'));
@@ -189,9 +189,10 @@ test('a finished turn hands its words to the retained step without reading them 
     (actor) => (window.__vacpStream = window.__vacp!.beginAgentActivity({ actor, summary: 'Filtering for women.' })),
     actor,
   );
-  expect((await tool(page, 'cohort.set_sex', { sex: 'female' })).ok).toBe(true);
+  expect((await tool(page, 'cohort.set_sex', { sex: 'female', narration: 'Filtering for women.' })).ok).toBe(true);
   await page.evaluate(() => window.__vacpStream!.update('Keeping canoe and rowing.'));
-  expect((await tool(page, 'cohort.set_sports', { sports: ['canoe', 'rowing'] })).ok).toBe(true);
+  const sports = { sports: ['canoe', 'rowing'], narration: 'Keeping canoe and rowing.' };
+  expect((await tool(page, 'cohort.set_sports', sports)).ok).toBe(true);
   const summary = page.locator('[data-vacp-summary]');
   const closing = 'Female canoeists and rowers are now in view.';
   await page.evaluate((text) => window.__vacpStream!.end({ summary: text }), closing);
@@ -205,6 +206,6 @@ test('a finished turn hands its words to the retained step without reading them 
   expect(recorded.every((entry) => entry.caret === 'auto')).toBe(true);
   expect(new Set(recorded.map((entry) => `${entry.bubble.x},${entry.bubble.y}`)).size).toBe(1);
   await expect(page.locator('[data-vacp-bubble]')).toHaveCount(1);
-  await expect(page.locator('[data-vacp-bubble] .vacp-agent-mark[data-busy]')).toHaveCount(0);
+  await expect(page.locator('[data-vacp-bubble] [data-vacp-mark][data-busy]')).toHaveCount(0);
   expect(errors).toEqual([]);
 });

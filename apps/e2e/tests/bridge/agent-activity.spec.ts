@@ -34,7 +34,12 @@ test('thinking appears before execution, follows real athlete actions, and respe
   const applied = await page.evaluate(async () => {
     const context = document.modelContext!;
     const tool = (await context.getTools()).find((tool) => tool.name === 'vacp.action.cohort.set_sports')!;
-    return JSON.parse(await context.executeTool(tool, JSON.stringify({ sports: ['rowing', 'canoe'] })));
+    return JSON.parse(
+      await context.executeTool(
+        tool,
+        JSON.stringify({ sports: ['rowing', 'canoe'], narration: 'Comparing rowers and canoeists.' }),
+      ),
+    );
   });
   expect(applied.ok).toBe(true);
   await expect(page.locator('.athlete-summary strong').first()).toHaveText('878');
@@ -54,12 +59,16 @@ test('thinking appears before execution, follows real athlete actions, and respe
     cancellation.abort();
   });
   await expect(pointer).toHaveAttribute('data-vacp-phase', 'cancelled');
-  // The cancelled turn fades; the one recorded step stays on screen until the person dismisses it.
-  await expect(bubble.locator('.vacp-agent-mark[data-busy]')).toHaveCount(0);
-  await expect(bubble).toContainText('Comparing rowers and canoeists', { timeout: 3000 });
+  // Turns cancelled before any step are not requests. The request that took a step stays on screen,
+  // concluded as stopped, until the person dismisses it; its step keeps its own sentence.
+  await expect(bubble.locator('[data-vacp-mark][data-busy]')).toHaveCount(0);
+  const label = bubble.locator('[data-vacp-heading]');
+  await expect(label).toHaveText('Stopped', { timeout: 3000 });
   await expect(bubble).toHaveCount(1);
   await bubble.hover();
-  await expect(page.getByRole('button', { name: 'Previous analytical step' })).toBeHidden();
-  await page.getByRole('button', { name: 'Dismiss' }).click();
+  await page.getByRole('button', { name: 'Previous analytical step' }).click();
+  await expect(label).toHaveText('Step 1 of 1');
+  await expect(bubble.locator('[data-vacp-summary]')).toContainText('Comparing rowers and canoeists');
+  await page.getByRole('button', { name: 'Return to live analysis' }).click();
   await expect(bubble).toHaveCount(0);
 });

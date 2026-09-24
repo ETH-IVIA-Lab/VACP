@@ -2,23 +2,12 @@ import { createHash } from 'node:crypto';
 import { expect, type Page } from '@playwright/test';
 import { test } from '../helpers/test';
 import { appServer } from '../helpers/servers';
+import { tool } from '../helpers/presence';
 
 test.use({
   viewport: { width: 1440, height: 1600 },
   launchOptions: { args: ['--enable-experimental-web-platform-features', '--enable-features=WebMCPTesting'] },
 });
-
-async function execute(page: Page, suffix: string, params: unknown = {}) {
-  return page.evaluate(
-    async ({ suffix, params }) => {
-      const context = document.modelContext!;
-      const tool = (await context.getTools()).find((tool) => tool.name.endsWith(suffix));
-      if (!tool) throw new Error(`Missing tool: ${suffix}`);
-      return JSON.parse(await context.executeTool(tool, JSON.stringify(params)));
-    },
-    { suffix, params },
-  );
-}
 
 async function rendered(page: Page, engine: 'vega-lite' | 'vgplot') {
   const pixels = await page.evaluate(
@@ -66,30 +55,30 @@ for (const engine of ['vega-lite', 'vgplot'] as const) {
     await page.evaluate(() => window.__vacpStream!.update('Looking at **patterns** across the selected area.'));
     await expect(page.locator('[data-vacp-summary]')).toContainText('selected area.');
     if (engine === 'vega-lite') {
-      const graph = (await execute(page, 'vacp.observe')).graph;
+      const graph = (await tool(page, 'vacp.observe')).graph;
       const selection = (title: string) =>
         graph.nodes.find((node: { kind: string; title: string }) => node.kind === 'Selection' && node.title === title)
           .ref;
       expect(
-        (await execute(page, 'vega_lite.set_selection', { ref: selection('click'), value: { weather: 'rain' } })).ok,
+        (await tool(page, 'vega_lite.set_selection', { ref: selection('click'), value: { weather: 'rain' } })).ok,
       ).toBe(true);
       await expect.poll(() => rendered(page, engine)).not.toEqual(before);
       const first = await rendered(page, engine);
       const handleRef = graph.nodes.find((node: { kind: string }) => node.kind === 'DataHandle').ref;
-      const bounds = await execute(page, 'vacp.data_sql', {
+      const bounds = await tool(page, 'vacp.data_sql', {
         handleRef,
         sql: 'SELECT min(monthdate_date)::DOUBLE AS lo, max(monthdate_date)::DOUBLE AS hi FROM vacp_all WHERE month(to_timestamp(CAST(date AS BIGINT)/1000)) BETWEEN 6 AND 8',
       });
       const { lo, hi } = bounds.result.rows[0];
       expect(
-        (await execute(page, 'vega_lite.set_selection', { ref: selection('brush'), value: { x: [lo, hi] } })).ok,
+        (await tool(page, 'vega_lite.set_selection', { ref: selection('brush'), value: { x: [lo, hi] } })).ok,
       ).toBe(true);
       await expect.poll(() => rendered(page, engine)).not.toEqual(first);
       await verifyReplay(page, engine, first, await rendered(page, engine));
     } else {
       expect(
         (
-          await execute(page, 'vgplot.set_interval_2d', {
+          await tool(page, 'vgplot.set_interval_2d', {
             plotId: 'plot-0',
             interactorId: '0',
             x0: 982500,
@@ -102,7 +91,7 @@ for (const engine of ['vega-lite', 'vgplot'] as const) {
       await expect.poll(async () => (await rendered(page, engine))[1]).not.toBe(before[1]);
       const first = await rendered(page, engine);
       expect(
-        (await execute(page, 'vgplot.set_interval_1d', { plotId: 'plot-2', interactorId: '0', min: 18, max: 22 })).ok,
+        (await tool(page, 'vgplot.set_interval_1d', { plotId: 'plot-2', interactorId: '0', min: 18, max: 22 })).ok,
       ).toBe(true);
       await expect.poll(() => rendered(page, engine)).not.toEqual(first);
       await verifyReplay(page, engine, first, await rendered(page, engine));
@@ -117,14 +106,25 @@ async function verifyReplay(page: Page, engine: 'vega-lite' | 'vgplot', first: s
   await page.evaluate(() => window.__vacpStream!.end({ summary: 'The **comparison** is ready.' }));
   const bubble = page.locator('[data-vacp-bubble]');
   await expect(bubble.locator('strong')).toHaveText('comparison');
+  const label = bubble.locator('[data-vacp-heading]');
+  const back = page.getByRole('button', { name: 'Previous analytical step' });
+  const next = page.getByRole('button', { name: 'Next analytical step' });
+  await expect(label).toHaveText('Conclusion');
   await bubble.hover();
-  await page.getByRole('button', { name: 'Previous analytical step' }).click();
+  await back.click();
+  await expect(label).toHaveText('Step 2 of 2');
+  await expect.poll(() => rendered(page, engine)).toEqual(last);
+  await back.click();
+  await expect(label).toHaveText('Step 1 of 2');
   await expect.poll(() => rendered(page, engine)).toEqual(first);
   await expect(bubble).toHaveAttribute('aria-busy', 'false');
-  await page.getByRole('button', { name: 'Next analytical step' }).click();
+  await next.click();
+  await expect(label).toHaveText('Step 2 of 2');
   await expect.poll(() => rendered(page, engine)).toEqual(last);
   await expect(bubble).toHaveAttribute('aria-busy', 'false');
-  await page.getByRole('button', { name: 'Return to live analysis' }).click();
+  // The conclusion is the live view the request left behind.
+  await next.click();
+  await expect(label).toHaveText('Conclusion');
   await expect.poll(() => rendered(page, engine)).toEqual(last);
   await expect(page.getByRole('button', { name: 'Return to live analysis' })).toBeHidden();
 }

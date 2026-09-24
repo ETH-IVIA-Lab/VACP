@@ -1,13 +1,20 @@
 import { expect, type Page } from '@playwright/test';
 
-/** Invoke a registered WebMCP tool the way a browser agent would. */
-export async function tool(page: Page, suffix: string, params: unknown = {}) {
+/**
+ * Invoke a registered WebMCP tool the way a browser agent would. Action tools require the step's own
+ * sentence; calls that do not test narration get a neutral one.
+ */
+export async function tool(page: Page, suffix: string, params: Record<string, unknown> = {}) {
   return page.evaluate(
     async ({ suffix, params }) => {
       const context = document.modelContext!;
       const action = (await context.getTools()).find((tool) => tool.name.endsWith(suffix));
       if (!action) throw new Error(`Missing tool: ${suffix}`);
-      return JSON.parse(await context.executeTool(action, JSON.stringify(params)));
+      // Chrome reports each registered schema as JSON text.
+      const schema = typeof action.inputSchema === 'string' ? JSON.parse(action.inputSchema) : action.inputSchema;
+      const required: string[] = schema?.required ?? [];
+      const input = required.includes('narration') ? { narration: 'Adjusting the view.', ...params } : params;
+      return JSON.parse(await context.executeTool(action, JSON.stringify(input)));
     },
     { suffix, params },
   );
@@ -20,6 +27,8 @@ type Painted = {
   distance: number;
   /** Bubble area over the step's painted outline. */
   covered: number;
+  /** Gap between the bubble box and the step's painted outline, or null without an outline. */
+  clearance: number | null;
   moving: boolean;
 };
 
@@ -40,6 +49,12 @@ async function painted(page: Page): Promise<Painted | null> {
       ? Math.max(0, Math.min(box.right, outline.right) - Math.max(box.left, outline.left)) *
         Math.max(0, Math.min(box.bottom, outline.bottom) - Math.max(box.top, outline.top))
       : 0;
+    const clearance = outline
+      ? Math.hypot(
+          Math.max(outline.left - box.right, 0, box.left - outline.right),
+          Math.max(outline.top - box.bottom, 0, box.top - outline.bottom),
+        )
+      : null;
     const moving = [bubble, ...shadow!.querySelectorAll('div')].some((node) =>
       node
         .getAnimations()
@@ -58,6 +73,7 @@ async function painted(page: Page): Promise<Painted | null> {
       },
       distance: Math.round(Math.hypot(dx, dy)),
       covered: Math.round(covered),
+      clearance: clearance === null ? null : Math.round(clearance),
       moving,
     };
   });

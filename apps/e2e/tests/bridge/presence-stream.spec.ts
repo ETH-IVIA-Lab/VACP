@@ -19,14 +19,14 @@ test('public progress waits visibly, then streams incremental Markdown without r
     });
   });
   const summary = page.locator('[data-vacp-summary]');
-  const waiting = page.locator('[data-vacp-bubble] .vacp-waiting');
+  const waiting = page.locator('[data-vacp-bubble] [data-vacp-waiting]');
   await expect(waiting).toBeVisible();
   await expect(waiting).toContainText('Looking at the view');
   // Working state: the gathering blocks replace the bot mark and animate; reduced motion stills them.
-  const mark = page.locator('[data-vacp-bubble] .vacp-agent-mark');
+  const mark = page.locator('[data-vacp-bubble] [data-vacp-mark]');
   await expect(mark).toHaveAttribute('data-busy', '');
   const gatherAnimations = () =>
-    mark.locator('.vacp-gather').evaluate((node) => node.getAnimations({ subtree: true }).length);
+    mark.locator('[data-vacp-gather]').evaluate((node) => node.getAnimations({ subtree: true }).length);
   expect(await gatherAnimations()).toBeGreaterThan(0);
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await expect.poll(gatherAnimations).toBe(0);
@@ -57,7 +57,9 @@ test('public progress waits visibly, then streams incremental Markdown without r
   expect(partial).toBeLessThan(sentence.replaceAll('*', '').length);
   // A thin text cursor marks the end of the text while it is still arriving, and leaves once it has landed.
   const caretWidth = () =>
-    summary.locator('.vacp-streamdown > :last-child').evaluate((node) => getComputedStyle(node, '::after').width);
+    summary
+      .locator('[data-vacp-prose] > div > :last-child')
+      .evaluate((node) => getComputedStyle(node, '::after').width);
   expect(await caretWidth()).toBe('2px');
   await expect(summary).toContainText('between 22 and 28 years old.');
   await page.evaluate(() => window.__vacpStream!.update('Comparing **rowers**.'));
@@ -86,7 +88,13 @@ test('public progress waits visibly, then streams incremental Markdown without r
   await expect(summary.locator('strong')).toHaveText(['comparison']);
   await expect.poll(caretWidth).toBe('auto');
   expect(await summary.evaluate((element) => element.getAnimations({ subtree: true }).length)).toBe(0);
-  await expect(page.locator('[data-vacp-bubble]')).toHaveCount(0, { timeout: 3000 });
+  // A turn that took no step keeps its answer on screen until the person dismisses it.
+  const bubble = page.locator('[data-vacp-bubble]');
+  await page.waitForTimeout(2500);
+  await expect(bubble).toHaveCount(1);
+  await bubble.hover();
+  await page.getByRole('button', { name: 'Dismiss' }).click();
+  await expect(bubble).toHaveCount(0);
   await page.evaluate(() => {
     delete window.__vacpStream;
   });

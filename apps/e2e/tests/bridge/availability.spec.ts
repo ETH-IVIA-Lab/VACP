@@ -62,7 +62,9 @@ test('dashboard discovery follows dataset, selection, restoration, and native vi
     const loaded = await page.evaluate(async () => {
       const context = document.modelContext! as Caller;
       const tool = (await context.getTools()).find((tool) => tool.name === 'vacp.action.dashboard.set_dataset')!;
-      return JSON.parse(await context.executeTool(tool, JSON.stringify({ id: 'iris' })));
+      return JSON.parse(
+        await context.executeTool(tool, JSON.stringify({ id: 'iris', narration: 'Loading the iris measurements.' })),
+      );
     });
     expect(loaded.ok).toBe(true);
     await expect(page.locator('svg circle[data-point-id]')).toHaveCount(150);
@@ -219,7 +221,9 @@ test('native WebMCP lets an operation withdraw itself without losing its complet
     try {
       const context = document.modelContext! as Caller;
       const tool = (await context.getTools()).find((candidate) => candidate.name === 'lifecycle.action.complete')!;
-      const response = JSON.parse(await context.executeTool(tool, '{}'));
+      const response = JSON.parse(
+        await context.executeTool(tool, JSON.stringify({ narration: 'Completing the task.' })),
+      );
       await installation.refresh();
       return {
         response,

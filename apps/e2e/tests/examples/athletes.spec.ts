@@ -1,6 +1,7 @@
 import { expect, type Page } from '@playwright/test';
 import { test } from '../helpers/test';
 import { appServer } from '../helpers/servers';
+import { tool } from '../helpers/presence';
 
 test.use({
   launchOptions: { args: ['--enable-experimental-web-platform-features', '--enable-features=WebMCPTesting'] },
@@ -8,17 +9,6 @@ test.use({
 const cohortRef = 'vacp://vacp-examples/athletes/cohort';
 const bodyRef = 'vacp://vacp-examples/athletes/physique/param/body';
 const handleRef = 'vacp://vacp-examples/athletes/data/main';
-async function tool(page: Page, contract: string, params: unknown = {}) {
-  return page.evaluate(
-    async ({ contract, params }) => {
-      const context = document.modelContext!;
-      const registered = (await context.getTools()).find((tool) => tool.name.endsWith(contract));
-      if (!registered) throw new Error(`Missing tool ${contract}`);
-      return JSON.parse(await context.executeTool(registered, JSON.stringify(params)));
-    },
-    { contract, params },
-  );
-}
 async function count(page: Page, where: string) {
   const result = await tool(page, 'vacp.data_sql', {
     handleRef,

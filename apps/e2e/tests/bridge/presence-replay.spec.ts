@@ -1,6 +1,7 @@
 import { expect, type Page } from '@playwright/test';
 import { test } from '../helpers/test';
 import { appServer } from '../helpers/servers';
+import { tool } from '../helpers/presence';
 
 test.use({
   exampleOptions: { paceAgentSteps: true },
@@ -16,16 +17,6 @@ async function filters(page: Page) {
     };
     return { age: cohort.age ?? null, body: !!cohort.body };
   });
-}
-async function tool(page: Page, suffix: string, params: unknown = {}) {
-  return page.evaluate(
-    async ({ suffix, params }) => {
-      const context = document.modelContext!;
-      const action = (await context.getTools()).find((tool) => tool.name.endsWith(suffix))!;
-      return JSON.parse(await context.executeTool(action, JSON.stringify(params)));
-    },
-    { suffix, params },
-  );
 }
 
 test('hover-only replay restores all three athlete sources and yields to new human work', async ({
@@ -88,22 +79,45 @@ test('hover-only replay restores all three athlete sources and yields to new hum
   const bubble = page.locator('[data-vacp-bubble]');
   await expect(bubble).toHaveCount(1);
   await page.mouse.move(0, 0);
-  await expect.poll(() => page.locator('.vacp-stepper').evaluate((nav) => getComputedStyle(nav).opacity)).toBe('0');
+  await expect
+    .poll(() =>
+      page.getByRole('navigation', { name: 'Analytical trail' }).evaluate((nav) => getComputedStyle(nav).opacity),
+    )
+    .toBe('0');
   await bubble.hover();
-  await expect.poll(() => page.locator('.vacp-stepper').evaluate((nav) => getComputedStyle(nav).opacity)).toBe('1');
+  await expect
+    .poll(() =>
+      page.getByRole('navigation', { name: 'Analytical trail' }).evaluate((nav) => getComputedStyle(nav).opacity),
+    )
+    .toBe('1');
+  const label = bubble.locator('[data-vacp-heading]');
+  const count = page.locator('.athlete-summary strong').first();
+  // After the request, its conclusion is on screen: the live cohort it left behind.
+  await expect(label).toHaveText('Conclusion');
   await back.click();
   await expect(bubble).toHaveAttribute('aria-busy', 'false');
-  await expect(page.locator('.athlete-summary strong').first()).toHaveText(bodyCount!);
+  await expect(label).toHaveText('Step 3 of 3');
+  await expect(count).toHaveText('117');
+  await back.click();
+  await expect(bubble).toHaveAttribute('aria-busy', 'false');
+  await expect(label).toHaveText('Step 2 of 3');
+  await expect(count).toHaveText(bodyCount!);
   await expect.poll(async () => (await filters(page)).age).toBeNull();
   await back.click();
   await expect(bubble).toHaveAttribute('aria-busy', 'false');
-  await expect(page.locator('.athlete-summary strong').first()).toHaveText(sportsCount!);
+  await expect(label).toHaveText('Step 1 of 3');
+  await expect(count).toHaveText(sportsCount!);
   await expect.poll(async () => (await filters(page)).body).toBe(false);
+  // The start is the view the request began from: the person's own female cohort.
+  await back.click();
+  await expect(bubble).toHaveAttribute('aria-busy', 'false');
+  await expect(label).toHaveText('Start');
+  await expect(count).toHaveText('5,205');
   await expect(back).toBeDisabled();
-  await expect(bubble).toContainText(/Step \d+ of \d+/);
-  await expect(bubble.locator('.vacp-agent-mark svg')).toBeVisible();
+  await expect(bubble.locator('[data-vacp-mark] svg')).toBeVisible();
   await next.click();
-  await expect(page.locator('.athlete-summary strong').first()).toHaveText(bodyCount!);
+  await expect(label).toHaveText('Step 1 of 3');
+  await expect(count).toHaveText(sportsCount!);
   await close.click();
   await expect(page.locator('.athlete-summary strong').first()).toHaveText('117');
   await expect.poll(() => filters(page)).toEqual({ age: [22, 28], body: true });

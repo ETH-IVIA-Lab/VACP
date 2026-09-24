@@ -2,6 +2,7 @@ import { expect, type Page } from '@playwright/test';
 import { test } from '../helpers/test';
 import type { VacpExecutionControl, VacpExecutionSource } from '@vacp/protocol';
 import { appServer } from '../helpers/servers';
+import { tool } from '../helpers/presence';
 
 declare global {
   interface Window {
@@ -12,17 +13,6 @@ declare global {
 test.use({
   launchOptions: { args: ['--enable-experimental-web-platform-features', '--enable-features=WebMCPTesting'] },
 });
-
-async function tool(page: Page, suffix: string, params: unknown) {
-  return page.evaluate(
-    async ({ suffix, params }) => {
-      const context = document.modelContext!;
-      const action = (await context.getTools()).find((entry) => entry.name.endsWith(suffix))!;
-      return JSON.parse(await context.executeTool(action, JSON.stringify(params)));
-    },
-    { suffix, params },
-  );
-}
 
 async function ageBrush(page: Page) {
   return page.locator('[data-view="age"] rect.selection').evaluate((element) => ({

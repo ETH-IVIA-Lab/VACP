@@ -1,21 +1,12 @@
 import { expect, type Page } from '@playwright/test';
 import { test } from '../helpers/test';
 import { appServer } from '../helpers/servers';
+import { tool } from '../helpers/presence';
 
 test.use({
   exampleOptions: { paceAgentSteps: true },
   launchOptions: { args: ['--enable-experimental-web-platform-features', '--enable-features=WebMCPTesting'] },
 });
-async function action(page: Page, suffix: string, params: unknown) {
-  return page.evaluate(
-    async ({ suffix, params }) => {
-      const c = document.modelContext!;
-      const tool = (await c.getTools()).find((tool) => tool.name.endsWith(suffix))!;
-      return JSON.parse(await c.executeTool(tool, JSON.stringify(params)));
-    },
-    { suffix, params },
-  );
-}
 async function aligned(page: Page, selector: string, anchor: 'corner' | 'center' = 'corner') {
   return page.evaluate(
     ({ selector, anchor }) => {
@@ -64,10 +55,10 @@ test('human provenance stays invisible while retained agent presence follows doc
     ),
   ).toBeGreaterThanOrEqual(2);
   await page.evaluate(() => scrollTo(0, 0));
-  expect((await action(page, 'cohort.set_sex', { sex: 'male' })).ok).toBe(true);
-  expect(
-    (await action(page, 'vgplot.set_interval_1d', { plotId: 'age', interactorId: '0', min: 22, max: 28 })).ok,
-  ).toBe(true);
+  expect((await tool(page, 'cohort.set_sex', { sex: 'male' })).ok).toBe(true);
+  expect((await tool(page, 'vgplot.set_interval_1d', { plotId: 'age', interactorId: '0', min: 22, max: 28 })).ok).toBe(
+    true,
+  );
   // The live presence expires at 1600ms; the retained trail must keep tracking too.
   await page.waitForTimeout(1900);
   const bubble = page.locator('[data-vacp-bubble]');
@@ -108,7 +99,7 @@ test('human provenance stays invisible while retained agent presence follows doc
   await frames(page);
   expect(await aligned(page, 'select[aria-label="Sex"]', 'center')).toBeLessThan(2);
   await expect(bubble).toContainText(/Step \d+ of \d+/);
-  await expect(bubble.locator('.vacp-agent-mark svg')).toBeVisible();
+  await expect(bubble.locator('[data-vacp-mark] svg')).toBeVisible();
   await page.getByRole('button', { name: 'Return to live analysis' }).click();
   await page.getByRole('combobox', { name: 'Sex' }).selectOption('female');
   await expect(bubble).toHaveCount(0);

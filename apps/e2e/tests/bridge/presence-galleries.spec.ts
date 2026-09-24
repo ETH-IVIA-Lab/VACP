@@ -1,6 +1,6 @@
 import { expect, type Page } from '@playwright/test';
 import { test } from '../helpers/test';
-import { appServer } from '../helpers/servers';
+import { appReady, appServer } from '../helpers/servers';
 
 test.use({
   exampleOptions: { paceAgentSteps: true },
@@ -9,14 +9,18 @@ test.use({
 });
 
 /** Invoke a registered WebMCP tool the way a browser agent would, timing the call from the agent's side. */
-async function call(page: Page, suffix: string, params: unknown = {}) {
+async function call(page: Page, suffix: string, params: Record<string, unknown> = {}) {
   return page.evaluate(
     async ({ suffix, params }) => {
       const context = document.modelContext!;
       const tool = (await context.getTools()).find((tool) => tool.name.endsWith(suffix));
       if (!tool) throw new Error(`Missing tool: ${suffix}`);
+      // Chrome reports each registered schema as JSON text.
+      const schema = typeof tool.inputSchema === 'string' ? JSON.parse(tool.inputSchema) : tool.inputSchema;
+      const required: string[] = schema?.required ?? [];
+      const input = required.includes('narration') ? { narration: 'Adjusting the view.', ...params } : params;
       const started = performance.now();
-      const result = JSON.parse(await context.executeTool(tool, JSON.stringify(params)));
+      const result = JSON.parse(await context.executeTool(tool, JSON.stringify(input)));
       return { result, elapsed: performance.now() - started };
     },
     { suffix, params },
@@ -84,12 +88,14 @@ for (const scenario of scenarios) {
     page.on('pageerror', (error) => errors.push(error.message));
     await page.goto(new URL(scenario.route, server.url).href);
     await expect
-      .poll(async () =>
-        page.evaluate(
-          async (suffix) =>
-            ((await document.modelContext?.getTools()) ?? []).some((tool) => tool.name.endsWith(suffix)),
-          scenario.action,
-        ),
+      .poll(
+        async () =>
+          page.evaluate(
+            async (suffix) =>
+              ((await document.modelContext?.getTools()) ?? []).some((tool) => tool.name.endsWith(suffix)),
+            scenario.action,
+          ),
+        appReady,
       )
       .toBe(true);
     await expect(page.locator('[data-vacp-bubble]')).toHaveCount(0);
@@ -100,25 +106,30 @@ for (const scenario of scenarios) {
     await expect(bubble).toBeVisible();
     await expect(bubble.locator('[data-vacp-summary]')).toContainText(scenario.narration);
     // While the agent works, the loading blocks replace the bot mark; the heading names the view, never the phase.
-    await expect(bubble.locator('.vacp-agent-mark[data-busy]')).toHaveCount(1);
+    await expect(bubble.locator('[data-vacp-mark][data-busy]')).toHaveCount(1);
     expect(
-      await bubble.locator('.vacp-gather').evaluate((node) => node.getAnimations({ subtree: true }).length),
+      await bubble.locator('[data-vacp-gather]').evaluate((node) => node.getAnimations({ subtree: true }).length),
     ).toBeGreaterThan(0);
 
     // The paced action travels to its target, rests there, applies, and holds before returning.
-    const { result, elapsed } = await call(page, scenario.action, await scenario.params(page));
+    const { result, elapsed } = await call(page, scenario.action, {
+      ...(await scenario.params(page)),
+      narration: scenario.narration,
+    });
     expect(result.ok).toBe(true);
     // Travel and a beat at the target come first, then the configured pause after the change.
     expect(elapsed).toBeGreaterThanOrEqual(1400);
     await expect(page.locator('g[data-vacp-phase]')).toBeVisible();
     await expect(bubble).toContainText(scenario.narration);
+    await expect(bubble.locator('[data-vacp-heading]')).toHaveText(scenario.subject);
     await page.screenshot({ path: testInfo.outputPath('narrated-step.png') });
 
     await call(page, 'vacp.progress', { message: scenario.closing, done: true });
     await expect(bubble.locator('[data-vacp-summary]')).toContainText(scenario.closing);
-    await expect(bubble.locator('.vacp-agent-mark[data-busy]')).toHaveCount(0);
-    await expect(bubble.locator('.vacp-agent-mark svg')).toBeVisible();
-    expect(await bubble.locator('.vacp-heading-label').textContent()).toBe(scenario.subject);
+    await expect(bubble.locator('[data-vacp-mark][data-busy]')).toHaveCount(0);
+    await expect(bubble.locator('[data-vacp-mark] svg')).toBeVisible();
+    // The closing words belong to the request's conclusion, the live state after its last step.
+    await expect(bubble.locator('[data-vacp-heading]')).toHaveText('Conclusion');
     expect(errors).toEqual([]);
   });
 }

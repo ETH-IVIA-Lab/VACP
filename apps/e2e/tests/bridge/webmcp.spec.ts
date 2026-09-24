@@ -84,8 +84,12 @@ test('native WebMCP projects composed providers and unregisters them on disposal
     const observe = tools.find((tool) => tool.name === 'vacp.observe')!;
     const state = tools.find((tool) => tool.name === 'vacp.state')!;
     return {
-      valid: JSON.parse(await context.executeTool(action, JSON.stringify({ value: 42 }))),
-      invalid: JSON.parse(await context.executeTool(action, JSON.stringify({ value: 101 }))),
+      valid: JSON.parse(
+        await context.executeTool(action, JSON.stringify({ value: 42, narration: 'Raising the threshold to 42.' })),
+      ),
+      invalid: JSON.parse(
+        await context.executeTool(action, JSON.stringify({ value: 101, narration: 'Raising the threshold to 101.' })),
+      ),
       observation: JSON.parse(await context.executeTool(observe, '{}')),
       state: JSON.parse(await context.executeTool(state, '{}')),
     };
@@ -135,7 +139,7 @@ test('native WebMCP accepts generated unions, nullable inputs, and recursive ref
   }, repoRoot);
   expect(results.schemas['schema.action.scalar']).toMatchObject({
     type: 'object',
-    required: ['params'],
+    required: ['params', 'narration'],
     properties: {
       params: {
         anyOf: [
@@ -218,7 +222,7 @@ test('native cancellation reaches SDK handlers with DOM publication enabled', as
       if (!tool) throw new Error('Missing wait tool');
       const controller = new AbortController();
       const execution = document.modelContext
-        .executeTool(tool, '{}', { signal: controller.signal })
+        .executeTool(tool, JSON.stringify({ narration: 'Waiting for the result.' }), { signal: controller.signal })
         .catch((cause: unknown) => (cause instanceof DOMException ? cause.name : String(cause)));
       await Promise.race([
         started,

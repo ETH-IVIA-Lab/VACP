@@ -31,15 +31,13 @@ test('the step bubble follows the agent cursor through replay, and dismissal rem
     body: 'Selecting the taller, heavier body range typical of elite rowers.',
     age: 'Narrowing to ages 22 to 28, when most medals are won.',
   };
-  expect((await tool(page, 'cohort.set_sports', { sports: ['canoe', 'rowing'] })).ok).toBe(true);
-  await page.evaluate((text) => window.__vacpStream!.update(text), narration.body);
-  expect(
-    (await tool(page, 'vega_lite.set_selection', { ref: bodyRef, value: { x: [65.5, 90.5], y: [1.705, 1.955] } })).ok,
-  ).toBe(true);
-  await page.evaluate((text) => window.__vacpStream!.update(text), narration.age);
-  expect((await tool(page, 'vgplot.set_interval_1d', { plotId: 'age', interactorId: '0', min: 22, max: 28 })).ok).toBe(
+  expect((await tool(page, 'cohort.set_sports', { sports: ['canoe', 'rowing'], narration: narration.sports })).ok).toBe(
     true,
   );
+  const body = { ref: bodyRef, value: { x: [65.5, 90.5], y: [1.705, 1.955] }, narration: narration.body };
+  expect((await tool(page, 'vega_lite.set_selection', body)).ok).toBe(true);
+  const age = { plotId: 'age', interactorId: '0', min: 22, max: 28, narration: narration.age };
+  expect((await tool(page, 'vgplot.set_interval_1d', age)).ok).toBe(true);
   await page.evaluate(() => window.__vacpStream!.end({ summary: 'The comparison is ready.' }));
 
   const bubble = page.locator('[data-vacp-bubble]');
@@ -48,17 +46,28 @@ test('the step bubble follows the agent cursor through replay, and dismissal rem
   await expect(bubble).toHaveCount(1);
   await bubble.hover();
 
-  // Each recorded step places its bubble beside the cursor that performed it, clear of the step's outline.
+  // Each recorded step places its bubble beside the outline it acted on, near its cursor and clear of the outline.
   const steps: Awaited<ReturnType<typeof settled>>[] = [];
   const evidence = async (name: string) => {
     const step = await settled(page);
-    expect(step.distance, `${name}: bubble beside the cursor`).toBeLessThanOrEqual(48);
     expect(step.covered, `${name}: bubble clear of the step outline`).toBe(0);
-    if (name !== '01-latest-age-brush') await expect(bubble).toContainText(/Step \d+ of \d+/);
+    // A cursor on a corner of a wide selection can leave the nearest free side a selection-width away.
+    if (step.clearance === null) expect(step.distance, `${name}: bubble beside the cursor`).toBeLessThanOrEqual(48);
+    else {
+      expect(step.clearance, `${name}: bubble beside the step outline`).toBeLessThanOrEqual(32);
+      expect(step.distance, `${name}: bubble near the cursor`).toBeLessThanOrEqual(96);
+    }
+    await expect(bubble).toContainText(/Step \d+ of \d+/);
     await page.screenshot({ path: testInfo.outputPath(`${name}.png`) });
     steps.push(step);
   };
   const summary = bubble.locator('[data-vacp-summary]');
+  // The request's conclusion is shown first; its last step is one frame back.
+  await expect(bubble.locator('[data-vacp-heading]')).toHaveText('Conclusion');
+  await expect(summary).toContainText('The comparison is ready.');
+  await back.click();
+  await expect(bubble).toHaveAttribute('aria-busy', 'false');
+  await expect(summary).toContainText(narration.age);
   await evidence('01-latest-age-brush');
   await back.click();
   await expect(bubble).toHaveAttribute('aria-busy', 'false');
@@ -66,7 +75,7 @@ test('the step bubble follows the agent cursor through replay, and dismissal rem
   await evidence('02-earlier-body-brush');
   await back.click();
   await expect(bubble).toHaveAttribute('aria-busy', 'false');
-  await expect(summary).toContainText('Comparing rowers and canoeists');
+  await expect(summary).toContainText(narration.sports);
   await evidence('03-earliest-sports');
   await next.click();
   await expect(bubble).toHaveAttribute('aria-busy', 'false');

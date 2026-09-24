@@ -38,3 +38,9 @@ export const appServers: readonly AppServer[] = Object.entries(applications).map
 export function appServer(name: AppName): AppServer {
   return appServers.find((server) => server.name === name)!;
 }
+
+/**
+ * How long a page may take to install its bridge and tools. DuckDB-backed examples load WebAssembly
+ * first, which takes several seconds when parallel workers start them together.
+ */
+export const appReady = { timeout: 30_000 } as const;

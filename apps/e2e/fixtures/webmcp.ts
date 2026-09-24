@@ -40,7 +40,7 @@ export async function exerciseWebMcpSchemas() {
     const execute = async (name: string, params: unknown) => {
       const tool = tools.find((entry) => entry.name === `schema.action.${name}`);
       if (!tool) throw new Error(`Missing schema tool: ${name}`);
-      return JSON.parse(await context.executeTool(tool, JSON.stringify({ params })));
+      return JSON.parse(await context.executeTool(tool, JSON.stringify({ params, narration: 'Checking the input.' })));
     };
     return {
       schemas: Object.fromEntries(

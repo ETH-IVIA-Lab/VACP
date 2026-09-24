@@ -1,6 +1,6 @@
 import { expect } from '@playwright/test';
 import { test } from '../helpers/test';
-import { appServer } from '../helpers/servers';
+import { appReady, appServer } from '../helpers/servers';
 import { tool } from '../helpers/presence';
 
 // WebMCP flags are worker options and apply to every test in this file.
@@ -19,15 +19,17 @@ for (const route of ['athletes', 'vgplot', 'vega-lite', 'react-dashboard', 'cars
     await expect(page).toHaveURL(new RegExp(`/${route}/$`));
     await expect(page.locator('#gallery-example-mount')).toBeVisible();
     await expect
-      .poll(() =>
-        page.evaluate(async () => {
-          const bridge = window.__vacp;
+      .poll(
+        () =>
+          page.evaluate(async () => {
+            const bridge = window.__vacp;
 
-          if (!bridge) return 0;
-          const capabilities = await bridge.getCapabilities();
+            if (!bridge) return 0;
+            const capabilities = await bridge.getCapabilities();
 
-          return capabilities.graph.nodes.length;
-        }),
+            return capabilities.graph.nodes.length;
+          }),
+        appReady,
       )
       .toBeGreaterThan(0);
     const state = await page.evaluate(async () => {
@@ -53,11 +55,13 @@ for (const { route, contracts } of interactive) {
   test(`built ${route} advertises its Mosaic interactions`, async ({ page }) => {
     await page.goto(new URL(route, server.url).href);
     await expect
-      .poll(() =>
-        page.evaluate(async () => {
-          const graph = (await window.__vacp?.getCapabilities())?.graph;
-          return graph ? graph.actions.map((action) => action.operation.contract) : [];
-        }),
+      .poll(
+        () =>
+          page.evaluate(async () => {
+            const graph = (await window.__vacp?.getCapabilities())?.graph;
+            return graph ? graph.actions.map((action) => action.operation.contract) : [];
+          }),
+        appReady,
       )
       .toEqual(expect.arrayContaining([...contracts]));
   });
@@ -67,17 +71,22 @@ test('an agent brush in the built athletes route lands on the native Mosaic brus
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto(new URL('athletes/', server.url).href);
   await expect
-    .poll(() =>
-      page.evaluate(async () =>
-        ((await document.modelContext?.getTools()) ?? []).some((tool) => tool.name.endsWith('vgplot.set_interval_1d')),
-      ),
+    .poll(
+      () =>
+        page.evaluate(async () =>
+          ((await document.modelContext?.getTools()) ?? []).some((tool) =>
+            tool.name.endsWith('vgplot.set_interval_1d'),
+          ),
+        ),
+      appReady,
     )
     .toBe(true);
   expect((await tool(page, 'vgplot.set_interval_1d', { plotId: 'age', interactorId: '0', min: 22, max: 28 })).ok).toBe(
     true,
   );
   const bubble = page.locator('[data-vacp-bubble]');
-  await expect(bubble.locator('.vacp-heading-label')).toHaveText('Age distribution');
+  // The finished step stays on screen as a request of its own until the person dismisses it.
+  await expect(bubble.locator('[data-vacp-heading]')).toHaveText('Step 1 of 1');
   const box = (selector: string, shadow: boolean) =>
     page.evaluate(
       ({ selector, shadow }) => {
