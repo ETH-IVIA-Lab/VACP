@@ -1,0 +1,30 @@
+examples/react-dashboard/src/vacp/actions.ts
+  s_2d40e2e67e50cc::t_57c165f471ee74 173
+packages/runtime/src/apply-state.ts
+  s_2d40e2e67e50cc::t_20e08a0a9f7d12 1,23-24,29
+apps/e2e/tests/bridge/availability.spec.ts
+  s_2d40e2e67e50cc::t_3898dcaed0f02d 20,38,57-58,164
+  s_2d40e2e67e50cc::t_9b169c603e92e6 19,23
+docs/reference/runtime.md
+  s_2d40e2e67e50cc::t_20e08a0a9f7d12 65
+apps/e2e/tests/bridge/presence-replay.spec.ts
+  s_2d40e2e67e50cc::t_0ffd56f43e9957 201-209
+  s_2d40e2e67e50cc::t_7ee1da35ea0517 185-200,210-215,218-257
+  s_2d40e2e67e50cc::t_3d99118944816c 216-217
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "acc4cae7af0c11f41769b3fd1bcb46126fde92c3",
+  "prompts": {},
+  "sessions": {
+    "s_2d40e2e67e50cc": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1e5736ee-beae-43b9-abbb-61ec4a6aeeba",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Péter Ferenc Gyarmati <peterferenc.gyarmati@inf.ethz.ch>"
+    }
+  }
+}
