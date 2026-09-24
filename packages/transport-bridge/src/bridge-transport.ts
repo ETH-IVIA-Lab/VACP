@@ -8,10 +8,11 @@ export function createVacpTransport(bridge: VacpWindowBridge): VacpTransport {
     vacp_capabilities: async (options) =>
       options ? await bridge.getCapabilities(options) : await bridge.getCapabilities(),
     vacp_state: async (options) => (options ? await bridge.getState(options) : await bridge.getState()),
-    vacp_execute: async (name, params, call_id) => {
+    vacp_execute: async (name, params, call_id, options) => {
       const action = name.trim();
       if (!action) throw new Error('Expected a non-empty action name');
-      return await bridge.execute({ callId: call_id?.trim() || crypto.randomUUID(), name: action, params });
+      const call = { callId: call_id?.trim() || crypto.randomUUID(), name: action, params };
+      return await bridge.execute(call, options);
     },
   };
 }

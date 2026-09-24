@@ -70,9 +70,11 @@ function createVacpMessageMetadata(options: VacpAgentFactoryOptions) {
 
 function createAgent(options: VacpAgentFactoryOptions) {
   const config = normalizeVacpLLMConfig(options.config);
-  const turns = options.activity ? createAgentTurns(options.activity) : undefined;
+  // Steps and turns share one actor, so each step joins the turn that narrates it.
+  const actor = options.actor ?? { id: 'agent', kind: 'agent', label: 'Assistant' };
+  const turns = options.activity ? createAgentTurns(options.activity, actor) : undefined;
   const tools = {
-    ...createVacpTools({ transport: options.transport, onToolEvent: options.onToolEvent }),
+    ...createVacpTools({ transport: options.transport, onToolEvent: options.onToolEvent, actor }),
     ...(turns ? createVacpProgressTool(turns.progress) : {}),
   };
 

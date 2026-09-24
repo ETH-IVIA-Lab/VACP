@@ -24,11 +24,7 @@ export function withAgentActivity<Message extends UIMessage>(
                 return;
               }
               const chunk = next.value;
-              // The progress tool speaks for itself; other tools get a placeholder until the model narrates.
-              if (chunk.type === 'tool-input-start' && chunk.toolName !== 'vacp_progress')
-                turns.phase('Checking the view');
-              else if (chunk.type === 'text-start') turns.phase('Writing up what changed');
-              else if (chunk.type === 'error') turns.end('failed');
+              if (chunk.type === 'error') turns.end('failed');
               else if (chunk.type === 'abort') turns.end('cancelled');
               controller.enqueue(chunk);
             } catch (error) {

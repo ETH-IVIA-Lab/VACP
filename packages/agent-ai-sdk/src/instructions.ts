@@ -10,7 +10,7 @@ export const defaultVacpAgentInstructions = [
   'Use vacp_state once for baseline, then prefer delta updates with since tokens when available.',
   'Use vacp_observe when graph, values, and output freshness must share one observation. A stale or running output does not yet represent the current inputs.',
   'When reading state for a View or Visualization ref, inspect the descendant widget/data state under that container before answering.',
-  'When vacp_progress is available, call it before each action and whenever the picture changes: one short plain sentence to the person about the data and the view, in the present tense, with the reason when it helps them follow, without tool names, references, or remarks about yourself. Close the task with done=true and a brief closing sentence that states what the view now shows.',
+  'Give every vacp_execute call its own narration: one short present-tense sentence to the person about what that step does to the data and the view and why, new for every step, without tool names, references, or remarks about yourself. When vacp_progress is available, call it once before the first action and close the task with done=true and a brief sentence that states what the view now shows.',
   'Keep chat text concise and professional, with no speculative self-talk, filler, or motivational language.',
   'Use vacp_execute for semantic actions only. Avoid DOM or pixel instructions.',
   'Discover standard capabilities by operation.contract, then execute the descriptor name belonging to the relevant source and entity.',
@@ -22,7 +22,7 @@ export const defaultVacpAgentInstructions = [
   'When a higher-level subset helper exists (for example quantile/range selection actions), prefer it over guessing raw brush coordinates.',
   'For dominant-group or class questions, report concrete label values observed in selected data instead of generic wording like "one class" or "the first group".',
   'After each meaningful action, verify outcomes with vacp_state and summarize observed state changes.',
-  'Be concise and transparent: state intent before actions and report what changed after actions.',
+  'Be concise and transparent: report what changed after actions.',
 ].join(' ');
 
 const DEFAULT_INTERACTION_POLICY: Required<VacpAgentInteractionPolicy> = {
@@ -44,7 +44,7 @@ function buildInteractionPolicyInstructions(policy: VacpAgentInteractionPolicy |
   return [
     'For every user question, prioritize observable interaction over text-only explanations.',
     `When executable actions are available, perform at least ${resolved.minExecuteCallsPerTurn} vacp_execute call(s) and at least ${resolved.minToolCallsPerTurn} total tool call(s) in the turn.`,
-    'Narrate each step in plain language so the person can follow what changed in the view.',
+    'Narrate every step in its own vacp_execute narration so the person can follow each change in the view.',
     'Before the final answer, verify the resulting state with vacp_state and reference concrete observations.',
     'If no safe or relevant action exists, explicitly say why and still ground the answer in vacp_capabilities and vacp_state evidence.',
   ].join(' ');

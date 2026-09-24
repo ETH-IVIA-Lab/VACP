@@ -1,17 +1,24 @@
 import { tool } from 'ai';
 import { z } from 'zod';
 
-import type { VacpRef } from '@vacp/protocol';
+import {
+  vacpNarrationGuidance,
+  vacpProgressGuidance,
+  VACP_NARRATION_MAX_LENGTH,
+  type VacpActor,
+  type VacpRef,
+} from '@vacp/protocol';
 
 import type { VacpAgentToolEvent, VacpAgentToolName } from './types';
 import type { VacpCapabilitiesRequest, VacpStateRequest } from '@vacp/protocol';
 import type { VacpTransport } from '@vacp/transport-bridge';
 import { sanitizeToolPayload } from './sanitize-tool-payload';
-import { vacpProgressGuidance } from './agent-turn';
 
 type ToolOptions = {
   transport: VacpTransport;
   onToolEvent?: (event: VacpAgentToolEvent) => void;
+  /** Attributes every step to the agent whose turns narrate them. */
+  actor?: VacpActor;
 };
 
 type NormalizedToolInput<T> = {
@@ -63,6 +70,7 @@ const capabilitiesOptionsSchema = z.object({
 const executeSchema = z.object({
   name: z.string().min(1),
   params: z.unknown().optional(),
+  narration: z.string().trim().min(1).max(VACP_NARRATION_MAX_LENGTH).describe(vacpNarrationGuidance),
   call_id: z.string().min(1).optional(),
 });
 
@@ -155,7 +163,7 @@ function normalizeCapabilitiesOptions(
 }
 
 export function createVacpTools(options: ToolOptions) {
-  const { transport, onToolEvent } = options;
+  const { transport, onToolEvent, actor } = options;
   const run = async (
     name: VacpAgentToolName,
     input: Pick<NormalizedToolInput<never>, 'input' | 'requestedInput' | 'inputNote'>,
@@ -196,8 +204,11 @@ export function createVacpTools(options: ToolOptions) {
     vacp_execute: tool({
       description: 'Execute a semantic VACP action by name and optional params.',
       inputSchema: executeSchema,
-      execute: async (input) =>
-        await run('vacp_execute', { input }, () => transport.vacp_execute(input.name, input.params, input.call_id)),
+      execute: async (input) => {
+        return await run('vacp_execute', { input }, () =>
+          transport.vacp_execute(input.name, input.params, input.call_id, { actor, narration: input.narration }),
+        );
+      },
     }),
   };
 }
@@ -208,7 +219,7 @@ export function createVacpProgressTool(progress: (message: string, done: boolean
     vacp_progress: tool({
       description: vacpProgressGuidance,
       inputSchema: z.object({
-        message: z.string().trim().min(1).max(280).describe('One plain sentence for the person.'),
+        message: z.string().trim().min(1).max(VACP_NARRATION_MAX_LENGTH).describe('One plain sentence for the person.'),
         done: z.boolean().default(false).describe('True when this message closes the current task.'),
       }),
       execute: async ({ message, done }) =>

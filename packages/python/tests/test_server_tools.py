@@ -1,13 +1,16 @@
 from __future__ import annotations
 
+import json
+from pathlib import Path
 from unittest.mock import AsyncMock
 
 import pytest
 from fastmcp.tools.function_tool import FunctionTool
 from playwright.async_api import Page
 from pydantic import ValidationError
-from vacp.bridge import ActionCall, ActionResult, PlaywrightVacpBridgeClient, VacpBridgeClient
+from vacp.bridge import AGENT, ActionCall, ActionResult, PlaywrightVacpBridgeClient, VacpBridgeClient
 from vacp.models import VacpCapabilitiesRequestOptions, VacpStateRequestOptions
+from vacp.narration import NARRATION_GUIDANCE, NARRATION_MAX_LENGTH, PROGRESS_GUIDANCE, parse_narration
 from vacp.server import create_mcp
 
 
@@ -16,6 +19,7 @@ class _FakeClient(VacpBridgeClient):
         self.last_capabilities_request: VacpCapabilitiesRequestOptions | None = None
         self.last_state_request: VacpStateRequestOptions | None = None
         self.narrated: list[tuple[str, bool]] = []
+        self.messages: list[str | None] = []
 
     async def observe(self) -> dict[str, object]:
         return {'revision': 'test', 'graph': {'nodes': [], 'edges': [], 'actions': []}, 'state': {}}
@@ -35,7 +39,8 @@ class _FakeClient(VacpBridgeClient):
             'delta': {'changed': {}, 'removed': []},
         }
 
-    async def execute(self, call: ActionCall) -> ActionResult:
+    async def execute(self, call: ActionCall, *, narration: str | None = None) -> ActionResult:
+        self.messages.append(narration)
         return ActionResult(
             call_id=call.call_id,
             ok=True,
@@ -231,7 +236,12 @@ async def test_vacp_execute_tool_calls_surface() -> None:
     mcp = create_mcp(_FakeClient())
     tool = await mcp.get_tool('vacp_execute')
     assert isinstance(tool, FunctionTool)
-    res = await tool.fn(name='vacp.data_sql', params={'handleRef': 'vacp://x', 'sql': 'select 1'}, call_id='c1')
+    res = await tool.fn(
+        name='vacp.data_sql',
+        narration='Counting the rows in view.',
+        params={'handleRef': 'vacp://x', 'sql': 'select 1'},
+        call_id='c1',
+    )
     assert res['callId'] == 'c1'
     assert res['ok'] is True
     assert res['result'] == {'name': 'vacp.data_sql', 'params': {'handleRef': 'vacp://x', 'sql': 'select 1'}}
@@ -247,6 +257,7 @@ async def test_mcp_execution_preserves_json_values_and_omission_through_the_brow
         if isinstance(argument, str):
             return True
         payloads.append(argument['payload'])
+        assert argument['narration'] == 'Reading the input.'
         return {'callId': 'c1', 'ok': True}
 
     page.evaluate.side_effect = evaluate
@@ -256,7 +267,8 @@ async def test_mcp_execution_preserves_json_values_and_omission_through_the_brow
     for supplied in cases:
         call = ActionCall(call_id='c1', name='custom.input', **supplied)
         assert call.has_params is ('params' in supplied)
-        result = await tool.run({'name': 'custom.input', 'call_id': 'c1', **supplied})
+        arguments = {'name': 'custom.input', 'narration': 'Reading the input.', 'call_id': 'c1', **supplied}
+        result = await tool.run(arguments)
         assert result.is_error is False
         assert payloads[-1] == {'callId': 'c1', 'name': 'custom.input', **supplied}
 
@@ -317,19 +329,19 @@ async def test_vacp_progress_narrates_and_closes_a_turn() -> None:
     mcp = create_mcp(client)
     tool = await mcp.get_tool('vacp_progress')
     assert isinstance(tool, FunctionTool)
-    assert 'one short plain sentence' in (tool.description or '')
+    assert tool.description == PROGRESS_GUIDANCE
     await tool.run({'message': '  Narrowing to sprinters under 25 '})
     await tool.run({'message': 'Sprinters under 25 win most medals.', 'done': True})
     assert client.narrated == [
         ('Narrowing to sprinters under 25', False),
         ('Sprinters under 25 win most medals.', True),
     ]
-    with pytest.raises(ValueError, match='requires a message'):
+    with pytest.raises(ValueError, match='requires a sentence'):
         await tool.run({'message': '   '})
 
 
 @pytest.mark.asyncio
-async def test_browser_bridge_progress_keeps_one_page_side_turn() -> None:
+async def test_browser_bridge_progress_speaks_through_the_runtime_narrator() -> None:
     page = AsyncMock(spec=Page)
     payloads: list[object] = []
 
@@ -344,8 +356,44 @@ async def test_browser_bridge_progress_keeps_one_page_side_turn() -> None:
     await client.progress('Looking at the age spread')
     await client.progress('Done.', done=True)
     assert payloads == [
-        {'key': '__vacp', 'message': 'Looking at the age spread', 'done': False},
-        {'key': '__vacp', 'message': 'Done.', 'done': True},
+        {'key': '__vacp', 'actor': AGENT, 'message': 'Looking at the age spread', 'done': False},
+        {'key': '__vacp', 'actor': AGENT, 'message': 'Done.', 'done': True},
     ]
     expression = page.evaluate.call_args_list[-1].args[0]
-    assert 'beginAgentActivity' in expression and 'Symbol.for' in expression
+    assert 'bridge.narrate' in expression
+
+
+FIXTURE = json.loads((Path(__file__).parents[2] / 'protocol/test/fixtures/narration.json').read_text())
+
+
+def test_narration_contract_matches_every_transport() -> None:
+    assert FIXTURE['progress'] == PROGRESS_GUIDANCE
+    assert FIXTURE['narration'] == NARRATION_GUIDANCE
+    assert FIXTURE['maxLength'] == NARRATION_MAX_LENGTH
+
+
+@pytest.mark.parametrize('case', FIXTURE['cases'])
+def test_narration_parses_like_every_transport(case: dict[str, object]) -> None:
+    if 'error' in case:
+        with pytest.raises((TypeError, ValueError), match=str(case['error'])):
+            parse_narration(case['input'])
+    else:
+        assert parse_narration(case['input']) == case['expected']
+
+
+@pytest.mark.asyncio
+async def test_every_execute_step_carries_its_own_sentence() -> None:
+    client = _FakeClient()
+    mcp = create_mcp(client)
+    tool = await mcp.get_tool('vacp_execute')
+    assert isinstance(tool, FunctionTool)
+    narration = tool.parameters['properties']['narration']
+    assert narration['description'] == NARRATION_GUIDANCE
+    assert 'narration' in tool.parameters['required']
+    first = {'name': 'cohort.set_sex', 'narration': ' Keeping only female athletes. ', 'params': {'sex': 'female'}}
+    await tool.run(first)
+    await tool.run({'name': 'cohort.set_sports', 'narration': 'Comparing swimmers with gymnasts.'})
+    assert client.narrated == []
+    assert client.messages == ['Keeping only female athletes.', 'Comparing swimmers with gymnasts.']
+    with pytest.raises(ValueError, match='requires a sentence'):
+        await tool.run({'name': 'cohort.set_sex', 'narration': '   '})

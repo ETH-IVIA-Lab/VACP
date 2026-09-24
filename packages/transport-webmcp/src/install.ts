@@ -1,7 +1,7 @@
 import { webMcpExecutionSignal } from './execution';
 import type { WebMCP } from 'webmcp-types';
 import { stableStringify, type VacpGraph } from '@vacp/protocol';
-import { compileVacpWebMcpTools } from './compile';
+import { compileVacpWebMcpTools, webMcpAgent } from './compile';
 import { createVacpWebMcpProgressTool } from './progress';
 import type { VacpWebMcpOptions, VacpWebMcpRegistry, VacpWebMcpSource } from './types';
 
@@ -50,14 +50,10 @@ export async function installVacpWebMcp(
   const signal = AbortSignal.any(signals);
   signal.throwIfAborted();
   const registrations = new Map<string, Registration>();
-  const progress = source.beginAgentActivity
+  const progress = source.narrate
     ? createVacpWebMcpProgressTool(
-        { beginAgentActivity: source.beginAgentActivity.bind(source) },
-        {
-          actor: options.actor ?? { id: 'webmcp', label: 'Agent', kind: 'agent' },
-          name: `${options.namespace ?? 'vacp'}.progress`,
-          signal,
-        },
+        { narrate: source.narrate.bind(source) },
+        { actor: options.actor ?? webMcpAgent, name: `${options.namespace ?? 'vacp'}.progress`, signal },
       )
     : undefined;
   let pending: Promise<void> = Promise.resolve();

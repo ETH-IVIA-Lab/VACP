@@ -32,6 +32,10 @@ class ActionResult:
     error: dict[str, object] | None = None
 
 
+# Steps and narration share one actor, so they join one presence entry and one turn.
+AGENT: dict[str, str] = {'id': 'agent', 'kind': 'agent', 'label': 'Agent'}
+
+
 class VacpBridgeClient(Protocol):
     async def observe(self) -> dict[str, object]: ...
 
@@ -39,7 +43,7 @@ class VacpBridgeClient(Protocol):
 
     async def get_state(self, request: VacpStateRequestOptions | None = None) -> dict[str, object]: ...
 
-    async def execute(self, call: ActionCall) -> ActionResult: ...
+    async def execute(self, call: ActionCall, *, narration: str | None = None) -> ActionResult: ...
 
     async def progress(self, message: str, *, done: bool = False) -> None: ...
 
@@ -95,14 +99,16 @@ class PlaywrightVacpBridgeClient(VacpBridgeClient):
             {'key': self._global_key, 'request': request},
         )
 
-    async def execute(self, call: ActionCall) -> ActionResult:
+    async def execute(self, call: ActionCall, *, narration: str | None = None) -> ActionResult:
+        """Execute one action. `narration` is the step's own sentence, which the execution carries."""
         await self._require_bridge()
         payload: dict[str, object] = {'callId': call.call_id, 'name': call.name}
         if call.has_params:
             payload['params'] = call.params
         raw = await self._page.evaluate(
-            """({ key, payload }) => globalThis[key].execute(payload)""",
-            {'key': self._global_key, 'payload': payload},
+            """({ key, payload, actor, narration }) =>
+              globalThis[key].execute(payload, narration ? { actor, narration } : undefined)""",
+            {'key': self._global_key, 'payload': payload, 'actor': AGENT, 'narration': narration},
         )
         if isinstance(raw, dict) and 'callId' in raw and 'ok' in raw:
             return ActionResult(
@@ -115,30 +121,17 @@ class PlaywrightVacpBridgeClient(VacpBridgeClient):
 
     async def progress(self, message: str, *, done: bool = False) -> None:
         """
-        Narrate for the person watching the page through the bridge's public activity channel.
-
-        One activity spans a turn: the first message opens it, later messages replace its text, and
-        `done` closes it. The open handle lives on the page under a registry symbol because handles
-        cannot cross the Playwright boundary.
+        Narrate for the person watching through the runtime's narrator. The first sentence opens a
+        turn, later ones replace its words, and `done` closes it. The runtime closes a turn left quiet
+        once the agent has no step in flight.
         """
         await self._require_bridge()
         await self._page.evaluate(
             """
-            ({ key, message, done }) => {
+            ({ key, actor, message, done }) => {
               const bridge = globalThis[key];
-              if (typeof bridge.beginAgentActivity !== 'function') return;
-              const slot = Symbol.for(`vacp.mcp.progress:${key}`);
-              // The same actor as execute(), so narration and actions share one presence entry and record.
-              const actor = { id: 'agent', kind: 'agent', label: 'Agent' };
-              const open = globalThis[slot];
-              if (done) {
-                (open ?? bridge.beginAgentActivity({ actor })).end({ summary: message });
-                delete globalThis[slot];
-                return;
-              }
-              if (open) open.update(message);
-              else globalThis[slot] = bridge.beginAgentActivity({ actor, summary: message });
+              if (typeof bridge.narrate === 'function') bridge.narrate({ actor, message, done });
             }
             """,
-            {'key': self._global_key, 'message': message, 'done': done},
+            {'key': self._global_key, 'actor': AGENT, 'message': message, 'done': done},
         )

@@ -19,7 +19,10 @@ test('native callers may omit execution context while runtime disposal remains a
   const runtime = createVacpRuntime({ providers: [provider] });
   try {
     const tools = compileVacpWebMcpTools((await runtime.observe()).graph, runtime);
-    assert.equal((await tools.find((tool) => tool.name === 'vacp.action.answer').execute({})).result, 42);
+    assert.equal(
+      (await tools.find((tool) => tool.name === 'vacp.action.answer').execute({ narration: 'Answering.' })).result,
+      42,
+    );
     assert.equal((await tools.find((tool) => tool.name === 'vacp.observe').execute({})).graph.sources.length, 1);
     const registered = new Map();
     await installVacpWebMcp(runtime, {
@@ -30,9 +33,9 @@ test('native callers may omit execution context while runtime disposal remains a
       },
     });
     const action = registered.get('vacp.action.answer');
-    assert.equal((await action.execute({})).result, 42);
+    assert.equal((await action.execute({ narration: 'Answering.' })).result, 42);
     runtime.dispose();
-    await assert.rejects(action.execute({}), /abort/i);
+    await assert.rejects(action.execute({ narration: 'Answering.' }), /abort/i);
   } finally {
     runtime.dispose();
   }

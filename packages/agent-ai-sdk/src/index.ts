@@ -16,4 +16,4 @@ export * from './context-compaction';
 
 export * from './create-vacp-agent';
 
-export { createAgentTurns, vacpProgressGuidance, type AgentTurns } from './agent-turn';
+export { createAgentTurns, type AgentTurns } from './agent-turn';

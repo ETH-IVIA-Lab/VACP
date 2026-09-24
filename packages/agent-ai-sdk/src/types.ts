@@ -1,4 +1,4 @@
-import type { VacpAgentActivityControl } from '@vacp/protocol';
+import type { VacpActor, VacpAgentActivityControl } from '@vacp/protocol';
 import type { UIMessage, InferUITools } from 'ai';
 import type { createVacpProgressTool, createVacpTools } from './vacp-tools';
 import type { VacpTransport } from '@vacp/transport-bridge';
@@ -83,8 +83,10 @@ export type VacpAgentInteractionPolicy = {
 };
 
 export type VacpAgentFactoryOptions = {
-  /** Optional host activity channel. Enables the `vacp_progress` tool and turn lifecycle summaries. */
+  /** Optional host activity channel. Enables the `vacp_progress` tool and one activity per turn. */
   activity?: VacpAgentActivityControl;
+  /** The agent that steps and turns are attributed to. Defaults to `{ id: 'agent', label: 'Assistant' }`. */
+  actor?: VacpActor;
   config: VacpLLMConfig;
   transport: VacpTransport;
   instructions?: string;

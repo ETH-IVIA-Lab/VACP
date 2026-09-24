@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import type { WebMCP } from 'webmcp-types';
-import { VACP_SCHEMA_VERSION, type VacpGraph, type VacpGraphFragment } from '@vacp/protocol';
+import { VACP_SCHEMA_VERSION, vacpNarrationGuidance, type VacpGraph, type VacpGraphFragment } from '@vacp/protocol';
 import { createVacpProvider, createVacpRuntime, VacpActionRegistry } from '@vacp/runtime';
 import { compileVacpWebMcpTools, installVacpWebMcp, type VacpWebMcpRegistry } from '../src/index';
 
@@ -21,10 +21,13 @@ class Registry implements VacpWebMcpRegistry {
       { once: true },
     );
   }
+  /** Action tools require the step's sentence; calls that do not test narration get a neutral one. */
   async call(name: string, input: Record<string, unknown> = {}, signal = new AbortController().signal) {
     const tool = this.tools.get(name);
     assert.ok(tool, name);
-    return tool.execute(input, { signal });
+    return tool.execute(name.includes('.action.') ? { narration: 'Adjusting the chart.', ...input } : input, {
+      signal,
+    });
   }
 }
 
@@ -79,23 +82,32 @@ test('graph projection preserves schemas and context, and executes through runti
     const action = tools.find((tool) => tool.name === 'vacp.action.threshold.set');
     assert.ok(action);
     assert.match(action.description, /Threshold.*ConfigLayer/);
-    assert.deepEqual(action.inputSchema, graph.actions[0]?.parameters);
+    const parameters = graph.actions[0]!.parameters as { properties: object };
+    assert.deepEqual(action.inputSchema, {
+      ...parameters,
+      properties: {
+        ...parameters.properties,
+        narration: { type: 'string', minLength: 1, maxLength: 280, description: vacpNarrationGuidance },
+      },
+      required: ['narration'],
+    });
     assert.equal(tools[0]?.annotations?.readOnlyHint, true);
     const options = { signal: new AbortController().signal };
     assert.deepEqual(
       ((await tools[0]!.execute({}, options)) as { graph: VacpGraph }).graph,
       (await runtime.getCapabilities()).graph,
     );
-    const result = await action.execute({ value: 35 }, options);
+    const result = await action.execute({ value: 35, narration: '  Raising the threshold to 35.  ' }, options);
     assert.equal((result as { ok: boolean }).ok, true);
     assert.deepEqual((await runtime.getState()).state['vacp://app/threshold'], { value: 35 });
-    assert.equal(
-      runtime
-        .getProvenance()
-        .records.filter((record) => record.kind === 'action')
-        .at(-1)?.call.name,
-      'threshold.set',
-    );
+    const record = runtime
+      .getProvenance()
+      .records.filter((entry) => entry.kind === 'action')
+      .at(-1);
+    assert.equal(record?.call.name, 'threshold.set');
+    // The step's sentence is not an action parameter; the execution carries it.
+    assert.deepEqual(record?.kind === 'action' ? record.call.params : undefined, { value: 35 });
+    assert.equal(record?.kind === 'action' && record.execution.narration, 'Raising the threshold to 35.');
   } finally {
     runtime.dispose();
   }
@@ -122,7 +134,10 @@ test('non-object inputs use a params envelope while custom naming and selection 
       tools.map((tool) => tool.name),
       ['chart.observe', 'chart.capabilities', 'chart.state', 'chart.echo'],
     );
-    const result = await tools[3]?.execute({ params: 'hello' }, { signal: new AbortController().signal });
+    const result = await tools[3]?.execute(
+      { params: 'hello', narration: 'Echoing the word.' },
+      { signal: new AbortController().signal },
+    );
     assert.equal((result as { result: string }).result, 'hello');
     const currentGraph = (await runtime.getCapabilities()).graph;
     assert.throws(
@@ -189,7 +204,7 @@ test('automatic registration follows graph changes, preserves foreign tools, and
   await assert.rejects(again.refresh(), /abort/i);
 });
 
-test('indirect input schemas retain references inside an object envelope unless the host opts into pass-through', async () => {
+test('indirect input schemas retain references inside an object envelope, and object mode needs an object root', async () => {
   const { runtime, actions } = fixture();
   const parameters = {
     $schema: 'https://json-schema.org/draft/2020-12/schema',
@@ -205,18 +220,26 @@ test('indirect input schemas retain references inside an object envelope unless 
     const tool = compileVacpWebMcpTools(graph, runtime).find((entry) => entry.name === 'vacp.action.indirect')!;
     assert.deepEqual(tool.inputSchema, {
       type: 'object',
-      properties: { params: { ...parameters, $id: 'urn:vacp:webmcp:vacp.action.indirect' } },
-      required: ['params'],
+      properties: {
+        params: { ...parameters, $id: 'urn:vacp:webmcp:vacp.action.indirect' },
+        narration: { type: 'string', minLength: 1, maxLength: 280, description: vacpNarrationGuidance },
+      },
+      required: ['params', 'narration'],
       additionalProperties: false,
     });
     assert.equal(
-      ((await tool.execute({ params: null }, { signal: new AbortController().signal })) as { result: unknown }).result,
+      (
+        (await tool.execute(
+          { params: null, narration: 'Clearing the value.' },
+          { signal: new AbortController().signal },
+        )) as { result: unknown }
+      ).result,
       null,
     );
-    const direct = compileVacpWebMcpTools(graph, runtime, { inputMode: () => 'object' }).find(
-      (entry) => entry.name === 'vacp.action.indirect',
-    )!;
-    assert.deepEqual(direct.inputSchema, parameters);
+    assert.throws(
+      () => compileVacpWebMcpTools(graph, runtime, { inputMode: () => 'object' }),
+      /vacp.action.indirect needs inputMode 'params'/,
+    );
   } finally {
     runtime.dispose();
   }
@@ -284,7 +307,9 @@ test('browser cancellation reaches the application handler; revoked tools cannot
     assert.ok(stale);
     registration.dispose();
     await assert.rejects(
-      Promise.resolve(stale.execute({ value: 88 }, { signal: new AbortController().signal })),
+      Promise.resolve(
+        stale.execute({ value: 88, narration: 'Raising it to 88.' }, { signal: new AbortController().signal }),
+      ),
       /abort/i,
     );
     assert.deepEqual((await runtime.getState()).state['vacp://app/threshold'], { value: 1 });
@@ -581,7 +606,7 @@ test('a progress tool narrates one public activity per turn and closes forgotten
       'thinking:Raising it to 35',
       'completed:The threshold is 35.',
     ]);
-    await assert.rejects(context.call('vacp.progress', { message: '' }), /requires a message/);
+    await assert.rejects(context.call('vacp.progress', { message: '' }), /requires a sentence/);
     await context.call('vacp.progress', { message: 'Checking again' });
     t.mock.timers.tick(15_000);
     assert.equal(runtime.getAgentActivities().length, 0, 'a quiet turn closes on its own');
@@ -592,4 +617,31 @@ test('a progress tool narrates one public activity per turn and closes forgotten
   }
   assert.equal(phases.at(-1), 'cancelled:One more look', 'disposal releases an open turn');
   runtime.dispose();
+});
+
+test('every narrated action carries its own sentence from acceptance, beside the turn the progress tool opened', async () => {
+  const { runtime } = fixture();
+  const context = new Registry();
+  const accepted: (string | undefined)[] = [];
+  runtime.subscribeExecutions((execution) => {
+    if (execution.phase === 'accepted') accepted.push(execution.narration);
+  });
+  const registration = await installVacpWebMcp(runtime, { context });
+  assert.ok(registration);
+  try {
+    await context.call('vacp.progress', { message: 'Tuning the threshold for the person.' });
+    await context.call('vacp.action.threshold.set', { value: 20, narration: 'Lowering the threshold to 20.' });
+    await context.call('vacp.action.threshold.set', { value: 35, narration: 'Raising it to 35 to drop noise.' });
+    assert.deepEqual(accepted, ['Lowering the threshold to 20.', 'Raising it to 35 to drop noise.']);
+    assert.equal(runtime.getAgentActivities()[0]?.summary, 'Tuning the threshold for the person.');
+    const steps = runtime.getProvenance().records.filter((record) => record.kind === 'action');
+    const turn = runtime.getAgentActivities()[0]!.id;
+    assert.deepEqual(
+      steps.map((record) => record.kind === 'action' && record.execution.activityId),
+      [turn, turn],
+    );
+  } finally {
+    registration.dispose();
+    runtime.dispose();
+  }
 });

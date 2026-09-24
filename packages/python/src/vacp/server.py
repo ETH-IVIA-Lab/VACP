@@ -5,13 +5,15 @@ from __future__ import annotations
 import asyncio
 import time
 from pathlib import Path
-from typing import Any, Literal, Protocol
+from typing import Annotated, Any, Literal, Protocol
 
 from fastmcp import FastMCP
+from pydantic import Field
 from pydantic.experimental.missing_sentinel import MISSING
 
 from vacp.bridge import ActionCall, VacpBridgeClient
 from vacp.models import normalize_capabilities_request_options, normalize_state_request_options
+from vacp.narration import NARRATION_GUIDANCE, NARRATION_MAX_LENGTH, PROGRESS_GUIDANCE, parse_narration
 
 _DEFAULT_READY_TIMEOUT_MS = 60_000
 type BrowserWaitUntil = Literal['commit', 'domcontentloaded', 'load', 'networkidle']
@@ -85,8 +87,8 @@ the capability graph, state snapshots, and action semantics.
 Workflow:
 1) Read `vacp_observe()` for coherent graph, state, and output freshness.
 2) Read `vacp_state()` for the current semantic state.
-3) Call `vacp_progress()` with one plain sentence for the person, then `vacp_execute()` with one action
-   from the capabilities snapshot.
+3) Call `vacp_progress()` once with one plain sentence for the person. Then call `vacp_execute()` for
+   each action from the capabilities snapshot, each with its own `narration` sentence for that step.
 4) Read `vacp_state()` again to verify the state change. Close the task with `vacp_progress(done=true)`.
 
 Efficient defaults:
@@ -161,6 +163,7 @@ Efficient defaults:
     )
     async def vacp_execute(
         name: str,
+        narration: Annotated[str, Field(description=NARRATION_GUIDANCE, max_length=NARRATION_MAX_LENGTH)],
         params: object = MISSING,
         call_id: str | None = None,
     ) -> dict[str, object]:
@@ -169,6 +172,7 @@ Efficient defaults:
 
         Inputs:
         - `name`: an action id from `vacp_capabilities().graph.actions[].name`
+        - `narration`: this step's own sentence for the person watching, new for every step
         - `params` (optional): JSON value matching that action's `parameters` schema
         - `call_id` (optional): correlation id echoed back as `callId` in the result
 
@@ -187,25 +191,13 @@ Efficient defaults:
             if params is MISSING
             else ActionCall(call_id=call_id or 'call', name=name, params=params)
         )
-        res = await client.execute(call)
+        # The execution carries the step's own sentence, live and in replay.
+        res = await client.execute(call, narration=parse_narration(narration))
         return {'callId': res.call_id, 'ok': res.ok, 'result': res.result, 'error': res.error}
 
-    @mcp.tool(title='Tell the person what you are doing')
+    @mcp.tool(title='Tell the person what you are doing', description=PROGRESS_GUIDANCE)
     async def vacp_progress(message: str, done: bool = False) -> dict[str, object]:
-        """
-        Tell the person what you are doing, in one short plain sentence they can read on screen while you work.
-
-        Speak to them directly in the present tense about the data and the view, and add the reason
-        when it helps them follow, for example "Narrowing to sprinters under 25 to compare medalists at
-        their peak age". Leave out tool names, references, ids, and remarks about yourself. Call it
-        before each action and again when the picture changes. Set `done` to true with a brief closing
-        sentence that states what the view now shows.
-        """
-        text = message.strip()
-        if not text:
-            raise ValueError('progress requires a message')
-        if len(text) > 280:
-            raise ValueError('progress messages are at most 280 characters')
+        text = parse_narration(message, field='progress')
         await client.progress(text, done=done)
         return {'ok': True}
 

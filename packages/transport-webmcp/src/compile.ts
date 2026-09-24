@@ -1,10 +1,14 @@
 import { webMcpExecutionSignal } from './execution';
 import type { WebMCP } from 'webmcp-types';
 import {
+  parseVacpNarration,
   primaryOperationRef,
   resolveVacpAvailability,
+  vacpNarrationGuidance,
+  VACP_NARRATION_MAX_LENGTH,
   type VacpGraph,
   type VacpActionDescriptor,
+  type VacpActor,
 } from '@vacp/protocol';
 import type { VacpWebMcpClient, VacpWebMcpOptions } from './types';
 
@@ -16,11 +20,40 @@ function copySchema(schema: Record<string, unknown>): Record<string, unknown> {
   return value;
 }
 
+const narration = {
+  type: 'string',
+  minLength: 1,
+  maxLength: VACP_NARRATION_MAX_LENGTH,
+  description: vacpNarrationGuidance,
+};
+
+/** WebMCP steps belong to one agent unless the host names another. */
+export const webMcpAgent: VacpActor = { id: 'webmcp', label: 'Agent', kind: 'agent' };
+
+/**
+ * Every action tool asks for the step's own sentence in `narration`, beside the action's own
+ * parameters. Parameters that are not an object, or that already use that name, move under `params`.
+ */
 function actionInput(action: VacpActionDescriptor, name: string, mode?: 'object' | 'params') {
   const schema = action.parameters ? copySchema(action.parameters) : undefined;
-  // Only explicit object roots can pass through WebMCP's object-only input boundary.
-  const wrapped = mode ? mode === 'params' : schema !== undefined && schema.type !== 'object';
-  if (!wrapped) return { schema, wrapped: false };
+  const properties = schema?.properties;
+  const collides = !!properties && typeof properties === 'object' && Object.hasOwn(properties, 'narration');
+  const nested = schema !== undefined && (schema.type !== 'object' || collides);
+  if (mode === 'object' && nested)
+    throw new TypeError(`${name} needs inputMode 'params': its parameters cannot sit beside narration`);
+  if (mode === 'object' || (mode === undefined && !nested)) {
+    const root = schema ?? { type: 'object' };
+    const required = Array.isArray(root.required) ? root.required : [];
+    return {
+      wrapped: false,
+      schema: {
+        ...root,
+        type: 'object',
+        properties: { ...(root.properties as Record<string, unknown> | undefined), narration },
+        required: [...required, 'narration'],
+      },
+    };
+  }
 
   // Give the nested schema its own resource so its local $refs retain their meaning.
   const resource = { ...schema };
@@ -28,7 +61,12 @@ function actionInput(action: VacpActionDescriptor, name: string, mode?: 'object'
   resource[idKey] ??= `urn:vacp:webmcp:${encodeURIComponent(name)}`;
   return {
     wrapped: true,
-    schema: { type: 'object', properties: { params: resource }, required: ['params'], additionalProperties: false },
+    schema: {
+      type: 'object',
+      properties: { params: resource, narration },
+      required: ['params', 'narration'],
+      additionalProperties: false,
+    },
   };
 }
 
@@ -102,13 +140,11 @@ export function compileVacpWebMcpTools(
       execute: async (args, context) => {
         const signal = webMcpExecutionSignal(context);
         signal.throwIfAborted();
+        const { narration: said, ...rest } = args;
+        const params = input.wrapped ? args.params : rest;
         const result = await client.execute(
-          {
-            callId: crypto.randomUUID(),
-            name: action.name,
-            params: input.wrapped ? args.params : args,
-          },
-          { signal, actor: options.actor ?? { id: 'webmcp', label: 'Agent', kind: 'agent' } },
+          { callId: crypto.randomUUID(), name: action.name, params },
+          { signal, actor: options.actor ?? webMcpAgent, narration: parseVacpNarration(said) },
         );
         signal.throwIfAborted();
         return result;
