@@ -1,7 +1,8 @@
 import type { VacpCapabilitiesSnapshot, VacpObservation, VacpRef, VacpStateSnapshot } from '@vacp/protocol';
-import { isVacpRef, fnv1a64Hex, stableStringify } from '@vacp/protocol';
+import { isVacpRef, fnv1a64Hex, sameVacpValue, stableStringify } from '@vacp/protocol';
 
 type DomSnapshotCache = {
+  graph?: CompactGraph;
   graphToken: string | null;
   stateCatalogToken: string | null;
   stateToken: string | null;
@@ -168,17 +169,15 @@ function writeDomSnapshotBundle(args: {
 
   const cache = getOrCreateCache(root);
   const graph = compactGraph(args.capabilities);
-  // Canonical stringify + hash gives a cheap content token so we can skip DOM
-  // writes when graph semantics are unchanged.
-  const graphToken = `gr_${fnv1a64Hex(stableStringify(graph))}`;
-
-  if (cache.graphToken !== graphToken) {
+  // The graph rarely changes between snapshots; its token and script are rebuilt only when it does.
+  if (!cache.graph || !sameVacpValue(cache.graph, graph)) {
+    cache.graph = graph;
+    cache.graphToken = `gr_${fnv1a64Hex(stableStringify(graph))}`;
     graphScript.textContent = safeJsonForScriptTag({
       createdAt: args.capabilities.createdAt,
-      token: graphToken,
+      token: cache.graphToken,
       graph,
     });
-    cache.graphToken = graphToken;
   }
 
   const nodeMeta = new Map<VacpRef, CompactNode>();
@@ -327,7 +326,7 @@ function writeDomSnapshotBundle(args: {
     },
     graph: {
       scriptId: graphId,
-      token: graphToken,
+      token: cache.graphToken,
       nodeCount: graph.nodes.length,
       edgeCount: graph.edges.length,
       actionCount: graph.actions.length,
