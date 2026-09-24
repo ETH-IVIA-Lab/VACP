@@ -10,7 +10,7 @@ import type { VacpActor, VacpTurnRecord } from '@vacp/protocol';
 import type { PresenceActivity, PresenceFrame, PresenceNavigation, PresenceOptions } from './types';
 import { isAgentActor } from './types';
 import type { PresenceFocus } from './targets';
-import { presenceSubject } from './subject';
+import { stepSubject } from './subject';
 import { createTargetTracker } from './tracker';
 
 /** How a request ended: a recorded turn, or, without a replay controller, a turn that answered without a step. */
@@ -312,7 +312,7 @@ export function createPresencePresentation(
         actor: provenanceActor(checkpoint.record),
         recordId: checkpoint.id,
         phase: reviewing() ? 'reviewing' : 'completed',
-        subject: presenceSubject(checkpoint.observation.graph, focus?.ref ?? execution?.intent?.affects?.[0]),
+        subject: stepSubject(checkpoint.observation.graph, execution, focus?.ref),
         summary: provenanceMessage(checkpoint.record),
         execution,
         target: null,

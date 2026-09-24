@@ -307,6 +307,46 @@ test('a recorded step is labelled by the view containing its focus, even through
   f.presence.dispose();
 });
 
+test('a step that brings its node into being is labelled by the view its action requires', () => {
+  const seen: VacpObservation = {
+    ...observation,
+    graph: {
+      ...observation.graph,
+      edges: [{ from: 'vacp://app/scatter', to: 'vacp://app/scatter/mark', kind: 'contains' }],
+      nodes: [
+        { ref: 'vacp://app/scatter', kind: 'Visualization', layer: 'VisualizationLayer', title: 'Scatter' },
+        { ref: 'vacp://app/scatter/mark', kind: 'Mark', layer: 'VisualizationLayer' },
+      ],
+      actions: [
+        {
+          name: 'brush',
+          description: 'Brush the scatter',
+          operation: { kind: 'mutation', affects: ['vacp://app/scatter/brush'] },
+          availability: { requires: ['vacp://app/scatter/mark'] },
+        },
+      ],
+    },
+  };
+  const brushed = actionCheckpoint('brushed', 'turn', 'Brushing the large petals.');
+  const record = brushed.record.kind === 'action' ? brushed.record : undefined;
+  const step: ProvenanceCheckpoint = {
+    ...brushed,
+    observation: seen,
+    record: {
+      ...record!,
+      execution: {
+        ...record!.execution,
+        name: 'brush',
+        intent: { affects: ['vacp://app/scatter/brush'], focus: { ref: 'vacp://app/scatter/brush' } },
+      },
+    },
+  };
+  const f = fixture();
+  f.change({ phase: 'live', selected: null, working: false, steps: [step], turns: [], latest: step });
+  assert.equal(f.frame().activities[0]?.subject, 'Scatter');
+  f.presence.dispose();
+});
+
 test('a single recorded step stays on screen, dismissible, with no neighbours to step to', () => {
   const f = fixture();
   const only = checkpoint('only', 'agent');

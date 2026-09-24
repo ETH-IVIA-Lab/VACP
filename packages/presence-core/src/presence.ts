@@ -7,7 +7,7 @@ import {
   type VacpObservation,
   type VacpAgentActivity,
 } from '@vacp/protocol';
-import { presenceSubject } from './subject';
+import { stepSubject } from './subject';
 import { createPresenceTargets, type PresenceFocus } from './targets';
 import { createTargetTracker } from './tracker';
 import { createPresencePresentation } from './presentation';
@@ -91,10 +91,6 @@ export function createAgentPresence(source: PresenceSource, options: PresenceOpt
     safe(() => {
       throw error;
     });
-  const subjectRef = (entry: Entry) => {
-    const intent = entry.step?.value.intent;
-    return intent?.focus?.ref ?? intent?.affects?.[0] ?? entry.rest?.focus.ref;
-  };
   /** A step shows its own sentence until the host says something newer; waiting words hold the old ones. */
   const displayed = (entry: Entry) =>
     entry.hold
@@ -108,7 +104,7 @@ export function createAgentPresence(source: PresenceSource, options: PresenceOpt
       phase: phaseOf(entry.step?.value, entry.progress),
       summary: displayed(entry),
       activityId: entry.progress?.id,
-      subject: graph ? presenceSubject(graph, subjectRef(entry)) : undefined,
+      subject: graph ? stepSubject(graph, entry.step?.value, entry.rest?.focus.ref) : undefined,
       execution: entry.step?.read(),
       target: entry.target?.() ?? null,
       freshness: entry.freshness,

@@ -1,4 +1,4 @@
-import type { VacpGraph, VacpNode, VacpRef } from '@vacp/protocol';
+import type { VacpExecution, VacpGraph, VacpNode, VacpRef } from '@vacp/protocol';
 
 type Index = { nodes: Map<VacpRef, VacpNode>; parents: Map<VacpRef, VacpRef> };
 // Observed graphs are frozen and shared, so one index per graph serves every step and viewer.
@@ -19,7 +19,7 @@ function index(graph: VacpGraph): Index {
  * nearest visualization, then the node's own title. Labels read as "Age distribution" rather than
  * as an actor or a phase.
  */
-export function presenceSubject(graph: VacpGraph, ref: VacpRef | undefined): string | undefined {
+function presenceSubject(graph: VacpGraph, ref: VacpRef | undefined): string | undefined {
   if (!ref) return undefined;
   const { nodes, parents } = index(graph);
   const chain = [];
@@ -33,4 +33,22 @@ export function presenceSubject(graph: VacpGraph, ref: VacpRef | undefined): str
     if (framing) return framing.title;
   }
   return nodes.get(ref)?.title;
+}
+
+/**
+ * The view a step works on: its focus, then what it affects, then the nodes its action requires. A
+ * node the step brings into being, such as a first brush, is named by the view its action works in.
+ */
+export function stepSubject(
+  graph: VacpGraph,
+  execution: Pick<VacpExecution, 'name' | 'intent'> | undefined,
+  rest?: VacpRef,
+): string | undefined {
+  const requires = execution && graph.actions.find((action) => action.name === execution.name)?.availability?.requires;
+  const candidates = [execution?.intent?.focus?.ref, ...(execution?.intent?.affects ?? []), ...(requires ?? []), rest];
+  for (const ref of candidates) {
+    const subject = presenceSubject(graph, ref);
+    if (subject) return subject;
+  }
+  return undefined;
 }
