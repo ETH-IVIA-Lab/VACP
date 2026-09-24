@@ -17,7 +17,10 @@ function entryToPayload(entry: VacpProvenanceRecord, captureSnapshots: boolean):
     if (entry.captureErrors) payload.captureErrors = entry.captureErrors;
     if (captureSnapshots) payload.before = entry.before;
   }
-  if (captureSnapshots && entry.kind !== 'session') payload.observation = entry.observation;
+  if (entry.kind === 'turn')
+    payload.turn = { activityId: entry.activityId, outcome: entry.outcome, opening: entry.opening };
+  if (captureSnapshots && (entry.kind === 'action' || entry.kind === 'observation'))
+    payload.observation = entry.observation;
   return payload;
 }
 
