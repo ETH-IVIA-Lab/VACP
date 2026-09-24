@@ -23,6 +23,22 @@ Queries read `vacp_all` and `vacp_handle` as query-local relations. Independent 
 
 Install a `vacp.data_sql` handler during integration (often via `@vacp/sdk` or a provider).
 
+`createDuckDbWasmClient({ bundles })` starts DuckDB-Wasm from `bundles`, the engine builds an application serves itself. Without them it loads DuckDB's published builds from jsDelivr. `instantiateDuckDbWasm({ bundles })` starts the same engine for a consumer that manages its own connection, such as a Mosaic `DuckDBWASMConnector({ duckdb })`.
+
+```ts
+import mvpModule from '@duckdb/duckdb-wasm/dist/duckdb-mvp.wasm?url';
+import mvpWorker from '@duckdb/duckdb-wasm/dist/duckdb-browser-mvp.worker.js?url';
+import ehModule from '@duckdb/duckdb-wasm/dist/duckdb-eh.wasm?url';
+import ehWorker from '@duckdb/duckdb-wasm/dist/duckdb-browser-eh.worker.js?url';
+
+const client = await createDuckDbWasmClient({
+  bundles: {
+    mvp: { mainModule: mvpModule, mainWorker: mvpWorker },
+    eh: { mainModule: ehModule, mainWorker: ehWorker },
+  },
+});
+```
+
 Call `dispose()` on clients returned by `createDuckDbWasmClient()` when their owner closes. Disposal releases connections and workers created by the client; injected connections and databases remain owned by the caller.
 
 ## Related docs

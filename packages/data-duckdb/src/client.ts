@@ -27,8 +27,41 @@ export type VacpDuckDbWasmClient = VacpDuckDbClient & {
   dispose(): Promise<void>;
 };
 
+/**
+ * Start DuckDB-Wasm in a worker from one of `bundles`, such as engine files the application serves
+ * itself. Without bundles, DuckDB's published jsDelivr builds are used.
+ */
+export async function instantiateDuckDbWasm(options?: {
+  bundles?: duckdb.DuckDBBundles;
+  log?: boolean;
+}): Promise<duckdb.AsyncDuckDB> {
+  const bundle = await duckdb.selectBundle(options?.bundles ?? duckdb.getJsDelivrBundles());
+  if (!bundle.mainWorker) throw new Error('The selected DuckDB bundle has no worker');
+  // The worker starts from a blob, which resolves relative URLs against itself.
+  const absolute = (url: string) => new URL(url, globalThis.location?.href).href;
+  const workerUrl = URL.createObjectURL(
+    new Blob([`importScripts(${JSON.stringify(absolute(bundle.mainWorker))});`], { type: 'text/javascript' }),
+  );
+  try {
+    const worker = new Worker(workerUrl);
+    const logger = options?.log ? new duckdb.ConsoleLogger() : new duckdb.VoidLogger();
+    const db = new duckdb.AsyncDuckDB(logger, worker);
+    try {
+      await db.instantiate(absolute(bundle.mainModule), bundle.pthreadWorker && absolute(bundle.pthreadWorker));
+    } catch (error) {
+      await db.terminate();
+      throw error;
+    }
+    return db;
+  } finally {
+    URL.revokeObjectURL(workerUrl);
+  }
+}
+
 export async function createDuckDbWasmClient(options?: {
   log?: boolean;
+  /** Engine builds to start from when no `duckdb` is supplied. */
+  bundles?: duckdb.DuckDBBundles;
   duckdb?: DuckDbDatabase;
   connection?: DuckDbConnection;
 }): Promise<VacpDuckDbWasmClient> {
@@ -64,26 +97,8 @@ export async function createDuckDbWasmClient(options?: {
     if (!loadPromise) {
       loadPromise = (async () => {
         if (!db) {
-          const bundles = duckdb.getJsDelivrBundles();
-          const bundle = await duckdb.selectBundle(bundles);
-
-          const workerUrl = URL.createObjectURL(
-            new Blob([`importScripts("${bundle.mainWorker}");`], { type: 'text/javascript' }),
-          );
-
-          let worker: Worker | undefined;
-          try {
-            worker = new Worker(workerUrl);
-            const logger = log ? new duckdb.ConsoleLogger() : new duckdb.VoidLogger();
-            ownedDb = new duckdb.AsyncDuckDB(logger, worker);
-            db = ownedDb;
-            await ownedDb.instantiate(bundle.mainModule, bundle.pthreadWorker);
-          } catch (error) {
-            if (!ownedDb) worker?.terminate();
-            throw error;
-          } finally {
-            URL.revokeObjectURL(workerUrl);
-          }
+          ownedDb = await instantiateDuckDbWasm({ bundles: options?.bundles, log });
+          db = ownedDb;
         }
 
         con = await db.connect();
