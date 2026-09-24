@@ -1,0 +1,31 @@
+docs/provenance/index.md
+  s_2d40e2e67e50cc::t_11ce7c8bfbc66e 93
+  s_2d40e2e67e50cc::t_eae61b7c5759c5 97
+packages/provenance-core/src/replay.ts
+  s_2d40e2e67e50cc::t_73d9121b30d000 2
+  s_2d40e2e67e50cc::t_b1f1dbf28c408d 216,219,226
+  s_2d40e2e67e50cc::t_900e2a11b1fb9d 100-105,114-115,119-122,144-149,151
+packages/provenance-core/test/replay.test.ts
+  s_2d40e2e67e50cc::t_6b2015bf727825 474-514
+  s_2d40e2e67e50cc::t_5a2af32465a8f1 440,442-466,469,471-473
+  s_2d40e2e67e50cc::t_b794259b11d930 99-117,349-353,358-359,441,467-468,470
+packages/provenance-core/src/types.ts
+  s_2d40e2e67e50cc::t_2fcc0ef2a70a90 22
+  s_2d40e2e67e50cc::t_b1f1dbf28c408d 23
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "786f3a723195903189afd6c5a51098ba65731436",
+  "prompts": {},
+  "sessions": {
+    "s_2d40e2e67e50cc": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1e5736ee-beae-43b9-abbb-61ec4a6aeeba",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Péter Ferenc Gyarmati <peterferenc.gyarmati@inf.ethz.ch>"
+    }
+  }
+}
