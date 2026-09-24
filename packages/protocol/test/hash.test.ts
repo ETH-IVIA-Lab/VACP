@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { fnv1a64Hex, stableStringify } from '../src/hash';
+import { fnv1a64Hex, sameVacpValue, stableStringify } from '../src/hash';
 
 function referenceHash(value: string): string {
   let hash = 0xcbf29ce484222325n;
@@ -46,4 +46,28 @@ test('canonical tokens preserve JSON property ordering, omission, and prototype-
   assert.equal(stableStringify(value), '{"2":"two","10":"ten","__proto__":{"safe":true},"a":[null,null,0],"z":3}');
   assert.equal(Object.getPrototypeOf(value), Object.prototype);
   assert.equal(value.omitted, undefined);
+});
+
+test('structural sameness agrees with canonical serialization', () => {
+  const cases: unknown[] = [
+    null,
+    0,
+    1,
+    Number.NaN,
+    'a',
+    [],
+    [1, undefined, () => 0],
+    [1, null, null],
+    { a: 1, b: undefined },
+    { a: 1 },
+    { b: 2, a: 1 },
+    { a: 1, b: 2 },
+    { nested: [{ x: 1 }, { y: [2, 3] }] },
+    { nested: [{ x: 1 }, { y: [2, 4] }] },
+    new Date(0),
+    '1970-01-01T00:00:00.000Z',
+  ];
+  for (const a of cases)
+    for (const b of cases)
+      assert.equal(sameVacpValue(a, b), stableStringify(a) === stableStringify(b), `${String(a)} ~ ${String(b)}`);
 });

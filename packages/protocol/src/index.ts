@@ -19,3 +19,5 @@ export * from './activity';
 export * from './provenance';
 
 export * from './capture';
+
+export * from './narration';

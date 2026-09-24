@@ -45,6 +45,13 @@ export type VacpExecution = {
   title?: string;
   operationKind?: import('./schema').VacpOperationKind;
   actor: VacpActor;
+  /** The actor's public activity, its turn, when the execution began. Steps of one request share it. */
+  activityId?: string;
+  /**
+   * The step's own sentence, fixed when the step is accepted: the narration it was sent with, else the
+   * actor's live words that no earlier step of the turn carried.
+   */
+  narration?: string;
   sourceId?: VacpSourceId;
   bindingId?: string;
   restoration?: VacpActionExecutionOptions['restoration'];

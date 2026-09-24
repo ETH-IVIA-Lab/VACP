@@ -24,4 +24,11 @@ export type VacpAgentActivityHandle = {
 /** Trusted hosts publish progress; passive viewers only receive it. */
 export interface VacpAgentActivityControl {
   beginAgentActivity(options: { actor: VacpActor; summary?: string; signal?: AbortSignal }): VacpAgentActivityHandle;
+  /**
+   * Speak for an agent whose turns have no lifecycle of their own, such as a model calling a progress
+   * tool. The first sentence opens a turn, later sentences replace its words, and `done` closes it with
+   * its sentence. A turn left quiet closes once the actor has no execution in flight. Aborting `signal`
+   * cancels the open turn.
+   */
+  narrate(input: { actor: VacpActor; message: string; done?: boolean; signal?: AbortSignal }): void;
 }

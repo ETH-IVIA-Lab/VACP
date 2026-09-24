@@ -459,6 +459,11 @@ export type VacpActionExecutionOptions = {
   actor?: import('./execution').VacpActor;
   /** Host-owned provenance for restoring a recorded state, not a new analytical step. */
   restoration?: { id: string; entryId?: string };
+  /**
+   * The step's own public sentence for the person watching. The execution carries it from acceptance,
+   * so the live step and its replay show the same words. At most `VACP_NARRATION_MAX_LENGTH` characters.
+   */
+  narration?: string;
 };
 
 /**

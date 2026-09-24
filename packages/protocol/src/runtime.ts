@@ -25,10 +25,7 @@ export interface VacpRuntimeBridge extends VacpWindowBridge, VacpProvenanceSourc
    * Dispatch an action with an explicit actor for the local runtime
    * timeline. `execute()` remains MCP-friendly and defaults to an agent actor.
    */
-  dispatch?: (
-    call: VacpActionCall,
-    options?: VacpActionExecutionOptions & { message?: string },
-  ) => Promise<VacpActionResult>;
+  dispatch?: (call: VacpActionCall, options?: VacpActionExecutionOptions) => Promise<VacpActionResult>;
 
   /**
    * Optional state observer:

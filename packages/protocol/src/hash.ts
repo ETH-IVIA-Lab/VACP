@@ -31,3 +31,36 @@ export function stableStringify(value: unknown): string {
   };
   return JSON.stringify(walk(serialized === undefined ? undefined : JSON.parse(serialized)));
 }
+
+/** What JSON keeps of a value in an object: undefined, functions, and symbols are left out. */
+const kept = (value: unknown) => value !== undefined && typeof value !== 'function' && typeof value !== 'symbol';
+
+/**
+ * Whether two values have the same `stableStringify` form, compared in one pass without building
+ * strings. Use it to detect change in large captured data, such as a graph between revisions.
+ */
+export function sameVacpValue(a: unknown, b: unknown): boolean {
+  if (a === b) return true;
+  // A value with its own JSON form, such as a Date, compares by that form.
+  const custom = (value: unknown) => typeof (value as { toJSON?: unknown } | null)?.toJSON === 'function';
+  if (custom(a) || custom(b)) return stableStringify(a) === stableStringify(b);
+  if (typeof a !== 'object' || typeof b !== 'object' || a === null || b === null) {
+    const scalar = (value: unknown) =>
+      !kept(value) ? undefined : typeof value === 'number' && !Number.isFinite(value) ? null : value;
+    return scalar(a) === scalar(b);
+  }
+  if (Array.isArray(a) !== Array.isArray(b)) return false;
+  if (Array.isArray(a)) {
+    const other = b as unknown[];
+    if (a.length !== other.length) return false;
+    // Array holes, undefined, and functions all serialize as null.
+    for (let index = 0; index < a.length; index++)
+      if (!sameVacpValue(kept(a[index]) ? a[index] : null, kept(other[index]) ? other[index] : null)) return false;
+    return true;
+  }
+  const left = a as Record<string, unknown>;
+  const right = b as Record<string, unknown>;
+  const keys = Object.keys(left).filter((key) => kept(left[key]));
+  if (keys.length !== Object.keys(right).filter((key) => kept(right[key])).length) return false;
+  return keys.every((key) => Object.hasOwn(right, key) && sameVacpValue(left[key], right[key]));
+}
