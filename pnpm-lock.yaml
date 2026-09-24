@@ -250,6 +250,7 @@ catalogs:
       version: 5.0.15
 
 overrides:
+  '@duckdb/duckdb-wasm': ^1.32.0
   yaml: ^2.9.1
   vite: npm:@voidzero-dev/vite-plus-core@1.0.0-rc.0
   vitepress>vite: ^8.2.0
@@ -607,6 +608,9 @@ importers:
 
   examples/shared:
     dependencies:
+      '@duckdb/duckdb-wasm':
+        specifier: ^1.32.0
+        version: 1.32.0
       '@vacp/analytics-posthog':
         specifier: workspace:*
         version: link:../../packages/analytics-posthog
@@ -1130,9 +1134,6 @@ packages:
 
   '@dual-bundle/import-meta-resolve@4.2.1':
     resolution: {integrity: sha512-id+7YRUgoUX6CgV0DtuhirQWodeeA7Lf4i2x71JS/vtA5pRb/hIGWlw+G6MeXvsM+MXrz0VAydTGElX1rAfgPg==}
-
-  '@duckdb/duckdb-wasm@1.30.0':
-    resolution: {integrity: sha512-9aWrm+4ayl4sTlvGtl/b+LxrUyXaac3yyVqkoJ3F7Vkd62PoS8PcQIRJ/KjXBW36LP1CnPY5jjvFyIcTFLtcXA==}
 
   '@duckdb/duckdb-wasm@1.32.0':
     resolution: {integrity: sha512-IewXTNYEjsZCPE9weUWgtjGxUlMRo7qhX0GF6tq/KjK8bnY+RAl4cyUdYUfcdzbyb4b9ZxPC+FOsCcxgaKFWMg==}
@@ -5475,10 +5476,6 @@ snapshots:
 
   '@dual-bundle/import-meta-resolve@4.2.1': {}
 
-  '@duckdb/duckdb-wasm@1.30.0':
-    dependencies:
-      apache-arrow: 17.0.0
-
   '@duckdb/duckdb-wasm@1.32.0':
     dependencies:
       apache-arrow: 17.0.0
@@ -6691,7 +6688,7 @@ snapshots:
 
   '@uwdata/mosaic-core@0.21.1':
     dependencies:
-      '@duckdb/duckdb-wasm': 1.30.0
+      '@duckdb/duckdb-wasm': 1.32.0
       '@uwdata/flechette': 2.5.0
       '@uwdata/mosaic-sql': 0.21.1
 

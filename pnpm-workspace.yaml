@@ -34,7 +34,10 @@ catalog:
   '@stylexjs/babel-plugin': 0.19.1
   '@types/babel__core': ^7.20.5
   '@stylexjs/stylex': 0.19.1
+  # One DuckDB-Wasm for the workspace, Mosaic's included, so apps ship and load a single engine build.
+  '@duckdb/duckdb-wasm': ^1.32.0
 overrides:
+  '@duckdb/duckdb-wasm': 'catalog:'
   yaml: 'catalog:'
   vite: 'catalog:'
   vitepress>vite: ^8.2.0

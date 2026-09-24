@@ -10,6 +10,7 @@
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
+    "@duckdb/duckdb-wasm": "catalog:",
     "@vacp/analytics-posthog": "workspace:*",
     "@vacp/presence-browser": "workspace:*",
     "@vacp/presence-core": "workspace:*",

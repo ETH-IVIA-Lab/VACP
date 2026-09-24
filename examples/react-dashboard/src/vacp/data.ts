@@ -1,3 +1,4 @@
+import { exampleDuckDbBundles } from '@vacp/example-shared';
 import type { VacpActions } from '@vacp/sdk';
 import {
   createDuckDbSqlRouter,
@@ -14,7 +15,7 @@ import { dashboardRefs } from './refs';
 export function createDashboardData(actions: VacpActions, model: ReactDashboardModel, enableSql: boolean) {
   const { handleRef } = dashboardRefs;
   // DuckDB: one table for the active dataset + a temp table for effective ids.
-  const duckdb = createDuckDbWasmClient({ log: false });
+  const duckdb = createDuckDbWasmClient({ log: false, bundles: exampleDuckDbBundles });
   const tableName = makeVacpDuckDbTableName({ prefix: 'vacp_react_dashboard_rows' });
   let tableMeta: VacpDuckDbTableMetadata | null = null;
   let loadedDatasetId: DatasetId | null = null;

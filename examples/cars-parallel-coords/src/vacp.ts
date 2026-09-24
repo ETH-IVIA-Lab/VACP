@@ -1,5 +1,5 @@
 import { elementPresenceTarget, observePresenceLayout, svgPresenceTarget } from '@vacp/presence-browser';
-import { createExamplePresence } from '@vacp/example-shared';
+import { createExamplePresence, exampleDuckDbBundles } from '@vacp/example-shared';
 import { exampleOptions } from '../../config';
 import { z } from 'zod';
 
@@ -70,7 +70,7 @@ export function installVacpForCarsParallelCoords(args: {
   let tableMeta: VacpDuckDbTableMetadata | null = null;
 
   const duckdb = (async () => {
-    const db = await createDuckDbWasmClient({ log: false });
+    const db = await createDuckDbWasmClient({ log: false, bundles: exampleDuckDbBundles });
     await db.loadObjectsAsTable(tableName, args.data, { create: true });
 
     try {

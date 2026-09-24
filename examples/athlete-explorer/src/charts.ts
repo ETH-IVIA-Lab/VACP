@@ -4,7 +4,8 @@ import type { TopLevelSpec } from 'vega-lite';
 import { Coordinator, DuckDBWASMConnector, Selection } from '@uwdata/mosaic-core';
 import { and, eq, isBetween, literal, or } from '@uwdata/mosaic-sql';
 import { createAPIContext } from '@uwdata/vgplot';
-import { createDuckDbWasmClient } from '@vacp/data-duckdb';
+import { createDuckDbWasmClient, instantiateDuckDbWasm } from '@vacp/data-duckdb';
+import { exampleDuckDbBundles } from '@vacp/example-shared';
 import { z } from 'zod';
 import type { Cohort } from './model';
 
@@ -17,7 +18,7 @@ export async function createCharts(
   model: Cohort,
   onError: (error: unknown) => void,
 ) {
-  const connector = new DuckDBWASMConnector();
+  const connector = new DuckDBWASMConnector({ duckdb: await instantiateDuckDbWasm({ bundles: exampleDuckDbBundles }) });
   const database = await connector.getDuckDB();
   const connection = await connector.getConnection();
   const data = await createDuckDbWasmClient({ duckdb: database, connection });

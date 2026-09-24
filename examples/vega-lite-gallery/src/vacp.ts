@@ -1,4 +1,4 @@
-import { installGalleryIntegration } from '@vacp/example-shared';
+import { exampleDuckDbBundles, installGalleryIntegration } from '@vacp/example-shared';
 import { createVegaLitePresentation } from '@vacp/adapter-vega-lite/presentation';
 import { exampleOptions } from '../../config';
 /**
@@ -12,7 +12,7 @@ import { createVegaLiteProvider, type VegaViewLike } from '@vacp/adapter-vega-li
 import type { VisualizationSpec } from 'vega-embed';
 import { createDuckDbWasmClient } from '@vacp/data-duckdb';
 
-const duckdbClient = createDuckDbWasmClient();
+const duckdbClient = createDuckDbWasmClient({ bundles: exampleDuckDbBundles });
 
 import type { GalleryEntry } from './gallery';
 

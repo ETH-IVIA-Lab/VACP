@@ -1,5 +1,6 @@
 import type { VgplotPlotLike, VgplotTableLike } from '@vacp/adapter-vgplot';
-import type { VacpDuckDbClient } from '@vacp/data-duckdb';
+import { instantiateDuckDbWasm, type VacpDuckDbClient } from '@vacp/data-duckdb';
+import { exampleDuckDbBundles } from '@vacp/example-shared';
 import { coordinator, DuckDBWASMConnector } from '@uwdata/mosaic-core';
 import { astToDOM, parseSpec } from '@uwdata/mosaic-spec';
 import { createAPIContext } from '@uwdata/vgplot';
@@ -69,7 +70,7 @@ export async function run(): Promise<void> {
 
   // VGPlot's coordinator owns the shared in-browser DuckDB instance.
   const mc = coordinator();
-  const connector = new DuckDBWASMConnector({ log: false });
+  const connector = new DuckDBWASMConnector({ duckdb: await instantiateDuckDbWasm({ bundles: exampleDuckDbBundles }) });
   mc.databaseConnector(connector);
 
   const duckdbClient: VacpDuckDbClient = {
