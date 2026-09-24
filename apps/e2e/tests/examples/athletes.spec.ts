@@ -1,6 +1,6 @@
 import { expect, type Page } from '@playwright/test';
 import { test } from '../helpers/test';
-import { appServer } from '../helpers/servers';
+import { appReady, appServer } from '../helpers/servers';
 import { tool } from '../helpers/presence';
 
 test.use({
@@ -174,6 +174,41 @@ test('three providers compose one live athlete cohort across native views and We
   await page.screenshot({ path: testInfo.outputPath('mobile.png'), fullPage: true });
   expect(errors).toEqual([]);
   await expect(page.locator('.athlete-error')).toBeHidden();
+});
+
+test('a height-only brush on the physique chart filters the cohort across every weight', async ({ page }) => {
+  const server = appServer('athlete-explorer');
+  const errors: string[] = [];
+  page.on('pageerror', (error) => errors.push(error.message));
+  await page.goto(server.url);
+  await expect
+    .poll(
+      () =>
+        page.evaluate(async () =>
+          ((await document.modelContext?.getTools()) ?? []).some((tool) => tool.name.endsWith('vacp.data_sql')),
+        ),
+      appReady,
+    )
+    .toBe(true);
+  expect((await tool(page, 'cohort.set_sex', { sex: 'female' })).ok).toBe(true);
+  expect((await tool(page, 'cohort.set_sports', { sports: ['aquatics'] })).ok).toBe(true);
+  expect((await tool(page, 'vgplot.set_interval_1d', { plotId: 'age', interactorId: '0', min: 20, max: 30 })).ok).toBe(
+    true,
+  );
+  const cohort = "sex = 'female' AND sport = 'aquatics' AND age BETWEEN 20 AND 30";
+  await expectCount(page, await count(page, cohort));
+
+  expect((await tool(page, 'vega_lite.set_selection', { ref: bodyRef, value: { y: [1.9, 2.25] } })).ok).toBe(true);
+  const tall = 'height BETWEEN 1.9 AND 2.25 AND weight IS NOT NULL';
+  const selected = await count(page, `${cohort} AND ${tall}`);
+  expect(selected).toBeGreaterThan(0);
+  await expectCount(page, selected);
+  // The age histogram cross-filters by every selection except its own brush.
+  await expect
+    .poll(() => histogramTotal(page))
+    .toBe(await count(page, `sex = 'female' AND sport = 'aquatics' AND ${tall}`));
+  expect((await tool(page, 'vacp.state')).state[cohortRef].body).not.toBeNull();
+  expect(errors).toEqual([]);
 });
 
 test('unmount releases the composed runtime, native charts and owned database worker', async ({ page }) => {

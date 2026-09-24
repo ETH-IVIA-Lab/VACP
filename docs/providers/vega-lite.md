@@ -31,6 +31,8 @@ Applications can expose the same provider through `installVacpRuntime({ provider
 
 The IDs define stable references for the view and visualization. Parameter and selection actions operate on the supplied Vega view.
 
+`vega_lite.set_selection` sets an interval selection from `[min, max]` ranges keyed by channel or field. A channel left out of a multi-channel brush spans its scale's current domain, so `{ y: [1.9, 2.25] }` on an `x`/`y` brush selects that height band across every weight, like a full-width drag. A range that is not two numbers or dates is rejected before the selection changes.
+
 Selection state includes a readable resolved `value` and, when the native selection store is available, captured `tuples`. The tuples preserve native unit identity and correlations between selected fields, including selections resolved by intersection across views. `vacp.apply_state` restores captured tuples when present. Retain the complete selection state when saving observations for replay, since the resolved value alone can lose those relationships.
 
 Restoration validates the complete parameter map, then updates native stores, variables, and brush geometry in one Vega evaluation. Linked marks observe the restored parameters together.

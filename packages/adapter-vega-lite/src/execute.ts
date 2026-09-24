@@ -11,10 +11,18 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return !!value && typeof value === 'object' && !Array.isArray(value);
 }
 
+/** A range bound as Vega stores it: a number, with dates as their timestamps. */
+function rangeBound(value: unknown): number | null {
+  const bound = value instanceof Date ? value.valueOf() : value;
+  return isFiniteNumber(bound) ? bound : null;
+}
+
 function bestEffortSelectionTuple(args: {
   selectionValue: unknown;
   tupleFields: unknown;
   unit: unknown;
+  /** The live domain of an interval channel's scale, which a brush across the whole axis selects. */
+  span: (channel: string) => unknown[] | null;
 }): SelectionTuple | null {
   const { selectionValue, tupleFields } = args;
   const unit = typeof args.unit === 'string' ? args.unit : undefined;
@@ -43,11 +51,15 @@ function bestEffortSelectionTuple(args: {
 
     let value: unknown = key ? selectionValue[key] : undefined;
 
-    if (type === 'R' && Array.isArray(value) && value.length === 2) {
-      const coerce = (v: unknown) => (v instanceof Date ? v.valueOf() : v);
-      const a = coerce(value[0]);
-      const b = coerce(value[1]);
-      value = [a, b];
+    if (type === 'R') {
+      // A range given for some channels of a brush leaves the others spanning their whole axis.
+      const range = value ?? args.span(channel);
+      const bounds = Array.isArray(range) && range.length === 2 ? range.map(rangeBound) : null;
+      if (!bounds || bounds[0] === null || bounds[1] === null)
+        throw new Error(
+          `Expected ${channel && field && channel !== field ? `${channel} (${field})` : key || 'the interval'} as [min, max] numbers or dates`,
+        );
+      value = bounds;
     } else if (value instanceof Date) {
       value = value.valueOf();
     }
@@ -199,6 +211,15 @@ function prepareSelectionStore(view: VegaViewLike, name: string, selectionValue:
 
   const values = selectionValues(selectionValue);
   const keys = tupleFieldKeys(tupleFields);
+  const span = (channel: string) => {
+    try {
+      const scale = (unit ? view.scale?.(`${unit}_${channel}`) : undefined) ?? view.scale?.(channel);
+      const domain = (scale as { domain?: () => unknown[] } | undefined)?.domain?.();
+      return Array.isArray(domain) ? [domain[0], domain.at(-1)] : null;
+    } catch {
+      return null;
+    }
+  };
 
   const tuples = values
     .map((v) => {
@@ -209,7 +230,7 @@ function prepareSelectionStore(view: VegaViewLike, name: string, selectionValue:
       return v;
     })
     .map((v) => {
-      const tuple = bestEffortSelectionTuple({ selectionValue: v, tupleFields, unit });
+      const tuple = bestEffortSelectionTuple({ selectionValue: v, tupleFields, unit, span });
 
       if (!tuple) return null;
 

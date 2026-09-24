@@ -41,7 +41,7 @@ export function actionsForSpec(options: VegaLiteProviderOptions, spec: VegaLiteS
           ref: { type: 'string', description: 'VACP ref of the Selection node (vacp://.../param/<name>)' },
           value: {
             description:
-              'Selection value, usually an object like { field: value } or { x: [min, max], y: [min, max] }.',
+              'Selection value, usually an object like { field: value } or { x: [min, max], y: [min, max] }. An interval channel left out spans its whole axis.',
           },
         },
         required: ['ref', 'value'],
