@@ -1,4 +1,5 @@
 import type {
+  VacpExecution,
   VacpObservation,
   VacpProvenanceEvent,
   VacpProvenanceRecord,
@@ -96,6 +97,12 @@ export function createProvenanceReplay(
       return !request || record.cause.executions.some((execution) => execution.restoration?.id !== viewerId);
     return !currentObservation || !sameAnalyticalState(currentObservation, record.observation);
   };
+  const foreign = (execution: VacpExecution) =>
+    !!execution.operationKind && execution.operationKind !== 'query' && execution.restoration?.id !== viewerId;
+  const seedRunning = () => {
+    running.clear();
+    for (const execution of source.getActiveExecutions()) if (foreign(execution)) running.add(execution.id);
+  };
   const onRecord = (event: VacpProvenanceEvent) => {
     if (event.epoch !== epoch || !event.record) {
       synchronize();
@@ -104,10 +111,15 @@ export function createProvenanceReplay(
       return;
     }
     if (event.revision <= journal.revision) return;
+    // A foreign step counts as live work until its record is in the trail, so stepping resumes with it.
+    if (event.record.kind === 'action') running.delete(event.record.execution.id);
     if (event.revision === journal.revision + 1) {
       projection.append(event.record);
       journal = { ...journal, revision: event.revision };
-    } else synchronize();
+    } else {
+      synchronize();
+      seedRunning();
+    }
     if ((baseline || phase === 'restoring') && externalChange(event.record)) resume();
     else {
       project();
@@ -129,19 +141,14 @@ export function createProvenanceReplay(
     project();
     detachRecords = source.subscribeProvenance(onRecord);
     detachExecutions = source.subscribeExecutions((execution) => {
-      if (execution.restoration?.id === viewerId || !execution.operationKind || execution.operationKind === 'query')
-        return;
-      // Live work outside this viewer ends review; otherwise execution events leave the state unchanged.
-      if (execution.phase === 'prepared') {
-        running.add(execution.id);
-        if (baseline || phase === 'restoring') resume();
-      } else if (execution.phase === 'succeeded' || execution.phase === 'failed' || execution.phase === 'cancelled')
-        running.delete(execution.id);
+      if (!foreign(execution)) return;
+      // Live work outside this viewer ends review. Its record, not its outcome, ends the live work.
+      if (execution.phase !== 'prepared' || running.has(execution.id)) return;
+      running.add(execution.id);
+      if (baseline || phase === 'restoring') return resume();
+      if (running.size === 1) publish();
     });
-    for (const execution of source.getActiveExecutions()) {
-      if (execution.operationKind && execution.operationKind !== 'query' && execution.restoration?.id !== viewerId)
-        running.add(execution.id);
-    }
+    seedRunning();
     project();
     source.signal.addEventListener('abort', dispose, { once: true });
   } catch (cause) {
@@ -206,15 +213,17 @@ export function createProvenanceReplay(
   return {
     getState: () => {
       const current = selected < 0 ? null : (steps[selected] ?? null);
+      const working = running.size > 0;
       if (
         view?.phase !== phase ||
+        view.working !== working ||
         view.steps !== steps ||
         view.turns !== turns ||
         view.latest !== latest ||
         view.selected !== current ||
         view.error !== error
       )
-        view = Object.freeze({ phase, steps, turns, latest, selected: current, error });
+        view = Object.freeze({ phase, steps, turns, latest, selected: current, working, error });
       return view;
     },
     subscribe(listener) {

@@ -19,6 +19,8 @@ export type ProvenanceReplayState = {
   /** Finished agent turns in the current session, oldest first. Their steps share `activityId`. */
   turns: readonly VacpTurnRecord[];
   selected: ProvenanceCheckpoint | null;
+  /** Another actor's execution is prepared and its record is not yet in `steps`. Review waits for it. */
+  working: boolean;
   /** Latest original checkpoint, before the viewer's filter. */
   latest: ProvenanceCheckpoint | null;
   error?: string;

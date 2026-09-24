@@ -96,6 +96,25 @@ function fixture() {
     execution: (execution: VacpExecution) => {
       for (const listener of executionListeners) listener(execution);
     },
+    /** An execution succeeds, then the runtime records it, as dispatch does. */
+    finish(execution: VacpExecution, next: number) {
+      const terminal = { ...execution, phase: 'succeeded' as const };
+      for (const listener of executionListeners) listener(terminal);
+      const before = observation(value);
+      value = next;
+      const entry: VacpProvenanceRecord = {
+        id: `${execution.id}:record`,
+        at: 'now',
+        kind: 'action',
+        execution: terminal,
+        call: { callId: execution.callId, name: execution.name },
+        result: { callId: execution.callId, ok: true, result: undefined },
+        before,
+        observation: observation(next),
+      };
+      records.push(entry);
+      emit(entry);
+    },
     record,
     restore,
     value: () => value,
@@ -327,12 +346,17 @@ test('a late viewer waits for already active mutations before restoring a checkp
     at: 'now',
     operationKind: 'mutation',
   };
-  const replay = createProvenanceReplay({ ...f.source, getActiveExecutions: () => [active] }, { restore: f.restore });
+  let activeExecutions = [active];
+  const replay = createProvenanceReplay(
+    { ...f.source, getActiveExecutions: () => activeExecutions },
+    { restore: f.restore },
+  );
   t.after(replay.dispose);
   const checkpoint = replay.getState().steps[0]!;
   await replay.review(checkpoint.id);
   assert.equal(f.value(), 2);
-  f.execution({ ...active, phase: 'succeeded' });
+  activeExecutions = [];
+  f.finish(active, 2);
   await replay.review(checkpoint.id);
   assert.equal(f.value(), 1);
 });
@@ -412,4 +436,79 @@ test('rejected operations without a pre-effect checkpoint do not invent analytic
     provenanceCheckpoints([{ ...record, execution: { ...record.execution, operationKind: 'mutation' } }]),
     [],
   );
+});
+
+test('live work is part of the state until its record arrives, and review waits for it', async (t) => {
+  const f = fixture();
+  t.after(f.dispose);
+  f.record(1);
+  f.record(2);
+  const replay = createProvenanceReplay(f.source, { restore: f.restore });
+  t.after(replay.dispose);
+  let published = 0;
+  replay.subscribe(() => published++);
+  const step = (phase: VacpExecution['phase']): VacpExecution => ({
+    id: 'live',
+    callId: 'live',
+    sequence: 1,
+    name: 'set',
+    actor: agent,
+    operationKind: 'mutation',
+    phase,
+    at: '',
+  });
+  f.execution(step('prepared'));
+  f.execution(step('running'));
+  assert.equal(replay.getState().working, true);
+  assert.equal(published, 1, 'only the start of live work changes the state');
+  await replay.review(replay.getState().steps[0]!.id);
+  assert.equal(replay.getState().phase, 'live', 'review waits for live work');
+  f.execution(step('succeeded'));
+  assert.equal(replay.getState().working, true, 'the step is live work until it is in the trail');
+  f.finish(step('running'), 3);
+  assert.equal(replay.getState().working, false);
+  assert.equal(replay.getState().steps.at(-1)?.record.id, 'live:record', 'the step arrives with the resumed controls');
+  await replay.review(replay.getState().steps[0]!.id);
+  assert.equal(replay.getState().phase, 'reviewing');
+});
+
+test('a session reset ends live work, and the controller’s own restorations are never live work', async (t) => {
+  const f = fixture();
+  t.after(f.dispose);
+  f.record(1);
+  f.record(2);
+  const replay = createProvenanceReplay(f.source, {
+    restore: async (next, options) => {
+      f.execution({
+        id: 'own',
+        callId: 'own',
+        sequence: 1,
+        name: 'apply_state',
+        actor: human,
+        operationKind: 'mutation',
+        phase: 'prepared',
+        at: '',
+        restoration: options.restoration,
+      });
+      assert.equal(replay.getState().working, false);
+      return f.restore(next, options);
+    },
+  });
+  t.after(replay.dispose);
+  await replay.review(replay.getState().steps[0]!.id);
+  assert.equal(replay.getState().phase, 'reviewing');
+  await replay.close();
+  f.execution({
+    id: 'foreign',
+    callId: 'foreign',
+    sequence: 2,
+    name: 'set',
+    actor: agent,
+    operationKind: 'mutation',
+    phase: 'prepared',
+    at: '',
+  });
+  assert.equal(replay.getState().working, true);
+  f.reset();
+  assert.equal(replay.getState().working, false);
 });
