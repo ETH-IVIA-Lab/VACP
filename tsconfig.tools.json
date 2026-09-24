@@ -11,8 +11,10 @@
     "vite.config.ts",
     "vite.shared.ts",
     "apps/*/vite.config.ts",
+    "packages/*/vite.config.ts",
     "examples/custom-integration/**/*.ts",
     "examples/*/vite.config.ts",
-    "packages/*/bench/**/*.ts"
+    "packages/*/bench/**/*.ts",
+    "tools/stylex/**/*.ts"
   ]
 }

@@ -1,5 +1,5 @@
 import { createBrowserPresence } from '@vacp/presence-browser';
-import { createStreamdownText } from '@vacp/presence-browser/streamdown';
+import { streamdownText } from '@vacp/presence-browser/streamdown';
 import { paceAgentPresence } from '@vacp/presence-core';
 import { createProvenanceReplay } from '@vacp/provenance-core';
 import { createVacpRestorer, type VacpRuntime } from '@vacp/runtime';
@@ -36,7 +36,7 @@ export function createExamplePresence(runtime: VacpRuntime, root: Element) {
   runtime.signal.addEventListener('abort', release, { once: true });
   try {
     const presence = createBrowserPresence(runtime, {
-      appearance: { text: createStreamdownText, bubble: { width: 290 }, durationMs: 460 },
+      appearance: { text: streamdownText, bubble: { width: 290 }, durationMs: 460 },
       replay,
     });
     const stopPacing = exampleOptions.paceAgentSteps ? paceAgentPresence(runtime, presence, pacing()) : () => {};

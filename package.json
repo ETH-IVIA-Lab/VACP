@@ -18,7 +18,12 @@
     "portless": "portless"
   },
   "devDependencies": {
+    "@babel/core": "catalog:",
+    "@babel/plugin-syntax-jsx": "catalog:",
+    "@babel/plugin-syntax-typescript": "catalog:",
     "@oxlint/plugins": "1.83.0",
+    "@stylexjs/babel-plugin": "catalog:",
+    "@types/babel__core": "catalog:",
     "@types/node": "catalog:",
     "@vacp/protocol": "workspace:*",
     "@vacp/sdk": "workspace:*",

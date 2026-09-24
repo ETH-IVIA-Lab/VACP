@@ -5,7 +5,8 @@ import {
   type PresenceOptions,
   type PresenceSource,
 } from '@vacp/presence-core';
-import { createBrowserPresenceRenderer, type BrowserPresenceOptions } from './renderer';
+import type { BrowserPresenceOptions } from './options';
+import { createBrowserPresenceRenderer } from './renderer';
 
 type BrowserPresenceSource = PresenceSource & {
   getProviderBinding(provider: VacpProvider): { id: string; signal: AbortSignal };

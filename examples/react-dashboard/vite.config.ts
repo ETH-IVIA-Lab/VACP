@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
 import {
   normalizeVacpBasePath,
+  vacpPresenceSheet,
   vacpWorkspaceAliases,
   vacpWorkspaceDedupe,
   vacpWorkspaceOptimizeDeps,
@@ -25,7 +26,7 @@ export default defineConfig({
   // Isolate optimize-deps cache per example to avoid cross-test interference when
   // multiple Vite dev servers run concurrently in Playwright.
   cacheDir: process.env.VACP_VITE_CACHE_DIR ?? 'node_modules/.vite-react-dashboard',
-  plugins: [react(), tailwind()],
+  plugins: [vacpPresenceSheet(workspaceRoot), react(), tailwind()],
   optimizeDeps: vacpWorkspaceOptimizeDeps(),
   server: { fs: { allow: [workspaceRoot] }, ...(hmr ? { hmr } : {}) },
   resolve: {

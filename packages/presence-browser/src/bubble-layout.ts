@@ -2,7 +2,8 @@ import type { PresenceGeometry, PresencePoint } from '@vacp/presence-core';
 
 type Rect = PresencePoint & { width: number; height: number };
 type Side = 'right' | 'left' | 'above' | 'below';
-export type BubblePlacement = Rect & { side: Side };
+/** Where the label sits, and the target and cursor it was placed for. */
+export type BubblePlacement = Rect & { side: Side; target: Rect; anchor: PresencePoint };
 
 export function immutableGeometry(geometry: PresenceGeometry): boolean {
   return (
@@ -52,8 +53,11 @@ function overlap(a: Rect, b: Rect): number {
 }
 
 /**
- * Beside the agent cursor, outside the region it acts on. Candidates align with the cursor so the label
- * follows it from step to step; a side is retained until another is materially closer.
+ * Place the label beside its target, as close to the cursor as the free space allows. Beside the
+ * target, the label's top follows the cursor. Above or below it, the edge nearest the target stays
+ * put, so words that arrive and grow the label push it away from the cursor instead of moving it.
+ * While the target stays the same, including through layout shifts, the label keeps its side unless
+ * that side no longer fits. A new target starts from the side nearest its cursor.
  */
 export function placeBubble(
   target: Rect,
@@ -65,57 +69,37 @@ export function placeBubble(
   const gap = 20;
   const cx = anchor.x;
   const cy = anchor.y;
+  const base = { ...size, target, anchor };
   const candidates: BubblePlacement[] = [
-    { ...size, side: 'right', x: target.x + target.width + gap, y: cy - size.height / 2 },
-    { ...size, side: 'left', x: target.x - size.width - gap, y: cy - size.height / 2 },
-    { ...size, side: 'above', x: cx - size.width / 2, y: target.y - size.height - gap },
-    { ...size, side: 'below', x: cx - size.width / 2, y: target.y + target.height + gap },
+    { ...base, side: 'right', x: target.x + target.width + gap, y: cy - 16 },
+    { ...base, side: 'left', x: target.x - size.width - gap, y: cy - 16 },
+    { ...base, side: 'below', x: cx - size.width / 2, y: target.y + target.height + gap },
+    { ...base, side: 'above', x: cx - size.width / 2, y: target.y - size.height - gap },
   ];
   for (const candidate of candidates) {
     candidate.x = Math.max(12, Math.min(viewport.width - size.width - 12, candidate.x));
     candidate.y = Math.max(12, Math.min(viewport.height - size.height - 12, candidate.y));
   }
+  const kept = previous && sameTarget(previous, target, anchor) ? previous.side : undefined;
+  // Growing upward moves the words the person is reading, so above is the last resort.
+  const bias = { right: 0, below: 30, left: 40, above: 90 };
   const score = (rect: BubblePlacement) =>
     overlap(rect, target) * 10000 +
-    Math.hypot(rect.x + rect.width / 2 - cx, rect.y + rect.height / 2 - cy) +
-    (rect.side === (previous?.side ?? 'right') ? 0 : 80);
+    Math.hypot(
+      Math.max(rect.x - cx, 0, cx - rect.x - rect.width),
+      Math.max(rect.y - cy, 0, cy - rect.y - rect.height),
+    ) +
+    (kept ? (rect.side === kept ? 0 : 400) : bias[rect.side]);
   return candidates.reduce((best, candidate) => (score(candidate) < score(best) ? candidate : best));
 }
 
-/** The smallest axis-aligned shift that clears `rect` of `region` while staying inside `within`. */
-export function pushOut(rect: Rect, region: Rect, within: Rect, gap = 8): Rect {
-  const overlapX = Math.min(rect.x + rect.width, region.x + region.width) - Math.max(rect.x, region.x);
-  const overlapY = Math.min(rect.y + rect.height, region.y + region.height) - Math.max(rect.y, region.y);
-  if (overlapX <= 0 || overlapY <= 0) return rect;
-  const shifted = [
-    { ...rect, y: region.y - gap - rect.height },
-    { ...rect, y: region.y + region.height + gap },
-    { ...rect, x: region.x - gap - rect.width },
-    { ...rect, x: region.x + region.width + gap },
-  ];
-  const fits = (candidate: Rect) =>
-    candidate.x >= within.x &&
-    candidate.y >= within.y &&
-    candidate.x + candidate.width <= within.x + within.width &&
-    candidate.y + candidate.height <= within.y + within.height;
-  const distance = (candidate: Rect) => Math.hypot(candidate.x - rect.x, candidate.y - rect.y);
-  const options = shifted.filter(fits);
-  return (options.length ? options : shifted).reduce((best, next) => (distance(next) < distance(best) ? next : best));
-}
-
-/** A fade at the destination avoids sweeping the label across the selection. */
-export function crossesTarget(from: Rect, to: Rect, target: Rect): boolean {
-  const x = Math.min(from.x, to.x);
-  const y = Math.min(from.y, to.y);
+/** A layout shift moves the target and its cursor together, so size and cursor offset identify it. */
+function sameTarget(previous: BubblePlacement, target: Rect, anchor: PresencePoint): boolean {
+  const near = (a: number, b: number) => Math.abs(a - b) < 1;
   return (
-    overlap(
-      {
-        x,
-        y,
-        width: Math.max(from.x + from.width, to.x + to.width) - x,
-        height: Math.max(from.y + from.height, to.y + to.height) - y,
-      },
-      target,
-    ) > 0
+    near(previous.target.width, target.width) &&
+    near(previous.target.height, target.height) &&
+    near(previous.anchor.x - previous.target.x, anchor.x - target.x) &&
+    near(previous.anchor.y - previous.target.y, anchor.y - target.y)
   );
 }

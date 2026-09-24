@@ -7,6 +7,7 @@ import { existsSync } from 'node:fs';
 import { examples } from './examples.manifest';
 import {
   normalizeVacpBasePath,
+  vacpPresenceSheet,
   vacpWorkspaceAliases,
   vacpWorkspaceDedupe,
   vacpWorkspaceOptimizeDeps,
@@ -44,7 +45,7 @@ export default defineConfig({
   base,
   envPrefix: ['VITE_', 'VACP_'],
   publicDir: '.generated-public',
-  plugins: [react(), tailwind()],
+  plugins: [vacpPresenceSheet(workspaceRoot), react(), tailwind()],
   optimizeDeps: vacpWorkspaceOptimizeDeps({ includeExampleSiblings: true }),
   server: {
     fs: { allow: [workspaceRoot] },

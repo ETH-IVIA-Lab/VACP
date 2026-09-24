@@ -1,15 +1,22 @@
-/** Browser-only content port. Hosts report accumulated public text, never model-private reasoning. */
-export type PresenceTextUpdate = {
+import type { ComponentType } from 'react';
+
+/** Public narration only. Hosts report accumulated public text, never model-private reasoning. */
+export type PresenceTextProps = {
   text: string;
-  /** Stable while a message grows; changes for a replacement or a deliberately revisited record. */
+  /** Stable while a message grows. A new revision replaces the message or revisits a recorded one. */
   revision: number;
+  /** Words are still arriving from the agent. */
   streaming: boolean;
+  /** The view may reveal this revision with motion. False for replayed frames and reduced motion. */
+  animate: boolean;
   reducedMotion: boolean;
 };
-export type PresenceTextRenderer = {
-  render(update: PresenceTextUpdate): void;
-  /** The whole message as a reader would hear it, independent of how much is revealed so far. */
-  readText?(): string;
-  dispose(): void;
+
+/**
+ * A message presentation for the bubble. `View` renders the words. `speak` turns the message into
+ * the plain words a screen reader announces once the message settles.
+ */
+export type PresenceText = {
+  View: ComponentType<PresenceTextProps>;
+  speak?: (text: string) => string;
 };
-export type PresenceTextFactory = (container: HTMLElement) => PresenceTextRenderer;

@@ -1,11 +1,12 @@
 import { resolve } from 'node:path';
-import type { Alias } from 'vite-plus';
+import type { Alias, Plugin } from 'vite-plus';
+import { stylexShadowSheet } from './tools/stylex/shadow-sheet';
 
 const workspacePackages = [
   ['@vacp/provenance-core', 'packages/provenance-core/src/index.ts'],
   ['@vacp/presence-core', 'packages/presence-core/src/index.ts'],
   ['@vacp/presence-browser', 'packages/presence-browser/src/index.ts'],
-  ['@vacp/presence-browser/streamdown', 'packages/presence-browser/src/streamdown.ts'],
+  ['@vacp/presence-browser/streamdown', 'packages/presence-browser/src/streamdown.tsx'],
   ['@vacp/presence-browser/targets', 'packages/presence-browser/src/targets.ts'],
   ['@vacp/adapter-vega-lite/presentation', 'packages/adapter-vega-lite/src/presentation.ts'],
   ['@vacp/adapter-vgplot/presentation', 'packages/adapter-vgplot/src/presentation.ts'],
@@ -70,4 +71,12 @@ export function vacpWorkspaceAliases(workspaceRoot: string): Alias[] {
       replacement: resolve(workspaceRoot, source),
     })),
   ];
+}
+
+/** Presence components are styled with StyleX and adopt the compiled sheet into their shadow root. */
+export function vacpPresenceSheet(workspaceRoot: string): Plugin {
+  return stylexShadowSheet({
+    root: resolve(workspaceRoot, 'packages/presence-browser/src'),
+    id: 'virtual:vacp-presence-sheet',
+  });
 }

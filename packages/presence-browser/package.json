@@ -28,6 +28,7 @@
     "test": "tsx --test --test-timeout=10000 test/*.test.ts"
   },
   "dependencies": {
+    "@stylexjs/stylex": "catalog:",
     "@vacp/presence-core": "workspace:*",
     "@vacp/protocol": "workspace:*",
     "react": "catalog:",

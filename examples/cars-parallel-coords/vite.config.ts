@@ -4,6 +4,7 @@ import tailwind from '@tailwindcss/vite';
 import { defineConfig } from 'vite-plus';
 import {
   normalizeVacpBasePath,
+  vacpPresenceSheet,
   vacpWorkspaceAliases,
   vacpWorkspaceDedupe,
   vacpWorkspaceOptimizeDeps,
@@ -23,7 +24,7 @@ export default defineConfig({
   // Isolate optimize-deps cache per example to avoid cross-test interference when
   // multiple Vite dev servers run concurrently in Playwright.
   cacheDir: process.env.VACP_VITE_CACHE_DIR ?? 'node_modules/.vite-cars-parallel-coords',
-  plugins: [tailwind()],
+  plugins: [vacpPresenceSheet(workspaceRoot), tailwind()],
   optimizeDeps: vacpWorkspaceOptimizeDeps(),
   resolve: {
     alias: vacpWorkspaceAliases(workspaceRoot),

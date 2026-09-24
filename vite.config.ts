@@ -65,6 +65,20 @@ export default defineConfig({
     },
     overrides: [
       {
+        files: ['packages/presence-browser/src/**'],
+        plugins: ['react'],
+        rules: {
+          'react/rules-of-hooks': 'error',
+          'react/exhaustive-deps': 'error',
+          'react/jsx-key': 'error',
+          'react/no-unstable-nested-components': 'error',
+          'react/jsx-no-constructed-context-values': 'error',
+          'react/set-state-in-render': 'error',
+          'react/set-state-in-effect': 'error',
+          'react/refs': 'error',
+        },
+      },
+      {
         files: ['**/*.ts', '**/*.tsx', '**/*.mts', '**/*.cts'],
         rules: {
           'no-restricted-imports': ['error', { patterns: sourceImportRestrictions }],

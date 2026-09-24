@@ -72,6 +72,7 @@ python-check: python-lint python-typecheck python-test ## Run every Python QA ga
 
 test-tools: ## Validate the vendored anti-slop rules and their CLI integration.
 	$(PNPM) exec node --test --test-concurrency=1 tools/oxlint/anti-slop/rules/*.test.ts tools/oxlint/anti-slop/effect/rules/*.test.ts
+	$(PNPM) exec tsx --test tools/stylex/*.test.ts
 	$(PNPM) exec tsc -p tools/oxlint/anti-slop/tsconfig.json --noEmit
 
 knip: ## Check unused files, exports, and dependencies.
