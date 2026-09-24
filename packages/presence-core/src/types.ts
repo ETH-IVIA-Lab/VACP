@@ -72,6 +72,8 @@ export type PresenceNavigation = {
   restoring: boolean;
   /** An agent's turn is open, or another actor's change is still on its way into the trail. Stepping waits. */
   working: boolean;
+  /** The shown frame was only partly restored, so the live view may differ from the recording. */
+  diverged: boolean;
   /** Show another frame. The conclusion is the live state after the request. */
   go(index: number): void;
   back(): void;

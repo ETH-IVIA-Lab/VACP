@@ -176,6 +176,7 @@ export function createPresencePresentation(
     const index = frameIndex();
     const restoring = state?.phase === 'restoring';
     const waiting = working();
+    const diverged = !!state?.error;
     const stepping = !!replay && !restoring && !waiting;
     const current = navigation;
     if (!frames.length) navigation = undefined;
@@ -184,6 +185,7 @@ export function createPresencePresentation(
       current.index !== index ||
       current.restoring !== restoring ||
       current.working !== waiting ||
+      current.diverged !== diverged ||
       current.reviewing !== reviewing() ||
       current.frames.length !== frames.length ||
       current.frames.some((kind, position) => kind !== frames[position])
@@ -196,6 +198,7 @@ export function createPresencePresentation(
         reviewing: reviewing(),
         restoring,
         working: waiting,
+        diverged,
         go,
         back,
         forward,
@@ -270,7 +273,6 @@ export function createPresencePresentation(
       render([], reason);
       return;
     }
-    const failed = state?.error ? 'This step could not be fully restored.' : undefined;
     // Start and conclusion frames describe the whole request, so they point at no single target.
     if (frame.kind === 'conclusion') {
       const { conclusion } = frame;
@@ -293,7 +295,7 @@ export function createPresencePresentation(
           actor,
           recordId: frame.checkpoint.id,
           phase: 'reviewing',
-          summary: failed ?? trail.opening ?? startWords,
+          summary: trail.opening ?? startWords,
           target: null,
           freshness: 'unknown',
         },
@@ -311,7 +313,7 @@ export function createPresencePresentation(
         recordId: checkpoint.id,
         phase: reviewing() ? 'reviewing' : 'completed',
         subject: presenceSubject(checkpoint.observation.graph, focus?.ref ?? execution?.intent?.affects?.[0]),
-        summary: failed ?? provenanceMessage(checkpoint.record),
+        summary: provenanceMessage(checkpoint.record),
         execution,
         target: null,
         freshness: 'unknown',

@@ -82,3 +82,26 @@ test('an unchanged frame keeps every slot, so the overlay draws nothing new', ()
   assert.equal(slots.update([activity({ summary: 'Keeping canoe and rowing.' })], undefined, false).changed, false);
   assert.equal(slots.list(), drawn);
 });
+
+test('a step the view did not take reads as the agent still working, never as an error', () => {
+  const slots = slotsOf();
+  const execution = {
+    id: 'step',
+    callId: 'step',
+    sequence: 1,
+    name: 'set',
+    title: 'Filter range',
+    actor: analyst,
+    at: '',
+  } as const;
+  for (const phase of ['failed', 'cancelled'] as const) {
+    slots.update(
+      [activity({ phase, subject: 'Age distribution', execution: { ...execution, phase } })],
+      undefined,
+      false,
+    );
+    const [slot] = slots.list();
+    assert.equal(slot!.heading, 'Age distribution');
+    assert.doesNotMatch(`${slot!.heading} ${slot!.words}`, /could not|did not|stopped|error|fail/i);
+  }
+});

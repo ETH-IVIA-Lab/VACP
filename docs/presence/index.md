@@ -132,11 +132,11 @@ replay.dispose();
 
 Replay walks one request at a time: an agent turn from the state it began in to its conclusion.
 
-| Frame      | Heading                                         | Words                                                     | View                                                     |
-| ---------- | ----------------------------------------------- | --------------------------------------------------------- | -------------------------------------------------------- |
-| Start      | "Start"                                         | The turn's opening sentence, spoken before its first step | The state before the first step                          |
-| Step       | "Step 2 of 3"                                   | That step's own sentence                                  | The state after that step, with the cursor at its target |
-| Conclusion | "Conclusion", or "Stopped" for a cancelled turn | The turn's closing sentence                               | The live state the turn left behind                      |
+| Frame      | Heading       | Words                                                     | View                                                     |
+| ---------- | ------------- | --------------------------------------------------------- | -------------------------------------------------------- |
+| Start      | "Start"       | The turn's opening sentence, spoken before its first step | The state before the first step                          |
+| Step       | "Step 2 of 3" | That step's own sentence                                  | The state after that step, with the cursor at its target |
+| Conclusion | "Conclusion"  | The turn's closing sentence                               | The live state the turn left behind                      |
 
 After a turn ends, its conclusion stays on screen. Hover or keyboard focus reveals previous and next arrows, and touch devices show them directly. A rail below the words names every frame by shape: a ring for the start, a dot per step, and a diamond for the conclusion. The shown frame takes the agent colour, and clicking any mark goes straight to that frame. Start and conclusion describe the whole request, so they show no cursor and outline no target. Moving forward to the conclusion returns to live analysis. During review, the close icon also returns to live analysis and hides the trail until the agent starts new work.
 
@@ -146,7 +146,7 @@ Selecting a checkpoint restores the actual charts through each source’s `vacp.
 
 New live mutations or observed external state changes stop replay and preserve the new work. After a turn ends, the agent's last recorded step stays on screen, also when the turn took a single step, until the person dismisses it, changes the analysis, or the agent starts new work. A turn that answers without taking a step keeps its closing sentence on screen the same way, with or without a replay controller. A result with nowhere to step to offers only the dismiss control. Human changes dismiss retained agent feedback while ongoing agent thinking remains visible; the runtime's own system observations leave the agent's last step on screen, and never bring a dismissed trail back. A checkpoint selected through the shared replay controller that this viewer does not show, such as a human step, renders nothing and offers no step from it. During a pending restoration, the host should call `replay.interrupt()` when native input begins in the analytical surface. See the [host input integration](../provenance/#interrupt-for-native-input). Interruption cancels pending work and abandons the saved return state. It cannot roll back effects a provider has already applied.
 
-A failed restoration remains visible and may have partial effects across providers. Navigation prevents overlapping restore requests. Each controller owns its selected checkpoint and saved return state. Session changes and disposal cancel pending work. Disposing presence releases the viewer but leaves its supplied replay controller under host ownership.
+A restoration can apply only part of a checkpoint across providers. The frame keeps its recorded words, and `navigation.diverged` is true, so the browser trail adds a quiet note that the view may differ slightly from the recording. The overlay never shows errors: a step the view does not take stays the agent's to handle through its tool result, and the bubble keeps neutral wording. Navigation prevents overlapping restore requests. Each controller owns its selected checkpoint and saved return state. Session changes and disposal cancel pending work. Disposing presence releases the viewer but leaves its supplied replay controller under host ownership.
 
 ## Customize appearance and timing
 
@@ -307,7 +307,7 @@ presence.attach({
 });
 ```
 
-`PresenceFrame` contains the displayed `activities`, optional `navigation`, and a `reason` of `activity` or `layout`. The same renderer receives live, retained, and replayed presentation. `navigation` lists the shown request's `frames` (`start`, `step`, or `conclusion`) with the shown `index`, and exposes `go(index)`, back, forward, and close callbacks plus their availability and restoration state. `working` is true while an agent's turn is open, or while another actor's change has not yet reached the trail. Stepping waits until both end, so `canBack` and `canForward` are false and `go` does nothing. The browser trail keeps its arrows and frame marks visible and focusable with `aria-disabled`, titled "Stepping resumes when the agent finishes".
+`PresenceFrame` contains the displayed `activities`, optional `navigation`, and a `reason` of `activity` or `layout`. The same renderer receives live, retained, and replayed presentation. `navigation` lists the shown request's `frames` (`start`, `step`, or `conclusion`) with the shown `index`, and exposes `go(index)`, back, forward, and close callbacks plus their availability and restoration state. `diverged` is true while the shown frame was only partly restored. `working` is true while an agent's turn is open, or while another actor's change has not yet reached the trail. Stepping waits until both end, so `canBack` and `canForward` are false and `go` does nothing. The browser trail keeps its arrows and frame marks visible and focusable with `aria-disabled`, titled "Stepping resumes when the agent finishes".
 
 For a live activity feed, omit `renderer` and use `getSnapshot()` with `subscribe(listener)`. These methods expose live activities, independently of retained or replayed presentation. Each viewer owns its activity and cleanup. Visual bursts coalesce per actor while the runtime retains every execution event.
 

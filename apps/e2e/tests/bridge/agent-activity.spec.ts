@@ -60,10 +60,10 @@ test('thinking appears before execution, follows real athlete actions, and respe
   });
   await expect(pointer).toHaveAttribute('data-vacp-phase', 'cancelled');
   // Turns cancelled before any step are not requests. The request that took a step stays on screen,
-  // concluded as stopped, until the person dismisses it; its step keeps its own sentence.
+  // concluded like any other request, until the person dismisses it; its step keeps its own sentence.
   await expect(bubble.locator('[data-vacp-mark][data-busy]')).toHaveCount(0);
   const label = bubble.locator('[data-vacp-heading]');
-  await expect(label).toHaveText('Stopped', { timeout: 3000 });
+  await expect(label).toHaveText('Conclusion', { timeout: 3000 });
   await expect(bubble).toHaveCount(1);
   await bubble.hover();
   await page.getByRole('button', { name: 'Previous analytical step' }).click();

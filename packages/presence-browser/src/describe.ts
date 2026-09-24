@@ -4,15 +4,16 @@ export function actorLabel(actor: PresenceActivity['actor']): string {
   return actor.label ?? (actor.kind === 'human' ? 'You' : actor.kind === 'agent' ? 'Agent' : 'System');
 }
 
-/** Wording when the agent has said nothing: what is happening to which view, never a phase name. */
+/**
+ * Wording when the agent has said nothing: what is happening to which view, never a phase name. A step
+ * the view did not take stays the agent's to handle, so its wording claims no change and shows no error.
+ */
 export function describePresence(activity: PresenceActivity): string {
   if (activity.summary) return activity.summary;
   const view = activity.subject ?? 'the view';
   const change = activity.execution?.title;
-  if (activity.phase === 'thinking') return `Looking at ${view}`;
-  if (activity.phase === 'failed') return `${change ?? 'The change'} could not be applied to ${view}`;
-  if (activity.phase === 'cancelled') return `Stopped before changing ${view}`;
-  if (activity.freshness === 'error') return `${view} could not finish updating`;
+  if (activity.phase === 'thinking' || activity.phase === 'failed') return `Looking at ${view}`;
+  if (activity.phase === 'cancelled') return `Leaving ${view} as it was`;
   if (activity.freshness === 'updating') return `${view} is still updating`;
   if (activity.phase === 'completed' || activity.phase === 'reviewing')
     return change ? `${change} applied to ${view}` : `Updated ${view}`;
@@ -31,12 +32,6 @@ export function frameNames(frames: readonly PresenceTrailFrame[]): string[] {
 /** A recorded frame is named by its place in the request; live work by the view it works on. */
 export function headingOf(activity: PresenceActivity, navigation: PresenceNavigation | undefined): string {
   const frame = activity.recordId && navigation ? navigation.frames[navigation.index] : undefined;
-  if (frame && navigation) {
-    if (frame === 'conclusion' && activity.phase === 'failed') return 'Did not finish';
-    if (frame === 'conclusion' && activity.phase === 'cancelled') return 'Stopped';
-    return frameNames(navigation.frames)[navigation.index]!;
-  }
-  if (activity.phase === 'failed') return `${activity.subject ?? 'This step'} could not be completed`;
-  if (activity.phase === 'cancelled') return 'Stopped';
+  if (frame && navigation) return frameNames(navigation.frames)[navigation.index]!;
   return activity.subject ?? (activity.actor.kind === 'agent' ? '' : actorLabel(activity.actor));
 }

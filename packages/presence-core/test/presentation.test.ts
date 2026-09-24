@@ -489,3 +489,16 @@ test('an open agent turn holds stepping until the agent finishes', async () => {
   assert.equal(f.frame().navigation?.canBack, true);
   f.presence.dispose();
 });
+
+test('a partly restored frame keeps its recorded words and says the view may differ', async () => {
+  const f = fixture();
+  f.frame().navigation!.back();
+  await setImmediate();
+  assert.equal(f.frame().activities[0]?.summary, 'one');
+  f.change({ ...f.state(), phase: 'error', error: 'A source refused the restore' });
+  assert.equal(f.frame().navigation?.diverged, true);
+  assert.equal(f.frame().activities[0]?.summary, 'one', 'the frame keeps the words it recorded');
+  f.change({ ...f.state(), phase: 'reviewing', error: undefined });
+  assert.equal(f.frame().navigation?.diverged, false);
+  f.presence.dispose();
+});

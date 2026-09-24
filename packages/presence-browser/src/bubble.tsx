@@ -82,6 +82,7 @@ const styles = stylex.create({
   headingBesideStepper: { paddingRight: 82 },
   title: { whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' },
   waiting: { minHeight: 20, color: color.muted },
+  note: { marginTop: 6, fontSize: 12, lineHeight: 1.4, color: color.muted },
   message: { display: 'grid' },
   cell: { gridArea: '1 / 1', minHeight: 20, overflow: 'clip' },
   extent: { visibility: 'hidden' },
@@ -238,6 +239,11 @@ export const Bubble = memo(function Bubble({
         ) : (
           <Message message={slot.message} streaming={slot.streaming} />
         )}
+        {navigation?.diverged && slot.trail ? (
+          <div data-vacp-note="" {...stylex.props(styles.note)}>
+            The view may differ slightly from the recording.
+          </div>
+        ) : null}
         {slot.trail && navigation ? <Trail navigation={navigation} /> : null}
         {navigation ? <Stepper navigation={navigation} /> : null}
       </div>
