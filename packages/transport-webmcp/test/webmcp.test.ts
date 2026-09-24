@@ -608,7 +608,7 @@ test('a progress tool narrates one public activity per turn and closes forgotten
     ]);
     await assert.rejects(context.call('vacp.progress', { message: '' }), /requires a sentence/);
     await context.call('vacp.progress', { message: 'Checking again' });
-    t.mock.timers.tick(15_000);
+    t.mock.timers.tick(60_000);
     assert.equal(runtime.getAgentActivities().length, 0, 'a quiet turn closes on its own');
     assert.equal(phases.at(-1), 'completed:Checking again', 'a quiet close keeps the last words');
     await context.call('vacp.progress', { message: 'One more look' });

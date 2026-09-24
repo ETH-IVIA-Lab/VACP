@@ -73,7 +73,7 @@ Every transport also offers a progress tool: `vacp_progress` for AI SDK agents a
 
 `createVacpChatRuntime({ ...options, activity: runtime })` opens one activity per chat turn for actor `agent` and ends it with the stream's outcome. A turn starts without text, so the bubble shows its waiting line until the model narrates. Only the model's own sentences are shown and recorded. Reasoning and response tokens stay in the chat stream. For domain-specific summaries, the host can still use `beginAgentActivity()` directly.
 
-`installVacpWebMcp(runtime)` registers `vacp.progress` for the same actor as its action tools, so narration and executions share one presence entry and one turn. The tool speaks through `runtime.narrate()`: the first sentence opens a turn, `done: true` closes it, and a turn left quiet for 15 seconds closes once the actor has no step in flight.
+`installVacpWebMcp(runtime)` registers `vacp.progress` for the same actor as its action tools, so narration and executions share one presence entry and one turn. The tool speaks through `runtime.narrate()`: the first sentence opens a turn, `done: true` closes it, and a turn left quiet for 60 seconds closes once the actor has no step in flight. An agent that starts with an action instead of an opening sentence gets its turn from that first step, so its closing sentence still concludes the whole request.
 
 ## Stream public progress with Streamdown
 

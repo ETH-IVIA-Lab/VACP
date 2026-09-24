@@ -37,10 +37,9 @@ export function createDispatcher(args: {
     const requestedProviders = new Map(args.providers);
     const epoch = args.getEpoch();
     const actor = entryActor(options?.actor);
-    const step = args.agentActivities.beginStep(
-      actor.id,
-      options?.narration === undefined ? undefined : parseVacpNarration(options.narration),
-    );
+    const narration = options?.narration === undefined ? undefined : parseVacpNarration(options.narration);
+    // Restorations replay recorded state on a person's behalf and belong to no agent turn.
+    const step = options?.restoration ? { narration } : args.agentActivities.beginStep(actor, narration);
     let signal = AbortSignal.any([args.lifetime, ...(options?.signal ? [options.signal] : [])]);
     const execution: VacpExecution = {
       id: makeEntryId(),
@@ -139,6 +138,7 @@ export function createDispatcher(args: {
       return result;
     } finally {
       if (applying) args.actionFinished(execution.id);
+      args.agentActivities.endStep(actor.id);
     }
   };
 }

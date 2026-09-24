@@ -112,6 +112,30 @@ test('every narrated step streams, records, and replays its own sentence', async
   expect(errors).toEqual([]);
 });
 
+test('an agent that starts with a step still gets one request trail from start to conclusion', async ({ page }) => {
+  const errors = await open(page);
+  const bubble = page.locator('[data-vacp-bubble]');
+  for (const step of steps) {
+    expect((await tool(page, step.contract, { ...step.params, narration: step.narration })).ok).toBe(true);
+    // While the request runs, the bubble shows the live step, never a finished one-step trail.
+    await expect(bubble.locator('[data-vacp-summary]')).toHaveText(step.narration);
+    await expect(bubble.locator('[data-vacp-heading]')).not.toHaveText(/^Step \d+ of \d+$/);
+  }
+  await tool(page, 'vacp.progress', {
+    message: 'Young female gymnasts and aquatics athletes are in view.',
+    done: true,
+  });
+  expect(await recorded(page)).toEqual(steps.map((step) => step.narration));
+  expect(await replayed(page)).toEqual({
+    Start: "The view before the agent's first change.",
+    'Step 1 of 3': steps[0]!.narration,
+    'Step 2 of 3': steps[1]!.narration,
+    'Step 3 of 3': steps[2]!.narration,
+    Conclusion: 'Young female gymnasts and aquatics athletes are in view.',
+  });
+  expect(errors).toEqual([]);
+});
+
 test('a step executed without narration names its change instead of repeating an earlier sentence', async ({
   page,
 }) => {

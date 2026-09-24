@@ -341,10 +341,11 @@ export function createAgentPresence(source: PresenceSource, options: PresenceOpt
     if (lifetime.signal.aborted) return;
     lifetime.abort();
     for (const release of subscriptions.reverse()) safe(release);
-    targets.dispose();
-    presentation.dispose();
+    // Every actor leaves and the empty frame renders before the surfaces and presentation go away.
     for (const actorId of active.keys()) releaseActor(actorId);
     publish();
+    targets.dispose();
+    presentation.dispose();
     listeners.clear();
     latest.clear();
     safe(() => options.renderer?.dispose?.());

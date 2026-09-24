@@ -84,7 +84,7 @@ await runtime.execute(
 runtime.narrate({ actor, message: 'Female athletes are in view.', done: true });
 ```
 
-`runtime.narrate({ actor, message, done?, signal? })` speaks for an agent whose turns have no lifecycle of their own, such as a model calling a progress tool. The first sentence opens a turn, later sentences replace its words, and `done` closes it with its sentence. A turn left quiet for 15 seconds closes once the actor has no execution in flight. It throws on a missing, blank, or over-long sentence. See [agent presence](../presence/) for actor attribution, presentation bindings, and custom viewers.
+`runtime.narrate({ actor, message, done?, signal? })` speaks for an agent whose turns have no lifecycle of their own, such as a model calling a progress tool. The first sentence opens a turn, later sentences replace its words, and `done` closes it with its sentence. An agent actor's execution with no turn open opens one without an opening sentence, so every step of a request shares its `activityId`. A turn closes after 60 seconds with no sentence and no step starting or ending, once the actor has no execution in flight. It throws on a missing, blank, or over-long sentence. See [agent presence](../presence/) for actor attribution, presentation bindings, and custom viewers.
 
 ## Current capabilities and full inspection
 

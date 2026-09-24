@@ -59,10 +59,14 @@ test('human provenance stays invisible while retained agent presence follows doc
   expect((await tool(page, 'vgplot.set_interval_1d', { plotId: 'age', interactorId: '0', min: 22, max: 28 })).ok).toBe(
     true,
   );
-  // The live presence expires at 1600ms; the retained trail must keep tracking too.
-  await page.waitForTimeout(1900);
+  expect((await tool(page, 'vacp.progress', { message: 'Men aged 22 to 28 are in view.', done: true })).ok).toBe(true);
+  // The finished request's recorded steps keep tracking the page as it scrolls.
   const bubble = page.locator('[data-vacp-bubble]');
-  await expect(bubble).toBeVisible();
+  await expect(bubble.locator('[data-vacp-heading]')).toHaveText('Conclusion');
+  await bubble.hover();
+  await page.getByRole('button', { name: 'Previous analytical step' }).click();
+  await expect(bubble.locator('[data-vacp-heading]')).toHaveText('Step 2 of 2');
+  await expect(bubble).toHaveAttribute('aria-busy', 'false');
   for (const y of [60, 140, 0]) {
     await page.evaluate((y) => scrollTo(0, y), y);
     await frames(page);

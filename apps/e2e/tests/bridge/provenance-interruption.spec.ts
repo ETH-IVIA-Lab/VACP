@@ -32,10 +32,17 @@ test('native input abandons a pending restoration without rollback or late effec
     true,
   );
   await expect(page.locator('.athlete-summary strong').first()).toHaveText('506');
+  expect((await tool(page, 'vacp.progress', { message: 'Paddlers aged 22 to 28 are in view.', done: true })).ok).toBe(
+    true,
+  );
   const bubble = page.locator('[data-vacp-bubble]');
   const back = page.getByRole('button', { name: 'Previous analytical step' });
   const close = page.getByRole('button', { name: 'Return to live analysis' });
+  await expect(bubble.locator('[data-vacp-heading]')).toHaveText('Conclusion');
   await bubble.hover();
+  // From the conclusion, the step before the age brush is two frames back.
+  await back.click();
+  await expect(bubble.locator('[data-vacp-heading]')).toHaveText('Step 2 of 2');
   await back.click();
   await expect(bubble).toHaveAttribute('aria-busy', 'false');
   await expect(page.locator('.athlete-summary strong').first()).toHaveText('878');

@@ -263,15 +263,98 @@ test('narration opens one turn per actor, closes on done, and closes a quiet tur
   runtime.narrate({ actor, message: 'Checking the age range.' });
   const running = runtime.execute({ callId: 'slow', name: 'set' }, { actor, narration: 'Narrowing to ages 20 to 30.' });
   await new Promise((resolve) => setImmediate(resolve));
-  t.mock.timers.tick(15_000);
+  t.mock.timers.tick(60_000);
   assert.equal(runtime.getAgentActivities().length, 1, 'a step in flight keeps its turn open');
   release();
   await running;
-  t.mock.timers.tick(15_000);
+  t.mock.timers.tick(60_000);
   assert.equal(runtime.getAgentActivities().length, 0);
   const steps = runtime.getProvenance().records.filter((record) => record.kind === 'action');
   assert.equal(
     steps.at(-1)?.kind === 'action' && steps.at(-1)!.execution.activityId,
     turns().at(-1)?.kind === 'turn' && turns().at(-1)!.activityId,
   );
+});
+
+function stepRuntime() {
+  return createVacpRuntime({
+    providers: [
+      {
+        source: { id: 'vacp-source://steps', type: 'test', title: 'Steps' },
+        observe: () => ({
+          revision: 'static',
+          observedAt: '',
+          graph: {
+            version: '0.1.0',
+            nodes: [{ ref: 'vacp://steps/value', kind: 'Param', layer: 'ConfigLayer' }],
+            edges: [],
+            actions: [
+              { name: 'set', description: 'Set', operation: { kind: 'mutation', affects: ['vacp://steps/value'] } },
+            ],
+          },
+          state: { 'vacp://steps/value': 0 },
+        }),
+        prepare: async (call) => ({
+          intent: { affects: ['vacp://steps/value'] },
+          execute: async () => ({ callId: call.callId, ok: true }),
+        }),
+      },
+    ],
+  });
+}
+
+test('an agent’s first step opens its turn, and the closing words end that turn with every step in it', async (t) => {
+  const runtime = stepRuntime();
+  t.after(() => runtime.dispose());
+  const actor = { id: 'agent', kind: 'agent' as const };
+  await runtime.execute({ callId: 'sex', name: 'set' }, { actor, narration: 'Keeping female athletes.' });
+  await runtime.execute({ callId: 'sport', name: 'set' }, { actor, narration: 'Keeping aquatics.' });
+  assert.equal(runtime.getAgentActivities().length, 1, 'the request stays one open turn between its steps');
+  runtime.narrate({ actor, message: 'Female swimmers are in view.', done: true });
+  const records = runtime.getProvenance().records;
+  const turns = records.filter((record) => record.kind === 'turn');
+  const steps = records.filter((record) => record.kind === 'action');
+  assert.equal(turns.length, 1);
+  assert.deepEqual(
+    steps.map((step) => step.kind === 'action' && [step.execution.activityId, step.execution.narration]),
+    [
+      [turns[0]!.kind === 'turn' && turns[0]!.activityId, 'Keeping female athletes.'],
+      [turns[0]!.kind === 'turn' && turns[0]!.activityId, 'Keeping aquatics.'],
+    ],
+  );
+  assert.equal(turns[0]!.kind === 'turn' && turns[0]!.opening, undefined, 'a step’s words never become the opening');
+  assert.equal(turns[0]!.kind === 'turn' && turns[0]!.message, 'Female swimmers are in view.');
+});
+
+test('steps keep a turn open, and it closes after a quiet spell once the last step ends', async (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  const runtime = stepRuntime();
+  t.after(() => runtime.dispose());
+  const actor = { id: 'agent', kind: 'agent' as const };
+  runtime.narrate({ actor, message: 'Comparing swimmers.' });
+  t.mock.timers.tick(40_000);
+  await runtime.execute({ callId: 'first', name: 'set' }, { actor, narration: 'Keeping aquatics.' });
+  t.mock.timers.tick(40_000);
+  assert.equal(runtime.getAgentActivities().length, 1, 'the step restarted the quiet spell');
+  await runtime.execute({ callId: 'second', name: 'set' }, { actor, narration: 'Keeping ages 20 to 30.' });
+  t.mock.timers.tick(59_000);
+  assert.equal(runtime.getAgentActivities().length, 1, 'a reasoning pause between steps stays in the request');
+  t.mock.timers.tick(1_000);
+  assert.equal(runtime.getAgentActivities().length, 0);
+  const records = runtime.getProvenance().records;
+  const turn = records.find((record) => record.kind === 'turn');
+  assert.ok(turn?.kind === 'turn');
+  assert.equal(turn.opening, 'Comparing swimmers.');
+  for (const step of records.filter((record) => record.kind === 'action'))
+    assert.equal(step.kind === 'action' && step.execution.activityId, turn.activityId);
+});
+
+test('a person’s or the system’s step opens no agent turn', async (t) => {
+  const runtime = stepRuntime();
+  t.after(() => runtime.dispose());
+  await runtime.execute({ callId: 'human', name: 'set' }, { actor: { id: 'person', kind: 'human' } });
+  await runtime.dispatch({ callId: 'system', name: 'set' }, { actor: { id: 'app', kind: 'system' } });
+  assert.deepEqual(runtime.getAgentActivities(), []);
+  for (const step of runtime.getProvenance().records.filter((record) => record.kind === 'action'))
+    assert.equal(step.kind === 'action' && step.execution.activityId, undefined);
 });

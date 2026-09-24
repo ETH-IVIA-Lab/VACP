@@ -66,10 +66,9 @@ test('custom SDK actions produce passive presence through native WebMCP without 
     expect(result.exposed).toBe(false);
     expect(result.inputEvents).toBe(0);
     await expect.poll(() => cursorWithinVisualization(page, '#chart')).toBe(true);
-    await expect(page.locator('[data-vacp-presence] [data-vacp-bubble]')).toBeVisible();
-    await expect(page.locator('[data-vacp-presence] [data-vacp-phase]')).toHaveAttribute(
-      'data-vacp-phase',
-      'completed',
+    // The step shows its own sentence while the agent's request stays open for its next step.
+    await expect(page.locator('[data-vacp-presence] [data-vacp-summary]')).toHaveText(
+      'Keeping cars between 100 and 150 horsepower.',
     );
     // The overlay never takes input: the application still owns the point under the cursor.
     expect(
@@ -107,6 +106,14 @@ test('VGPlot presence matches the native interval brush', async ({ page }) => {
     });
   });
   expect(result.ok).toBe(true);
+  await page.evaluate(() =>
+    globalThis.__vacp.narrate({ actor: { id: 'agent', kind: 'agent' }, message: 'Summer is selected.', done: true }),
+  );
+  // The recorded step outlines the brush the request left behind.
+  const bubble = page.locator('[data-vacp-bubble]');
+  await bubble.hover();
+  await page.getByRole('button', { name: 'Previous analytical step' }).click();
+  await expect(bubble.locator('[data-vacp-heading]')).toHaveText('Step 1 of 1');
   await expect(page.locator('[data-vacp-presence] [data-vacp-cursor]')).toHaveAttribute(
     'data-vacp-cursor-shape',
     'crosshair',

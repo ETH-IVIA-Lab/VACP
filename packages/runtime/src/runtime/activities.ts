@@ -4,6 +4,7 @@ import {
   type VacpAgentActivity,
   type VacpAgentActivityControl,
   type VacpAgentActivityHandle,
+  type VacpActor,
 } from '@vacp/protocol';
 import { makeEntryId, notify } from './helpers';
 
@@ -20,7 +21,8 @@ export function createAgentActivityChannel(
   signal: AbortSignal,
   options: { ended: Ended; busy: (actorId: string) => boolean; idleMs?: number },
 ) {
-  const idleMs = options.idleMs ?? 15_000;
+  // Long enough for a reasoning model's pause between tool calls; it only ends a forgotten turn.
+  const idleMs = options.idleMs ?? 60_000;
   const active = new Map<
     string,
     {
@@ -83,44 +85,52 @@ export function createAgentActivityChannel(
     };
   };
 
-  /** Turns opened by `narrate`, closed by `done`, by a quiet spell with no work in flight, or by abort. */
-  const narrated = new Map<
-    string,
-    { handle: VacpAgentActivityHandle; id: string; idle?: ReturnType<typeof setTimeout> }
-  >();
+  /**
+   * Turns opened by `narrate` or by an agent's first step, closed by `done`, by a quiet spell with no
+   * work in flight, or by abort. Words and steps both count as activity, so a request never splits
+   * while its agent keeps working.
+   */
+  type Narrated = { handle: VacpAgentActivityHandle; id: string; idle?: ReturnType<typeof setTimeout> };
+  const narrated = new Map<string, Narrated>();
   const release = (actorId: string) => {
     clearTimeout(narrated.get(actorId)?.idle);
     narrated.delete(actorId);
   };
-  const narrate: VacpAgentActivityControl['narrate'] = ({ actor, message, done, signal: turnSignal }) => {
-    signal.throwIfAborted();
-    const text = parseVacpNarration(message, 'message');
-    const open = narrated.get(actor.id);
-    const live = open && active.get(actor.id)?.activity.id === open.id ? open : undefined;
-    if (done) {
-      release(actor.id);
-      (live?.handle ?? beginAgentActivity({ actor, signal: turnSignal })).end({ summary: text });
-      return;
-    }
-    let turn = live;
-    if (turn) turn.handle.update(text);
-    else {
-      release(actor.id);
-      const handle = beginAgentActivity({ actor, summary: text, signal: turnSignal });
-      turn = { handle, id: active.get(actor.id)!.activity.id };
-      narrated.set(actor.id, turn);
-    }
+  const live = (actorId: string) => {
+    const turn = narrated.get(actorId);
+    return turn && active.get(actorId)?.activity.id === turn.id ? turn : undefined;
+  };
+  const keepOpen = (actorId: string, turn: Narrated) => {
     const quiet = () => {
-      if (narrated.get(actor.id) !== turn) return;
+      if (narrated.get(actorId) !== turn) return;
       // Slow queries, pacing, and model thinking between steps belong to the same turn.
-      if (options.busy(actor.id)) turn.idle = setTimeout(quiet, idleMs);
+      if (options.busy(actorId)) turn.idle = setTimeout(quiet, idleMs);
       else {
-        release(actor.id);
+        release(actorId);
         turn.handle.end();
       }
     };
     clearTimeout(turn.idle);
     turn.idle = setTimeout(quiet, idleMs);
+  };
+  const open = (actor: VacpActor, text: string | undefined, turnSignal?: AbortSignal) => {
+    release(actor.id);
+    const handle = beginAgentActivity({ actor, summary: text, signal: turnSignal });
+    const turn = { handle, id: active.get(actor.id)!.activity.id };
+    narrated.set(actor.id, turn);
+    return turn;
+  };
+  const narrate: VacpAgentActivityControl['narrate'] = ({ actor, message, done, signal: turnSignal }) => {
+    signal.throwIfAborted();
+    const text = parseVacpNarration(message, 'message');
+    const turn = live(actor.id);
+    if (done) {
+      release(actor.id);
+      (turn?.handle ?? beginAgentActivity({ actor, signal: turnSignal })).end({ summary: text });
+      return;
+    }
+    if (turn) turn.handle.update(text);
+    keepOpen(actor.id, turn ?? open(actor, text, turnSignal));
   };
 
   const clear = () => {
@@ -141,12 +151,17 @@ export function createAgentActivityChannel(
     getAgentActivities: () => structuredClone([...active.values()].map((entry) => entry.activity)),
     /**
      * A step begins: it belongs to the actor's turn and carries `narration`, else the actor's live
-     * words once. A step that carries the live words owns them, so a following step without new words
-     * carries none instead of repeating its predecessor. The first step fixes the turn's opening.
+     * words once. An agent's step with no turn open opens one, so every request has a turn from its
+     * first step to its conclusion. A step that carries the live words owns them, so a following step
+     * without new words carries none instead of repeating its predecessor. The first step fixes the
+     * turn's opening.
      */
-    beginStep(actorId: string, narration: string | undefined): { activityId?: string; narration?: string } {
-      const entry = active.get(actorId);
+    beginStep(actor: VacpActor, narration: string | undefined): { activityId?: string; narration?: string } {
+      if (!active.has(actor.id) && actor.kind === 'agent') open(actor, undefined);
+      const entry = active.get(actor.id);
       if (!entry) return { narration };
+      const turn = live(actor.id);
+      if (turn) keepOpen(actor.id, turn);
       const words = entry.activity.summary;
       const carried = narration ?? (words !== entry.claimed ? words : undefined);
       if (carried !== undefined && carried === words) entry.claimed = words;
@@ -155,6 +170,11 @@ export function createAgentActivityChannel(
         entry.opening = words !== carried ? words : undefined;
       }
       return { activityId: entry.activity.id, narration: carried };
+    },
+    /** A step ended: the actor's quiet spell starts again from here. */
+    endStep(actorId: string) {
+      const turn = live(actorId);
+      if (turn) keepOpen(actorId, turn);
     },
     subscribeAgentActivities(listener: (activity: VacpAgentActivity) => void) {
       signal.throwIfAborted();

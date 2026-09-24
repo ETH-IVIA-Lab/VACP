@@ -49,8 +49,15 @@ export async function mountPresenceChart(
   const action = graph.actions.find((action) => action.operation.contract === 'vega_lite.set_selection')!;
   const ref = graph.nodes.find((node) => node.ref.endsWith('/param/brush'))!.ref;
   return {
+    /** One finished agent request: a brush, then the closing sentence. */
     async filter() {
-      return runtime.execute({ callId: 'brush', name: action.name, params: { ref, value: { x: [2, 6] } } });
+      const result = await runtime.execute({
+        callId: 'brush',
+        name: action.name,
+        params: { ref, value: { x: [2, 6] } },
+      });
+      runtime.narrate({ actor: { id: 'agent', kind: 'agent' }, message: 'The brushed range is selected.', done: true });
+      return result;
     },
     dispose() {
       presence.dispose();

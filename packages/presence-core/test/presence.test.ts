@@ -12,6 +12,10 @@ import {
   type PresenceTarget,
 } from '../src/index';
 
+/** Entries still showing a step or a located target. An actor mid-turn stays, with nowhere to rest. */
+const shown = (presence: { getSnapshot(): readonly PresenceActivity[] }) =>
+  presence.getSnapshot().filter((activity) => activity.execution || activity.target);
+
 const target: PresenceTarget = {
   surface: 'test',
   precision: 'exact',
@@ -113,7 +117,7 @@ test('a later action keeps actor focus when an earlier target resolves', async (
     assert.equal(presence.getSnapshot()[0]!.execution!.callId, 'current');
     assert.deepEqual(presence.getSnapshot()[0]!.target, target);
     f.runtime.removeProvider(f.provider.source.id);
-    assert.deepEqual(presence.getSnapshot(), []);
+    assert.deepEqual(shown(presence), []);
   } finally {
     presence.dispose();
     f.runtime.dispose();
@@ -162,7 +166,7 @@ test('replacing a source retires pending geometry and its old binding cannot tar
     assert.equal(lease.signal.aborted, true);
     finish(target);
     await setImmediate();
-    assert.deepEqual(presence.getSnapshot(), []);
+    assert.deepEqual(shown(presence), []);
     await f.runtime.execute({ callId: 'replacement', name: 'set' });
     assert.equal(presence.getSnapshot()[0]!.target, null);
   } finally {
@@ -409,7 +413,7 @@ test(
       await rendering;
       detach();
       await arrival;
-      assert.deepEqual(presence.getSnapshot(), []);
+      assert.deepEqual(shown(presence), []);
     } finally {
       presence.dispose();
       f.runtime.dispose();
