@@ -37,7 +37,7 @@ The runtime retains 256 records by default. Set `historyLimit` when creating the
 
 Each record has an `id` and capture time `at`. Action attribution comes from `execution.actor`. Use `provenanceActor(record)`, `provenanceFocus(record)`, and `provenanceMessage(record)` to consume metadata across record kinds.
 
-An action record's `message` is what its actor told the person about the step, as of completion: the explicit `message` passed to `dispatch()`, or the actor's public progress summary, including text streamed while the action ran. Replaying the step shows that same text. Action capture preserves the terminal outcome even when a later observation fails. Missing `before` or `observation` means that capture was unavailable. If a result payload cannot be structured-cloned, the journal retains its success/failure envelope with a `captureErrors` diagnostic. The result returned to the caller remains intact.
+An action record's `execution.narration` is what its actor told the person about the step, fixed when the step was accepted: the `narration` passed to `execute()`, or the actor's public progress summary if no earlier step of the turn carried it. Replaying the step shows that same text, and a step without narration shows its change. Action capture preserves the terminal outcome even when a later observation fails. Missing `before` or `observation` means that capture was unavailable. If a result payload cannot be structured-cloned, the journal retains its success/failure envelope with a `captureErrors` diagnostic. The result returned to the caller remains intact.
 
 ### Attribution and concurrency
 
@@ -90,7 +90,7 @@ replay.dispose();
 
 Every restored source must expose an available `vacp.apply_state` operation. The restorer validates source ownership, routes each source its state, and reports per-source results. Effects can partially succeed across engines. Inspect the result when invoking the restorer directly. The replay controller exposes a failed restore through its `error` state.
 
-`getState()` returns `phase`, `steps`, `selected`, `latest`, and optional `error`. Phases are `live`, `restoring`, `reviewing`, and `error`. `subscribe(listener)` notifies a viewer to read the current state. `review(id)` selects any retained checkpoint. The consuming UI chooses filters, ordering, and navigation controls.
+`getState()` returns `phase`, `steps`, `turns`, `selected`, `latest`, and optional `error`. `turns` lists the finished agent turns of the session, oldest first. Group steps into requests with `provenanceTurn(record)`, which returns a record's `activityId`. Phases are `live`, `restoring`, `reviewing`, and `error`. `subscribe(listener)` notifies a viewer to read the current state. `review(id)` selects any retained checkpoint. The consuming UI chooses filters, ordering, and navigation controls.
 
 The controller captures a return observation before its first restore and holds the review trail during navigation. `close()` restores that return observation. A new foreign mutation, changed external observation, or session reset interrupts review. `interrupt()` abandons the return observation and cancels pending work. Disposal also cancels pending work and releases subscriptions. Neither interruption nor disposal restores an earlier state.
 

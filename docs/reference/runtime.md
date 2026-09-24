@@ -46,7 +46,7 @@ The composer retries when a provider invalidates while sources are being read. E
 
 `getProvenance()` synchronously returns a frozen `{ runtimeId, sessionKey, epoch, revision, limit, records }` snapshot. Records are captured once and deeply frozen, so every reader and subscriber shares them and none can alter what another sees. `limit` is the retention bound; a consumer that mirrors events applies the same bound. `subscribeProvenance(listener)` receives `{ epoch, revision, record }` events. A `null` record marks a reset to a new epoch. `inspect()` reads the complete live observation independently of this journal.
 
-Records are discriminated by `kind`: `action`, `observation`, or `session`. An action retains its call, result, terminal execution, captured public message, and available before/after observations. Its actor belongs to `execution.actor`. Observation and session records carry their actor directly. Use the accessors in `@vacp/provenance-core` when consuming multiple record kinds.
+Records are discriminated by `kind`: `action`, `observation`, `session`, or `turn`. A `turn` record marks the end of an agent turn, with its `activityId`, `outcome`, `opening` sentence, and closing sentence in `message`; each execution of the turn carries the same `activityId`. An action retains its call, result, terminal execution with the step's `narration`, and available before/after observations. Its actor belongs to `execution.actor`. Observation and session records carry their actor directly. Use the accessors in `@vacp/provenance-core` when consuming multiple record kinds.
 
 Before-state capture occurs after preparation and execution gates, immediately before effects. Failed or cancelled operations retain their outcome. A failed observation read leaves that observation absent. If a result payload cannot be cloned, its journal envelope preserves the outcome and reports omitted payload data in `captureErrors`. The caller still receives the original result.
 
@@ -74,7 +74,17 @@ Caller cancellation and runtime lifetime are combined in the handler's `{ signal
 
 `getActiveExecutions()` returns current pending executions. `subscribeExecutions(listener)` publishes action lifecycle events independently of provenance. `getProviderBinding(provider)` returns the current attachment identity and lifetime signal for local presentation bindings. The separate `VacpExecutionControl` port grants timing authority: `addExecutionGate(gate, { timeoutMs, stage })` installs a bounded presentation gate. `stage` defaults to `before`. `after` holds the completed result and cannot change its outcome. The method returns its removal function.
 
-Applications continue to invoke `runtime.execute(call, options)`. The runtime prepares and executes the owned operation once. See [agent presence](../presence/) for actor attribution, presentation bindings, and custom viewers.
+Applications continue to invoke `runtime.execute(call, options)`. The runtime prepares and executes the owned operation once. `options.narration` is the step's sentence for the person watching, at most 280 characters, and the execution carries it from acceptance.
+
+```ts
+await runtime.execute(
+  { callId: 'c1', name: 'cohort.set_sex', params: { sex: 'female' } },
+  { actor, narration: 'Keeping only female athletes.' },
+);
+runtime.narrate({ actor, message: 'Female athletes are in view.', done: true });
+```
+
+`runtime.narrate({ actor, message, done?, signal? })` speaks for an agent whose turns have no lifecycle of their own, such as a model calling a progress tool. The first sentence opens a turn, later sentences replace its words, and `done` closes it with its sentence. A turn left quiet for 15 seconds closes once the actor has no execution in flight. It throws on a missing, blank, or over-long sentence. See [agent presence](../presence/) for actor attribution, presentation bindings, and custom viewers.
 
 ## Current capabilities and full inspection
 

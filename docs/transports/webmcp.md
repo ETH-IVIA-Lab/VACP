@@ -25,9 +25,11 @@ By default, agents discover:
 | `vacp.capabilities`         | The live graph, including entities, edges, references, and action descriptions. |
 | `vacp.state`                | Current state and summaries keyed by graph references.                          |
 | `vacp.progress`             | Shows one plain sentence to the person in the agent's presence bubble.          |
-| `vacp.action.<action-name>` | The result of the corresponding VACP action.                                    |
+| `vacp.action.<action-name>` | The result of the corresponding VACP action, narrated by its own sentence.      |
 
-`vacp.progress` is registered when the source publishes agent activity, as the VACP runtime does. Its description asks the agent for one short present-tense sentence about the data and the view, with the reason when it helps the person follow, without tool names or references. The first message of a turn opens a public activity for the WebMCP actor, later messages replace its text, `done: true` closes it with a closing sentence, and a turn with no message for 15 seconds closes on its own. See [agent presence](../presence/#report-thinking-and-public-progress).
+Every action tool requires a `narration` field next to the action's parameters: this step's own sentence for the person. The adapter passes it to the runtime as the step's `narration`, which the execution carries from acceptance, so the presence bubble shows it as the step begins. An action whose parameters already use the name `narration`, or whose schema root is not an object, moves its parameters under `params`.
+
+`vacp.progress` is registered when the source publishes agent activity, as the VACP runtime does. The agent calls it once before the first action and again with `done: true` and a closing sentence. The progress tool speaks through the runtime's narrator for the WebMCP actor, so its turn and the narrated actions share one public activity: the first sentence opens it, later sentences replace its text, and `done: true` closes it. A turn with no sentence for 15 seconds closes once no step of the actor is in flight. See [agent presence](../presence/#report-thinking-and-public-progress).
 
 An action's related nodes supply context for its tool description. Its existing parameter schema is reused. The adapter does not infer handlers from graph nodes or create a separate application action registry.
 
@@ -35,7 +37,7 @@ An action's related nodes supply context for its tool description. Its existing 
 
 Schemas with an explicit `type: 'object'` pass inputs directly to the action. For an action named `threshold.set`, an agent calls `vacp.action.threshold.set` with `{ "value": 42 }`.
 
-Other schemas, including unions, nullable objects, and root `$ref` schemas, use a `params` envelope. For an action accepting a string, the tool input is `{ "params": "hello" }`. The nested schema retains its own schema resource for local references. Use `inputMode: () => 'object'` to pass through an indirect schema known to accept only objects, or `'params'` to require an envelope. Actions without a schema accept object inputs by default.
+Other schemas, including unions, nullable objects, and root `$ref` schemas, use a `params` envelope. For an action accepting a string, the tool input is `{ "params": "hello" }`. The nested schema retains its own schema resource for local references. Use `inputMode: () => 'object'` to place `narration` beside the properties of an object schema that automatic detection would wrap, or `'params'` to require an envelope. Object mode requires an object root without its own `narration` property, and compilation throws otherwise. Actions without a schema accept object inputs by default.
 
 An envelope requires an explicit `params` value, including `null` when accepted. To expose optional values or defaults through WebMCP, place them in object properties, for example `.params(z.object({ limit: z.number().default(10) }))`. Agents can then invoke the action with `{}`.
 

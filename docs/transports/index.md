@@ -1,6 +1,6 @@
 # Connect an agent
 
-Agents use `vacp_observe`, `vacp_capabilities`, `vacp_state`, and `vacp_execute`. Each transport forwards those operations to the visualization's bridge. Each transport also offers `vacp_progress`, which shows one plain sentence to the person watching, so they can follow the agent's work in the [presence bubble](../presence/#report-thinking-and-public-progress).
+Agents use `vacp_observe`, `vacp_capabilities`, `vacp_state`, and `vacp_execute`. Each transport forwards those operations to the visualization's bridge. Every action call carries a `narration` sentence for the step, and each transport also offers `vacp_progress` for an opening and a closing sentence. The person watching follows each step in the [presence bubble](../presence/#report-thinking-and-public-progress), and replay shows the same words per step.
 
 ## External agents through MCP
 
