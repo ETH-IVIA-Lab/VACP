@@ -237,6 +237,8 @@ presence.attach(provider, {
 });
 ```
 
+Presence calls `subscribe` only while a pointer or a recorded frame rests on the binding's source, and releases the subscription when the last one leaves. An idle chart carries no layout observers. `observePresenceLayout(root, invalidate)` reports resizes, added or removed children, text changes, and attribute changes inside `root`, at most once per animation frame. Paint-only attributes (`fill`, `stroke`, `opacity`, `color`, and their opacity and stop variants) leave targets in place, so a hover highlight triggers no lookup. A subscription that throws is reported through `onError` and tried again the next time the source is watched. Call `presence.invalidateTargets()` after a scroll or window resize to look every target up again.
+
 Canvas and WebGL applications can implement `PresenceResolver` directly. Return a point, region, or path in the renderer's named coordinate surface, or `null` when no location is known. The browser renderer uses CSS viewport pixels on the `viewport` surface. `svgPresenceTarget(element, geometry)` applies a live SVG screen transform. Resolvers receive an abort signal and should release pending work when it aborts.
 
 ## Interaction meaning and assets

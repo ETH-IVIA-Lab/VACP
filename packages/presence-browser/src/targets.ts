@@ -151,7 +151,23 @@ export function createElementPresenceResolver(resolve: (focus: VacpFocus) => Ele
   };
 }
 
-/** Native surface geometry only. Browser presence owns viewport scroll and resize. */
+/** Paint-only attributes, such as a hover highlight's fill or opacity, leave every target in place. */
+const paintAttributes = new Set([
+  'fill',
+  'fill-opacity',
+  'stroke',
+  'stroke-opacity',
+  'opacity',
+  'color',
+  'stop-color',
+  'stop-opacity',
+]);
+
+/**
+ * A layout witness for a surface: size changes of `root`, and structure, text, or attributes other than
+ * paint changing inside it, at most once per animation frame. Browser presence owns viewport scroll and
+ * resize, and runs a witness only while a pointer rests on its surface.
+ */
 export function observePresenceLayout(root: Element, invalidate: () => void): () => void {
   const view = root.ownerDocument.defaultView;
   if (!view) return () => {};
@@ -163,10 +179,18 @@ export function observePresenceLayout(root: Element, invalidate: () => void): ()
         invalidate();
       });
   };
-  const resize = new ResizeObserver(refresh);
+  // Observing reports the current size once. The lookup that started this witness already measured it.
+  let sized = false;
+  const resize = new view.ResizeObserver(() => {
+    if (sized) refresh();
+    sized = true;
+  });
   resize.observe(root);
-  const mutations = new MutationObserver(refresh);
-  mutations.observe(root, { childList: true, subtree: true, attributes: true });
+  const mutations = new view.MutationObserver((records) => {
+    if (records.some((record) => record.type !== 'attributes' || !paintAttributes.has(record.attributeName!)))
+      refresh();
+  });
+  mutations.observe(root, { childList: true, characterData: true, subtree: true, attributes: true });
   return () => {
     view.cancelAnimationFrame(frame);
     resize.disconnect();

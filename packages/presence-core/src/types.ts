@@ -33,7 +33,11 @@ export type PresenceBinding = {
   id: string;
   signal: AbortSignal;
   resolve: PresenceResolver;
-  /** Notify only when active geometry may have changed. */
+  /**
+   * Notify when geometry on this surface may have changed. Presence subscribes only while a pointer or
+   * a recorded frame rests on the binding's source, and unsubscribes when none does. A subscription
+   * that throws is reported through `onError` and tried again the next time the source is watched.
+   */
   subscribe?: (invalidate: () => void) => () => void;
 };
 

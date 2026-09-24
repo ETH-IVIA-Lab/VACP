@@ -7,7 +7,7 @@ import {
   type ProvenanceReplayState,
 } from '@vacp/provenance-core';
 import type { VacpActor, VacpTurnRecord } from '@vacp/protocol';
-import type { PresenceActivity, PresenceFrame, PresenceNavigation, PresenceOptions, PresenceTarget } from './types';
+import type { PresenceActivity, PresenceFrame, PresenceNavigation, PresenceOptions } from './types';
 import { isAgentActor } from './types';
 import type { PresenceFocus } from './targets';
 import { presenceSubject } from './subject';
@@ -74,7 +74,7 @@ function latestRequest(steps: readonly ProvenanceCheckpoint[], turns: readonly V
 /** Select one presentation without giving the renderer knowledge of history or restoration. */
 export function createPresencePresentation(
   options: PresenceOptions,
-  resolve: (focus: PresenceFocus, signal: AbortSignal) => Promise<PresenceTarget | null>,
+  targets: Parameters<typeof createTargetTracker>[0],
   report: (error: unknown) => void,
 ) {
   const includes = options.includeActor ?? isAgentActor;
@@ -216,7 +216,7 @@ export function createPresencePresentation(
     }
   };
   const recordedTargets = createTargetTracker(
-    resolve,
+    targets,
     (target, reason) => {
       if (!recorded) return;
       recorded.activity = { ...recorded.activity, target };
@@ -235,11 +235,12 @@ export function createPresencePresentation(
       focus,
     };
     render([recorded.activity], reason);
-    if (same || !focus) return;
-    recordedTargets.track(focus, reason, lifetime.signal);
+    if (same) return;
+    if (focus) recordedTargets.track(focus, reason, lifetime.signal);
+    else recordedTargets.stop();
   };
   const leaveRecorded = () => {
-    recordedTargets.cancel();
+    recordedTargets.stop();
     recorded = undefined;
   };
 
@@ -343,9 +344,10 @@ export function createPresencePresentation(
       refresh();
       present(reason);
     },
-    /** Layout moves targets: only a recorded step looks its target up again, and its lookup renders. */
-    invalidate() {
-      if (recorded?.focus) recordedTargets.track(recorded.focus, 'layout', lifetime.signal);
+    /** Layout moved `sourceId`, or every source: a recorded step on it looks its target up again, and its lookup renders. */
+    invalidate(sourceId?: string) {
+      if (recorded?.focus && (!sourceId || recorded.focus.sourceId === sourceId))
+        recordedTargets.track(recorded.focus, 'layout', lifetime.signal);
     },
     dispose() {
       lifetime.abort();

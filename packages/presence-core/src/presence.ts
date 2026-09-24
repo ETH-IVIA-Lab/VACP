@@ -159,7 +159,7 @@ export function createAgentPresence(source: PresenceSource, options: PresenceOpt
       afterSequence: -1,
       freshness: 'unknown',
       targets: createTargetTracker(
-        targets.resolve,
+        targets,
         (target, reason) => {
           entry.target = target ? captureVacpValue(target) : undefined;
           publish(reason);
@@ -175,6 +175,7 @@ export function createAgentPresence(source: PresenceSource, options: PresenceOpt
     if (!entry) return;
     entry.lifetime.abort();
     entry.step?.lifetime.abort();
+    entry.targets.stop();
     clearTimeout(entry.retire);
     clearTimeout(entry.hold?.timer);
     active.delete(actorId);
@@ -192,7 +193,7 @@ export function createAgentPresence(source: PresenceSource, options: PresenceOpt
   };
   const locate = (entry: Entry, reason: 'activity' | 'layout' = 'activity') => {
     if (!entry.rest) {
-      entry.targets.cancel();
+      entry.targets.stop();
       entry.target = undefined;
       return;
     }
@@ -200,15 +201,16 @@ export function createAgentPresence(source: PresenceSource, options: PresenceOpt
     if (entry.step) signals.push(entry.step.lifetime.signal);
     entry.targets.track(entry.rest, reason, AbortSignal.any(signals));
   };
-  const invalidateTargets = (bindingId?: string) => {
+  /** Surfaces moved: pointers and the recorded frame on `binding`, or on every binding, look again. */
+  const invalidateTargets = (binding?: PresenceBinding) => {
     if (lifetime.signal.aborted) return;
     for (const entry of active.values())
-      if (!bindingId || entry.step?.value.bindingId === bindingId || entry.rest?.bindingId === bindingId)
+      if (!binding || entry.step?.value.sourceId === binding.sourceId || entry.rest?.sourceId === binding.sourceId)
         locate(entry, 'layout');
-    safe(() => presentation.invalidate());
+    safe(() => presentation.invalidate(binding?.sourceId));
   };
   const targets = createPresenceTargets(lifetime.signal, invalidateTargets, report);
-  const presentation = createPresencePresentation(options, targets.resolve, report);
+  const presentation = createPresencePresentation(options, targets, report);
   const retire = (actorId: string, entry: Entry) => {
     clearTimeout(entry.retire);
     entry.retire = setTimeout(() => {
@@ -290,7 +292,7 @@ export function createAgentPresence(source: PresenceSource, options: PresenceOpt
     if (value.phase === 'prepared' || value.phase === 'running') locate(entry);
     if (value.phase === 'cancelled') {
       entry.step.lifetime.abort();
-      entry.targets.cancel();
+      entry.targets.stop();
       entry.target = undefined;
     }
     if (terminal(value) && entry.progress?.phase !== 'thinking') retire(actorId, entry);
@@ -352,7 +354,8 @@ export function createAgentPresence(source: PresenceSource, options: PresenceOpt
   return {
     signal: lifetime.signal,
     getSnapshot: snapshot,
-    invalidateTargets,
+    /** The page scrolled or resized: every pointer and recorded frame looks its target up again. */
+    invalidateTargets: () => invalidateTargets(),
     async arrive(executionId: string, signal: AbortSignal) {
       const entry = [...active.values()].find((value) => value.step?.value.id === executionId);
       const step = entry?.step;

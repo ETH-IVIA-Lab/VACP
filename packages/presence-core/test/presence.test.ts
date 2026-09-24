@@ -7,6 +7,7 @@ import {
   createAgentPresence,
   paceAgentPresence,
   type PresenceActivity,
+  type PresenceBinding,
   type PresenceFrame,
   type PresenceTarget,
 } from '../src/index';
@@ -801,4 +802,94 @@ test('steps sent in the same tick still move the cursor to the latest one', asyn
   assert.deepEqual(activity?.target?.geometry, { kind: 'point', point: { x: 3, y: 0 } });
   presence.dispose();
   lifetime.abort();
+});
+
+function watchedPresence() {
+  const lifetime = new AbortController();
+  let publish!: (execution: VacpExecution) => void;
+  const presence = createAgentPresence(
+    {
+      signal: lifetime.signal,
+      getActiveExecutions: () => [],
+      subscribeExecutions: (listener) => {
+        publish = listener;
+        return () => {};
+      },
+      subscribeSnapshots: () => () => {},
+    },
+    { lingerMs: 0 },
+  );
+  const surface = { watching: 0, started: 0 };
+  const binding = (): PresenceBinding => ({
+    id: 'binding',
+    sourceId: 'vacp-source://watched',
+    signal: lifetime.signal,
+    resolve: () => ({ surface: 'test', precision: 'exact', geometry: { kind: 'point', point: { x: 1, y: 1 } } }),
+    subscribe: () => {
+      surface.watching++;
+      surface.started++;
+      return () => surface.watching--;
+    },
+  });
+  const step = (id: string, phase: VacpExecution['phase']): VacpExecution => ({
+    id,
+    callId: id,
+    sequence: 1,
+    name: 'focus',
+    at: '',
+    phase,
+    actor: { id: 'agent', kind: 'agent' },
+    sourceId: 'vacp-source://watched',
+    bindingId: 'binding',
+    intent: { affects: [], focus: { ref: 'vacp://plot' } },
+  });
+  return {
+    presence,
+    surface,
+    binding,
+    publish: (execution: VacpExecution) => publish(execution),
+    step,
+    dispose() {
+      presence.dispose();
+      lifetime.abort();
+    },
+  };
+}
+
+test('a surface is watched for layout only while a pointer rests on it', async () => {
+  const f = watchedPresence();
+  f.presence.attach(f.binding());
+  assert.equal(f.surface.watching, 0, 'nothing rests on the surface yet');
+  f.publish(f.step('step', 'prepared'));
+  await setImmediate();
+  assert.equal(f.surface.watching, 1);
+  f.publish(f.step('step', 'succeeded'));
+  await new Promise((resolve) => setTimeout(resolve, 5));
+  assert.equal(f.presence.getSnapshot().length, 0);
+  assert.equal(f.surface.watching, 0, 'the pointer left, so the surface is no longer watched');
+  f.dispose();
+});
+
+test('consecutive steps on one surface keep a single layout witness', async () => {
+  const f = watchedPresence();
+  f.presence.attach(f.binding());
+  f.publish(f.step('first', 'prepared'));
+  f.publish(f.step('first', 'succeeded'));
+  f.publish(f.step('second', 'prepared'));
+  await setImmediate();
+  assert.deepEqual(f.surface, { watching: 1, started: 1 });
+  f.dispose();
+});
+
+test('a detach handle from an earlier attachment leaves the newer binding watched', async () => {
+  const f = watchedPresence();
+  const stale = f.presence.attach(f.binding());
+  stale();
+  f.presence.attach(f.binding());
+  f.publish(f.step('step', 'prepared'));
+  await setImmediate();
+  stale();
+  assert.equal(f.surface.watching, 1);
+  assert.equal(f.presence.getSnapshot()[0]?.target?.precision, 'exact');
+  f.dispose();
 });

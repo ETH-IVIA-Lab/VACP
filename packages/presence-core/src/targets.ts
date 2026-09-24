@@ -4,14 +4,43 @@ import type { PresenceBinding } from './types';
 
 export type PresenceFocus = { focus: VacpFocus; sourceId: VacpSourceId; bindingId?: string };
 
-/** One binding inventory for live execution, replay and layout invalidation. */
+/**
+ * One binding inventory for live execution, replay and layout invalidation. A binding's layout witness
+ * runs only while something watches its source: a pointer resting on it, or a recorded frame shown on it.
+ */
 export function createPresenceTargets(
   signal: AbortSignal,
-  invalidate: (bindingId?: string) => void,
+  invalidate: (binding: PresenceBinding) => void,
   report: (error: unknown) => void,
 ) {
   const bindings = new Map<string, PresenceBinding>();
   const releases = new Map<string, () => void>();
+  const interest = new Map<VacpSourceId, number>();
+  const witnesses = new Map<PresenceBinding, () => void>();
+  const stopWitness = (stop: () => void) => {
+    try {
+      stop();
+    } catch (error) {
+      report(error);
+    }
+  };
+  const observe = (binding: PresenceBinding) => {
+    if (witnesses.has(binding) || !binding.subscribe) return;
+    let stop: () => void;
+    try {
+      stop = binding.subscribe(() => invalidate(binding));
+    } catch (error) {
+      return report(error);
+    }
+    // Subscribing can call back into presence, which may detach the binding or release its source.
+    if (bindings.get(binding.id) === binding && interest.has(binding.sourceId)) witnesses.set(binding, stop);
+    else stopWitness(stop);
+  };
+  const ignore = (binding: PresenceBinding) => {
+    const stop = witnesses.get(binding);
+    witnesses.delete(binding);
+    if (stop) stopWitness(stop);
+  };
   return {
     async resolve(target: PresenceFocus, requested: AbortSignal) {
       const binding = target.bindingId
@@ -24,35 +53,41 @@ export function createPresenceTargets(
       lifetime.throwIfAborted();
       return result && validPresenceTarget(result) ? result : null;
     },
+    /** Keep the source's layout witness running until the returned function is called. */
+    watch(sourceId: VacpSourceId) {
+      const count = (interest.get(sourceId) ?? 0) + 1;
+      interest.set(sourceId, count);
+      if (count === 1) for (const binding of bindings.values()) if (binding.sourceId === sourceId) observe(binding);
+      let released = false;
+      return () => {
+        if (released) return;
+        released = true;
+        const left = interest.get(sourceId)! - 1;
+        if (left) return void interest.set(sourceId, left);
+        interest.delete(sourceId);
+        for (const binding of bindings.values()) if (binding.sourceId === sourceId) ignore(binding);
+      };
+    },
     attach(binding: PresenceBinding, detached: () => void) {
       signal.throwIfAborted();
       binding.signal.throwIfAborted();
       if (bindings.has(binding.id)) throw new Error('Presentation binding is already attached');
       bindings.set(binding.id, binding);
-      let unsubscribe: (() => void) | undefined;
-      try {
-        unsubscribe = binding.subscribe?.(() => invalidate(binding.id));
-      } catch (error) {
-        bindings.delete(binding.id);
-        throw error;
-      }
+      if (interest.has(binding.sourceId)) observe(binding);
       const detach = () => {
-        if (!bindings.delete(binding.id)) return;
+        // A handle kept from an earlier attachment leaves a newer binding with the same ID in place.
+        if (bindings.get(binding.id) !== binding) return;
+        bindings.delete(binding.id);
         releases.delete(binding.id);
         binding.signal.removeEventListener('abort', detach);
-        try {
-          unsubscribe?.();
-        } catch (error) {
-          report(error);
-        } finally {
-          detached();
-          invalidate(binding.id);
-        }
+        ignore(binding);
+        detached();
+        invalidate(binding);
       };
       releases.set(binding.id, detach);
       binding.signal.addEventListener('abort', detach, { once: true });
       if (binding.signal.aborted) detach();
-      else invalidate(binding.id);
+      else invalidate(binding);
       return detach;
     },
     dispose() {

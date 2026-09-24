@@ -20,14 +20,28 @@ function sameTarget(a: PresenceTarget | null, b: PresenceTarget | null): boolean
 
 /**
  * One target lookup at a time. A burst of invalidations resolves the newest focus once, late results
- * are dropped, and an arrival wait can observe the pending promise and the lookup's own signal.
+ * are dropped, and an arrival wait can observe the pending promise and the lookup's own signal. The
+ * tracked source stays watched for layout until `stop`, so a new step on the same surface keeps its
+ * witness running.
  */
 export function createTargetTracker(
-  resolve: (focus: PresenceFocus, signal: AbortSignal) => Promise<PresenceTarget | null>,
+  targets: {
+    resolve: (focus: PresenceFocus, signal: AbortSignal) => Promise<PresenceTarget | null>;
+    watch: (sourceId: PresenceFocus['sourceId']) => () => void;
+  },
   deliver: (target: PresenceTarget | null, reason: PresenceFrame['reason']) => void,
   report: (error: unknown) => void,
 ) {
-  let current: { controller: AbortController; promise: Promise<void> } | undefined;
+  const { resolve } = targets;
+  let watching: { sourceId: PresenceFocus['sourceId']; release: () => void } | undefined;
+  const watch = (sourceId: PresenceFocus['sourceId']) => {
+    if (watching?.sourceId === sourceId) return;
+    watching?.release();
+    watching = { sourceId, release: targets.watch(sourceId) };
+  };
+  let current:
+    | { controller: AbortController; promise: Promise<void>; reason: PresenceFrame['reason']; settled: boolean }
+    | undefined;
   let queued: { focus: PresenceFocus; reason: PresenceFrame['reason'] } | undefined;
   let delivered: PresenceTarget | null | undefined;
   // A lookup that finds the same target again changes nothing, unless a layout frame waits to confirm it.
@@ -36,6 +50,17 @@ export function createTargetTracker(
     delivered = target;
     deliver(target, reason);
   };
+  const cancel = () => {
+    current?.controller.abort();
+    current = undefined;
+    queued = undefined;
+    delivered = undefined;
+  };
+  const stop = () => {
+    cancel();
+    watching?.release();
+    watching = undefined;
+  };
   return {
     get pending() {
       return current?.promise;
@@ -43,45 +68,54 @@ export function createTargetTracker(
     get signal() {
       return current?.controller.signal;
     },
-    cancel() {
-      current?.controller.abort();
-      current = undefined;
-      queued = undefined;
-      delivered = undefined;
-    },
-    track(focus: PresenceFocus, reason: PresenceFrame['reason'], lifetime: AbortSignal) {
+    /** Drop the pending lookup and forget the delivered target. The source stays watched. */
+    cancel,
+    /** Drop the pending lookup and stop watching the source. */
+    stop,
+    track(focus: PresenceFocus, requested: PresenceFrame['reason'], lifetime: AbortSignal) {
+      if (lifetime.aborted) return stop();
+      watch(focus.sourceId);
+      // A step's lookup superseded by layout still arrives as the step, so the cursor travels to it.
+      const reason = current && !current.settled && current.reason === 'activity' ? 'activity' : requested;
       if (queued) {
         queued = { focus, reason };
+        current!.reason = reason;
         return;
       }
       current?.controller.abort();
       const controller = new AbortController();
       const signal = AbortSignal.any([controller.signal, lifetime]);
       queued = { focus, reason };
-      current = {
+      const lookup = {
         controller,
+        reason,
+        settled: false,
         promise: untilAborted(
           Promise.resolve()
             .then(() => {
               // A lookup superseded or cancelled before it starts leaves the queued focus to its successor.
-              if (current?.controller !== controller || signal.aborted) return;
+              if (current !== lookup || signal.aborted) return;
               const wanted = queued!;
               queued = undefined;
               return resolve(wanted.focus, signal).then((target) => [target, wanted.reason] as const);
             })
             .then(
               (result) => {
-                if (result && !signal.aborted) offer(result[0], result[1]);
+                if (!result || signal.aborted) return;
+                lookup.settled = true;
+                offer(result[0], result[1]);
               },
               (error) => {
                 if (signal.aborted) return;
-                offer(null, reason);
+                lookup.settled = true;
+                offer(null, lookup.reason);
                 report(error);
               },
             ),
           signal,
         ),
       };
+      current = lookup;
     },
   };
 }
