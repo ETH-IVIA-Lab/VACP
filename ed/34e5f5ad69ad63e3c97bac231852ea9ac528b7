@@ -1,0 +1,34 @@
+apps/e2e/tests/bridge/agent-activity.spec.ts
+  s_2d40e2e67e50cc::t_188b8fbd13af65 63,66
+packages/presence-browser/src/describe.ts
+  s_2d40e2e67e50cc::t_564c56b7043888 7-10,15-16,35
+packages/presence-core/test/presentation.test.ts
+  s_2d40e2e67e50cc::t_a916548b551ed5 492-497,499-504
+  s_2d40e2e67e50cc::t_66fe71993e5afb 498
+packages/presence-browser/test/slots.test.ts
+  s_2d40e2e67e50cc::t_6bb34c6369d497 85-107
+packages/presence-browser/src/bubble.tsx
+  s_2d40e2e67e50cc::t_564c56b7043888 242-246
+  s_2d40e2e67e50cc::t_2c4fa810226384 85
+docs/presence/index.md
+  s_2d40e2e67e50cc::t_0ffd56f43e9957 135-139
+  s_2d40e2e67e50cc::t_33b2f649cca179 149,310
+packages/presence-core/src/types.ts
+  s_2d40e2e67e50cc::t_54937ce988d1fd 75-76
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "ed34e5f5ad69ad63e3c97bac231852ea9ac528b7",
+  "prompts": {},
+  "sessions": {
+    "s_2d40e2e67e50cc": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1e5736ee-beae-43b9-abbb-61ec4a6aeeba",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Péter Ferenc Gyarmati <peterferenc.gyarmati@inf.ethz.ch>"
+    }
+  }
+}
