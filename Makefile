@@ -103,7 +103,7 @@ e2e: build-apps ## Test examples and the published documentation in Chromium.
 
 ci: build check package ## Run the source-validation CI pipeline.
 
-bench: build-libs ## Measure runtime, SDK, adapter, inspection, presence, and transport hot paths.
+bench: build-libs ## Measure runtime, browser snapshot, SDK, adapter, inspection, presence, and transport hot paths.
 	$(PNPM) --filter @vacp/runtime bench
 	$(PNPM) --filter @vacp/runtime bench:memory
 	$(PNPM) --filter @vacp/runtime bench:discovery
@@ -113,4 +113,5 @@ bench: build-libs ## Measure runtime, SDK, adapter, inspection, presence, and tr
 	$(PNPM) --filter @vacp/adapter-vega-lite bench
 	$(PNPM) --filter @vacp/presence-core bench
 	$(PNPM) --filter @vacp/provenance-core bench
+	$(PNPM) --filter @vacp/runtime-browser bench
 	$(UV_RUN) python packages/python/bench/availability.py

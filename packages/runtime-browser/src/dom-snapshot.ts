@@ -1,12 +1,16 @@
 import type { VacpCapabilitiesSnapshot, VacpObservation, VacpRef, VacpStateSnapshot } from '@vacp/protocol';
 import { isVacpRef, fnv1a64Hex, sameVacpValue, stableStringify } from '@vacp/protocol';
 
+/** What a ref script holds besides its timestamp, kept to compare the next snapshot against. */
+type WrittenRef = { value: unknown; summary?: unknown };
+
 type DomSnapshotCache = {
   graph?: CompactGraph;
-  graphToken: string | null;
-  stateCatalogToken: string | null;
-  stateToken: string | null;
-  stateFingerprints: Map<VacpRef, string>;
+  graphToken?: string;
+  catalog?: CatalogRef[];
+  catalogToken?: string;
+  revision?: string;
+  written: Map<VacpRef, WrittenRef>;
   refScriptIds: Map<VacpRef, string>;
 };
 
@@ -41,13 +45,7 @@ function getOrCreateCache(scriptId: string): DomSnapshotCache {
 
   if (existing) return existing;
 
-  const created: DomSnapshotCache = {
-    graphToken: null,
-    stateCatalogToken: null,
-    stateToken: null,
-    stateFingerprints: new Map<VacpRef, string>(),
-    refScriptIds: new Map<VacpRef, string>(),
-  };
+  const created: DomSnapshotCache = { written: new Map(), refScriptIds: new Map() };
 
   DOM_SNAPSHOT_CACHE.set(scriptId, created);
 
@@ -145,7 +143,13 @@ function compactGraph(capabilities: VacpCapabilitiesSnapshot): CompactGraph {
   return { nodes, edges: capabilities.graph.edges, actions };
 }
 
-function writeDomSnapshotBundle(args: {
+/**
+ * Publish a live snapshot as linked script elements. The runtime writes one snapshot per observation
+ * revision or graph change, so the revision identifies the state and each ref is compared structurally
+ * with the value last written. Only changed refs, and the catalog or graph when they change, are
+ * serialized again.
+ */
+export function writeVacpDomSnapshotScript(args: {
   scriptId: string;
   observation: VacpObservation;
   capabilities: VacpCapabilitiesSnapshot;
@@ -169,7 +173,6 @@ function writeDomSnapshotBundle(args: {
 
   const cache = getOrCreateCache(root);
   const graph = compactGraph(args.capabilities);
-  // The graph rarely changes between snapshots; its token and script are rebuilt only when it does.
   if (!cache.graph || !sameVacpValue(cache.graph, graph)) {
     cache.graph = graph;
     cache.graphToken = `gr_${fnv1a64Hex(stableStringify(graph))}`;
@@ -186,54 +189,32 @@ function writeDomSnapshotBundle(args: {
     nodeMeta.set(node.ref, node);
   }
 
-  const nextFingerprints = new Map<VacpRef, string>();
-  const changedRefs: VacpRef[] = [];
-  const removedRefs: VacpRef[] = [];
-
-  const stateEntries = Object.entries(args.state.state).flatMap(([ref, value]) =>
-    isVacpRef(ref) ? [[ref, value] as const] : [],
-  );
-  // Sorted refs make catalog/index output deterministic, which keeps tokens
-  // stable and avoids noisy updates from object key insertion order.
-  stateEntries.sort((a, b) => a[0].localeCompare(b[0]));
   const summary = args.state.summary ?? {};
+  // Sorted refs keep the catalog and change lists independent of object key order.
+  const refs = Object.keys(args.state.state).filter(isVacpRef).sort();
+  const written = new Map<VacpRef, WrittenRef>();
+  const changedRefs: VacpRef[] = [];
 
-  for (const [ref, value] of stateEntries) {
-    const hasSummary = Object.prototype.hasOwnProperty.call(summary, ref);
+  for (const ref of refs) {
+    const entry: WrittenRef = { value: args.state.state[ref] };
 
-    // Fingerprints track value+summary at ref granularity so only changed refs
-    // rewrite their script nodes; unchanged refs stay untouched in the DOM.
-    const fingerprintValue: Record<string, unknown> = { value };
+    if (Object.hasOwn(summary, ref)) entry.summary = summary[ref];
+    written.set(ref, entry);
+    const previous = cache.written.get(ref);
 
-    if (hasSummary) fingerprintValue.summary = summary[ref];
+    if (previous && sameVacpValue(previous, entry)) continue;
+    changedRefs.push(ref);
+    const script = ensureSnapshotScript({
+      id: nextRefScriptId(cache, root, ref),
+      rootId: root,
+      kind: 'snapshot-ref',
+      ref,
+    });
 
-    const fingerprint = stableStringify(fingerprintValue);
-
-    nextFingerprints.set(ref, fingerprint);
-
-    if (cache.stateFingerprints.get(ref) !== fingerprint) changedRefs.push(ref);
+    if (script) script.textContent = safeJsonForScriptTag({ createdAt: args.state.createdAt, ref, ...entry });
   }
 
-  for (const ref of cache.stateFingerprints.keys()) {
-    if (!nextFingerprints.has(ref)) removedRefs.push(ref);
-  }
-
-  changedRefs.sort((a, b) => a.localeCompare(b));
-  removedRefs.sort((a, b) => a.localeCompare(b));
-
-  for (const ref of changedRefs) {
-    const scriptId = nextRefScriptId(cache, root, ref);
-    const script = ensureSnapshotScript({ id: scriptId, rootId: root, kind: 'snapshot-ref', ref });
-
-    if (!script) continue;
-    const value = args.state.state[ref];
-    const hasSummary = Object.prototype.hasOwnProperty.call(summary, ref);
-    const payload: Record<string, unknown> = { createdAt: args.state.createdAt, ref, value };
-
-    if (hasSummary) payload.summary = summary[ref];
-
-    script.textContent = safeJsonForScriptTag(payload);
-  }
+  const removedRefs = [...cache.written.keys()].filter((ref) => !written.has(ref)).sort();
 
   for (const ref of removedRefs) {
     const scriptId = cache.refScriptIds.get(ref);
@@ -247,14 +228,11 @@ function writeDomSnapshotBundle(args: {
     cache.refScriptIds.delete(ref);
   }
 
-  cache.stateFingerprints = nextFingerprints;
+  cache.written = written;
 
-  const refs = stateEntries.map(([ref]) => {
-    const scriptId = nextRefScriptId(cache, root, ref);
+  const catalog = refs.map((ref) => {
     const meta = nodeMeta.get(ref);
-    const hasSummary = Object.prototype.hasOwnProperty.call(summary, ref);
-
-    const item: CatalogRef = { ref, scriptId };
+    const item: CatalogRef = { ref, scriptId: nextRefScriptId(cache, root, ref) };
 
     if (meta?.kind) item.kind = meta.kind;
 
@@ -262,65 +240,50 @@ function writeDomSnapshotBundle(args: {
 
     if (meta?.title) item.title = meta.title;
 
-    if (hasSummary) item.hasSummary = true;
+    if (Object.hasOwn(summary, ref)) item.hasSummary = true;
 
     return item;
   });
 
-  // Catalog token changes only when membership or ref metadata changes.
-  const catalogToken = `cat_${fnv1a64Hex(stableStringify(refs))}`;
-  const catalogChanged = cache.stateCatalogToken !== catalogToken;
+  // The catalog changes only with ref membership or metadata.
+  const catalogChanged = !cache.catalog || !sameVacpValue(cache.catalog, catalog);
 
   if (catalogChanged) {
+    cache.catalog = catalog;
+    cache.catalogToken = `cat_${fnv1a64Hex(stableStringify(catalog))}`;
     stateCatalogScript.textContent = safeJsonForScriptTag({
       createdAt: args.state.createdAt,
-      token: catalogToken,
-      refs,
+      token: cache.catalogToken,
+      refs: catalog,
     });
   }
 
-  // State token reflects full state content; index consumers can use baseToken
-  // + changedRefs/removedRefs to apply incremental updates.
-  const stateToken = `st_${fnv1a64Hex(stableStringify({ state: args.state.state, summary: args.state.summary }))}`;
-  const baseToken = cache.stateToken;
-  const summaryRefCount = Object.keys(summary).length;
+  const { revision } = args.observation;
+  const baseRevision = cache.revision;
+  cache.revision = revision;
 
+  // A reader holding `baseRevision` applies `changedRefs` and `removedRefs` to reach `revision`.
   const stateIndex: Record<string, unknown> = {
     createdAt: args.state.createdAt,
-    token: stateToken,
+    revision,
     changedRefs,
     removedRefs,
     catalog: {
       scriptId: stateCatalogId,
-      token: catalogToken,
+      token: cache.catalogToken,
       changed: catalogChanged,
     },
   };
 
-  if (baseToken) stateIndex.baseToken = baseToken;
+  if (baseRevision) stateIndex.baseRevision = baseRevision;
 
   stateIndexScript.textContent = safeJsonForScriptTag(stateIndex);
-  cache.stateCatalogToken = catalogToken;
-  cache.stateToken = stateToken;
-
-  const manifestState: Record<string, unknown> = {
-    indexScriptId: stateIndexId,
-    catalogScriptId: stateCatalogId,
-    token: stateToken,
-    catalogToken,
-    refCount: refs.length,
-    summaryRefCount,
-    changedRefCount: changedRefs.length,
-    removedRefCount: removedRefs.length,
-  };
-
-  if (baseToken) manifestState.baseToken = baseToken;
 
   mainScript.textContent = safeJsonForScriptTag({
     createdAt: args.state.createdAt,
     format: 'vacp.dom_snapshot',
     observation: {
-      revision: args.observation.revision,
+      revision,
       sources: args.observation.graph.sources,
       freshness: args.observation.freshness,
     },
@@ -331,7 +294,15 @@ function writeDomSnapshotBundle(args: {
       edgeCount: graph.edges.length,
       actionCount: graph.actions.length,
     },
-    state: manifestState,
+    state: {
+      indexScriptId: stateIndexId,
+      catalogScriptId: stateCatalogId,
+      catalogToken: cache.catalogToken,
+      refCount: refs.length,
+      summaryRefCount: Object.keys(summary).length,
+      changedRefCount: changedRefs.length,
+      removedRefCount: removedRefs.length,
+    },
   });
 }
 
@@ -350,18 +321,4 @@ export function removeVacpDomSnapshotScript(scriptId: string): void {
 
   if (main && main.tagName === 'SCRIPT') main.remove();
   DOM_SNAPSHOT_CACHE.delete(scriptId);
-}
-
-export function writeVacpDomSnapshotScript(args: {
-  scriptId: string;
-  observation: VacpObservation;
-  capabilities: VacpCapabilitiesSnapshot;
-  state: VacpStateSnapshot;
-}): void {
-  writeDomSnapshotBundle({
-    scriptId: args.scriptId,
-    observation: args.observation,
-    capabilities: args.capabilities,
-    state: args.state,
-  });
 }

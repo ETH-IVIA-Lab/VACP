@@ -5,6 +5,7 @@ Run `make bench` from the repository root. It builds the libraries, then measure
 ## Workloads
 
 - `packages/runtime/bench/runtime.ts`: 1,000 nodes, 1,000 actions, and 1,000 state references from a static provider. Each result is the median of five 100-operation batches after 20 warmup operations. The serialized state is 49,791 UTF-16 code units.
+- `packages/runtime-browser/bench/snapshot.ts`: DOM snapshot writes for 400 refs, 20 of them holding 200 rows, with one ref changing per snapshot. Each snapshot is cloned, as composition clones provider observations, and each write is checked to publish exactly the changed ref.
 - `packages/transport-webmcp/bench/registration.ts`: 50 synchronous graph revisions, each with 1,000 changed action descriptions. Results are the median of five bursts after two warmups. The injected registry resolves immediately; native browser registration latency is excluded.
 
 These isolate runtime and transport overhead. They do not measure visualization rendering, provider work, agent latency, or network requests. Avoid running builds or browser tests alongside timing runs.

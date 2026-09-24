@@ -59,7 +59,7 @@ Examples remain ordinary applications. Exercise them through public runtime/brow
 
 Node unit-test commands use a 10-second outer deadline so a missing asynchronous signal fails the suite. Timing contracts use controlled clocks and observable phase transitions. Keep benchmark timing separate from correctness assertions.
 
-Run `make bench` for runtime reads, SDK parameter validation and execution, inspection, WebMCP registration, native Vega parameter observations, and coalesced presence work. The shared measurement helper warms the operation and reports the median of five rounds. Runtime scenarios include both unchanged and changing observations. SDK scenarios cover successful coercion with and without cancellation signals, and structured validation failures. Benchmark operations must verify that their results completed successfully.
+Run `make bench` for runtime reads, DOM snapshot writes, SDK parameter validation and execution, inspection, WebMCP registration, native Vega parameter observations, and coalesced presence work. The shared measurement helper warms the operation and reports the median of five rounds. Runtime scenarios include both unchanged and changing observations. SDK scenarios cover successful coercion with and without cancellation signals, and structured validation failures. Benchmark operations must verify that their results completed successfully.
 
 The runtime memory benchmark holds disposed handles across garbage collection and reports retained heap. It checks release of private history, delta caches, and provider references. Heap measurements are diagnostic, with no correctness threshold.
 

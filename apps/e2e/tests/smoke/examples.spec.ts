@@ -483,6 +483,100 @@ test('examples: vega-lite-gallery', async ({ page }) => {
   }
 });
 
+/**
+ * Wait until the published ref scripts hold the bridge's current state at the manifest's revision. A live
+ * read writes its snapshot before it resolves, so the scripts are read right after it in the same task.
+ */
+async function settledDomSnapshot(page: Page, previousRevision?: string): Promise<{ revision: string; state: any }> {
+  let settled = { revision: '', state: {} as Record<string, unknown>, current: false };
+  await expect
+    .poll(async () => {
+      settled = await page.evaluate(async () => {
+        const canonical = (value: unknown): string =>
+          JSON.stringify(value, (_key, item) =>
+            item && typeof item === 'object' && !Array.isArray(item)
+              ? Object.fromEntries(Object.entries(item).sort(([left], [right]) => (left < right ? -1 : 1)))
+              : item,
+          );
+        const state = (await globalThis.__vacp.getState()).state as Record<string, unknown>;
+        const read = (id: string) => JSON.parse(document.getElementById(id)!.textContent!);
+        const manifest = read('__vacp_snapshot');
+        const index = read(manifest.state.indexScriptId);
+        const catalog = read(manifest.state.catalogScriptId);
+        const published = new Map<string, unknown>(
+          catalog.refs.map((entry: { ref: string; scriptId: string }) => [entry.ref, read(entry.scriptId).value]),
+        );
+        return {
+          revision: manifest.observation.revision as string,
+          state: JSON.parse(JSON.stringify(state)),
+          current:
+            index.revision === manifest.observation.revision &&
+            published.size === Object.keys(state).length &&
+            Object.entries(state).every(([ref, value]) => canonical(published.get(ref)) === canonical(value)),
+        };
+      });
+      return settled.current && settled.revision !== previousRevision;
+    })
+    .toBe(true);
+  return settled;
+}
+
+test('examples: the DOM snapshot advances by observation revision and rewrites only changed refs', async ({ page }) => {
+  const srv = appServer('react-dashboard');
+
+  await page.goto(`${srv.url}`, { waitUntil: 'domcontentloaded' });
+  await expectBridge(page);
+  expect((await executeVacp(page, { name: 'dashboard.set_dataset', params: { id: 'iris' } })).ok).toBe(true);
+  await page.waitForFunction(() => document.querySelector('script[data-vacp="snapshot-ref"]'));
+  const before = await settledDomSnapshot(page);
+
+  // Each write replaces a script's text node, so the added node keeps the text of that write. The chain
+  // starts at the index the observer first sees, read in the same task that installs it.
+  const base = await page.evaluate(() => {
+    const read = (id: string) => JSON.parse(document.getElementById(id)!.textContent!);
+    const indexId = read('__vacp_snapshot').state.indexScriptId;
+    const writes: { indexes: any[]; rewritten: string[] } = { indexes: [], rewritten: [] };
+    new MutationObserver((records) => {
+      for (const record of records) {
+        const script = record.target as Element;
+        const text = record.addedNodes[0]?.textContent;
+        if (script.id === indexId && text) writes.indexes.push(JSON.parse(text));
+        const ref = script.getAttribute('data-vacp-ref');
+        if (ref && text) writes.rewritten.push(ref);
+      }
+    }).observe(document.head, { childList: true, subtree: true });
+    Object.assign(globalThis, { __snapshotWrites: writes });
+    return read(indexId).revision as string;
+  });
+
+  const encoding = { x: 'PetalWidthCm', y: 'SepalWidthCm', color: 'Species' };
+  expect((await executeVacp(page, { name: 'dashboard.set_encoding', params: encoding })).ok).toBe(true);
+  const after = await settledDomSnapshot(page, before.revision);
+  const changed = Object.keys(after.state).filter(
+    (ref) => JSON.stringify(after.state[ref]) !== JSON.stringify(before.state[ref]),
+  );
+  expect(changed.length).toBeGreaterThan(0);
+
+  const { writes, revision: latest } = await page.evaluate(() => ({
+    writes: (globalThis as any).__snapshotWrites,
+    revision: JSON.parse(
+      document.getElementById(JSON.parse(document.getElementById('__vacp_snapshot')!.textContent!).state.indexScriptId)!
+        .textContent!,
+    ).revision as string,
+  }));
+  let revision = base;
+  const listed = new Set<string>();
+  for (const index of writes.indexes) {
+    expect(index.baseRevision).toBe(revision);
+    revision = index.revision;
+    for (const ref of index.changedRefs) listed.add(ref);
+  }
+  expect(revision).toBe(latest);
+  for (const ref of changed) expect(listed).toContain(ref);
+  for (const ref of writes.rewritten) expect(listed).toContain(ref);
+  expect(listed.size).toBeLessThan(Object.keys(after.state).length);
+});
+
 test('examples: react-dashboard', async ({ page }) => {
   const srv = appServer('react-dashboard');
 
