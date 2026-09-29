@@ -222,7 +222,7 @@ export function createVegaLiteTooltipBinding({
       name: VEGA_LITE_TOOLTIP_HOVER_ACTION,
       title: 'Inspect mark',
       description:
-        'Set the current tooltip-hover focus for this Vega-Lite view (enables agents to treat hovered points as an explicit selection).',
+        'Point at one mark and show its tooltip, as hovering does, e.g. { fields: { name: "Ann" } }. The result reports the tooltip shown and how many marks match: add fields until one mark matches. Until the hover clears, `vacp_handle` holds the rows matching `fields`.',
       operation: { kind: 'mutation', contract: VEGA_LITE_TOOLTIP_HOVER_ACTION, affects: [vizRef] },
       parameters: {
         type: 'object',
@@ -324,18 +324,24 @@ export function createVegaLiteTooltipBinding({
         // Best-effort: programmatically show the tooltip for a matching mark.
         // This keeps semantic hover actions visible and stable in the UI.
         let tooltipShown = false;
+        // Fields can match many marks while the tooltip shows one, so the result reports both.
+        let tooltip: unknown = null;
+        let matches = 0;
+        const outcome = () => ({ fields, markName, value: valueParam ?? null, tooltipShown, tooltip, matches });
 
         try {
-          if (typeof viewAny.tooltip !== 'function')
-            return { fields, markName, value: valueParam ?? null, tooltipShown };
+          const found = Object.keys(fields).length
+            ? matchingSceneItems(view, fields, markName, Number.POSITIVE_INFINITY)
+            : [];
+          matches = found.length;
+          if (typeof viewAny.tooltip !== 'function') return outcome();
           const tooltipHandler = viewAny.tooltip();
 
-          if (typeof tooltipHandler !== 'function')
-            return { fields, markName, value: valueParam ?? null, tooltipShown };
+          if (typeof tooltipHandler !== 'function') return outcome();
 
           const target = root?.querySelector('canvas,svg');
-          if (target && Object.keys(fields).length) {
-            const match = matchingSceneItems(view, fields, markName, 1)[0];
+          if (target && found.length) {
+            const match = found[0];
             const bounds = match?.bounds;
             const x1 = Number(bounds?.x1);
             const y1 = Number(bounds?.y1);
@@ -348,7 +354,7 @@ export function createVegaLiteTooltipBinding({
                 x: offset.x + (x1 + x2) / 2,
                 y: offset.y + (y1 + y2) / 2,
               });
-              if (!point) return { fields, markName, value: valueParam ?? null, tooltipShown };
+              if (!point) return outcome();
               const { x: clientX, y: clientY } = point;
               suppressed = true;
               const tooltipValue = match?.tooltip ?? valueParam ?? (Object.keys(fields).length ? fields : null);
@@ -359,6 +365,7 @@ export function createVegaLiteTooltipBinding({
                 tooltipValue,
               );
               tooltipShown = tooltipValue != null;
+              tooltip = tooltipValue ?? null;
             }
           }
         } catch {
@@ -369,7 +376,7 @@ export function createVegaLiteTooltipBinding({
           });
         }
 
-        return { fields, markName, value: valueParam ?? null, tooltipShown };
+        return outcome();
       },
       {
         parse: parseHover,
