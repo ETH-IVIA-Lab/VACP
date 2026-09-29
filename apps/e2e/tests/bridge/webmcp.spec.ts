@@ -83,6 +83,7 @@ test('native WebMCP projects composed providers and unregisters them on disposal
     const action = tools.find((tool) => tool.name === 'vacp.action.threshold.set')!;
     const observe = tools.find((tool) => tool.name === 'vacp.observe')!;
     const state = tools.find((tool) => tool.name === 'vacp.state')!;
+    const progress = tools.find((tool) => tool.name === 'vacp.progress')!;
     return {
       valid: JSON.parse(
         await context.executeTool(action, JSON.stringify({ value: 42, narration: 'Raising the threshold to 42.' })),
@@ -90,6 +91,8 @@ test('native WebMCP projects composed providers and unregisters them on disposal
       invalid: JSON.parse(
         await context.executeTool(action, JSON.stringify({ value: 101, narration: 'Raising the threshold to 101.' })),
       ),
+      unnarrated: JSON.parse(await context.executeTool(action, JSON.stringify({ value: 50 }))),
+      silent: JSON.parse(await context.executeTool(progress, JSON.stringify({ done: true }))),
       observation: JSON.parse(await context.executeTool(observe, '{}')),
       state: JSON.parse(await context.executeTool(state, '{}')),
     };
@@ -100,6 +103,9 @@ test('native WebMCP projects composed providers and unregisters them on disposal
     code: 'invalid-params',
     issues: [expect.objectContaining({ path: ['value'], code: 'too_big', message: expect.any(String) })],
   });
+  // Chromium replaces a thrown tool error with a generic one, so input problems arrive as results.
+  expect(results.unnarrated).toMatchObject({ ok: false, error: { message: 'narration must be a string' } });
+  expect(results.silent).toEqual({ ok: false, error: { message: 'message must be a string' } });
   expect(results.observation.graph.actions).toEqual(
     expect.arrayContaining([
       expect.objectContaining({

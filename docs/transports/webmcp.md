@@ -43,6 +43,8 @@ An envelope requires an explicit `params` value, including `null` when accepted.
 
 Handlers retain responsibility for validation. The action result is the normal VACP envelope: `{ callId, ok, result }` or `{ callId, ok: false, error }`. No source files or schemas are generated from TypeScript types.
 
+A call whose `narration` is missing, blank, or longer than 280 characters returns `{ callId, ok: false, error: { message } }` and does not run the action. `vacp.progress` answers an unusable `message` or `done` with `{ ok: false, error: { message } }`. Both arrive as results so the agent can read the message and retry: Chromium replaces an error thrown by a tool with a generic one.
+
 ## Select and customize tools
 
 ```ts

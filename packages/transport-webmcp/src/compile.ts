@@ -142,9 +142,17 @@ export function compileVacpWebMcpTools(
         signal.throwIfAborted();
         const { narration: said, ...rest } = args;
         const params = input.wrapped ? args.params : rest;
+        const callId = crypto.randomUUID();
+        let narration: string;
+        try {
+          narration = parseVacpNarration(said);
+        } catch (error) {
+          // Browsers withhold a tool's thrown message from the agent, so the failure is its result.
+          return { callId, ok: false, error: { message: (error as Error).message } };
+        }
         const result = await client.execute(
-          { callId: crypto.randomUUID(), name: action.name, params },
-          { signal, actor: options.actor ?? webMcpAgent, narration: parseVacpNarration(said) },
+          { callId, name: action.name, params },
+          { signal, actor: options.actor ?? webMcpAgent, narration },
         );
         signal.throwIfAborted();
         return result;

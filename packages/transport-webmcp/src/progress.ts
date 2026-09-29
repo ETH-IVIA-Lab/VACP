@@ -37,13 +37,16 @@ export function createVacpWebMcpProgressTool(
       webMcpExecutionSignal(context).throwIfAborted();
       options.signal.throwIfAborted();
       const record = input && typeof input === 'object' ? (input as Record<string, unknown>) : {};
-      if (record.done !== undefined && typeof record.done !== 'boolean') throw new TypeError('done must be a boolean');
-      control.narrate({
-        actor: options.actor,
-        message: parseVacpNarration(record.message, 'message'),
-        done: record.done === true,
-        signal: options.signal,
-      });
+      let message: string;
+      try {
+        if (record.done !== undefined && typeof record.done !== 'boolean')
+          throw new TypeError('done must be a boolean');
+        message = parseVacpNarration(record.message, 'message');
+      } catch (error) {
+        // Browsers withhold a tool's thrown message from the agent, so the failure is its result.
+        return { ok: false, error: { message: (error as Error).message } };
+      }
+      control.narrate({ actor: options.actor, message, done: record.done === true, signal: options.signal });
       return { ok: true };
     },
   };

@@ -113,6 +113,24 @@ test('graph projection preserves schemas and context, and executes through runti
   }
 });
 
+test('an action call without a usable sentence returns a failure the agent can read and changes nothing', async () => {
+  const { runtime } = fixture();
+  try {
+    const tools = compileVacpWebMcpTools((await runtime.getCapabilities()).graph, runtime);
+    const action = tools.find((tool) => tool.name === 'vacp.action.threshold.set')!;
+    const options = { signal: new AbortController().signal };
+    const missing = (await action.execute({ value: 35 }, options)) as { ok: boolean; error?: { message: string } };
+    assert.equal(missing.ok, false);
+    assert.equal(missing.error?.message, 'narration must be a string');
+    const blank = (await action.execute({ value: 35, narration: '  ' }, options)) as { error?: { message: string } };
+    assert.equal(blank.error?.message, 'narration requires a sentence');
+    assert.deepEqual((await runtime.getState()).state['vacp://app/threshold'], { value: 1 });
+    assert.equal(runtime.getProvenance().records.filter((entry) => entry.kind === 'action').length, 0);
+  } finally {
+    runtime.dispose();
+  }
+});
+
 test('non-object inputs use a params envelope while custom naming and selection stay optional', async () => {
   const { runtime, actions } = fixture();
   actions.register(
@@ -606,7 +624,10 @@ test('a progress tool narrates one public activity per turn and closes forgotten
       'thinking:Raising it to 35',
       'completed:The threshold is 35.',
     ]);
-    await assert.rejects(context.call('vacp.progress', { message: '' }), /requires a sentence/);
+    assert.deepEqual(await context.call('vacp.progress', { message: '' }), {
+      ok: false,
+      error: { message: 'message requires a sentence' },
+    });
     await context.call('vacp.progress', { message: 'Checking again' });
     t.mock.timers.tick(60_000);
     assert.equal(runtime.getAgentActivities().length, 0, 'a quiet turn closes on its own');
