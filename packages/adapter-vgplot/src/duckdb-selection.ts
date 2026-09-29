@@ -92,12 +92,15 @@ export function whereClauseForVgplotDashboardSelection(args: {
   inputs?: CollectedInput[];
 }): string | null {
   const clauses: string[] = [];
+  // A selection's predicate covers all of its clauses, so interactors and inputs sharing it add it once.
+  const seen = new Set<unknown>();
 
   (args.plots ?? []).forEach((plot) => {
     plot.interactors.forEach((it) => {
       const sel = it.selection as any;
 
-      if (!sel || typeof sel.predicate !== 'function') return;
+      if (!sel || typeof sel.predicate !== 'function' || seen.has(sel)) return;
+      seen.add(sel);
 
       try {
         const pred = sel.predicate(undefined, true);
@@ -113,7 +116,8 @@ export function whereClauseForVgplotDashboardSelection(args: {
   (args.inputs ?? []).forEach((input) => {
     const sel = input.input.selection as any;
 
-    if (!sel || typeof sel.predicate !== 'function') return;
+    if (!sel || typeof sel.predicate !== 'function' || seen.has(sel)) return;
+    seen.add(sel);
 
     try {
       const pred = sel.predicate(undefined, true);

@@ -444,6 +444,26 @@ test('shared selection provenance restores its active source after all clause va
   }
 });
 
+test('a crossfilter shared by several plots filters their data handle once', async () => {
+  const selection = { predicate: () => '"time" BETWEEN 8 AND 10' };
+  const plot = (): VgplotPlotLike => ({
+    marks: [{ type: 'rectY', sourceTable: () => 'trips' }],
+    interactors: [mosaic(Interval1D, { selection, channel: 'x', scale: { domain: [0, 24], apply: Number } })],
+  });
+  const provider = createVgplotProvider({
+    plots: ['pickups', 'dropoffs', 'hours'].map((plotId) => ({ plotId, plot: plot() })),
+    options: { appId: 'test', viewId: 'taxi', enableSql: false },
+  });
+  const runtime = createVacpRuntime({ providers: [provider] });
+  try {
+    const { state } = await runtime.getState();
+    const handle = state['vacp://test/taxi/data/main'] as { selectionWhere: string };
+    assert.equal(handle.selectionWhere.match(/BETWEEN 8 AND 10/g)?.length, 1);
+  } finally {
+    runtime.dispose();
+  }
+});
+
 test('native custom bin descriptors exclude rendering ownership and retain stable semantic refs', async () => {
   const coordinator = { clients: ['private-client'], cache: new Array(1000).fill('private-row') };
   const nativeMark = { _coordinator: coordinator, data: { rows: ['private-record'] } };
