@@ -19,9 +19,10 @@ function sameTarget(a: PresenceTarget | null, b: PresenceTarget | null): boolean
 }
 
 /**
- * One target lookup at a time. A burst of invalidations resolves the newest focus once, late results
- * are dropped, and an arrival wait can observe the pending promise and the lookup's own signal. The
- * tracked source stays watched for layout until `stop`, so a new step on the same surface keeps its
+ * One target lookup at a time. A lookup tries its places in order and delivers the first target found,
+ * with the place that produced it. A burst of invalidations resolves the newest places once, late
+ * results are dropped, and an arrival wait can observe the pending promise and the lookup's own signal.
+ * The tracked sources stay watched for layout until `stop`, so a new step on the same surface keeps its
  * witness running.
  */
 export function createTargetTracker(
@@ -29,26 +30,43 @@ export function createTargetTracker(
     resolve: (focus: PresenceFocus, signal: AbortSignal) => Promise<PresenceTarget | null>;
     watch: (sourceId: PresenceFocus['sourceId']) => () => void;
   },
-  deliver: (target: PresenceTarget | null, reason: PresenceFrame['reason']) => void,
+  deliver: (target: PresenceTarget | null, reason: PresenceFrame['reason'], place?: PresenceFocus) => void,
   report: (error: unknown) => void,
 ) {
   const { resolve } = targets;
-  let watching: { sourceId: PresenceFocus['sourceId']; release: () => void } | undefined;
-  const watch = (sourceId: PresenceFocus['sourceId']) => {
-    if (watching?.sourceId === sourceId) return;
-    watching?.release();
-    watching = { sourceId, release: targets.watch(sourceId) };
+  const watching = new Map<PresenceFocus['sourceId'], () => void>();
+  const watch = (places: readonly PresenceFocus[]) => {
+    const sources = new Set(places.map((place) => place.sourceId));
+    for (const [sourceId, release] of watching)
+      if (!sources.has(sourceId)) {
+        watching.delete(sourceId);
+        release();
+      }
+    for (const sourceId of sources) if (!watching.has(sourceId)) watching.set(sourceId, targets.watch(sourceId));
+  };
+  /** The first place that shows a target. An unplaceable or failing place leaves the next one to try. */
+  const first = async (places: readonly PresenceFocus[], signal: AbortSignal) => {
+    for (const place of places) {
+      try {
+        const target = await resolve(place, signal);
+        if (target) return { target, place };
+      } catch (error) {
+        if (signal.aborted) throw error;
+        report(error);
+      }
+    }
+    return { target: null, place: undefined };
   };
   let current:
     | { controller: AbortController; promise: Promise<void>; reason: PresenceFrame['reason']; settled: boolean }
     | undefined;
-  let queued: { focus: PresenceFocus; reason: PresenceFrame['reason'] } | undefined;
+  let queued: { places: readonly PresenceFocus[]; reason: PresenceFrame['reason'] } | undefined;
   let delivered: PresenceTarget | null | undefined;
   // A lookup that finds the same target again changes nothing, unless a layout frame waits to confirm it.
-  const offer = (target: PresenceTarget | null, reason: PresenceFrame['reason']) => {
+  const offer = (target: PresenceTarget | null, reason: PresenceFrame['reason'], place?: PresenceFocus) => {
     if (reason !== 'layout' && delivered !== undefined && sameTarget(delivered, target)) return;
     delivered = target;
-    deliver(target, reason);
+    deliver(target, reason, place);
   };
   const cancel = () => {
     current?.controller.abort();
@@ -58,8 +76,7 @@ export function createTargetTracker(
   };
   const stop = () => {
     cancel();
-    watching?.release();
-    watching = undefined;
+    watch([]);
   };
   return {
     get pending() {
@@ -68,24 +85,24 @@ export function createTargetTracker(
     get signal() {
       return current?.controller.signal;
     },
-    /** Drop the pending lookup and forget the delivered target. The source stays watched. */
+    /** Drop the pending lookup and forget the delivered target. The sources stay watched. */
     cancel,
-    /** Drop the pending lookup and stop watching the source. */
+    /** Drop the pending lookup and stop watching the sources. */
     stop,
-    track(focus: PresenceFocus, requested: PresenceFrame['reason'], lifetime: AbortSignal) {
+    track(places: readonly PresenceFocus[], requested: PresenceFrame['reason'], lifetime: AbortSignal) {
       if (lifetime.aborted) return stop();
-      watch(focus.sourceId);
+      watch(places);
       // A step's lookup superseded by layout still arrives as the step, so the cursor travels to it.
       const reason = current && !current.settled && current.reason === 'activity' ? 'activity' : requested;
       if (queued) {
-        queued = { focus, reason };
+        queued = { places, reason };
         current!.reason = reason;
         return;
       }
       current?.controller.abort();
       const controller = new AbortController();
       const signal = AbortSignal.any([controller.signal, lifetime]);
-      queued = { focus, reason };
+      queued = { places, reason };
       const lookup = {
         controller,
         reason,
@@ -93,17 +110,17 @@ export function createTargetTracker(
         promise: untilAborted(
           Promise.resolve()
             .then(() => {
-              // A lookup superseded or cancelled before it starts leaves the queued focus to its successor.
+              // A lookup superseded or cancelled before it starts leaves the queued places to its successor.
               if (current !== lookup || signal.aborted) return;
               const wanted = queued!;
               queued = undefined;
-              return resolve(wanted.focus, signal).then((target) => [target, wanted.reason] as const);
+              return first(wanted.places, signal).then((found) => ({ ...found, reason: wanted.reason }));
             })
             .then(
               (result) => {
                 if (!result || signal.aborted) return;
                 lookup.settled = true;
-                offer(result[0], result[1]);
+                offer(result.target, result.reason, result.place);
               },
               (error) => {
                 if (signal.aborted) return;

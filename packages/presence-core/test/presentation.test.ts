@@ -222,6 +222,43 @@ test('retained and replay targets use the attached provider binding and refresh 
   f.presence.dispose();
 });
 
+test('a recorded step without a focus points at the first node it changed that a surface can place', async () => {
+  const seen: VacpObservation = {
+    ...observation,
+    graph: {
+      ...observation.graph,
+      ownership: {
+        nodes: { 'vacp://view': 'vacp-source://test', 'vacp://input/blur': 'vacp-source://test' },
+        actions: {},
+      },
+    },
+  };
+  const applied = actionCheckpoint('applied', 'turn', 'Setting the blur to 3.');
+  const record = applied.record.kind === 'action' ? applied.record : undefined;
+  const step: ProvenanceCheckpoint = {
+    ...applied,
+    observation: seen,
+    record: {
+      ...record!,
+      execution: { ...record!.execution, intent: { affects: ['vacp://view', 'vacp://input/blur'] } },
+    },
+  };
+  const f = fixture();
+  f.change({ phase: 'live', selected: null, working: false, steps: [step], turns: [], latest: step });
+  f.presence.attach({
+    sourceId: 'vacp-source://test',
+    id: 'generation',
+    signal: new AbortController().signal,
+    resolve: (focus) =>
+      focus.ref === 'vacp://input/blur'
+        ? { surface: 'test', precision: 'exact', geometry: { kind: 'point', point: { x: 3, y: 0 } } }
+        : null,
+  });
+  await setImmediate();
+  assert.deepEqual(f.frame().activities[0]?.target?.geometry, { kind: 'point', point: { x: 3, y: 0 } });
+  f.presence.dispose();
+});
+
 test('agent progress supersedes older checkpoints and later human edits retire retained presence', () => {
   const f = fixture();
   const initial = checkpoint('initial-view', 'system');

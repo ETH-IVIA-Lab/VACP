@@ -226,6 +226,8 @@ actions
 
 The focus callback receives the same normalized parameters as the handler. Keep focus details serializable and limited to the domain values needed for targeting. `affects` identifies analytical effects. `focus` identifies the intended interaction.
 
+A step without a focus points at the first node in its `affects` that the resolver can place. A `vacp.apply_state` call that sets a menu and a slider moves the cursor to the menu, and skips a containing view the resolver returns `null` for. When the resolver can place none of the nodes, the cursor stays where it last rested. Replayed steps follow the same order.
+
 Bind refs to visible elements explicitly:
 
 ```ts

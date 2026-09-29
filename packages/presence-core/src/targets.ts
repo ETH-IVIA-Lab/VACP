@@ -1,8 +1,24 @@
-import type { VacpFocus, VacpSourceId } from '@vacp/protocol';
+import type { VacpFocus, VacpRef, VacpSourceId } from '@vacp/protocol';
 import { validPresenceTarget } from './geometry';
 import type { PresenceBinding } from './types';
 
 export type PresenceFocus = { focus: VacpFocus; sourceId: VacpSourceId; bindingId?: string };
+
+/**
+ * Where a step points, in order: its focus, else each node it changes. A pointer rests on the first
+ * place a surface can show, so a step that sets several inputs points at the first one on screen.
+ */
+export function stepPlaces(
+  focus: VacpFocus | undefined,
+  affects: readonly VacpRef[] | undefined,
+  owner: (ref: VacpRef) => Omit<PresenceFocus, 'focus'> | undefined,
+): PresenceFocus[] {
+  const wanted = focus ? [focus] : (affects ?? []).map((ref) => ({ ref }));
+  return wanted.flatMap((focus) => {
+    const at = owner(focus.ref);
+    return at ? [{ focus, ...at }] : [];
+  });
+}
 
 /**
  * One binding inventory for live execution, replay and layout invalidation. A binding's layout witness

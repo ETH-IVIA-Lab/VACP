@@ -808,6 +808,59 @@ test('steps sent in the same tick still move the cursor to the latest one', asyn
   lifetime.abort();
 });
 
+test('a step without a focus points at the first node it changes that its surface can place', async () => {
+  const lifetime = new AbortController();
+  let publish!: (execution: VacpExecution) => void;
+  const presence = createAgentPresence({
+    signal: lifetime.signal,
+    getActiveExecutions: () => [],
+    subscribeExecutions: (listener) => {
+      publish = listener;
+      return () => {};
+    },
+    subscribeSnapshots: () => () => {},
+  });
+  // The surface places its plot and inputs, but has no single place for the view that holds them.
+  const places: Record<string, number> = { 'vacp://plot': 1, 'vacp://input/blur': 2 };
+  presence.attach({
+    id: 'binding',
+    sourceId: 'vacp-source://survey',
+    signal: lifetime.signal,
+    resolve: (focus) =>
+      places[focus.ref] === undefined
+        ? null
+        : { surface: 'test', precision: 'exact', geometry: { kind: 'point', point: { x: places[focus.ref]!, y: 0 } } },
+  });
+  const step = (id: string, sequence: number, intent: VacpExecution['intent']): VacpExecution => ({
+    id,
+    callId: id,
+    sequence,
+    name: id,
+    at: '',
+    phase: 'prepared',
+    actor: { id: 'agent', kind: 'agent' },
+    sourceId: 'vacp-source://survey',
+    bindingId: 'binding',
+    intent,
+  });
+  const pointedAt = async () => {
+    await setImmediate();
+    const geometry = presence.getSnapshot()[0]?.target?.geometry;
+    return geometry?.kind === 'point' ? geometry.point.x : null;
+  };
+  try {
+    publish(step('brush', 1, { affects: ['vacp://plot'], focus: { ref: 'vacp://plot' } }));
+    assert.equal(await pointedAt(), 1);
+    publish(step('apply', 2, { affects: ['vacp://view', 'vacp://input/blur', 'vacp://plot'] }));
+    assert.equal(await pointedAt(), 2, 'the view has no place, so the first input it sets does');
+    publish(step('reset', 3, { affects: ['vacp://view'] }));
+    assert.equal(await pointedAt(), 2, 'with nothing it changes on screen, the cursor stays where it rested');
+  } finally {
+    presence.dispose();
+    lifetime.abort();
+  }
+});
+
 function watchedPresence() {
   const lifetime = new AbortController();
   let publish!: (execution: VacpExecution) => void;

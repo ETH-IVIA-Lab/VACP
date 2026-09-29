@@ -8,7 +8,7 @@ import {
   type VacpAgentActivity,
 } from '@vacp/protocol';
 import { stepSubject } from './subject';
-import { createPresenceTargets, type PresenceFocus } from './targets';
+import { createPresenceTargets, stepPlaces, type PresenceFocus } from './targets';
 import { createTargetTracker } from './tracker';
 import { createPresencePresentation } from './presentation';
 import { isAgentActor } from './types';
@@ -40,8 +40,15 @@ type Entry = {
   /** While the host's newest words wait for their step, the words still on screen. */
   hold?: { shown: string | undefined; timer: ReturnType<typeof setTimeout> };
   step?: Step;
-  /** Where the cursor rests: the focus of the latest focused step, kept across turns. */
-  rest?: PresenceFocus;
+  /**
+   * Where the cursor rests, kept across turns: the first of these places a surface can show. The latest
+   * step that points anywhere sets it to its focus, or to the nodes it changes and then `placed`.
+   */
+  rest?: readonly PresenceFocus[];
+  /** The step `rest` was derived from. */
+  restFor?: string;
+  /** The place the cursor last reached. */
+  placed?: PresenceFocus;
   target?: () => PresenceTarget;
   freshness: PresenceFreshness;
   targets: ReturnType<typeof createTargetTracker>;
@@ -104,7 +111,7 @@ export function createAgentPresence(source: PresenceSource, options: PresenceOpt
       phase: phaseOf(entry.step?.value, entry.progress),
       summary: displayed(entry),
       activityId: entry.progress?.id,
-      subject: graph ? stepSubject(graph, entry.step?.value, entry.rest?.focus.ref) : undefined,
+      subject: graph ? stepSubject(graph, entry.step?.value, (entry.placed ?? entry.rest?.[0])?.focus.ref) : undefined,
       execution: entry.step?.read(),
       target: entry.target?.() ?? null,
       freshness: entry.freshness,
@@ -156,8 +163,9 @@ export function createAgentPresence(source: PresenceSource, options: PresenceOpt
       freshness: 'unknown',
       targets: createTargetTracker(
         targets,
-        (target, reason) => {
+        (target, reason, place) => {
           entry.target = target ? captureVacpValue(target) : undefined;
+          if (place) entry.placed = place;
           publish(reason);
         },
         report,
@@ -201,7 +209,11 @@ export function createAgentPresence(source: PresenceSource, options: PresenceOpt
   const invalidateTargets = (binding?: PresenceBinding) => {
     if (lifetime.signal.aborted) return;
     for (const entry of active.values())
-      if (!binding || entry.step?.value.sourceId === binding.sourceId || entry.rest?.sourceId === binding.sourceId)
+      if (
+        !binding ||
+        entry.step?.value.sourceId === binding.sourceId ||
+        entry.rest?.some((place) => place.sourceId === binding.sourceId)
+      )
         locate(entry, 'layout');
     safe(() => presentation.invalidate(binding?.sourceId));
   };
@@ -281,8 +293,14 @@ export function createAgentPresence(source: PresenceSource, options: PresenceOpt
       entry.heard = entry.progress?.summary;
       entry.step = { value, read, lifetime: new AbortController(), shared: read() === value };
     } else entry.step = { ...entry.step, value, read, shared: read() === value };
-    if (value.intent?.focus && value.sourceId)
-      entry.rest = { focus: value.intent.focus, sourceId: value.sourceId, bindingId: value.bindingId };
+    if (value.intent && value.sourceId && entry.restFor !== value.id) {
+      const at = { sourceId: value.sourceId, bindingId: value.bindingId };
+      const places = stepPlaces(value.intent.focus, value.intent.affects, () => at);
+      if (places.length) {
+        entry.restFor = value.id;
+        entry.rest = value.intent.focus || !entry.placed ? places : [...places, entry.placed];
+      }
+    }
     release(entry);
     if (!terminal(value)) clearTimeout(entry.retire);
     if (value.phase === 'prepared' || value.phase === 'running') locate(entry);
@@ -382,15 +400,21 @@ export function createAgentPresence(source: PresenceSource, options: PresenceOpt
     },
     attach(binding: PresenceBinding) {
       return targets.attach(binding, () => {
-        for (const [actorId, entry] of active)
-          if (entry.step?.value.bindingId === binding.id || entry.rest?.bindingId === binding.id) {
-            if (entry.progress?.phase === 'thinking') {
-              // The surface is gone; the actor's words stay while it has nowhere to rest.
-              moveOn(entry);
-              entry.rest = undefined;
-              locate(entry);
-            } else releaseActor(actorId);
-          }
+        for (const [actorId, entry] of active) {
+          if (entry.placed?.bindingId === binding.id) entry.placed = undefined;
+          const rest = entry.rest?.filter((place) => place.bindingId !== binding.id);
+          const stepped = entry.step?.value.bindingId === binding.id;
+          if (!stepped && rest?.length === entry.rest?.length) continue;
+          if (!stepped && rest?.length) {
+            entry.rest = rest;
+            locate(entry);
+          } else if (entry.progress?.phase === 'thinking') {
+            // The surface is gone; the actor's words stay while it has nowhere to rest.
+            moveOn(entry);
+            entry.rest = entry.restFor = undefined;
+            locate(entry);
+          } else releaseActor(actorId);
+        }
         publish();
       });
     },

@@ -9,7 +9,7 @@ import {
 import type { VacpActor, VacpTurnRecord } from '@vacp/protocol';
 import type { PresenceActivity, PresenceFrame, PresenceNavigation, PresenceOptions } from './types';
 import { isAgentActor } from './types';
-import type { PresenceFocus } from './targets';
+import { stepPlaces, type PresenceFocus } from './targets';
 import { stepSubject } from './subject';
 import { createTargetTracker } from './tracker';
 
@@ -88,7 +88,7 @@ export function createPresencePresentation(
   let live: readonly PresenceActivity[] = [];
   /** Without a replay controller, the closing words of a turn that took no step. Nothing recorded holds them. */
   let answer: PresenceActivity | undefined;
-  let recorded: { id: string; activity: PresenceActivity; focus?: PresenceFocus } | undefined;
+  let recorded: { id: string; activity: PresenceActivity; places: readonly PresenceFocus[] } | undefined;
   let rendered: { activities: readonly PresenceActivity[]; navigation: PresenceNavigation | undefined } | undefined;
   let navigation: PresenceNavigation | undefined;
   /**
@@ -235,18 +235,22 @@ export function createPresencePresentation(
     report,
   );
   /** A recorded frame keeps its projection, and its target, while what it shows is unchanged. */
-  const showRecorded = (activity: PresenceActivity, reason: PresenceFrame['reason'], focus?: PresenceFocus) => {
+  const showRecorded = (
+    activity: PresenceActivity,
+    reason: PresenceFrame['reason'],
+    places: readonly PresenceFocus[] = [],
+  ) => {
     const same = recorded?.id === activity.recordId;
     if (!same) recordedTargets.cancel();
     const shown = { ...activity, target: same ? recorded!.activity.target : null };
     recorded = {
       id: activity.recordId!,
       activity: sameActivity(recorded?.activity, shown) ? recorded!.activity : shown,
-      focus,
+      places,
     };
     render([recorded.activity], reason);
     if (same) return;
-    if (focus) recordedTargets.track(focus, reason, lifetime.signal);
+    if (places.length) recordedTargets.track(places, reason, lifetime.signal);
     else recordedTargets.stop();
   };
   const leaveRecorded = () => {
@@ -306,20 +310,24 @@ export function createPresencePresentation(
     const { checkpoint } = frame;
     const execution = checkpoint.record.kind === 'action' ? checkpoint.record.execution : undefined;
     const focus = provenanceFocus(checkpoint.record);
-    const sourceId = focus && checkpoint.observation.graph.ownership.nodes[focus.ref];
+    const { graph } = checkpoint.observation;
+    const places = stepPlaces(focus, execution?.intent?.affects, (ref) => {
+      const sourceId = graph.ownership.nodes[ref];
+      return sourceId ? { sourceId } : undefined;
+    });
     showRecorded(
       {
         actor: provenanceActor(checkpoint.record),
         recordId: checkpoint.id,
         phase: reviewing() ? 'reviewing' : 'completed',
-        subject: stepSubject(checkpoint.observation.graph, execution, focus?.ref),
+        subject: stepSubject(graph, execution, focus?.ref),
         summary: provenanceMessage(checkpoint.record),
         execution,
         target: null,
         freshness: 'unknown',
       },
       reason,
-      focus && sourceId ? { focus, sourceId } : undefined,
+      places,
     );
   };
   const release = replay?.subscribe(() => {
@@ -355,8 +363,8 @@ export function createPresencePresentation(
     },
     /** Layout moved `sourceId`, or every source: a recorded step on it looks its target up again, and its lookup renders. */
     invalidate(sourceId?: string) {
-      if (recorded?.focus && (!sourceId || recorded.focus.sourceId === sourceId))
-        recordedTargets.track(recorded.focus, 'layout', lifetime.signal);
+      if (recorded?.places.some((place) => !sourceId || place.sourceId === sourceId))
+        recordedTargets.track(recorded.places, 'layout', lifetime.signal);
     },
     dispose() {
       lifetime.abort();
