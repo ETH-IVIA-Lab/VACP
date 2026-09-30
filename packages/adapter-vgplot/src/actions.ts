@@ -1,5 +1,5 @@
 import { readInteractorSelection, type VgplotBindings } from './bindings';
-import type { VacpActionDescriptor } from '@vacp/protocol';
+import { parseVacpInstant, type VacpActionDescriptor } from '@vacp/protocol';
 
 import { isSelectionBackedNearest } from './interactors/nearest';
 import { hasIndexedOptions, readInputValue, type CollectedInput } from './inputs';
@@ -86,16 +86,17 @@ function asFiniteNumber(value: unknown): number | null {
   return null;
 }
 
+/** A domain end as an instant, when the domain is temporal. Domain dates arrive as ISO instants. */
 function asEpochMs(value: unknown): number | null {
   if (value instanceof Date && Number.isFinite(value.getTime())) return value.getTime();
 
-  if (typeof value === 'string' && value.trim()) {
-    const t = Date.parse(value);
-
-    return Number.isFinite(t) ? t : null;
+  if (typeof value !== 'string') return null;
+  try {
+    return parseVacpInstant(value, 'utc');
+  } catch {
+    // An ordinal domain's text names no instant.
+    return null;
   }
-
-  return null;
 }
 
 function roundDomainNumber(value: number): number {

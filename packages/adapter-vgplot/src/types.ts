@@ -20,6 +20,8 @@ export interface VgplotMarkLike {
 }
 
 export interface VgplotScaleLike<Value = number | Date> {
+  /** Plot's scale type. Dates read in UTC unless it is `time`. */
+  type?: string;
   domain?: unknown[] | (() => unknown[]);
   apply(value: Value): number;
 }

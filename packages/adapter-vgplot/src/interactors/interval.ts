@@ -1,9 +1,15 @@
+import { parseVacpInstant } from '@vacp/protocol';
+
 import { interactorType } from '../native-classes';
 import type { VgplotInteractorLike, VgplotScaleLike } from '../types';
 
 type DomainValue = number | Date;
 
-function parseDomainValue(value: unknown): DomainValue {
+/**
+ * A brush endpoint: a number, a Date, or ISO text on the scale's clock. Plot reads dates in UTC unless
+ * the scale is a local `time` scale.
+ */
+function parseDomainValue(value: unknown, scale: VgplotScaleLike | undefined): DomainValue {
   if (value instanceof Date && Number.isFinite(value.getTime())) return value;
 
   if (typeof value === 'number' && Number.isFinite(value)) return value;
@@ -11,18 +17,12 @@ function parseDomainValue(value: unknown): DomainValue {
   if (typeof value === 'string') {
     const trimmed = value.trim();
 
-    if (/^-?\d+(\.\d+)?$/.test(trimmed)) {
-      const n = Number(trimmed);
+    if (/^-?\d+(\.\d+)?$/.test(trimmed)) return Number(trimmed);
 
-      if (Number.isFinite(n)) return n;
-    }
-
-    const t = Date.parse(trimmed);
-
-    if (Number.isFinite(t)) return new Date(t);
+    return new Date(parseVacpInstant(trimmed, scale?.type === 'time' ? 'local' : 'utc'));
   }
 
-  throw new Error('Expected a number or a date-like string');
+  throw new Error('Expected a number, a Date, or an ISO date');
 }
 
 function dayOfYear0UTC(d: Date): number {
@@ -75,7 +75,7 @@ function normalizeToScaleDomain(value: DomainValue, scale: VgplotScaleLike | und
 
 /** Shared domain normalization for execution and presentation. */
 export function intervalDomainValue(value: unknown, scale: VgplotScaleLike | undefined): DomainValue {
-  return normalizeToScaleDomain(parseDomainValue(value), scale);
+  return normalizeToScaleDomain(parseDomainValue(value, scale), scale);
 }
 
 /** Resolve domain values and selection plumbing before any mutation. */
