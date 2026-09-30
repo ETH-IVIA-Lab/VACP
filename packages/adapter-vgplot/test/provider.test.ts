@@ -1,8 +1,10 @@
 import { Interval1D, PanZoom, Toggle } from '@uwdata/mosaic-plot';
 import { ExprNode, count } from '@uwdata/mosaic-sql';
 import { createVgplotPresentation } from '../src/presentation';
+import { nodeDuckDb } from './duckdb';
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import type { VacpDataHandleState } from '@vacp/protocol';
 import { createVacpRuntime } from '@vacp/runtime';
 import { createVgplotProvider, type VgplotInteractorLike, type VgplotPlotLike } from '../src/index';
 
@@ -565,4 +567,74 @@ test('an interactor from a second Mosaic copy is reported instead of silently lo
       }),
     /different copy of @uwdata\/mosaic-plot/,
   );
+});
+
+test('a data handle names its table and columns in the graph, and its selection in state', async () => {
+  const selection = { predicate: () => '"time" BETWEEN 8 AND 10' };
+  const db = await nodeDuckDb();
+  await db.client.exec('CREATE TABLE trips AS SELECT range::DOUBLE AS time FROM range(12)');
+  const provider = createVgplotProvider({
+    plots: [
+      {
+        plotId: 'hours',
+        plot: {
+          marks: [{ type: 'rectY', sourceTable: () => 'trips' }],
+          interactors: [mosaic(Interval1D, { selection, channel: 'x', scale: { domain: [0, 24], apply: Number } })],
+        },
+      },
+    ],
+    options: { appId: 'test', viewId: 'taxi', duckdbClient: db.client },
+  });
+  const runtime = createVacpRuntime({ providers: [provider] });
+  try {
+    const { graph, state } = await runtime.observe();
+    const handle = graph.nodes.find((node) => node.kind === 'DataHandle')!;
+    assert.deepEqual(handle.data, { table: 'trips', columns: [{ name: 'time', type: 'DOUBLE' }] });
+    const { selectionWhere, ...rest } = state[handle.ref] as VacpDataHandleState;
+    assert.deepEqual(rest, { kind: 'DataHandle', rowCount: null });
+    assert.match(selectionWhere!, /"time" BETWEEN 8 AND 10/);
+    const queries = db.queries();
+    await runtime.observe();
+    assert.equal(db.queries(), queries, 'a table is described once');
+  } finally {
+    runtime.dispose();
+    db.close();
+  }
+});
+
+test('a host hook states the row count, metadata, and stats a vgplot data handle reports', async () => {
+  const db = await nodeDuckDb();
+  await db.client.exec('CREATE TABLE trips AS SELECT range::DOUBLE AS time FROM range(12)');
+  const provider = createVgplotProvider({
+    plots: [{ plotId: 'hours', plot: { marks: [{ type: 'rectY', sourceTable: () => 'trips' }], interactors: [] } }],
+    options: {
+      appId: 'test',
+      viewId: 'taxi',
+      duckdbClient: db.client,
+      describeDataHandle: ({ table }) => ({
+        rowCount: 12,
+        metadata: { source: `${table} as loaded by the dashboard` },
+        stats: { loadedAt: '2026-09-30' },
+      }),
+    },
+  });
+  const runtime = createVacpRuntime({ providers: [provider] });
+  try {
+    const { graph, state } = await runtime.observe();
+    const handle = graph.nodes.find((node) => node.kind === 'DataHandle')!;
+    assert.deepEqual(handle.data, {
+      table: 'trips',
+      columns: [{ name: 'time', type: 'DOUBLE' }],
+      metadata: { source: 'trips as loaded by the dashboard' },
+    });
+    assert.deepEqual(state[handle.ref], {
+      kind: 'DataHandle',
+      rowCount: 12,
+      selectionWhere: null,
+      stats: { loadedAt: '2026-09-30' },
+    });
+  } finally {
+    runtime.dispose();
+    db.close();
+  }
 });

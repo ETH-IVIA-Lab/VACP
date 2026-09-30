@@ -160,7 +160,7 @@ async function expectDataSchemaWorks(page: Page, target: string): Promise<void> 
     .poll(
       async () => {
         const result = await dataSchema(page, { handleRef: target, detail: 'columns' });
-        return result.ok ? result.result.columns.length : 0;
+        return result.ok ? result.result.vacp_handle.columns.length : 0;
       },
       { timeout: 15_000, message: 'DataHandle exposes its hydrated column schema' },
     )

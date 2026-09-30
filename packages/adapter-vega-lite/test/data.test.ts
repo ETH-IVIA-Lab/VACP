@@ -1,10 +1,10 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import type { VacpProvider } from '@vacp/protocol';
+import type { VacpDataHandleData, VacpDataHandleState, VacpDataSchemaResult, VacpProvider } from '@vacp/protocol';
 import { executeVacpAction } from '@vacp/runtime';
 import { View, loader, parse } from 'vega';
 import { compile, type TopLevelSpec } from 'vega-lite';
-import { createVegaLiteProvider } from '../src/index';
+import { createVegaLiteProvider, type VegaLiteProviderOptions } from '../src/index';
 import { nodeDuckDb } from './duckdb';
 
 const options = { appId: 'app', viewId: 'view', vizId: 'chart' };
@@ -36,13 +36,18 @@ async function sql(provider: VacpProvider, text: string, handleIndex = 0) {
 async function withChart(
   spec: TopLevelSpec,
   files: Record<string, unknown[]>,
-  check: (provider: VacpProvider, db: Awaited<ReturnType<typeof nodeDuckDb>>) => Promise<void>,
+  check: (provider: VacpProvider, db: Awaited<ReturnType<typeof nodeDuckDb>>, view: View) => Promise<void>,
+  providerOptions: Partial<VegaLiteProviderOptions> = {},
 ) {
   const db = await nodeDuckDb();
   const view = await render(spec, files);
-  const provider = createVegaLiteProvider({ view, spec, options: { ...options, duckdbClient: db.client } });
+  const provider = createVegaLiteProvider({
+    view,
+    spec,
+    options: { ...options, ...providerOptions, duckdbClient: db.client },
+  });
   try {
-    await check(provider, db);
+    await check(provider, db, view);
   } finally {
     provider.dispose?.();
     view.finalize();
@@ -60,20 +65,17 @@ async function schema(provider: VacpProvider) {
     params: { handleRef: handle.ref },
   });
   assert.equal(result.ok, true);
-  return result.result as { columns: Array<{ name: string }>; vacp_all?: { columns: Array<{ name: string }> } };
+  return result.result as VacpDataSchemaResult;
 }
 
 test('layer sources keep distinct handles, each answering over its own rows', async () => {
-  const db = await nodeDuckDb();
   const spec: TopLevelSpec = {
     layer: [
       { data: { values: [{ category: 'left', value: 1 }] }, mark: 'point' },
       { data: { values: [{ category: 'right', value: 2 }] }, mark: 'point' },
     ],
   };
-  const view = await render(spec);
-  const provider = createVegaLiteProvider({ view, spec, options: { ...options, duckdbClient: db.client } });
-  try {
+  await withChart(spec, {}, async (provider) => {
     const { graph } = await provider.observe();
     const handles = graph.nodes.filter((node) => node.kind === 'DataHandle');
     assert.equal(new Set(handles.map((node) => node.ref)).size, 2);
@@ -89,36 +91,32 @@ test('layer sources keep distinct handles, each answering over its own rows', as
       }),
     );
     assert.deepEqual(categories.flat().sort(), ['left', 'right']);
-  } finally {
-    provider.dispose?.();
-    view.finalize();
-    db.close();
-  }
+  });
 });
 
 test('a dataset change reloads its rows once, and the schema reads the new columns', async () => {
-  const db = await nodeDuckDb();
   const initial = Array.from({ length: 8 }, (_, index) => ({ index, value: index }));
   const spec: TopLevelSpec = { data: { name: 'table', values: initial }, mark: 'point' };
-  const view = await render(spec);
-  const provider = createVegaLiteProvider({ view, spec, options: { ...options, duckdbClient: db.client } });
-  try {
+  await withChart(spec, {}, async (provider, db, view) => {
     assert.deepEqual(
-      (await schema(provider)).columns.map((column) => column.name),
+      (await schema(provider)).vacp_handle.columns.map((column) => column.name),
       ['index', 'value'],
     );
     const loads = db.loads();
     view.data('table', [...initial.slice(0, 7), { index: 7, value: 900, lateColumn: 'visible' }]);
     await view.runAsync();
-    assert.ok((await schema(provider)).columns.some((column) => column.name === 'lateColumn'));
+    assert.ok((await schema(provider)).vacp_handle.columns.some((column) => column.name === 'lateColumn'));
     assert.equal(db.loads(), loads + 1);
+    const { graph } = await provider.observe();
+    const handle = graph.nodes.find((node) => node.kind === 'DataHandle')!;
+    assert.deepEqual(
+      (handle.data as VacpDataHandleData).columns?.map((column) => column.name),
+      ['index', 'value', 'lateColumn'],
+      'the graph reads the new columns',
+    );
     await schema(provider);
     assert.equal(db.loads(), loads + 1, 'an unchanged dataset keeps its table');
-  } finally {
-    provider.dispose?.();
-    view.finalize();
-    db.close();
-  }
+  });
 });
 
 test('replacing a chart keeps the shared client’s tables until the old binding is disposed', async () => {
@@ -152,7 +150,6 @@ const gapminder = [1955, 1990, 2005].flatMap((year) => [
 ]);
 
 test('vacp_all holds every row a url source loaded, and vacp_handle the rows the chart keeps', async () => {
-  const db = await nodeDuckDb();
   const spec: TopLevelSpec = {
     data: { url: 'data/gapminder.json' },
     params: [{ name: 'current_year', value: 1990, bind: { input: 'range', min: 1955, max: 2005, step: 5 } }],
@@ -163,9 +160,7 @@ test('vacp_all holds every row a url source loaded, and vacp_handle the rows the
     mark: 'point',
     encoding: { x: { field: 'country', type: 'nominal' }, y: { field: 'life_expect', type: 'quantitative' } },
   };
-  const view = await render(spec, { 'data/gapminder.json': gapminder });
-  const provider = createVegaLiteProvider({ view, spec, options: { ...options, duckdbClient: db.client } });
-  try {
+  await withChart(spec, { 'data/gapminder.json': gapminder }, async (provider, db, view) => {
     assert.deepEqual(
       await sql(provider, 'SELECT year::INT AS year, country, region FROM vacp_handle ORDER BY country'),
       [
@@ -183,15 +178,10 @@ test('vacp_all holds every row a url source loaded, and vacp_handle the rows the
     const loads = db.loads();
     assert.deepEqual(await sql(provider, 'SELECT DISTINCT year::INT AS year FROM vacp_handle'), [{ year: 2005 }]);
     assert.equal(db.loads(), loads + 1, 'only the shown rows reload when the filter moves');
-  } finally {
-    provider.dispose?.();
-    view.finalize();
-    db.close();
-  }
+  });
 });
 
 test('an inline source’s filters and calculations reach vacp_handle, and its dates load as timestamps', async () => {
-  const db = await nodeDuckDb();
   const spec: TopLevelSpec = {
     data: {
       values: [
@@ -204,9 +194,7 @@ test('an inline source’s filters and calculations reach vacp_handle, and its d
     mark: 'point',
     encoding: { x: { field: 'd', type: 'temporal' }, y: { field: 'b', type: 'quantitative' } },
   };
-  const view = await render(spec);
-  const provider = createVegaLiteProvider({ view, spec, options: { ...options, duckdbClient: db.client } });
-  try {
+  await withChart(spec, {}, async (provider, db) => {
     assert.deepEqual(await sql(provider, 'SELECT a::INT AS a, b::INT AS b FROM vacp_handle ORDER BY a'), [
       { a: 1, b: 2 },
       { a: 2, b: 4 },
@@ -224,11 +212,7 @@ test('an inline source’s filters and calculations reach vacp_handle, and its d
       `${expected.getFullYear()}-${pad(expected.getMonth() + 1)}-${pad(expected.getDate())} ${pad(expected.getHours())}:${pad(expected.getMinutes())}`,
     );
     for (const table of db.tables) assert.equal((await db.types(table)).d, 'TIMESTAMP', table);
-  } finally {
-    provider.dispose?.();
-    view.finalize();
-    db.close();
-  }
+  });
 });
 
 // Local noon keeps each day on its calendar day in every time zone.
@@ -303,7 +287,6 @@ test('a hover on a date narrows vacp_handle to its rows, and a date the calendar
 });
 
 test('fields a continuous scale reads load as numbers, and cells that name no number or date as null', async () => {
-  const db = await nodeDuckDb();
   // A CSV source parses only its dates, so the loaded rows carry every other value as text.
   const rows = [
     { date: '2012-06-01', temp_max: '12.8', weather: 'sun' },
@@ -315,23 +298,16 @@ test('fields a continuous scale reads load as numbers, and cells that name no nu
     mark: 'point',
     encoding: { x: { field: 'date', type: 'temporal' }, y: { field: 'temp_max', type: 'quantitative' } },
   };
-  const view = await render(spec, { 'data/weather.json': rows });
-  const provider = createVegaLiteProvider({ view, spec, options: { ...options, duckdbClient: db.client } });
-  try {
+  await withChart(spec, { 'data/weather.json': rows }, async (provider, db) => {
     assert.deepEqual(
       await sql(provider, 'SELECT round(avg(temp_max), 1) AS mean, count(date)::INT AS dated FROM vacp_all'),
       [{ mean: 14.2, dated: 2 }],
     );
     for (const table of db.tables) assert.equal((await db.types(table)).temp_max, 'DOUBLE', table);
-  } finally {
-    provider.dispose?.();
-    view.finalize();
-    db.close();
-  }
+  });
 });
 
 test('a filter that leaves the marks no rows leaves vacp_handle empty, with its columns', async () => {
-  const db = await nodeDuckDb();
   const spec: TopLevelSpec = {
     data: { values: gapminder },
     params: [{ name: 'minimum', value: 0 }],
@@ -339,9 +315,7 @@ test('a filter that leaves the marks no rows leaves vacp_handle empty, with its 
     mark: 'point',
     encoding: { x: { field: 'country', type: 'nominal' }, y: { field: 'life_expect', type: 'quantitative' } },
   };
-  const view = await render(spec);
-  const provider = createVegaLiteProvider({ view, spec, options: { ...options, duckdbClient: db.client } });
-  try {
+  await withChart(spec, {}, async (provider, db, view) => {
     assert.deepEqual(await sql(provider, 'SELECT count(*)::INT AS n FROM vacp_handle'), [{ n: 6 }]);
     view.signal('minimum', 1_000);
     await view.runAsync();
@@ -349,11 +323,7 @@ test('a filter that leaves the marks no rows leaves vacp_handle empty, with its 
       { n: 0, named: 0 },
     ]);
     assert.deepEqual(await sql(provider, 'SELECT count(*)::INT AS n FROM vacp_all'), [{ n: 6 }]);
-  } finally {
-    provider.dispose?.();
-    view.finalize();
-    db.close();
-  }
+  });
 });
 
 test('a chart that starts filtered to no rows reads an empty vacp_handle and every loaded row in vacp_all', async () => {
@@ -470,7 +440,7 @@ test('a UTC time axis loads its instants as UTC wall-clock time, whatever the lo
   });
 });
 
-test('an observation after a filter change reports the rows shown without reloading DuckDB', async () => {
+test('a data handle names its table and columns in the graph, and its state follows the rows shown without reloading DuckDB', async () => {
   const spec: TopLevelSpec = {
     data: { values: gapminder },
     params: [{ name: 'minimum', value: 0 }],
@@ -478,24 +448,47 @@ test('an observation after a filter change reports the rows shown without reload
     mark: 'point',
     encoding: { x: { field: 'country', type: 'nominal' }, y: { field: 'life_expect', type: 'quantitative' } },
   };
-  const db = await nodeDuckDb();
-  const view = await render(spec);
-  const provider = createVegaLiteProvider({ view, spec, options: { ...options, duckdbClient: db.client } });
-  const rowCount = async () => {
-    const { graph } = await provider.observe();
-    const handle = graph.nodes.find((node) => node.kind === 'DataHandle')!;
-    return (handle.data as { duckdb?: { rowCount: number } }).duckdb?.rowCount;
-  };
-  try {
-    assert.equal(await rowCount(), 6);
+  await withChart(spec, {}, async (provider, db, view) => {
+    const observe = async () => {
+      const { graph, state } = await provider.observe();
+      const handle = graph.nodes.find((node) => node.kind === 'DataHandle')!;
+      return { data: handle.data as VacpDataHandleData, state: state[handle.ref] as VacpDataHandleState };
+    };
+    const first = await observe();
+    assert.ok(db.tables.has(first.data.table));
+    assert.deepEqual(
+      first.data.columns?.map(({ name, type }) => `${name} ${type}`),
+      ['year BIGINT', 'country VARCHAR', 'cluster BIGINT', 'life_expect DOUBLE'],
+    );
+    assert.deepEqual(first.state, { kind: 'DataHandle', rowCount: 6, selectionWhere: null });
     const loads = db.loads();
     view.signal('minimum', 70);
     await view.runAsync();
-    assert.equal(await rowCount(), 3);
+    assert.equal((await observe()).state.rowCount, 3);
     assert.equal(db.loads(), loads);
-  } finally {
-    provider.dispose?.();
-    view.finalize();
-    db.close();
-  }
+  });
+});
+
+test('a host hook adds metadata and stats to a data handle, and its row count wins', async () => {
+  const spec: TopLevelSpec = {
+    data: { values: gapminder },
+    mark: 'point',
+    encoding: { x: { field: 'country', type: 'nominal' }, y: { field: 'life_expect', type: 'quantitative' } },
+  };
+  await withChart(
+    spec,
+    {},
+    async (provider) => {
+      const { graph, state } = await provider.observe();
+      const handle = graph.nodes.find((node) => node.kind === 'DataHandle')!;
+      assert.deepEqual((handle.data as VacpDataHandleData).metadata, { source: 'Gapminder' });
+      assert.deepEqual(state[handle.ref], {
+        kind: 'DataHandle',
+        rowCount: 1_704,
+        selectionWhere: null,
+        stats: { sampled: true },
+      });
+    },
+    { describeDataHandle: () => ({ rowCount: 1_704, metadata: { source: 'Gapminder' }, stats: { sampled: true } }) },
+  );
 });

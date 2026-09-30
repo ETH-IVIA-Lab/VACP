@@ -117,6 +117,8 @@ export async function connectVacp(model: Cohort, charts: Charts, dashboard: Dash
       title: 'Age distribution',
       enableSql: exampleOptions.enableSql,
       duckdbClient: charts.data,
+      // The athletes table holds the model's athletes, loaded once when the charts start.
+      describeDataHandle: () => ({ rowCount: model.athletes.length }),
     },
   };
   const age = createVgplotProvider(ageArgs);

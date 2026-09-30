@@ -29,6 +29,9 @@
     "@vacp/protocol": "workspace:*",
     "@vacp/runtime": "workspace:*"
   },
+  "devDependencies": {
+    "@duckdb/node-api": "catalog:"
+  },
   "peerDependencies": {
     "@uwdata/mosaic-core": "*",
     "@uwdata/mosaic-inputs": "*",

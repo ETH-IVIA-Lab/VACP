@@ -1,26 +1,32 @@
 import { exampleDuckDbBundles } from '@vacp/example-shared';
 import type { VacpActions } from '@vacp/sdk';
 import {
+  createDuckDbDataSchemaHandler,
   createDuckDbSqlRouter,
   createDuckDbWasmClient,
+  describeDuckDbTable,
   makeVacpDuckDbTableName,
   sqlStringLiteral,
-  getDuckDbTableMetadata,
-  type VacpDuckDbTableMetadata,
 } from '@vacp/data-duckdb';
+import type { VacpDataHandleData, VacpDataSchemaColumn } from '@vacp/protocol';
 import type { DatasetId } from '../datasets/registry';
-import { getEffectiveSelectedIds, type ReactDashboardModel } from './model';
+import type { DashboardSnapshot, ReactDashboardModel } from './model';
 import { dashboardRefs } from './refs';
+
+/** The selected points as a predicate over the dataset's `id` column, or null when none are selected. */
+export function selectionWhere({ dataset, selectedIds }: DashboardSnapshot): string | null {
+  if (!dataset || !selectedIds.length) return null;
+  return `id IN (${selectedIds.map(sqlStringLiteral).join(', ')})`;
+}
 
 export function createDashboardData(actions: VacpActions, model: ReactDashboardModel, enableSql: boolean) {
   const { handleRef } = dashboardRefs;
-  // DuckDB: one table for the active dataset + a temp table for effective ids.
+  // One DuckDB table holds the active dataset.
   const duckdb = createDuckDbWasmClient({ log: false, bundles: exampleDuckDbBundles });
   const tableName = makeVacpDuckDbTableName({ prefix: 'vacp_react_dashboard_rows' });
-  let tableMeta: VacpDuckDbTableMetadata | null = null;
+  let columns: VacpDataSchemaColumn[] | undefined;
   let loadedDatasetId: DatasetId | null = null;
   let duckDbLoad: Promise<void> | null = null;
-  const selectedIdsTable = 'vacp_react_dashboard_selected_ids';
 
   const ensureDuckDbLoaded = async (): Promise<void> => {
     while (true) {
@@ -41,19 +47,7 @@ export function createDashboardData(actions: VacpActions, model: ReactDashboardM
         const db = await duckdb;
         await db.exec(`DROP TABLE IF EXISTS ${tableName}`);
         await db.loadObjectsAsTable(tableName, dataset.rows, { create: true });
-
-        try {
-          tableMeta = await getDuckDbTableMetadata({
-            duckdb: db,
-            table: tableName,
-            sampleRows: 0,
-            maxNumericColumns: 0,
-            maxTemporalColumns: 0,
-            maxCategoricalColumns: 0,
-          });
-        } catch {
-          tableMeta = null;
-        }
+        columns = (await describeDuckDbTable({ duckdb: db, table: tableName }).catch(() => null))?.columns;
 
         loadedDatasetId = datasetId;
       })();
@@ -68,17 +62,6 @@ export function createDashboardData(actions: VacpActions, model: ReactDashboardM
     }
   };
 
-  const syncSelectedIds = async (ids: string[]): Promise<void> => {
-    const db = await duckdb;
-    await ensureDuckDbLoaded();
-    await db.exec(`CREATE TEMP TABLE IF NOT EXISTS ${selectedIdsTable}(id VARCHAR)`);
-    await db.exec(`DELETE FROM ${selectedIdsTable}`);
-
-    if (!ids.length) return;
-    const values = ids.map((id) => `(${sqlStringLiteral(id)})`).join(',');
-    await db.exec(`INSERT INTO ${selectedIdsTable} VALUES ${values}`);
-  };
-
   const sql = createDuckDbSqlRouter({ duckdb });
   sql.addHandle({
     handleRef,
@@ -89,12 +72,9 @@ export function createDashboardData(actions: VacpActions, model: ReactDashboardM
     },
     getSelectedSql: async () => {
       await ensureDuckDbLoaded();
-      const { ids } = getEffectiveSelectedIds(model.read());
-      await syncSelectedIds(ids);
+      const where = selectionWhere(model.read());
 
-      return ids.length
-        ? `SELECT t.* FROM ${tableName} t JOIN ${selectedIdsTable} s USING(id)`
-        : `SELECT * FROM ${tableName}`;
+      return where ? `SELECT * FROM ${tableName} WHERE ${where}` : `SELECT * FROM ${tableName}`;
     },
   });
   actions.standard.dataSql(sql.handler, {
@@ -105,34 +85,25 @@ export function createDashboardData(actions: VacpActions, model: ReactDashboardM
   });
 
   actions.standard.dataSchema(
-    async (params) => {
-      if (params.handleRef !== handleRef) throw new Error(`Unknown DataHandle: ${params.handleRef}`);
-      await ensureDuckDbLoaded();
-      const db = await duckdb;
-      const detail = params.detail ?? 'columns';
-      const sampleRows = params.sampleRows;
-
-      const meta = await getDuckDbTableMetadata({
-        duckdb: db,
-        table: tableName,
-        sampleRows: detail === 'full' ? (sampleRows ?? 25_000) : 0,
-        maxNumericColumns: detail === 'full' ? undefined : 0,
-        maxTemporalColumns: detail === 'full' ? undefined : 0,
-        maxCategoricalColumns: detail === 'full' ? undefined : 0,
-      });
-
-      return { handleRef, detail, ...meta };
-    },
+    createDuckDbDataSchemaHandler({
+      duckdb,
+      resolveHandle: async (ref) => {
+        if (ref !== handleRef) return null;
+        await ensureDuckDbLoaded();
+        return { table: tableName };
+      },
+    }),
     {
       availability: { requires: [handleRef] },
       inputRefs: [handleRef],
-      description: 'Return schema/metadata for the current dataset (columns, types, row count, optional summaries).',
+      description: 'Return the columns, types, and row count of the current dataset.',
     },
   );
 
   return {
-    describe(datasetId: DatasetId | null) {
-      return { tableName, metadata: datasetId === loadedDatasetId ? tableMeta : null };
+    /** The table the dataset loads into, with its columns once `datasetId` has loaded. */
+    describe(datasetId: DatasetId | null): VacpDataHandleData {
+      return datasetId === loadedDatasetId && columns ? { table: tableName, columns } : { table: tableName };
     },
     dispose() {
       void duckdb.then((db) => db.dispose()).catch((error) => console.error('Dashboard data cleanup failed', error));

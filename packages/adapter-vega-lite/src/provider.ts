@@ -1,7 +1,13 @@
 import { readSelectionTuples } from './selection-state';
 import { providerBindings } from './provider-bindings';
-import type { VacpActionDescriptor, VacpProvider, VacpSourceId, VacpRef } from '@vacp/protocol';
-import { formatDuckDbTableMetadataSummary } from '@vacp/data-duckdb';
+import {
+  vacpDataHandle,
+  type VacpActionDescriptor,
+  type VacpDataHandleData,
+  type VacpProvider,
+  type VacpSourceId,
+  type VacpRef,
+} from '@vacp/protocol';
 import { createVacpProvider, registerVacpApplyStateAction, VacpActionRegistry } from '@vacp/runtime';
 
 import { actionsForSpec } from './actions';
@@ -15,7 +21,8 @@ import type { VegaLiteProviderOptions, VegaLiteSpecLike, VegaViewLike } from './
 import { createVegaLiteTooltipBinding } from './tooltip';
 import { createVegaLiteObservationBinding } from './observe';
 
-const DATA_HANDLE_META_TIMEOUT_MS = 1_500;
+/** How long a graph read waits for a data handle's columns before it goes on without them. */
+const HANDLE_COLUMNS_TIMEOUT_MS = 1_500;
 
 async function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T> {
   let timer: ReturnType<typeof setTimeout> | null = null;
@@ -136,33 +143,31 @@ export function createVegaLiteProvider(args: {
     dataHandles: dataHandles.map((h) => ({
       ref: h.ref,
       title: h.title,
-      description: `DuckDB table for ${h.title}.`,
-      data: { tableName: h.tableName, sourceId: h.sourceId },
+      description: `The rows this chart's marks read from ${h.title}. \`vacp_handle\` narrows them by the current selections and hover, and \`vacp_all\` holds every row the source loaded.`,
+      data: { table: h.tableName } satisfies VacpDataHandleData,
     })),
   });
 
   const projection = {
     project: async () => {
-      const metadata = new Map(
+      const handles = new Map(
         await Promise.all(
-          dataHandles.map(
-            async (handle) =>
-              [
-                handle.ref,
-                await withTimeout(handle.ensureMetadata(), DATA_HANDLE_META_TIMEOUT_MS).catch(() => null),
-              ] as const,
-          ),
+          dataHandles.map(async (handle) => {
+            const { rowCount, columns } = handle.observe();
+            const read = {
+              ref: handle.ref,
+              table: handle.tableName,
+              columns: (await withTimeout(columns, HANDLE_COLUMNS_TIMEOUT_MS).catch(() => null)) ?? undefined,
+              rowCount,
+              selectionWhere: handle.selectionWhere(),
+            };
+            return [handle.ref, await vacpDataHandle(read, options.describeDataHandle)] as const;
+          }),
         ),
       );
       const nodes = graph.nodes.map((node) => {
-        const meta = metadata.get(node.ref);
-        return meta
-          ? {
-              ...node,
-              data: { ...node.data, duckdb: meta },
-              description: `DuckDB handle.\n${formatDuckDbTableMetadataSummary(meta)}`,
-            }
-          : node;
+        const handle = handles.get(node.ref);
+        return handle ? { ...node, data: handle.data } : node;
       });
 
       const state: Record<string, unknown> = {};
@@ -178,14 +183,7 @@ export function createVegaLiteProvider(args: {
             }
           : { kind, name: param.name, value: values.get(ref), bind: param.bind };
       }
-      dataHandles.forEach((h) => {
-        state[h.ref] = {
-          kind: 'DataHandle',
-          tableName: h.tableName,
-          selectionWhere: h.selectionWhere(),
-          selectedMeaning: 'rows the marks read that match the current selections and hover',
-        };
-      });
+      for (const [ref, handle] of handles) state[ref] = handle.state;
 
       const freshness = binding.freshness();
       return { graph: { ...graph, nodes }, state, freshness: freshness ? { [vizRef]: freshness } : undefined };

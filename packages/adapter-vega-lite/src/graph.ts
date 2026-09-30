@@ -1,4 +1,11 @@
-import type { VacpActionDescriptor, VacpEdge, VacpGraphFragment, VacpNode, VacpRef } from '@vacp/protocol';
+import type {
+  VacpActionDescriptor,
+  VacpDataHandleData,
+  VacpEdge,
+  VacpGraphFragment,
+  VacpNode,
+  VacpRef,
+} from '@vacp/protocol';
 import { VACP_SCHEMA_VERSION } from '@vacp/protocol';
 
 import type { VegaLiteBindings } from './bindings';
@@ -197,7 +204,7 @@ export function buildGraph(args: {
   spec: VegaLiteSpecLike;
   options: VegaLiteProviderOptions;
   actions: VacpActionDescriptor[];
-  dataHandles?: Array<{ ref: VacpRef; title?: string; description?: string; data?: Record<string, unknown> }>;
+  dataHandles?: Array<{ ref: VacpRef; title: string; description: string; data: VacpDataHandleData }>;
 }): VacpGraphFragment {
   const vizRef = makeRef({
     appId: args.options.appId,
@@ -340,10 +347,8 @@ export function buildGraph(args: {
       ref: h.ref,
       kind: 'DataHandle',
       layer: 'DataLayer',
-      title: h.title ?? 'data (DuckDB handle)',
-      description:
-        h.description ??
-        'DuckDB-backed DataHandle for this Vega-Lite view. `vacp_handle` is the selected subset (or all rows if empty).',
+      title: h.title,
+      description: h.description,
       data: h.data,
     });
     edges.push({ from: vizRef, to: h.ref, kind: 'contains' });

@@ -17,6 +17,8 @@ This package standardizes how apps expose semantic data access through actions d
 - Tools and agents discover the `vacp.data_sql` contract for a handle, then execute its action name.
 - The handler executes DuckDB queries and returns results.
 
+`createDuckDbDataSqlHandler({ duckdb, resolveHandle })` answers `vacp.data_sql`, returning at most 500 JSON rows, and `createDuckDbDataSchemaHandler({ duckdb, resolveHandle })` answers `vacp.data_schema` for the tables each handle reads. `describeDuckDbTable({ duckdb, table, detail })` reads one table's columns and row count, with bounded summaries when `detail` is `full`.
+
 Queries read `vacp_all` and `vacp_handle` as query-local relations. Independent handlers can share a DuckDB client without overwriting each other's bindings. Queries that read an invalid selection reject rather than returning unfiltered data.
 
 `client.loadObjectsAsTable(table, rows, { types })` loads rows into a table. Each column in `types` holds text that loads with its type: wall-clock text such as `2012-06-01T00:00:00.000` as `TIMESTAMP`, and decimal text such as `24999.5` as `DOUBLE`, however many rows come before the first fraction. Other columns take the types DuckDB's JSON reader infers. `sqlTimestampLiteral(time, clock)` writes an instant as a `TIMESTAMP` literal on the `local` or `utc` clock. Query results return a `DATE` as its day, a `TIMESTAMP` as wall-clock text, and a `TIMESTAMP WITH TIME ZONE` as an ISO instant.

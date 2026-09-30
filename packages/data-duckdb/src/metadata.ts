@@ -1,41 +1,12 @@
+import type {
+  VacpDataSchemaColumn,
+  VacpDataSchemaDetail,
+  VacpDataSchemaNumericSummary,
+  VacpDataSchemaTable,
+  VacpDataSchemaTemporalSummary,
+} from '@vacp/protocol';
+
 import type { VacpDuckDbClient } from './client';
-
-export type VacpDuckDbColumnInfo = {
-  name: string;
-  type: string;
-  /** Present, and true, only for a NOT NULL column. */
-  notNull?: true;
-  /** Present, and true, only for a primary key column. */
-  primaryKey?: true;
-};
-
-type VacpDuckDbNumericSummary = {
-  min: number | null;
-  max: number | null;
-  avg: number | null;
-  /** Present for a column whose bounds read as epoch timestamps, with `minIso` and `maxIso` as dates. */
-  unitHint?: 'epoch_ms' | 'epoch_s';
-  minIso?: string;
-  maxIso?: string;
-};
-
-type VacpDuckDbTemporalSummary = {
-  minIso: string | null;
-  maxIso: string | null;
-  minEpochMs: number | null;
-  maxEpochMs: number | null;
-};
-
-export type VacpDuckDbTableMetadata = {
-  table: string;
-  rowCount: number | null;
-  columns: VacpDuckDbColumnInfo[];
-  numeric?: Record<string, VacpDuckDbNumericSummary>;
-  /** Date/time-like columns (DATE/TIMESTAMP/TIME) summarized for unit clarity. */
-  temporal?: Record<string, VacpDuckDbTemporalSummary>;
-  categoricalTopValues?: Record<string, Array<{ value: string; n: number }>>;
-  sampledRows?: number | null;
-};
 
 function quoteIdent(part: string): string {
   return `"${part.replaceAll('"', '""')}"`;
@@ -140,33 +111,22 @@ function parseTemporalValue(value: unknown): { iso: string; epochMs: number } | 
 }
 
 /**
- * Lightweight DuckDB table metadata intended for agent context.
- *
- * Defaults are tuned for "fast enough" even on medium datasets:
- * - schema + row count are always returned
- * - summaries are computed on a bounded sample (LIMIT) unless `sampleRows=0`
+ * `table`'s columns and row count, as `vacp.data_schema` reports them. `detail: 'full'` adds bounded
+ * numeric, temporal, and top-category summaries over the first `sampleRows` rows, 25,000 by default,
+ * or over every row when `sampleRows` is 0.
  */
-export async function getDuckDbTableMetadata(args: {
+export async function describeDuckDbTable(args: {
   duckdb: VacpDuckDbClient;
   table: string;
+  detail?: VacpDataSchemaDetail;
   sampleRows?: number;
-  maxNumericColumns?: number;
-  maxTemporalColumns?: number;
-  maxCategoricalColumns?: number;
-  topK?: number;
-}): Promise<VacpDuckDbTableMetadata> {
-  const sampleRows = args.sampleRows ?? 25_000;
-  const maxNumericColumns = args.maxNumericColumns ?? 8;
-  const maxTemporalColumns = args.maxTemporalColumns ?? 6;
-  const maxCategoricalColumns = args.maxCategoricalColumns ?? 4;
-  const topK = args.topK ?? 5;
-
+}): Promise<VacpDataSchemaTable> {
   const tableSql = quoteTableRef(args.table);
 
   const colsRaw = await args.duckdb.queryJson(`PRAGMA table_info('${args.table.replaceAll("'", "''")}')`);
 
   // Constraints appear only where they hold, so an agent reading the schema pays for what it learns.
-  const columns: VacpDuckDbColumnInfo[] = colsRaw.rows.flatMap((r) => {
+  const columns: VacpDataSchemaColumn[] = colsRaw.rows.flatMap((r) => {
     const name = typeof r.name === 'string' ? r.name : String(r.name ?? '');
     if (!name) return [];
     return [
@@ -181,17 +141,20 @@ export async function getDuckDbTableMetadata(args: {
 
   const rowCountRes = await args.duckdb.queryJson(`SELECT COUNT(*)::BIGINT AS n FROM ${tableSql}`);
   const rowCount = parseNumber(rowCountRes.rows[0]?.n) ?? null;
+  if (args.detail !== 'full') return { table: args.table, rowCount, columns };
+
+  const sampleRows = args.sampleRows ?? 25_000;
 
   const sampleCte =
     sampleRows > 0 ? `WITH __vacp_sample AS (SELECT * FROM ${tableSql} LIMIT ${Math.floor(sampleRows)})` : '';
 
   const sampleFrom = sampleRows > 0 ? '__vacp_sample' : tableSql;
 
-  const numericCols = columns.filter((c) => isNumericType(c.type)).slice(0, maxNumericColumns);
-  const temporalCols = columns.filter((c) => isTemporalType(c.type)).slice(0, maxTemporalColumns);
-  const categoricalCols = columns.filter((c) => isTextType(c.type)).slice(0, maxCategoricalColumns);
+  const numericCols = columns.filter((c) => isNumericType(c.type)).slice(0, 8);
+  const temporalCols = columns.filter((c) => isTemporalType(c.type)).slice(0, 6);
+  const categoricalCols = columns.filter((c) => isTextType(c.type)).slice(0, 4);
 
-  const numeric: Record<string, VacpDuckDbNumericSummary> = {};
+  const numeric: Record<string, VacpDataSchemaNumericSummary> = {};
 
   if (numericCols.length) {
     const exprs = numericCols.flatMap((c) => {
@@ -226,7 +189,7 @@ export async function getDuckDbTableMetadata(args: {
     }
   }
 
-  const temporal: Record<string, VacpDuckDbTemporalSummary> = {};
+  const temporal: Record<string, VacpDataSchemaTemporalSummary> = {};
 
   if (temporalCols.length) {
     const exprs = temporalCols.flatMap((c) => {
@@ -257,7 +220,7 @@ export async function getDuckDbTableMetadata(args: {
 
   for (const c of categoricalCols) {
     const col = quoteIdent(c.name);
-    const q = `${sampleCte} SELECT ${col}::VARCHAR AS value, COUNT(*)::BIGINT AS n FROM ${sampleFrom} GROUP BY value ORDER BY n DESC LIMIT ${Math.floor(topK)}`;
+    const q = `${sampleCte} SELECT ${col}::VARCHAR AS value, COUNT(*)::BIGINT AS n FROM ${sampleFrom} GROUP BY value ORDER BY n DESC LIMIT 5`;
     const res = await args.duckdb.queryJson(q);
     categoricalTopValues[c.name] = res.rows
       .map((r) => ({ value: String(r.value ?? ''), n: parseNumber(r.n) ?? 0 }))

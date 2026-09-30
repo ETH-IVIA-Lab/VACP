@@ -26,6 +26,8 @@ export * from './tool-read';
 
 export * from './tool-result';
 
+export * from './data-handle';
+
 export * from './agent-tools';
 
 export * from './instant';

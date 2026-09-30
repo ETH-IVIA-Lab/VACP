@@ -1,45 +1,14 @@
 import { readInteractorSelection, type VgplotBindings } from './bindings';
 import { legendValue } from './legends';
-import type { VacpGraphFragment, VacpRef } from '@vacp/protocol';
+import { vacpDataHandle, type VacpDataSchemaTable, type VacpGraphFragment, type VacpRef } from '@vacp/protocol';
 import type { VacpAnalyticalProjection } from '@vacp/runtime';
-import {
-  formatDuckDbTableMetadataSummary,
-  getDuckDbTableMetadata,
-  type VacpDuckDbTableMetadata,
-} from '@vacp/data-duckdb';
+import { describeDuckDbTable } from '@vacp/data-duckdb';
 
 import { readInputValue } from './inputs';
-import { discoverPlotTables, type VgplotDataHandle } from './data-handles';
+import type { VgplotDataHandle } from './data-handles';
 import { whereClauseForVgplotDashboardSelection } from './duckdb-selection';
 import { isSelectionBackedNearest } from './interactors/nearest';
-import type {
-  VgplotProviderOptions,
-  VgplotPlotLike,
-  VgplotTableLike,
-  VgplotInteractorLike,
-  VgplotScaleLike,
-} from './types';
-
-type TablesById = Map<string, VgplotTableLike>;
-
-type PlotsById = Map<string, VgplotPlotLike>;
-
-function resolveHandleTableName(args: {
-  handle: VgplotDataHandle;
-  plotsById: PlotsById;
-  tablesById: TablesById;
-}): string | null {
-  const h = args.handle;
-  const plot = h.surfaceKind === 'plot' ? args.plotsById.get(h.surfaceId) : null;
-  const tableObj = h.surfaceKind === 'table' ? args.tablesById.get(h.surfaceId) : null;
-
-  return (
-    h.table ??
-    (plot ? discoverPlotTables(plot)[0] : null) ??
-    (tableObj && typeof tableObj.from === 'string' ? tableObj.from : null) ??
-    null
-  );
-}
+import type { VgplotProviderOptions, VgplotInteractorLike, VgplotScaleLike } from './types';
 
 function safeStateValue(value: unknown, seen = new WeakSet<object>(), depth = 0): unknown {
   if (value instanceof Date && Number.isFinite(value.getTime())) return value.toISOString();
@@ -114,68 +83,33 @@ export function createVgplotDashboardSnapshots(args: {
   options: VgplotProviderOptions;
   bindings: VgplotBindings;
   dataHandles: VgplotDataHandle[];
-  plotsById: PlotsById;
-  tablesById: TablesById;
 }): { project: () => Promise<VacpAnalyticalProjection> } {
-  const { bindings, options, dataHandles, plotsById, tablesById } = args;
+  const { bindings, options, dataHandles } = args;
   const { inputs, plots, tables } = bindings;
 
-  const dataHandleNodesByRef = new Map<VacpRef, any>();
-
-  for (const n of args.graph.nodes) {
-    if (n.kind !== 'DataHandle') continue;
-    dataHandleNodesByRef.set(n.ref, n);
-  }
-
-  const duckdbMetaByTable = new Map<string, VacpDuckDbTableMetadata>();
-  let duckdbMetaPromise: Promise<void> | null = null;
-
-  const ensureDuckdbMeta = async () => {
-    if (!options.duckdbClient || !dataHandles.length) return;
-
-    if (duckdbMetaPromise) return await duckdbMetaPromise;
-    duckdbMetaPromise = (async () => {
-      for (const h of dataHandles) {
-        const tableName = resolveHandleTableName({ handle: h, plotsById, tablesById });
-
-        if (!tableName || duckdbMetaByTable.has(tableName)) continue;
-
-        try {
-          duckdbMetaByTable.set(
-            tableName,
-            await getDuckDbTableMetadata({
-              duckdb: options.duckdbClient!,
-              table: tableName,
-              sampleRows: 0,
-              maxNumericColumns: 0,
-              maxTemporalColumns: 0,
-              maxCategoricalColumns: 0,
-            }),
-          );
-        } catch {
-          // Ignore metadata failures so data handles remain queryable.
-        }
-      }
-
-      for (const h of dataHandles) {
-        const tableName = resolveHandleTableName({ handle: h, plotsById, tablesById });
-
-        if (!tableName) continue;
-        const meta = duckdbMetaByTable.get(tableName);
-
-        if (!meta) continue;
-        const node = dataHandleNodesByRef.get(h.ref);
-
-        if (!node) continue;
-        const prev = node.data && typeof node.data === 'object' ? (node.data as Record<string, unknown>) : undefined;
-        node.data = { ...prev, table: tableName, duckdb: meta };
-        node.description = `DuckDB handle for "${tableName}".\n${formatDuckDbTableMetadataSummary(meta)}`;
-      }
-    })();
-    await duckdbMetaPromise;
+  // A table's columns are read once, when a projection first names it.
+  const described = new Map<string, Promise<VacpDataSchemaTable | null>>();
+  const describe = (table: string) => {
+    let schema = described.get(table);
+    if (!schema) {
+      schema = describeDuckDbTable({ duckdb: options.duckdbClient!, table }).catch(() => {
+        described.delete(table);
+        return null;
+      });
+      described.set(table, schema);
+    }
+    return schema;
   };
+  const schemas = async () =>
+    new Map(
+      await Promise.all(
+        dataHandles.map(
+          async (handle) => [handle.ref, options.duckdbClient ? await describe(handle.table) : null] as const,
+        ),
+      ),
+    );
 
-  const getState = async (): Promise<Record<VacpRef, unknown>> => {
+  const getState = (): Record<VacpRef, unknown> => {
     const state: Record<VacpRef, unknown> = {};
     for (const group of bindings.selections) {
       const source = group.selection.active?.source;
@@ -264,29 +198,32 @@ export function createVgplotDashboardSnapshots(args: {
       };
     }
 
-    if (dataHandles.length) {
-      const where = whereClauseForVgplotDashboardSelection({ plots: plots.map((p) => p.plot), inputs });
-      dataHandles.forEach((h) => {
-        const tableName = resolveHandleTableName({ handle: h, plotsById, tablesById });
-        const tableObj = h.surfaceKind === 'table' ? tablesById.get(h.surfaceId) : null;
-        state[h.ref] = {
-          kind: 'DataHandle',
-          table: tableName ?? undefined,
-          selectionWhere: where,
-          selectedMeaning: tableObj
-            ? 'rows in the current table view (filters + sort + pagination)'
-            : 'rows matching current plot selection, falling back to all rows if none',
-        };
-      });
-    }
-
     return state;
   };
 
   return {
     project: async () => {
-      await ensureDuckdbMeta();
-      return { graph: args.graph, state: await getState() };
+      const tableSchemas = await schemas();
+      const state = getState();
+      const selectionWhere = dataHandles.length
+        ? whereClauseForVgplotDashboardSelection({ plots: plots.map((p) => p.plot), inputs })
+        : null;
+      // Mosaic reports no revision for its tables, so only the host's hook can state a current row count.
+      const handles = new Map(
+        await Promise.all(
+          dataHandles.map(async (handle) => {
+            const columns = tableSchemas.get(handle.ref)?.columns;
+            const read = { ref: handle.ref, table: handle.table, columns, rowCount: null, selectionWhere };
+            return [handle.ref, await vacpDataHandle(read, options.describeDataHandle)] as const;
+          }),
+        ),
+      );
+      for (const [ref, handle] of handles) state[ref] = handle.state;
+      const nodes = args.graph.nodes.map((node) => {
+        const handle = handles.get(node.ref);
+        return handle ? { ...node, data: handle.data } : node;
+      });
+      return { graph: { ...args.graph, nodes }, state };
     },
   };
 }

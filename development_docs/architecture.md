@@ -43,7 +43,7 @@ The JavaScript workspace keeps one pnpm catalog and lockfile. The Python workspa
 
 `VacpWindowBridge.observe()` is the canonical coherent read. Capability and state methods provide scoped projections for compact consumers. `VacpRuntimeBridge` adds provenance and inspection capabilities. `VacpRuntime` adds provider attachment, source removal, session replacement, invalidation subscriptions, and disposal.
 
-`VacpTransport` maps the bridge to the agent tools other than `vacp_progress`, independently of any model SDK. `VacpDuckDbClient` is the database adapter contract used by providers and data actions.
+`VacpTransport` maps the bridge to the agent tools other than `vacp_progress`, independently of any model SDK. `VacpDuckDbClient` is the database adapter contract used by providers and data actions. `vacpDataHandle` in `protocol` builds every DataHandle's node data and state from what its provider read and what its host's `describeDataHandle` hook states, so providers without a witness for a fact, such as vgplot for row counts, leave it to the host.
 
 ## Runtime flow
 

@@ -237,9 +237,8 @@ export type VacpDataSchemaParams = {
   /** Which DataHandle to describe (a node ref with `kind: "DataHandle"`). */
   handleRef: VacpRef;
   /**
-   * Level of detail:
-   * - `columns` (default): columns + types + row count (fast)
-   * - `full`: include bounded summaries (numeric/temporal/top categories), tuned for agent context
+   * `columns`, the default, reads columns, types, and the row count. `full` adds bounded numeric,
+   * temporal, and top-category summaries.
    */
   detail?: VacpDataSchemaDetail;
   /**
@@ -252,17 +251,20 @@ export type VacpDataSchemaParams = {
 export type VacpDataSchemaColumn = {
   name: string;
   type: string;
-  notNull?: boolean;
-  primaryKey?: boolean;
+  /** Present, and true, only for a NOT NULL column. */
+  notNull?: true;
+  /** Present, and true, only for a primary key column. */
+  primaryKey?: true;
 };
 
 export type VacpDataSchemaNumericSummary = {
   min: number | null;
   max: number | null;
   avg: number | null;
-  unitHint?: 'epoch_ms' | 'epoch_s' | null;
-  minIso?: string | null;
-  maxIso?: string | null;
+  /** Present for a column whose bounds read as epoch timestamps, with `minIso` and `maxIso` as dates. */
+  unitHint?: 'epoch_ms' | 'epoch_s';
+  minIso?: string;
+  maxIso?: string;
 };
 
 export type VacpDataSchemaTemporalSummary = {
@@ -272,17 +274,23 @@ export type VacpDataSchemaTemporalSummary = {
   maxEpochMs: number | null;
 };
 
-export type VacpDataSchemaResult = {
-  handleRef: VacpRef;
-  detail: VacpDataSchemaDetail;
-  /** Underlying provider table/view name when available. */
-  table: string | null;
+/** One relation's columns and row count, with bounded summaries when `detail` is `full`. */
+export type VacpDataSchemaTable = {
+  table: string;
   rowCount: number | null;
   columns: VacpDataSchemaColumn[];
   numeric?: Record<string, VacpDataSchemaNumericSummary>;
   temporal?: Record<string, VacpDataSchemaTemporalSummary>;
   categoricalTopValues?: Record<string, Array<{ value: string; n: number }>>;
   sampledRows?: number | null;
+};
+
+/** The relation `vacp_handle` reads, and under `vacp_all` the relation `vacp_all` reads when that is another. */
+export type VacpDataSchemaResult = {
+  handleRef: VacpRef;
+  detail: VacpDataSchemaDetail;
+  vacp_handle: VacpDataSchemaTable;
+  vacp_all?: VacpDataSchemaTable;
 };
 
 /**

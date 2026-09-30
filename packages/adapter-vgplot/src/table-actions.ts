@@ -1,16 +1,5 @@
 import type { VgplotTableLike } from './types';
 
-function quoteIdent(part: string): string {
-  return `"${part.replaceAll('"', '""')}"`;
-}
-
-function quoteTableRef(table: string): string {
-  return table
-    .split('.')
-    .map((p) => quoteIdent(p))
-    .join('.');
-}
-
 function readString(v: unknown): string | null {
   return typeof v === 'string' && v ? v : null;
 }
@@ -86,39 +75,4 @@ export function prepareTableAction(table: VgplotTableLike, call: { name: string;
   }
 
   throw new Error(`Unsupported table action: ${call.name}`);
-}
-
-export function sqlForVgplotTableView(args: {
-  tableName: string;
-  where?: string | null;
-  sortColumn?: string | null;
-  sortDesc?: boolean;
-  offset?: number | null;
-  limit?: number | null;
-}): { allSql: string; selectedSql: string } {
-  const table = quoteTableRef(args.tableName);
-  const allSql = `SELECT * FROM ${table}`;
-
-  const clauses: string[] = [];
-
-  if (args.where) clauses.push(`WHERE ${args.where}`);
-
-  const sortCol = readString(args.sortColumn);
-  const orderBy = sortCol ? `ORDER BY ${quoteIdent(sortCol)} ${args.sortDesc ? 'DESC' : 'ASC'}` : null;
-
-  if (orderBy) clauses.push(orderBy);
-
-  const limit =
-    typeof args.limit === 'number' && Number.isFinite(args.limit) ? Math.max(1, Math.floor(args.limit)) : null;
-
-  const offset =
-    typeof args.offset === 'number' && Number.isFinite(args.offset) ? Math.max(0, Math.floor(args.offset)) : null;
-
-  if (limit !== null) clauses.push(`LIMIT ${limit}`);
-
-  if (offset !== null && offset > 0) clauses.push(`OFFSET ${offset}`);
-
-  const selectedSql = clauses.length ? `SELECT * FROM ${table} ${clauses.join(' ')}` : allSql;
-
-  return { allSql, selectedSql };
 }

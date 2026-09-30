@@ -873,6 +873,10 @@ importers:
       '@vacp/runtime':
         specifier: workspace:*
         version: link:../runtime
+    devDependencies:
+      '@duckdb/node-api':
+        specifier: 'catalog:'
+        version: 1.5.5-r.5
 
   packages/agent-ai-sdk:
     dependencies:

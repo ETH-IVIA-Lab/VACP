@@ -1,9 +1,15 @@
-import { VACP_SCHEMA_VERSION, type VacpActionDescriptor, type VacpGraphFragment } from '@vacp/protocol';
+import {
+  VACP_SCHEMA_VERSION,
+  type VacpActionDescriptor,
+  type VacpDataHandleData,
+  type VacpDataHandleState,
+  type VacpGraphFragment,
+} from '@vacp/protocol';
 import { listDatasets, type Dataset } from '../datasets/registry';
 import { numericValues, quantile } from '../lib/dashboard';
-import { getEffectiveSelectedIds, type DashboardSnapshot } from './model';
+import { selectionWhere } from './data';
+import type { DashboardSnapshot } from './model';
 import { dashboardRefs } from './refs';
-import type { VacpDuckDbTableMetadata } from '@vacp/data-duckdb';
 
 function summarizeNumericField(dataset: Dataset, field: string) {
   const values = numericValues(dataset, field);
@@ -13,11 +19,10 @@ function summarizeNumericField(dataset: Dataset, field: string) {
 export function projectDashboard(
   snapshot: DashboardSnapshot,
   actions: VacpActionDescriptor[],
-  data: { tableName: string; metadata: VacpDuckDbTableMetadata | null },
+  data: VacpDataHandleData,
   title: string,
 ) {
   const { dataset, datasetId, encoding, selectedIds, brush2d } = snapshot;
-  const { tableName } = data;
   const chartReason = !encoding.x || !encoding.y ? 'Choose both axes to display the chart' : undefined;
   const {
     appRef,
@@ -143,8 +148,9 @@ export function projectDashboard(
         kind: 'DataHandle',
         layer: 'DataLayer',
         title: 'rows (DuckDB handle)',
-        description: 'Query `vacp_all` and `vacp_handle` via `vacp.data_sql`.',
-        data: { primaryKey: 'id', tableName },
+        description:
+          'The active dataset, keyed by `id`. `vacp_handle` holds the selected points, or every row when none are selected, and `vacp_all` every row.',
+        data,
       },
     ],
     edges: [
@@ -184,11 +190,10 @@ export function projectDashboard(
     },
     [handleRef]: {
       kind: 'DataHandle',
-      tableName,
-      datasetId,
-    },
+      rowCount: dataset?.rows.length ?? null,
+      selectionWhere: selectionWhere(snapshot),
+    } satisfies VacpDataHandleState,
   };
-  const { ids, meaning } = getEffectiveSelectedIds(snapshot);
   const xStats = dataset && encoding.x ? summarizeNumericField(dataset, encoding.x) : undefined;
   const yStats = dataset && encoding.y ? summarizeNumericField(dataset, encoding.y) : undefined;
   const summary = {
@@ -200,12 +205,6 @@ export function projectDashboard(
         xStats && yStats
           ? { strategy: 'lower-quartile-cluster', x0: xStats.min, x1: xStats.q1, y0: yStats.min, y1: yStats.q1 }
           : undefined,
-    },
-    [handleRef]: {
-      allCount: dataset?.rows.length ?? 0,
-      selectedCount: ids.length,
-      selectedMeaning: meaning,
-      duckdb: data.metadata ?? undefined,
     },
   };
   return { graph, state, summary };

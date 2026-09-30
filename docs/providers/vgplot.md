@@ -34,7 +34,30 @@ Encoded fields contain bounded semantic descriptors: column and bin metadata, or
 
 For dashboards, supply several `plots` and optional `tables`. Each plot supplies a `plotId` and the VGPlot object. Each table supplies a `tableId` and the table object.
 
-Actions update existing Mosaic selections so linked views respond through their usual dataflow. Pass `options.duckdbClient` to expose data queries through the dashboard's database connection. Set `enableSql: false` to retain schema discovery while omitting SQL execution.
+Actions update existing Mosaic selections so linked views respond through their usual dataflow. Pass `options.duckdbClient` to expose data queries through the dashboard's database connection. Set `enableSql: false` to retain schema discovery while omitting SQL execution. Mosaic reports no revision for the tables it reads, so a data handle's `rowCount` is `null` unless the host states it. A host that knows its tables stay as loaded can count them once:
+
+```ts
+const counts = new Map<string, Promise<number>>();
+const count = (table: string) =>
+  duckdbClient
+    .queryJson(`SELECT count(*)::INTEGER AS n FROM ${sqlIdentifier(table)}`)
+    .then(({ rows }) => Number(rows[0]!.n));
+
+createVgplotProvider({
+  plots,
+  options: {
+    appId,
+    viewId,
+    duckdbClient,
+    describeDataHandle: async ({ table }) => {
+      if (!counts.has(table)) counts.set(table, count(table));
+      return { rowCount: await counts.get(table)!, metadata: { source: 'Daily NOAA weather records' } };
+    },
+  },
+});
+```
+
+The hook runs on every graph and state read, with the handle's `ref` and `table`. Its `rowCount` reaches models as the handle's state, its `metadata` joins the node's `data`, and its `stats` join the state. A hook that fails states nothing.
 
 Interval actions take data-domain endpoints in either order. Mosaic crossfilters retain the source plot as context and filter other marks subscribed through `filterBy`. In NYC Taxi Rides, brushing pickups filters the dropoff map. The hour histogram controls both maps but remains unfiltered itself. A visible brush identifies the selected region. Check the linked output to see the filtering effect.
 

@@ -116,4 +116,9 @@ export interface VgplotProviderOptions {
    * won't be able to query selected rows via SQL.
    */
   duckdbClient?: import('@vacp/data-duckdb').VacpDuckDbClient;
+  /**
+   * States facts about each DataHandle, such as a row count. Mosaic reports no revision for the
+   * tables it reads, so a DataHandle's `rowCount` is null unless this hook states one.
+   */
+  describeDataHandle?: import('@vacp/protocol').VacpDataHandleDescriber;
 }

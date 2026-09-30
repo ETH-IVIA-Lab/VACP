@@ -1,9 +1,9 @@
-import { type VacpActionDescriptor, type VacpClock, type VacpRef } from '@vacp/protocol';
-import type { VacpDuckDbTableMetadata } from '@vacp/data-duckdb';
+import type { VacpActionDescriptor, VacpClock, VacpDataSchemaColumn, VacpRef } from '@vacp/protocol';
 import {
+  createDuckDbDataSchemaHandler,
   createDuckDbDataSqlHandler,
   createDuckDbWasmClient,
-  getDuckDbTableMetadata,
+  describeDuckDbTable,
   makeVacpDuckDbTableName,
   type VacpDuckDbClient,
   type VacpDuckDbLoadType,
@@ -24,10 +24,13 @@ export type VegaLiteDuckDbDataHandle = {
   /** Every row the source loaded, before the chart's filters and aggregates, which `vacp_all` reads. */
   allTableName: string;
   title: string;
-  sourceId: string;
   /** `vacp_handle`'s WHERE clause for the current selections and hover, or null when nothing narrows it. */
   selectionWhere: () => string | null;
-  ensureMetadata: () => Promise<VacpDuckDbTableMetadata | null>;
+  /**
+   * The rows the marks read now, and the table's columns, which load the table only when its
+   * columns changed and resolve null when it cannot load.
+   */
+  observe: () => { rowCount: number; columns: Promise<VacpDataSchemaColumn[] | null> };
 };
 
 /** Replace `table` with rows, typing the columns that hold instants as TIMESTAMP and numbers as DOUBLE. */
@@ -94,7 +97,9 @@ export function createVegaLiteDataBinding(args: {
     let tableTouched = false;
     let loadedRevision: string | null = null;
     let loadedInput: unknown[] | null = null;
-    let metadata: { schema: string; value: VacpDuckDbTableMetadata } | null = null;
+    /** The schema of the rows the table holds, and the columns read for it. */
+    let loadedSchema: string | null = null;
+    let described: { schema: string; columns: VacpDataSchemaColumn[] } | null = null;
     let loading: Promise<void> = Promise.resolve();
     let fields: ReadonlySet<string> = new Set();
     let timestamps: ReadonlyMap<string, VacpClock> = new Map();
@@ -168,6 +173,7 @@ export function createVegaLiteDataBinding(args: {
             await loadTable(db, tableName, current as TableRows);
             fields = current.columns;
             timestamps = current.timestamps;
+            loadedSchema = current.schema;
             loadedColumns = true;
           } else if (loadedColumns) await db.exec(`DELETE FROM main.${tableName}`);
           else {
@@ -175,6 +181,7 @@ export function createVegaLiteDataBinding(args: {
             await db.exec(`CREATE OR REPLACE TABLE main.${tableName} AS SELECT * FROM main.${allTableName} LIMIT 0`);
             fields = loadedAll!.columns;
             timestamps = loadedAll!.timestamps;
+            loadedSchema = schemaOf(loadedAll!);
             loadedColumns = true;
           }
           loadedRevision = current.revision;
@@ -185,38 +192,34 @@ export function createVegaLiteDataBinding(args: {
       return next;
     };
 
-    const describe = async (table: string, detail: 'columns' | 'full', sampleRows?: number) =>
-      await getDuckDbTableMetadata({
-        duckdb: await duckdbPromise,
-        table,
-        sampleRows: detail === 'full' ? (sampleRows ?? 25_000) : 0,
-        maxNumericColumns: detail === 'full' ? undefined : 0,
-        maxTemporalColumns: detail === 'full' ? undefined : 0,
-        maxCategoricalColumns: detail === 'full' ? undefined : 0,
-      });
-
     return {
       ref,
       tableName,
       allTableName,
       title,
-      sourceId: id,
       ensureDuckDbData,
-      describe,
       selectionWhere: () =>
         whereClauseForCurrentSelections(spec, view, { names: fields, timestamps }, args.getHoverFields?.() ?? null),
-      ensureMetadata: async (): Promise<VacpDuckDbTableMetadata | null> => {
-        try {
-          const current = currentRows();
-          // The graph describes the table's columns, which a filter change leaves as loaded.
-          if (metadata?.schema !== current.schema) {
-            await ensureDuckDbData();
-            metadata = { schema: current.schema, value: await describe(tableName, 'columns') };
-          }
-          return { ...metadata.value, rowCount: current.rowCount };
-        } catch {
-          return null;
-        }
+      observe: () => {
+        const current = currentRows();
+        if (described?.schema === current.schema)
+          return { rowCount: current.rowCount, columns: Promise.resolve(described.columns) };
+        // Columns are read after the load that sets them, in the same queue, so they match the table.
+        const columns = ensureDuckDbData().then(() => {
+          const next = loading.then(async () => {
+            if (described?.schema !== loadedSchema) {
+              const { columns } = await describeDuckDbTable({ duckdb: await duckdbPromise, table: tableName });
+              described = { schema: loadedSchema!, columns };
+            }
+            return described!.columns;
+          });
+          loading = next.then(
+            () => {},
+            () => {},
+          );
+          return next;
+        });
+        return { rowCount: current.rowCount, columns: columns.catch(() => null) };
       },
       dispose: async () => {
         if (disposed) return;
@@ -246,12 +249,7 @@ export function createVegaLiteDataBinding(args: {
   const dataSqlDesc = registerVacpDataSqlAction(
     actionRegistry,
     createDuckDbDataSqlHandler({
-      duckdb: {
-        exec: (sql) => duckdbPromise.then((d) => d.exec(sql)),
-        queryJson: (sql) => duckdbPromise.then((d) => d.queryJson(sql)),
-        queryArrowIpcBase64: (sql) => duckdbPromise.then((d) => d.queryArrowIpcBase64(sql)),
-        loadObjectsAsTable: (t, rows, opts) => duckdbPromise.then((d) => d.loadObjectsAsTable(t, rows, opts)),
-      },
+      duckdb: duckdbPromise,
       resolveHandle: async (ref) => {
         const handle = handlesByRef.get(ref);
         if (!handle) return null;
@@ -276,18 +274,15 @@ export function createVegaLiteDataBinding(args: {
 
   const dataSchemaDesc = registerVacpDataSchemaAction(
     actionRegistry,
-    async (params) => {
-      const handle = handlesByRef.get(params.handleRef);
-      if (!handle) throw new Error(`Unknown DataHandle: ${params.handleRef}`);
-      await handle.ensureDuckDbData();
-      const detail = params.detail ?? 'columns';
-      const meta = await handle.describe(handle.tableName, detail, params.sampleRows);
-      const all =
-        handle.allTableName === handle.tableName
-          ? undefined
-          : await handle.describe(handle.allTableName, detail, params.sampleRows);
-      return { handleRef: params.handleRef, detail, ...meta, ...(all ? { vacp_all: all } : {}) };
-    },
+    createDuckDbDataSchemaHandler({
+      duckdb: duckdbPromise,
+      resolveHandle: async (ref) => {
+        const handle = handlesByRef.get(ref);
+        if (!handle) return null;
+        await handle.ensureDuckDbData();
+        return { table: handle.tableName, allTable: handle.allTableName };
+      },
+    }),
     {
       inputRefs,
       description:

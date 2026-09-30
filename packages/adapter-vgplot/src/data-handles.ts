@@ -7,10 +7,11 @@ export type VgplotDataHandle = {
   ref: VacpRef;
   surfaceKind: 'plot' | 'table';
   surfaceId: string;
-  table?: string;
+  /** The DuckDB table the handle's SQL reads. */
+  table: string;
 };
 
-export function discoverPlotTables(plot: VgplotPlotLike): string[] {
+function discoverPlotTables(plot: VgplotPlotLike): string[] {
   const tables: string[] = [];
   plot.marks.forEach((m) => {
     try {
@@ -81,18 +82,8 @@ export function collectVgplotDataHandles(args: {
     const unique = plotTables.get(plotId) ?? [];
     const plotMainTable = unique.find((t) => preferred.includes(t)) ?? unique[0];
 
-    // If the plot exposes no mark table, fall back to a per-plot DataHandle.
-    if (!plotMainTable) {
-      const fallbackRef = makePlotRef({
-        appId: args.options.appId,
-        viewId: args.options.viewId,
-        plotId,
-        suffix: '/data/main',
-      });
-
-      out.push({ ref: fallbackRef, surfaceKind: 'plot', surfaceId: plotId, table: undefined });
-      continue;
-    }
+    // A plot whose marks read no DuckDB table, such as one drawing literal values, offers no handle.
+    if (!plotMainTable) continue;
 
     const tablesForPlot = [plotMainTable, ...unique.filter((t) => t !== plotMainTable)];
 
@@ -103,6 +94,7 @@ export function collectVgplotDataHandles(args: {
 
   for (const { tableId, table } of args.tables ?? []) {
     const tableName = typeof table.from === 'string' && table.from ? table.from : undefined;
+    if (!tableName) continue;
 
     const ref = makePlotRef({
       appId: args.options.appId,

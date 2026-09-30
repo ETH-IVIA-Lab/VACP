@@ -1,9 +1,17 @@
-import type { VacpActionDescriptor, VacpEdge, VacpGraphFragment, VacpNode, VacpRef } from '@vacp/protocol';
+import type {
+  VacpActionDescriptor,
+  VacpDataHandleData,
+  VacpEdge,
+  VacpGraphFragment,
+  VacpNode,
+  VacpRef,
+} from '@vacp/protocol';
 import { VACP_SCHEMA_VERSION, stableStringify, fnv1a64Hex } from '@vacp/protocol';
 import { isNode } from '@uwdata/mosaic-sql';
 
 import { makePlotRef, makeViewRef } from './refs';
 import type { VgplotBindings } from './bindings';
+import type { VgplotDataHandle } from './data-handles';
 import type { VgplotProviderOptions } from './types';
 
 /** Describe analytical fields without following native mark, plot or coordinator ownership. */
@@ -85,7 +93,7 @@ export function buildDashboardGraph(args: {
   bindings: VgplotBindings;
   options: VgplotProviderOptions;
   actions: VacpActionDescriptor[];
-  dataHandles?: Array<{ ref: VacpRef; surfaceKind: 'plot' | 'table'; surfaceId: string; table?: string }>;
+  dataHandles?: VgplotDataHandle[];
 }): VacpGraphFragment {
   const viewRef = makeViewRef({ appId: args.options.appId, viewId: args.options.viewId, suffix: '' });
 
@@ -101,17 +109,6 @@ export function buildDashboardGraph(args: {
   ];
 
   const edges: VacpEdge[] = [];
-
-  const plotHandleUsageByRef = new Map<VacpRef, { table?: string; plotIds: Set<string> }>();
-
-  for (const h of args.dataHandles ?? []) {
-    if (h.surfaceKind !== 'plot') continue;
-    const entry = plotHandleUsageByRef.get(h.ref) ?? { table: h.table, plotIds: new Set<string>() };
-
-    if (!entry.table && h.table) entry.table = h.table;
-    entry.plotIds.add(h.surfaceId);
-    plotHandleUsageByRef.set(h.ref, entry);
-  }
 
   const dataHandleNodeAdded = new Set<VacpRef>();
 
@@ -291,25 +288,16 @@ export function buildDashboardGraph(args: {
 
     const handles = (args.dataHandles ?? []).filter((h) => h.surfaceKind === 'plot' && h.surfaceId === plotId);
     handles.forEach((h) => {
-      const usage = plotHandleUsageByRef.get(h.ref);
-      const plotIds = usage ? Array.from(usage.plotIds).sort() : [plotId];
-      const tableLabel = typeof h.table === 'string' && h.table ? h.table : 'data';
-
       if (!dataHandleNodeAdded.has(h.ref)) {
         dataHandleNodeAdded.add(h.ref);
-        const shared = plotIds.length > 1;
-
-        const title =
-          tableLabel === 'data' && plotIds.length === 1 ? `DuckDB: data (${plotIds[0]})` : `DuckDB: ${tableLabel}`;
-
-        const plotHint = shared ? `Used by plots: ${plotIds.join(', ')}.` : `Used by plot: ${plotIds[0]}.`;
         nodes.push({
           ref: h.ref,
           kind: 'DataHandle',
           layer: 'DataLayer',
-          title,
-          description: `DuckDB-backed handle for this dashboard dataset. ${plotHint} \`vacp_handle\` is the selected subset (or all rows if empty).`,
-          data: { table: usage?.table ?? h.table, plotIds },
+          title: `DuckDB: ${h.table}`,
+          description:
+            'Rows of a dashboard table. `vacp_handle` holds the rows matching the current plot selections and inputs, and `vacp_all` holds every row.',
+          data: { table: h.table } satisfies VacpDataHandleData,
         });
       }
 
@@ -336,17 +324,14 @@ export function buildDashboardGraph(args: {
 
     const handles = (args.dataHandles ?? []).filter((h) => h.surfaceKind === 'table' && h.surfaceId === tableId);
     handles.forEach((h) => {
-      const tableLabel =
-        (typeof h.table === 'string' && h.table) || (typeof table.from === 'string' && table.from) || 'data';
-
       nodes.push({
         ref: h.ref,
         kind: 'DataHandle',
         layer: 'DataLayer',
-        title: `DuckDB: ${tableLabel} (${tableId})`,
+        title: `DuckDB: ${h.table} (${tableId})`,
         description:
-          'DuckDB-backed handle for the data table behind this view. `vacp_handle` reflects the current view state (filters/sort/pagination).',
-        data: { table: h.table, tableId },
+          "Rows behind a dashboard table view. `vacp_handle` holds the rows matching the current selections and inputs, and `vacp_all` holds every row. The view's sort and page live in the table's state.",
+        data: { table: h.table } satisfies VacpDataHandleData,
       });
       edges.push({ from: tableRef, to: h.ref, kind: 'contains' });
     });

@@ -4,11 +4,9 @@ export { createDuckDbWasmClient, instantiateDuckDbWasm } from './client';
 
 export { createDuckDbDataSqlHandler } from './data-sql';
 
-export type { VacpDuckDbTableMetadata, VacpDuckDbColumnInfo } from './metadata';
+export { createDuckDbDataSchemaHandler } from './data-schema';
 
-export { getDuckDbTableMetadata } from './metadata';
-
-export { formatDuckDbTableMetadataSummary } from './summary';
+export { describeDuckDbTable } from './metadata';
 
 export { makeVacpDuckDbTableName } from './table-name';
 

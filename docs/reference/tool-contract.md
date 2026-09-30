@@ -61,6 +61,29 @@ interface VacpWindowBridge {
 }
 ```
 
+## Data handles
+
+A _DataHandle_ node names the relation its SQL reads in `data.table`, and lists that relation's columns in `data.columns` once the provider knows them. Its description says which rows `vacp_handle` and `vacp_all` hold. Its state carries what changes:
+
+```json
+{
+  "graph": {
+    "ref": "vacp://vacp-examples/data/main",
+    "kind": "DataHandle",
+    "data": {
+      "table": "cars",
+      "columns": [
+        { "name": "mpg", "type": "DOUBLE" },
+        { "name": "weight", "type": "DOUBLE" }
+      ]
+    }
+  },
+  "state": { "kind": "DataHandle", "rowCount": 406, "selectionWhere": "(\"mpg\" >= 20 AND \"mpg\" <= 30)" }
+}
+```
+
+`rowCount` counts the rows the relation holds now, or is `null` when neither the provider nor its host has a current count, as for vgplot's Mosaic tables unless the host states one. `selectionWhere` is the predicate the current selections add over the relation's columns, or `null` when none narrows `vacp_handle`. A host can state facts its provider does not hold through the provider's `describeDataHandle` option: a row count, `metadata` about what the data is, which joins the node's `data`, and current `stats`, which join its state. `@vacp/protocol` types these as `VacpDataHandleData`, `VacpDataHandleState`, and `VacpDataHandleFacts`. `vacp.data_schema` describes the relation under `vacp_handle`, and the relation `vacp_all` reads under `vacp_all` when that is another.
+
 ## Example
 
 ```ts
@@ -83,12 +106,14 @@ await vacp_execute({
   "result": {
     "handleRef": "vacp://vacp-examples/data/main",
     "detail": "columns",
-    "table": "cars",
-    "rowCount": 406,
-    "columns": [
-      { "name": "mpg", "type": "DOUBLE" },
-      { "name": "weight", "type": "DOUBLE" }
-    ]
+    "vacp_handle": {
+      "table": "cars",
+      "rowCount": 406,
+      "columns": [
+        { "name": "mpg", "type": "DOUBLE" },
+        { "name": "weight", "type": "DOUBLE" }
+      ]
+    }
   }
 }
 ```

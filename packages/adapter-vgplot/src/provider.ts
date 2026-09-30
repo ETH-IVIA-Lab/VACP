@@ -1,6 +1,6 @@
 import { providerBindings } from './provider-bindings';
 import type { VacpRef, VacpProvider, VacpSourceId } from '@vacp/protocol';
-import { createDuckDbDataSqlHandler, getDuckDbTableMetadata } from '@vacp/data-duckdb';
+import { createDuckDbDataSchemaHandler, createDuckDbDataSqlHandler } from '@vacp/data-duckdb';
 import {
   registerVacpApplyStateAction,
   registerVacpDataSchemaAction,
@@ -15,13 +15,12 @@ import { prepareVgplotRestoration } from './apply-state';
 import { createVgplotBindings } from './bindings';
 import { createVgplotOperations } from './operations';
 import { createVgplotDashboardSnapshots } from './dashboard-snapshots';
-import { collectVgplotDataHandles, discoverPlotTables } from './data-handles';
+import { collectVgplotDataHandles } from './data-handles';
 import { quoteTableRef, whereClauseForVgplotDashboardSelection } from './duckdb-selection';
 import { collectInputs, type CollectedInput } from './inputs';
 import { buildDashboardGraph } from './graph';
 import { createVgplotObservationBinding } from './observe';
 import { makePlotRef, makeViewRef } from './refs';
-import { sqlForVgplotTableView } from './table-actions';
 import type { VgplotProviderOptions, VgplotPlotLike, VgplotTableLike } from './types';
 
 export function createVgplotProvider(args: {
@@ -39,8 +38,6 @@ export function createVgplotProvider(args: {
   const inputs = root ? collectInputs(root, options) : [];
   const inputByRef = new Map<VacpRef, CollectedInput>(inputs.map((i) => [i.ref, i]));
 
-  const plotsById = new Map<string, VgplotPlotLike>(plots.map((p) => [p.plotId, p.plot]));
-  const tablesById = new Map<string, VgplotTableLike>(tables.map((t) => [t.tableId, t.table]));
   const bindings = createVgplotBindings({ plots, tables, inputs, options });
   const operations = createVgplotOperations(bindings);
 
@@ -154,70 +151,21 @@ export function createVgplotProvider(args: {
     preferredTables,
   });
 
-  const handleByRef = new Map<VacpRef, { surfaceKind: 'plot' | 'table'; surfaceId: string; table?: string }>(
-    dataHandles.map((h) => [h.ref, { surfaceKind: h.surfaceKind, surfaceId: h.surfaceId, table: h.table }]),
-  );
+  const tableByRef = new Map<VacpRef, string>(dataHandles.map((h) => [h.ref, h.table]));
 
   if (options.duckdbClient && dataHandles.length) {
     const duckdbClient = options.duckdbClient;
-    const schemaCache = new Map<string, Awaited<ReturnType<typeof getDuckDbTableMetadata>>>();
-
-    const resolveHandleTableName = (ref: VacpRef): string | null => {
-      const meta = handleByRef.get(ref);
-
-      if (!meta) return null;
-      const plot = meta.surfaceKind === 'plot' ? plotsById.get(meta.surfaceId) : null;
-      const tableObj = meta.surfaceKind === 'table' ? tablesById.get(meta.surfaceId) : null;
-
-      return (
-        meta.table ??
-        (plot ? discoverPlotTables(plot)[0] : null) ??
-        (tableObj && typeof tableObj.from === 'string' ? tableObj.from : null) ??
-        null
-      );
-    };
 
     const dataSqlDesc = registerVacpDataSqlAction(
       actionRegistry,
       createDuckDbDataSqlHandler({
-        duckdb: options.duckdbClient,
-        resolveHandle: async (ref) => {
-          const meta = handleByRef.get(ref);
-
-          if (!meta) return null;
-          const plot = meta.surfaceKind === 'plot' ? plotsById.get(meta.surfaceId) : null;
-          const tableObj = meta.surfaceKind === 'table' ? tablesById.get(meta.surfaceId) : null;
-
-          const tableName =
-            meta.table ??
-            (plot ? discoverPlotTables(plot)[0] : null) ??
-            (tableObj && typeof tableObj.from === 'string' ? tableObj.from : null) ??
-            undefined;
-
-          if (!tableName) {
-            const emptySql = 'SELECT NULL::INTEGER AS __vacp_empty WHERE FALSE';
-
-            return { allSql: emptySql, selectedSql: emptySql };
-          }
-
+        duckdb: duckdbClient,
+        resolveHandle: (ref) => {
+          const table = tableByRef.get(ref);
+          if (!table) return null;
           const where = whereClauseForVgplotDashboardSelection({ plots: plots.map((p) => p.plot), inputs });
-
-          if (tableObj) {
-            return sqlForVgplotTableView({
-              tableName,
-              where,
-              sortColumn: tableObj.sortColumn ?? null,
-              sortDesc: Boolean(tableObj.sortDesc),
-              offset: typeof tableObj.offset === 'number' ? tableObj.offset : null,
-              limit: typeof tableObj.limit === 'number' ? tableObj.limit : null,
-            });
-          }
-
-          const table = quoteTableRef(tableName);
-          const allSql = `SELECT * FROM ${table}`;
-          const selectedSql = where ? `SELECT * FROM ${table} WHERE ${where}` : allSql;
-
-          return { allSql, selectedSql };
+          const allSql = `SELECT * FROM ${quoteTableRef(table)}`;
+          return { allSql, selectedSql: where ? `${allSql} WHERE ${where}` : allSql };
         },
       }),
       {
@@ -231,44 +179,13 @@ export function createVgplotProvider(args: {
 
     const dataSchemaDesc = registerVacpDataSchemaAction(
       actionRegistry,
-      async (params) => {
-        const tableName = resolveHandleTableName(params.handleRef);
-
-        if (!tableName) {
-          return {
-            handleRef: params.handleRef,
-            detail: params.detail ?? 'columns',
-            table: null,
-            rowCount: null,
-            columns: [],
-          };
-        }
-
-        const detail = params.detail ?? 'columns';
-        const sampleRows = params.sampleRows;
-
-        const cacheKey =
-          detail === 'full'
-            ? `${tableName}|full|${typeof sampleRows === 'number' ? sampleRows : 'default'}`
-            : `${tableName}|columns`;
-
-        const cached = schemaCache.get(cacheKey);
-
-        if (cached) return { handleRef: params.handleRef, detail, ...cached };
-
-        const meta = await getDuckDbTableMetadata({
-          duckdb: duckdbClient,
-          table: tableName,
-          sampleRows: detail === 'full' ? (sampleRows ?? 25_000) : 0,
-          maxNumericColumns: detail === 'full' ? undefined : 0,
-          maxTemporalColumns: detail === 'full' ? undefined : 0,
-          maxCategoricalColumns: detail === 'full' ? undefined : 0,
-        });
-
-        schemaCache.set(cacheKey, meta);
-
-        return { handleRef: params.handleRef, detail, ...meta };
-      },
+      createDuckDbDataSchemaHandler({
+        duckdb: duckdbClient,
+        resolveHandle: (ref) => {
+          const table = tableByRef.get(ref);
+          return table ? { table } : null;
+        },
+      }),
       { inputRefs: [viewRef] },
     );
 
@@ -282,14 +199,7 @@ export function createVgplotProvider(args: {
     dataHandles,
   });
 
-  const projection = createVgplotDashboardSnapshots({
-    bindings,
-    graph,
-    options,
-    dataHandles,
-    plotsById,
-    tablesById,
-  });
+  const projection = createVgplotDashboardSnapshots({ bindings, graph, options, dataHandles });
 
   const binding = createVgplotObservationBinding(bindings);
 

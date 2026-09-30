@@ -109,6 +109,11 @@ export interface VegaLiteProviderOptions {
    */
   enableDuckDbDataHandle?: boolean;
   /**
+   * States facts about each DataHandle that the chart does not hold, such as where the data came from.
+   * A row count it returns takes the place of the rows the marks read.
+   */
+  describeDataHandle?: import('@vacp/protocol').VacpDataHandleDescriber;
+  /**
    * If true, include a debugging action that allows setting any signal by name.
    * Keep this disabled in production UIs unless arbitrary signal writes are part
    * of the intended control surface.

@@ -19,16 +19,3 @@ export type ReactDashboardModel = {
   setBrush2d: (brush: { x0: number; x1: number; y0: number; y1: number } | null) => void;
   clearBrush2d: () => void;
 };
-
-export function getEffectiveSelectedIds({ dataset, selectedIds, brush2d }: DashboardSnapshot): {
-  ids: string[];
-  meaning: string;
-} {
-  if (!dataset) return { ids: [], meaning: 'no dataset loaded' };
-
-  if (selectedIds.length && brush2d) return { ids: selectedIds, meaning: '2d brush subset' };
-
-  if (selectedIds.length) return { ids: selectedIds, meaning: 'explicit selection ids' };
-
-  return { ids: [], meaning: 'no selection (fallback: all rows)' };
-}

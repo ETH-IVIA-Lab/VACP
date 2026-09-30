@@ -4,10 +4,22 @@ import { exampleOptions } from '../../config';
 import { z } from 'zod';
 
 import { createVacpActions, createVacpProvider, createVacpRefBuilder, installVacp } from '@vacp/sdk';
-import { createDuckDbSqlRouter, makeVacpDuckDbTableName, sqlIdentifier } from '@vacp/data-duckdb';
+import {
+  createDuckDbDataSchemaHandler,
+  createDuckDbSqlRouter,
+  createDuckDbWasmClient,
+  describeDuckDbTable,
+  makeVacpDuckDbTableName,
+  sqlIdentifier,
+} from '@vacp/data-duckdb';
 import { installVacpPosthogAnalytics, type VacpPosthogOptions } from '@vacp/analytics-posthog';
-import { createDuckDbWasmClient, getDuckDbTableMetadata, type VacpDuckDbTableMetadata } from '@vacp/data-duckdb';
-import { VACP_SCHEMA_VERSION, type VacpGraphFragment, type VacpRef } from '@vacp/protocol';
+import {
+  VACP_SCHEMA_VERSION,
+  type VacpDataHandleState,
+  type VacpDataSchemaColumn,
+  type VacpGraphFragment,
+  type VacpRef,
+} from '@vacp/protocol';
 
 import type { BrushRange, CarDatum, ParallelCoordsSource } from './chart';
 import type { ParallelCoordsState } from './chart';
@@ -67,25 +79,12 @@ export function installVacpForCarsParallelCoords(args: {
   const extents = Object.fromEntries(args.dimensions.map((d) => [d, numberExtent(args.data, d)]));
 
   const tableName = makeVacpDuckDbTableName({ prefix: 'vacp_cars_parallel_coords' });
-  let tableMeta: VacpDuckDbTableMetadata | null = null;
+  let columns: VacpDataSchemaColumn[] | undefined;
 
   const duckdb = (async () => {
     const db = await createDuckDbWasmClient({ log: false, bundles: exampleDuckDbBundles });
     await db.loadObjectsAsTable(tableName, args.data, { create: true });
-
-    try {
-      tableMeta = await getDuckDbTableMetadata({
-        duckdb: db,
-        table: tableName,
-        sampleRows: 0,
-        maxNumericColumns: 0,
-        maxTemporalColumns: 0,
-        maxCategoricalColumns: 0,
-      });
-    } catch {
-      tableMeta = null;
-    }
-
+    columns = (await describeDuckDbTable({ duckdb: db, table: tableName }).catch(() => null))?.columns;
     return db;
   })();
 
@@ -300,57 +299,45 @@ export function installVacpForCarsParallelCoords(args: {
     { affects: [vizRef], description: 'Apply brush ranges, axis order, and hover state.' },
   );
 
+  /** The brush ranges as a predicate over the table, or null while every axis spans its full extent. */
+  const brushWhere = (): string | null => {
+    const st = args.getState();
+    const preds: string[] = [];
+
+    for (const dim of st.dimensions) {
+      const range = st.brushRanges[dim];
+      const full = extents[dim];
+
+      if (!range || !full) continue;
+
+      if (nearlyEqual(range[0], full[0]) && nearlyEqual(range[1], full[1])) continue;
+      preds.push(`(${sqlIdentifier(dim)} >= ${range[0]} AND ${sqlIdentifier(dim)} <= ${range[1]})`);
+    }
+
+    return preds.length ? preds.join(' AND ') : null;
+  };
+
   const sql = createDuckDbSqlRouter({ duckdb });
   sql.addHandle({
     handleRef,
     getAllSql: () => `SELECT * FROM ${tableName}`,
     getSelectedSql: () => {
-      const st = args.getState();
-      const preds: string[] = [];
-
-      for (const dim of st.dimensions) {
-        const range = st.brushRanges[dim];
-        const full = extents[dim];
-
-        if (!range || !full) continue;
-
-        if (nearlyEqual(range[0], full[0]) && nearlyEqual(range[1], full[1])) continue;
-        preds.push(`(${sqlIdentifier(dim)} >= ${range[0]} AND ${sqlIdentifier(dim)} <= ${range[1]})`);
-      }
-
-      const where = preds.length ? preds.join(' AND ') : null;
-
+      const where = brushWhere();
       return where ? `SELECT * FROM ${tableName} WHERE ${where}` : `SELECT * FROM ${tableName}`;
     },
   });
   actions.standard.dataSql(sql.handler, {
     enabled: exampleOptions.enableSql,
     inputRefs: [handleRef],
-    description: 'Query the current selection via DuckDB SQL. `vacp_handle` is brush-filtered (or all rows if empty).',
+    description: 'Query the cars with DuckDB SQL. `vacp_handle` holds the cars inside every brush.',
   });
 
   actions.standard.dataSchema(
-    async (params) => {
-      if (params.handleRef !== handleRef) throw new Error(`Unknown DataHandle: ${params.handleRef}`);
-      const db = await duckdb;
-      const detail = params.detail ?? 'columns';
-      const sampleRows = params.sampleRows;
-
-      const meta = await getDuckDbTableMetadata({
-        duckdb: db,
-        table: tableName,
-        sampleRows: detail === 'full' ? (sampleRows ?? 25_000) : 0,
-        maxNumericColumns: detail === 'full' ? undefined : 0,
-        maxTemporalColumns: detail === 'full' ? undefined : 0,
-        maxCategoricalColumns: detail === 'full' ? undefined : 0,
-      });
-
-      return { handleRef, detail, ...meta };
-    },
-    {
-      inputRefs: [handleRef],
-      description: 'Return schema/metadata for the cars DataHandle (columns, types, row count, optional summaries).',
-    },
+    createDuckDbDataSchemaHandler({
+      duckdb,
+      resolveHandle: (ref) => (ref === handleRef ? { table: tableName } : null),
+    }),
+    { inputRefs: [handleRef], description: 'Return the columns, types, and row count of the cars table.' },
   );
 
   const graph: VacpGraphFragment = {
@@ -388,8 +375,8 @@ export function installVacpForCarsParallelCoords(args: {
         kind: 'DataHandle',
         layer: 'DataLayer',
         title: 'cars (DuckDB handle)',
-        description: 'Query `vacp_all` and `vacp_handle` via `vacp.data_sql`.',
-        data: { tableName },
+        description: 'The cars table. `vacp_handle` holds the cars inside every brush, and `vacp_all` every car.',
+        data: { table: tableName },
       },
     ],
     edges: [
@@ -427,14 +414,14 @@ export function installVacpForCarsParallelCoords(args: {
         },
         [handleRef]: {
           kind: 'DataHandle',
-          tableName,
-          selectedCount: st.selectedCount,
-          selectedMeaning:
-            st.selectedCount === st.totalCount ? 'all rows (no active brush)' : 'rows matching brush ranges',
-          duckdb: tableMeta ?? undefined,
-        },
+          rowCount: st.totalCount,
+          selectionWhere: brushWhere(),
+        } satisfies VacpDataHandleState,
       } satisfies Record<VacpRef, unknown>;
-      return { graph, state };
+      const nodes = columns
+        ? graph.nodes.map((node) => (node.ref === handleRef ? { ...node, data: { table: tableName, columns } } : node))
+        : graph.nodes;
+      return { graph: { ...graph, nodes }, state };
     },
   });
   const vacp = installVacp({
