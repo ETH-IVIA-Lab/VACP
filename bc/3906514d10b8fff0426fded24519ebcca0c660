@@ -1,0 +1,15 @@
+apps/evals/src/adapters/browser/page.ts
+  ai_agent 9,100-104,106,109,111-116,118-126,128
+pnpm-lock.yaml
+  ai_agent 451-453
+apps/evals/package.json
+  ai_agent 30
+development_docs/performance.md
+  ai_agent 48-49
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "bc3906514d10b8fff0426fded24519ebcca0c660",
+  "prompts": {}
+}
