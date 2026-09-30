@@ -3,8 +3,10 @@ import type { VacpDuckDbClient } from './client';
 export type VacpDuckDbColumnInfo = {
   name: string;
   type: string;
-  notNull?: boolean;
-  primaryKey?: boolean;
+  /** Present, and true, only for a NOT NULL column. */
+  notNull?: true;
+  /** Present, and true, only for a primary key column. */
+  primaryKey?: true;
 };
 
 type VacpDuckDbNumericSummary = {
@@ -166,14 +168,19 @@ export async function getDuckDbTableMetadata(args: {
 
   const colsRaw = await args.duckdb.queryJson(`PRAGMA table_info('${args.table.replaceAll("'", "''")}')`);
 
-  const columns: VacpDuckDbColumnInfo[] = colsRaw.rows
-    .map((r) => ({
-      name: typeof r.name === 'string' ? r.name : String(r.name ?? ''),
-      type: typeof r.type === 'string' ? r.type : String(r.type ?? ''),
-      notNull: Boolean(r.notnull),
-      primaryKey: Boolean(r.pk),
-    }))
-    .filter((c) => c.name);
+  // Constraints appear only where they hold, so an agent reading the schema pays for what it learns.
+  const columns: VacpDuckDbColumnInfo[] = colsRaw.rows.flatMap((r) => {
+    const name = typeof r.name === 'string' ? r.name : String(r.name ?? '');
+    if (!name) return [];
+    return [
+      {
+        name,
+        type: typeof r.type === 'string' ? r.type : String(r.type ?? ''),
+        ...(r.notnull ? { notNull: true } : {}),
+        ...(r.pk ? { primaryKey: true } : {}),
+      },
+    ];
+  });
 
   const rowCountRes = await args.duckdb.queryJson(`SELECT COUNT(*)::BIGINT AS n FROM ${tableSql}`);
   const rowCount = parseNumber(rowCountRes.rows[0]?.n) ?? null;
