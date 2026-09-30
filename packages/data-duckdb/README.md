@@ -19,7 +19,7 @@ This package standardizes how apps expose semantic data access through actions d
 
 Queries read `vacp_all` and `vacp_handle` as query-local relations. Independent handlers can share a DuckDB client without overwriting each other's bindings. Queries that read an invalid selection reject rather than returning unfiltered data.
 
-`client.loadObjectsAsTable(table, rows, { timestamps })` loads rows into a table. The `timestamps` columns hold wall-clock text such as `2012-06-01T00:00:00.000` and load as `TIMESTAMP`. `sqlTimestampLiteral(time, clock)` writes an instant as a `TIMESTAMP` literal on the `local` or `utc` clock. Query results return a `DATE` as its day, a `TIMESTAMP` as wall-clock text, and a `TIMESTAMP WITH TIME ZONE` as an ISO instant.
+`client.loadObjectsAsTable(table, rows, { types })` loads rows into a table. Each column in `types` holds text that loads with its type: wall-clock text such as `2012-06-01T00:00:00.000` as `TIMESTAMP`, and decimal text such as `24999.5` as `DOUBLE`, however many rows come before the first fraction. Other columns take the types DuckDB's JSON reader infers. `sqlTimestampLiteral(time, clock)` writes an instant as a `TIMESTAMP` literal on the `local` or `utc` clock. Query results return a `DATE` as its day, a `TIMESTAMP` as wall-clock text, and a `TIMESTAMP WITH TIME ZONE` as an ISO instant.
 
 ## Minimal usage
 

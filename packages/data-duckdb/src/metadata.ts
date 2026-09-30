@@ -13,13 +13,10 @@ type VacpDuckDbNumericSummary = {
   min: number | null;
   max: number | null;
   avg: number | null;
-  /**
-   * Optional hint for numeric columns that look like epoch timestamps.
-   * When set, `minIso`/`maxIso` provide human-readable bounds.
-   */
-  unitHint?: 'epoch_ms' | 'epoch_s' | null;
-  minIso?: string | null;
-  maxIso?: string | null;
+  /** Present for a column whose bounds read as epoch timestamps, with `minIso` and `maxIso` as dates. */
+  unitHint?: 'epoch_ms' | 'epoch_s';
+  minIso?: string;
+  maxIso?: string;
 };
 
 type VacpDuckDbTemporalSummary = {
@@ -128,9 +125,9 @@ function parseTemporalValue(value: unknown): { iso: string; epochMs: number } | 
     if (Number.isFinite(t)) return { iso: new Date(t).toISOString(), epochMs: t };
   }
 
-  // TIMESTAMP without timezone: "YYYY-MM-DD HH:MM:SS(.sss)"
-  if (/^\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}(\.\d+)?$/.test(s)) {
-    const t = Date.parse(`${s.replace(' ', 'T')}Z`);
+  // TIMESTAMP without timezone, as wall-clock text: "YYYY-MM-DDTHH:MM:SS(.sss)" or with a space.
+  if (/^\d{4}-\d{2}-\d{2}(?:T|\s+)\d{2}:\d{2}:\d{2}(\.\d+)?$/.test(s)) {
+    const t = Date.parse(`${s.replace(/\s+/, 'T')}Z`);
 
     if (Number.isFinite(t)) return { iso: new Date(t).toISOString(), epochMs: t };
   }
@@ -224,9 +221,7 @@ export async function getDuckDbTableMetadata(args: {
         min,
         max,
         avg,
-        unitHint: sameUnit,
-        minIso: sameUnit && hintMin ? hintMin.iso : null,
-        maxIso: sameUnit && hintMax ? hintMax.iso : null,
+        ...(sameUnit && hintMin && hintMax ? { unitHint: sameUnit, minIso: hintMin.iso, maxIso: hintMax.iso } : {}),
       };
     }
   }

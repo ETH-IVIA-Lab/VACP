@@ -59,8 +59,9 @@ export function arrowTableToJson(table: ArrowTableView) {
   const columns = table.schema.fields.map((field) => field.name);
   const readers = table.schema.fields.map((field) => reader(field.type));
 
+  const vectors = columns.map((column) => table.getChild(column));
   const rows: JsonObject[] = Array.from({ length: table.numRows }, (_, index) =>
-    Object.fromEntries(columns.map((column, at) => [column, readers[at]!(table.getChild(column)?.get(index))])),
+    Object.fromEntries(columns.map((column, at) => [column, readers[at]!(vectors[at]?.get(index))])),
   );
 
   return { columns, rows };

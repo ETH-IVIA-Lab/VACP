@@ -1,4 +1,4 @@
-export type { VacpDuckDbClient, VacpDuckDbWasmClient } from './client';
+export type { VacpDuckDbClient, VacpDuckDbLoadType, VacpDuckDbWasmClient } from './client';
 
 export { createDuckDbWasmClient, instantiateDuckDbWasm } from './client';
 

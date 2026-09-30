@@ -1,42 +1,16 @@
 import assert from 'node:assert/strict';
 import { after, before, test } from 'node:test';
-import { fileURLToPath } from 'node:url';
-import { createDuckDB, NODE_RUNTIME, VoidLogger, type DuckDBConnection } from '@duckdb/duckdb-wasm/blocking';
 import { createDuckDbDataSqlHandler, type VacpDuckDbClient } from '../src/index';
-import { arrowTableToJson } from '../src/json';
+import { wasmDuckDb } from './wasm';
 
-let connection: DuckDBConnection;
+let client: VacpDuckDbClient;
+let close: () => void;
 
 before(async () => {
-  const db = await createDuckDB(
-    {
-      mvp: { mainModule: fileURLToPath(import.meta.resolve('@duckdb/duckdb-wasm/dist/duckdb-mvp.wasm')) },
-      eh: { mainModule: fileURLToPath(import.meta.resolve('@duckdb/duckdb-wasm/dist/duckdb-eh.wasm')) },
-    },
-    new VoidLogger(),
-    NODE_RUNTIME,
-  );
-  await db.instantiate();
-  connection = db.connect();
+  ({ client, close } = await wasmDuckDb());
 });
 
-after(() => connection.close());
-
-const client: VacpDuckDbClient = {
-  async exec(sql) {
-    connection.query(sql);
-  },
-  async queryJson(sql) {
-    return arrowTableToJson(connection.query(sql));
-  },
-  async queryArrowIpcBase64(sql) {
-    const bytes = connection.useUnsafe((bindings, id) => bindings.runQuery(id, sql));
-    return Buffer.from(bytes).toString('base64');
-  },
-  async loadObjectsAsTable() {
-    throw new Error('This fixture uses SQL-defined relations');
-  },
-};
+after(() => close());
 
 test('independent handlers sharing a connection keep JSON and Arrow handle bindings isolated', async () => {
   const handlers = [10, 20].map((value) =>

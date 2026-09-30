@@ -9,15 +9,19 @@ export type VacpDuckDbClient = {
   queryJson(sql: string): Promise<{ columns: string[]; rows: Record<string, unknown>[] }>;
   queryArrowIpcBase64(sql: string): Promise<string>;
   /**
-   * Load rows into `tableName`. `timestamps` names columns that hold wall-clock text such as
-   * `2012-06-01T00:00:00.000`, which load as TIMESTAMP.
+   * Load rows into `tableName`. Columns in `types` hold text that loads with that type: wall-clock
+   * text such as `2012-06-01T00:00:00.000` as TIMESTAMP, and decimal text such as `24999.5` as DOUBLE.
+   * Other columns take the types DuckDB's JSON reader infers.
    */
   loadObjectsAsTable(
     tableName: string,
     rows: Record<string, unknown>[],
-    options?: { create?: boolean; timestamps?: readonly string[] },
+    options?: { create?: boolean; types?: Readonly<Record<string, VacpDuckDbLoadType>> },
   ): Promise<void>;
 };
+
+/** A column type `loadObjectsAsTable` casts text to. */
+export type VacpDuckDbLoadType = 'TIMESTAMP' | 'DOUBLE';
 
 type DuckDbConnection = Pick<duckdb.AsyncDuckDBConnection, 'close' | 'query' | 'insertJSONFromPath'> & {
   useUnsafe<Result>(
@@ -165,18 +169,20 @@ export async function createDuckDbWasmClient(options?: {
       const path = `/${tableName}.json`;
       await db.registerFileText(path, JSON.stringify(rows));
       ensureActive();
-      const loaded = new Set(rows.flatMap((row) => Object.keys(row)));
-      const timestamps = (options?.timestamps ?? []).filter((column) => loaded.has(column));
-      if (!timestamps.length) {
+      const typed = Object.entries(options?.types ?? {}).filter(([column, type]) => {
+        if (type !== 'TIMESTAMP' && type !== 'DOUBLE') throw new TypeError(`Cannot load a column as ${String(type)}`);
+        return rows.some((row) => Object.hasOwn(row, column));
+      });
+      if (!typed.length) {
         await conn.insertJSONFromPath(path, { name: tableName, create, schema: 'main' });
         return;
       }
-      // The JSON reader keeps wall-clock text as VARCHAR, so the rows pass through one typed copy.
+      // The JSON reader keeps typed text as VARCHAR, so the rows pass through one typed copy.
       const staging = `${tableName}__load`;
       await conn.query(`DROP TABLE IF EXISTS main.${sqlIdentifier(staging)}`);
       await conn.insertJSONFromPath(path, { name: staging, create: true, schema: 'main' });
-      const casts = timestamps.map(
-        (column) => `CAST(${sqlIdentifier(column)} AS TIMESTAMP) AS ${sqlIdentifier(column)}`,
+      const casts = typed.map(
+        ([column, type]) => `CAST(${sqlIdentifier(column)} AS ${type}) AS ${sqlIdentifier(column)}`,
       );
       const select = `SELECT * REPLACE (${casts.join(', ')}) FROM main.${sqlIdentifier(staging)}`;
       try {
