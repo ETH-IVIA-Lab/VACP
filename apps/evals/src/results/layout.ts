@@ -43,6 +43,8 @@ export function variantPaths(results: string, flow: Flow, variant: string) {
   return {
     dir,
     variant,
+    /** Held by the one invocation that writes the variant. */
+    lock: join(dir, '.lock'),
     results: join(dir, 'results.jsonl'),
     errors: join(dir, 'errors.jsonl'),
     /** Every invocation that ran into the variant: when, on which VACP code, with what condition. */

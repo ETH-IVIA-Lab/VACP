@@ -256,4 +256,10 @@ main(tracing)
     console.error(error instanceof Error ? error.message : error);
     process.exitCode = error instanceof EvalGateError ? 2 : error instanceof EvalBugError ? 3 : 1;
   })
-  .finally(() => tracing.shutdown());
+  // Spans already sit in each run's spans.jsonl, so a collector that refuses the last batch costs only
+  // its copy of them.
+  .finally(() =>
+    tracing.shutdown().catch((error: unknown) => {
+      console.error(`${tracing.otlp} refused the last spans: ${error instanceof Error ? error.message : error}`);
+    }),
+  );

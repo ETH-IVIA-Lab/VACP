@@ -40,6 +40,15 @@ function signalGroup(group: number) {
   }
 }
 
+/**
+ * Every live sandbox's process groups. Runtimes outlive an eval that throws or exits before it
+ * destroys its sandboxes, so the process ends them as it exits.
+ */
+const liveGroups = new Set<number>();
+process.once('exit', () => {
+  for (const group of liveGroups) signalGroup(group);
+});
+
 async function bytes(stream: ReadableStream<Uint8Array>): Promise<Uint8Array> {
   return new Uint8Array(await new Response(stream).arrayBuffer());
 }
@@ -144,7 +153,10 @@ export class LocalSandbox implements HarnessV1NetworkSandboxSession {
       stdio: ['ignore', 'pipe', 'pipe'],
       detached: true,
     });
-    if (child.pid !== undefined) this.groups.add(child.pid);
+    if (child.pid !== undefined) {
+      this.groups.add(child.pid);
+      liveGroups.add(child.pid);
+    }
     const exited = new Promise<{ exitCode: number }>((resolve, reject) => {
       child.once('error', reject);
       child.once('close', (code, signal) => {
@@ -184,7 +196,10 @@ export class LocalSandbox implements HarnessV1NetworkSandboxSession {
     (await this.getPortEndpoint(options)).url;
 
   stop = async () => {
-    for (const group of this.groups) signalGroup(group);
+    for (const group of this.groups) {
+      signalGroup(group);
+      liveGroups.delete(group);
+    }
     this.groups.clear();
   };
 

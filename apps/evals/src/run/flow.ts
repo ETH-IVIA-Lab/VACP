@@ -5,9 +5,9 @@ import type { Tracing } from '../adapters/telemetry';
 import { promptOf, type Scenario } from '../core/scenario';
 import type { ConditionSession } from '../ports';
 import { approveFlow } from '../results/gate';
-import { flowLabel, NO_MODEL, variantPaths, type Flow } from '../results/layout';
+import { flowLabel, NO_MODEL, variantPaths, type Flow, type VariantPaths } from '../results/layout';
 import type { InvocationRecord, ResultRow } from '../results/rows';
-import { appendJsonl, readJsonl, writeJsonl } from '../results/store';
+import { appendJsonl, holdLock, readJsonl, repairTail, writeJsonl } from '../results/store';
 import type { Suite } from '../suite';
 import { assertFreshBuilds, vacpRevision } from './environment';
 import { runOne } from './run';
@@ -42,9 +42,23 @@ function resolveFlow(suite: Suite, conditionId: string, modelKey?: string) {
 
 /** Run one flow, a condition on a model, over the selected scenarios into one variant. */
 export async function runFlow(options: RunOptions) {
+  const resolved = resolveFlow(options.suite, options.condition, options.model);
+  const paths = variantPaths(options.suite.results, resolved.flow, options.variant);
+  const release = holdLock(paths.lock, `${flowLabel(resolved.flow)} / ${options.variant}`);
+  try {
+    for (const file of [paths.results, paths.errors, paths.invocations, paths.spans]) repairTail(file);
+    await runJobs(options, { ...resolved, paths });
+  } finally {
+    release();
+  }
+  return { flow: resolved.flow, paths };
+}
+
+async function runJobs(
+  options: RunOptions,
+  { condition, model, flow, paths }: ReturnType<typeof resolveFlow> & { paths: VariantPaths },
+) {
   const { suite, log, signal } = options;
-  const { condition, model, flow } = resolveFlow(suite, options.condition, options.model);
-  const paths = variantPaths(suite.results, flow, options.variant);
   const split = suite.split();
   if (!split) throw new Error(`No split at ${suite.splitFile}. Run \`eval split\` first.`);
   const record = approveFlow({ suite, flow, model, split, approve: !!options.approveEval });
@@ -70,7 +84,7 @@ export async function runFlow(options: RunOptions) {
     `${flowLabel(flow)} / ${options.variant}: ${options.scenarios.length} scenarios × ${reps} reps, ` +
       `${jobs.length} to run (${options.scenarios.length * reps - jobs.length} already recorded)`,
   );
-  if (!jobs.length) return { flow, paths };
+  if (!jobs.length) return;
   assertFreshBuilds(suite.repoRoot);
 
   // A gallery that stops answering fails every remaining run the same way, so the flow stops and a
@@ -140,5 +154,4 @@ export async function runFlow(options: RunOptions) {
     await session?.close?.().catch(() => {});
     await gallery.close();
   }
-  return { flow, paths };
 }
