@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import type { WebMCP } from 'webmcp-types';
-import { VACP_SCHEMA_VERSION, vacpNarrationGuidance, type VacpGraph, type VacpGraphFragment } from '@vacp/protocol';
+import { VACP_SCHEMA_VERSION, vacpNarrationGuidance, type VacpGraphFragment } from '@vacp/protocol';
 import { createVacpProvider, createVacpRuntime, VacpActionRegistry } from '@vacp/runtime';
 import { compileVacpWebMcpTools, installVacpWebMcp, type VacpWebMcpRegistry } from '../src/index';
 
@@ -93,10 +93,6 @@ test('graph projection preserves schemas and context, and executes through runti
     });
     assert.equal(tools[0]?.annotations?.readOnlyHint, true);
     const options = { signal: new AbortController().signal };
-    assert.deepEqual(
-      ((await tools[0]!.execute({}, options)) as { graph: VacpGraph }).graph,
-      (await runtime.getCapabilities()).graph,
-    );
     const result = await action.execute({ value: 35, narration: '  Raising the threshold to 35.  ' }, options);
     assert.equal((result as { ok: boolean }).ok, true);
     assert.deepEqual((await runtime.getState()).state['vacp://app/threshold'], { value: 35 });
@@ -108,6 +104,23 @@ test('graph projection preserves schemas and context, and executes through runti
     // The step's sentence is not an action parameter; the execution carries it.
     assert.deepEqual(record?.kind === 'action' ? record.call.params : undefined, { value: 35 });
     assert.equal(record?.kind === 'action' && record.execution.narration, 'Raising the threshold to 35.');
+  } finally {
+    runtime.dispose();
+  }
+});
+
+test('graph reads give the model entities and relationships, and leave actions to their own tools', async () => {
+  const { runtime } = fixture();
+  try {
+    const tools = compileVacpWebMcpTools((await runtime.getCapabilities()).graph, runtime);
+    const options = { signal: new AbortController().signal };
+    const read = async (name: string) =>
+      (await tools.find((tool) => tool.name === name)!.execute({}, options)) as { graph: object; state?: object };
+    const { version, sources, nodes, edges } = (await runtime.getCapabilities()).graph;
+    assert.deepEqual((await read('vacp.capabilities')).graph, { version, sources, nodes, edges });
+    const observed = await read('vacp.observe');
+    assert.deepEqual(observed.graph, { version, sources, nodes, edges });
+    assert.deepEqual(observed.state, (await runtime.observe()).state);
   } finally {
     runtime.dispose();
   }

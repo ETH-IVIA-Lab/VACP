@@ -9,6 +9,7 @@ import {
   type VacpGraph,
   type VacpActionDescriptor,
   type VacpActor,
+  vacpToolRead,
 } from '@vacp/protocol';
 import type { VacpWebMcpClient, VacpWebMcpOptions } from './types';
 
@@ -26,6 +27,17 @@ const narration = {
   maxLength: VACP_NARRATION_MAX_LENGTH,
   description: vacpNarrationGuidance,
 };
+
+/** Each available action is a tool of its own, so graph reads leave actions out. */
+function withoutActions<Graph extends { actions: unknown }>(graph: Graph): Omit<Graph, 'actions'> {
+  const { actions: _, ...entities } = graph;
+  return entities;
+}
+
+function entityRead<Read extends { graph: VacpGraph<unknown> }>(read: Read) {
+  const { graph, ...rest } = vacpToolRead(read);
+  return { ...rest, graph: withoutActions(graph) };
+}
 
 /** WebMCP steps belong to one agent unless the host names another. */
 export const webMcpAgent: VacpActor = { id: 'webmcp', label: 'Agent', kind: 'agent' };
@@ -82,27 +94,28 @@ export function compileVacpWebMcpTools(
   const tools: WebMCP.ModelContextTool[] = [
     {
       name: `${namespace}.observe`,
-      description: 'Read one coherent VACP observation: sources, ownership, graph, state, summaries, and freshness.',
+      description:
+        'Read one coherent VACP observation: sources, entities, relationships, state, summaries, and freshness. Each available action is its own tool.',
       annotations: { readOnlyHint: true },
       execute: async (_input, context) => {
         const signal = webMcpExecutionSignal(context);
         signal.throwIfAborted();
         const result = await client.observe();
         signal.throwIfAborted();
-        return result;
+        return entityRead(result);
       },
     },
     {
       name: `${namespace}.capabilities`,
       description:
-        'Read the live VACP graph: entities, stable references, relationships, and available semantic actions.',
+        'Read the live VACP graph: entities, stable references, and relationships. Each available action is its own tool.',
       annotations: { readOnlyHint: true },
       execute: async (_input, context) => {
         const signal = webMcpExecutionSignal(context);
         signal.throwIfAborted();
         const result = await client.getCapabilities();
         signal.throwIfAborted();
-        return result;
+        return entityRead(result);
       },
     },
     {

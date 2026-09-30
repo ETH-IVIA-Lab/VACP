@@ -1,4 +1,4 @@
-import { nowIso, type VacpExecution, type VacpExecutionGate } from '@vacp/protocol';
+import { isVacpExecutionSettled, nowIso, type VacpExecution, type VacpExecutionGate } from '@vacp/protocol';
 import { notify } from './helpers';
 
 /** Optional presentation work never owns action success or cancellation. */
@@ -64,8 +64,7 @@ export function createExecutionChannel(lifetime: AbortSignal) {
     emit: (execution: VacpExecution) => {
       if (closed || execution.sequence <= retiredThrough) return;
       latestSequence = Math.max(latestSequence, execution.sequence);
-      if (execution.phase === 'succeeded' || execution.phase === 'failed' || execution.phase === 'cancelled')
-        pending.delete(execution.id);
+      if (isVacpExecutionSettled(execution)) pending.delete(execution.id);
       else pending.set(execution.id, { ...execution });
       notify(listeners, execution);
     },

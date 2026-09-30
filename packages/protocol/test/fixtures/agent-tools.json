@@ -1,0 +1,107 @@
+{
+  "tools": {
+    "vacp_observe": {
+      "description": "Read the graph, available actions, state, revision, and output freshness in one observation.",
+      "input": []
+    },
+    "vacp_capabilities": {
+      "description": "Read the graph and its available actions. Scope the read by refs, prefixes, kinds, or layers once targets are known. Name actions in vacp_execute by graph.actions[].name.",
+      "input": ["refs", "prefixes", "kinds", "layers", "includeActions", "includeEdges", "includeNodeData"]
+    },
+    "vacp_state": {
+      "description": "Read state keyed by stable refs. Without input it returns the full snapshot. With mode \"delta\" and the token of an earlier read it returns only what changed, and refs limits the read.",
+      "input": ["mode", "since", "refs", "includeSummary"]
+    },
+    "vacp_execute": {
+      "description": "Run one semantic action by its name from the graph, with params matching its parameters schema and a narration sentence for this step. Returns { callId, ok, result, error }.",
+      "input": ["name", "params", "narration", "call_id"]
+    },
+    "vacp_progress": {
+      "description": "Tell the person watching what you are about to do, in one short plain sentence they can read on screen. Call it once before your first action. Set done to true with a brief closing sentence that states what the view now shows. Every action also carries its own narration, so each step shows its own reason.",
+      "input": ["message", "done"]
+    }
+  },
+  "guidance": "Read vacp_observe once at the start of a request. Only the actions available now are disclosed. Observe again only when the available actions may have changed, such as after loading a dataset, or when vacp_execute reports an unknown or unavailable action. Read what an action changed from its result and vacp_state. After actions, prefer vacp_state with mode \"delta\" and the token of the previous read, and read once with mode \"full\" when the lineage is unclear. Scope vacp_capabilities and vacp_state by refs once targets are known. Omit scope fields for an unscoped read, which leaves out node data unless includeNodeData is true. Call vacp_progress once before the first action with one plain sentence for the person, give every vacp_execute its own narration, and close the task with vacp_progress and done set to true.",
+  "capabilities": [
+    {
+      "input": {},
+      "expected": {
+        "includeNodeData": false
+      }
+    },
+    {
+      "input": {
+        "refs": ["vacp://"]
+      },
+      "expected": {
+        "includeNodeData": false
+      }
+    },
+    {
+      "input": {
+        "includeNodeData": true
+      },
+      "expected": {
+        "includeNodeData": true
+      }
+    },
+    {
+      "input": {
+        "refs": ["vacp://chart/view"]
+      },
+      "expected": {
+        "refs": ["vacp://chart/view"]
+      }
+    },
+    {
+      "input": {
+        "prefixes": ["vacp://", "vacp://chart/"]
+      },
+      "expected": {
+        "prefixes": ["vacp://chart/"]
+      }
+    },
+    {
+      "input": {
+        "kinds": ["View"],
+        "includeEdges": false
+      },
+      "expected": {
+        "kinds": ["View"],
+        "includeEdges": false
+      }
+    }
+  ],
+  "state": [
+    {
+      "input": {},
+      "expected": null
+    },
+    {
+      "input": {
+        "refs": ["vacp://"]
+      },
+      "expected": null
+    },
+    {
+      "input": {
+        "mode": "delta",
+        "since": "t1"
+      },
+      "expected": {
+        "mode": "delta",
+        "since": "t1"
+      }
+    },
+    {
+      "input": {
+        "refs": ["vacp://", "vacp://chart/view"],
+        "includeSummary": false
+      },
+      "expected": {
+        "refs": ["vacp://chart/view"],
+        "includeSummary": false
+      }
+    }
+  ]
+}

@@ -1,5 +1,6 @@
 import type { VacpProvenanceSource } from './provenance';
-import type { VacpActor, VacpFocus } from './execution';
+import type { VacpAgentActivityControl } from './activity';
+import type { VacpActor, VacpExecutionSource, VacpFocus } from './execution';
 import type {
   VacpActionCall,
   VacpActionExecutionOptions,
@@ -35,3 +36,9 @@ export interface VacpRuntimeBridge extends VacpWindowBridge, VacpProvenanceSourc
   startObserving?: (options?: { intervalMs?: number; actor?: VacpActor; message?: string }) => void;
   stopObserving?: () => void;
 }
+
+/**
+ * The runtime a page publishes at `window.__vacp` and `getVacpBridge()` returns: reads and execution,
+ * the provenance record, agent activity for narration, and the live execution stream.
+ */
+export type VacpPageBridge = VacpRuntimeBridge & VacpAgentActivityControl & VacpExecutionSource;

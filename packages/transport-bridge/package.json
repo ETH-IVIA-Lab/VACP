@@ -14,7 +14,8 @@
   },
   "scripts": {
     "build": "vp pack",
-    "typecheck": "tsc -p tsconfig.json"
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "tsx --test --test-timeout=10000 test/*.test.ts"
   },
   "dependencies": {
     "@vacp/protocol": "workspace:*"

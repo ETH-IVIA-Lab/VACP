@@ -1,5 +1,6 @@
 import { untilAborted } from './wait';
 import {
+  isVacpExecutionSettled,
   captureVacpValue,
   type VacpActor,
   type VacpExecution,
@@ -57,13 +58,9 @@ type Entry = {
   published?: PresenceActivity;
 };
 
-function terminal(execution: VacpExecution): boolean {
-  return execution.phase === 'succeeded' || execution.phase === 'failed' || execution.phase === 'cancelled';
-}
-
 function phaseOf(step: VacpExecution | undefined, progress: VacpAgentActivity | undefined): PresenceActivity['phase'] {
   if (step?.phase === 'failed' || step?.phase === 'cancelled') return step.phase;
-  if (step && !terminal(step)) return 'acting';
+  if (step && !isVacpExecutionSettled(step)) return 'acting';
   return progress?.phase ?? 'completed';
 }
 
@@ -246,7 +243,7 @@ export function createAgentPresence(source: PresenceSource, options: PresenceOpt
       moveOn(entry);
     const shown = displayed(entry);
     // The cursor rests on a finished step, or on the last focused step of an earlier turn.
-    const resting = entry.step ? terminal(entry.step.value) : entry.rest !== undefined;
+    const resting = entry.step ? isVacpExecutionSettled(entry.step.value) : entry.rest !== undefined;
     entry.progress = { ...progress, actor: { ...progress.actor } };
     clearTimeout(entry.retire);
     release(entry);
@@ -302,14 +299,14 @@ export function createAgentPresence(source: PresenceSource, options: PresenceOpt
       }
     }
     release(entry);
-    if (!terminal(value)) clearTimeout(entry.retire);
+    if (!isVacpExecutionSettled(value)) clearTimeout(entry.retire);
     if (value.phase === 'prepared' || value.phase === 'running') locate(entry);
     if (value.phase === 'cancelled') {
       entry.step.lifetime.abort();
       entry.targets.stop();
       entry.target = undefined;
     }
-    if (terminal(value) && entry.progress?.phase !== 'thinking') retire(actorId, entry);
+    if (isVacpExecutionSettled(value) && entry.progress?.phase !== 'thinking') retire(actorId, entry);
     publish('activity', true);
   };
   const freshnessOf = (entry: Entry, observation: VacpObservation): PresenceFreshness => {

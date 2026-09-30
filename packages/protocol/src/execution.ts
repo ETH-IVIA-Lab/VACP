@@ -62,6 +62,11 @@ export type VacpExecution = {
   message?: string;
 };
 
+/** Whether the execution reached its last phase: succeeded, failed, or cancelled. */
+export function isVacpExecutionSettled(execution: Pick<VacpExecution, 'phase'>): boolean {
+  return execution.phase === 'succeeded' || execution.phase === 'failed' || execution.phase === 'cancelled';
+}
+
 export type VacpExecutionGate = (execution: VacpExecution, signal: AbortSignal) => void | Promise<void>;
 
 export interface VacpExecutionSource {

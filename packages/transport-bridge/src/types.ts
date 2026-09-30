@@ -7,11 +7,13 @@ import type {
   VacpStateRequest,
   VacpStateSnapshot,
   VacpStateUpdate,
+  VacpToolRead,
 } from '@vacp/protocol';
 
+/** Agent tools over the bridge. Graph reads leave out source ownership, which models do not route by. */
 export interface VacpTransport {
-  vacp_observe(): Promise<VacpObservation>;
-  vacp_capabilities(options?: VacpCapabilitiesRequest): Promise<VacpCapabilitiesSnapshot>;
+  vacp_observe(): Promise<VacpToolRead<VacpObservation>>;
+  vacp_capabilities(options?: VacpCapabilitiesRequest): Promise<VacpToolRead<VacpCapabilitiesSnapshot>>;
   vacp_state(options?: VacpStateRequest): Promise<VacpStateSnapshot | VacpStateUpdate>;
   /** `narration` is the step's own sentence for the person watching; `actor` attributes the step. */
   vacp_execute(

@@ -36,13 +36,15 @@ test('native WebMCP projects composed providers and unregisters them on disposal
     const tools = await context.getTools();
     const capabilities = tools.find((tool) => tool.name === 'vacp.capabilities');
     if (!capabilities) throw new Error('Missing graph tool');
-    return JSON.parse(await context.executeTool(capabilities, '{}'));
+    return {
+      ...JSON.parse(await context.executeTool(capabilities, '{}')),
+      tools: tools.map((tool) => tool.name),
+    };
   });
   expect(graph.graph.nodes.length).toBeGreaterThan(0);
   expect(graph.graph.edges.length).toBeGreaterThan(0);
-  expect(
-    graph.graph.actions.some((action: { name: string }) => action.name === 'parallel_coords.set_dimension_order'),
-  ).toBe(true);
+  // Each available action is its own tool beside the graph reads.
+  expect(graph.tools).toContain('vacp.action.parallel_coords.set_dimension_order');
 
   await page.evaluate(
     async ({ root }) => {
@@ -85,6 +87,8 @@ test('native WebMCP projects composed providers and unregisters them on disposal
     const state = tools.find((tool) => tool.name === 'vacp.state')!;
     const progress = tools.find((tool) => tool.name === 'vacp.progress')!;
     return {
+      // Chromium reports a registered tool's input schema as JSON text.
+      schema: JSON.parse(String(action.inputSchema)),
       valid: JSON.parse(
         await context.executeTool(action, JSON.stringify({ value: 42, narration: 'Raising the threshold to 42.' })),
       ),
@@ -106,22 +110,20 @@ test('native WebMCP projects composed providers and unregisters them on disposal
   // Chromium replaces a thrown tool error with a generic one, so input problems arrive as results.
   expect(results.unnarrated).toMatchObject({ ok: false, error: { message: 'narration must be a string' } });
   expect(results.silent).toEqual({ ok: false, error: { message: 'message must be a string' } });
-  expect(results.observation.graph.actions).toEqual(
-    expect.arrayContaining([
-      expect.objectContaining({
-        name: 'threshold.set',
-        parameters: expect.objectContaining({
-          type: 'object',
-          required: ['value'],
-          properties: { value: { type: 'number', minimum: 0, maximum: 100 } },
-        }),
-      }),
-    ]),
+  // The action reaches the model as its own tool, with the provider's schema beside its narration.
+  expect(results.schema).toEqual(
+    expect.objectContaining({
+      type: 'object',
+      required: ['value', 'narration'],
+      properties: expect.objectContaining({ value: { type: 'number', minimum: 0, maximum: 100 } }),
+    }),
   );
   expect(results.observation.graph.sources.map((source: { type: string }) => source.type)).toEqual(
     expect.arrayContaining(['parallel-coordinates', 'control']),
   );
-  expect(results.observation.graph.ownership.nodes['vacp://example/threshold']).toBe('vacp-source://example/threshold');
+  expect(results.observation.graph.nodes.map((node: { ref: string }) => node.ref)).toContain(
+    'vacp://example/threshold',
+  );
   expect(results.state.state['vacp://example/threshold'].value).toBe(42);
   await expect(page.locator('#custom-threshold')).toHaveValue('42');
   await page.evaluate(async (root) => {
