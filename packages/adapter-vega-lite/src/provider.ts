@@ -8,7 +8,6 @@ import { actionsForSpec } from './actions';
 import { buildGraph } from './graph';
 import { executeVegaLiteActions, prepareVegaLiteAction } from './execute';
 import { createVegaLiteDataBinding } from './duckdb-handle';
-import { whereClauseForCurrentSelections } from './duckdb-selection';
 import { createVegaLiteBindings } from './bindings';
 import { makeRef } from './refs';
 import type { VegaLiteProviderOptions, VegaLiteSpecLike, VegaViewLike } from './types';
@@ -91,7 +90,11 @@ export function createVegaLiteProvider(args: {
             : desired == null || (typeof desired === 'object' && Object.keys(desired).length === 0)
               ? 'vega_lite.clear_selection'
               : 'vega_lite.set_selection';
-        plans.push(prepareVegaLiteAction(view, { callId: '', name, params: { ref, value: desired } }, helpers));
+        plans.push(
+          prepareVegaLiteAction(view, { callId: '', name, params: { ref, value: desired } }, helpers, {
+            restore: true,
+          }),
+        );
       }
       return async ({ signal }) => {
         signal?.throwIfAborted();
@@ -111,11 +114,13 @@ export function createVegaLiteProvider(args: {
     actionRegistry,
     actionDescriptors,
     vizRef,
+    temporal: helpers.temporal,
   });
 
   const data = createVegaLiteDataBinding({
     spec,
     view,
+    bindings: helpers,
     options,
     actionRegistry,
     actionDescriptors,
@@ -177,8 +182,8 @@ export function createVegaLiteProvider(args: {
         state[h.ref] = {
           kind: 'DataHandle',
           tableName: h.tableName,
-          selectionWhere: whereClauseForCurrentSelections(spec, view, h.fields(), tooltip.fields()),
-          selectedMeaning: 'rows matching current selection params, falling back to all rows if none',
+          selectionWhere: h.selectionWhere(),
+          selectedMeaning: 'rows the marks read that match the current selections and hover',
         };
       });
 

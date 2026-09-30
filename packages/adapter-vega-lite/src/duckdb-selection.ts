@@ -1,6 +1,9 @@
-import { sqlIdentifier, sqlStringLiteral } from '@vacp/data-duckdb';
+import { sqlIdentifier, sqlStringLiteral, sqlTimestampLiteral } from '@vacp/data-duckdb';
+import type { VacpClock } from '@vacp/protocol';
+
+import { collectVegaLiteParams, encodingField } from './params';
+import { vegaInstant } from './temporal';
 import type { VegaLiteSpecLike, VegaViewLike } from './types';
-import { collectVegaLiteParams } from './params';
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return !!value && typeof value === 'object' && !Array.isArray(value);
@@ -14,6 +17,15 @@ function normalizeSelect(select: unknown): Record<string, unknown> | null {
   return null;
 }
 
+/** The handle's loaded columns. A timestamp column compares with a TIMESTAMP on its own clock. */
+export type SelectionColumns = { names: ReadonlySet<string>; timestamps: ReadonlyMap<string, VacpClock> };
+
+function timestamp(value: unknown, column: string, clock: VacpClock, round: (time: number) => number = Math.round) {
+  const time = vegaInstant(value);
+  if (time === null) throw new Error(`${JSON.stringify(value)} names no instant for the date column ${column}`);
+  return sqlTimestampLiteral(round(time), clock);
+}
+
 function sqlLiteral(value: unknown): string | null {
   if (value === null || value === undefined) return null;
 
@@ -24,14 +36,6 @@ function sqlLiteral(value: unknown): string | null {
   if (typeof value === 'string') return sqlStringLiteral(value);
 
   if (typeof value === 'bigint') return sqlStringLiteral(value.toString());
-
-  if (value instanceof Date) {
-    const t = value.getTime();
-
-    if (!Number.isFinite(t)) return null;
-
-    return String(t);
-  }
 
   if (Array.isArray(value) || isRecord(value)) {
     try {
@@ -44,10 +48,12 @@ function sqlLiteral(value: unknown): string | null {
   return null;
 }
 
-function hoverPredicates(
-  fields: Readonly<Record<string, unknown>> | null,
-  allowed: ReadonlySet<string> | null,
-): string[] {
+function literalFor(columns: SelectionColumns, column: string) {
+  const clock = columns.timestamps.get(column);
+  return (value: unknown) => (clock ? timestamp(value, column, clock) : sqlLiteral(value));
+}
+
+function hoverPredicates(fields: Readonly<Record<string, unknown>> | null, columns: SelectionColumns): string[] {
   if (!isRecord(fields)) return [];
 
   const preds: string[] = [];
@@ -55,63 +61,25 @@ function hoverPredicates(
   for (const [field, value] of Object.entries(fields)) {
     if (!field) continue;
 
-    if (allowed && !allowed.has(field)) continue;
+    if (!columns.names.has(field)) continue;
     const ident = sqlIdentifier(field);
+    const literal = literalFor(columns, field);
 
     if (Array.isArray(value)) {
-      const lits = value.map(sqlLiteral).filter((x): x is string => x !== null);
+      const lits = value.map(literal).filter((x): x is string => x !== null);
 
       if (!lits.length) continue;
       preds.push(`(${ident} IN (${lits.join(', ')}))`);
       continue;
     }
 
-    const lit = sqlLiteral(value);
+    const lit = literal(value);
 
     if (!lit) continue;
     preds.push(`(${ident} = ${lit})`);
   }
 
   return preds;
-}
-
-function findEncodingField(spec: VegaLiteSpecLike, channel: string): string | null {
-  const enc = spec.encoding;
-  const field = enc && isRecord(enc) ? (enc[channel] as unknown) : null;
-
-  if (field && isRecord(field)) {
-    if (typeof field.field === 'string') return field.field;
-    const cond = field.condition;
-
-    if (isRecord(cond) && typeof cond.field === 'string') return cond.field;
-
-    if (Array.isArray(cond)) {
-      for (const c of cond) {
-        if (isRecord(c) && typeof c.field === 'string') return c.field;
-      }
-    }
-  }
-
-  const children: unknown[] = [];
-
-  if (Array.isArray(spec.layer)) children.push(...spec.layer);
-
-  if (Array.isArray(spec.hconcat)) children.push(...spec.hconcat);
-
-  if (Array.isArray(spec.vconcat)) children.push(...spec.vconcat);
-
-  if (Array.isArray(spec.concat)) children.push(...spec.concat);
-
-  if (spec.spec) children.push(spec.spec);
-
-  for (const child of children) {
-    if (!child || typeof child !== 'object') continue;
-    const f = findEncodingField(child, channel);
-
-    if (f) return f;
-  }
-
-  return null;
 }
 
 function extractIntervalExtent(value: unknown): [number, number] | null {
@@ -129,7 +97,7 @@ function intervalPredicatesFromSelection(
   paramName: string,
   view: VegaViewLike,
   select: Record<string, unknown>,
-  allowed: ReadonlySet<string> | null,
+  columns: SelectionColumns,
 ): string[] {
   const raw = view.signal(paramName);
 
@@ -141,7 +109,7 @@ function intervalPredicatesFromSelection(
 
   channels.forEach((c) => {
     if (typeof c !== 'string') return;
-    terms.push({ channel: c, field: findEncodingField(spec, c) ?? undefined });
+    terms.push({ channel: c, field: encodingField(spec, c) ?? undefined });
   });
   fields.forEach((f) => {
     if (typeof f !== 'string') return;
@@ -157,7 +125,7 @@ function intervalPredicatesFromSelection(
   const preds: string[] = [];
 
   for (const t of terms) {
-    const field = t.field ?? (t.channel ? (findEncodingField(spec, t.channel) ?? undefined) : undefined);
+    const field = t.field ?? (t.channel ? (encodingField(spec, t.channel) ?? undefined) : undefined);
 
     if (!field) continue;
 
@@ -189,9 +157,14 @@ function intervalPredicatesFromSelection(
 
     if (!extent) continue;
 
-    if (allowed && !allowed.has(columnKey)) continue;
+    if (!columns.names.has(columnKey)) continue;
     const ident = sqlIdentifier(columnKey);
-    preds.push(`(${ident} >= ${extent[0]} AND ${ident} <= ${extent[1]})`);
+    const clock = columns.timestamps.get(columnKey);
+    // Vega keeps an instant inside the brush when lo <= t <= hi, so the bounds round inward.
+    const [lo, hi] = clock
+      ? [timestamp(extent[0], columnKey, clock, Math.ceil), timestamp(extent[1], columnKey, clock, Math.floor)]
+      : extent;
+    preds.push(`(${ident} >= ${lo} AND ${ident} <= ${hi})`);
   }
 
   return preds;
@@ -202,7 +175,7 @@ function pointPredicatesFromSelection(
   paramName: string,
   view: VegaViewLike,
   select: Record<string, unknown>,
-  allowed: ReadonlySet<string> | null,
+  columns: SelectionColumns,
 ): string[] {
   const raw = view.signal(paramName);
 
@@ -214,7 +187,7 @@ function pointPredicatesFromSelection(
 
   channels.forEach((c) => {
     if (typeof c !== 'string') return;
-    terms.push({ channel: c, field: findEncodingField(spec, c) ?? undefined });
+    terms.push({ channel: c, field: encodingField(spec, c) ?? undefined });
   });
   fields.forEach((f) => {
     if (typeof f !== 'string') return;
@@ -224,7 +197,7 @@ function pointPredicatesFromSelection(
   const preds: string[] = [];
 
   for (const t of terms) {
-    const field = t.field ?? (t.channel ? (findEncodingField(spec, t.channel) ?? undefined) : undefined);
+    const field = t.field ?? (t.channel ? (encodingField(spec, t.channel) ?? undefined) : undefined);
 
     if (!field) continue;
 
@@ -251,18 +224,19 @@ function pointPredicatesFromSelection(
 
     if (v === undefined || v === null) continue;
 
-    if (allowed && !allowed.has(columnKey)) continue;
+    if (!columns.names.has(columnKey)) continue;
     const ident = sqlIdentifier(columnKey);
+    const literal = literalFor(columns, columnKey);
 
     if (Array.isArray(v)) {
-      const lits = v.map(sqlLiteral).filter((x): x is string => x !== null);
+      const lits = v.map(literal).filter((x): x is string => x !== null);
 
       if (!lits.length) continue;
       preds.push(`(${ident} IN (${lits.join(', ')}))`);
       continue;
     }
 
-    const lit = sqlLiteral(v);
+    const lit = literal(v);
 
     if (!lit) continue;
     preds.push(`(${ident} = ${lit})`);
@@ -274,10 +248,10 @@ function pointPredicatesFromSelection(
 export function whereClauseForCurrentSelections(
   spec: VegaLiteSpecLike,
   view: VegaViewLike,
-  allowed: ReadonlySet<string> | null = null,
+  columns: SelectionColumns,
   hoverFields: Readonly<Record<string, unknown>> | null = null,
 ): string | null {
-  const hoverPreds = hoverPredicates(hoverFields, allowed);
+  const hoverPreds = hoverPredicates(hoverFields, columns);
 
   if (hoverPreds.length) {
     return hoverPreds.map((p) => `(${p})`).join(' AND ');
@@ -291,8 +265,8 @@ export function whereClauseForCurrentSelections(
     if (!select) return;
     const type = typeof select.type === 'string' ? select.type : '';
 
-    if (type === 'interval') preds.push(...intervalPredicatesFromSelection(spec, p.name, view, select, allowed));
-    else preds.push(...pointPredicatesFromSelection(spec, p.name, view, select, allowed));
+    if (type === 'interval') preds.push(...intervalPredicatesFromSelection(spec, p.name, view, select, columns));
+    else preds.push(...pointPredicatesFromSelection(spec, p.name, view, select, columns));
   });
 
   if (!preds.length) return null;

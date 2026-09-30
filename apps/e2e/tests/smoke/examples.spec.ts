@@ -291,11 +291,17 @@ async function expectVegaLiteIntervalSelectionWorks(
   const handleState = state?.state?.[handleRef];
   const brushValue = brushState && typeof brushState === 'object' ? brushState.value : undefined;
   expect(brushValue).toEqual(expect.objectContaining({ monthdate_date: intervalValue }));
-  const where = String(handleState?.selectionWhere ?? '');
-  expect(where).not.toBe('');
+  expect(String(handleState?.selectionWhere ?? '')).not.toBe('');
+  // Derive the month-and-day time unit from the source rows on the axis's local clock, independently of
+  // the handle's own table. The browser and this process share the host's time zone.
+  const pad = (value: number) => String(value).padStart(2, '0');
+  const wall = (time: number) => {
+    const date = new Date(time);
+    return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
+  };
   const matching = await dataSql(page, {
     handleRef,
-    sql: `SELECT COUNT(*)::INTEGER AS n FROM vacp_all WHERE ${where}`,
+    sql: `SELECT COUNT(*)::INTEGER AS n FROM vacp_all WHERE make_timestamp(2012, month(date), day(date), 0, 0, 0) BETWEEN TIMESTAMP '${wall(intervalValue[0]!)}' AND TIMESTAMP '${wall(intervalValue[1]!)}'`,
   });
   expect(countFromResult(matching)).toBe(await selectedCount(page, handleRef));
 }

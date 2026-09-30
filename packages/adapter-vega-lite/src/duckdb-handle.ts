@@ -1,55 +1,61 @@
-import { type VacpActionDescriptor, type VacpRef } from '@vacp/protocol';
+import { type VacpActionDescriptor, type VacpClock, type VacpRef } from '@vacp/protocol';
 import type { VacpDuckDbTableMetadata } from '@vacp/data-duckdb';
 import {
   createDuckDbDataSqlHandler,
   createDuckDbWasmClient,
   getDuckDbTableMetadata,
   makeVacpDuckDbTableName,
+  type VacpDuckDbClient,
 } from '@vacp/data-duckdb';
 import { registerVacpDataSchemaAction, registerVacpDataSqlAction, type VacpActionRegistry } from '@vacp/runtime';
 
+import type { VegaLiteBindings } from './bindings';
+import { tableRows } from './data-rows';
+import { collectSelectionFields, describeSource, scoreDataRows } from './data-sources';
 import { whereClauseForCurrentSelections } from './duckdb-selection';
-import { collectMonthdateDerivedFields, normalizeDataRows } from './data-rows';
-import {
-  collectSelectionFields,
-  collectSpecDataSources,
-  resolveDatasetNameByIndex,
-  selectRowsFromView,
-  scoreDataRows,
-  type SpecDataSource,
-} from './data-sources';
 import { makeRef } from './refs';
 import type { VegaLiteProviderOptions, VegaLiteSpecLike, VegaViewLike } from './types';
 
 export type VegaLiteDuckDbDataHandle = {
   ref: VacpRef;
+  /** The rows the chart's marks read, which `vacp_handle` narrows by selection and hover. */
   tableName: string;
+  /** Every row the source loaded, before the chart's filters and aggregates, which `vacp_all` reads. */
+  allTableName: string;
   title: string;
   sourceId: string;
-  fields: () => ReadonlySet<string>;
+  /** `vacp_handle`'s WHERE clause for the current selections and hover, or null when nothing narrows it. */
+  selectionWhere: () => string | null;
   ensureMetadata: () => Promise<VacpDuckDbTableMetadata | null>;
 };
 
+/** Replace `table` with rows, typing the columns that hold instants as TIMESTAMP. */
+async function loadTable(
+  db: VacpDuckDbClient,
+  table: string,
+  { rows, timestamps }: { rows: Record<string, unknown>[]; timestamps: ReadonlyMap<string, VacpClock> },
+) {
+  await db.exec(`DROP TABLE IF EXISTS main.${table}`);
+  await db.loadObjectsAsTable(table, rows, { create: true, timestamps: [...timestamps.keys()] });
+}
+
 /**
- * Optional DuckDB-backed DataHandles for Vega-Lite specs.
- *
- * This keeps DuckDB "first class" without requiring any additional data APIs:
- * - providers expose one semantic action: `vacp.data_sql`
- * - inspector and transports can query selection state with SQL only
+ * DuckDB-backed data handles for a Vega-Lite chart, one per source in its compiled dataflow. Each
+ * answers `vacp.data_sql` and `vacp.data_schema` over the rows the marks read and the rows the
+ * source loaded.
  */
 export function createVegaLiteDataBinding(args: {
   spec: VegaLiteSpecLike;
   view: VegaViewLike;
+  bindings: VegaLiteBindings;
   options: VegaLiteProviderOptions;
   actionRegistry: VacpActionRegistry;
   actionDescriptors: VacpActionDescriptor[];
   getHoverFields?: () => Readonly<Record<string, unknown>> | null;
 }): { handles: VegaLiteDuckDbDataHandle[]; dispose: () => Promise<void> } {
-  const { spec, view, options, actionRegistry, actionDescriptors } = args;
+  const { spec, view, bindings, options, actionRegistry, actionDescriptors } = args;
 
-  const enableDuckDb = options.enableDuckDbDataHandle ?? true;
-
-  if (!enableDuckDb) return { handles: [], dispose: async () => {} };
+  if (!(options.enableDuckDbDataHandle ?? true)) return { handles: [], dispose: async () => {} };
 
   let disposeClient = async (): Promise<void> => {};
   const duckdbPromise = options.duckdbClient
@@ -59,183 +65,147 @@ export function createVegaLiteDataBinding(args: {
         return client;
       });
   const base = `vacp_vl_${options.appId}_${options.viewId}_${options.vizId}`;
+  const { sources, temporal } = bindings.dataflow;
 
-  const sources = collectSpecDataSources(spec);
-  const fallback = sources.length === 0;
-  const monthdateDerivations = collectMonthdateDerivedFields(spec);
-
-  const sourcesWithDatasets: Array<SpecDataSource & { datasetName: string | null }> = fallback
-    ? [
-        {
-          key: 'fallback',
-          id: 'main',
-          title: 'data',
-          datasetName: null,
-        } satisfies SpecDataSource & {
-          datasetName: string | null;
-        },
-      ]
-    : sources.map((s, i) => ({ ...s, datasetName: resolveDatasetNameByIndex(view, i) }));
-
-  // Pick a "primary" source to keep `/data/main` consistent across Vega-Lite views.
-  const requiredFields = collectSelectionFields(spec);
-
-  const primaryIndex = (() => {
-    let best = 0;
-    let bestScore = -Infinity;
-    sourcesWithDatasets.forEach((s, i) => {
-      if (!s.datasetName || typeof view.data !== 'function') return;
-      let rows: unknown[] | null = null;
-
-      try {
-        const r = view.data(s.datasetName);
-
-        if (Array.isArray(r)) rows = r;
-      } catch {
-        rows = null;
-      }
-
-      const score = scoreDataRows(rows, requiredFields);
-
-      if (score > bestScore) {
-        best = i;
-        bestScore = score;
-      }
-    });
-
-    return best;
-  })();
-
-  const handlesInternal: Array<
-    VegaLiteDuckDbDataHandle & {
-      ensureDuckDbData: () => Promise<void>;
-      dispose: () => Promise<void>;
+  const shownRows = (dataset: string): unknown[] => {
+    try {
+      const rows = view.data?.(dataset);
+      return Array.isArray(rows) ? rows : [];
+    } catch {
+      return [];
     }
-  > = [];
+  };
 
-  sourcesWithDatasets.forEach((s, idx) => {
-    const suffix = idx === primaryIndex ? '/data/main' : `/data/src/${s.id}`;
+  // The source whose rows carry the chart's selection fields is `/data/main`.
+  const requiredFields = collectSelectionFields(spec);
+  const scores = sources.map((source) => scoreDataRows(shownRows(source.shown), requiredFields));
+  const primaryIndex = scores.indexOf(Math.max(...scores));
 
-    const handleRef = makeRef({
-      appId: options.appId,
-      viewId: options.viewId,
-      vizId: options.vizId,
-      suffix,
-    });
-
-    const tableName = makeVacpDuckDbTableName({ prefix: base, parts: [s.id] });
+  const handlesInternal = sources.map((source, index) => {
+    const { id, title } = describeSource(source, index);
+    const ref = makeRef({ ...options, suffix: index === primaryIndex ? '/data/main' : `/data/src/${id}` });
+    const tableName = makeVacpDuckDbTableName({ prefix: base, parts: [id] });
+    const allTableName = source.transformed ? makeVacpDuckDbTableName({ prefix: base, parts: [id, 'all'] }) : tableName;
     let disposed = false;
     let tableTouched = false;
     let loadedRevision: string | null = null;
+    let loadedInput: unknown[] | null = null;
     let metadata: { revision: string | null; value: VacpDuckDbTableMetadata } | null = null;
     let loading: Promise<void> = Promise.resolve();
     let fields: ReadonlySet<string> = new Set();
-
-    const readCurrentDataRows = (): unknown[] => {
-      if (s.datasetName && typeof view.data === 'function') {
-        const rows = view.data(s.datasetName);
-        if (Array.isArray(rows)) return rows;
-      }
-      return s.values ?? (fallback ? selectRowsFromView(spec, view) : null) ?? [];
-    };
+    let timestamps: ReadonlyMap<string, VacpClock> = new Map();
 
     // Rows are normalized and serialized again only when Vega reports a dataset change.
     let dataVersion = 0;
     const onData = () => {
       dataVersion++;
     };
-    const { datasetName } = s;
     const listening = (() => {
-      if (!datasetName || !view.addDataListener || !view.removeDataListener) return false;
+      if (!view.addDataListener || !view.removeDataListener) return false;
       try {
-        view.addDataListener(datasetName, onData);
+        view.addDataListener(source.shown, onData);
         return true;
       } catch {
         // Without a native witness every read serializes the rows it loads.
         return false;
       }
     })();
-    const witnessed = listening || (!datasetName && !!s.values);
-    let prepared: { version: number; rows: Record<string, unknown>[]; revision: string } | undefined;
+    let prepared: (ReturnType<typeof tableRows> & { version: number; revision: string }) | undefined;
     const currentRows = () => {
-      if (witnessed && prepared?.version === dataVersion) return prepared;
-      const rows = normalizeDataRows(readCurrentDataRows(), monthdateDerivations);
-      prepared = { version: dataVersion, rows, revision: JSON.stringify(rows) };
+      if (listening && prepared?.version === dataVersion) return prepared;
+      const table = tableRows(shownRows(source.shown), temporal);
+      prepared = { ...table, version: dataVersion, revision: JSON.stringify(table.rows) };
       return prepared;
     };
 
     const ensureDuckDbData = (): Promise<void> => {
       if (disposed) return Promise.reject(new Error('Vega-Lite data handle is disposed'));
-      const { rows, revision } = currentRows();
-      if (!rows.length)
-        return Promise.reject(new Error(`No Vega-Lite rows available to load into DuckDB (${s.title})`));
+      const current = currentRows();
+      if (!current.rows.length)
+        return Promise.reject(new Error(`No Vega-Lite rows available to load into DuckDB (${title})`));
+      const input = source.transformed ? bindings.datasetInput(source.dataset) : null;
+      if (source.transformed && !input)
+        return Promise.reject(new Error(`Vega-Lite dataset ${source.dataset} has not loaded its source rows`));
       // Serialize table replacement. Compare after the previous write so failed loads can be retried.
       const next = loading.then(async () => {
-        if (revision === loadedRevision) return;
         const db = await duckdbPromise;
-        loadedRevision = null;
-        fields = new Set();
-        tableTouched = true;
-        await db.exec(`DROP TABLE IF EXISTS main.${tableName}`);
-        await db.loadObjectsAsTable(tableName, rows, { create: true });
-        loadedRevision = revision;
-        fields = new Set(rows.flatMap((row) => Object.keys(row)));
+        if (current.revision !== loadedRevision) {
+          loadedRevision = null;
+          fields = new Set();
+          tableTouched = true;
+          await loadTable(db, tableName, current);
+          loadedRevision = current.revision;
+          fields = new Set(current.rows.flatMap((row) => Object.keys(row)));
+          timestamps = current.timestamps;
+        }
+        // Vega replaces a dataset's input collection when its source changes, so identity is the witness.
+        if (input && input !== loadedInput) {
+          loadedInput = null;
+          tableTouched = true;
+          await loadTable(db, allTableName, tableRows(input, temporal));
+          loadedInput = input;
+        }
       });
       loading = next.catch(() => {});
       return next;
     };
 
-    const ensureMetadata = async (): Promise<VacpDuckDbTableMetadata | null> => {
-      try {
-        await ensureDuckDbData();
-        const revision = loadedRevision;
-        if (metadata?.revision === revision) return metadata.value;
-        const value = await getDuckDbTableMetadata({
-          duckdb: await duckdbPromise,
-          table: tableName,
-          sampleRows: 0,
-          maxNumericColumns: 0,
-          maxTemporalColumns: 0,
-          maxCategoricalColumns: 0,
-        });
-        metadata = { revision, value };
-        return value;
-      } catch {
-        return null;
-      }
-    };
+    const describe = async (table: string, detail: 'columns' | 'full', sampleRows?: number) =>
+      await getDuckDbTableMetadata({
+        duckdb: await duckdbPromise,
+        table,
+        sampleRows: detail === 'full' ? (sampleRows ?? 25_000) : 0,
+        maxNumericColumns: detail === 'full' ? undefined : 0,
+        maxTemporalColumns: detail === 'full' ? undefined : 0,
+        maxCategoricalColumns: detail === 'full' ? undefined : 0,
+      });
 
-    handlesInternal.push({
-      ref: handleRef,
+    return {
+      ref,
       tableName,
-      title: s.title,
-      sourceId: s.id,
+      allTableName,
+      title,
+      sourceId: id,
       ensureDuckDbData,
-      fields: () => fields,
+      describe,
+      selectionWhere: () =>
+        whereClauseForCurrentSelections(spec, view, { names: fields, timestamps }, args.getHoverFields?.() ?? null),
+      ensureMetadata: async (): Promise<VacpDuckDbTableMetadata | null> => {
+        try {
+          await ensureDuckDbData();
+          const revision = loadedRevision;
+          if (metadata?.revision === revision) return metadata.value;
+          const value = await describe(tableName, 'columns');
+          metadata = { revision, value };
+          return value;
+        } catch {
+          return null;
+        }
+      },
       dispose: async () => {
         if (disposed) return;
         disposed = true;
-        if (listening && datasetName) view.removeDataListener!(datasetName, onData);
+        if (listening) view.removeDataListener!(source.shown, onData);
         prepared = undefined;
         await loading;
-        if (tableTouched) await (await duckdbPromise).exec(`DROP TABLE IF EXISTS main.${tableName}`);
+        if (!tableTouched) return;
+        const db = await duckdbPromise;
+        await db.exec(`DROP TABLE IF EXISTS main.${tableName}`);
+        if (allTableName !== tableName) await db.exec(`DROP TABLE IF EXISTS main.${allTableName}`);
       },
-      ensureMetadata,
-    });
+    };
   });
 
-  // Put the primary `/data/main` handle first so tools (and tests) that pick the
-  // "first DataHandle" consistently get the intended main dataset.
+  // The primary `/data/main` handle comes first, so a reader that takes the first DataHandle gets it.
   handlesInternal.sort((a, b) => {
     const aMain = a.ref.endsWith('/data/main');
     const bMain = b.ref.endsWith('/data/main');
-
     if (aMain !== bMain) return aMain ? -1 : 1;
-
     return a.ref.localeCompare(b.ref);
   });
 
   const handlesByRef = new Map(handlesInternal.map((h) => [h.ref, h] as const));
+  const inputRefs = handlesInternal.flatMap((handle) => (handle.ref.endsWith('/data/main') ? [handle.ref] : []));
 
   const dataSqlDesc = registerVacpDataSqlAction(
     actionRegistry,
@@ -248,22 +218,21 @@ export function createVegaLiteDataBinding(args: {
       },
       resolveHandle: async (ref) => {
         const handle = handlesByRef.get(ref);
-
         if (!handle) return null;
         await handle.ensureDuckDbData();
-        const allSql = `SELECT * FROM ${handle.tableName}`;
-        const where = whereClauseForCurrentSelections(spec, view, handle.fields(), args.getHoverFields?.() ?? null);
-        const selectedSql = where ? `SELECT * FROM ${handle.tableName} WHERE ${where}` : allSql;
-
-        return { allSql, selectedSql };
+        const where = handle.selectionWhere();
+        const shown = `SELECT * FROM ${handle.tableName}`;
+        return {
+          allSql: `SELECT * FROM ${handle.allTableName}`,
+          selectedSql: where ? `${shown} WHERE ${where}` : shown,
+        };
       },
     }),
     {
-      inputRefs: handlesInternal
-        .flatMap((handle) => (handle.ref.endsWith('/data/main') ? [handle.ref] : []))
-        .slice(0, 1),
+      inputRefs,
       enabled: options.enableSql ?? true,
-      description: 'Query the current Vega-Lite selection using DuckDB SQL.',
+      description:
+        'Query the chart data with DuckDB SQL. `vacp_handle` holds the rows the marks read, narrowed by the current selections and hover. `vacp_all` holds every row the source loaded.',
     },
   );
 
@@ -273,31 +242,20 @@ export function createVegaLiteDataBinding(args: {
     actionRegistry,
     async (params) => {
       const handle = handlesByRef.get(params.handleRef);
-
       if (!handle) throw new Error(`Unknown DataHandle: ${params.handleRef}`);
-
       await handle.ensureDuckDbData();
-      const db = await duckdbPromise;
-
       const detail = params.detail ?? 'columns';
-      const sampleRows = params.sampleRows;
-
-      const meta = await getDuckDbTableMetadata({
-        duckdb: db,
-        table: handle.tableName,
-        sampleRows: detail === 'full' ? (sampleRows ?? 25_000) : 0,
-        maxNumericColumns: detail === 'full' ? undefined : 0,
-        maxTemporalColumns: detail === 'full' ? undefined : 0,
-        maxCategoricalColumns: detail === 'full' ? undefined : 0,
-      });
-
-      return { handleRef: params.handleRef, detail, ...meta };
+      const meta = await handle.describe(handle.tableName, detail, params.sampleRows);
+      const all =
+        handle.allTableName === handle.tableName
+          ? undefined
+          : await handle.describe(handle.allTableName, detail, params.sampleRows);
+      return { handleRef: params.handleRef, detail, ...meta, ...(all ? { vacp_all: all } : {}) };
     },
     {
-      inputRefs: handlesInternal
-        .flatMap((handle) => (handle.ref.endsWith('/data/main') ? [handle.ref] : []))
-        .slice(0, 1),
-      description: 'Return DuckDB schema/metadata for a Vega-Lite DataHandle (columns, types, and optional summaries).',
+      inputRefs,
+      description:
+        'Return the columns, types, and row count of a Vega-Lite DataHandle, for `vacp_handle` and, when the chart transforms its source, for `vacp_all`.',
     },
   );
 

@@ -1,6 +1,7 @@
-import { matchingSceneItems, sceneOffset, scenePointToViewport } from './scene';
-import type { VacpActionDescriptor, VacpRef } from '@vacp/protocol';
+import { matchingSceneItems, sceneMarks, sceneOffset, scenePointToViewport } from './scene';
+import type { VacpActionDescriptor, VacpClock, VacpRef } from '@vacp/protocol';
 import type { VacpActionRegistry } from '@vacp/runtime';
+import { inputInstant } from './temporal';
 import type { VegaLiteSpecLike, VegaViewLike } from './types';
 
 const VEGA_LITE_TOOLTIP_HOVER_ACTION = 'vega_lite.hover_tooltip';
@@ -204,6 +205,7 @@ export function createVegaLiteTooltipBinding({
   actionRegistry,
   actionDescriptors,
   vizRef,
+  temporal,
 }: {
   view: VegaViewLike;
   spec: VegaLiteSpecLike;
@@ -211,6 +213,8 @@ export function createVegaLiteTooltipBinding({
   actionRegistry: VacpActionRegistry;
   actionDescriptors: VacpActionDescriptor[];
   vizRef: VacpRef;
+  /** Fields Vega holds as instants. A requested value for one becomes its instant. */
+  temporal: ReadonlyMap<string, VacpClock>;
 }) {
   let hover: { fields: Record<string, unknown>; markName: string; value: unknown } | null = null;
   let suppressed = false;
@@ -222,7 +226,7 @@ export function createVegaLiteTooltipBinding({
       name: VEGA_LITE_TOOLTIP_HOVER_ACTION,
       title: 'Inspect mark',
       description:
-        'Point at one mark and show its tooltip, as hovering does, e.g. { fields: { name: "Ann" } }. The result reports the tooltip shown and how many marks match: add fields until one mark matches. Until the hover clears, `vacp_handle` holds the rows matching `fields`.',
+        'Point at one mark and show its tooltip, as hovering does, e.g. { fields: { name: "Ann" } }. The result reports the tooltip shown and how many marks match: add fields until one mark matches. When nothing matches, it lists the named marks and their fields. Until the hover clears, `vacp_handle` holds the rows matching `fields`.',
       operation: { kind: 'mutation', contract: VEGA_LITE_TOOLTIP_HOVER_ACTION, affects: [vizRef] },
       parameters: {
         type: 'object',
@@ -233,7 +237,10 @@ export function createVegaLiteTooltipBinding({
             description: 'Field-to-value map to treat as the hovered/selected datum.',
           },
           value: { description: 'Tooltip payload from Vega, when fields are not available.' },
-          markName: { type: 'string', description: 'Vega mark name, if available.' },
+          markName: {
+            type: 'string',
+            description: 'Vega mark name, such as "layer_1_marks", to match only that mark.',
+          },
         },
       },
     };
@@ -244,7 +251,7 @@ export function createVegaLiteTooltipBinding({
       const fieldsParam = p.fields;
       const valueParam = p.value;
       const markName = typeof p.markName === 'string' ? p.markName : '';
-      const fields: Record<string, unknown> = (() => {
+      const requested: Record<string, unknown> = (() => {
         if (isRecord(fieldsParam)) {
           const out: Record<string, unknown> = {};
 
@@ -278,12 +285,19 @@ export function createVegaLiteTooltipBinding({
 
         return {};
       })();
-      return { clear, fields, valueParam, markName };
+      // A date the caller writes reads on the field's clock, as the chart's axis shows it.
+      const fields = Object.fromEntries(
+        Object.entries(requested).map(([field, value]) => {
+          const clock = temporal.get(field);
+          return [field, clock ? inputInstant(value, clock) : value];
+        }),
+      );
+      return { clear, fields, requested, valueParam, markName };
     };
     actionRegistry.register(
       hoverDescriptor,
       async (prepared: ReturnType<typeof parseHover>) => {
-        const { clear, fields, valueParam, markName } = prepared;
+        const { clear, fields, requested, valueParam, markName } = prepared;
         const viewAny = view;
 
         if (clear) {
@@ -327,7 +341,16 @@ export function createVegaLiteTooltipBinding({
         // Fields can match many marks while the tooltip shows one, so the result reports both.
         let tooltip: unknown = null;
         let matches = 0;
-        const outcome = () => ({ fields, markName, value: valueParam ?? null, tooltipShown, tooltip, matches });
+        const outcome = () => ({
+          fields: requested,
+          markName,
+          value: valueParam ?? null,
+          tooltipShown,
+          tooltip,
+          matches,
+          // A miss says where to look instead: the marks this view draws and the fields they carry.
+          ...(matches ? {} : { marks: sceneMarks(view, Object.keys(fields)) }),
+        });
 
         try {
           const found = Object.keys(fields).length
@@ -357,7 +380,7 @@ export function createVegaLiteTooltipBinding({
               if (!point) return outcome();
               const { x: clientX, y: clientY } = point;
               suppressed = true;
-              const tooltipValue = match?.tooltip ?? valueParam ?? (Object.keys(fields).length ? fields : null);
+              const tooltipValue = match?.tooltip ?? valueParam ?? (Object.keys(requested).length ? requested : null);
               tooltipHandler(
                 null,
                 new MouseEvent('mousemove', { bubbles: true, cancelable: true, clientX, clientY }),

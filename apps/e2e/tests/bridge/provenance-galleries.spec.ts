@@ -67,7 +67,7 @@ for (const engine of ['vega-lite', 'vgplot'] as const) {
       const handleRef = graph.nodes.find((node: { kind: string }) => node.kind === 'DataHandle').ref;
       const bounds = await tool(page, 'vacp.data_sql', {
         handleRef,
-        sql: 'SELECT min(monthdate_date)::DOUBLE AS lo, max(monthdate_date)::DOUBLE AS hi FROM vacp_all WHERE month(to_timestamp(CAST(date AS BIGINT)/1000)) BETWEEN 6 AND 8',
+        sql: 'SELECT min(monthdate_date) AS lo, max(monthdate_date) AS hi FROM vacp_handle WHERE month(date) BETWEEN 6 AND 8',
       });
       const { lo, hi } = bounds.result.rows[0];
       expect(

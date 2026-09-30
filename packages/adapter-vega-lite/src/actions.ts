@@ -41,7 +41,7 @@ export function actionsForSpec(options: VegaLiteProviderOptions, spec: VegaLiteS
           ref: { type: 'string', description: 'VACP ref of the Selection node (vacp://.../param/<name>)' },
           value: {
             description:
-              'Selection value, usually an object like { field: value } or { x: [min, max], y: [min, max] }. An interval channel left out spans its whole axis.',
+              'Selection value, usually an object like { field: value } or { x: [min, max], y: [min, max] }. An interval channel left out spans its whole axis. A time axis takes ISO dates such as "2012-06-01". A range that misses the axis domain is rejected.',
           },
         },
         required: ['ref', 'value'],

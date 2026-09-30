@@ -1,8 +1,10 @@
 import type { VacpRef } from '@vacp/protocol';
+import { vegaLiteDataflow } from './dataflow';
 import { collectVegaLiteParams, selectionMarkTypes } from './params';
 import { makeRef } from './refs';
 import { signalNamesFromView, tryGetSignal } from './signals';
 import type {
+  VegaScaleLike,
   VegaLiteParamLike,
   VegaLiteSpecLike,
   VegaLiteProviderOptions,
@@ -70,10 +72,31 @@ export function createVegaLiteBindings(spec: VegaLiteSpecLike, view: VegaViewLik
       contexts: () => selectionContexts(view, param.name),
     });
   }
+  const scale = (name: string) => {
+    try {
+      return view.scale?.(name) as VegaScaleLike | undefined;
+    } catch {
+      return undefined;
+    }
+  };
+  const dataflow = vegaLiteDataflow(spec);
   return {
     paramByRef,
     allSignals,
     rootUnit: typeof spec.name === 'string' ? spec.name : '',
+    dataflow,
+    /** Fields Vega holds as instants, with the clock their axis reads. */
+    temporal: dataflow.temporal,
+    /** The scale behind a channel, in the unit's own scope when the chart has several. */
+    scale: (unit: string | undefined, channel: string) =>
+      (unit ? scale(`${unit}_${channel}`) : undefined) ?? scale(channel),
+    /** A dataset's rows as they entered it, before its own transforms. */
+    datasetInput(name: string): unknown[] | null {
+      const input = view._runtime?.data?.[name];
+      const value =
+        input && typeof input === 'object' ? (input as { input?: { value?: unknown } }).input?.value : undefined;
+      return Array.isArray(value) ? value : null;
+    },
     readValues() {
       let state: VegaRuntimeContext | undefined;
       try {

@@ -1,73 +1,110 @@
 import { selectionTuple, selectionValues, type SelectionTuple } from './selection-state';
 import { intervalVisualSignals } from './selection-signals';
-import type { VacpActionCall, VacpFocus, VacpRef, VacpInteraction } from '@vacp/protocol';
+import type { VacpActionCall, VacpClock, VacpFocus, VacpInteraction, VacpRef } from '@vacp/protocol';
 import { changeset } from 'vega';
 
 import { findSignalContext, readStateSignal, runtimeUnit, type VegaLiteBindings } from './bindings';
 import { tryGetSignal, trySetSignal } from './signals';
-import type { VegaViewLike, VegaRuntimeContext } from './types';
+import { formatAxisInstant, inputInstant } from './temporal';
+import type { VegaRuntimeContext, VegaScaleLike, VegaViewLike } from './types';
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return !!value && typeof value === 'object' && !Array.isArray(value);
 }
 
-/** A range bound as Vega stores it: a number, with dates as their timestamps. */
-function rangeBound(value: unknown): number | null {
-  const bound = value instanceof Date ? value.valueOf() : value;
-  return isFiniteNumber(bound) ? bound : null;
+/** An interval channel's scale: its live domain endpoints, and the clock of a time scale. */
+type Axis = { span: [unknown, unknown]; clock?: VacpClock };
+
+function axisOf(scale: VegaScaleLike | undefined): Axis | null {
+  const domain = scale?.domain?.();
+  if (!Array.isArray(domain)) return null;
+  const clock = scale?.type === 'utc' ? 'utc' : scale?.type === 'time' ? 'local' : undefined;
+  return { span: [domain[0], domain.at(-1)], ...(clock ? { clock } : {}) };
 }
 
-function bestEffortSelectionTuple(args: {
+/** A range bound as Vega stores it: a number, with dates as their instants on the axis's clock. */
+function rangeBound(value: unknown, clock: VacpClock | undefined): number {
+  if (clock) return inputInstant(value, clock);
+  if (isFiniteNumber(value)) return value;
+  throw new RangeError(`${JSON.stringify(value)} is not a number`);
+}
+
+const describeBound = (value: number, clock: VacpClock | undefined) =>
+  clock ? formatAxisInstant(value, clock) : String(value);
+
+type TupleRequest = {
   selectionValue: unknown;
   tupleFields: unknown;
   unit: unknown;
-  /** The live domain of an interval channel's scale, which a brush across the whole axis selects. */
-  span: (channel: string) => unknown[] | null;
-}): SelectionTuple | null {
-  const { selectionValue, tupleFields } = args;
-  const unit = typeof args.unit === 'string' ? args.unit : undefined;
+  /** The scale behind an interval channel. Its domain is what a brush across the whole axis selects. */
+  axis: (channel: string) => Axis | null;
+  /** Fields Vega holds as instants. A point value for one is an ISO date or a timestamp. */
+  temporal: ReadonlyMap<string, VacpClock>;
+  /** The request restores a captured selection or pans a scale-bound interval, so any range is kept. */
+  anyRange: boolean;
+};
 
-  const native = selectionTuple(selectionValue, unit);
+/** The fields and values a selection value names, in native tuple form or keyed by channel or field. */
+function requestedTuple({ selectionValue, tupleFields, unit }: TupleRequest) {
+  const native = selectionTuple(selectionValue, typeof unit === 'string' ? unit : undefined);
   if (native) return native;
-
-  if (!isRecord(selectionValue)) return null;
-  const fields = Array.isArray(tupleFields) ? tupleFields : null;
-
-  if (!fields) return null;
-
-  const values: unknown[] = [];
-
-  for (const f of fields) {
+  if (!isRecord(selectionValue) || !Array.isArray(tupleFields)) return null;
+  const values = tupleFields.map((f) => {
     const rec = isRecord(f) ? f : null;
     const channel = typeof rec?.channel === 'string' ? rec.channel : '';
     const field = typeof rec?.field === 'string' ? rec.field : '';
-    const type = typeof rec?.type === 'string' ? rec.type : '';
-
     const key =
-      (channel && Object.prototype.hasOwnProperty.call(selectionValue, channel) && channel) ||
-      (field && Object.prototype.hasOwnProperty.call(selectionValue, field) && field) ||
+      (channel && Object.hasOwn(selectionValue, channel) && channel) ||
+      (field && Object.hasOwn(selectionValue, field) && field) ||
       field ||
       channel;
+    return key ? selectionValue[key] : undefined;
+  });
+  return selectionTuple({ unit, fields: tupleFields, values }, typeof unit === 'string' ? unit : undefined);
+}
 
-    let value: unknown = key ? selectionValue[key] : undefined;
-
-    if (type === 'R') {
-      // A range given for some channels of a brush leaves the others spanning their whole axis.
-      const range = value ?? args.span(channel);
-      const bounds = Array.isArray(range) && range.length === 2 ? range.map(rangeBound) : null;
-      if (!bounds || bounds[0] === null || bounds[1] === null)
-        throw new Error(
-          `Expected ${channel && field && channel !== field ? `${channel} (${field})` : key || 'the interval'} as [min, max] numbers or dates`,
-        );
-      value = bounds;
-    } else if (value instanceof Date) {
-      value = value.valueOf();
+/**
+ * The native tuple a request asks for. Ranges become instants on a time axis and must reach the
+ * axis domain unless the request restores or pans. A point value on a temporal field becomes its
+ * instant. Every failure throws before the selection changes.
+ */
+function bestEffortSelectionTuple(request: TupleRequest): SelectionTuple | null {
+  const tuple = requestedTuple(request);
+  if (!tuple?.fields) return tuple;
+  const values = tuple.fields.map((rec, index) => {
+    const { channel = '', field } = rec as { channel?: string; field: string; type: string };
+    const value = tuple.values[index];
+    if ((rec as { type: string }).type !== 'R') {
+      const clock = request.temporal.get(field);
+      return clock && value !== null && value !== undefined ? inputInstant(value, clock) : value;
     }
-
-    values.push(value);
-  }
-
-  return selectionTuple({ unit, fields, values });
+    const axis = request.axis(channel);
+    const label = channel && field && channel !== field ? `${channel} (${field})` : field || channel || 'the interval';
+    // A range given for some channels of a brush leaves the others spanning their whole axis.
+    const range = value ?? axis?.span;
+    let bounds: [number, number];
+    try {
+      if (!Array.isArray(range) || range.length !== 2) throw new RangeError('Expected two bounds');
+      bounds = [rangeBound(range[0], axis?.clock), rangeBound(range[1], axis?.clock)];
+    } catch (error) {
+      throw new Error(
+        `Expected ${label} as [min, max] ${axis?.clock ? 'dates, as ISO strings or timestamps' : 'numbers'}: ${(error as Error).message}`,
+      );
+    }
+    const [lo, hi] = [Math.min(...bounds), Math.max(...bounds)];
+    const extent = axis && !request.anyRange ? axis.span.map((end) => rangeBound(end, axis.clock)) : null;
+    if (extent) {
+      const [first, last] = [Math.min(extent[0]!, extent[1]!), Math.max(extent[0]!, extent[1]!)];
+      if (hi < first || lo > last) {
+        const show = (a: number, b: number) => `${describeBound(a, axis!.clock)} to ${describeBound(b, axis!.clock)}`;
+        throw new Error(
+          `${label} spans ${show(first, last)}, so ${show(lo, hi)} would select nothing. Give a range on that axis.`,
+        );
+      }
+    }
+    return bounds;
+  });
+  return { ...tuple, values };
 }
 
 function tupleFieldKeys(tupleFields: unknown): string[] {
@@ -83,16 +120,6 @@ function tupleFieldKeys(tupleFields: unknown): string[] {
 }
 
 type VegaStateSnapshot = VegaRuntimeContext | undefined;
-
-function tryGetScaleFn(view: VegaViewLike, name: string): ((v: unknown) => number) | null {
-  try {
-    const s = view.scale?.(name);
-
-    return typeof s === 'function' ? (s as (v: unknown) => number) : null;
-  } catch {
-    return null;
-  }
-}
 
 function isFiniteNumber(value: unknown): value is number {
   return typeof value === 'number' && Number.isFinite(value);
@@ -144,6 +171,7 @@ function intervalState(
   name: string,
   fields: readonly unknown[],
   values: readonly unknown[] | undefined,
+  helpers: VegaLiteBindings,
   unit?: string,
 ): VegaStateSnapshot {
   if (!view.getState) return undefined;
@@ -168,8 +196,8 @@ function intervalState(
     if (values) {
       const value = values[index];
       if (!Array.isArray(value) || value.length !== 2) continue;
-      const scale = (unit ? tryGetScaleFn(view, `${unit}_${channel}`) : null) ?? tryGetScaleFn(view, channel);
-      if (!scale) continue;
+      const scale = helpers.scale(unit, channel);
+      if (typeof scale !== 'function') continue;
       const first = scale(value[0]),
         second = scale(value[1]);
       if (!isFiniteNumber(first) || !isFiniteNumber(second)) continue;
@@ -181,7 +209,13 @@ function intervalState(
   return touched ? state : undefined;
 }
 
-function prepareSelectionStore(view: VegaViewLike, name: string, selectionValue: unknown, helpers: VegaLiteBindings) {
+function prepareSelectionStore(
+  view: VegaViewLike,
+  name: string,
+  selectionValue: unknown,
+  helpers: VegaLiteBindings,
+  anyRange: boolean,
+) {
   if (!view.data || !view.change) return null;
   const storeName = `${name}_store`;
   const snapshotBefore = view.getState?.() as VegaStateSnapshot;
@@ -211,15 +245,7 @@ function prepareSelectionStore(view: VegaViewLike, name: string, selectionValue:
 
   const values = selectionValues(selectionValue);
   const keys = tupleFieldKeys(tupleFields);
-  const span = (channel: string) => {
-    try {
-      const scale = (unit ? view.scale?.(`${unit}_${channel}`) : undefined) ?? view.scale?.(channel);
-      const domain = (scale as { domain?: () => unknown[] } | undefined)?.domain?.();
-      return Array.isArray(domain) ? [domain[0], domain.at(-1)] : null;
-    } catch {
-      return null;
-    }
-  };
+  const axis = (channel: string) => axisOf(helpers.scale(unit, channel));
 
   const tuples = values
     .map((v) => {
@@ -230,7 +256,14 @@ function prepareSelectionStore(view: VegaViewLike, name: string, selectionValue:
       return v;
     })
     .map((v) => {
-      const tuple = bestEffortSelectionTuple({ selectionValue: v, tupleFields, unit, span });
+      const tuple = bestEffortSelectionTuple({
+        selectionValue: v,
+        tupleFields,
+        unit,
+        axis,
+        temporal: helpers.temporal,
+        anyRange,
+      });
 
       if (!tuple) return null;
 
@@ -275,10 +308,12 @@ function interactionForParameter(
   return { kind: 'activate' };
 }
 
+/** `restore` applies a captured selection as it was, wherever its ranges lie on today's axes. */
 export function prepareVegaLiteAction(
   view: VegaViewLike,
   call: VacpActionCall,
   helpers: VegaLiteBindings,
+  options: { restore?: boolean } = {},
 ): PreparedVegaMutation {
   const input = structuredClone(call.params ?? {});
   if (typeof input !== 'object' || Array.isArray(input)) throw new Error('Expected action parameters');
@@ -312,7 +347,9 @@ export function prepareVegaLiteAction(
   if (!['vega_lite.set_param', 'vega_lite.set_selection', 'vega_lite.clear_selection'].includes(call.name))
     throw new Error(`Unsupported action: ${call.name}`);
   const store =
-    call.name === 'vega_lite.set_selection' ? prepareSelectionStore(view, name, params.value, helpers) : null;
+    call.name === 'vega_lite.set_selection'
+      ? prepareSelectionStore(view, name, params.value, helpers, !!options.restore || found.param.bind === 'scales')
+      : null;
   const definition = found.param.select;
   const interval = definition === 'interval' || (isRecord(definition) && definition.type === 'interval');
   const fields = store?.tuples[0]?.fields ?? readStateSignal(view, `${name}_tuple_fields`);
@@ -323,6 +360,7 @@ export function prepareVegaLiteAction(
           name,
           fields,
           call.name === 'vega_lite.clear_selection' ? undefined : store?.tuples[0]?.values,
+          helpers,
           store?.unit,
         )
       : undefined;

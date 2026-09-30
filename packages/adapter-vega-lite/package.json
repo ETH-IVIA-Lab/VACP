@@ -29,6 +29,9 @@
     "@vacp/protocol": "workspace:*",
     "@vacp/runtime": "workspace:*"
   },
+  "devDependencies": {
+    "@duckdb/node-api": "1.5.5-r.5"
+  },
   "peerDependencies": {
     "vega": "*",
     "vega-embed": "*",

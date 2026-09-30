@@ -79,3 +79,43 @@ export function selectionMarkTypes(spec: VegaLiteSpecLike): Map<string, Set<stri
   visit(spec, []);
   return result;
 }
+
+/** The field a channel encodes, in the spec or the first of its nested views that encodes it. */
+export function encodingField(spec: VegaLiteSpecLike, channel: string): string | null {
+  const enc = spec.encoding;
+  const field = enc && isRecord(enc) ? (enc[channel] as unknown) : null;
+
+  if (field && isRecord(field)) {
+    if (typeof field.field === 'string') return field.field;
+    const cond = field.condition;
+
+    if (isRecord(cond) && typeof cond.field === 'string') return cond.field;
+
+    if (Array.isArray(cond)) {
+      for (const c of cond) {
+        if (isRecord(c) && typeof c.field === 'string') return c.field;
+      }
+    }
+  }
+
+  const children: unknown[] = [];
+
+  if (Array.isArray(spec.layer)) children.push(...spec.layer);
+
+  if (Array.isArray(spec.hconcat)) children.push(...spec.hconcat);
+
+  if (Array.isArray(spec.vconcat)) children.push(...spec.vconcat);
+
+  if (Array.isArray(spec.concat)) children.push(...spec.concat);
+
+  if (spec.spec) children.push(spec.spec);
+
+  for (const child of children) {
+    if (!child || typeof child !== 'object') continue;
+    const f = encodingField(child, channel);
+
+    if (f) return f;
+  }
+
+  return null;
+}

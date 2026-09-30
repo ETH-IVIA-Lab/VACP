@@ -124,7 +124,7 @@ test('failed observation binding releases partial listeners and remains retryabl
   };
   const provider = createVegaLiteProvider({
     view,
-    spec: { params: [{ name: 'first' }, { name: 'second' }] },
+    spec: { params: [{ name: 'first' }, { name: 'second' }], mark: 'point' },
     options: { appId: 'test', viewId: 'failure', vizId: 'chart', enableDuckDbDataHandle: false },
   });
   assert.throws(() => provider.subscribe!(() => {}), /binding failed/);
@@ -151,7 +151,7 @@ test('shared view observation preserves native promise identity and other consum
   const create = () =>
     createVegaLiteProvider({
       view,
-      spec: { params: [{ name: 'threshold', value: 1 }] },
+      spec: { params: [{ name: 'threshold', value: 1 }], mark: 'point' },
       options: { appId: 'test', viewId: 'shared', vizId: 'chart', enableDuckDbDataHandle: false },
     });
   const first = create(),
@@ -182,7 +182,7 @@ test('raw signal preparation resolves the native target and retains caller value
   };
   const provider = createVegaLiteProvider({
     view,
-    spec: {},
+    spec: { mark: 'point' },
     options: {
       appId: 'test',
       viewId: 'prepared',
@@ -227,7 +227,7 @@ test('parameter observations share a native snapshot while preserving scoped sig
   };
   const provider = createVegaLiteProvider({
     view,
-    spec: { params: ['first', 'second', 'outside'].map((name) => ({ name, value: 0 })) },
+    spec: { params: ['first', 'second', 'outside'].map((name) => ({ name, value: 0 })), mark: 'point' },
     options: { appId: 'test', viewId: 'coherent', vizId: 'chart', enableDuckDbDataHandle: false },
   });
   const values = async () => {
@@ -259,6 +259,8 @@ test('prepared focus describes brushing, pointing and bound-control interaction 
         { name: 'threshold', value: 0, bind: { input: 'range', min: 0, max: 10 } },
         { name: 'query', value: '', bind: { input: 'text' } },
       ],
+      mark: 'point',
+      encoding: { x: { field: 'a', type: 'quantitative' }, y: { field: 'b', type: 'quantitative' } },
     },
     options: { appId: 'test', viewId: 'semantics', vizId: 'chart', enableDuckDbDataHandle: false },
   });

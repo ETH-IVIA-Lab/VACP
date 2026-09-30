@@ -7,6 +7,9 @@ export interface VegaRuntimeContext {
   setState?: (state: unknown) => void;
 }
 
+/** A Vega scale: it maps domain values to pixels and reports its type and domain. */
+export type VegaScaleLike = ((value: unknown) => number) & { type?: string; domain?: () => unknown[] };
+
 export interface VegaViewLike {
   addEventListener?: (type: string, handler: (event: Event, item?: unknown) => void) => unknown;
   removeEventListener?: (type: string, handler: (event: Event, item?: unknown) => void) => unknown;

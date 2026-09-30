@@ -60,46 +60,23 @@ function parseFiniteNumber(value: unknown): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
-function parseDateMs(value: unknown): number | null {
-  if (typeof value === 'number') return Number.isFinite(value) ? value : null;
+/**
+ * A datum value against a requested one. Requested values for temporal fields arrive as instants, so
+ * a Date datum compares by its instant. Numbers compare numerically and text compares trimmed.
+ */
+function valuesMatch(datum: unknown, requested: unknown): boolean {
+  if (datum === requested) return true;
 
-  if (value instanceof Date) {
-    const t = value.getTime();
+  const time = datum instanceof Date ? datum.getTime() : undefined;
 
-    return Number.isFinite(t) ? t : null;
-  }
+  if (time !== undefined) return typeof requested === 'number' && time === requested;
 
-  if (typeof value !== 'string') return null;
-  const s = value.trim();
-  // Avoid Date.parse() treating numeric strings (e.g. "11.1") as dates.
-  const looksLikeDate = /[a-z]/i.test(s) || s.includes('-') || s.includes('T') || s.includes(':') || s.includes('/');
+  const a = parseFiniteNumber(datum);
+  const b = parseFiniteNumber(requested);
 
-  if (!looksLikeDate) return null;
-  const t = Date.parse(s);
+  if (a !== null && b !== null) return a === b;
 
-  return Number.isFinite(t) ? t : null;
-}
-
-function valuesMatch(a: unknown, b: unknown): boolean {
-  if (a === b) return true;
-
-  const aDate = parseDateMs(a);
-  const bDate = parseDateMs(b);
-
-  if (aDate !== null && bDate !== null) return aDate === bDate;
-
-  const aNum = parseFiniteNumber(a);
-  const bNum = parseFiniteNumber(b);
-
-  if (aNum !== null && bNum !== null) return aNum === bNum;
-
-  if (typeof a === 'string' && typeof b === 'string') return a.trim() === b.trim();
-
-  if (typeof a === 'string' && typeof b === 'number') return a.trim() === String(b);
-
-  if (typeof a === 'number' && typeof b === 'string') return String(a) === b.trim();
-
-  return false;
+  return typeof datum === 'string' && typeof requested === 'string' && datum.trim() === requested.trim();
 }
 
 export function matchingSceneItems(
@@ -125,4 +102,24 @@ export function matchingSceneItems(
     }
   }
   return matches;
+}
+
+/** A mark as hovering sees it: its name and type, how many items it draws, and its datum fields. */
+export type SceneMarkSummary = { name: string; type: string; items: number; fields: string[] };
+
+/**
+ * The named marks whose items carry data, for a caller whose fields matched nothing. Marks that share
+ * a requested field come first, so the summary points at the mark the caller most likely meant.
+ */
+export function sceneMarks(view: VegaViewLike, requested: readonly string[]): SceneMarkSummary[] {
+  const marks = new Map<string, SceneMarkSummary>();
+  for (const item of sceneItems(view)) {
+    const name = item.mark?.name;
+    if (!name || !item.datum) continue;
+    const mark = marks.get(name);
+    if (mark) mark.items++;
+    else marks.set(name, { name, type: item.mark?.marktype ?? '', items: 1, fields: Object.keys(item.datum) });
+  }
+  const shared = (mark: SceneMarkSummary) => requested.filter((field) => mark.fields.includes(field)).length;
+  return [...marks.values()].sort((a, b) => shared(b) - shared(a));
 }
