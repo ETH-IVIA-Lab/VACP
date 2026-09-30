@@ -2,7 +2,7 @@ import type { VacpActionExecutionOptions, VacpAvailability } from '@vacp/protoco
 import { z } from 'zod';
 import { vacpRefSchema } from '@vacp/protocol';
 import type { VacpActionDescriptor, VacpDataSqlParams, VacpRef } from '@vacp/protocol';
-import { VACP_DATA_SQL_ACTION } from '@vacp/protocol';
+import { VACP_DATA_SQL_ACTION, VACP_TOOL_RESULT_LIMITS } from '@vacp/protocol';
 
 import type { VacpActionRegistrar } from './action-registry';
 
@@ -15,7 +15,7 @@ const paramsSchema = z.object({
   handleRef: vacpRefSchema,
   sql: z.string().refine((sql) => sql.trim().length > 0),
   format: z.enum(['json', 'arrow_ipc_base64']).optional(),
-  maxRows: z.number().finite().positive().optional(),
+  maxRows: z.number().int().positive().max(VACP_TOOL_RESULT_LIMITS.items).optional(),
 });
 
 /**
@@ -58,8 +58,18 @@ export function registerVacpDataSqlAction(
           description:
             'SQL query to run. Use reserved identifiers `vacp_handle` (selected) and `vacp_all` (unfiltered).',
         },
-        format: { type: 'string', enum: ['json', 'arrow_ipc_base64'] },
-        maxRows: { type: 'number', description: 'Max rows to return for JSON results (default: 500).' },
+        format: {
+          type: 'string',
+          enum: ['json', 'arrow_ipc_base64'],
+          description:
+            'Result encoding (default: json). `arrow_ipc_base64` is an Arrow IPC stream for programs that call the bridge. Tool results cut long strings, so agents read json.',
+        },
+        maxRows: {
+          type: 'integer',
+          minimum: 1,
+          maximum: VACP_TOOL_RESULT_LIMITS.items,
+          description: `Max rows a JSON result returns (default and most: ${VACP_TOOL_RESULT_LIMITS.items}). \`truncated\` says whether the query had more.`,
+        },
       },
       required: ['handleRef', 'sql'],
     },

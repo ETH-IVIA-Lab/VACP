@@ -12,6 +12,8 @@ vacp_progress({ message, done? })
 
 Graph reads leave out source ownership, which the runtime uses to route execution. `bridge.observe()` and `runtime.inspect()` keep it.
 
+Every read and execution result reaches the model as JSON cut to the same bounds, in these two transports and in WebMCP's tools. A string keeps 12,000 characters, an array 500 items, and an object 160 keys, each counting the marker that says what was cut: `... [34 more characters]` at the end of a string, a `"[5 more items]"` item at the end of an array, or a `"__truncated": "2 more keys"` entry. An array or object nested more than 32 levels deep reads as `[Array(n)]` or `[Object]`. A result that is already within the bounds passes through unchanged. `vacpToolResult` in `@vacp/protocol` applies the bounds in `createVacpTransport` and WebMCP, and `tool_result` applies them in the Python server. A `vacp.data_sql` JSON result returns at most 500 rows, and its `truncated` field says whether the query had more.
+
 ## vacp_observe
 
 Returns one observation with the graph, available actions, state, revision, summaries, and output freshness. Use it when these values must describe the same read.

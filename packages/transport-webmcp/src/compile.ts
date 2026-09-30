@@ -10,6 +10,7 @@ import {
   type VacpActionDescriptor,
   type VacpActor,
   vacpToolRead,
+  vacpToolResult,
 } from '@vacp/protocol';
 import type { VacpWebMcpClient, VacpWebMcpOptions } from './types';
 
@@ -82,7 +83,10 @@ function actionInput(action: VacpActionDescriptor, name: string, mode?: 'object'
   };
 }
 
-/** Project a VACP graph into executable WebMCP tools without accessing the browser. */
+/**
+ * Project a VACP graph into executable WebMCP tools without accessing the browser. Every read and
+ * action result reaches the model within the limits of `vacpToolResult`.
+ */
 export function compileVacpWebMcpTools(
   graph: VacpGraph,
   client: VacpWebMcpClient,
@@ -102,7 +106,7 @@ export function compileVacpWebMcpTools(
         signal.throwIfAborted();
         const result = await client.observe();
         signal.throwIfAborted();
-        return entityRead(result);
+        return vacpToolResult(entityRead(result));
       },
     },
     {
@@ -115,7 +119,7 @@ export function compileVacpWebMcpTools(
         signal.throwIfAborted();
         const result = await client.getCapabilities();
         signal.throwIfAborted();
-        return entityRead(result);
+        return vacpToolResult(entityRead(result));
       },
     },
     {
@@ -127,7 +131,7 @@ export function compileVacpWebMcpTools(
         signal.throwIfAborted();
         const result = await client.getState();
         signal.throwIfAborted();
-        return result;
+        return vacpToolResult(result);
       },
     },
   ];
@@ -168,7 +172,7 @@ export function compileVacpWebMcpTools(
           { signal, actor: options.actor ?? webMcpAgent, narration },
         );
         signal.throwIfAborted();
-        return result;
+        return vacpToolResult(result);
       },
     });
   }

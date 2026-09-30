@@ -1,4 +1,4 @@
-import type { VacpDataSqlParams, VacpDataSqlResult, VacpRef } from '@vacp/protocol';
+import { VACP_TOOL_RESULT_LIMITS, type VacpDataSqlParams, type VacpDataSqlResult, type VacpRef } from '@vacp/protocol';
 
 import type { VacpDuckDbClient } from './client';
 import { normalizeSingleStatementSql } from './sql';
@@ -9,13 +9,15 @@ export type VacpDuckDbHandleResolver = (
   handleRef: VacpRef,
 ) => VacpDuckDbHandle | null | Promise<VacpDuckDbHandle | null>;
 
+/**
+ * Answer `vacp.data_sql` from DuckDB for the handles `resolveHandle` knows, binding `vacp_all` and
+ * `vacp_handle` to the relations each resolves. JSON results return at most `maxRows` rows, 500 by
+ * default, the rows one tool result keeps.
+ */
 export function createDuckDbDataSqlHandler(args: {
-  duckdb: VacpDuckDbClient;
+  duckdb: VacpDuckDbClient | Promise<VacpDuckDbClient>;
   resolveHandle: VacpDuckDbHandleResolver;
-  defaultMaxRows?: number;
 }): (params: VacpDataSqlParams) => Promise<VacpDataSqlResult> {
-  const maxRowsDefault = args.defaultMaxRows ?? 500;
-
   return async (params) => {
     const handle = await args.resolveHandle(params.handleRef);
 
@@ -31,14 +33,14 @@ export function createDuckDbDataSqlHandler(args: {
     const boundSql = `WITH vacp_all AS (${allSql}\n), vacp_handle AS (${selectedSql}\n) SELECT * FROM (${sql}\n) AS __vacp_query`;
 
     if (format === 'arrow_ipc_base64') {
-      const arrowIpcBase64 = await args.duckdb.queryArrowIpcBase64(boundSql);
+      const arrowIpcBase64 = await (await args.duckdb).queryArrowIpcBase64(boundSql);
 
       return { format, resolvedSql: boundSql, arrowIpcBase64 };
     }
 
-    const maxRows = params.maxRows ?? maxRowsDefault;
+    const maxRows = params.maxRows ?? VACP_TOOL_RESULT_LIMITS.items;
     const wrapped = `${boundSql} LIMIT ${Math.floor(maxRows) + 1}`;
-    const { columns, rows } = await args.duckdb.queryJson(wrapped);
+    const { columns, rows } = await (await args.duckdb).queryJson(wrapped);
     const truncated = rows.length > maxRows;
 
     return {

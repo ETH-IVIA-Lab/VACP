@@ -11,7 +11,7 @@ from fastmcp import FastMCP
 from pydantic import Field, StringConstraints
 from pydantic.experimental.missing_sentinel import MISSING
 
-from vacp.agent_tools import AGENT_TOOLS, TOOL_GUIDANCE, capabilities_request, state_request, tool_read
+from vacp.agent_tools import AGENT_TOOLS, TOOL_GUIDANCE, capabilities_request, state_request, tool_read, tool_result
 from vacp.bridge import ActionCall, VacpBridgeClient
 from vacp.narration import NARRATION_GUIDANCE, NARRATION_MAX_LENGTH, PROGRESS_FIELDS, parse_narration
 
@@ -94,7 +94,7 @@ def create_mcp(
         annotations={'readOnlyHint': True},
     )
     async def vacp_observe() -> dict[str, object]:
-        return tool_read(await client.observe())
+        return tool_result(tool_read(await client.observe()))
 
     @mcp.tool(
         title='VACP Capabilities',
@@ -119,7 +119,7 @@ def create_mcp(
             includeEdges=includeEdges,
             includeNodeData=includeNodeData,
         )
-        return tool_read(await client.get_capabilities(request))
+        return tool_result(tool_read(await client.get_capabilities(request)))
 
     @mcp.tool(
         title='VACP State',
@@ -133,7 +133,7 @@ def create_mcp(
         includeSummary: bool | None = None,
     ) -> dict[str, object]:
         request = state_request(mode=mode, since=since, refs=refs, includeSummary=includeSummary)
-        return await client.get_state(request)
+        return tool_result(await client.get_state(request))
 
     @mcp.tool(title='VACP Execute Action', description=AGENT_TOOLS['vacp_execute']['description'])
     async def vacp_execute(
@@ -150,12 +150,14 @@ def create_mcp(
         # The execution carries the step's own sentence, live and in replay.
         res = await client.execute(call, narration=parse_narration(narration))
         # Fields the bridge left out stay out, as the other transports return them.
-        return {
-            'callId': res.call_id,
-            'ok': res.ok,
-            **({'result': res.result} if res.result is not None else {}),
-            **({'error': res.error} if res.error is not None else {}),
-        }
+        return tool_result(
+            {
+                'callId': res.call_id,
+                'ok': res.ok,
+                **({'result': res.result} if res.result is not None else {}),
+                **({'error': res.error} if res.error is not None else {}),
+            }
+        )
 
     @mcp.tool(title='Tell the person what you are doing', description=AGENT_TOOLS['vacp_progress']['description'])
     async def vacp_progress(
@@ -239,9 +241,7 @@ def create_mcp(
             if len(expression) > 20_000:
                 raise ValueError('Expected expression length <= 20000 characters')
 
-            if arg is None:
-                return await page.evaluate(expression)
-            return await page.evaluate(expression, arg)
+            return tool_result(await page.evaluate(expression) if arg is None else await page.evaluate(expression, arg))
 
         @mcp.tool(
             title='Browser Wait For Selector',

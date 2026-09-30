@@ -31,7 +31,8 @@ class Registry implements VacpWebMcpRegistry {
   }
 }
 
-function fixture() {
+/** A runtime with one threshold param. `detail` joins the param's state. */
+function fixture(detail: Record<string, unknown> = {}) {
   const actions = new VacpActionRegistry();
   let value = 1;
   const graph: VacpGraphFragment = {
@@ -67,7 +68,7 @@ function fixture() {
     source: { id: 'vacp-source://webmcp-test', type: 'test', title: 'WebMCP test' },
     actions,
     project: () => {
-      return { graph: { ...graph, actions: actions.list() }, state: { 'vacp://app/threshold': { value } } };
+      return { graph: { ...graph, actions: actions.list() }, state: { 'vacp://app/threshold': { value, ...detail } } };
     },
   });
   const runtime = createVacpRuntime({ providers: [provider] });
@@ -121,6 +122,29 @@ test('graph reads give the model entities and relationships, and leave actions t
     const observed = await read('vacp.observe');
     assert.deepEqual(observed.graph, { version, sources, nodes, edges });
     assert.deepEqual(observed.state, (await runtime.observe()).state);
+  } finally {
+    runtime.dispose();
+  }
+});
+
+test('reads and action results reach the model cut to the limits every transport shares', async () => {
+  const note = 'x'.repeat(12_001);
+  const cut = `${'x'.repeat(11_976)}... [25 more characters]`;
+  const { runtime, actions } = fixture({ note });
+  actions.register(
+    { name: 'note.read', description: 'Read the note', operation: { kind: 'query', affects: [] } },
+    () => ({ note }),
+  );
+  try {
+    const tools = compileVacpWebMcpTools((await runtime.getCapabilities()).graph, runtime);
+    const call = async (name: string, input: Record<string, unknown> = {}) =>
+      (await tools.find((tool) => tool.name === name)!.execute(input, { signal: new AbortController().signal })) as {
+        state?: Record<string, { note: string }>;
+        result?: { note: string };
+      };
+    assert.equal((await call('vacp.state')).state!['vacp://app/threshold']!.note, cut);
+    assert.equal((await call('vacp.observe')).state!['vacp://app/threshold']!.note, cut);
+    assert.equal((await call('vacp.action.note.read', { narration: 'Reading the note.' })).result!.note, cut);
   } finally {
     runtime.dispose();
   }

@@ -1,6 +1,5 @@
+import { vacpToolResult } from '@vacp/protocol';
 import type { UIMessage, ChatTransport } from 'ai';
-
-import { sanitizeToolPayload } from './sanitize-tool-payload';
 
 import type { VacpContextCompactionOptions, VacpContextCompactionPolicy } from './types';
 
@@ -89,28 +88,21 @@ function canReplayToolPart(part: UiPart, tools: Set<string> | null): boolean {
   return tools.has(partToolName(part));
 }
 
-function sanitizeUiPart(part: UiPart): UiPart {
-  const next = { ...part };
-
-  if ('input' in next) next.input = sanitizeToolPayload(next.input);
-
-  if ('output' in next) next.output = sanitizeToolPayload(next.output);
-
-  if ('rawInput' in next) next.rawInput = sanitizeToolPayload(next.rawInput);
-
-  if ('data' in next) next.data = sanitizeToolPayload(next.data);
-
-  if ('approval' in next && next.approval) {
-    next.approval = { ...next.approval, descriptor: sanitizeToolPayload(next.approval.descriptor) };
-  }
-
-  return next;
+/** Payloads a message part replays, bounded as tool results are. A field the part leaves unset stays unset. */
+function boundUiPart(part: UiPart): UiPart {
+  const next = { ...part } as Record<string, unknown>;
+  for (const field of ['input', 'output', 'rawInput', 'data'] as const)
+    if (next[field] !== undefined) next[field] = vacpToolResult(next[field]);
+  const approval = next.approval as { descriptor?: unknown } | undefined;
+  if (approval?.descriptor !== undefined)
+    next.approval = { ...approval, descriptor: vacpToolResult(approval.descriptor) };
+  return next as UiPart;
 }
 
-function sanitizeUiMessages<Message extends UIMessage>(messages: Message[]): Message[] {
+function boundUiMessages<Message extends UIMessage>(messages: Message[]): Message[] {
   return messages.map((message) => ({
     ...message,
-    parts: message.parts.map((part) => sanitizeUiPart(part)),
+    parts: message.parts.map((part) => boundUiPart(part)),
   }));
 }
 
@@ -253,19 +245,19 @@ export function wrapTransportWithVacpContextCompaction<Message extends UIMessage
       const rawMessages = options.messages;
 
       const compacted = compactMessagesForModelWithOptions(rawMessages, resolved, compactionOptions);
-      const sanitized = sanitizeUiMessages(compacted);
-      const nextOptions = { ...options, messages: sanitized };
+      const bounded = boundUiMessages(compacted);
+      const nextOptions = { ...options, messages: bounded };
 
       try {
         return await base.sendMessages(nextOptions);
       } catch (error) {
         if (error instanceof Error && /ModelMessage\[\] schema|Invalid prompt/.test(error.message)) {
-          const recent = sanitized
+          const recent = bounded
             .slice(-3)
             .map((message) => messageSummaryForError(message))
             .join(' | ');
 
-          throw new Error(`Chat prompt validation failed after sanitization. Recent messages: ${recent}`, {
+          throw new Error(`Chat prompt validation failed after compaction. Recent messages: ${recent}`, {
             cause: error,
           });
         }

@@ -118,3 +118,25 @@ test('a bare vacp:// scope reads everything, and an unscoped graph read leaves o
     { read: 'state', request: null },
   ]);
 });
+
+test('every answer reaches the model cut to the limits every transport shares', async () => {
+  const note = 'x'.repeat(12_001);
+  const cut = `${'x'.repeat(11_976)}... [25 more characters]`;
+  const graph = { nodes: [], edges: [], actions: [] };
+  const transport = createVacpTransport({
+    observe: async () => ({ revision: 'r', graph, state: {}, note }) as never,
+    getCapabilities: async () => ({ graph, note }) as never,
+    getState: async () => ({ state: {}, note }) as never,
+    execute: async (call) => ({ callId: call.callId, ok: true, result: note }),
+  });
+  const reads = [
+    await transport.vacp_observe(),
+    await transport.vacp_capabilities(),
+    await transport.vacp_state(),
+    await transport.vacp_execute('set', undefined, 'c1'),
+  ] as Array<{ note?: string; result?: string }>;
+  assert.deepEqual(
+    reads.map((read) => read.note ?? read.result),
+    [cut, cut, cut, cut],
+  );
+});

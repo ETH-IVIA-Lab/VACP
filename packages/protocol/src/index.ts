@@ -24,6 +24,8 @@ export * from './narration';
 
 export * from './tool-read';
 
+export * from './tool-result';
+
 export * from './agent-tools';
 
 export * from './instant';

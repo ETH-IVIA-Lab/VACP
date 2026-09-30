@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import math
 from pathlib import Path
 from typing import Any
 from unittest.mock import AsyncMock
@@ -12,11 +13,13 @@ from playwright.async_api import Page
 from vacp.agent_tools import (
     AGENT_TOOLS,
     TOOL_GUIDANCE,
+    TOOL_RESULT_LIMITS,
     CapabilitiesRequest,
     StateRequest,
     capabilities_request,
     state_request,
     tool_read,
+    tool_result,
 )
 from vacp.bridge import AGENT, ActionCall, ActionResult, PlaywrightVacpBridgeClient, VacpBridgeClient
 from vacp.narration import NARRATION_GUIDANCE, NARRATION_MAX_LENGTH, PROGRESS_FIELDS, PROGRESS_GUIDANCE, parse_narration
@@ -217,7 +220,8 @@ async def test_mcp_execution_preserves_json_values_and_omission_through_the_brow
             return True
         payloads.append(argument['payload'])
         assert argument['narration'] == 'Reading the input.'
-        return {'callId': 'c1', 'ok': True}
+        # The page answers with the JSON text `JSON.stringify` writes.
+        return json.dumps({'callId': 'c1', 'ok': True})
 
     page.evaluate.side_effect = evaluate
     mcp = create_mcp(PlaywrightVacpBridgeClient(page))
@@ -373,6 +377,69 @@ async def test_mcp_tools_match_the_agent_tools_of_every_transport() -> None:
     tools = {tool.name: tool for tool in await mcp.list_tools()}
     assert set(tools) == set(AGENT_TOOLS)
     for name, contract in AGENT_TOOLS.items():
+
+
+TOOL_RESULT_FIXTURE = json.loads((PROTOCOL_FIXTURES / 'tool-result.json').read_text())
+
+
+def test_tool_results_share_every_transport_limits() -> None:
+    assert TOOL_RESULT_FIXTURE['limits'] == TOOL_RESULT_LIMITS
+
+
+def _json(value: object) -> str:
+    """JSON text, which tells `true` from `1` and `1.0` from `1` where `==` does not."""
+    return json.dumps(value, ensure_ascii=False)
+
+
+@pytest.mark.parametrize('case', TOOL_RESULT_FIXTURE['cases'], ids=lambda case: case['name'])
+def test_tool_results_cut_like_every_transport(case: dict[str, Any]) -> None:
+    assert _json(tool_result(case['input'], TOOL_RESULT_FIXTURE['caseLimits'])) == _json(case['expected'])
+
+
+@pytest.mark.parametrize('case', TOOL_RESULT_FIXTURE['cases'], ids=lambda case: case['name'])
+def test_a_bounded_tool_result_passes_through_unchanged(case: dict[str, Any]) -> None:
+    assert _json(tool_result(case['expected'], TOOL_RESULT_FIXTURE['caseLimits'])) == _json(case['expected'])
+
+
+_LONG = 'x' * 12_001
+_CUT = f'{"x" * 11_976}... [25 more characters]'
+
+
+class _LongClient(_FakeClient):
+    """A page whose every read and execution carries one string past the character limit."""
+
+    async def observe(self) -> dict[str, object]:
+        return {'graph': {'nodes': [], 'edges': [], 'actions': []}, 'note': _LONG}
+
+    async def get_capabilities(self, request: CapabilitiesRequest | None = None) -> dict:
+        return {'graph': {'nodes': [], 'edges': [], 'actions': []}, 'note': _LONG}
+
+    async def get_state(self, request: StateRequest | None = None) -> dict:
+        return {'state': {}, 'note': _LONG}
+
+    async def execute(self, call: ActionCall, *, narration: str | None = None) -> ActionResult:
+        return ActionResult(call_id=call.call_id, ok=True, result={'note': _LONG})
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ('name', 'arguments'),
+    [
+        ('vacp_observe', {}),
+        ('vacp_capabilities', {}),
+        ('vacp_state', {}),
+        ('vacp_execute', {'name': 'chart.set', 'narration': 'Setting the chart.'}),
+    ],
+)
+async def test_tool_results_reach_the_model_cut_to_the_shared_limits(name: str, arguments: dict[str, object]) -> None:
+    result = await _run(_LongClient(), name, arguments)
+    assert isinstance(result, dict)
+    note = result['result']['note'] if name == 'vacp_execute' else result['note']
+    assert note == _CUT
+
+
+def test_non_finite_numbers_read_as_their_names() -> None:
+    assert tool_result([math.nan, math.inf, -math.inf]) == ['NaN', 'Infinity', '-Infinity']
         assert tools[name].description == contract['description']
         assert set(tools[name].parameters.get('properties', {})) == set(contract['input'])
 

@@ -10,11 +10,11 @@ import {
   type VacpAgentActivityControl,
   type VacpCapabilitiesRequest,
   type VacpStateRequest,
+  type VacpToolResult,
 } from '@vacp/protocol';
 import type { VacpTransport } from '@vacp/transport-bridge';
 
 import { createAgentTurns, type AgentTurns } from './agent-turn';
-import { sanitizeToolPayload } from './sanitize-tool-payload';
 
 const refs = z.array(z.templateLiteral(['vacp://', z.string()])).optional();
 /** Text a model must fill with more than whitespace, as every transport checks it. */
@@ -51,12 +51,15 @@ const progressInput = z.object({
 
 type ProgressResult = { ok: true } | { ok: false; reason: string };
 
-/** The agent tools of `vacpAgentTools`. `vacp_progress` is present when the host supplies an activity channel. */
+/**
+ * The agent tools of `vacpAgentTools`, each returning the transport's bounded answer.
+ * `vacp_progress` is present when the host supplies an activity channel.
+ */
 export type VacpAgentTools = {
-  vacp_observe: Tool<Record<string, never>, unknown>;
-  vacp_capabilities: Tool<VacpCapabilitiesRequest, unknown>;
-  vacp_state: Tool<VacpStateRequest, unknown>;
-  vacp_execute: Tool<z.output<typeof executeInput>, unknown>;
+  vacp_observe: Tool<Record<string, never>, VacpToolResult>;
+  vacp_capabilities: Tool<VacpCapabilitiesRequest, VacpToolResult>;
+  vacp_state: Tool<VacpStateRequest, VacpToolResult>;
+  vacp_execute: Tool<z.output<typeof executeInput>, VacpToolResult>;
   vacp_progress?: Tool<z.output<typeof progressInput>, ProgressResult>;
 };
 
@@ -75,28 +78,27 @@ export function buildVacpAgentTools(options: VacpAgentToolsOptions): { tools: Va
   const { transport } = options;
   const actor = options.actor ?? defaultActor;
   const turns = options.activity ? createAgentTurns(options.activity, actor) : undefined;
-  const read = async (work: Promise<unknown>) => sanitizeToolPayload(await work);
   const tools: VacpAgentTools = {
     vacp_observe: tool({
       description: vacpAgentTools.vacp_observe.description,
       inputSchema: z.object({}),
-      execute: () => read(transport.vacp_observe()),
+      execute: () => transport.vacp_observe(),
     }),
     vacp_capabilities: tool({
       description: vacpAgentTools.vacp_capabilities.description,
       inputSchema: capabilitiesInput,
-      execute: (input) => read(transport.vacp_capabilities(input)),
+      execute: (input) => transport.vacp_capabilities(input),
     }),
     vacp_state: tool({
       description: vacpAgentTools.vacp_state.description,
       inputSchema: stateInput,
-      execute: (input) => read(transport.vacp_state(input)),
+      execute: (input) => transport.vacp_state(input),
     }),
     vacp_execute: tool({
       description: vacpAgentTools.vacp_execute.description,
       inputSchema: executeInput,
       execute: (input) =>
-        read(transport.vacp_execute(input.name, input.params, input.call_id, { actor, narration: input.narration })),
+        transport.vacp_execute(input.name, input.params, input.call_id, { actor, narration: input.narration }),
     }),
   };
   if (turns)

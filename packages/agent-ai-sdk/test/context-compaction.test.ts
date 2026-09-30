@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import type { UIMessage } from 'ai';
+import { safeValidateUIMessages, type UIMessage } from 'ai';
 
 import { wrapTransportWithVacpContextCompaction } from '../src/context-compaction';
 
@@ -108,7 +108,7 @@ test('wrapTransportWithVacpContextCompaction is a no-op when disabled', async ()
   assert.equal(seen, messages);
 });
 
-test('wrapTransportWithVacpContextCompaction sanitizes recent tool payloads before transport send', async () => {
+test('wrapTransportWithVacpContextCompaction bounds recent tool payloads before transport send', async () => {
   let seen: UIMessage[] = [];
 
   const transport = {
@@ -159,6 +159,45 @@ test('wrapTransportWithVacpContextCompaction sanitizes recent tool payloads befo
   assert.deepEqual(toolPart.output, { values: [1, null, '2026-03-05T12:34:56.000Z'] });
 });
 
+test('a tool part that failed or never finished replays as a valid message', async () => {
+  let seen: UIMessage[] = [];
+  const transport = {
+    sendMessages: async (options: any) => {
+      seen = options.messages;
+      return new ReadableStream();
+    },
+    reconnectToStream: async () => null,
+  };
+  const wrapped = wrapTransportWithVacpContextCompaction(transport, { enabled: true });
+  const messages: UIMessage[] = [
+    { id: 'u1', role: 'user', parts: [{ type: 'text', text: 'hello' }] },
+    {
+      id: 'a1',
+      role: 'assistant',
+      parts: [
+        {
+          type: 'tool-vacp_state',
+          toolCallId: 'failed',
+          state: 'output-error',
+          input: { refs: ['app/chart'] },
+          output: undefined,
+          rawInput: undefined,
+          errorText: 'Invalid input',
+        },
+        { type: 'tool-vacp_state', toolCallId: 'aborted', state: 'input-available', input: {}, output: undefined },
+      ] as UIMessage['parts'],
+    },
+  ];
+  await wrapped.sendMessages({
+    trigger: 'submit-message',
+    chatId: 'chat-1',
+    messageId: undefined,
+    messages,
+    abortSignal: undefined,
+  });
+  assert.equal((await safeValidateUIMessages({ messages: seen })).success, true);
+});
+
 test('wrapTransportWithVacpContextCompaction augments invalid prompt errors with recent message summaries', async () => {
   const transport = {
     sendMessages: async () => {
@@ -194,7 +233,7 @@ test('wrapTransportWithVacpContextCompaction augments invalid prompt errors with
     }),
     (cause: unknown) =>
       cause instanceof Error &&
-      cause.message.includes('Chat prompt validation failed after sanitization.') &&
+      cause.message.includes('Chat prompt validation failed after compaction.') &&
       cause.message.includes('assistant:a1:tool-vacp_state'),
   );
 });

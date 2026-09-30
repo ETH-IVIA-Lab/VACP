@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass
-from typing import Protocol
+from typing import Any, Protocol
 
 from playwright.async_api import Page
 
@@ -77,25 +78,30 @@ class PlaywrightVacpBridgeClient(VacpBridgeClient):
         if not ok:
             raise RuntimeError('VACP window bridge not available (expected window.__vacp)')
 
+    async def _read(self, call: str, arg: object) -> Any:
+        """Run `call` in the page and read its value as the page's JSON writes it.
+
+        Dates arrive as ISO instants and undefined fields stay out, as they do for TypeScript tools.
+        """
+        text = await self._page.evaluate(f'async (arg) => JSON.stringify(await ({call})(arg))', arg)
+        return json.loads(text) if isinstance(text, str) else None
+
     async def observe(self) -> dict[str, object]:
         await self._require_bridge()
-        return await self._page.evaluate('(key) => globalThis[key].observe()', self._global_key)
+        return await self._read('(key) => globalThis[key].observe()', self._global_key)
 
     async def get_capabilities(self, request: CapabilitiesRequest | None = None) -> dict[str, object]:
         await self._require_bridge()
-        if request is None:
-            return await self._page.evaluate("""(key) => globalThis[key].getCapabilities()""", self._global_key)
-        return await self._page.evaluate(
-            """({ key, request }) => globalThis[key].getCapabilities(request)""",
+        return await self._read(
+            '({ key, request }) => (request ? globalThis[key].getCapabilities(request) : '
+            'globalThis[key].getCapabilities())',
             {'key': self._global_key, 'request': request},
         )
 
     async def get_state(self, request: StateRequest | None = None) -> dict[str, object]:
         await self._require_bridge()
-        if request is None:
-            return await self._page.evaluate("""(key) => globalThis[key].getState()""", self._global_key)
-        return await self._page.evaluate(
-            """({ key, request }) => globalThis[key].getState(request)""",
+        return await self._read(
+            '({ key, request }) => request ? globalThis[key].getState(request) : globalThis[key].getState()',
             {'key': self._global_key, 'request': request},
         )
 
@@ -105,7 +111,7 @@ class PlaywrightVacpBridgeClient(VacpBridgeClient):
         payload: dict[str, object] = {'callId': call.call_id, 'name': call.name}
         if call.has_params:
             payload['params'] = call.params
-        raw = await self._page.evaluate(
+        raw = await self._read(
             """({ key, payload, actor, narration }) =>
               globalThis[key].execute(payload, narration ? { actor, narration } : undefined)""",
             {'key': self._global_key, 'payload': payload, 'actor': AGENT, 'narration': narration},

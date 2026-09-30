@@ -16,10 +16,7 @@ export type VacpDuckDbHandleSpec = {
  * - the handler stays stable for the bridge/runtime
  * - only one `vacp.data_sql` action needs to be registered
  */
-export function createDuckDbSqlRouter(args: {
-  duckdb: VacpDuckDbClient | Promise<VacpDuckDbClient>;
-  defaultMaxRows?: number;
-}) {
+export function createDuckDbSqlRouter(args: { duckdb: VacpDuckDbClient | Promise<VacpDuckDbClient> }) {
   const handles = new Map<VacpRef, VacpDuckDbHandleSpec>();
 
   const addHandle = (spec: VacpDuckDbHandleSpec) => {
@@ -31,13 +28,7 @@ export function createDuckDbSqlRouter(args: {
   };
 
   const handler = createDuckDbDataSqlHandler({
-    duckdb: {
-      exec: async (sql) => await Promise.resolve(args.duckdb).then((d) => d.exec(sql)),
-      queryJson: async (sql) => await Promise.resolve(args.duckdb).then((d) => d.queryJson(sql)),
-      queryArrowIpcBase64: async (sql) => await Promise.resolve(args.duckdb).then((d) => d.queryArrowIpcBase64(sql)),
-      loadObjectsAsTable: async (table, rows, options) =>
-        await Promise.resolve(args.duckdb).then((d) => d.loadObjectsAsTable(table, rows, options)),
-    },
+    duckdb: args.duckdb,
     resolveHandle: async (handleRef) => {
       const spec = handles.get(handleRef);
 
@@ -45,7 +36,6 @@ export function createDuckDbSqlRouter(args: {
 
       return { allSql: await spec.getAllSql(), selectedSql: await spec.getSelectedSql() };
     },
-    defaultMaxRows: args.defaultMaxRows,
   });
 
   return { addHandle, removeHandle, handler: (p: VacpDataSqlParams) => handler(p) };

@@ -10,8 +10,6 @@ export * from './create-llm-model';
 
 export { createVacpAgentTools, type VacpAgentTools, type VacpAgentToolsOptions } from './vacp-tools';
 
-export * from './sanitize-tool-payload';
-
 export * from './context-compaction';
 
 export * from './create-vacp-agent';

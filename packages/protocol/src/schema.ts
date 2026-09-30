@@ -198,12 +198,12 @@ export type VacpDataSqlParams = {
    * selected or unfiltered relation for the handle.
    */
   sql: string;
-  /** Output encoding (default: `json`). */
-  format?: 'json' | 'arrow_ipc_base64';
   /**
-   * Max rows to return when `format="json"` (default: 500).
-   * Set a higher number for larger extracts or use `arrow_ipc_base64`.
+   * Output encoding (default: `json`). `arrow_ipc_base64` returns an Arrow IPC stream for programs
+   * that call the bridge, and a tool result cuts its text like any long string.
    */
+  format?: 'json' | 'arrow_ipc_base64';
+  /** Max rows a JSON result returns, at most and by default 500, so one result fits one tool result. */
   maxRows?: number;
 };
 

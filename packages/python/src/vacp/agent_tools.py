@@ -1,14 +1,15 @@
 """
 The tools a model uses to reach a page through its bridge.
 
-`packages/protocol/test/fixtures/agent-tools.json` and `tool-read.json` hold the same names, input
-fields, descriptions, guidance, requests, and reads for TypeScript, so an MCP client gets the tools
-`@vacp/agent-ai-sdk` gives an in-page agent.
+`packages/protocol/test/fixtures/agent-tools.json`, `tool-read.json`, and `tool-result.json` hold the
+same names, input fields, descriptions, guidance, requests, reads, and result bounds for TypeScript,
+so an MCP client gets the tools `@vacp/agent-ai-sdk` gives an in-page agent.
 """
 
 from __future__ import annotations
 
-from typing import Literal, TypedDict
+import math
+from typing import Literal, TypedDict, overload
 
 from vacp.narration import PROGRESS_GUIDANCE
 
@@ -145,3 +146,76 @@ def tool_read(read: dict[str, object]) -> dict[str, object]:
     if not isinstance(graph, dict):
         raise TypeError('A graph read must carry a graph object')
     return {**read, 'graph': {key: value for key, value in graph.items() if key != 'ownership'}}
+
+
+class ToolResultLimits(TypedDict):
+    depth: int
+    items: int
+    keys: int
+    characters: int
+
+
+TOOL_RESULT_LIMITS: ToolResultLimits = {'depth': 32, 'items': 500, 'keys': 160, 'characters': 12_000}
+
+
+def _cut_text(count: int) -> str:
+    return f'... [{count} more characters]'
+
+
+def _text(value: str, limit: int) -> str:
+    """`value`, or its first code points with a marker counting the rest, within `limit` code points in all."""
+    total = len(value)
+    if total <= limit:
+        return value
+    keep = max(0, limit - len(_cut_text(total - limit)))
+    while keep > 0 and keep + len(_cut_text(total - keep)) > limit:
+        keep -= 1
+    return f'{value[:keep]}{_cut_text(total - keep)}'
+
+
+def _kept(size: int, limit: int) -> int:
+    """Items a collection of `size` keeps: all of them, or room for the marker that ends a cut."""
+    return max(0, limit - 1) if size > limit else size
+
+
+def _bound(value: object, depth: int, limits: ToolResultLimits) -> object:
+    if value is None or isinstance(value, (bool, int)):
+        return value
+    if isinstance(value, float):
+        if math.isfinite(value):
+            return value
+        return 'NaN' if math.isnan(value) else ('Infinity' if value > 0 else '-Infinity')
+    if isinstance(value, str):
+        return _text(value, limits['characters'])
+    if isinstance(value, (list, tuple)):
+        if depth > limits['depth']:
+            return f'[Array({len(value)})]'
+        keep = _kept(len(value), limits['items'])
+        items: list[object] = [_bound(item, depth + 1, limits) for item in value[:keep]]
+        if keep < len(value):
+            items.append(f'[{len(value) - keep} more items]')
+        return items
+    if isinstance(value, dict):
+        if depth > limits['depth']:
+            return '[Object]'
+        entries = list(value.items())
+        keep = _kept(len(entries), limits['keys'])
+        result: dict[str, object] = {str(key): _bound(entry, depth + 1, limits) for key, entry in entries[:keep]}
+        if keep < len(entries):
+            result['__truncated'] = f'{len(entries) - keep} more keys'
+        return result
+    return str(value)
+
+
+@overload
+def tool_result(value: dict[str, object], limits: ToolResultLimits = ...) -> dict[str, object]: ...
+@overload
+def tool_result(value: object, limits: ToolResultLimits = ...) -> object: ...
+def tool_result(value: object, limits: ToolResultLimits = TOOL_RESULT_LIMITS) -> object:
+    """`value` as JSON a model reads, bounded as every transport bounds its tool results.
+
+    A string keeps `limits['characters']` code points, a list `limits['items']` items, and a dict
+    `limits['keys']` keys, each counting the marker that says what was cut. Containers deeper than
+    `limits['depth']` read as `[Array(n)]` or `[Object]`. A bounded value passes through unchanged.
+    """
+    return _bound(value, 0, limits)
