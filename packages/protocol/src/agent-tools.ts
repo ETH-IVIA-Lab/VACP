@@ -30,8 +30,6 @@ export const vacpAgentTools = {
   vacp_progress: { description: vacpProgressGuidance, input: ['message', 'done'] },
 } as const;
 
-export type VacpAgentToolName = keyof typeof vacpAgentTools;
-
 /** How to use the tools economically. Each transport gives it to the model with the tools. */
 export const vacpAgentToolGuidance = [
   'Read vacp_observe once at the start of a request. Only the actions available now are disclosed.',

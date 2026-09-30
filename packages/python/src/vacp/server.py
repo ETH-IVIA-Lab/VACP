@@ -13,7 +13,7 @@ from pydantic.experimental.missing_sentinel import MISSING
 
 from vacp.agent_tools import AGENT_TOOLS, TOOL_GUIDANCE, capabilities_request, state_request, tool_read
 from vacp.bridge import ActionCall, VacpBridgeClient
-from vacp.narration import NARRATION_GUIDANCE, NARRATION_MAX_LENGTH, parse_narration
+from vacp.narration import NARRATION_GUIDANCE, NARRATION_MAX_LENGTH, PROGRESS_FIELDS, parse_narration
 
 _DEFAULT_READY_TIMEOUT_MS = 60_000
 type BrowserWaitUntil = Literal['commit', 'domcontentloaded', 'load', 'networkidle']
@@ -138,7 +138,7 @@ def create_mcp(
     @mcp.tool(title='VACP Execute Action', description=AGENT_TOOLS['vacp_execute']['description'])
     async def vacp_execute(
         name: Name,
-        narration: Annotated[str, Field(description=NARRATION_GUIDANCE, max_length=NARRATION_MAX_LENGTH)],
+        narration: Annotated[str, Field(description=NARRATION_GUIDANCE, min_length=1, max_length=NARRATION_MAX_LENGTH)],
         params: object = MISSING,
         call_id: str | None = None,
     ) -> dict[str, object]:
@@ -149,10 +149,21 @@ def create_mcp(
         )
         # The execution carries the step's own sentence, live and in replay.
         res = await client.execute(call, narration=parse_narration(narration))
-        return {'callId': res.call_id, 'ok': res.ok, 'result': res.result, 'error': res.error}
+        # Fields the bridge left out stay out, as the other transports return them.
+        return {
+            'callId': res.call_id,
+            'ok': res.ok,
+            **({'result': res.result} if res.result is not None else {}),
+            **({'error': res.error} if res.error is not None else {}),
+        }
 
     @mcp.tool(title='Tell the person what you are doing', description=AGENT_TOOLS['vacp_progress']['description'])
-    async def vacp_progress(message: str, done: bool = False) -> dict[str, object]:
+    async def vacp_progress(
+        message: Annotated[
+            str, Field(description=PROGRESS_FIELDS['message'], min_length=1, max_length=NARRATION_MAX_LENGTH)
+        ],
+        done: Annotated[bool, Field(description=PROGRESS_FIELDS['done'])] = False,
+    ) -> dict[str, object]:
         text = parse_narration(message, field='progress')
         await client.progress(text, done=done)
         return {'ok': True}

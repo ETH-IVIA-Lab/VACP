@@ -15,6 +15,11 @@ PROGRESS_GUIDANCE = (
     'view now shows. Every action also carries its own narration, so each step shows its own reason.'
 )
 
+PROGRESS_FIELDS = {
+    'message': 'One plain sentence for the person.',
+    'done': 'True when this message closes the current task.',
+}
+
 NARRATION_GUIDANCE = (
     'One short present-tense sentence for the person watching: what this step does to the data and the view, '
     'and why, for example "Keeping rowing and canoe to compare the two paddle sports". '

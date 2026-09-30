@@ -53,8 +53,8 @@ test('graph reads reach the agent without source ownership, and state as read', 
 
   const transport = createVacpTransport(bridge);
   assert.deepEqual(await transport.vacp_capabilities(), expectedCaps);
-  assert.equal(gotCapabilitiesOptions, null);
-  const capabilitiesOptions = { prefixes: ['vacp://chart'], includeNodeData: false };
+  assert.deepEqual(gotCapabilitiesOptions, { includeNodeData: false });
+  const capabilitiesOptions = { prefixes: ['vacp://chart'], includeNodeData: true };
   assert.deepEqual(await transport.vacp_capabilities(capabilitiesOptions), expectedCaps);
   assert.deepEqual(gotCapabilitiesOptions, capabilitiesOptions);
   assert.deepEqual(await transport.vacp_state(), expectedState);
@@ -94,4 +94,27 @@ test('empty reads stay authoritative and execution forwards the call', async () 
     ok: true,
     result: { value: 2 },
   });
+});
+
+test('a bare vacp:// scope reads everything, and an unscoped graph read leaves out node data', async () => {
+  const requests: Array<{ read: string; request: unknown }> = [];
+  const transport = createVacpTransport({
+    getCapabilities: async (request?: unknown) => {
+      requests.push({ read: 'capabilities', request: request ?? null });
+      return { graph: { nodes: [], edges: [], actions: [] } };
+    },
+    getState: async (request?: unknown) => {
+      requests.push({ read: 'state', request: request ?? null });
+      return { state: {} };
+    },
+    execute: async (call) => ({ callId: call.callId, ok: true }),
+  });
+  await transport.vacp_capabilities({ refs: ['vacp://'] });
+  await transport.vacp_capabilities({ prefixes: ['vacp://', 'vacp://chart/'] });
+  await transport.vacp_state({ refs: ['vacp://'] });
+  assert.deepEqual(requests, [
+    { read: 'capabilities', request: { includeNodeData: false } },
+    { read: 'capabilities', request: { prefixes: ['vacp://chart/'] } },
+    { read: 'state', request: null },
+  ]);
 });

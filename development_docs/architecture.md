@@ -17,7 +17,7 @@ VACP separates the visualization's state from the ways people and agents access 
 | `adapter-vega-lite` | Vega-Lite entities, selections, and actions                                    | `data-duckdb`, `protocol`, `runtime`, `presence-core`, `presence-browser` |
 | `adapter-vgplot`    | VGPlot entities, selections, and actions                                       | `data-duckdb`, `protocol`, `runtime`, `presence-core`, `presence-browser` |
 | `transport-webmcp`  | Native tool projection and browser registration                                | `protocol`                                                                |
-| `transport-bridge`  | Bridge-to-tool mapping and readiness behavior                                  | `protocol`                                                                |
+| `transport-bridge`  | Bridge-to-tool mapping                                                         | `protocol`                                                                |
 | `agent-ai-sdk`      | Models, AI SDK tools, agent policy, and context compaction                     | `protocol`, `transport-bridge`                                            |
 | `inspector-core`    | Observation sessions, graph indexes, and connection ports                      | `protocol`                                                                |
 | `diagram-mermaid`   | Semantic graph to Mermaid source                                               | `protocol`                                                                |
@@ -43,7 +43,7 @@ The JavaScript workspace keeps one pnpm catalog and lockfile. The Python workspa
 
 `VacpWindowBridge.observe()` is the canonical coherent read. Capability and state methods provide scoped projections for compact consumers. `VacpRuntimeBridge` adds provenance and inspection capabilities. `VacpRuntime` adds provider attachment, source removal, session replacement, invalidation subscriptions, and disposal.
 
-`VacpTransport` defines the four agent tools independently of any model SDK. `VacpDuckDbClient` is the database adapter contract used by providers and data actions.
+`VacpTransport` maps the bridge to the agent tools other than `vacp_progress`, independently of any model SDK. `VacpDuckDbClient` is the database adapter contract used by providers and data actions.
 
 ## Runtime flow
 
@@ -105,7 +105,7 @@ Names group implementations by capability family:
 
 Graph reads that reach a model leave out source ownership, which routes execution and stays in runtime and inspection reads. `vacpToolRead` in `protocol` owns the projection, and the Python server's `tool_read` matches it through `protocol/test/fixtures/tool-read.json`. WebMCP registers each available action as a tool and also leaves actions out of `vacp.observe` and `vacp.capabilities`. The bridge transport and the Python MCP server keep them for `vacp_execute`.
 
-The five agent tools, `vacp_observe`, `vacp_capabilities`, `vacp_state`, `vacp_execute`, and `vacp_progress`, are one contract in `protocol`: `vacpAgentTools` holds their names, input fields, and descriptions, `vacpAgentToolGuidance` their shared guidance, and `vacpToolCapabilitiesRequest` and `vacpToolStateRequest` turn tool input into requests. `@vacp/agent-ai-sdk` and the Python MCP server both check theirs against `protocol/test/fixtures/agent-tools.json`.
+The five agent tools, `vacp_observe`, `vacp_capabilities`, `vacp_state`, `vacp_execute`, and `vacp_progress`, are one contract in `protocol`: `vacpAgentTools` holds their names, input fields, and descriptions, `vacpAgentToolGuidance` their shared guidance, and `vacpToolCapabilitiesRequest` and `vacpToolStateRequest` turn tool input into requests. `createVacpTransport` applies those requests and `vacpToolRead`, as the Python server does. `@vacp/agent-ai-sdk` and the Python MCP server both check their tools against `protocol/test/fixtures/agent-tools.json`.
 
 The runtime owns capability and observation subscriptions and its lifetime signal. DOM publication subscribes to composed observations, so it preserves execution options and shares lifecycle cleanup with other output adapters. These subscriptions are independent of the runtime history stream. Provider invalidation triggers a new coherent read. Replacing a provider aborts pending calls from its prior binding. Runtime execution forwards caller and source-lifetime cancellation to handlers.
 

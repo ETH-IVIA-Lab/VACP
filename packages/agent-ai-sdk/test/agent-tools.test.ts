@@ -53,20 +53,14 @@ test('the agent tools carry the names, descriptions, and input fields every tran
   }
 });
 
-test('tool input becomes the protocol request, and execution carries the actor and the step sentence', async () => {
+test('execution carries the actor and the step sentence', async () => {
   const { transport, calls } = recordingTransport();
   const { tools } = createVacpAgentTools({ transport, actor });
-  await tools.vacp_capabilities.execute!({ refs: ['vacp://'] }, context);
-  await tools.vacp_capabilities.execute!({ prefixes: ['vacp://chart/'] }, context);
-  await tools.vacp_state.execute!({ refs: ['vacp://'] }, context);
   await tools.vacp_execute.execute!(
     { name: 'chart.set', params: { value: 2 }, narration: 'Setting two.', call_id: 'c1' },
     context,
   );
   assert.deepEqual(calls, [
-    { tool: 'vacp_capabilities', args: [{ includeNodeData: false }] },
-    { tool: 'vacp_capabilities', args: [{ prefixes: ['vacp://chart/'] }] },
-    { tool: 'vacp_state', args: [undefined] },
     { tool: 'vacp_execute', args: ['chart.set', { value: 2 }, 'c1', { actor, narration: 'Setting two.' }] },
   ]);
   assert.equal('vacp_progress' in tools, false, 'progress needs the host activity channel');

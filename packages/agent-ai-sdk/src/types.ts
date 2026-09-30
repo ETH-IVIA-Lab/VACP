@@ -1,7 +1,5 @@
-import type { VacpActor, VacpAgentActivityControl } from '@vacp/protocol';
 import type { InferUITools, LanguageModel, TelemetryOptions, ToolLoopAgentSettings, UIMessage } from 'ai';
-import type { VacpAgentTools } from './vacp-tools';
-import type { VacpTransport } from '@vacp/transport-bridge';
+import type { VacpAgentTools, VacpAgentToolsOptions } from './vacp-tools';
 
 export type VacpTokenUsage = {
   inputTokens?: number;
@@ -42,9 +40,6 @@ export type VacpLLMConfig = {
   baseURL: string;
   apiKey: string;
   model: string;
-  temperature?: number;
-  maxSteps?: number;
-  maxOutputTokens?: number;
 };
 
 export type VacpContextCompactionPolicy = {
@@ -69,14 +64,9 @@ export type VacpAgentInteractionPolicy = {
   minToolCallsPerTurn?: number;
 };
 
-export type VacpAgentFactoryOptions = {
+export type VacpAgentFactoryOptions = VacpAgentToolsOptions & {
   /** The model the agent calls. `createVacpLLMModel(config)` builds one from a `VacpLLMConfig`. */
   model: LanguageModel;
-  transport: VacpTransport;
-  /** Optional host activity channel. Enables the `vacp_progress` tool and one activity per turn. */
-  activity?: VacpAgentActivityControl;
-  /** The agent that steps and turns are attributed to. Defaults to `{ id: 'agent', label: 'Assistant' }`. */
-  actor?: VacpActor;
   instructions?: string;
   interactionPolicy?: VacpAgentInteractionPolicy;
   contextCompactionPolicy?: VacpContextCompactionPolicy;

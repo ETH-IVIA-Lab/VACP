@@ -4,8 +4,7 @@ import { z } from 'zod';
 import {
   vacpAgentTools,
   vacpNarrationGuidance,
-  vacpToolCapabilitiesRequest,
-  vacpToolStateRequest,
+  vacpProgressFields,
   VACP_NARRATION_MAX_LENGTH,
   type VacpActor,
   type VacpAgentActivityControl,
@@ -18,12 +17,14 @@ import { createAgentTurns, type AgentTurns } from './agent-turn';
 import { sanitizeToolPayload } from './sanitize-tool-payload';
 
 const refs = z.array(z.templateLiteral(['vacp://', z.string()])).optional();
+/** Text a model must fill with more than whitespace, as every transport checks it. */
+const text = z.string().regex(/\S/);
 
 const capabilitiesInput = z.object({
   refs,
   prefixes: refs,
-  kinds: z.array(z.string().min(1)).optional(),
-  layers: z.array(z.string().min(1)).optional(),
+  kinds: z.array(text).optional(),
+  layers: z.array(text).optional(),
   includeActions: z.boolean().optional(),
   includeEdges: z.boolean().optional(),
   includeNodeData: z.boolean().optional(),
@@ -31,21 +32,21 @@ const capabilitiesInput = z.object({
 
 const stateInput = z.object({
   mode: z.enum(['auto', 'full', 'delta']).optional(),
-  since: z.string().min(1).optional(),
+  since: text.optional(),
   refs,
   includeSummary: z.boolean().optional(),
 });
 
 const executeInput = z.object({
-  name: z.string().min(1),
+  name: text,
   params: z.unknown().optional(),
   narration: z.string().trim().min(1).max(VACP_NARRATION_MAX_LENGTH).describe(vacpNarrationGuidance),
-  call_id: z.string().min(1).optional(),
+  call_id: z.string().optional(),
 });
 
 const progressInput = z.object({
-  message: z.string().trim().min(1).max(VACP_NARRATION_MAX_LENGTH).describe('One plain sentence for the person.'),
-  done: z.boolean().default(false).describe('True when this message closes the current task.'),
+  message: z.string().trim().min(1).max(VACP_NARRATION_MAX_LENGTH).describe(vacpProgressFields.message),
+  done: z.boolean().default(false).describe(vacpProgressFields.done),
 });
 
 type ProgressResult = { ok: true } | { ok: false; reason: string };
@@ -84,12 +85,12 @@ export function buildVacpAgentTools(options: VacpAgentToolsOptions): { tools: Va
     vacp_capabilities: tool({
       description: vacpAgentTools.vacp_capabilities.description,
       inputSchema: capabilitiesInput,
-      execute: (input) => read(transport.vacp_capabilities(vacpToolCapabilitiesRequest(input))),
+      execute: (input) => read(transport.vacp_capabilities(input)),
     }),
     vacp_state: tool({
       description: vacpAgentTools.vacp_state.description,
       inputSchema: stateInput,
-      execute: (input) => read(transport.vacp_state(vacpToolStateRequest(input))),
+      execute: (input) => read(transport.vacp_state(input)),
     }),
     vacp_execute: tool({
       description: vacpAgentTools.vacp_execute.description,

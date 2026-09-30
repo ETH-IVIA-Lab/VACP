@@ -17,6 +17,12 @@ export const vacpNarrationGuidance =
   'for example "Keeping rowing and canoe to compare the two paddle sports". ' +
   'Write a new sentence for every step. Leave out tool names, references, ids, and remarks about yourself.';
 
+/** Descriptions of the progress tool's two fields. */
+export const vacpProgressFields = {
+  message: 'One plain sentence for the person.',
+  done: 'True when this message closes the current task.',
+} as const;
+
 /** A sentence for the person watching, trimmed. Missing, blank, and over-long sentences are rejected. */
 export function parseVacpNarration(value: unknown, field = 'narration'): string {
   if (typeof value !== 'string') throw new TypeError(`${field} must be a string`);

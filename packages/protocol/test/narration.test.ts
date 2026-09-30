@@ -4,6 +4,7 @@ import test from 'node:test';
 import {
   parseVacpNarration,
   vacpNarrationGuidance,
+  vacpProgressFields,
   vacpProgressGuidance,
   VACP_NARRATION_MAX_LENGTH,
 } from '../src/index';
@@ -12,6 +13,7 @@ const fixture = JSON.parse(readFileSync(new URL('./fixtures/narration.json', imp
 
 test('every transport reads the same narration contract', () => {
   assert.equal(vacpProgressGuidance, fixture.progress);
+  assert.deepEqual(vacpProgressFields, fixture.progressFields);
   assert.equal(vacpNarrationGuidance, fixture.narration);
   assert.equal(VACP_NARRATION_MAX_LENGTH, fixture.maxLength);
 });

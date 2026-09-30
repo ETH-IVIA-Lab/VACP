@@ -19,7 +19,7 @@ from vacp.agent_tools import (
     tool_read,
 )
 from vacp.bridge import AGENT, ActionCall, ActionResult, PlaywrightVacpBridgeClient, VacpBridgeClient
-from vacp.narration import NARRATION_GUIDANCE, NARRATION_MAX_LENGTH, PROGRESS_GUIDANCE, parse_narration
+from vacp.narration import NARRATION_GUIDANCE, NARRATION_MAX_LENGTH, PROGRESS_FIELDS, PROGRESS_GUIDANCE, parse_narration
 from vacp.server import create_mcp
 
 
@@ -100,19 +100,6 @@ class _FakePage:
 
     async def press(self, selector: str, key: str) -> None:  # noqa: ARG002
         return None
-
-
-@pytest.mark.asyncio
-async def test_create_mcp_registers_expected_tools() -> None:
-    mcp = create_mcp(_FakeClient())
-    tools = await mcp.list_tools()
-    assert {tool.name for tool in tools} == {
-        'vacp_observe',
-        'vacp_capabilities',
-        'vacp_state',
-        'vacp_execute',
-        'vacp_progress',
-    }
 
 
 async def _run(client: _FakeClient, name: str, arguments: dict[str, object]) -> object:
@@ -202,18 +189,21 @@ async def test_vacp_state_rejects_invalid_fields(arguments: dict[str, object]) -
 
 @pytest.mark.asyncio
 async def test_vacp_execute_tool_calls_surface() -> None:
-    mcp = create_mcp(_FakeClient())
-    tool = await mcp.get_tool('vacp_execute')
-    assert isinstance(tool, FunctionTool)
-    res = await tool.fn(
-        name='vacp.data_sql',
-        narration='Counting the rows in view.',
-        params={'handleRef': 'vacp://x', 'sql': 'select 1'},
-        call_id='c1',
+    res = await _run(
+        _FakeClient(),
+        'vacp_execute',
+        {
+            'name': 'vacp.data_sql',
+            'narration': 'Counting the rows in view.',
+            'params': {'handleRef': 'vacp://x', 'sql': 'select 1'},
+            'call_id': 'c1',
+        },
     )
-    assert res['callId'] == 'c1'
-    assert res['ok'] is True
-    assert res['result'] == {'name': 'vacp.data_sql', 'params': {'handleRef': 'vacp://x', 'sql': 'select 1'}}
+    assert res == {
+        'callId': 'c1',
+        'ok': True,
+        'result': {'name': 'vacp.data_sql', 'params': {'handleRef': 'vacp://x', 'sql': 'select 1'}},
+    }
 
 
 @pytest.mark.asyncio
@@ -338,6 +328,7 @@ FIXTURE = json.loads((Path(__file__).parents[2] / 'protocol/test/fixtures/narrat
 
 def test_narration_contract_matches_every_transport() -> None:
     assert FIXTURE['progress'] == PROGRESS_GUIDANCE
+    assert FIXTURE['progressFields'] == PROGRESS_FIELDS
     assert FIXTURE['narration'] == NARRATION_GUIDANCE
     assert FIXTURE['maxLength'] == NARRATION_MAX_LENGTH
 

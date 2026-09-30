@@ -1,6 +1,7 @@
 import type { WebMCP } from 'webmcp-types';
 import {
   parseVacpNarration,
+  vacpProgressFields,
   vacpProgressGuidance,
   VACP_NARRATION_MAX_LENGTH,
   type VacpActor,
@@ -15,9 +16,9 @@ const progressInputSchema: Record<string, unknown> = {
       type: 'string',
       minLength: 1,
       maxLength: VACP_NARRATION_MAX_LENGTH,
-      description: 'One plain sentence for the person.',
+      description: vacpProgressFields.message,
     },
-    done: { type: 'boolean', description: 'True when this message closes the current task.' },
+    done: { type: 'boolean', description: vacpProgressFields.done },
   },
   required: ['message'],
   additionalProperties: false,
