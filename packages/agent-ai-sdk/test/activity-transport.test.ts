@@ -156,25 +156,28 @@ test('a consumer cancellation ends the turn as cancelled, and a disposed activit
   assert.deepEqual((await reader.read()).value, chunks[0]);
 });
 
-test('every vacp_execute step carries its own sentence and the agent that narrates the turn', async () => {
+test('every vacp_execute step reaches the transport with its params, call id, own sentence, and actor', async () => {
   const { control, shown } = recordingControl();
-  const executed: Array<{ name: string; options?: unknown }> = [];
+  const executed: unknown[][] = [];
   const transport = {
     vacp_observe: async () => ({}) as never,
     vacp_capabilities: async () => ({}) as never,
     vacp_state: async () => ({}) as never,
-    vacp_execute: async (name: string, _params?: unknown, callId?: string, options?: unknown) => {
-      executed.push({ name, options });
-      return { callId: callId ?? 'call', ok: true };
+    vacp_execute: async (...call: [string, unknown?, string?, unknown?]) => {
+      executed.push(call);
+      return { callId: call[2] ?? 'call', ok: true };
     },
   };
   const { vacp_execute } = createVacpAgentTools({ transport, activity: control, actor }).tools;
   const context = { toolCallId: 'e', messages: [] };
-  await vacp_execute.execute!({ name: 'set_sex', narration: 'Keeping only female athletes.' }, context);
+  await vacp_execute.execute!(
+    { name: 'set_sex', params: { sex: 'female' }, narration: 'Keeping only female athletes.', call_id: 'c1' },
+    context,
+  );
   await vacp_execute.execute!({ name: 'set_sports', narration: 'Comparing swimmers with gymnasts.' }, context);
   assert.deepEqual(shown, [], 'a step keeps its sentence and leaves the turn words alone');
   assert.deepEqual(executed, [
-    { name: 'set_sex', options: { actor, narration: 'Keeping only female athletes.' } },
-    { name: 'set_sports', options: { actor, narration: 'Comparing swimmers with gymnasts.' } },
+    ['set_sex', { sex: 'female' }, 'c1', { actor, narration: 'Keeping only female athletes.' }],
+    ['set_sports', undefined, undefined, { actor, narration: 'Comparing swimmers with gymnasts.' }],
   ]);
 });

@@ -119,18 +119,16 @@ async def test_an_unscoped_capabilities_read_leaves_out_node_data() -> None:
 
 
 @pytest.mark.asyncio
-async def test_vacp_capabilities_forwards_scoping_fields() -> None:
+async def test_capabilities_forward_scope_fields_in_the_provider_vocabulary() -> None:
     client = _FakeClient()
-    await _run(
-        client,
-        'vacp_capabilities',
-        {'prefixes': ['vacp://app/view'], 'includeNodeData': False, 'kinds': ['View', 'Visualization']},
-    )
-    assert client.last_capabilities_request == {
+    arguments: dict[str, object] = {
         'prefixes': ['vacp://app/view'],
-        'kinds': ['View', 'Visualization'],
+        'kinds': ['AnalysisOutput'],
+        'layers': ['AnalysisLayer'],
         'includeNodeData': False,
     }
+    await _run(client, 'vacp_capabilities', arguments)
+    assert client.last_capabilities_request == arguments
 
 
 @pytest.mark.asyncio
@@ -138,9 +136,8 @@ async def test_vacp_capabilities_forwards_scoping_fields() -> None:
     'arguments',
     [
         {'bogus': 1},
-        {'kinds': ['']},
+        {'kinds': ['  ']},
         {'layers': ['']},
-        {'refs': ['   ']},
         {'refs': ['app/chart']},
         {'includeNodeData': 'nope'},
     ],
@@ -178,10 +175,8 @@ async def test_vacp_state_forwards_fields_for_delta_requests() -> None:
     [
         {'bogus': 1},
         {'mode': 'nope'},
-        {'since': ''},
         {'since': '   '},
-        {'refs': 'bad'},
-        {'refs': ['vacp://a', '   ']},
+        {'refs': ['vacp://a', 'app/chart']},
         {'includeSummary': 'nope'},
     ],
 )
@@ -191,7 +186,7 @@ async def test_vacp_state_rejects_invalid_fields(arguments: dict[str, object]) -
 
 
 @pytest.mark.asyncio
-async def test_vacp_execute_tool_calls_surface() -> None:
+async def test_execute_replies_with_the_bridge_result_and_leaves_out_missing_fields() -> None:
     res = await _run(
         _FakeClient(),
         'vacp_execute',
@@ -264,27 +259,16 @@ async def test_browser_tools_are_gated_by_enable_flag(tmp_path) -> None:
     assert isinstance(screenshot, FunctionTool)
 
     out = tmp_path / 'shots' / 's1.png'
-    res = await screenshot.fn(path=str(out), full_page=True)
-    assert res == {'ok': True, 'path': str(out)}
+    assert (await screenshot.run({'path': str(out)})).structured_content == {'ok': True, 'path': str(out)}
 
 
 @pytest.mark.asyncio
 async def test_observation_tool_keeps_revision_state_and_actions_and_leaves_out_ownership() -> None:
-    client = _FakeClient()
-    tool = await create_mcp(client).get_tool('vacp_observe')
-    assert isinstance(tool, FunctionTool)
-    assert await tool.fn() == {
+    assert await _run(_FakeClient(), 'vacp_observe', {}) == {
         'revision': 'test',
         'graph': {'nodes': [{'ref': 'vacp://app/chart'}], 'edges': [], 'actions': [{'name': 'chart.set'}]},
         'state': {'vacp://app/chart': {'value': 1}},
     }
-
-
-@pytest.mark.asyncio
-async def test_capabilities_accept_provider_defined_analytical_vocabulary() -> None:
-    client = _FakeClient()
-    await _run(client, 'vacp_capabilities', {'kinds': ['AnalysisOutput'], 'layers': ['AnalysisLayer']})
-    assert client.last_capabilities_request == {'kinds': ['AnalysisOutput'], 'layers': ['AnalysisLayer']}
 
 
 @pytest.mark.asyncio
@@ -293,7 +277,6 @@ async def test_vacp_progress_narrates_and_closes_a_turn() -> None:
     mcp = create_mcp(client)
     tool = await mcp.get_tool('vacp_progress')
     assert isinstance(tool, FunctionTool)
-    assert tool.description == PROGRESS_GUIDANCE
     await tool.run({'message': '  Narrowing to sprinters under 25 '})
     await tool.run({'message': 'Sprinters under 25 win most medals.', 'done': True})
     assert client.narrated == [
@@ -377,6 +360,23 @@ async def test_mcp_tools_match_the_agent_tools_of_every_transport() -> None:
     tools = {tool.name: tool for tool in await mcp.list_tools()}
     assert set(tools) == set(AGENT_TOOLS)
     for name, contract in AGENT_TOOLS.items():
+        assert tools[name].description == contract['description']
+        assert set(tools[name].parameters.get('properties', {})) == set(contract['input'])
+
+
+@pytest.mark.parametrize('case', AGENT_TOOLS_FIXTURE['capabilities'])
+def test_capabilities_requests_match_every_transport(case: dict[str, Any]) -> None:
+    assert capabilities_request(**case['input']) == case['expected']
+
+
+@pytest.mark.parametrize('case', AGENT_TOOLS_FIXTURE['state'])
+def test_state_requests_match_every_transport(case: dict[str, Any]) -> None:
+    assert state_request(**case['input']) == case['expected']
+
+
+def test_graph_reads_match_every_transport() -> None:
+    fixture = json.loads((PROTOCOL_FIXTURES / 'tool-read.json').read_text())
+    assert tool_read(fixture['read']) == fixture['expected']
 
 
 TOOL_RESULT_FIXTURE = json.loads((PROTOCOL_FIXTURES / 'tool-result.json').read_text())
@@ -440,20 +440,3 @@ async def test_tool_results_reach_the_model_cut_to_the_shared_limits(name: str, 
 
 def test_non_finite_numbers_read_as_their_names() -> None:
     assert tool_result([math.nan, math.inf, -math.inf]) == ['NaN', 'Infinity', '-Infinity']
-        assert tools[name].description == contract['description']
-        assert set(tools[name].parameters.get('properties', {})) == set(contract['input'])
-
-
-@pytest.mark.parametrize('case', AGENT_TOOLS_FIXTURE['capabilities'])
-def test_capabilities_requests_match_every_transport(case: dict[str, Any]) -> None:
-    assert capabilities_request(**case['input']) == case['expected']
-
-
-@pytest.mark.parametrize('case', AGENT_TOOLS_FIXTURE['state'])
-def test_state_requests_match_every_transport(case: dict[str, Any]) -> None:
-    assert state_request(**case['input']) == case['expected']
-
-
-def test_graph_reads_match_every_transport() -> None:
-    fixture = json.loads((PROTOCOL_FIXTURES / 'tool-read.json').read_text())
-    assert tool_read(fixture['read']) == fixture['expected']

@@ -8,28 +8,14 @@ import { MockLanguageModelV4 } from 'ai/test';
 
 import { createVacpAgentTools, createVacpChatRuntime, createVacpToolLoopAgent } from '../src/index';
 
-const actor = { id: 'agent', kind: 'agent' as const, label: 'Assistant' };
 const context = { toolCallId: 'call', messages: [] };
 
-function recordingTransport() {
-  const calls: Array<{ tool: string; args: unknown[] }> = [];
-  const transport: VacpTransport = {
-    vacp_observe: async () => ({}) as never,
-    vacp_capabilities: async (...args) => {
-      calls.push({ tool: 'vacp_capabilities', args });
-      return {} as never;
-    },
-    vacp_state: async (...args) => {
-      calls.push({ tool: 'vacp_state', args });
-      return {} as never;
-    },
-    vacp_execute: async (...args) => {
-      calls.push({ tool: 'vacp_execute', args });
-      return { callId: args[2] ?? 'call', ok: true };
-    },
-  };
-  return { transport, calls };
-}
+const silentTransport: VacpTransport = {
+  vacp_observe: async () => ({}) as never,
+  vacp_capabilities: async () => ({}) as never,
+  vacp_state: async () => ({}) as never,
+  vacp_execute: async (_name, _params, callId) => ({ callId: callId ?? 'call', ok: true }),
+};
 
 function recordingActivity() {
   const outcomes: string[] = [];
@@ -39,11 +25,17 @@ function recordingActivity() {
   return { activity, outcomes };
 }
 
+test('vacp_progress is offered only with the host activity channel', () => {
+  assert.equal('vacp_progress' in createVacpAgentTools({ transport: silentTransport }).tools, false);
+  assert.equal(
+    'vacp_progress' in
+      createVacpAgentTools({ transport: silentTransport, activity: recordingActivity().activity }).tools,
+    true,
+  );
+});
+
 test('the agent tools carry the names, descriptions, and input fields every transport offers', async () => {
-  const { tools } = createVacpAgentTools({
-    transport: recordingTransport().transport,
-    activity: recordingActivity().activity,
-  });
+  const { tools } = createVacpAgentTools({ transport: silentTransport, activity: recordingActivity().activity });
   assert.deepEqual(Object.keys(tools).sort(), Object.keys(vacpAgentTools).sort());
   for (const [name, contract] of Object.entries(vacpAgentTools)) {
     const tool = tools[name as keyof typeof tools]!;
@@ -51,19 +43,6 @@ test('the agent tools carry the names, descriptions, and input fields every tran
     const schema = (await asSchema(tool.inputSchema).jsonSchema) as { properties?: Record<string, unknown> };
     assert.deepEqual(Object.keys(schema.properties ?? {}).sort(), [...contract.input].sort());
   }
-});
-
-test('execution carries the actor and the step sentence', async () => {
-  const { transport, calls } = recordingTransport();
-  const { tools } = createVacpAgentTools({ transport, actor });
-  await tools.vacp_execute.execute!(
-    { name: 'chart.set', params: { value: 2 }, narration: 'Setting two.', call_id: 'c1' },
-    context,
-  );
-  assert.deepEqual(calls, [
-    { tool: 'vacp_execute', args: ['chart.set', { value: 2 }, 'c1', { actor, narration: 'Setting two.' }] },
-  ]);
-  assert.equal('vacp_progress' in tools, false, 'progress needs the host activity channel');
 });
 
 function progressModel(finish: 'stop' | 'fail') {
@@ -108,7 +87,7 @@ test('a request closes the turn the model opened, as completed or as failed', as
     const { activity, outcomes } = recordingActivity();
     const agent = createVacpToolLoopAgent({
       model: progressModel(finish),
-      transport: recordingTransport().transport,
+      transport: silentTransport,
       activity: activity as VacpAgentActivityControl,
       maxRetries: 0,
     });
@@ -172,7 +151,7 @@ test('a streamed request closes the turn the model opened as completed, failed, 
     const abort = new AbortController();
     const agent = createVacpToolLoopAgent({
       model: streamingProgressModel(second, abort),
-      transport: recordingTransport().transport,
+      transport: silentTransport,
       activity: activity as VacpAgentActivityControl,
       maxRetries: 0,
     });
@@ -193,7 +172,7 @@ test('a chat request closes its turn as the agent request ends', async (t) => {
     const abort = new AbortController();
     const { transport } = createVacpChatRuntime({
       model: streamingProgressModel(second, abort),
-      transport: recordingTransport().transport,
+      transport: silentTransport,
       activity: activity as VacpAgentActivityControl,
       maxRetries: 0,
     });
@@ -219,7 +198,7 @@ test('a streamed request that fails before its first step closes the turn the mo
         throw new Error('provider unavailable');
       },
     }),
-    transport: recordingTransport().transport,
+    transport: silentTransport,
     activity: activity as VacpAgentActivityControl,
     maxRetries: 0,
   });
