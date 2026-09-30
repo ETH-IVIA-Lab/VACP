@@ -155,7 +155,7 @@ export function installVacpForCarsParallelCoords(args: {
     .operation(
       'mutation',
       'parallel_coords.set_hover',
-      'Set the hovered line by row id or car-name match and show its tooltip.',
+      'Set the hovered line by row id or car-name match and show its tooltip. The result reports the hovered row and how many selected rows matched: pass an id to pick one of several.',
     )
     .affects(hoverRef)
     .params(
@@ -175,7 +175,7 @@ export function installVacpForCarsParallelCoords(args: {
       if (rec.clear === true) {
         args.setHoveredId(null, 'agent');
 
-        return { ok: true, hoveredId: null };
+        return { ok: true, row: null };
       }
 
       const id = isFiniteNumber(rec.id) ? Math.floor(rec.id) : null;
@@ -191,7 +191,7 @@ export function installVacpForCarsParallelCoords(args: {
         if (!found) throw new Error(`No selected row with id=${targetId}`);
         args.setHoveredId(found.id, 'agent');
 
-        return { ok: true, hoveredId: found.id, car: found.Car };
+        return { ok: true, row: found, matches: 1 };
       };
 
       if (id !== null) return pickById(id);
@@ -222,7 +222,7 @@ export function installVacpForCarsParallelCoords(args: {
 
       args.setHoveredId(chosen.id, 'agent');
 
-      return { ok: true, hoveredId: chosen.id, car: chosen.Car };
+      return { ok: true, row: chosen, matches: matches.length };
     });
 
   actions
@@ -232,7 +232,7 @@ export function installVacpForCarsParallelCoords(args: {
     .handle(() => {
       args.setHoveredId(null, 'agent');
 
-      return { ok: true, hoveredId: null };
+      return { ok: true, row: null };
     });
 
   actions.standard.applyState(
