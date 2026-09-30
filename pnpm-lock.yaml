@@ -448,6 +448,9 @@ importers:
       '@vacp/transport-bridge':
         specifier: workspace:*
         version: link:../../packages/transport-bridge
+      '@vacp/transport-webmcp':
+        specifier: workspace:*
+        version: link:../../packages/transport-webmcp
       ai:
         specifier: 'catalog:'
         version: 7.0.122(zod@4.6.5)

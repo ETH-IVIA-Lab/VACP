@@ -27,6 +27,7 @@
     "@vacp/agent-ai-sdk": "workspace:*",
     "@vacp/protocol": "workspace:*",
     "@vacp/transport-bridge": "workspace:*",
+    "@vacp/transport-webmcp": "workspace:*",
     "ai": "catalog:",
     "playwright": "catalog:",
     "ws": "8.22.0",

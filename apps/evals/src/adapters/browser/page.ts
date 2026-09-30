@@ -6,6 +6,7 @@ import {
   type VacpGraph,
   type VacpStateRequest,
 } from '@vacp/protocol';
+import { compileVacpWebMcpTools } from '@vacp/transport-webmcp';
 import type { BrowserContext, Page } from 'playwright';
 import type { ExampleOptions } from '../../../../../examples/config';
 
@@ -96,26 +97,35 @@ export class EvalPage implements AgentPage {
     });
   }
 
-  /** The bridge is installed and the WebMCP catalog has stopped changing for a moment. */
-  private async ready(signal: AbortSignal, settleMs = 1200, timeoutMs = 90_000) {
+  /**
+   * The page is ready when its WebMCP catalog registers every tool the transport compiles for the
+   * runtime's graph, and that graph held still across two reads.
+   */
+  private async ready(signal: AbortSignal, timeoutMs = 90_000) {
     const deadline = Date.now() + timeoutMs;
-    let last = '';
-    let since = Date.now();
+    let previous: string | undefined;
     while (Date.now() < deadline) {
       signal.throwIfAborted();
-      const names = await this.page
+      const catalog = await this.page
         .evaluate(async () => {
-          if (!('__vacp' in globalThis) || !document.modelContext) return '';
-          return (await document.modelContext.getTools()).map((tool) => tool.name).join('\n');
+          if (!('__vacp' in globalThis) || !document.modelContext) return null;
+          const [capabilities, tools] = await Promise.all([
+            globalThis.__vacp.getCapabilities(),
+            document.modelContext.getTools(),
+          ]);
+          return { graph: capabilities.graph, registered: tools.map((tool) => tool.name) };
         })
-        .catch(() => '');
-      if (names !== last) {
-        last = names;
-        since = Date.now();
-      } else if (names && Date.now() - since >= settleMs) return;
-      await this.page.waitForTimeout(150);
+        .catch(() => null);
+      if (catalog) {
+        const expected = compileVacpWebMcpTools(catalog.graph, this.bridge).map((tool) => tool.name);
+        const key = expected.join('\n');
+        const registered = new Set(catalog.registered);
+        if (key === previous && expected.every((name) => registered.has(name))) return;
+        previous = key;
+      }
+      await this.page.waitForTimeout(100);
     }
-    throw new Error(`Page ${this.url} did not register WebMCP tools within ${timeoutMs / 1000}s`);
+    throw new Error(`Page ${this.url} did not register its WebMCP tools within ${timeoutMs / 1000}s`);
   }
 
   async tools(): Promise<PageTool[]> {

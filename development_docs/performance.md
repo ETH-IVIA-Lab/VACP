@@ -45,3 +45,5 @@ Measured on an Apple M3 Max with Node 24.16.0 under a concurrent CPU load, as th
 | Adapter share of that read                       | 34.2 ms | 11.8 ms |
 
 `tableRows` formats each instant's wall-clock text once per load, since time units repeat a few hundred instants across every row, and builds each row with one key loop. The filter change is Vega's own work, so its difference between runs is machine noise.
+
+Eval runs wait for page readiness on a catalog witness: the page's WebMCP registry holds every tool its current graph compiles to, and the compiled tool names match on two reads 100 ms apart. It replaces a fixed settle window. Over 17 reference-solution runs on one gallery, the median run fell from 2,326 ms to 1,109 ms and the total from 40.7 s to 17.2 s.
