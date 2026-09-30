@@ -293,15 +293,17 @@ async function expectVegaLiteIntervalSelectionWorks(
   expect(brushValue).toEqual(expect.objectContaining({ monthdate_date: intervalValue }));
   expect(String(handleState?.selectionWhere ?? '')).not.toBe('');
   // Derive the month-and-day time unit from the source rows on the axis's local clock, independently of
-  // the handle's own table. The browser and this process share the host's time zone.
-  const pad = (value: number) => String(value).padStart(2, '0');
-  const wall = (time: number) => {
-    const date = new Date(time);
-    return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
-  };
+  // the handle's own table. That clock is the page's time zone, so the page writes the bounds.
+  const [from, to] = await page.evaluate((times) => {
+    const pad = (value: number) => String(value).padStart(2, '0');
+    return times.map((time) => {
+      const date = new Date(time);
+      return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
+    });
+  }, intervalValue);
   const matching = await dataSql(page, {
     handleRef,
-    sql: `SELECT COUNT(*)::INTEGER AS n FROM vacp_all WHERE make_timestamp(2012, month(date), day(date), 0, 0, 0) BETWEEN TIMESTAMP '${wall(intervalValue[0]!)}' AND TIMESTAMP '${wall(intervalValue[1]!)}'`,
+    sql: `SELECT COUNT(*)::INTEGER AS n FROM vacp_all WHERE make_timestamp(2012, month(date), day(date), 0, 0, 0) BETWEEN TIMESTAMP '${from}' AND TIMESTAMP '${to}'`,
   });
   expect(countFromResult(matching)).toBe(await selectedCount(page, handleRef));
 }
