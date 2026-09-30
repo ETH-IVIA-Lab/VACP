@@ -65,7 +65,7 @@ async function drain(stream: ReadableStream<UIMessageChunk>, onChunk?: (chunk: U
 }
 
 test('a turn starts silently, shows no wording the model did not write, and forwards every chunk unchanged', async () => {
-  const { control, shown, outcomes } = recordingControl();
+  const { control, shown } = recordingControl();
   const chunks: UIMessageChunk[] = [
     { type: 'reasoning-start', id: 'r' },
     { type: 'reasoning-delta', id: 'r', delta: 'private reasoning' },
@@ -77,11 +77,10 @@ test('a turn starts silently, shows no wording the model did not write, and forw
   const result = await drain(await wrapped.sendMessages(request));
   assert.deepEqual(result, chunks);
   assert.deepEqual(shown, []);
-  assert.deepEqual(outcomes, ['completed']);
 });
 
 test('only what the model tells the person through vacp_progress is shown', async () => {
-  const { control, shown, outcomes } = recordingControl();
+  const { control, shown } = recordingControl();
   const { tools, turns } = buildVacpAgentTools({ transport: silent, activity: control, actor });
   const vacp_progress = tools.vacp_progress!;
   const chunks: UIMessageChunk[] = [
@@ -98,7 +97,6 @@ test('only what the model tells the person through vacp_progress is shown', asyn
       );
   });
   assert.deepEqual(shown, ['Narrowing to sprinters under 25']);
-  assert.deepEqual(outcomes, ['completed']);
 });
 
 test('vacp_progress opens its own turn without a chat transport and done closes it with the closing sentence', async () => {
@@ -111,11 +109,9 @@ test('vacp_progress opens its own turn without a chat transport and done closes 
   assert.deepEqual(outcomes, ['completed']);
 });
 
-test('stream errors, aborts and transport failures end the turn with their outcome', async () => {
+test('a chat request that breaks before or while it streams ends the turn as failed', async () => {
   const { control, outcomes } = recordingControl();
   const turns = createAgentTurns(control, actor);
-  await drain(await withAgentActivity(streaming([{ type: 'error', errorText: 'boom' }]), turns).sendMessages(request));
-  await drain(await withAgentActivity(streaming([{ type: 'abort' }]), turns).sendMessages(request));
   await assert.rejects(
     drain(await withAgentActivity(streaming([], new Error('network')), turns).sendMessages(request)),
   );
@@ -126,7 +122,7 @@ test('stream errors, aborts and transport failures end the turn with their outco
     },
   };
   await assert.rejects(withAgentActivity(rejecting, turns).sendMessages(request), /offline/);
-  assert.deepEqual(outcomes, ['failed', 'cancelled', 'failed', 'failed']);
+  assert.deepEqual(outcomes, ['failed', 'failed']);
 });
 
 test('vacp_progress tells the model when its words could not be shown', async () => {

@@ -3,10 +3,10 @@ import test from 'node:test';
 
 import { vacpAgentTools, type VacpAgentActivityControl } from '@vacp/protocol';
 import type { VacpTransport } from '@vacp/transport-bridge';
-import { asSchema } from 'ai';
+import { asSchema, simulateReadableStream } from 'ai';
 import { MockLanguageModelV4 } from 'ai/test';
 
-import { createVacpAgentTools, createVacpToolLoopAgent } from '../src/index';
+import { createVacpAgentTools, createVacpChatRuntime, createVacpToolLoopAgent } from '../src/index';
 
 const actor = { id: 'agent', kind: 'agent' as const, label: 'Assistant' };
 const context = { toolCallId: 'call', messages: [] };
@@ -119,8 +119,98 @@ test('a request closes the turn the model opened, as completed or as failed', as
   }
 });
 
-test('a streamed request that fails closes the turn the model opened', async (t) => {
+function streamingProgressModel(second: 'stop' | 'fail' | 'abort', abort: AbortController) {
+  const usage = {
+    inputTokens: { total: 1, noCache: 1, cacheRead: undefined, cacheWrite: undefined },
+    outputTokens: { total: 1, text: 1, reasoning: undefined },
+  };
+  let calls = 0;
+  return new MockLanguageModelV4({
+    doStream: async () => {
+      calls++;
+      if (calls === 2 && second === 'fail') throw new Error('provider unavailable');
+      if (calls === 2 && second === 'abort') {
+        abort.abort();
+        throw new DOMException('The request was aborted', 'AbortError');
+      }
+      return {
+        stream: simulateReadableStream({
+          chunks:
+            calls === 1
+              ? ([
+                  { type: 'stream-start', warnings: [] },
+                  {
+                    type: 'tool-call',
+                    toolCallId: 'p',
+                    toolName: 'vacp_progress',
+                    input: '{"message":"Looking at the data."}',
+                  },
+                  { type: 'finish', finishReason: { unified: 'tool-calls', raw: 'tool_calls' }, usage },
+                ] as const)
+              : ([
+                  { type: 'stream-start', warnings: [] },
+                  { type: 'text-start', id: 't' },
+                  { type: 'text-delta', id: 't', delta: 'Done.' },
+                  { type: 'text-end', id: 't' },
+                  { type: 'finish', finishReason: { unified: 'stop', raw: 'stop' }, usage },
+                ] as const),
+        }),
+      };
+    },
+  });
+}
+
+test('a streamed request closes the turn the model opened as completed, failed, or cancelled', async (t) => {
   // streamText logs a failed stream to the console, and agent streams take no onError to replace it.
+  t.mock.method(console, 'error', () => {});
+  for (const [second, outcome] of [
+    ['stop', 'completed'],
+    ['fail', 'failed'],
+    ['abort', 'cancelled'],
+  ] as const) {
+    const { activity, outcomes } = recordingActivity();
+    const abort = new AbortController();
+    const agent = createVacpToolLoopAgent({
+      model: streamingProgressModel(second, abort),
+      transport: recordingTransport().transport,
+      activity: activity as VacpAgentActivityControl,
+      maxRetries: 0,
+    });
+    const result = await agent.stream({ prompt: 'How many rows?', abortSignal: abort.signal });
+    await result.consumeStream({ onError: () => {} });
+    assert.deepEqual(outcomes, [outcome], second);
+  }
+});
+
+test('a chat request closes its turn as the agent request ends', async (t) => {
+  t.mock.method(console, 'error', () => {});
+  for (const [second, outcome] of [
+    ['stop', 'completed'],
+    ['fail', 'failed'],
+    ['abort', 'cancelled'],
+  ] as const) {
+    const { activity, outcomes } = recordingActivity();
+    const abort = new AbortController();
+    const { transport } = createVacpChatRuntime({
+      model: streamingProgressModel(second, abort),
+      transport: recordingTransport().transport,
+      activity: activity as VacpAgentActivityControl,
+      maxRetries: 0,
+    });
+    const stream = await transport.sendMessages({
+      trigger: 'submit-message',
+      chatId: 'chat',
+      messageId: undefined,
+      messages: [{ id: 'u', role: 'user', parts: [{ type: 'text', text: 'How many rows?' }] }],
+      abortSignal: abort.signal,
+    });
+    const reader = stream.getReader();
+    while (!(await reader.read()).done);
+    assert.deepEqual(outcomes, [outcome], second);
+  }
+});
+
+test('a streamed request that fails before its first step closes the turn the model opened', async (t) => {
   t.mock.method(console, 'error', () => {});
   const { activity, outcomes } = recordingActivity();
   const agent = createVacpToolLoopAgent({

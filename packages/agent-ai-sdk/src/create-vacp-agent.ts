@@ -5,6 +5,7 @@ import {
   type ChatTransport,
   type LanguageModel,
   type LanguageModelUsage,
+  type StreamTextTransform,
   type ToolLoopAgentSettings,
 } from 'ai';
 
@@ -88,14 +89,27 @@ class VacpToolLoopAgent extends ToolLoopAgent<never, VacpAgentTools> {
   }
 
   override async stream(options: Parameters<ToolLoopAgent<never, VacpAgentTools>['stream']>[0]) {
+    // A step that fails or is aborted after an earlier one finished ends the stream as a part, so the
+    // request's own error and abort parts close the turn.
+    const closing: StreamTextTransform<VacpAgentTools> = () =>
+      new TransformStream({
+        transform: (part, controller) => {
+          if (part.type === 'error') this.#turns?.end('failed');
+          else if (part.type === 'abort') this.#turns?.end('cancelled');
+          controller.enqueue(part);
+        },
+      });
     let result: Awaited<ReturnType<ToolLoopAgent<never, VacpAgentTools>['stream']>>;
     try {
-      result = await super.stream(options);
+      result = await super.stream({
+        ...options,
+        experimental_transform: [closing, ...[options.experimental_transform ?? []].flat()],
+      });
     } catch (error) {
       this.#fail(options.abortSignal);
       throw error;
     }
-    // The text settles when the stream ends, and rejects when it fails or is aborted.
+    // A stream that throws before any step finished rejects its text.
     result.text.then(undefined, () => this.#fail(options.abortSignal));
     return result;
   }
