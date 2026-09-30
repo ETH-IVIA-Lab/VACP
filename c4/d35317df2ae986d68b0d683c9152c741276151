@@ -1,0 +1,51 @@
+packages/python/src/vacp/narration.py
+  s_f952b3e592f24d::t_67c974a371fb1b 18-22
+packages/agent-ai-sdk/src/vacp-tools.ts
+  s_f952b3e592f24d::t_d31ffd825110f8 7,20-21,26-27,35,41,44,48-49
+  s_f952b3e592f24d::t_40958fa04264e9 88,93
+docs/presence/index.md
+  s_f952b3e592f24d::t_7a2a7d9ffbf33a 70,72
+packages/transport-bridge/src/bridge-transport.ts
+  s_f952b3e592f24d::t_f6e0c3522ef0f5 1,4,8-12
+development_docs/architecture.md
+  s_f952b3e592f24d::t_fb729868e6010b 20,46,108
+packages/transport-webmcp/src/progress.ts
+  s_f952b3e592f24d::t_d31ffd825110f8 4,19,21
+packages/transport-bridge/src/types.ts
+  s_f952b3e592f24d::t_f6e0c3522ef0f5 13-18,21-22
+packages/protocol/src/narration.ts
+  s_f952b3e592f24d::t_b4c1e424687e8e 20-25
+packages/transport-bridge/README.md
+  s_f952b3e592f24d::t_fb729868e6010b 3,9,12
+packages/python/src/vacp/server.py
+  s_f952b3e592f24d::t_bfeaf0bb9078dd 152-158
+  s_f952b3e592f24d::t_af9269c7978054 16
+  s_f952b3e592f24d::t_67c974a371fb1b 141,161-166
+packages/python/tests/test_server_tools.py
+  s_f952b3e592f24d::t_af9269c7978054 22,331
+  s_f952b3e592f24d::t_bfeaf0bb9078dd 192-200,202-206
+packages/protocol/test/fixtures/narration.json
+  s_f952b3e592f24d::t_b4c1e424687e8e 4-7
+packages/agent-ai-sdk/src/types.ts
+  s_f952b3e592f24d::t_8d881ddf51c292 2,67
+packages/transport-bridge/test/bridge-transport.test.ts
+  s_f952b3e592f24d::t_e063e8348ed3e1 56-57,98-119
+packages/protocol/test/narration.test.ts
+  s_f952b3e592f24d::t_b4c1e424687e8e 7,16
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "c4d35317df2ae986d68b0d683c9152c741276151",
+  "prompts": {},
+  "sessions": {
+    "s_f952b3e592f24d": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "b5d9a406-ea45-4cff-94f9-b59428366092",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Péter Ferenc Gyarmati <peterferenc.gyarmati@inf.ethz.ch>"
+    }
+  }
+}
