@@ -20,7 +20,7 @@
     "build": "vp pack",
     "typecheck": "tsc -p tsconfig.json",
     "test": "tsx --test --test-timeout=10000 test/*.test.ts",
-    "bench": "tsx bench/observation.ts"
+    "bench": "tsx bench/observation.ts && tsx bench/data.ts"
   },
   "dependencies": {
     "@vacp/data-duckdb": "workspace:*",

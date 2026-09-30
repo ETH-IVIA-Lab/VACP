@@ -8,6 +8,8 @@ Run `make bench` from the repository root. It builds the libraries, then measure
 - `packages/runtime-browser/bench/snapshot.ts`: DOM snapshot writes for 400 refs, 20 of them holding 200 rows, with one ref changing per snapshot. Each snapshot is cloned, as composition clones provider observations, and each write is checked to publish exactly the changed ref.
 - `packages/transport-webmcp/bench/registration.ts`: 50 synchronous graph revisions, each with 1,000 changed action descriptions. Results are the median of five bursts after two warmups. The injected registry resolves immediately; native browser registration latency is excluded.
 
+- `packages/adapter-vega-lite/bench/data.ts`: a headless Vega view over 20,000 rows with a parsed date and a time unit, and a DuckDB client that accepts every write. It times a SQL read of unchanged data, a filter change alone, and a SQL read after the filter changes the shown rows. The difference between the last two is the adapter's cost to reload `vacp_handle`.
+
 These isolate runtime and transport overhead. They do not measure visualization rendering, provider work, agent latency, or network requests. Avoid running builds or browser tests alongside timing runs.
 
 ## September 18, 2026 round
@@ -31,3 +33,15 @@ The shared FNV-1a implementation uses two 32-bit limbs instead of allocating Big
 WebMCP keeps one active catalog update and one pending catalog. New revisions replace the pending graph, and callers share its completion promise. A refresh therefore waits for its graph or a newer queued revision to finish registering. Tests with a delayed registry protect this completion guarantee, cancellation, and ownership of unrelated tools.
 
 Subscribed snapshot serialization is unchanged by this round. Its cost remains proportional to graph and state size, including when content has not changed; object identity is insufficient because providers can mutate existing values.
+
+## September 30, 2026 round
+
+Measured on an Apple M3 Max with Node 24.16.0 under a concurrent CPU load, as the median of three interleaved runs of `bench/data.ts` against the implementation immediately before this round:
+
+| Workload                                         |  Before |   After |
+| ------------------------------------------------ | ------: | ------: |
+| Filter change alone                              | 38.2 ms | 42.6 ms |
+| SQL read after the filter changes the shown rows | 72.4 ms | 54.4 ms |
+| Adapter share of that read                       | 34.2 ms | 11.8 ms |
+
+`tableRows` formats each instant's wall-clock text once per load, since time units repeat a few hundred instants across every row, and builds each row with one key loop. The filter change is Vega's own work, so its difference between runs is machine noise.

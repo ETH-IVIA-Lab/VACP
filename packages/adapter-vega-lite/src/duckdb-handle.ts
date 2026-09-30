@@ -65,7 +65,7 @@ export function createVegaLiteDataBinding(args: {
         return client;
       });
   const base = `vacp_vl_${options.appId}_${options.viewId}_${options.vizId}`;
-  const { sources, temporal } = bindings.dataflow;
+  const { sources } = bindings.dataflow;
 
   const shownRows = (dataset: string): unknown[] => {
     try {
@@ -94,6 +94,7 @@ export function createVegaLiteDataBinding(args: {
     let loading: Promise<void> = Promise.resolve();
     let fields: ReadonlySet<string> = new Set();
     let timestamps: ReadonlyMap<string, VacpClock> = new Map();
+    let loadedColumns = false;
 
     // Rows are normalized and serialized again only when Vega reports a dataset change.
     let dataVersion = 0;
@@ -113,7 +114,7 @@ export function createVegaLiteDataBinding(args: {
     let prepared: (ReturnType<typeof tableRows> & { version: number; revision: string }) | undefined;
     const currentRows = () => {
       if (listening && prepared?.version === dataVersion) return prepared;
-      const table = tableRows(shownRows(source.shown), temporal);
+      const table = tableRows(shownRows(source.shown), bindings.dataflow);
       prepared = { ...table, version: dataVersion, revision: JSON.stringify(table.rows) };
       return prepared;
     };
@@ -121,7 +122,8 @@ export function createVegaLiteDataBinding(args: {
     const ensureDuckDbData = (): Promise<void> => {
       if (disposed) return Promise.reject(new Error('Vega-Lite data handle is disposed'));
       const current = currentRows();
-      if (!current.rows.length)
+      // A filter can leave the marks no rows. The table keeps its columns, so SQL reads zero rows.
+      if (!current.rows.length && !loadedColumns)
         return Promise.reject(new Error(`No Vega-Lite rows available to load into DuckDB (${title})`));
       const input = source.transformed ? bindings.datasetInput(source.dataset) : null;
       if (source.transformed && !input)
@@ -131,18 +133,21 @@ export function createVegaLiteDataBinding(args: {
         const db = await duckdbPromise;
         if (current.revision !== loadedRevision) {
           loadedRevision = null;
-          fields = new Set();
           tableTouched = true;
-          await loadTable(db, tableName, current);
+          if (current.rows.length) {
+            fields = new Set();
+            await loadTable(db, tableName, current);
+            fields = new Set(current.rows.flatMap((row) => Object.keys(row)));
+            timestamps = current.timestamps;
+            loadedColumns = true;
+          } else await db.exec(`DELETE FROM main.${tableName}`);
           loadedRevision = current.revision;
-          fields = new Set(current.rows.flatMap((row) => Object.keys(row)));
-          timestamps = current.timestamps;
         }
         // Vega replaces a dataset's input collection when its source changes, so identity is the witness.
         if (input && input !== loadedInput) {
           loadedInput = null;
           tableTouched = true;
-          await loadTable(db, allTableName, tableRows(input, temporal));
+          await loadTable(db, allTableName, tableRows(input, bindings.dataflow));
           loadedInput = input;
         }
       });

@@ -1,6 +1,13 @@
 import { formatVacpWallClock, type VacpClock } from '@vacp/protocol';
 
+import type { VegaLiteDataflow } from './dataflow';
 import { vegaInstant } from './temporal';
+
+/** A value as Vega coerces it for a continuous scale, or null when it names no number. */
+function number(value: unknown): number | null {
+  const coerced = typeof value === 'string' && value.trim() ? Number(value) : value;
+  return typeof coerced === 'number' && Number.isFinite(coerced) ? coerced : null;
+}
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return !!value && typeof value === 'object' && !Array.isArray(value);
@@ -39,23 +46,41 @@ function sanitizeDuckDbValue(value: unknown) {
 /**
  * Rows ready for DuckDB, and the columns that hold instants with their clocks. A column holds
  * instants when the chart's dataflow says so or its values are Dates. Its instants load as
- * wall-clock text on the axis's clock, so SQL reads the dates the chart shows.
+ * wall-clock text on the axis's clock, so SQL reads the dates the chart shows. A column a
+ * continuous scale reads loads as numbers, as Vega coerces them. A value in either kind of column
+ * that names no instant or number loads as null.
  */
 export function tableRows(
   source: readonly unknown[],
-  temporal: ReadonlyMap<string, VacpClock>,
+  fields: Pick<VegaLiteDataflow, 'temporal' | 'numeric'>,
 ): { rows: Record<string, unknown>[]; timestamps: Map<string, VacpClock> } {
+  const { temporal, numeric } = fields;
   const timestamps = new Map<string, VacpClock>();
-  const rows = source.flatMap((row) => {
-    if (!isRecord(row)) return [];
-    const entries = Object.entries(row).map(([key, value]) => {
+  // Time units repeat a few hundred instants across every row, so each is formatted once per load.
+  const texts = { local: new Map<number, string>(), utc: new Map<number, string>() };
+  const wallClock = (time: number, clock: VacpClock) => {
+    let text = texts[clock].get(time);
+    if (text === undefined) texts[clock].set(time, (text = formatVacpWallClock(time, clock)));
+    return text;
+  };
+  const rows: Record<string, unknown>[] = [];
+  for (const row of source) {
+    if (!isRecord(row)) continue;
+    const keys = Object.keys(row);
+    if (!keys.length) continue;
+    const loaded: Record<string, unknown> = {};
+    for (const key of keys) {
+      const value = row[key];
       const clock = temporal.get(key) ?? (value instanceof Date ? 'local' : undefined);
-      const instant = clock ? vegaInstant(value) : null;
-      if (!clock || instant === null) return [key, sanitizeDuckDbValue(value)];
+      if (!clock) {
+        loaded[key] = numeric.has(key) ? number(value) : sanitizeDuckDbValue(value);
+        continue;
+      }
       timestamps.set(key, clock);
-      return [key, formatVacpWallClock(instant, clock)];
-    });
-    return entries.length ? [Object.fromEntries(entries)] : [];
-  });
+      const instant = vegaInstant(value);
+      loaded[key] = instant === null ? null : wallClock(instant, clock);
+    }
+    rows.push(loaded);
+  }
   return { rows, timestamps };
 }

@@ -13,8 +13,13 @@ type Dataset = {
   format?: { parse?: Record<string, unknown> };
   transform?: Transform[];
 };
-type Scale = { type?: string; domain?: unknown };
-type Mark = { from?: { data?: string; facet?: { data?: string } }; marks?: Mark[]; scales?: Scale[] };
+type Scale = { name?: string; type?: string; domain?: unknown };
+type Mark = {
+  from?: { data?: string; facet?: { data?: string } };
+  marks?: Mark[];
+  scales?: Scale[];
+  encode?: Record<string, unknown>;
+};
 
 /** One source the chart reads: a url, inline values, or a named dataset the host fills. */
 export type VegaLiteSource = {
@@ -32,7 +37,12 @@ export type VegaLiteDataflow = {
   sources: VegaLiteSource[];
   /** Fields Vega holds as instants, with the clock their axis reads. */
   temporal: ReadonlyMap<string, VacpClock>;
+  /** Fields a continuous scale reads, which Vega coerces to numbers however the source typed them. */
+  numeric: ReadonlySet<string>;
 };
+
+const clocks: Readonly<Record<string, VacpClock>> = { time: 'local', utc: 'utc' };
+const continuous = new Set(['linear', 'log', 'pow', 'sqrt', 'symlog']);
 
 const silent = {
   level() {
@@ -65,8 +75,19 @@ function domainFields(domain: unknown): string[] {
   );
 }
 
-function temporalFields(datasets: readonly Dataset[], scales: readonly Scale[]): Map<string, VacpClock> {
+/** Every `{ scale, field }` pair a mark's encoding reads, through production rules too. */
+function* encodedFields(value: unknown): Generator<{ scale: string; field: string }> {
+  if (Array.isArray(value)) for (const entry of value) yield* encodedFields(entry);
+  else if (record(value)) {
+    if (typeof value.scale === 'string' && typeof value.field === 'string')
+      yield { scale: value.scale, field: value.field };
+    for (const entry of Object.values(value)) if (typeof entry === 'object') yield* encodedFields(entry);
+  }
+}
+
+function fieldTypes(datasets: readonly Dataset[], scales: readonly Scale[], marks: readonly Mark[]) {
   const temporal = new Map<string, VacpClock>();
+  const numeric = new Set<string>();
   for (const dataset of datasets) {
     for (const [field, type] of Object.entries(dataset.format?.parse ?? {}))
       if (typeof type === 'string' && /^(date|utc)\b/.test(type))
@@ -84,15 +105,23 @@ function temporalFields(datasets: readonly Dataset[], scales: readonly Scale[]):
         temporal.set(transform.as, 'local');
     }
   }
-  for (const scale of scales)
-    if (scale.type === 'time' || scale.type === 'utc')
-      for (const field of domainFields(scale.domain)) temporal.set(field, scale.type === 'utc' ? 'utc' : 'local');
-  return temporal;
+  const types = new Map(
+    scales.flatMap((scale) => (scale.name && scale.type ? [[scale.name, scale.type] as const] : [])),
+  );
+  const read = (field: string, type: string | undefined) => {
+    const clock = type ? clocks[type] : undefined;
+    if (clock) temporal.set(field, clock);
+    else if (type && continuous.has(type)) numeric.add(field);
+  };
+  for (const scale of scales) for (const field of domainFields(scale.domain)) read(field, scale.type);
+  for (const mark of marks) for (const { scale, field } of encodedFields(mark.encode)) read(field, types.get(scale));
+  for (const field of temporal.keys()) numeric.delete(field);
+  return { temporal, numeric };
 }
 
 /**
  * Compile the chart's spec and read its dataflow: each source's root dataset, the dataset its marks
- * read, and the fields Vega holds as instants. The adapter's data relations and temporal parsing
+ * read, the fields Vega holds as instants, and the fields it reads as numbers. The adapter's data relations and temporal parsing
  * follow the compiled datasets, wherever Vega-Lite's optimizer placed the transforms.
  */
 export function vegaLiteDataflow(spec: VegaLiteSpecLike): VegaLiteDataflow {
@@ -138,5 +167,5 @@ export function vegaLiteDataflow(spec: VegaLiteSpecLike): VegaLiteDataflow {
     };
   });
   const scales = [...(compiled.scales ?? []), ...marks.flatMap((mark) => mark.scales ?? [])];
-  return { sources, temporal: temporalFields(datasets, scales) };
+  return { sources, ...fieldTypes(datasets, scales, marks) };
 }

@@ -282,3 +282,57 @@ test('a hover on a date narrows vacp_handle to its rows, and a date the calendar
     f.dispose();
   }
 });
+
+test('fields a continuous scale reads load as numbers, and cells that name no number or date as null', async () => {
+  const db = await nodeDuckDb();
+  // A CSV source parses only its dates, so the loaded rows carry every other value as text.
+  const rows = [
+    { date: '2012-06-01', temp_max: '12.8', weather: 'sun' },
+    { date: '2012-06-02', temp_max: '15.6', weather: 'rain' },
+    { date: 'unknown', temp_max: 'n/a', weather: 'fog' },
+  ];
+  const spec: TopLevelSpec = {
+    data: { url: 'data/weather.json', format: { type: 'json', parse: { date: 'date' } } },
+    mark: 'point',
+    encoding: { x: { field: 'date', type: 'temporal' }, y: { field: 'temp_max', type: 'quantitative' } },
+  };
+  const view = await render(spec, { 'data/weather.json': rows });
+  const provider = createVegaLiteProvider({ view, spec, options: { ...options, duckdbClient: db.client } });
+  try {
+    assert.deepEqual(
+      await sql(provider, 'SELECT round(avg(temp_max), 1) AS mean, count(date)::INT AS dated FROM vacp_all'),
+      [{ mean: 14.2, dated: 2 }],
+    );
+    for (const table of db.tables) assert.equal((await db.types(table)).temp_max, 'DOUBLE', table);
+  } finally {
+    provider.dispose?.();
+    view.finalize();
+    db.close();
+  }
+});
+
+test('a filter that leaves the marks no rows leaves vacp_handle empty, with its columns', async () => {
+  const db = await nodeDuckDb();
+  const spec: TopLevelSpec = {
+    data: { values: gapminder },
+    params: [{ name: 'minimum', value: 0 }],
+    transform: [{ filter: 'datum.life_expect >= minimum' }],
+    mark: 'point',
+    encoding: { x: { field: 'country', type: 'nominal' }, y: { field: 'life_expect', type: 'quantitative' } },
+  };
+  const view = await render(spec);
+  const provider = createVegaLiteProvider({ view, spec, options: { ...options, duckdbClient: db.client } });
+  try {
+    assert.deepEqual(await sql(provider, 'SELECT count(*)::INT AS n FROM vacp_handle'), [{ n: 6 }]);
+    view.signal('minimum', 1_000);
+    await view.runAsync();
+    assert.deepEqual(await sql(provider, 'SELECT count(*)::INT AS n, count(country)::INT AS named FROM vacp_handle'), [
+      { n: 0, named: 0 },
+    ]);
+    assert.deepEqual(await sql(provider, 'SELECT count(*)::INT AS n FROM vacp_all'), [{ n: 6 }]);
+  } finally {
+    provider.dispose?.();
+    view.finalize();
+    db.close();
+  }
+});
