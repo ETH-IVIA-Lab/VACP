@@ -124,3 +124,25 @@ test('a request closes the turn the model opened, as completed or as failed', as
     assert.deepEqual(outcomes, [outcome]);
   }
 });
+
+test('a streamed request that fails closes the turn the model opened', async (t) => {
+  // streamText logs a failed stream to the console, and agent streams take no onError to replace it.
+  t.mock.method(console, 'error', () => {});
+  const { activity, outcomes } = recordingActivity();
+  const agent = createVacpToolLoopAgent({
+    model: new MockLanguageModelV4({
+      doStream: async () => {
+        throw new Error('provider unavailable');
+      },
+    }),
+    transport: recordingTransport().transport,
+    activity: activity as VacpAgentActivityControl,
+    maxRetries: 0,
+  });
+  // A turn the model opened through vacp_progress, as the progress tool opens it.
+  await agent.tools.vacp_progress!.execute!({ message: 'Looking at the data.', done: false }, context);
+  const result = await agent.stream({ prompt: 'How many rows?' });
+  await result.consumeStream({ onError: () => {} });
+  await assert.rejects(result.text);
+  assert.deepEqual(outcomes, ['failed']);
+});

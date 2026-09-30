@@ -74,13 +74,30 @@ class VacpToolLoopAgent extends ToolLoopAgent<never, VacpAgentTools> {
     this.#turns = turns;
   }
 
+  #fail(signal: AbortSignal | undefined) {
+    this.#turns?.end(signal?.aborted ? 'cancelled' : 'failed');
+  }
+
   override async generate(options: Parameters<ToolLoopAgent<never, VacpAgentTools>['generate']>[0]) {
     try {
       return await super.generate(options);
     } catch (error) {
-      this.#turns?.end(options.abortSignal?.aborted ? 'cancelled' : 'failed');
+      this.#fail(options.abortSignal);
       throw error;
     }
+  }
+
+  override async stream(options: Parameters<ToolLoopAgent<never, VacpAgentTools>['stream']>[0]) {
+    let result: Awaited<ReturnType<ToolLoopAgent<never, VacpAgentTools>['stream']>>;
+    try {
+      result = await super.stream(options);
+    } catch (error) {
+      this.#fail(options.abortSignal);
+      throw error;
+    }
+    // The text settles when the stream ends, and rejects when it fails or is aborted.
+    result.text.then(undefined, () => this.#fail(options.abortSignal));
+    return result;
   }
 }
 
