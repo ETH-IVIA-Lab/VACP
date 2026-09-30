@@ -1,0 +1,21 @@
+apps/evals/package.json
+  s_f952b3e592f24d::t_c362fc9a066cb4 21
+pnpm-workspace.yaml
+  s_f952b3e592f24d::t_c362fc9a066cb4 39-42
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "35696117611a0f51c3039fd246df6b6651395a2a",
+  "prompts": {},
+  "sessions": {
+    "s_f952b3e592f24d": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "b5d9a406-ea45-4cff-94f9-b59428366092",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Péter Ferenc Gyarmati <peterferenc.gyarmati@inf.ethz.ch>"
+    }
+  }
+}
