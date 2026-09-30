@@ -1,0 +1,23 @@
+apps/evals/src/results/regrade.ts
+  ai_agent 7,20-52,54-61
+apps/evals/src/results/layout.ts
+  ai_agent 46-47
+apps/evals/src/run/flow.ts
+  ai_agent 8,10,45-60,87
+apps/evals/test/store.test.ts
+  ai_agent 1-37
+apps/evals/src/cli.ts
+  ai_agent 259-265
+apps/evals/src/conditions/local-sandbox.ts
+  ai_agent 43-51,156-159,199-202
+apps/evals/src/results/store.ts
+  ai_agent 1-14,26-29,32-34,40-54,67-95
+apps/evals/test/local-sandbox.test.ts
+  ai_agent 2,29-45
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "d26d27372efa8cd7740e744f0bcadadae2e2648a",
+  "prompts": {}
+}
