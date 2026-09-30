@@ -1,13 +1,23 @@
 import assert from 'node:assert/strict';
-import { mkdtempSync } from 'node:fs';
+import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import test from 'node:test';
+import test, { after } from 'node:test';
 import { generateText, isStepCount, jsonSchema, tool, type Telemetry } from 'ai';
 import { MockLanguageModelV4 } from 'ai/test';
 import { createTracing, recordExecutions, traceRecorder } from '../src/adapters/telemetry';
 import { Trace } from '../src/core/trace';
 import { readJsonl } from '../src/results/store';
+
+const scratches: string[] = [];
+const scratch = () => {
+  const dir = mkdtempSync(join(tmpdir(), 'vacp-evals-spans-'));
+  scratches.push(dir);
+  return dir;
+};
+after(() => {
+  for (const dir of scratches) rmSync(dir, { recursive: true, force: true });
+});
 
 type SpanRow = {
   trace_id: string;
@@ -29,7 +39,7 @@ const tracing = createTracing();
 
 /** Run `work` inside an `eval.run` span routed to a fresh `spans.jsonl`, and read the file back. */
 async function traced(work: () => Promise<void>) {
-  const file = join(mkdtempSync(join(tmpdir(), 'vacp-evals-spans-')), 'spans.jsonl');
+  const file = join(scratch(), 'spans.jsonl');
   await tracing.tracer.startActiveSpan('eval.run page/lookup', async (span) => {
     tracing.route(span.spanContext().traceId, file);
     try {

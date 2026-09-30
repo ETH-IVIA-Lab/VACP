@@ -5,6 +5,7 @@ import {
   mkdirSync,
   openSync,
   readFileSync,
+  linkSync,
   readSync,
   renameSync,
   rmSync,
@@ -74,23 +75,62 @@ function alive(pid: number) {
   }
 }
 
+const code = (error: unknown) => (error as NodeJS.ErrnoException).code;
+
+/** The pid a lock names, or undefined when the lock is gone. Unreadable content names no live process. */
+function holderOf(path: string): number | undefined {
+  try {
+    const pid = Number(readFileSync(path, 'utf8'));
+    return Number.isInteger(pid) && pid > 0 ? pid : 0;
+  } catch (error) {
+    if (code(error) === 'ENOENT') return undefined;
+    throw error;
+  }
+}
+
 /**
  * Hold `path` for this process until the returned release runs. A lock whose process has exited
  * passes to the next holder, and a live holder is reported by pid.
  */
 export function holdLock(path: string, what: string): () => void {
   mkdirSync(dirname(path), { recursive: true });
-  for (;;) {
-    try {
-      writeFileSync(path, String(process.pid), { flag: 'wx' });
-      return () => rmSync(path, { force: true });
-    } catch (error) {
-      if ((error as NodeJS.ErrnoException).code !== 'EEXIST') throw error;
+  const mine = String(process.pid);
+  // The lock appears with its pid already written, so a reader never sees it half made.
+  const staged = `${path}.${process.pid}`;
+  writeFileSync(staged, mine);
+  try {
+    for (;;) {
+      try {
+        linkSync(staged, path);
+        return () => {
+          if (holderOf(path) === process.pid) rmSync(path, { force: true });
+        };
+      } catch (error) {
+        if (code(error) !== 'EEXIST') throw error;
+      }
+      const holder = holderOf(path);
+      if (holder === undefined) continue;
+      if (holder && alive(holder))
+        throw new Error(`${what} is in use by process ${holder}. Delete ${path} if no eval runs.`);
+      // Move the stale lock aside, so only one process removes it. A lock that changed hands meanwhile
+      // goes back unless another holder already took its place.
+      const aside = `${path}.${process.pid}.stale`;
+      try {
+        renameSync(path, aside);
+      } catch (error) {
+        if (code(error) === 'ENOENT') continue;
+        throw error;
+      }
+      if (holderOf(aside) !== holder) {
+        try {
+          linkSync(aside, path);
+        } catch (error) {
+          if (code(error) !== 'EEXIST') throw error;
+        }
+      }
+      rmSync(aside, { force: true });
     }
-    const holder = Number(readFileSync(path, 'utf8'));
-    // An empty lock is one its holder is still writing.
-    if (!(holder > 0) || alive(holder))
-      throw new Error(`${what} is in use by process ${holder || 'starting now'}. Delete ${path} if no eval runs.`);
-    rmSync(path, { force: true });
+  } finally {
+    rmSync(staged, { force: true });
   }
 }

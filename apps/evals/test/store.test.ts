@@ -1,12 +1,20 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { appendFileSync, existsSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { appendFileSync, existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import test from 'node:test';
+import test, { after } from 'node:test';
 import { appendJsonl, holdLock, readJsonl, repairTail } from '../src/results/store';
 
-const scratch = () => mkdtempSync(join(tmpdir(), 'vacp-evals-store-'));
+const scratches: string[] = [];
+const scratch = () => {
+  const dir = mkdtempSync(join(tmpdir(), 'vacp-evals-store-'));
+  scratches.push(dir);
+  return dir;
+};
+after(() => {
+  for (const dir of scratches) rmSync(dir, { recursive: true, force: true });
+});
 
 test('a row torn by a crash mid-append is left out, and a repaired file takes rows on clean lines', () => {
   const file = join(scratch(), 'results.jsonl');
@@ -34,4 +42,19 @@ test('a lock left by an exited process passes to the next holder', () => {
   const release = holdLock(lock, 'cars / v1');
   assert.equal(readFileSync(lock, 'utf8'), String(process.pid));
   release();
+});
+
+test('a lock holding no pid passes to the next holder', () => {
+  const lock = join(scratch(), '.lock');
+  writeFileSync(lock, '');
+  holdLock(lock, 'cars / v1')();
+  assert.equal(existsSync(lock), false);
+});
+
+test('a release after the lock changed hands leaves the new holder its lock', () => {
+  const lock = join(scratch(), '.lock');
+  const release = holdLock(lock, 'cars / v1');
+  writeFileSync(lock, String(process.ppid));
+  release();
+  assert.equal(readFileSync(lock, 'utf8'), String(process.ppid));
 });

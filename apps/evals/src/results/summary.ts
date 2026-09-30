@@ -1,6 +1,5 @@
-import { servedAs } from '../adapters/models';
 import { median, pairedDelta, wilson } from '../core/stats';
-import { cost } from '../core/usage';
+import { cost, servedAs } from '../core/usage';
 import { flowLabel, flowRecordPath, variantPaths, variantsOf, type Flow } from './layout';
 import type { ErrorRow, FlowRecord, ResultRow } from './rows';
 import { readJson, readJsonl } from './store';

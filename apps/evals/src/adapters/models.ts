@@ -67,13 +67,3 @@ export function createModels(
     };
   };
 }
-
-/**
- * The served model is the requested one, allowing documented alias-to-snapshot resolution:
- * `claude-haiku-4-5` may come back as `claude-haiku-4-5-20251001`.
- */
-export function servedAs(requested: string, served: string): boolean {
-  const strip = (id: string) =>
-    id.replace(/^(models\/|[a-z-]+\/)/, '').replace(/[-@](latest|\d{8}|\d{4}-\d{2}-\d{2})$/, '');
-  return served === requested || strip(served) === strip(requested);
-}

@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
-import { mkdtempSync } from 'node:fs';
+import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import test from 'node:test';
+import test, { after } from 'node:test';
 import { oracleCondition } from '../src/conditions/reference';
 import { mentions } from '../src/core/checks';
 import type { GradingRecord } from '../src/core/grade';
@@ -12,6 +12,16 @@ import { regradeFlow } from '../src/results/regrade';
 import type { FlowRecord, ResultRow } from '../src/results/rows';
 import { appendJsonl, readJson, readJsonl, writeJson } from '../src/results/store';
 import { defineSuite } from '../src/suite';
+
+const scratches: string[] = [];
+const scratch = () => {
+  const dir = mkdtempSync(join(tmpdir(), 'vacp-evals-'));
+  scratches.push(dir);
+  return dir;
+};
+after(() => {
+  for (const dir of scratches) rmSync(dir, { recursive: true, force: true });
+});
 
 const page = definePage({ id: 'page', path: '/', title: 'Page' });
 const scenario = (answer: string) =>
@@ -42,7 +52,7 @@ function suiteIn(results: string) {
 
 /** A flow with one scored run of `page/decline`, recorded for `prompt`, whose reply the old checks failed. */
 function recordedFlow(prompt: string) {
-  const results = mkdtempSync(join(tmpdir(), 'vacp-evals-'));
+  const results = scratch();
   const paths = variantPaths(results, flow, 'baseline');
   const record: GradingRecord = {
     initial: {},

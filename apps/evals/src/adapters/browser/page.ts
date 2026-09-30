@@ -23,6 +23,21 @@ const exampleOptions: Partial<ExampleOptions> = {
   enableSql: true,
 };
 
+/** `work`, unless `ms` pass or `signal` aborts first. A page that stops answering cannot hold a run. */
+function within<T>(work: Promise<T>, ms: number, signal: AbortSignal): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  let onAbort: (() => void) | undefined;
+  const stop = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => reject(new Error(`No answer from the page within ${Math.round(ms)}ms`)), ms);
+    onAbort = () => reject(signal.reason);
+    signal.addEventListener('abort', onAbort, { once: true });
+  });
+  return Promise.race([work, stop]).finally(() => {
+    clearTimeout(timer);
+    signal.removeEventListener('abort', onAbort!);
+  });
+}
+
 /** The browser page one run works on. Conditions read and act through it, and the runner grades it. */
 export class EvalPage implements AgentPage {
   readonly bridge: AgentBridge;
@@ -98,30 +113,35 @@ export class EvalPage implements AgentPage {
   }
 
   /**
-   * The page is ready when its WebMCP catalog registers every tool the transport compiles for the
-   * runtime's graph, and that graph held still across two reads.
+   * The page is ready when its WebMCP registry holds every tool the transport compiles for the
+   * observed graph, and every output the observation reports has rendered its current input. The
+   * examples install WebMCP with the transport's default options, which the compiled names assume.
    */
   private async ready(signal: AbortSignal, timeoutMs = 90_000) {
     const deadline = Date.now() + timeoutMs;
-    let previous: string | undefined;
     while (Date.now() < deadline) {
       signal.throwIfAborted();
-      const catalog = await this.page
-        .evaluate(async () => {
+      const catalog = await within(
+        this.page.evaluate(async () => {
           if (!('__vacp' in globalThis) || !document.modelContext) return null;
-          const [capabilities, tools] = await Promise.all([
-            globalThis.__vacp.getCapabilities(),
+          const [observation, tools] = await Promise.all([
+            globalThis.__vacp.observe(),
             document.modelContext.getTools(),
           ]);
-          return { graph: capabilities.graph, registered: tools.map((tool) => tool.name) };
-        })
-        .catch(() => null);
-      if (catalog) {
-        const expected = compileVacpWebMcpTools(catalog.graph, this.bridge).map((tool) => tool.name);
-        const key = expected.join('\n');
+          const settled = Object.values(observation.freshness ?? {}).every(
+            (freshness) => freshness.status === 'current' || freshness.status === 'error',
+          );
+          return { graph: observation.graph, registered: tools.map((tool) => tool.name), settled };
+        }),
+        deadline - Date.now(),
+        signal,
+      ).catch((error: unknown) => {
+        if (signal.aborted) throw error;
+        return null;
+      });
+      if (catalog?.settled) {
         const registered = new Set(catalog.registered);
-        if (key === previous && expected.every((name) => registered.has(name))) return;
-        previous = key;
+        if (compileVacpWebMcpTools(catalog.graph, this.bridge).every((tool) => registered.has(tool.name))) return;
       }
       await this.page.waitForTimeout(100);
     }
@@ -209,8 +229,6 @@ function remoteBridge(page: Page): AgentBridge {
         call,
         options: options && { actor: options.actor, narration: options.narration },
       }),
-    narrate: ({ actor, message, done }) =>
-      quietly(page.evaluate((input) => globalThis.__vacp.narrate(input), { actor, message, done })),
     beginAgentActivity: ({ actor, summary }) => {
       const id = crypto.randomUUID();
       quietly(

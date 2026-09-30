@@ -1,6 +1,3 @@
-import { rmSync } from 'node:fs';
-import { join } from 'node:path';
-
 import type { Tracing } from '../adapters/telemetry';
 import type { Scenario } from '../core/scenario';
 import { flowLabel } from '../results/layout';
@@ -31,13 +28,13 @@ export async function auditScenarios(input: {
   >();
   for (const role of roles) {
     // Audits are diagnostics, rerun from scratch whenever scenarios change.
-    rmSync(join(suite.results, `condition=${role.id}`), { recursive: true, force: true });
     const { flow, paths } = await runFlow({
       ...input,
       condition: role.id,
       variant: 'baseline',
       reps: 1,
       approveEval: true,
+      fresh: true,
     });
     const rows = readJsonl<ResultRow>(paths.results);
     for (const scenario of scenarios)

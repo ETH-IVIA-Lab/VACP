@@ -15,10 +15,14 @@ import { passRate, percent } from './summary';
  */
 export async function regradeFlow(suite: Suite, flow: Flow, log: (line: string) => void) {
   const scenarios = new Map(suite.scenarios.map((scenario) => [scenario.id, scenario]));
-  for (const variant of variantsOf(suite.results, flow)) {
-    const paths = variantPaths(suite.results, flow, variant);
-    const release = holdLock(paths.lock, `${flowLabel(flow)} / ${variant}`);
-    try {
+  // Every variant of the flow is rewritten and the flow re-based as one step, so no run writes meanwhile.
+  const variants = variantsOf(suite.results, flow);
+  const releases: Array<() => void> = [];
+  try {
+    for (const variant of variants)
+      releases.push(holdLock(variantPaths(suite.results, flow, variant).lock, `${flowLabel(flow)} / ${variant}`));
+    for (const variant of variants) {
+      const paths = variantPaths(suite.results, flow, variant);
       const rows = readJsonl<ResultRow>(paths.results);
       const next: ResultRow[] = [];
       let changed = 0;
@@ -57,9 +61,9 @@ export async function regradeFlow(suite: Suite, flow: Flow, log: (line: string) 
           (kept ? `, ${kept} rows without matching grading inputs kept as scored` : '') +
           (reworded ? `, ${reworded} rows of reworded scenarios kept until \`run\` replaces them` : ''),
       );
-    } finally {
-      release();
     }
+    rebaseFlow(suite, flow);
+  } finally {
+    for (const release of releases) release();
   }
-  rebaseFlow(suite, flow);
 }

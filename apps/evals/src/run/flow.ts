@@ -1,11 +1,14 @@
 import { randomUUID } from 'node:crypto';
+import { readdirSync, rmSync } from 'node:fs';
+import { join } from 'node:path';
 
 import { openGallery } from '../adapters/browser/host';
 import type { Tracing } from '../adapters/telemetry';
 import { promptOf, type Scenario } from '../core/scenario';
+import type { Split } from '../core/split';
 import type { ConditionSession } from '../ports';
 import { approveFlow } from '../results/gate';
-import { flowLabel, NO_MODEL, variantPaths, type Flow, type VariantPaths } from '../results/layout';
+import { flowLabel, flowRecordPath, NO_MODEL, variantPaths, type Flow, type VariantPaths } from '../results/layout';
 import type { InvocationRecord, ResultRow } from '../results/rows';
 import { appendJsonl, holdLock, readJsonl, repairTail, writeJsonl } from '../results/store';
 import type { Suite } from '../suite';
@@ -24,6 +27,8 @@ export type RunOptions = {
   /** Use an already running gallery instead of serving one. */
   baseURL?: string;
   approveEval?: boolean;
+  /** Start the variant and its flow's record over, as audits do. */
+  fresh?: boolean;
   /** Record prompts, replies, and tool payloads in spans. Transcripts under `traces/` always hold them. */
   traceContent?: boolean;
   log(line: string): void;
@@ -42,27 +47,38 @@ function resolveFlow(suite: Suite, conditionId: string, modelKey?: string) {
 
 /** Run one flow, a condition on a model, over the selected scenarios into one variant. */
 export async function runFlow(options: RunOptions) {
-  const resolved = resolveFlow(options.suite, options.condition, options.model);
-  const paths = variantPaths(options.suite.results, resolved.flow, options.variant);
-  const release = holdLock(paths.lock, `${flowLabel(resolved.flow)} / ${options.variant}`);
+  const { suite } = options;
+  const { condition, model, flow } = resolveFlow(suite, options.condition, options.model);
+  const paths = variantPaths(suite.results, flow, options.variant);
+  const split = suite.split();
+  if (!split) throw new Error(`No split at ${suite.splitFile}. Run \`eval split\` first.`);
+  if (options.fresh) rmSync(flowRecordPath(suite.results, flow), { force: true });
+  const record = approveFlow({ suite, flow, model, split, approve: !!options.approveEval });
+  const release = holdLock(paths.lock, `${flowLabel(flow)} / ${options.variant}`);
   try {
+    if (options.fresh)
+      for (const entry of readdirSync(paths.dir))
+        if (join(paths.dir, entry) !== paths.lock) rmSync(join(paths.dir, entry), { recursive: true, force: true });
     for (const file of [paths.results, paths.errors, paths.invocations, paths.spans]) repairTail(file);
-    await runJobs(options, { ...resolved, paths });
+    await runJobs(options, { condition, model, flow, paths, split, reps: options.reps ?? record.reps });
   } finally {
     release();
   }
-  return { flow: resolved.flow, paths };
+  return { flow, paths };
 }
 
 async function runJobs(
   options: RunOptions,
-  { condition, model, flow, paths }: ReturnType<typeof resolveFlow> & { paths: VariantPaths },
+  {
+    condition,
+    model,
+    flow,
+    paths,
+    split,
+    reps,
+  }: ReturnType<typeof resolveFlow> & { paths: VariantPaths; split: Split; reps: number },
 ) {
   const { suite, log, signal } = options;
-  const split = suite.split();
-  if (!split) throw new Error(`No split at ${suite.splitFile}. Run \`eval split\` first.`);
-  const record = approveFlow({ suite, flow, model, split, approve: !!options.approveEval });
-  const reps = options.reps ?? record.reps;
 
   // A row answered the scenario's wording at the time, so a reworded scenario runs again.
   const wording = new Map(options.scenarios.map((scenario) => [scenario.id, promptOf(scenario)]));

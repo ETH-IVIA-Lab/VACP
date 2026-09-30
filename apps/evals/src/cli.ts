@@ -15,7 +15,7 @@ import { runFlow } from './run/flow';
 import { auditGold } from './run/gold';
 import { EvalBugError } from './run/run';
 
-const usage = `vacp-evals <command> [options]
+const usage = `eval <command> [options]
 
   list                     Scenarios with their capability, source, and split
   inputs                   Every scenario as markdown, for review before a paid run
@@ -55,9 +55,13 @@ const { values, positionals } = parseArgs({
 });
 
 const controller = new AbortController();
-// Aborting ends every run and stops the servers this process started.
-for (const signal of ['SIGINT', 'SIGTERM'] as const)
-  process.once(signal, () => controller.abort(new Error('Interrupted')));
+// The first signal ends every run and stops the servers this process started. A second one exits at
+// once, through the exit hooks that end the sandboxes' processes.
+for (const signal of ['SIGINT', 'SIGTERM', 'SIGHUP'] as const)
+  process.on(signal, () => {
+    if (controller.signal.aborted) process.exit(130);
+    controller.abort(new Error('Interrupted'));
+  });
 const log = (line: string) => console.log(line);
 
 function count(option: 'reps' | 'concurrency'): number | undefined {

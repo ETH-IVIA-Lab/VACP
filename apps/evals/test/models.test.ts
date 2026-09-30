@@ -2,7 +2,8 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { generateText, wrapLanguageModel } from 'ai';
 import { MockLanguageModelV4 } from 'ai/test';
-import { cacheWriteUsage, servedAs } from '../src/adapters/models';
+import { cacheWriteUsage } from '../src/adapters/models';
+import { servedAs } from '../src/core/usage';
 
 test('cache writes a gateway reports in the response body reach usage', async () => {
   const model = wrapLanguageModel({

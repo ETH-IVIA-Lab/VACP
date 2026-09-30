@@ -86,7 +86,7 @@ export type Turn = {
 
 /**
  * A gold derivation. `sql` runs in DuckDB with `{key}` replaced by the page's data file, and its first
- * row must equal `row`. `vacp-evals audit --gold` verifies every declaration.
+ * row must equal `row`. `eval audit --gold` verifies every declaration.
  */
 type Gold = { sql: string; row: Readonly<Record<string, unknown>> };
 

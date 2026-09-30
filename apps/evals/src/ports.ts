@@ -16,7 +16,7 @@ export class ToolError extends Error {
 /** The page's runtime as an agent reaches it across the browser boundary. */
 export type AgentBridge = Pick<
   VacpPageBridge,
-  'version' | 'observe' | 'getCapabilities' | 'getState' | 'execute' | 'narrate' | 'beginAgentActivity'
+  'version' | 'observe' | 'getCapabilities' | 'getState' | 'execute' | 'beginAgentActivity'
 >;
 
 /** The page a condition's agent works on. */

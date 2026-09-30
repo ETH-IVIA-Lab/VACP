@@ -5,13 +5,13 @@ import { relative } from 'node:path';
 
 import type { Gallery } from '../adapters/browser/host';
 import type { EvalPage } from '../adapters/browser/page';
-import { servedAs } from '../adapters/models';
 import { recordExecutions, traceRecorder, type Tracing } from '../adapters/telemetry';
 import { gradeTurn, summarize, type CheckResult, type GradingRecord } from '../core/grade';
 import { runMetrics } from '../core/metrics';
 import { promptOf, type ExecutionRecord, type Scenario } from '../core/scenario';
 import { splitOf, type Split } from '../core/split';
 import { Trace } from '../core/trace';
+import { servedAs } from '../core/usage';
 import type { ConditionSession, Conversation, Reply, ResolvedModel, TelemetryFor } from '../ports';
 import type { Flow, VariantPaths } from '../results/layout';
 import type { ErrorClass, ErrorRow, ResultRow } from '../results/rows';
