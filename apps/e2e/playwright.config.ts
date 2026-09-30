@@ -11,6 +11,8 @@ export default defineConfig({
     trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
     viewport: { width: 1280, height: 900 },
+    // A zone with daylight saving keeps local and UTC clocks apart on every machine, CI included.
+    timezoneId: 'America/Los_Angeles',
   },
   projects: [
     // Each development server optimizes dependencies on its first visit; warming them first keeps

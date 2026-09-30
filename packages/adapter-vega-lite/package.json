@@ -19,7 +19,7 @@
   "scripts": {
     "build": "vp pack",
     "typecheck": "tsc -p tsconfig.json",
-    "test": "tsx --test --test-timeout=10000 test/*.test.ts",
+    "test": "TZ=America/Los_Angeles tsx --test --test-timeout=10000 test/*.test.ts",
     "bench": "tsx bench/observation.ts && tsx bench/data.ts"
   },
   "dependencies": {
