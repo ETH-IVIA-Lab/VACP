@@ -9,7 +9,7 @@ import { exampleOptions } from '../../config';
  */
 
 import { createVgplotProvider, type VgplotPlotLike, type VgplotTableLike } from '@vacp/adapter-vgplot';
-import { sqlIdentifier, type VacpDuckDbClient } from '@vacp/data-duckdb';
+import { countDuckDbTablesOnce, type VacpDuckDbClient } from '@vacp/data-duckdb';
 
 import type { GalleryEntry } from './gallery';
 
@@ -26,13 +26,6 @@ export async function installVacp(args: {
   const viewId = `vgplot/${args.entry.id}`;
 
   args.signal.throwIfAborted();
-  // A spec's tables load before its plots render and stay as loaded until the next spec, so each is counted once.
-  const counts = new Map<string, Promise<number | undefined>>();
-  const count = (table: string) =>
-    args.duckdbClient
-      .queryJson(`SELECT count(*)::INTEGER AS n FROM ${sqlIdentifier(table)}`)
-      .then(({ rows }) => Number(rows[0]?.n))
-      .catch(() => undefined);
   const provider = createVgplotProvider({
     root: args.root,
     plots: args.plots,
@@ -43,11 +36,8 @@ export async function installVacp(args: {
       viewId,
       title: args.entry.meta.title,
       duckdbClient: args.duckdbClient,
-      describeDataHandle: async ({ table }) => {
-        if (!counts.has(table)) counts.set(table, count(table));
-        const rowCount = await counts.get(table);
-        return rowCount === undefined ? undefined : { rowCount };
-      },
+      // A spec's data loads before its plots are built and stays as loaded until the next spec renders.
+      describeDataHandle: countDuckDbTablesOnce(args.duckdbClient),
     },
   });
 

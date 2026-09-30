@@ -17,7 +17,7 @@ This package standardizes how apps expose semantic data access through actions d
 - Tools and agents discover the `vacp.data_sql` contract for a handle, then execute its action name.
 - The handler executes DuckDB queries and returns results.
 
-`createDuckDbDataSqlHandler({ duckdb, resolveHandle })` answers `vacp.data_sql`, returning at most 500 JSON rows, and `createDuckDbDataSchemaHandler({ duckdb, resolveHandle })` answers `vacp.data_schema` for the tables each handle reads. `describeDuckDbTable({ duckdb, table, detail })` reads one table's columns and row count, with bounded summaries when `detail` is `full`.
+`createDuckDbDataSqlHandler({ duckdb, resolveHandle })` answers `vacp.data_sql`, returning at most 500 JSON rows, and `createDuckDbDataSchemaHandler({ duckdb, resolveHandle })` answers `vacp.data_schema` for the tables each handle reads. `describeDuckDbTable({ duckdb, table, detail })` reads one table's columns and row count, with bounded summaries when `detail` is `full`. `countDuckDbTablesOnce(duckdb)` is a provider's `describeDataHandle` hook for a host whose tables stay as they loaded: it counts each table the first time a handle reads it and states that count from then on.
 
 Queries read `vacp_all` and `vacp_handle` as query-local relations. Independent handlers can share a DuckDB client without overwriting each other's bindings. Queries that read an invalid selection reject rather than returning unfiltered data.
 

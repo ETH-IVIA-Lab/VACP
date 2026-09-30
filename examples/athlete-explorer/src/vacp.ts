@@ -5,6 +5,7 @@ import { createVacpActions, createVacpProvider, installVacp } from '@vacp/sdk';
 import { createVegaLiteProvider } from '@vacp/adapter-vega-lite';
 import { createVegaLitePresentation } from '@vacp/adapter-vega-lite/presentation';
 import { createVgplotProvider, type VgplotPlotLike } from '@vacp/adapter-vgplot';
+import { countDuckDbTablesOnce } from '@vacp/data-duckdb';
 import { createVgplotPresentation } from '@vacp/adapter-vgplot/presentation';
 import { createElementPresenceResolver, observePresenceLayout } from '@vacp/presence-browser';
 import { installVacpWebMcp } from '@vacp/transport-webmcp';
@@ -117,8 +118,8 @@ export async function connectVacp(model: Cohort, charts: Charts, dashboard: Dash
       title: 'Age distribution',
       enableSql: exampleOptions.enableSql,
       duckdbClient: charts.data,
-      // The athletes table holds the model's athletes, loaded once when the charts start.
-      describeDataHandle: () => ({ rowCount: model.athletes.length }),
+      // The charts load their tables once, when they start.
+      describeDataHandle: countDuckDbTablesOnce(charts.data),
     },
   };
   const age = createVgplotProvider(ageArgs);
