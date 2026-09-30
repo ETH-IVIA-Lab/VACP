@@ -8,12 +8,12 @@ from pathlib import Path
 from typing import Annotated, Any, Literal, Protocol
 
 from fastmcp import FastMCP
-from pydantic import Field
+from pydantic import Field, StringConstraints
 from pydantic.experimental.missing_sentinel import MISSING
 
+from vacp.agent_tools import AGENT_TOOLS, TOOL_GUIDANCE, capabilities_request, state_request, tool_read
 from vacp.bridge import ActionCall, VacpBridgeClient
-from vacp.models import normalize_capabilities_request_options, normalize_state_request_options
-from vacp.narration import NARRATION_GUIDANCE, NARRATION_MAX_LENGTH, PROGRESS_GUIDANCE, parse_narration
+from vacp.narration import NARRATION_GUIDANCE, NARRATION_MAX_LENGTH, parse_narration
 
 _DEFAULT_READY_TIMEOUT_MS = 60_000
 type BrowserWaitUntil = Literal['commit', 'domcontentloaded', 'load', 'networkidle']
@@ -70,6 +70,10 @@ async def _wait_for_bridge_ready(client: VacpBridgeClient, timeout_ms: int) -> N
         await asyncio.sleep(0.1)
 
 
+type Ref = Annotated[str, StringConstraints(pattern=r'^vacp://')]
+type Name = Annotated[str, StringConstraints(min_length=1, pattern=r'.*\S.*')]
+
+
 def create_mcp(
     client: VacpBridgeClient,
     *,
@@ -78,114 +82,66 @@ def create_mcp(
 ) -> FastMCP:
     mcp = FastMCP(
         'VACP MCP Server',
-        instructions="""
-VACP MCP server.
-
-Calls are forwarded to the in-page VACP bridge at `window.__vacp`. The app owns
-the capability graph, state snapshots, and action semantics.
-
-Workflow:
-1) Read `vacp_observe()` for coherent graph, state, and output freshness.
-2) Read `vacp_state()` for the current semantic state.
-3) Call `vacp_progress()` once with one plain sentence for the person. Then call `vacp_execute()` for
-   each action from the capabilities snapshot, each with its own `narration` sentence for that step.
-4) Read `vacp_state()` again to verify the state change. Close the task with `vacp_progress(done=true)`.
-
-Efficient defaults:
-1) Read `vacp_observe()` initially and after state changes. Only currently available actions are disclosed.
-   Use scoped capabilities when the task is localized.
-2) Call `vacp_state()` once for a baseline.
-3) After actions, prefer `vacp_state(options={mode:"delta", since:"<token>"})`.
-4) Add `refs` once target refs are known. Set `includeSummary=false` unless summary fields are needed.
-5) If delta lineage is unclear, resync with one `mode:"full"` call.
-""".strip(),
+        instructions=(
+            'Calls are forwarded to the in-page VACP bridge at `window.__vacp`. The app owns the capability '
+            f'graph, state snapshots, and action semantics. {TOOL_GUIDANCE}'
+        ),
     )
 
-    @mcp.tool(title='VACP Observation', annotations={'readOnlyHint': True})
+    @mcp.tool(
+        title='VACP Observation',
+        description=AGENT_TOOLS['vacp_observe']['description'],
+        annotations={'readOnlyHint': True},
+    )
     async def vacp_observe() -> dict[str, object]:
-        """Read graph, state, source ownership, revision, and output freshness together."""
-        return await client.observe()
+        return tool_read(await client.observe())
 
     @mcp.tool(
-        title='VACP Capabilities Snapshot',
+        title='VACP Capabilities',
+        description=AGENT_TOOLS['vacp_capabilities']['description'],
         annotations={'readOnlyHint': True},
     )
-    async def vacp_capabilities(options: dict[str, object] | None = None) -> dict[str, object]:
-        """
-        Return the VACP capabilities snapshot from `window.__vacp`.
-
-        Use `graph.actions[].name` as the action id for `vacp_execute`.
-        Optional `options` can scope the graph:
-        - `refs` / `prefixes`
-        - `kinds` / `layers`
-        - `includeActions` / `includeEdges` / `includeNodeData`
-
-        Returns a JSON object like:
-        `{ version, createdAt, graph: { version, nodes, edges, actions } }`.
-
-        Side effects: none. Raises when the VACP bridge is not installed on the page.
-        """
-        request = normalize_capabilities_request_options(options)
-        return await client.get_capabilities(request)
+    async def vacp_capabilities(
+        refs: list[Ref] | None = None,
+        prefixes: list[Ref] | None = None,
+        kinds: list[Name] | None = None,
+        layers: list[Name] | None = None,
+        includeActions: bool | None = None,
+        includeEdges: bool | None = None,
+        includeNodeData: bool | None = None,
+    ) -> dict[str, object]:
+        request = capabilities_request(
+            refs=refs,
+            prefixes=prefixes,
+            kinds=kinds,
+            layers=layers,
+            includeActions=includeActions,
+            includeEdges=includeEdges,
+            includeNodeData=includeNodeData,
+        )
+        return tool_read(await client.get_capabilities(request))
 
     @mcp.tool(
-        title='VACP State Snapshot',
+        title='VACP State',
+        description=AGENT_TOOLS['vacp_state']['description'],
         annotations={'readOnlyHint': True},
     )
-    async def vacp_state(options: dict[str, object] | None = None) -> dict[str, object]:
-        """
-        Return the current VACP state snapshot or update from `window.__vacp`.
-
-        State entries are keyed by stable refs, for example selections and
-        parameters. Read state after `vacp_execute()` to verify the app accepted
-        the requested action.
-
-        When `options` is omitted, returns a full snapshot:
-        `{ version, createdAt, state: { [ref: string]: unknown } }`.
-
-        Optional `options` supports efficient updates:
-        - `mode`: `auto` | `full` | `delta`
-        - `since`: prior token
-        - `refs`: limit to specific refs
-        - `includeSummary`: include/exclude summary map
-
-        With `options`, returns an update envelope:
-        - `mode=full`: `{ mode, token, snapshot, ... }`
-        - `mode=delta`: `{ mode, token, baseToken, delta, ... }`
-
-        Side effects: none. Pair with `vacp_capabilities()` to interpret refs and action targets.
-        """
-        request = normalize_state_request_options(options)
+    async def vacp_state(
+        mode: Literal['auto', 'full', 'delta'] | None = None,
+        since: Name | None = None,
+        refs: list[Ref] | None = None,
+        includeSummary: bool | None = None,
+    ) -> dict[str, object]:
+        request = state_request(mode=mode, since=since, refs=refs, includeSummary=includeSummary)
         return await client.get_state(request)
 
-    @mcp.tool(
-        title='VACP Execute Action',
-    )
+    @mcp.tool(title='VACP Execute Action', description=AGENT_TOOLS['vacp_execute']['description'])
     async def vacp_execute(
-        name: str,
+        name: Name,
         narration: Annotated[str, Field(description=NARRATION_GUIDANCE, max_length=NARRATION_MAX_LENGTH)],
         params: object = MISSING,
         call_id: str | None = None,
     ) -> dict[str, object]:
-        """
-        Execute a named VACP action through `window.__vacp`.
-
-        Inputs:
-        - `name`: an action id from `vacp_capabilities().graph.actions[].name`
-        - `narration`: this step's own sentence for the person watching, new for every step
-        - `params` (optional): JSON value matching that action's `parameters` schema
-        - `call_id` (optional): correlation id echoed back as `callId` in the result
-
-        Each call requests one semantic app operation. Actions may change state,
-        so read `vacp_state()` afterwards to verify the result before sending
-        the next action.
-
-        Returns:
-        `{ callId, ok, result?, error? }` where `ok=false` indicates a handled failure and
-        `error` is a JSON object and commonly includes `{message: string}`.
-
-        Raises when the VACP bridge is not installed on the page.
-        """
         call = (
             ActionCall(call_id=call_id or 'call', name=name)
             if params is MISSING
@@ -195,7 +151,7 @@ Efficient defaults:
         res = await client.execute(call, narration=parse_narration(narration))
         return {'callId': res.call_id, 'ok': res.ok, 'result': res.result, 'error': res.error}
 
-    @mcp.tool(title='Tell the person what you are doing', description=PROGRESS_GUIDANCE)
+    @mcp.tool(title='Tell the person what you are doing', description=AGENT_TOOLS['vacp_progress']['description'])
     async def vacp_progress(message: str, done: bool = False) -> dict[str, object]:
         text = parse_narration(message, field='progress')
         await client.progress(text, done=done)

@@ -2,33 +2,51 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from typing import Any
 from unittest.mock import AsyncMock
 
 import pytest
+from fastmcp.exceptions import ValidationError as ToolInputError
 from fastmcp.tools.function_tool import FunctionTool
 from playwright.async_api import Page
-from pydantic import ValidationError
+from vacp.agent_tools import (
+    AGENT_TOOLS,
+    TOOL_GUIDANCE,
+    CapabilitiesRequest,
+    StateRequest,
+    capabilities_request,
+    state_request,
+    tool_read,
+)
 from vacp.bridge import AGENT, ActionCall, ActionResult, PlaywrightVacpBridgeClient, VacpBridgeClient
-from vacp.models import VacpCapabilitiesRequestOptions, VacpStateRequestOptions
 from vacp.narration import NARRATION_GUIDANCE, NARRATION_MAX_LENGTH, PROGRESS_GUIDANCE, parse_narration
 from vacp.server import create_mcp
 
 
 class _FakeClient(VacpBridgeClient):
     def __init__(self) -> None:
-        self.last_capabilities_request: VacpCapabilitiesRequestOptions | None = None
-        self.last_state_request: VacpStateRequestOptions | None = None
+        self.last_capabilities_request: CapabilitiesRequest | None = None
+        self.last_state_request: StateRequest | None = None
         self.narrated: list[tuple[str, bool]] = []
         self.messages: list[str | None] = []
 
     async def observe(self) -> dict[str, object]:
-        return {'revision': 'test', 'graph': {'nodes': [], 'edges': [], 'actions': []}, 'state': {}}
+        return {
+            'revision': 'test',
+            'graph': {
+                'nodes': [{'ref': 'vacp://app/chart'}],
+                'edges': [],
+                'actions': [{'name': 'chart.set'}],
+                'ownership': {'nodes': {'vacp://app/chart': 'vacp-source://app'}, 'actions': {}},
+            },
+            'state': {'vacp://app/chart': {'value': 1}},
+        }
 
-    async def get_capabilities(self, request: VacpCapabilitiesRequestOptions | None = None) -> dict:
+    async def get_capabilities(self, request: CapabilitiesRequest | None = None) -> dict:
         self.last_capabilities_request = request
         return {'graph': {'nodes': [], 'edges': [], 'actions': []}}
 
-    async def get_state(self, request: VacpStateRequestOptions | None = None) -> dict:
+    async def get_state(self, request: StateRequest | None = None) -> dict:
         self.last_state_request = request
         if request is None:
             return {'state': {}}
@@ -97,138 +115,89 @@ async def test_create_mcp_registers_expected_tools() -> None:
     }
 
 
-@pytest.mark.asyncio
-async def test_vacp_capabilities_full_shape_when_options_omitted() -> None:
-    client = _FakeClient()
-    mcp = create_mcp(client)
-    tool = await mcp.get_tool('vacp_capabilities')
+async def _run(client: _FakeClient, name: str, arguments: dict[str, object]) -> object:
+    tool = await create_mcp(client).get_tool(name)
     assert isinstance(tool, FunctionTool)
-    res = await tool.fn()
-    assert res == {'graph': {'nodes': [], 'edges': [], 'actions': []}}
-    assert client.last_capabilities_request is None
+    return (await tool.run(arguments)).structured_content
 
 
 @pytest.mark.asyncio
-async def test_vacp_capabilities_forwards_scoping_options() -> None:
+async def test_an_unscoped_capabilities_read_leaves_out_node_data() -> None:
     client = _FakeClient()
-    mcp = create_mcp(client)
-    tool = await mcp.get_tool('vacp_capabilities')
-    assert isinstance(tool, FunctionTool)
-    await tool.fn(
-        options={
-            'prefixes': ['vacp://app/view'],
-            'includeNodeData': False,
-            'kinds': ['View', 'Visualization'],
-        }
-    )
-    assert client.last_capabilities_request == {
-        'prefixes': ['vacp://app/view'],
-        'includeNodeData': False,
-        'kinds': ['View', 'Visualization'],
-    }
-
-
-@pytest.mark.asyncio
-async def test_vacp_capabilities_normalizes_bare_root_scope() -> None:
-    client = _FakeClient()
-    mcp = create_mcp(client)
-    tool = await mcp.get_tool('vacp_capabilities')
-    assert isinstance(tool, FunctionTool)
-    await tool.fn(options={'refs': ['vacp://'], 'prefixes': ['vacp://'], 'includeNodeData': False})
+    assert await _run(client, 'vacp_capabilities', {}) == {'graph': {'nodes': [], 'edges': [], 'actions': []}}
     assert client.last_capabilities_request == {'includeNodeData': False}
 
 
 @pytest.mark.asyncio
+async def test_vacp_capabilities_forwards_scoping_fields() -> None:
+    client = _FakeClient()
+    await _run(
+        client,
+        'vacp_capabilities',
+        {'prefixes': ['vacp://app/view'], 'includeNodeData': False, 'kinds': ['View', 'Visualization']},
+    )
+    assert client.last_capabilities_request == {
+        'prefixes': ['vacp://app/view'],
+        'kinds': ['View', 'Visualization'],
+        'includeNodeData': False,
+    }
+
+
+@pytest.mark.asyncio
 @pytest.mark.parametrize(
-    'options',
+    'arguments',
     [
         {'bogus': 1},
         {'kinds': ['']},
         {'layers': ['']},
         {'refs': ['   ']},
+        {'refs': ['app/chart']},
         {'includeNodeData': 'nope'},
     ],
 )
-async def test_vacp_capabilities_rejects_invalid_options(options: object) -> None:
-    mcp = create_mcp(_FakeClient())
-    tool = await mcp.get_tool('vacp_capabilities')
-    assert isinstance(tool, FunctionTool)
-    with pytest.raises(ValidationError):
-        await tool.fn(options=options)
+async def test_vacp_capabilities_rejects_invalid_fields(arguments: dict[str, object]) -> None:
+    with pytest.raises(ToolInputError):
+        await _run(_FakeClient(), 'vacp_capabilities', arguments)
 
 
 @pytest.mark.asyncio
-async def test_vacp_state_full_shape_when_options_omitted() -> None:
+async def test_vacp_state_without_input_reads_the_full_snapshot() -> None:
     client = _FakeClient()
-    mcp = create_mcp(client)
-    tool = await mcp.get_tool('vacp_state')
-    assert isinstance(tool, FunctionTool)
-    res = await tool.fn()
-    assert res == {'state': {}}
+    assert await _run(client, 'vacp_state', {}) == {'state': {}}
     assert client.last_state_request is None
 
 
 @pytest.mark.asyncio
-async def test_vacp_state_forwards_options_for_delta_requests() -> None:
+async def test_vacp_state_forwards_fields_for_delta_requests() -> None:
     client = _FakeClient()
-    mcp = create_mcp(client)
-    tool = await mcp.get_tool('vacp_state')
-    assert isinstance(tool, FunctionTool)
-    res = await tool.fn(
-        options={
-            'mode': 'delta',
-            'since': 'st_prev',
-            'refs': ['vacp://a', 'vacp://b'],
-            'includeSummary': False,
-        }
-    )
-    assert res['mode'] == 'delta'
-    assert client.last_state_request == {
+    arguments: dict[str, object] = {
         'mode': 'delta',
         'since': 'st_prev',
         'refs': ['vacp://a', 'vacp://b'],
         'includeSummary': False,
     }
-
-
-@pytest.mark.asyncio
-async def test_vacp_state_normalizes_bare_root_scope() -> None:
-    client = _FakeClient()
-    mcp = create_mcp(client)
-    tool = await mcp.get_tool('vacp_state')
-    assert isinstance(tool, FunctionTool)
-    await tool.fn(options={'mode': 'full', 'refs': ['vacp://'], 'includeSummary': True})
-    assert client.last_state_request == {'mode': 'full', 'includeSummary': True}
-
-
-@pytest.mark.asyncio
-async def test_vacp_state_rejects_invalid_options() -> None:
-    mcp = create_mcp(_FakeClient())
-    tool = await mcp.get_tool('vacp_state')
-    assert isinstance(tool, FunctionTool)
-    with pytest.raises(ValidationError):
-        await tool.fn(options={'bogus': 1})
+    result = await _run(client, 'vacp_state', arguments)
+    assert isinstance(result, dict)
+    assert result['mode'] == 'delta'
+    assert client.last_state_request == arguments
 
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
-    'options',
+    'arguments',
     [
-        'nope',
+        {'bogus': 1},
         {'mode': 'nope'},
         {'since': ''},
         {'since': '   '},
         {'refs': 'bad'},
-        {'refs': ['ok', '   ']},
+        {'refs': ['vacp://a', '   ']},
         {'includeSummary': 'nope'},
     ],
 )
-async def test_vacp_state_rejects_invalid_option_values(options: object) -> None:
-    mcp = create_mcp(_FakeClient())
-    tool = await mcp.get_tool('vacp_state')
-    assert isinstance(tool, FunctionTool)
-    with pytest.raises(ValidationError):
-        await tool.fn(options=options)
+async def test_vacp_state_rejects_invalid_fields(arguments: dict[str, object]) -> None:
+    with pytest.raises(ToolInputError):
+        await _run(_FakeClient(), 'vacp_state', arguments)
 
 
 @pytest.mark.asyncio
@@ -306,21 +275,22 @@ async def test_browser_tools_are_gated_by_enable_flag(tmp_path) -> None:
 
 
 @pytest.mark.asyncio
-async def test_observation_tool_preserves_provider_revision_and_state() -> None:
+async def test_observation_tool_keeps_revision_state_and_actions_and_leaves_out_ownership() -> None:
     client = _FakeClient()
     tool = await create_mcp(client).get_tool('vacp_observe')
     assert isinstance(tool, FunctionTool)
-    assert await tool.fn() == await client.observe()
+    assert await tool.fn() == {
+        'revision': 'test',
+        'graph': {'nodes': [{'ref': 'vacp://app/chart'}], 'edges': [], 'actions': [{'name': 'chart.set'}]},
+        'state': {'vacp://app/chart': {'value': 1}},
+    }
 
 
 @pytest.mark.asyncio
 async def test_capabilities_accept_provider_defined_analytical_vocabulary() -> None:
     client = _FakeClient()
-    tool = await create_mcp(client).get_tool('vacp_capabilities')
-    assert isinstance(tool, FunctionTool)
-    options = {'kinds': ['AnalysisOutput'], 'layers': ['AnalysisLayer']}
-    await tool.fn(options=options)
-    assert client.last_capabilities_request == options
+    await _run(client, 'vacp_capabilities', {'kinds': ['AnalysisOutput'], 'layers': ['AnalysisLayer']})
+    assert client.last_capabilities_request == {'kinds': ['AnalysisOutput'], 'layers': ['AnalysisLayer']}
 
 
 @pytest.mark.asyncio
@@ -397,3 +367,35 @@ async def test_every_execute_step_carries_its_own_sentence() -> None:
     assert client.messages == ['Keeping only female athletes.', 'Comparing swimmers with gymnasts.']
     with pytest.raises(ValueError, match='requires a sentence'):
         await tool.run({'name': 'cohort.set_sex', 'narration': '   '})
+
+
+PROTOCOL_FIXTURES = Path(__file__).parents[2] / 'protocol/test/fixtures'
+AGENT_TOOLS_FIXTURE = json.loads((PROTOCOL_FIXTURES / 'agent-tools.json').read_text())
+
+
+@pytest.mark.asyncio
+async def test_mcp_tools_match_the_agent_tools_of_every_transport() -> None:
+    assert AGENT_TOOLS_FIXTURE['tools'] == AGENT_TOOLS
+    assert AGENT_TOOLS_FIXTURE['guidance'] == TOOL_GUIDANCE
+    mcp = create_mcp(_FakeClient())
+    assert TOOL_GUIDANCE in (mcp.instructions or '')
+    tools = {tool.name: tool for tool in await mcp.list_tools()}
+    assert set(tools) == set(AGENT_TOOLS)
+    for name, contract in AGENT_TOOLS.items():
+        assert tools[name].description == contract['description']
+        assert set(tools[name].parameters.get('properties', {})) == set(contract['input'])
+
+
+@pytest.mark.parametrize('case', AGENT_TOOLS_FIXTURE['capabilities'])
+def test_capabilities_requests_match_every_transport(case: dict[str, Any]) -> None:
+    assert capabilities_request(**case['input']) == case['expected']
+
+
+@pytest.mark.parametrize('case', AGENT_TOOLS_FIXTURE['state'])
+def test_state_requests_match_every_transport(case: dict[str, Any]) -> None:
+    assert state_request(**case['input']) == case['expected']
+
+
+def test_graph_reads_match_every_transport() -> None:
+    fixture = json.loads((PROTOCOL_FIXTURES / 'tool-read.json').read_text())
+    assert tool_read(fixture['read']) == fixture['expected']

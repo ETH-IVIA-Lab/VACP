@@ -7,7 +7,7 @@ from typing import Protocol
 
 from playwright.async_api import Page
 
-from vacp.models import VacpCapabilitiesRequestOptions, VacpStateRequestOptions
+from vacp.agent_tools import CapabilitiesRequest, StateRequest
 
 _OMITTED = object()
 
@@ -39,9 +39,9 @@ AGENT: dict[str, str] = {'id': 'agent', 'kind': 'agent', 'label': 'Agent'}
 class VacpBridgeClient(Protocol):
     async def observe(self) -> dict[str, object]: ...
 
-    async def get_capabilities(self, request: VacpCapabilitiesRequestOptions | None = None) -> dict[str, object]: ...
+    async def get_capabilities(self, request: CapabilitiesRequest | None = None) -> dict[str, object]: ...
 
-    async def get_state(self, request: VacpStateRequestOptions | None = None) -> dict[str, object]: ...
+    async def get_state(self, request: StateRequest | None = None) -> dict[str, object]: ...
 
     async def execute(self, call: ActionCall, *, narration: str | None = None) -> ActionResult: ...
 
@@ -81,7 +81,7 @@ class PlaywrightVacpBridgeClient(VacpBridgeClient):
         await self._require_bridge()
         return await self._page.evaluate('(key) => globalThis[key].observe()', self._global_key)
 
-    async def get_capabilities(self, request: VacpCapabilitiesRequestOptions | None = None) -> dict[str, object]:
+    async def get_capabilities(self, request: CapabilitiesRequest | None = None) -> dict[str, object]:
         await self._require_bridge()
         if request is None:
             return await self._page.evaluate("""(key) => globalThis[key].getCapabilities()""", self._global_key)
@@ -90,7 +90,7 @@ class PlaywrightVacpBridgeClient(VacpBridgeClient):
             {'key': self._global_key, 'request': request},
         )
 
-    async def get_state(self, request: VacpStateRequestOptions | None = None) -> dict[str, object]:
+    async def get_state(self, request: StateRequest | None = None) -> dict[str, object]:
         await self._require_bridge()
         if request is None:
             return await self._page.evaluate("""(key) => globalThis[key].getState()""", self._global_key)
