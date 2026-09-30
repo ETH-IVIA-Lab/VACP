@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { DateDay, Int32, Table, TimestampMillisecond, vectorFromArray } from 'apache-arrow';
 import { arrowTableToJson } from '../src/json';
 
 test('Arrow cells retain scalar, temporal, integer, binary and nested values in JSON results', () => {
@@ -12,7 +13,7 @@ test('Arrow cells retain scalar, temporal, integer, binary and nested values in 
     { toJSON: () => ({ city: 'Zurich' }) },
   ];
   const table = {
-    schema: { fields: [{ name: 'value' }] },
+    schema: { fields: [{ name: 'value', type: { typeId: 0 } }] },
     numRows: values.length,
     getChild: () => ({ get: (index: number) => values[index] }),
   };
@@ -27,4 +28,18 @@ test('Arrow cells retain scalar, temporal, integer, binary and nested values in 
       { value: { city: 'Zurich' } },
     ],
   });
+});
+
+test('a DATE reads as its day, a TIMESTAMP as wall-clock time, and a zoned TIMESTAMP as an instant', () => {
+  const day = Date.UTC(2014, 5, 1);
+  const table = new Table({
+    day: vectorFromArray([new Date(day), null], new DateDay()),
+    at: vectorFromArray([day + 3_600_000, null], new TimestampMillisecond()),
+    instant: vectorFromArray([day, null], new TimestampMillisecond('UTC')),
+    count: vectorFromArray([3, null], new Int32()),
+  });
+  assert.deepEqual(arrowTableToJson(table).rows, [
+    { day: '2014-06-01', at: '2014-06-01T01:00:00.000', instant: '2014-06-01T00:00:00.000Z', count: 3 },
+    { day: null, at: null, instant: null, count: null },
+  ]);
 });

@@ -12,7 +12,7 @@ export { formatDuckDbTableMetadataSummary } from './summary';
 
 export { makeVacpDuckDbTableName } from './table-name';
 
-export { normalizeSingleStatementSql, sqlIdentifier, sqlStringLiteral } from './sql';
+export { normalizeSingleStatementSql, sqlIdentifier, sqlStringLiteral, sqlTimestampLiteral } from './sql';
 
 export { createDuckDbSqlRouter } from './router';
 

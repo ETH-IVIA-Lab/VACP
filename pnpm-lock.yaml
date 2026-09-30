@@ -824,6 +824,9 @@ importers:
       '@vacp/protocol':
         specifier: workspace:*
         version: link:../protocol
+      apache-arrow:
+        specifier: 17.0.0
+        version: 17.0.0
 
   packages/diagram-mermaid:
     dependencies:

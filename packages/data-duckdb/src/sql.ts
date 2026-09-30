@@ -1,3 +1,5 @@
+import { formatVacpWallClock, type VacpClock } from '@vacp/protocol';
+
 function stripTrailingSemicolons(sql: string): string {
   let out = sql.trim();
 
@@ -61,4 +63,9 @@ export function sqlStringLiteral(value: string): string {
  */
 export function sqlIdentifier(name: string): string {
   return `"${name.replaceAll('"', '""')}"`;
+}
+
+/** An instant as a TIMESTAMP literal, holding its wall-clock time on `clock`. */
+export function sqlTimestampLiteral(time: number, clock: VacpClock): string {
+  return `TIMESTAMP '${formatVacpWallClock(time, clock).replace('T', ' ')}'`;
 }

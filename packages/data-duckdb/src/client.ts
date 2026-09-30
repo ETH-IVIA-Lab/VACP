@@ -2,13 +2,21 @@ import * as duckdb from '@duckdb/duckdb-wasm';
 
 import { base64FromBytes } from './base64';
 import { arrowTableToJson } from './json';
-import { normalizeSingleStatementSql } from './sql';
+import { normalizeSingleStatementSql, sqlIdentifier } from './sql';
 
 export type VacpDuckDbClient = {
   exec(sql: string): Promise<void>;
   queryJson(sql: string): Promise<{ columns: string[]; rows: Record<string, unknown>[] }>;
   queryArrowIpcBase64(sql: string): Promise<string>;
-  loadObjectsAsTable(tableName: string, rows: Record<string, unknown>[], options?: { create?: boolean }): Promise<void>;
+  /**
+   * Load rows into `tableName`. `timestamps` names columns that hold wall-clock text such as
+   * `2012-06-01T00:00:00.000`, which load as TIMESTAMP.
+   */
+  loadObjectsAsTable(
+    tableName: string,
+    rows: Record<string, unknown>[],
+    options?: { create?: boolean; timestamps?: readonly string[] },
+  ): Promise<void>;
 };
 
 type DuckDbConnection = Pick<duckdb.AsyncDuckDBConnection, 'close' | 'query' | 'insertJSONFromPath'> & {
@@ -155,10 +163,31 @@ export async function createDuckDbWasmClient(options?: {
       if (!db) throw new Error('Loading objects requires a DuckDB database');
       const create = options?.create ?? true;
       const path = `/${tableName}.json`;
-      const text = JSON.stringify(rows);
-      await db.registerFileText(path, text);
+      await db.registerFileText(path, JSON.stringify(rows));
       ensureActive();
-      await conn.insertJSONFromPath(path, { name: tableName, create, schema: 'main' });
+      const loaded = new Set(rows.flatMap((row) => Object.keys(row)));
+      const timestamps = (options?.timestamps ?? []).filter((column) => loaded.has(column));
+      if (!timestamps.length) {
+        await conn.insertJSONFromPath(path, { name: tableName, create, schema: 'main' });
+        return;
+      }
+      // The JSON reader keeps wall-clock text as VARCHAR, so the rows pass through one typed copy.
+      const staging = `${tableName}__load`;
+      await conn.query(`DROP TABLE IF EXISTS main.${sqlIdentifier(staging)}`);
+      await conn.insertJSONFromPath(path, { name: staging, create: true, schema: 'main' });
+      const casts = timestamps.map(
+        (column) => `CAST(${sqlIdentifier(column)} AS TIMESTAMP) AS ${sqlIdentifier(column)}`,
+      );
+      const select = `SELECT * REPLACE (${casts.join(', ')}) FROM main.${sqlIdentifier(staging)}`;
+      try {
+        await conn.query(
+          create
+            ? `CREATE TABLE main.${sqlIdentifier(tableName)} AS ${select}`
+            : `INSERT INTO main.${sqlIdentifier(tableName)} ${select}`,
+        );
+      } finally {
+        await conn.query(`DROP TABLE IF EXISTS main.${sqlIdentifier(staging)}`);
+      }
     },
   };
 }
