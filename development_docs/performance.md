@@ -8,7 +8,7 @@ Run `make bench` from the repository root. It builds the libraries, then measure
 - `packages/runtime-browser/bench/snapshot.ts`: DOM snapshot writes for 400 refs, 20 of them holding 200 rows, with one ref changing per snapshot. Each snapshot is cloned, as composition clones provider observations, and each write is checked to publish exactly the changed ref.
 - `packages/transport-webmcp/bench/registration.ts`: 50 synchronous graph revisions, each with 1,000 changed action descriptions. Results are the median of five bursts after two warmups. The injected registry resolves immediately; native browser registration latency is excluded.
 
-- `packages/adapter-vega-lite/bench/data.ts`: a headless Vega view over 20,000 rows with a parsed date and a time unit, and a DuckDB client that accepts every write. It times a SQL read of unchanged data, a filter change alone, and a SQL read after the filter changes the shown rows. The difference between the last two is the adapter's cost to reload `vacp_handle`.
+- `packages/adapter-vega-lite/bench/data.ts`: a headless Vega view over 20,000 rows with a parsed date and a time unit, and a DuckDB client that accepts every write and counts loads. It times a SQL read of unchanged data, a filter change alone, and a SQL read after the filter changes the shown rows, timed apart from the change. Each read must succeed and load exactly the tables it names.
 
 These isolate runtime and transport overhead. They do not measure visualization rendering, provider work, agent latency, or network requests. Avoid running builds or browser tests alongside timing runs.
 
@@ -40,10 +40,9 @@ Measured on an Apple M3 Max with Node 24.16.0 under a concurrent CPU load, as th
 
 | Workload                                         |  Before |   After |
 | ------------------------------------------------ | ------: | ------: |
-| Filter change alone                              | 38.2 ms | 42.6 ms |
-| SQL read after the filter changes the shown rows | 72.4 ms | 54.4 ms |
-| Adapter share of that read                       | 34.2 ms | 11.8 ms |
+| Filter change alone                              | 40.5 ms | 40.8 ms |
+| SQL read after the filter changes the shown rows | 33.6 ms |  5.2 ms |
 
-`tableRows` formats each instant's wall-clock text once per load, since time units repeat a few hundred instants across every row, and builds each row with one key loop. The filter change is Vega's own work, so its difference between runs is machine noise.
+`tableRows` formats each instant's wall-clock text once per load, since time units repeat a few hundred instants across every row, and collects the column names in the same loop. While Vega's data listener is attached, its change count names the shown rows, so a reload serializes them once, for DuckDB. The filter change is Vega's own work, so its difference between runs is machine noise. Observations after a filter change read the shown row count from those rows and leave DuckDB alone until SQL or a new schema needs it.
 
 Eval runs wait for page readiness on a catalog witness: the page's WebMCP registry holds every tool its current graph compiles to, and the compiled tool names match on two reads 100 ms apart. It replaces a fixed settle window. Over 17 reference-solution runs on one gallery, the median run fell from 2,326 ms to 1,109 ms and the total from 40.7 s to 17.2 s.

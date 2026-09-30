@@ -6,11 +6,12 @@ import {
   getDuckDbTableMetadata,
   makeVacpDuckDbTableName,
   type VacpDuckDbClient,
+  type VacpDuckDbLoadType,
 } from '@vacp/data-duckdb';
 import { registerVacpDataSchemaAction, registerVacpDataSqlAction, type VacpActionRegistry } from '@vacp/runtime';
 
 import type { VegaLiteBindings } from './bindings';
-import { tableRows } from './data-rows';
+import { tableRows, type TableRows } from './data-rows';
 import { collectSelectionFields, describeSource, scoreDataRows } from './data-sources';
 import { whereClauseForCurrentSelections } from './duckdb-selection';
 import { makeRef } from './refs';
@@ -29,15 +30,18 @@ export type VegaLiteDuckDbDataHandle = {
   ensureMetadata: () => Promise<VacpDuckDbTableMetadata | null>;
 };
 
-/** Replace `table` with rows, typing the columns that hold instants as TIMESTAMP. */
-async function loadTable(
-  db: VacpDuckDbClient,
-  table: string,
-  { rows, timestamps }: { rows: Record<string, unknown>[]; timestamps: ReadonlyMap<string, VacpClock> },
-) {
+/** Replace `table` with rows, typing the columns that hold instants as TIMESTAMP and numbers as DOUBLE. */
+async function loadTable(db: VacpDuckDbClient, table: string, { rows, timestamps, numbers }: TableRows) {
+  const types: Record<string, VacpDuckDbLoadType> = {};
+  for (const column of timestamps.keys()) types[column] = 'TIMESTAMP';
+  for (const column of numbers) types[column] = 'DOUBLE';
   await db.exec(`DROP TABLE IF EXISTS main.${table}`);
-  await db.loadObjectsAsTable(table, rows, { create: true, timestamps: [...timestamps.keys()] });
+  await db.loadObjectsAsTable(table, rows, { create: true, types });
 }
+
+/** A key that changes when the loaded columns or their load types do. */
+const schemaOf = ({ columns, timestamps, numbers }: TableRows) =>
+  JSON.stringify([[...columns].sort(), [...timestamps.keys()].sort(), [...numbers].sort()]);
 
 /**
  * DuckDB-backed data handles for a Vega-Lite chart, one per source in its compiled dataflow. Each
@@ -90,13 +94,15 @@ export function createVegaLiteDataBinding(args: {
     let tableTouched = false;
     let loadedRevision: string | null = null;
     let loadedInput: unknown[] | null = null;
-    let metadata: { revision: string | null; value: VacpDuckDbTableMetadata } | null = null;
+    let metadata: { schema: string; value: VacpDuckDbTableMetadata } | null = null;
     let loading: Promise<void> = Promise.resolve();
     let fields: ReadonlySet<string> = new Set();
     let timestamps: ReadonlyMap<string, VacpClock> = new Map();
     let loadedColumns = false;
+    /** The source's loaded rows' columns, which an emptied `vacp_handle` takes before its first rows. */
+    let loadedAll: TableRows | undefined;
 
-    // Rows are normalized and serialized again only when Vega reports a dataset change.
+    // Rows are normalized again only when Vega reports a dataset change, and its change count names them.
     let dataVersion = 0;
     const onData = () => {
       dataVersion++;
@@ -107,48 +113,72 @@ export function createVegaLiteDataBinding(args: {
         view.addDataListener(source.shown, onData);
         return true;
       } catch {
-        // Without a native witness every read serializes the rows it loads.
+        // Without a native witness every read normalizes the rows and names them by their content.
         return false;
       }
     })();
-    let prepared: (ReturnType<typeof tableRows> & { version: number; revision: string }) | undefined;
-    const currentRows = () => {
+    type Prepared = Omit<TableRows, 'rows'> & {
+      version: number;
+      revision: string;
+      rowCount: number;
+      schema: string;
+      /** Released once loaded, since the table then holds them. */
+      rows?: TableRows['rows'];
+    };
+    let prepared: Prepared | undefined;
+    const currentRows = (): Prepared => {
       if (listening && prepared?.version === dataVersion) return prepared;
-      const table = tableRows(shownRows(source.shown), bindings.dataflow);
-      prepared = { ...table, version: dataVersion, revision: JSON.stringify(table.rows) };
+      const table = tableRows(shownRows(source.shown), source);
+      prepared = {
+        ...table,
+        version: dataVersion,
+        revision: listening ? `v${dataVersion}` : JSON.stringify(table.rows),
+        rowCount: table.rows.length,
+        schema: schemaOf(table),
+      };
       return prepared;
     };
 
     const ensureDuckDbData = (): Promise<void> => {
       if (disposed) return Promise.reject(new Error('Vega-Lite data handle is disposed'));
       const current = currentRows();
-      // A filter can leave the marks no rows. The table keeps its columns, so SQL reads zero rows.
-      if (!current.rows.length && !loadedColumns)
-        return Promise.reject(new Error(`No Vega-Lite rows available to load into DuckDB (${title})`));
       const input = source.transformed ? bindings.datasetInput(source.dataset) : null;
       if (source.transformed && !input)
         return Promise.reject(new Error(`Vega-Lite dataset ${source.dataset} has not loaded its source rows`));
+      // A source with no rows at all leaves nothing to take columns from.
+      if (!current.rowCount && !input?.length && !loadedColumns)
+        return Promise.reject(new Error(`No Vega-Lite rows available to load into DuckDB (${title})`));
       // Serialize table replacement. Compare after the previous write so failed loads can be retried.
       const next = loading.then(async () => {
         const db = await duckdbPromise;
-        if (current.revision !== loadedRevision) {
-          loadedRevision = null;
-          tableTouched = true;
-          if (current.rows.length) {
-            fields = new Set();
-            await loadTable(db, tableName, current);
-            fields = new Set(current.rows.flatMap((row) => Object.keys(row)));
-            timestamps = current.timestamps;
-            loadedColumns = true;
-          } else await db.exec(`DELETE FROM main.${tableName}`);
-          loadedRevision = current.revision;
-        }
         // Vega replaces a dataset's input collection when its source changes, so identity is the witness.
         if (input && input !== loadedInput) {
           loadedInput = null;
           tableTouched = true;
-          await loadTable(db, allTableName, tableRows(input, bindings.dataflow));
+          loadedAll = tableRows(input, source);
+          await loadTable(db, allTableName, loadedAll);
+          loadedAll.rows.length = 0;
           loadedInput = input;
+        }
+        if (current.revision !== loadedRevision) {
+          loadedRevision = null;
+          tableTouched = true;
+          if (current.rows?.length) {
+            fields = new Set();
+            await loadTable(db, tableName, current as TableRows);
+            fields = current.columns;
+            timestamps = current.timestamps;
+            loadedColumns = true;
+          } else if (loadedColumns) await db.exec(`DELETE FROM main.${tableName}`);
+          else {
+            // A filter can leave the marks no rows before any loaded. The table takes the source's columns.
+            await db.exec(`CREATE OR REPLACE TABLE main.${tableName} AS SELECT * FROM main.${allTableName} LIMIT 0`);
+            fields = loadedAll!.columns;
+            timestamps = loadedAll!.timestamps;
+            loadedColumns = true;
+          }
+          loadedRevision = current.revision;
+          delete current.rows;
         }
       });
       loading = next.catch(() => {});
@@ -177,12 +207,13 @@ export function createVegaLiteDataBinding(args: {
         whereClauseForCurrentSelections(spec, view, { names: fields, timestamps }, args.getHoverFields?.() ?? null),
       ensureMetadata: async (): Promise<VacpDuckDbTableMetadata | null> => {
         try {
-          await ensureDuckDbData();
-          const revision = loadedRevision;
-          if (metadata?.revision === revision) return metadata.value;
-          const value = await describe(tableName, 'columns');
-          metadata = { revision, value };
-          return value;
+          const current = currentRows();
+          // The graph describes the table's columns, which a filter change leaves as loaded.
+          if (metadata?.schema !== current.schema) {
+            await ensureDuckDbData();
+            metadata = { schema: current.schema, value: await describe(tableName, 'columns') };
+          }
+          return { ...metadata.value, rowCount: current.rowCount };
         } catch {
           return null;
         }

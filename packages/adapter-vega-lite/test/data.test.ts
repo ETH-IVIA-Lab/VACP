@@ -18,10 +18,10 @@ async function render(spec: TopLevelSpec, files: Record<string, unknown[]> = {})
   return view;
 }
 
-/** Run SQL against a provider's first data handle and return its rows. */
-async function sql(provider: VacpProvider, text: string) {
+/** Run SQL against one of a provider's data handles, the first by default, and return its rows. */
+async function sql(provider: VacpProvider, text: string, handleIndex = 0) {
   const { graph } = await provider.observe();
-  const handle = graph.nodes.find((node) => node.kind === 'DataHandle')!;
+  const handle = graph.nodes.filter((node) => node.kind === 'DataHandle')[handleIndex]!;
   const action = graph.actions.find((each) => each.operation.contract === 'vacp.data_sql')!;
   const result = await executeVacpAction(provider, {
     callId: text,
@@ -30,6 +30,24 @@ async function sql(provider: VacpProvider, text: string) {
   });
   assert.equal(result.ok, true, JSON.stringify(result));
   return (result.result as { rows: Record<string, unknown>[] }).rows;
+}
+
+/** Render `spec` over a DuckDB engine in this process, run `check`, and release both. */
+async function withChart(
+  spec: TopLevelSpec,
+  files: Record<string, unknown[]>,
+  check: (provider: VacpProvider, db: Awaited<ReturnType<typeof nodeDuckDb>>) => Promise<void>,
+) {
+  const db = await nodeDuckDb();
+  const view = await render(spec, files);
+  const provider = createVegaLiteProvider({ view, spec, options: { ...options, duckdbClient: db.client } });
+  try {
+    await check(provider, db);
+  } finally {
+    provider.dispose?.();
+    view.finalize();
+    db.close();
+  }
 }
 
 async function schema(provider: VacpProvider) {
@@ -115,8 +133,9 @@ test('replacing a chart keeps the shared client’s tables until the old binding
   try {
     assert.deepEqual(await sql(original.provider, 'SELECT value FROM vacp_handle'), [{ value: 'original' }]);
     assert.deepEqual(await sql(replacement.provider, 'SELECT value FROM vacp_handle'), [{ value: 'replacement' }]);
+    const dropped = db.nextDrop();
     original.provider.dispose?.();
-    await new Promise((resolve) => setTimeout(resolve, 20));
+    await dropped;
     assert.equal(db.tables.size, 1);
     assert.deepEqual(await sql(replacement.provider, 'SELECT value FROM vacp_handle'), [{ value: 'replacement' }]);
   } finally {
@@ -330,6 +349,150 @@ test('a filter that leaves the marks no rows leaves vacp_handle empty, with its 
       { n: 0, named: 0 },
     ]);
     assert.deepEqual(await sql(provider, 'SELECT count(*)::INT AS n FROM vacp_all'), [{ n: 6 }]);
+  } finally {
+    provider.dispose?.();
+    view.finalize();
+    db.close();
+  }
+});
+
+test('a chart that starts filtered to no rows reads an empty vacp_handle and every loaded row in vacp_all', async () => {
+  const spec: TopLevelSpec = {
+    data: { values: gapminder },
+    params: [{ name: 'minimum', value: 1_000 }],
+    transform: [{ filter: 'datum.life_expect >= minimum' }],
+    mark: 'point',
+    encoding: { x: { field: 'country', type: 'nominal' }, y: { field: 'life_expect', type: 'quantitative' } },
+  };
+  await withChart(spec, {}, async (provider) => {
+    assert.deepEqual(await sql(provider, 'SELECT count(*)::INT AS n, count(country)::INT AS named FROM vacp_handle'), [
+      { n: 0, named: 0 },
+    ]);
+    assert.deepEqual(await sql(provider, 'SELECT count(*)::INT AS n FROM vacp_all'), [{ n: 6 }]);
+  });
+});
+
+test('each source types its own fields, so a field one layer plots as numbers stays text in another', async () => {
+  const spec: TopLevelSpec = {
+    layer: [
+      {
+        data: { values: [{ v: '3.5' }, { v: '4' }] },
+        mark: 'point',
+        encoding: { y: { field: 'v', type: 'quantitative' } },
+      },
+      {
+        data: { values: [{ v: 'high' }, { v: 'low' }] },
+        mark: 'text',
+        encoding: { text: { field: 'v', type: 'nominal' } },
+      },
+    ],
+  };
+  await withChart(spec, {}, async (provider) => {
+    const answers = [
+      await sql(provider, 'SELECT v FROM vacp_handle ORDER BY v', 0),
+      await sql(provider, 'SELECT v FROM vacp_handle ORDER BY v', 1),
+    ];
+    assert.deepEqual(
+      answers.map((rows) => rows.map((row) => row.v)).sort((a, b) => String(a[0]).localeCompare(String(b[0]))),
+      [
+        [3.5, 4],
+        ['high', 'low'],
+      ],
+    );
+  });
+});
+
+test('a field on a scale with an explicit domain loads as numbers', async () => {
+  const rows = [{ temp_max: '12.5' }, { temp_max: '15.5' }];
+  const spec: TopLevelSpec = {
+    data: { url: 'data/weather.json' },
+    mark: 'tick',
+    encoding: { x: { field: 'temp_max', type: 'quantitative', scale: { domain: [-10, 40] } } },
+  };
+  await withChart(spec, { 'data/weather.json': rows }, async (provider) => {
+    assert.deepEqual(await sql(provider, 'SELECT avg(temp_max) AS mean FROM vacp_handle'), [{ mean: 14 }]);
+  });
+});
+
+test('an aggregated chart types the fields it aggregates, so SQL over vacp_all aggregates them too', async () => {
+  const rows = [
+    { weather: 'sun', temp_max: '12.5' },
+    { weather: 'sun', temp_max: '15.5' },
+    { weather: 'rain', temp_max: '9' },
+  ];
+  const spec: TopLevelSpec = {
+    data: { url: 'data/weather.json' },
+    mark: 'bar',
+    encoding: {
+      x: { field: 'weather', type: 'nominal' },
+      y: { aggregate: 'mean', field: 'temp_max', type: 'quantitative' },
+    },
+  };
+  await withChart(spec, { 'data/weather.json': rows }, async (provider) => {
+    assert.deepEqual(await sql(provider, 'SELECT max(temp_max) AS warmest FROM vacp_all'), [{ warmest: 15.5 }]);
+  });
+});
+
+test('a field whose name holds a dot loads by that name', async () => {
+  const spec: TopLevelSpec = {
+    data: { values: [{ 'temp.max': '12.5' }, { 'temp.max': '15.5' }] },
+    mark: 'tick',
+    encoding: { x: { field: 'temp\\.max', type: 'quantitative' } },
+  };
+  await withChart(spec, {}, async (provider) => {
+    assert.deepEqual(await sql(provider, 'SELECT sum("temp.max") AS total FROM vacp_handle'), [{ total: 28 }]);
+  });
+});
+
+test('numbers load exactly when the first fraction comes after DuckDB samples the column', async () => {
+  const rows = Array.from({ length: 25_000 }, (_, index) => ({ v: index < 21_000 ? index : index + 0.5 }));
+  const spec: TopLevelSpec = {
+    data: { values: rows },
+    mark: 'tick',
+    encoding: { x: { field: 'v', type: 'quantitative' } },
+  };
+  await withChart(spec, {}, async (provider) => {
+    assert.deepEqual(await sql(provider, 'SELECT max(v) AS top FROM vacp_handle'), [{ top: 24_999.5 }]);
+  });
+});
+
+test('a UTC time axis loads its instants as UTC wall-clock time, whatever the local zone', async () => {
+  const spec: TopLevelSpec = {
+    data: { values: [{ seen: '2012-06-01T00:00:00Z' }, { seen: '2012-06-02T06:30:00Z' }] },
+    mark: 'point',
+    encoding: { x: { field: 'seen', type: 'temporal', scale: { type: 'utc' } } },
+  };
+  await withChart(spec, {}, async (provider) => {
+    assert.deepEqual(
+      await sql(provider, "SELECT strftime(seen, '%Y-%m-%d %H:%M') AS seen FROM vacp_handle ORDER BY seen"),
+      [{ seen: '2012-06-01 00:00' }, { seen: '2012-06-02 06:30' }],
+    );
+  });
+});
+
+test('an observation after a filter change reports the rows shown without reloading DuckDB', async () => {
+  const spec: TopLevelSpec = {
+    data: { values: gapminder },
+    params: [{ name: 'minimum', value: 0 }],
+    transform: [{ filter: 'datum.life_expect >= minimum' }],
+    mark: 'point',
+    encoding: { x: { field: 'country', type: 'nominal' }, y: { field: 'life_expect', type: 'quantitative' } },
+  };
+  const db = await nodeDuckDb();
+  const view = await render(spec);
+  const provider = createVegaLiteProvider({ view, spec, options: { ...options, duckdbClient: db.client } });
+  const rowCount = async () => {
+    const { graph } = await provider.observe();
+    const handle = graph.nodes.find((node) => node.kind === 'DataHandle')!;
+    return (handle.data as { duckdb?: { rowCount: number } }).duckdb?.rowCount;
+  };
+  try {
+    assert.equal(await rowCount(), 6);
+    const loads = db.loads();
+    view.signal('minimum', 70);
+    await view.runAsync();
+    assert.equal(await rowCount(), 3);
+    assert.equal(db.loads(), loads);
   } finally {
     provider.dispose?.();
     view.finalize();

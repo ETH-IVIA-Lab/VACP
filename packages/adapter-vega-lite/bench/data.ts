@@ -29,11 +29,14 @@ const spec: TopLevelSpec = {
 };
 
 // Accepts every write and answers every query empty, so the timings are the adapter's own work.
+let loads = 0;
 const duckdb: VacpDuckDbClient = {
   exec: async () => {},
   queryJson: async () => ({ columns: [], rows: [] }),
   queryArrowIpcBase64: async () => '',
-  loadObjectsAsTable: async () => {},
+  loadObjectsAsTable: async () => {
+    loads++;
+  },
 };
 
 const files = loader();
@@ -48,36 +51,29 @@ const provider = createVegaLiteProvider({
 const { graph } = await provider.observe();
 const handleRef = graph.nodes.find((node) => node.kind === 'DataHandle')!.ref;
 const sql = graph.actions.find((action) => action.operation.contract === 'vacp.data_sql')!.name;
-const query = () =>
-  executeVacpAction(provider, {
+/** A SQL read that must succeed and load the shown rows `expected` times. */
+const query = (expected: number) => async () => {
+  const before = loads;
+  const result = await executeVacpAction(provider, {
     callId: 'q',
     name: sql,
     params: { handleRef, sql: 'SELECT count(*) FROM vacp_handle' },
   });
+  if (!result.ok) throw new Error(`The SQL read failed: ${JSON.stringify(result.error)}`);
+  if (loads - before !== expected) throw new Error(`The SQL read loaded ${loads - before} tables, not ${expected}`);
+};
 
 let minimum = 0;
+const moveFilter = async () => {
+  minimum = 1 - minimum;
+  view.signal('minimum', minimum);
+  await view.runAsync();
+};
 try {
   console.log(`Node ${process.version}; native Vega view; ${size} rows with a parsed date and a time unit`);
-  await measure('SQL read of an unchanged dataset', query, 20);
-  await measure(
-    'Filter change alone, as Vega evaluates it',
-    async () => {
-      minimum = 1 - minimum;
-      view.signal('minimum', minimum);
-      await view.runAsync();
-    },
-    5,
-  );
-  await measure(
-    'SQL read after the filter changes the shown rows',
-    async () => {
-      minimum = 1 - minimum;
-      view.signal('minimum', minimum);
-      await view.runAsync();
-      await query();
-    },
-    5,
-  );
+  await measure('SQL read of an unchanged dataset', query(0), 20);
+  await measure('Filter change alone, as Vega evaluates it', moveFilter, 5);
+  await measure('SQL read after the filter changes the shown rows', query(1), 5, moveFilter);
 } finally {
   provider.dispose?.();
   view.finalize();

@@ -4,13 +4,15 @@ import { collectVegaLiteParams, selectionMarkTypes } from './params';
 import { makeRef } from './refs';
 import { signalNamesFromView, tryGetSignal } from './signals';
 import type {
-  VegaScaleLike,
   VegaLiteParamLike,
   VegaLiteSpecLike,
   VegaLiteProviderOptions,
   VegaViewLike,
   VegaRuntimeContext,
 } from './types';
+
+/** A Vega scale: it maps domain values to pixels and reports its type and domain. */
+export type VegaScale = ((value: unknown) => number) & { type?: string; domain?: () => unknown[] };
 
 /** Shared traversal for serialized state and native runtime scopes. Paths retain nested unit identity. */
 function* contexts(
@@ -74,7 +76,7 @@ export function createVegaLiteBindings(spec: VegaLiteSpecLike, view: VegaViewLik
   }
   const scale = (name: string) => {
     try {
-      return view.scale?.(name) as VegaScaleLike | undefined;
+      return view.scale?.(name) as VegaScale | undefined;
     } catch {
       return undefined;
     }
@@ -85,8 +87,6 @@ export function createVegaLiteBindings(spec: VegaLiteSpecLike, view: VegaViewLik
     allSignals,
     rootUnit: typeof spec.name === 'string' ? spec.name : '',
     dataflow,
-    /** Fields Vega holds as instants, with the clock their axis reads. */
-    temporal: dataflow.temporal,
     /** The scale behind a channel, in the unit's own scope when the chart has several. */
     scale: (unit: string | undefined, channel: string) =>
       (unit ? scale(`${unit}_${channel}`) : undefined) ?? scale(channel),

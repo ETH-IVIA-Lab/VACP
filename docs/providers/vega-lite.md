@@ -47,7 +47,7 @@ Each data handle answers `vacp.data_sql` over two relations. `vacp_handle` holds
 
 Temporal fields load as `TIMESTAMP` columns holding wall-clock time on their axis's clock, so the day a local time axis labels June 1 reads `2012-06-01T00:00:00.000` in results. A hover on a temporal field takes the same dates as a brush, and a value that names no date rejects the hover.
 
-A field a continuous scale reads loads as a numeric column, so a CSV column the chart plots as numbers sums and averages in SQL. A cell that names no date in a temporal field, or no number in a numeric one, loads as `NULL`. A filter that leaves the marks no rows leaves `vacp_handle` empty, with its columns, so `SELECT count(*) FROM vacp_handle` returns 0.
+A field a continuous scale reads loads as a `DOUBLE` column, and so does the source field behind an aggregate or bin such a scale reads, so a CSV column the chart plots as numbers sums and averages in SQL. Each source types its own fields, so a field one layer plots as numbers keeps its text in another layer's source. A cell that names no date in a temporal field, or no number in a numeric one, loads as `NULL`. A filter that leaves the marks no rows leaves `vacp_handle` empty, with its columns, so `SELECT count(*) FROM vacp_handle` returns 0.
 
 Pass `options.duckdbClient` to reuse a data connection. Otherwise the provider creates a browser DuckDB instance when data is requested. Set `enableDuckDbDataHandle: false` to disable data handles, or `enableSql: false` to omit SQL execution while retaining schema discovery.
 

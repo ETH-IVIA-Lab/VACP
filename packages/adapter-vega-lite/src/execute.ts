@@ -6,7 +6,9 @@ import { changeset } from 'vega';
 import { findSignalContext, readStateSignal, runtimeUnit, type VegaLiteBindings } from './bindings';
 import { tryGetSignal, trySetSignal } from './signals';
 import { formatAxisInstant, inputInstant } from './temporal';
-import type { VegaRuntimeContext, VegaScaleLike, VegaViewLike } from './types';
+import { scaleClock } from './dataflow';
+import type { VegaRuntimeContext, VegaViewLike } from './types';
+import type { VegaScale } from './bindings';
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return !!value && typeof value === 'object' && !Array.isArray(value);
@@ -15,10 +17,10 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 /** An interval channel's scale: its live domain endpoints, and the clock of a time scale. */
 type Axis = { span: [unknown, unknown]; clock?: VacpClock };
 
-function axisOf(scale: VegaScaleLike | undefined): Axis | null {
+function axisOf(scale: VegaScale | undefined): Axis | null {
   const domain = scale?.domain?.();
   if (!Array.isArray(domain)) return null;
-  const clock = scale?.type === 'utc' ? 'utc' : scale?.type === 'time' ? 'local' : undefined;
+  const clock = scaleClock(scale?.type);
   return { span: [domain[0], domain.at(-1)], ...(clock ? { clock } : {}) };
 }
 
@@ -261,7 +263,7 @@ function prepareSelectionStore(
         tupleFields,
         unit,
         axis,
-        temporal: helpers.temporal,
+        temporal: helpers.dataflow.temporal,
         anyRange,
       });
 

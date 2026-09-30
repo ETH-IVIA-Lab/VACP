@@ -114,7 +114,7 @@ export function createVegaLiteProvider(args: {
     actionRegistry,
     actionDescriptors,
     vizRef,
-    temporal: helpers.temporal,
+    temporal: helpers.dataflow.temporal,
   });
 
   const data = createVegaLiteDataBinding({
