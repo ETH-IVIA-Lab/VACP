@@ -1,0 +1,88 @@
+packages/python/src/vacp/server.py
+  s_f952b3e592f24d::t_171c2c77ada84b 244
+  s_f952b3e592f24d::t_1d60c8696e9456 14,97,122,136,153-160
+packages/transport-bridge/test/bridge-transport.test.ts
+  s_f952b3e592f24d::t_dfb4a660e0ec1c 121-142
+packages/transport-bridge/README.md
+  s_f952b3e592f24d::t_7c9be6dc5c599c 12
+packages/protocol/src/schema.ts
+  s_f952b3e592f24d::t_6bc96cbc183b57 202-203,205-206
+packages/protocol/src/index.ts
+  s_f952b3e592f24d::t_3f3fbff0a534e4 27-28
+packages/transport-bridge/src/bridge-transport.ts
+  s_f952b3e592f24d::t_dfb4a660e0ec1c 1-7,10-13,16-18,21,27
+packages/protocol/test/tool-result.test.ts
+  s_f952b3e592f24d::t_3f3fbff0a534e4 1-16,22-25,27-34,37-40,44-51,53-56,60-66,88
+  s_f952b3e592f24d::t_18e65dfe903874 71-83,85-86
+  s_f952b3e592f24d::t_9c7311dd294a65 17-21,26,35-36,41-43,52,57-59,67-70,84,87
+packages/transport-bridge/src/types.ts
+  s_f952b3e592f24d::t_dfb4a660e0ec1c 5,10-13,16-18,25
+packages/python/src/vacp/agent_tools.py
+  s_f952b3e592f24d::t_cf7302f81f93d4 158,161-162,165-168,170-182,189,193-196,202-205,217-219
+  s_f952b3e592f24d::t_6578d5f3f7eb1f 12,210-213
+  s_f952b3e592f24d::t_ee9a4475f90556 4-6,11,149-157,159-160,163-164,169,183-188,190-192,197-201,206-209,214-216,220-221
+packages/protocol/src/tool-result.ts
+  s_f952b3e592f24d::t_d1e70d5d739b20 113-114,132,166-169,185
+  s_f952b3e592f24d::t_a078160d8ab303 8,10,12,16,18,38-112,115-131,133-149,153-155,161-165,170-179,184,189,196-203
+  s_f952b3e592f24d::t_e5bcc705b95e9c 156-160
+  s_f952b3e592f24d::t_7c0da979ba5b9f 20-34,150-152
+  s_f952b3e592f24d::t_2fae2e248e283e 1-7,9,11,13-15,17,19,35-37,180-183,186-188,190-195,204-207
+packages/protocol/test/fixtures/tool-result.json
+  s_f952b3e592f24d::t_bbcef199c87a37 68-70,77-79
+  s_f952b3e592f24d::t_3f3fbff0a534e4 1-2,4-10,13-17,19-21,23-26,30-32,35-36,45-46,48-50,53-56,58-64,66-67,71-76,80-85,87,89-91,93,95-99
+  s_f952b3e592f24d::t_9c7311dd294a65 3,11-12,27-29,33-34,37-42,47,51-52,57
+  s_f952b3e592f24d::t_e5bcc705b95e9c 18,22,43-44,65,86,88,92,94
+docs/reference/tool-contract.md
+  s_f952b3e592f24d::t_1fe6eadef88fa0 16
+  s_f952b3e592f24d::t_7c9be6dc5c599c 15
+packages/transport-webmcp/test/webmcp.test.ts
+  s_f952b3e592f24d::t_46520d286686f7 34-35,71,139
+  s_f952b3e592f24d::t_f8dd918dd041ce 138,148-152
+  s_f952b3e592f24d::t_ae8f45c50415fd 130-137,140-147
+packages/runtime/src/data-sql.ts
+  s_f952b3e592f24d::t_6bc96cbc183b57 5,18,61-72
+packages/agent-ai-sdk/src/vacp-tools.ts
+  s_f952b3e592f24d::t_719e70a0228be9 55-56,85,90,95,101
+  s_f952b3e592f24d::t_d0f8cd08ba8675 13,54,57,59-62
+packages/data-duckdb/src/data-sql.ts
+  s_f952b3e592f24d::t_e8afe585cf16e9 1,12-16,18,36,41,43
+packages/data-duckdb/src/router.ts
+  s_f952b3e592f24d::t_e8afe585cf16e9 31
+  s_f952b3e592f24d::t_e5bcc705b95e9c 19
+packages/python/src/vacp/bridge.py
+  s_f952b3e592f24d::t_2790073d38683c 5,7,81-88,91,95,103-104,114
+  s_f952b3e592f24d::t_7cf4f5302670a8 96-97
+packages/agent-ai-sdk/src/context-compaction.ts
+  s_f952b3e592f24d::t_2d28ac7c5d4a9f 1
+  s_f952b3e592f24d::t_5ea7d0e26df3b7 91,93-99,248-249,255,260
+  s_f952b3e592f24d::t_3335e333f86700 92,102,105
+packages/python/tests/test_server_tools.py
+  s_f952b3e592f24d::t_6578d5f3f7eb1f 16
+  s_f952b3e592f24d::t_ee9a4475f90556 4,22,382,413-414
+  s_f952b3e592f24d::t_225d8e00e6ffe6 389,394,396
+  s_f952b3e592f24d::t_c425f55d7b74e4 391,411-412
+  s_f952b3e592f24d::t_cf7302f81f93d4 380-381,383-388,390,392-393,395,397-410
+packages/transport-webmcp/src/compile.ts
+  s_f952b3e592f24d::t_7f4971b90d122b 86-89,109,122,134,175
+  s_f952b3e592f24d::t_ee9b5bcc2f1169 13
+packages/agent-ai-sdk/test/context-compaction.test.ts
+  s_f952b3e592f24d::t_00a4f9ff30fd29 236
+  s_f952b3e592f24d::t_5ea7d0e26df3b7 4,111,162-190,198
+  s_f952b3e592f24d::t_62feb69ac30326 191-197
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "a39d42fd7815a9e629d4fb0cf906787a9203847f",
+  "prompts": {},
+  "sessions": {
+    "s_f952b3e592f24d": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "b5d9a406-ea45-4cff-94f9-b59428366092",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Péter Ferenc Gyarmati <peterferenc.gyarmati@inf.ethz.ch>"
+    }
+  }
+}
