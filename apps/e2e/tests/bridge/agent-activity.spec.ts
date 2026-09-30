@@ -31,6 +31,9 @@ test('thinking appears before execution, follows real athlete actions, and respe
   const initial = await painted();
   await expect.poll(painted).not.toBe(initial);
   expect(await page.locator('[data-vacp-ripple]').count()).toBe(0);
+  await page.waitForFunction(async () =>
+    ((await document.modelContext?.getTools()) ?? []).some((tool) => tool.name === 'vacp.action.cohort.set_sports'),
+  );
   const applied = await page.evaluate(async () => {
     const context = document.modelContext!;
     const tool = (await context.getTools()).find((tool) => tool.name === 'vacp.action.cohort.set_sports')!;

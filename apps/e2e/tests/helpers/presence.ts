@@ -1,14 +1,20 @@
 import { expect, type Page } from '@playwright/test';
 
 /**
- * Invoke a registered WebMCP tool the way a browser agent would. Action tools require the step's own
- * sentence; calls that do not test narration get a neutral one.
+ * Invoke a registered WebMCP tool the way a browser agent would, once the page's registry holds it.
+ * Action tools require the step's own sentence; calls that do not test narration get a neutral one.
  */
 export async function tool(page: Page, suffix: string, params: Record<string, unknown> = {}) {
   return page.evaluate(
     async ({ suffix, params }) => {
       const context = document.modelContext!;
-      const action = (await context.getTools()).find((tool) => tool.name.endsWith(suffix));
+      // A page registers its tools after its first graph read, which can follow the bridge's install.
+      const deadline = Date.now() + 10_000;
+      let action = (await context.getTools()).find((tool) => tool.name.endsWith(suffix));
+      while (!action && Date.now() < deadline) {
+        await new Promise((resolve) => setTimeout(resolve, 50));
+        action = (await context.getTools()).find((tool) => tool.name.endsWith(suffix));
+      }
       if (!action) throw new Error(`Missing tool: ${suffix}`);
       // Chrome reports each registered schema as JSON text.
       const schema = typeof action.inputSchema === 'string' ? JSON.parse(action.inputSchema) : action.inputSchema;
