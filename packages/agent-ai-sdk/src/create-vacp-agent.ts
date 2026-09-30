@@ -1,17 +1,22 @@
-import { withAgentActivity } from './activity-transport';
-import { createAgentTurns } from './agent-turn';
-import { DirectChatTransport, ToolLoopAgent, stepCountIs } from 'ai';
-import type { LanguageModelUsage } from 'ai';
+import {
+  DirectChatTransport,
+  ToolLoopAgent,
+  isStepCount,
+  type ChatTransport,
+  type LanguageModel,
+  type LanguageModelUsage,
+  type ToolLoopAgentSettings,
+} from 'ai';
 
-import { createVacpLLMModel, normalizeVacpLLMConfig } from './create-llm-model';
+import { withAgentActivity } from './activity-transport';
+import type { AgentTurns } from './agent-turn';
 import { wrapTransportWithVacpContextCompaction } from './context-compaction';
 import { buildVacpAgentInstructions } from './instructions';
-import type { VacpAgentFactoryOptions, VacpChatMessageMetadata, VacpTokenUsage } from './types';
-import { createVacpProgressTool, createVacpTools } from './vacp-tools';
+import type { VacpAgentFactoryOptions, VacpChatMessage, VacpChatMessageMetadata, VacpTokenUsage } from './types';
+import { buildVacpAgentTools, type VacpAgentTools } from './vacp-tools';
 
-const DEFAULT_MAX_STEPS = 8;
-
-const DEFAULT_TEMPERATURE = 0.2;
+/** The loop settings an agent uses when the host leaves them unset. */
+export const vacpAgentDefaults = { maxSteps: 8, temperature: 0.2 } as const;
 
 function asFiniteNumber(value: unknown): number | undefined {
   return typeof value === 'number' && Number.isFinite(value) ? value : undefined;
@@ -20,25 +25,26 @@ function asFiniteNumber(value: unknown): number | undefined {
 function normalizeUsage(raw: LanguageModelUsage | undefined): VacpTokenUsage | undefined {
   if (!raw || typeof raw !== 'object') return undefined;
 
-  const value = raw;
-
   const usage: VacpTokenUsage = {
-    inputTokens: asFiniteNumber(value.inputTokens),
-    outputTokens: asFiniteNumber(value.outputTokens),
-    totalTokens: asFiniteNumber(value.totalTokens),
-    reasoningTokens: asFiniteNumber(value.outputTokenDetails?.reasoningTokens) ?? asFiniteNumber(value.reasoningTokens),
-    textTokens: asFiniteNumber(value.outputTokenDetails?.textTokens),
-    cacheReadTokens: asFiniteNumber(value.inputTokenDetails?.cacheReadTokens),
-    cacheWriteTokens: asFiniteNumber(value.inputTokenDetails?.cacheWriteTokens),
-    noCacheTokens: asFiniteNumber(value.inputTokenDetails?.noCacheTokens),
+    inputTokens: asFiniteNumber(raw.inputTokens),
+    outputTokens: asFiniteNumber(raw.outputTokens),
+    totalTokens: asFiniteNumber(raw.totalTokens),
+    reasoningTokens: asFiniteNumber(raw.outputTokenDetails?.reasoningTokens),
+    textTokens: asFiniteNumber(raw.outputTokenDetails?.textTokens),
+    cacheReadTokens: asFiniteNumber(raw.inputTokenDetails?.cacheReadTokens),
+    cacheWriteTokens: asFiniteNumber(raw.inputTokenDetails?.cacheWriteTokens),
+    noCacheTokens: asFiniteNumber(raw.inputTokenDetails?.noCacheTokens),
   };
 
   return Object.values(usage).some((item) => item != null) ? usage : undefined;
 }
 
-function createVacpMessageMetadata(options: VacpAgentFactoryOptions) {
-  const config = normalizeVacpLLMConfig(options.config);
+function modelIdentity(model: LanguageModel): Pick<VacpChatMessageMetadata, 'provider' | 'model'> {
+  return typeof model === 'string' ? { model } : { provider: model.provider, model: model.modelId };
+}
 
+function createVacpMessageMetadata(model: LanguageModel) {
+  const identity = modelIdentity(model);
   return ({
     part,
   }: {
@@ -46,63 +52,70 @@ function createVacpMessageMetadata(options: VacpAgentFactoryOptions) {
   }): VacpChatMessageMetadata | undefined => {
     if (part.type === 'finish-step') {
       const stepUsage = normalizeUsage(part.usage);
-
-      if (!stepUsage) return undefined;
-
-      return { provider: config.provider, providerName: config.providerName, model: config.model, stepUsage };
+      return stepUsage ? { ...identity, stepUsage } : undefined;
     }
 
     if (part.type === 'finish') {
       const totalUsage = normalizeUsage(part.totalUsage);
-
-      return {
-        provider: config.provider,
-        providerName: config.providerName,
-        model: config.model,
-        finishedAt: new Date().toISOString(),
-        ...(totalUsage ? { totalUsage } : {}),
-      };
+      return { ...identity, finishedAt: new Date().toISOString(), ...(totalUsage ? { totalUsage } : {}) };
     }
 
     return undefined;
   };
 }
 
+/** A tool loop whose requests close the turn the model opened, however they end. */
+class VacpToolLoopAgent extends ToolLoopAgent<never, VacpAgentTools> {
+  readonly #turns: AgentTurns | undefined;
+
+  constructor(settings: ToolLoopAgentSettings<never, VacpAgentTools>, turns: AgentTurns | undefined) {
+    // A turn the model opened through vacp_progress closes with the request, chat transport or not.
+    super({ ...settings, onEnd: () => turns?.end() });
+    this.#turns = turns;
+  }
+
+  override async generate(options: Parameters<ToolLoopAgent<never, VacpAgentTools>['generate']>[0]) {
+    try {
+      return await super.generate(options);
+    } catch (error) {
+      this.#turns?.end(options.abortSignal?.aborted ? 'cancelled' : 'failed');
+      throw error;
+    }
+  }
+}
+
 function createAgent(options: VacpAgentFactoryOptions) {
-  const config = normalizeVacpLLMConfig(options.config);
-  // Steps and turns share one actor, so each step joins the turn that narrates it.
-  const actor = options.actor ?? { id: 'agent', kind: 'agent', label: 'Assistant' };
-  const turns = options.activity ? createAgentTurns(options.activity, actor) : undefined;
-  const tools = {
-    ...createVacpTools({ transport: options.transport, onToolEvent: options.onToolEvent, actor }),
-    ...(turns ? createVacpProgressTool(turns.progress) : {}),
-  };
-
-  const instructions = buildVacpAgentInstructions({
-    baseInstructions: options.instructions,
-    interactionPolicy: options.interactionPolicy,
-  });
-
-  const agent = new ToolLoopAgent({
-    model: createVacpLLMModel(config),
-    instructions,
-    stopWhen: stepCountIs(config.maxSteps ?? DEFAULT_MAX_STEPS),
-    temperature: config.temperature ?? DEFAULT_TEMPERATURE,
-    maxOutputTokens: config.maxOutputTokens,
-    tools,
-    // A turn the model opened through vacp_progress closes with the agent run, chat transport or not.
-    onFinish: () => turns?.end(),
-  });
+  const { tools, turns } = buildVacpAgentTools(options);
+  const agent = new VacpToolLoopAgent(
+    {
+      model: options.model,
+      instructions: buildVacpAgentInstructions({
+        baseInstructions: options.instructions,
+        interactionPolicy: options.interactionPolicy,
+      }),
+      stopWhen: isStepCount(options.maxSteps ?? vacpAgentDefaults.maxSteps),
+      temperature: options.temperature ?? vacpAgentDefaults.temperature,
+      maxOutputTokens: options.maxOutputTokens,
+      maxRetries: options.maxRetries,
+      providerOptions: options.providerOptions,
+      tools,
+      telemetry: options.telemetry,
+    },
+    turns,
+  );
   return { agent, turns };
 }
 
-export function createVacpToolLoopAgent(options: VacpAgentFactoryOptions) {
+export function createVacpToolLoopAgent(options: VacpAgentFactoryOptions): ToolLoopAgent<never, VacpAgentTools> {
   return createAgent(options).agent;
 }
 
-export function createVacpChatRuntime(options: VacpAgentFactoryOptions) {
+export function createVacpChatRuntime(options: VacpAgentFactoryOptions): {
+  agent: ToolLoopAgent<never, VacpAgentTools>;
+  transport: ChatTransport<VacpChatMessage>;
+} {
   const { agent, turns } = createAgent(options);
-  const baseTransport = new DirectChatTransport({ agent, messageMetadata: createVacpMessageMetadata(options) });
+  const baseTransport = new DirectChatTransport({ agent, messageMetadata: createVacpMessageMetadata(options.model) });
 
   const transport = wrapTransportWithVacpContextCompaction(baseTransport, options.contextCompactionPolicy, {
     availableToolNames: Object.keys(agent.tools),

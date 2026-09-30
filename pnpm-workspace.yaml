@@ -36,6 +36,9 @@ catalog:
   '@stylexjs/stylex': 0.19.1
   # One DuckDB-Wasm for the workspace, Mosaic's included, so apps ship and load a single engine build.
   '@duckdb/duckdb-wasm': ^1.32.0
+  # One AI SDK for the workspace, shared by the product agent and the evals.
+  ai: ^7.0.122
+  '@ai-sdk/openai-compatible': ^3.0.59
 overrides:
   '@duckdb/duckdb-wasm': 'catalog:'
   yaml: 'catalog:'

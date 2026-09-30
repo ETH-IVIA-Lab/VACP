@@ -18,11 +18,11 @@
     "test": "pnpm exec tsx --test --test-timeout=10000 test/*.test.ts"
   },
   "dependencies": {
-    "@ai-sdk/google": "^2.0.97",
-    "@ai-sdk/openai-compatible": "^2.0.75",
+    "@ai-sdk/google": "^4.0.85",
+    "@ai-sdk/openai-compatible": "catalog:",
     "@vacp/protocol": "workspace:*",
     "@vacp/transport-bridge": "workspace:*",
-    "ai": "^6.0.283",
+    "ai": "catalog:",
     "zod": "catalog:"
   }
 }

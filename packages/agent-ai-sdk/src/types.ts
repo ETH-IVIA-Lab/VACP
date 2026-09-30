@@ -1,20 +1,7 @@
 import type { VacpActor, VacpAgentActivityControl } from '@vacp/protocol';
-import type { UIMessage, InferUITools } from 'ai';
-import type { createVacpProgressTool, createVacpTools } from './vacp-tools';
+import type { InferUITools, LanguageModel, TelemetryOptions, ToolLoopAgentSettings, UIMessage } from 'ai';
+import type { VacpAgentTools } from './vacp-tools';
 import type { VacpTransport } from '@vacp/transport-bridge';
-
-export type VacpAgentToolName = 'vacp_observe' | 'vacp_capabilities' | 'vacp_state' | 'vacp_execute' | 'vacp_progress';
-
-export type VacpAgentToolEvent = {
-  at: string;
-  toolName: VacpAgentToolName;
-  status: 'started' | 'succeeded' | 'failed';
-  requestedInput?: unknown;
-  input?: unknown;
-  inputNote?: string;
-  output?: unknown;
-  error?: string;
-};
 
 export type VacpTokenUsage = {
   inputTokens?: number;
@@ -41,8 +28,8 @@ export type VacpLLMModelListOptions = {
 };
 
 export type VacpChatMessageMetadata = {
-  provider?: VacpLLMProvider;
-  providerName?: string;
+  /** The model's provider id, such as `openai.chat`. */
+  provider?: string;
   model?: string;
   stepUsage?: VacpTokenUsage;
   totalUsage?: VacpTokenUsage;
@@ -83,20 +70,28 @@ export type VacpAgentInteractionPolicy = {
 };
 
 export type VacpAgentFactoryOptions = {
+  /** The model the agent calls. `createVacpLLMModel(config)` builds one from a `VacpLLMConfig`. */
+  model: LanguageModel;
+  transport: VacpTransport;
   /** Optional host activity channel. Enables the `vacp_progress` tool and one activity per turn. */
   activity?: VacpAgentActivityControl;
   /** The agent that steps and turns are attributed to. Defaults to `{ id: 'agent', label: 'Assistant' }`. */
   actor?: VacpActor;
-  config: VacpLLMConfig;
-  transport: VacpTransport;
   instructions?: string;
   interactionPolicy?: VacpAgentInteractionPolicy;
   contextCompactionPolicy?: VacpContextCompactionPolicy;
-  onToolEvent?: (event: VacpAgentToolEvent) => void;
+  /** Model calls per request. Defaults to 8. */
+  maxSteps?: number;
+  /** Defaults to 0.2. */
+  temperature?: number;
+  maxOutputTokens?: number;
+  maxRetries?: number;
+  providerOptions?: ToolLoopAgentSettings['providerOptions'];
+  /**
+   * AI SDK telemetry for the agent's calls: integrations such as `@ai-sdk/otel`'s `OpenTelemetry`,
+   * content capture, and a `functionId`. Registered integrations apply when this is omitted.
+   */
+  telemetry?: TelemetryOptions;
 };
 
-export type VacpChatMessage = UIMessage<
-  VacpChatMessageMetadata,
-  never,
-  InferUITools<ReturnType<typeof createVacpTools> & ReturnType<typeof createVacpProgressTool>>
->;
+export type VacpChatMessage = UIMessage<VacpChatMessageMetadata, never, InferUITools<VacpAgentTools>>;

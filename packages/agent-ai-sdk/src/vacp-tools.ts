@@ -1,65 +1,27 @@
-import { tool } from 'ai';
+import { tool, type Tool } from 'ai';
 import { z } from 'zod';
 
 import {
+  vacpAgentTools,
   vacpNarrationGuidance,
-  vacpProgressGuidance,
+  vacpToolCapabilitiesRequest,
+  vacpToolStateRequest,
   VACP_NARRATION_MAX_LENGTH,
   type VacpActor,
-  type VacpRef,
+  type VacpAgentActivityControl,
+  type VacpCapabilitiesRequest,
+  type VacpStateRequest,
 } from '@vacp/protocol';
-
-import type { VacpAgentToolEvent, VacpAgentToolName } from './types';
-import type { VacpCapabilitiesRequest, VacpStateRequest } from '@vacp/protocol';
 import type { VacpTransport } from '@vacp/transport-bridge';
+
+import { createAgentTurns, type AgentTurns } from './agent-turn';
 import { sanitizeToolPayload } from './sanitize-tool-payload';
 
-type ToolOptions = {
-  transport: VacpTransport;
-  onToolEvent?: (event: VacpAgentToolEvent) => void;
-  /** Attributes every step to the agent whose turns narrate them. */
-  actor?: VacpActor;
-};
+const refs = z.array(z.templateLiteral(['vacp://', z.string()])).optional();
 
-type NormalizedToolInput<T> = {
-  options?: T;
-  requestedInput?: unknown;
-  input?: unknown;
-  inputNote?: string;
-};
-
-function emit(
-  onToolEvent: ((event: VacpAgentToolEvent) => void) | undefined,
-  toolName: VacpAgentToolName,
-  status: VacpAgentToolEvent['status'],
-  payload?: { requestedInput?: unknown; input?: unknown; inputNote?: string; output?: unknown; error?: string },
-) {
-  onToolEvent?.({
-    at: new Date().toISOString(),
-    toolName,
-    status,
-    ...(payload
-      ? {
-          requestedInput: sanitizeToolPayload(payload.requestedInput),
-          input: sanitizeToolPayload(payload.input),
-          inputNote: payload.inputNote,
-          output: sanitizeToolPayload(payload.output),
-          error: payload.error,
-        }
-      : {}),
-  });
-}
-
-const stateOptionsSchema = z.object({
-  mode: z.enum(['auto', 'full', 'delta']).optional(),
-  since: z.string().min(1).optional(),
-  refs: z.array(z.string().regex(/^vacp:\/\//)).optional(),
-  includeSummary: z.boolean().optional(),
-});
-
-const capabilitiesOptionsSchema = z.object({
-  refs: z.array(z.string().regex(/^vacp:\/\//)).optional(),
-  prefixes: z.array(z.string().regex(/^vacp:\/\//)).optional(),
+const capabilitiesInput = z.object({
+  refs,
+  prefixes: refs,
   kinds: z.array(z.string().min(1)).optional(),
   layers: z.array(z.string().min(1)).optional(),
   includeActions: z.boolean().optional(),
@@ -67,165 +29,96 @@ const capabilitiesOptionsSchema = z.object({
   includeNodeData: z.boolean().optional(),
 });
 
-const executeSchema = z.object({
+const stateInput = z.object({
+  mode: z.enum(['auto', 'full', 'delta']).optional(),
+  since: z.string().min(1).optional(),
+  refs,
+  includeSummary: z.boolean().optional(),
+});
+
+const executeInput = z.object({
   name: z.string().min(1),
   params: z.unknown().optional(),
   narration: z.string().trim().min(1).max(VACP_NARRATION_MAX_LENGTH).describe(vacpNarrationGuidance),
   call_id: z.string().min(1).optional(),
 });
 
-function appendNote(notes: string[], message: string) {
-  if (!notes.includes(message)) notes.push(message);
-}
+const progressInput = z.object({
+  message: z.string().trim().min(1).max(VACP_NARRATION_MAX_LENGTH).describe('One plain sentence for the person.'),
+  done: z.boolean().default(false).describe('True when this message closes the current task.'),
+});
 
-function normalizeRefScope(values: string[] | undefined, notes: string[]): VacpRef[] | undefined {
-  if (!values || values.length === 0) return undefined;
-  const filtered = values.filter((ref) => ref !== 'vacp://');
+type ProgressResult = { ok: true } | { ok: false; reason: string };
 
-  if (filtered.length !== values.length) {
-    appendNote(notes, 'Normalized bare `vacp://` scope to an unscoped request.');
-  }
+/** The agent tools of `vacpAgentTools`. `vacp_progress` is present when the host supplies an activity channel. */
+export type VacpAgentTools = {
+  vacp_observe: Tool<Record<string, never>, unknown>;
+  vacp_capabilities: Tool<VacpCapabilitiesRequest, unknown>;
+  vacp_state: Tool<VacpStateRequest, unknown>;
+  vacp_execute: Tool<z.output<typeof executeInput>, unknown>;
+  vacp_progress?: Tool<z.output<typeof progressInput>, ProgressResult>;
+};
 
-  return filtered.length > 0 ? filtered.map((ref) => ref as VacpRef) : undefined;
-}
+export type VacpAgentToolsOptions = {
+  transport: VacpTransport;
+  /** The host's activity channel. It adds `vacp_progress` and one public activity per turn. */
+  activity?: Pick<VacpAgentActivityControl, 'beginAgentActivity'>;
+  /** The agent that steps and turns are attributed to. Defaults to `{ id: 'agent', label: 'Assistant' }`. */
+  actor?: VacpActor;
+};
 
-function buildNormalizedInput<T>(
-  requestedInput: unknown,
-  options: T | undefined,
-  notes: string[],
-): NormalizedToolInput<T> {
-  const sanitizedRequested = sanitizeToolPayload(requestedInput);
-  const sanitizedEffective = sanitizeToolPayload(options);
-  const inputNote = notes.length > 0 ? notes.join(' ') : undefined;
-  const samePayload = JSON.stringify(sanitizedRequested ?? null) === JSON.stringify(sanitizedEffective ?? null);
+const defaultActor: VacpActor = { id: 'agent', kind: 'agent', label: 'Assistant' };
 
-  return {
-    options,
-    requestedInput: samePayload ? undefined : sanitizedRequested,
-    input: sanitizedEffective,
-    inputNote,
-  };
-}
-
-function normalizeStateOptions(input: z.infer<typeof stateOptionsSchema>): NormalizedToolInput<VacpStateRequest> {
-  const notes: string[] = [];
-  const normalized: VacpStateRequest = {};
-
-  if (input.mode !== undefined) normalized.mode = input.mode;
-
-  if (input.since !== undefined) normalized.since = input.since;
-
-  if (input.includeSummary !== undefined) normalized.includeSummary = input.includeSummary;
-  const refs = normalizeRefScope(input.refs, notes);
-
-  if (refs !== undefined) normalized.refs = refs;
-
-  return buildNormalizedInput(input, Object.keys(normalized).length > 0 ? normalized : undefined, notes);
-}
-
-function normalizeCapabilitiesOptions(
-  input: z.infer<typeof capabilitiesOptionsSchema>,
-): NormalizedToolInput<VacpCapabilitiesRequest> {
-  const notes: string[] = [];
-  const normalized: VacpCapabilitiesRequest = {};
-  const refs = normalizeRefScope(input.refs, notes);
-  const prefixes = normalizeRefScope(input.prefixes, notes);
-
-  if (refs !== undefined) normalized.refs = refs;
-
-  if (prefixes !== undefined) normalized.prefixes = prefixes;
-
-  if (input.kinds !== undefined) normalized.kinds = input.kinds;
-
-  if (input.layers !== undefined) normalized.layers = input.layers;
-
-  if (input.includeActions !== undefined) normalized.includeActions = input.includeActions;
-
-  if (input.includeEdges !== undefined) normalized.includeEdges = input.includeEdges;
-
-  const hasEffectiveScope = Boolean(
-    (refs && refs.length) ||
-    (prefixes && prefixes.length) ||
-    (input.kinds && input.kinds.length) ||
-    (input.layers && input.layers.length),
-  );
-
-  if (hasEffectiveScope) {
-    if (input.includeNodeData !== undefined) normalized.includeNodeData = input.includeNodeData;
-  } else {
-    if (input.includeNodeData !== false) {
-      normalized.includeNodeData = false;
-      appendNote(notes, 'Defaulted `includeNodeData` to `false` for an unscoped capabilities read.');
-    }
-  }
-
-  return buildNormalizedInput(input, Object.keys(normalized).length > 0 ? normalized : undefined, notes);
-}
-
-export function createVacpTools(options: ToolOptions) {
-  const { transport, onToolEvent, actor } = options;
-  const run = async (
-    name: VacpAgentToolName,
-    input: Pick<NormalizedToolInput<never>, 'input' | 'requestedInput' | 'inputNote'>,
-    execute: () => Promise<unknown>,
-  ): Promise<unknown> => {
-    emit(onToolEvent, name, 'started', input);
-    try {
-      const output = sanitizeToolPayload(await execute());
-      emit(onToolEvent, name, 'succeeded', { ...input, output });
-      return output;
-    } catch (error) {
-      emit(onToolEvent, name, 'failed', { ...input, error: String(error) });
-      throw error;
-    }
-  };
-  return {
+/** The tools and the turns they narrate, shared by the public builder and the agent factories. */
+export function buildVacpAgentTools(options: VacpAgentToolsOptions): { tools: VacpAgentTools; turns?: AgentTurns } {
+  const { transport } = options;
+  const actor = options.actor ?? defaultActor;
+  const turns = options.activity ? createAgentTurns(options.activity, actor) : undefined;
+  const read = async (work: Promise<unknown>) => sanitizeToolPayload(await work);
+  const tools: VacpAgentTools = {
     vacp_observe: tool({
-      description: 'Read graph, state, source ownership, revision, and output freshness together.',
+      description: vacpAgentTools.vacp_observe.description,
       inputSchema: z.object({}),
-      execute: async () => await run('vacp_observe', {}, () => transport.vacp_observe()),
+      execute: () => read(transport.vacp_observe()),
     }),
     vacp_capabilities: tool({
-      description: 'Fetch VACP capabilities snapshot (graph + actions), optionally scoped.',
-      inputSchema: capabilitiesOptionsSchema,
-      execute: async (input) => {
-        const normalized = normalizeCapabilitiesOptions(input);
-        return await run('vacp_capabilities', normalized, () => transport.vacp_capabilities(normalized.options));
-      },
+      description: vacpAgentTools.vacp_capabilities.description,
+      inputSchema: capabilitiesInput,
+      execute: (input) => read(transport.vacp_capabilities(vacpToolCapabilitiesRequest(input))),
     }),
     vacp_state: tool({
-      description: 'Fetch VACP state snapshot or delta update envelope.',
-      inputSchema: stateOptionsSchema,
-      execute: async (input) => {
-        const normalized = normalizeStateOptions(input);
-        return await run('vacp_state', normalized, () => transport.vacp_state(normalized.options));
-      },
+      description: vacpAgentTools.vacp_state.description,
+      inputSchema: stateInput,
+      execute: (input) => read(transport.vacp_state(vacpToolStateRequest(input))),
     }),
     vacp_execute: tool({
-      description: 'Execute a semantic VACP action by name and optional params.',
-      inputSchema: executeSchema,
-      execute: async (input) => {
-        return await run('vacp_execute', { input }, () =>
-          transport.vacp_execute(input.name, input.params, input.call_id, { actor, narration: input.narration }),
-        );
-      },
+      description: vacpAgentTools.vacp_execute.description,
+      inputSchema: executeInput,
+      execute: (input) =>
+        read(transport.vacp_execute(input.name, input.params, input.call_id, { actor, narration: input.narration })),
     }),
   };
-}
-
-/** Lets the model narrate for the person watching the visualization; the host supplies the channel. */
-export function createVacpProgressTool(progress: (message: string, done: boolean) => boolean) {
-  return {
-    vacp_progress: tool({
-      description: vacpProgressGuidance,
-      inputSchema: z.object({
-        message: z.string().trim().min(1).max(VACP_NARRATION_MAX_LENGTH).describe('One plain sentence for the person.'),
-        done: z.boolean().default(false).describe('True when this message closes the current task.'),
-      }),
-      execute: async ({ message, done }) =>
-        progress(message, done)
+  if (turns)
+    tools.vacp_progress = tool({
+      description: vacpAgentTools.vacp_progress.description,
+      inputSchema: progressInput,
+      execute: ({ message, done }): ProgressResult =>
+        turns.progress(message, done)
           ? { ok: true }
           : { ok: false, reason: 'Progress is not being shown to the person right now; continue the task.' },
-    }),
-  };
+    });
+  return { tools, turns };
+}
+
+/**
+ * The agent tools over one transport, for a host that runs its own model loop. The host calls
+ * `end` with the outcome when its turn ends, so a turn the model opened through `vacp_progress`
+ * closes with the request.
+ */
+export function createVacpAgentTools(options: VacpAgentToolsOptions): {
+  tools: VacpAgentTools;
+  end(outcome?: 'completed' | 'failed' | 'cancelled'): void;
+} {
+  const { tools, turns } = buildVacpAgentTools(options);
+  return { tools, end: (outcome) => turns?.end(outcome) };
 }

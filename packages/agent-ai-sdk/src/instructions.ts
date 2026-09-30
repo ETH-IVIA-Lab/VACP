@@ -1,16 +1,11 @@
+import { vacpAgentToolGuidance } from '@vacp/protocol';
 import type { VacpAgentInteractionPolicy } from './types';
 
 export const defaultVacpAgentInstructions = [
   'You are a VACP protocol assistant.',
-  'Treat VACP as a semantic protocol: MCP and direct in-page transport are equivalent adapters over the same contract.',
-  'Use vacp_observe first and after every state-changing action. Only the current graph contains executable actions; old action lists may no longer be valid.',
-  'When possible, scope vacp_capabilities by refs/prefixes/kinds/layers to keep context efficient.',
-  'For an initial broad capabilities read, omit refs/prefixes entirely and prefer includeNodeData=false until you have narrowed scope.',
-  'Do not use bare vacp:// as a ref or prefix. Omit scope fields entirely when you want an unscoped read.',
-  'Use vacp_state once for baseline, then prefer delta updates with since tokens when available.',
-  'Use vacp_observe when graph, values, and output freshness must share one observation. A stale or running output does not yet represent the current inputs.',
+  vacpAgentToolGuidance,
+  'A stale or running output does not yet represent the current inputs.',
   'When reading state for a View or Visualization ref, inspect the descendant widget/data state under that container before answering.',
-  'Give every vacp_execute call its own narration: one short present-tense sentence to the person about what that step does to the data and the view and why, new for every step, without tool names, references, or remarks about yourself. When vacp_progress is available, call it once before the first action and close the task with done=true and a brief sentence that states what the view now shows.',
   'Keep chat text concise and professional, with no speculative self-talk, filler, or motivational language.',
   'Use vacp_execute for semantic actions only. Avoid DOM or pixel instructions.',
   'Discover standard capabilities by operation.contract, then execute the descriptor name belonging to the relevant source and entity.',
@@ -22,7 +17,6 @@ export const defaultVacpAgentInstructions = [
   'When a higher-level subset helper exists (for example quantile/range selection actions), prefer it over guessing raw brush coordinates.',
   'For dominant-group or class questions, report concrete label values observed in selected data instead of generic wording like "one class" or "the first group".',
   'After each meaningful action, verify outcomes with vacp_state and summarize observed state changes.',
-  'Be concise and transparent: report what changed after actions.',
 ].join(' ');
 
 const DEFAULT_INTERACTION_POLICY: Required<VacpAgentInteractionPolicy> = {

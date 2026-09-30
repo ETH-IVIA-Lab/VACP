@@ -29,13 +29,15 @@ const transport = createVacpTransport(bridge);
 const state = await transport.vacp_state();
 ```
 
-`@vacp/agent-ai-sdk` connects this transport to an AI SDK agent or tool set:
+`@vacp/agent-ai-sdk` connects this transport to an AI SDK agent or tool set. The bridge is also the activity channel that narrates the agent's turns:
 
 ```ts
-import { createVacpTools } from '@vacp/agent-ai-sdk';
+import { createVacpAgentTools } from '@vacp/agent-ai-sdk';
 
-const tools = createVacpTools({ transport });
+const { tools, end } = createVacpAgentTools({ transport, activity: bridge });
 ```
+
+Call `end(outcome)` when the agent's turn ends. `createVacpToolLoopAgent` does this for its own requests.
 
 See the [tool contract](../reference/tool-contract) for request and response shapes.
 

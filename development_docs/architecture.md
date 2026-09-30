@@ -103,6 +103,10 @@ Names group implementations by capability family:
 
 `@vacp/transport-webmcp` consumes protocol records and structural runtime ports. Its compiler turns a graph into executable tool definitions using an injected client. Its installer owns asynchronous browser registration, incremental replacement, cancellation, and cleanup. Applications opt in by passing their runtime instance. No provider or core package imports WebMCP.
 
+Graph reads that reach a model leave out source ownership, which routes execution and stays in runtime and inspection reads. `vacpToolRead` in `protocol` owns the projection, and the Python server's `tool_read` matches it through `protocol/test/fixtures/tool-read.json`. WebMCP registers each available action as a tool and also leaves actions out of `vacp.observe` and `vacp.capabilities`. The bridge transport and the Python MCP server keep them for `vacp_execute`.
+
+The five agent tools, `vacp_observe`, `vacp_capabilities`, `vacp_state`, `vacp_execute`, and `vacp_progress`, are one contract in `protocol`: `vacpAgentTools` holds their names, input fields, and descriptions, `vacpAgentToolGuidance` their shared guidance, and `vacpToolCapabilitiesRequest` and `vacpToolStateRequest` turn tool input into requests. `@vacp/agent-ai-sdk` and the Python MCP server both check theirs against `protocol/test/fixtures/agent-tools.json`.
+
 The runtime owns capability and observation subscriptions and its lifetime signal. DOM publication subscribes to composed observations, so it preserves execution options and shares lifecycle cleanup with other output adapters. These subscriptions are independent of the runtime history stream. Provider invalidation triggers a new coherent read. Replacing a provider aborts pending calls from its prior binding. Runtime execution forwards caller and source-lifetime cancellation to handlers.
 
 The integration targets upstream WebMCP commit `f5645e9` (2026-09-17), with the mature `webmcp-types` 0.1.7 declarations for its registration surface. Browser verification uses native Chromium APIs, not a polyfill.

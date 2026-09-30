@@ -1,4 +1,4 @@
-import { createGoogleGenerativeAI } from '@ai-sdk/google';
+import { createGoogle } from '@ai-sdk/google';
 import type { LanguageModel } from 'ai';
 
 import type { VacpLLMConfig, VacpLLMModelListOptions, VacpLLMModelOption } from './types';
@@ -43,7 +43,7 @@ export function normalizeVacpGeminiConfig(config: VacpLLMConfig): VacpLLMConfig 
 export function createVacpGeminiModel(config: VacpLLMConfig): LanguageModel {
   const normalized = normalizeVacpGeminiConfig(config);
 
-  const provider = createGoogleGenerativeAI({
+  const provider = createGoogle({
     name: normalized.providerName,
     apiKey: normalized.apiKey,
     ...(normalized.baseURL ? { baseURL: normalized.baseURL } : {}),
