@@ -21,6 +21,6 @@
     "@duckdb/duckdb-wasm": "catalog:",
     "@types/emscripten": "catalog:",
     "@vacp/protocol": "workspace:*",
-    "apache-arrow": "17.0.0"
+    "apache-arrow": "catalog:"
   }
 }

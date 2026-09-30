@@ -36,6 +36,10 @@ catalog:
   '@stylexjs/stylex': 0.19.1
   # One DuckDB-Wasm for the workspace, Mosaic's included, so apps ship and load a single engine build.
   '@duckdb/duckdb-wasm': ^1.32.0
+  # Arrow tables cross between DuckDB-Wasm and the data client, so both read one Arrow release.
+  apache-arrow: 17.0.0
+  # Tests and gold derivations run the same native DuckDB release.
+  '@duckdb/node-api': 1.5.5-r.5
   # The evals launch the Chromium that `@playwright/test` installs, so both stay on one release.
   playwright: 1.63.0
   '@playwright/test': 1.63.0

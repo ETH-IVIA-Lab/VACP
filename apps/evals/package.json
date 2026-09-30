@@ -18,7 +18,7 @@
     "@ai-sdk/openai": "4.0.80",
     "@ai-sdk/openai-compatible": "catalog:",
     "@ai-sdk/otel": "1.0.122",
-    "@duckdb/node-api": "1.5.5-r.5",
+    "@duckdb/node-api": "catalog:",
     "@opentelemetry/api": "1.9.1",
     "@opentelemetry/core": "2.11.0",
     "@opentelemetry/exporter-trace-otlp-http": "0.222.0",

@@ -30,7 +30,7 @@
     "@vacp/runtime": "workspace:*"
   },
   "devDependencies": {
-    "@duckdb/node-api": "1.5.5-r.5"
+    "@duckdb/node-api": "catalog:"
   },
   "peerDependencies": {
     "vega": "*",

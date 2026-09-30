@@ -176,6 +176,9 @@ catalogs:
     '@babel/plugin-syntax-typescript':
       specifier: ^7.29.7
       version: 7.29.7
+    '@duckdb/node-api':
+      specifier: 1.5.5-r.5
+      version: 1.5.5-r.5
     '@playwright/test':
       specifier: 1.63.0
       version: 1.63.0
@@ -215,6 +218,9 @@ catalogs:
     ai:
       specifier: ^7.0.122
       version: 7.0.122
+    apache-arrow:
+      specifier: 17.0.0
+      version: 17.0.0
     class-variance-authority:
       specifier: ^0.7.1
       version: 0.7.1
@@ -422,7 +428,7 @@ importers:
         specifier: 1.0.122
         version: 1.0.122(zod@4.6.5)
       '@duckdb/node-api':
-        specifier: 1.5.5-r.5
+        specifier: 'catalog:'
         version: 1.5.5-r.5
       '@opentelemetry/api':
         specifier: 1.9.1
@@ -835,7 +841,7 @@ importers:
         version: 6.4.3(vega@6.4.0)
     devDependencies:
       '@duckdb/node-api':
-        specifier: 1.5.5-r.5
+        specifier: 'catalog:'
         version: 1.5.5-r.5
 
   packages/adapter-vgplot:
@@ -926,7 +932,7 @@ importers:
         specifier: workspace:*
         version: link:../protocol
       apache-arrow:
-        specifier: 17.0.0
+        specifier: 'catalog:'
         version: 17.0.0
 
   packages/diagram-mermaid:
