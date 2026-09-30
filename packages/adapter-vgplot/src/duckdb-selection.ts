@@ -1,7 +1,7 @@
 import { duckDBCodeGenerator, isNode } from '@uwdata/mosaic-sql';
 
-import type { CollectedInput } from './inputs';
-import type { VgplotPlotLike } from './types';
+import { markTable } from './data-handles';
+import type { VgplotPlotLike, VgplotSelectionLike, VgplotTableLike } from './types';
 
 function exprToSql(expr: unknown): string | null {
   if (expr === true) return 'true';
@@ -87,51 +87,29 @@ function normalizeDuckDbPredicate(sql: string): string {
   return out;
 }
 
-export function whereClauseForVgplotDashboardSelection(args: {
-  plots?: VgplotPlotLike[];
-  inputs?: CollectedInput[];
-}): string | null {
-  const clauses: string[] = [];
-  // A selection's predicate covers all of its clauses, so interactors and inputs sharing it add it once.
-  const seen = new Set<unknown>();
-
-  (args.plots ?? []).forEach((plot) => {
-    plot.interactors.forEach((it) => {
-      const sel = it.selection as any;
-
-      if (!sel || typeof sel.predicate !== 'function' || seen.has(sel)) return;
-      seen.add(sel);
-
-      try {
-        const pred = sel.predicate(undefined, true);
-        const sql = predicateToSql(pred);
-
-        if (sql) clauses.push(sql);
-      } catch {
-        // ignore: if predicate fails, don't block other interactors
-      }
-    });
-  });
-
-  (args.inputs ?? []).forEach((input) => {
-    const sel = input.input.selection as any;
-
-    if (!sel || typeof sel.predicate !== 'function' || seen.has(sel)) return;
-    seen.add(sel);
-
+/**
+ * The predicate that narrows `table` as the dashboard narrows it: the whole predicate of each
+ * selection that filters a mark or table view reading `table`, as Mosaic's `filterBy`. Selections
+ * that only highlight, or that filter views of other tables, leave `table` alone.
+ */
+export function whereClauseForVgplotTable(
+  table: string,
+  surfaces: { plots: readonly VgplotPlotLike[]; tables: readonly VgplotTableLike[] },
+): string | null {
+  const selections = new Set<VgplotSelectionLike>();
+  for (const plot of surfaces.plots)
+    for (const mark of plot.marks) if (mark.filterBy && markTable(mark) === table) selections.add(mark.filterBy);
+  for (const view of surfaces.tables) if (view.filterBy && view.from === table) selections.add(view.filterBy);
+  const clauses = [...selections].flatMap((selection) => {
     try {
-      const pred = sel.predicate(undefined, true);
-      const sql = predicateToSql(pred);
-
-      if (sql) clauses.push(sql);
+      // The whole predicate, since `vacp_handle` holds the rows of every view reading the table.
+      const sql = predicateToSql(selection.predicate?.(undefined, true));
+      return sql ? [sql] : [];
     } catch {
-      // ignore
+      return [];
     }
   });
-
-  if (!clauses.length) return null;
-
-  return clauses.map((c) => `(${c})`).join(' AND ');
+  return clauses.length ? clauses.map((clause) => `(${clause})`).join(' AND ') : null;
 }
 
 export function quoteTableRef(table: string): string {

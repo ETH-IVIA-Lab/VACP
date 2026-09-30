@@ -1,7 +1,7 @@
 import type { VacpRef } from '@vacp/protocol';
 
 import { makePlotRef, makeViewRef } from './refs';
-import type { VgplotProviderOptions, VgplotPlotLike, VgplotTableLike } from './types';
+import type { VgplotMarkLike, VgplotProviderOptions, VgplotPlotLike, VgplotTableLike } from './types';
 
 export type VgplotDataHandle = {
   ref: VacpRef;
@@ -11,19 +11,18 @@ export type VgplotDataHandle = {
   table: string;
 };
 
+/** The DuckDB table a mark reads, or null for a mark drawing literal values. */
+export function markTable(mark: VgplotMarkLike): string | null {
+  try {
+    const table = mark.sourceTable?.();
+    return typeof table === 'string' && table ? table : null;
+  } catch {
+    return null;
+  }
+}
+
 function discoverPlotTables(plot: VgplotPlotLike): string[] {
-  const tables: string[] = [];
-  plot.marks.forEach((m) => {
-    try {
-      const t = m.sourceTable?.();
-
-      if (typeof t === 'string' && t) tables.push(t);
-    } catch {
-      // ignore
-    }
-  });
-
-  return Array.from(new Set(tables)).sort();
+  return Array.from(new Set(plot.marks.flatMap((mark) => markTable(mark) ?? []))).sort();
 }
 
 function djb2Hash(text: string): string {

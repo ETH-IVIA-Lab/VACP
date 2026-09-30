@@ -449,7 +449,7 @@ test('shared selection provenance restores its active source after all clause va
 test('a crossfilter shared by several plots filters their data handle once', async () => {
   const selection = { predicate: () => '"time" BETWEEN 8 AND 10' };
   const plot = (): VgplotPlotLike => ({
-    marks: [{ type: 'rectY', sourceTable: () => 'trips' }],
+    marks: [{ type: 'rectY', sourceTable: () => 'trips', filterBy: selection }],
     interactors: [mosaic(Interval1D, { selection, channel: 'x', scale: { domain: [0, 24], apply: Number } })],
   });
   const provider = createVgplotProvider({
@@ -461,6 +461,46 @@ test('a crossfilter shared by several plots filters their data handle once', asy
     const { state } = await runtime.getState();
     const handle = state['vacp://test/taxi/data/main'] as { selectionWhere: string };
     assert.equal(handle.selectionWhere.match(/BETWEEN 8 AND 10/g)?.length, 1);
+  } finally {
+    runtime.dispose();
+  }
+});
+
+test('each data handle narrows by the selections that filter views of its own table', async () => {
+  const brush = { predicate: () => '"time" BETWEEN 8 AND 10' };
+  const hover = { predicate: () => '"zone" = 4' };
+  const provider = createVgplotProvider({
+    plots: [
+      {
+        plotId: 'hours',
+        plot: {
+          marks: [{ type: 'rectY', sourceTable: () => 'trips', filterBy: brush }],
+          interactors: [
+            mosaic(Interval1D, { selection: brush, channel: 'x', scale: { domain: [0, 24], apply: Number } }),
+          ],
+        },
+      },
+      {
+        plotId: 'zones',
+        // The hover only highlights, so no mark is filtered by it.
+        plot: { marks: [{ type: 'geo', sourceTable: () => 'zones' }], interactors: [{ selection: hover }] },
+      },
+    ],
+    options: { appId: 'test', viewId: 'taxi', enableSql: false },
+  });
+  const runtime = createVacpRuntime({ providers: [provider] });
+  try {
+    const { graph, state } = await runtime.observe();
+    const where = Object.fromEntries(
+      graph.nodes
+        .filter((node) => node.kind === 'DataHandle')
+        .map((node) => [
+          (node.data as { table: string }).table,
+          (state[node.ref] as VacpDataHandleState).selectionWhere,
+        ]),
+    );
+    assert.match(where.trips!, /"time" BETWEEN 8 AND 10/);
+    assert.equal(where.zones, null);
   } finally {
     runtime.dispose();
   }
@@ -578,7 +618,7 @@ test('a data handle names its table and columns in the graph, and its selection 
       {
         plotId: 'hours',
         plot: {
-          marks: [{ type: 'rectY', sourceTable: () => 'trips' }],
+          marks: [{ type: 'rectY', sourceTable: () => 'trips', filterBy: selection }],
           interactors: [mosaic(Interval1D, { selection, channel: 'x', scale: { domain: [0, 24], apply: Number } })],
         },
       },

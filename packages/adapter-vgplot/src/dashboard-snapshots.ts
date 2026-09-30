@@ -6,7 +6,7 @@ import { describeDuckDbTable } from '@vacp/data-duckdb';
 
 import { readInputValue } from './inputs';
 import type { VgplotDataHandle } from './data-handles';
-import { whereClauseForVgplotDashboardSelection } from './duckdb-selection';
+import { whereClauseForVgplotTable } from './duckdb-selection';
 import { isSelectionBackedNearest } from './interactors/nearest';
 import type { VgplotProviderOptions, VgplotInteractorLike, VgplotScaleLike } from './types';
 
@@ -205,14 +205,13 @@ export function createVgplotDashboardSnapshots(args: {
     project: async () => {
       const tableSchemas = await schemas();
       const state = getState();
-      const selectionWhere = dataHandles.length
-        ? whereClauseForVgplotDashboardSelection({ plots: plots.map((p) => p.plot), inputs })
-        : null;
+      const surfaces = { plots: plots.map((p) => p.plot), tables: tables.map((t) => t.table) };
       // Mosaic reports no revision for its tables, so only the host's hook can state a current row count.
       const handles = new Map(
         await Promise.all(
           dataHandles.map(async (handle) => {
             const columns = tableSchemas.get(handle.ref)?.columns;
+            const selectionWhere = whereClauseForVgplotTable(handle.table, surfaces);
             const read = { ref: handle.ref, table: handle.table, columns, rowCount: null, selectionWhere };
             return [handle.ref, await vacpDataHandle(read, options.describeDataHandle)] as const;
           }),

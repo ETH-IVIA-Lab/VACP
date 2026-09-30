@@ -16,6 +16,8 @@ export interface VgplotMarkLike {
   type?: string;
   index?: number;
   sourceTable?: () => string | null;
+  /** The selection whose predicate filters the rows the mark reads, as Mosaic's `filterBy`. */
+  filterBy?: VgplotSelectionLike;
   channels?: Array<{ channel: string; as?: string; field?: unknown }>;
 }
 
@@ -85,6 +87,8 @@ export interface VgplotLegendLike {
  */
 export interface VgplotTableLike {
   schema?: Array<{ column: string }>;
+  /** The selection whose predicate filters the rows the table view shows, as Mosaic's `filterBy`. */
+  filterBy?: VgplotSelectionLike;
   readonly pending?: Promise<unknown>;
   sortHeader?: HTMLElement | null;
   element?: HTMLElement;

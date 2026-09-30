@@ -16,7 +16,7 @@ import { createVgplotBindings } from './bindings';
 import { createVgplotOperations } from './operations';
 import { createVgplotDashboardSnapshots } from './dashboard-snapshots';
 import { collectVgplotDataHandles } from './data-handles';
-import { quoteTableRef, whereClauseForVgplotDashboardSelection } from './duckdb-selection';
+import { quoteTableRef, whereClauseForVgplotTable } from './duckdb-selection';
 import { collectInputs, type CollectedInput } from './inputs';
 import { buildDashboardGraph } from './graph';
 import { createVgplotObservationBinding } from './observe';
@@ -152,6 +152,7 @@ export function createVgplotProvider(args: {
   });
 
   const tableByRef = new Map<VacpRef, string>(dataHandles.map((h) => [h.ref, h.table]));
+  const surfaces = { plots: plots.map((p) => p.plot), tables: tables.map((t) => t.table) };
 
   if (options.duckdbClient && dataHandles.length) {
     const duckdbClient = options.duckdbClient;
@@ -163,7 +164,7 @@ export function createVgplotProvider(args: {
         resolveHandle: (ref) => {
           const table = tableByRef.get(ref);
           if (!table) return null;
-          const where = whereClauseForVgplotDashboardSelection({ plots: plots.map((p) => p.plot), inputs });
+          const where = whereClauseForVgplotTable(table, surfaces);
           const allSql = `SELECT * FROM ${quoteTableRef(table)}`;
           return { allSql, selectedSql: where ? `${allSql} WHERE ${where}` : allSql };
         },

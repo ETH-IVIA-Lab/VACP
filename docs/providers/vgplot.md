@@ -34,30 +34,22 @@ Encoded fields contain bounded semantic descriptors: column and bin metadata, or
 
 For dashboards, supply several `plots` and optional `tables`. Each plot supplies a `plotId` and the VGPlot object. Each table supplies a `tableId` and the table object.
 
-Actions update existing Mosaic selections so linked views respond through their usual dataflow. Pass `options.duckdbClient` to expose data queries through the dashboard's database connection. Set `enableSql: false` to retain schema discovery while omitting SQL execution. Mosaic reports no revision for the tables it reads, so a data handle's `rowCount` is `null` unless the host states it. A host that knows its tables stay as loaded can count them once:
+Actions update existing Mosaic selections so linked views respond through their usual dataflow. Pass `options.duckdbClient` to expose data queries through the dashboard's database connection. Set `enableSql: false` to retain schema discovery while omitting SQL execution.
+
+The adapter offers one data handle per table its marks and table views read. A handle's `vacp_handle` holds that table's rows narrowed by each selection that filters a view of the table through `filterBy`, and its state reports that predicate as `selectionWhere`. A selection that only highlights, or that filters views of another table, leaves the handle alone.
+
+Mosaic reports no revision for the tables it reads, so a handle's `rowCount` is `null` unless the host states it through `options.describeDataHandle`. A host whose tables stay as they loaded, as they do once `astToDOM` has loaded a spec's data, can count each table once:
 
 ```ts
-const counts = new Map<string, Promise<number>>();
-const count = (table: string) =>
-  duckdbClient
-    .queryJson(`SELECT count(*)::INTEGER AS n FROM ${sqlIdentifier(table)}`)
-    .then(({ rows }) => Number(rows[0]!.n));
+import { countDuckDbTablesOnce } from '@vacp/data-duckdb';
 
 createVgplotProvider({
   plots,
-  options: {
-    appId,
-    viewId,
-    duckdbClient,
-    describeDataHandle: async ({ table }) => {
-      if (!counts.has(table)) counts.set(table, count(table));
-      return { rowCount: await counts.get(table)!, metadata: { source: 'Daily NOAA weather records' } };
-    },
-  },
+  options: { appId, viewId, duckdbClient, describeDataHandle: countDuckDbTablesOnce(duckdbClient) },
 });
 ```
 
-The hook runs on every graph and state read, with the handle's `ref` and `table`. Its `rowCount` reaches models as the handle's state, its `metadata` joins the node's `data`, and its `stats` join the state. A hook that fails states nothing.
+The hook runs on every graph and state read, with the handle's `ref` and `table`, and returns any of `rowCount`, `metadata`, which joins the node's `data`, and `stats`, which join its state. A hook that fails states nothing.
 
 Interval actions take data-domain endpoints in either order. Mosaic crossfilters retain the source plot as context and filter other marks subscribed through `filterBy`. In NYC Taxi Rides, brushing pickups filters the dropoff map. The hour histogram controls both maps but remains unfiltered itself. A visible brush identifies the selected region. Check the linked output to see the filtering effect.
 
