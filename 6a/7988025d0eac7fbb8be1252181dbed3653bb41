@@ -1,0 +1,11 @@
+packages/agent-ai-sdk/src/create-vacp-agent.ts
+  ai_agent 77-80,85-95,98-100
+packages/agent-ai-sdk/test/agent-tools.test.ts
+  ai_agent 127-148
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "6a7988025d0eac7fbb8be1252181dbed3653bb41",
+  "prompts": {}
+}
