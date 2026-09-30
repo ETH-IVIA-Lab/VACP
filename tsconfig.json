@@ -32,6 +32,9 @@
       "path": "apps/e2e"
     },
     {
+      "path": "apps/evals"
+    },
+    {
       "path": "packages/runtime-browser"
     },
     {

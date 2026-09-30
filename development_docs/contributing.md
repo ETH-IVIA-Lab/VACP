@@ -38,6 +38,10 @@ make browser-install e2e
 
 Use `make help` for the command list. The root pnpm scripts delegate to these targets. CI calls `make setup ci` and `make setup-web browser-install e2e`.
 
+### Agent evals
+
+`apps/evals` measures how agents use VACP on the examples: it grades page state, rendered text, and replies, and records tokens, latency, and reads per run. `make check` runs its unit tests. Eval runs call models, so they run on request: build the libraries with `make build-libs`, then follow [apps/evals/README.md](../apps/evals/README.md). A round that changes VACP reruns a flow as the next variant and compares it with the baseline on the test split.
+
 ### Source imports and library output
 
 Use extensionless relative source imports and re-exports:

@@ -1,0 +1,15 @@
+diff --git a/dist/index.js b/dist/index.js
+index 8636cdb21cfe6665867d84a1e5dd4b467b78fa5c..baa53a941c9dcf9b597dec150ad6d04df5191a3e 100644
+--- a/dist/index.js
++++ b/dist/index.js
+@@ -3022,8 +3022,8 @@ async function createPiSession(input) {
+           };
+           const usage = {
+             inputTokens: {
+-              total: stats.tokens.input,
+-              noCache: void 0,
++              total: stats.tokens.input + stats.tokens.cacheRead + stats.tokens.cacheWrite,
++              noCache: stats.tokens.input,
+               cacheRead: stats.tokens.cacheRead,
+               cacheWrite: stats.tokens.cacheWrite
+             },

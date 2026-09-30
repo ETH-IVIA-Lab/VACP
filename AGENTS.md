@@ -24,6 +24,7 @@ VACP composes analytical sources, state, freshness, and semantic operations thro
 - `examples/gallery`: gallery composition and generated routes.
 - `examples/cars-parallel-coords`, `examples/react-dashboard`, `examples/vega-lite-gallery`, `examples/vgplot-gallery`: runnable examples.
 - `apps/e2e`: Playwright tests through the browser and public bridge.
+- `apps/evals`: agent evals that run conditions (agent loops, including AI SDK harnesses) and models on the examples through VACP and grade page state, replies, tokens, and latency. Eval runs call models, so `make check` runs only its unit tests.
 - `docs/`: user-facing guides and API reference.
 - `apps/docs`: VitePress configuration, theme, and public assets.
 - `development_docs/`: architecture, contributing, and testing guides.

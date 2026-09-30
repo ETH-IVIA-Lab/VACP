@@ -8,7 +8,7 @@
     "test:e2e": "playwright test"
   },
   "devDependencies": {
-    "@playwright/test": "^1.63.0",
+    "@playwright/test": "catalog:",
     "@types/node": "catalog:",
     "@vacp/adapter-vega-lite": "workspace:*",
     "@vacp/adapter-vgplot": "workspace:*",

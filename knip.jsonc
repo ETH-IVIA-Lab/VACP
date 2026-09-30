@@ -22,6 +22,10 @@
       // Browser fixtures load through Vite's /@fs route; setup files run as a Playwright project.
       "entry": ["fixtures/presence.ts", "fixtures/webmcp.ts", "tests/*.setup.ts"],
     },
+    "apps/evals": {
+      // src/index.ts is the authoring API that suites and scenarios build on.
+      "entry": ["evals.config.ts", "src/index.ts", "test/*.test.ts"],
+    },
     "apps/docs": {
       // VitePress loads this optional minifier dynamically for Rolldown builds.
       "ignoreDependencies": ["oxc-minify"],

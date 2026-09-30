@@ -36,6 +36,9 @@ catalog:
   '@stylexjs/stylex': 0.19.1
   # One DuckDB-Wasm for the workspace, Mosaic's included, so apps ship and load a single engine build.
   '@duckdb/duckdb-wasm': ^1.32.0
+  # The evals launch the Chromium that `@playwright/test` installs, so both stay on one release.
+  playwright: 1.63.0
+  '@playwright/test': 1.63.0
   # One AI SDK for the workspace, shared by the product agent and the evals.
   ai: ^7.0.122
   '@ai-sdk/openai-compatible': ^3.0.59
@@ -44,11 +47,17 @@ overrides:
   yaml: 'catalog:'
   vite: 'catalog:'
   vitepress>vite: ^8.2.0
+  # The harness adapters pin different ws patches, which splits @ai-sdk/harness into two module instances.
+  '@ai-sdk/harness-opencode>ws': 8.22.0
+  '@ai-sdk/harness-pi>ws': 8.22.0
 peerDependencyRules:
   allowedVersions:
     vite: '*'
     vitepress: 2.0.0-alpha.19
+    # Pi's Mistral client accepts the evals' OTLP exporter, one minor ahead of its declared range.
+    '@mistralai/mistralai>@opentelemetry/exporter-trace-otlp-http': 0.222.0
 allowBuilds:
+  '@google/genai': false
   '@parcel/watcher': true
   core-js: true
   esbuild: true
@@ -62,3 +71,9 @@ publicHoistPattern:
   - '@vue/*'
   - '@vueuse/*'
   - vitepress
+# OpenCode and Pi count input tokens net of cache hits, and their harness adapters report that count
+# as the total. The patches report total = uncached + cache reads + cache writes, as AI SDK usage
+# defines it, so eval token rows and GenAI spans compare across conditions.
+patchedDependencies:
+  '@ai-sdk/harness-opencode@1.0.134': patches/@ai-sdk__harness-opencode@1.0.134.patch
+  '@ai-sdk/harness-pi@1.0.134': patches/@ai-sdk__harness-pi@1.0.134.patch
