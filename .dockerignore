@@ -13,8 +13,6 @@ __pycache__
 *.tsbuildinfo
 **/*.tsbuildinfo
 
-.git
-**/.git
 .venv
 **/.venv
 .pytest_cache

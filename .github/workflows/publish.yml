@@ -29,9 +29,12 @@ jobs:
       REGISTRY: harbor.ivia.ch
       IMAGE: ivialabreg/ou-ivia/research-projects/vacp/${{ matrix.image }}
     steps:
+      # The docs image reads each page's last commit for its "Last updated" stamp.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
       - name: Identify source
         id: source
         run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
