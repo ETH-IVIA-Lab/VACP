@@ -1,0 +1,21 @@
+packages/python/pyproject.toml
+  s_7845e1732af377::t_b60468ebf71031 18
+examples/gallery/vite.config.ts
+  s_7845e1732af377::t_2eb10ba3a4bef8 9,11-14
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "e92b0bfb894e3dfc461490755d44c6bfd628392a",
+  "prompts": {},
+  "sessions": {
+    "s_7845e1732af377": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "b3e7a65c-9a19-4f28-9a82-986b3af71622",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Péter Ferenc Gyarmati <peterferenc.gyarmati@inf.ethz.ch>"
+    }
+  }
+}
