@@ -16,8 +16,60 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
+  # Pull requests run the jobs whose paths they change, as .github/filters.yml defines them.
+  changes:
+    name: Changes
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      documentation: ${{ github.event_name != 'pull_request' || steps.filter.outputs.documentation == 'true' }}
+      code: ${{ github.event_name != 'pull_request' || steps.filter.outputs.code == 'true' }}
+      build: >-
+        ${{ github.event_name != 'pull_request' || steps.filter.outputs.code == 'true' ||
+        steps.filter.outputs.site == 'true' || steps.filter.outputs.package == 'true' }}
+      browser: >-
+        ${{ github.event_name != 'pull_request' || steps.filter.outputs.code == 'true' ||
+        steps.filter.outputs.site == 'true' }}
+    steps:
+      - name: Check out repository
+        if: github.event_name == 'pull_request'
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Classify changed files
+        id: filter
+        if: github.event_name == 'pull_request'
+        uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
+        with:
+          filters: .github/filters.yml
+          predicate-quantifier: some-with-excludes
+
+  format:
+    name: Formatting
+    needs: changes
+    if: needs.changes.outputs.documentation == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up workspace
+        uses: ./.github/actions/setup
+
+      - name: Check formatting
+        run: make format-check
+
   quality:
     name: Lint and types
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -45,6 +97,8 @@ jobs:
 
   test:
     name: Unit tests
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -63,6 +117,8 @@ jobs:
 
   build:
     name: Build
+    needs: changes
+    if: needs.changes.outputs.build == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -97,7 +153,8 @@ jobs:
 
   e2e:
     name: Browser suite (${{ matrix.shard }}/4)
-    needs: build
+    needs: [changes, build]
+    if: needs.changes.outputs.browser == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     strategy:
@@ -175,19 +232,20 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 
-  # The one check branch protection requires. It fails unless every job above succeeded.
+  # The one check branch protection requires. It fails when a job above failed or was cancelled. A job
+  # the changed paths leave out reports skipped.
   gate:
     name: CI gate
     if: always()
-    needs: [quality, test, build, e2e, report]
+    needs: [changes, format, quality, test, build, e2e, report]
     runs-on: ubuntu-latest
     timeout-minutes: 1
     steps:
-      - name: Confirm every job succeeded
+      - name: Confirm every selected job succeeded
         env:
           NEEDS: ${{ toJSON(needs) }}
         run: |
-          failed=$(jq -r 'to_entries[] | select(.value.result != "success") | "\(.key): \(.value.result)"' <<< "$NEEDS")
+          failed=$(jq -r 'to_entries[] | select(.value.result != "success" and .value.result != "skipped") | "\(.key): \(.value.result)"' <<< "$NEEDS")
           if [[ -n "$failed" ]]; then
             echo "$failed" >&2
             exit 1
