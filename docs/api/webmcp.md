@@ -24,7 +24,7 @@ Registers the runtime's available operations and follows its capability changes.
 | `signal`    |                         | Removes the tools when aborted                           |
 | `context`   | `document.modelContext` | The registry, `{ registerTool(tool, options?) }`         |
 
-`VacpWebMcpSource` is the part of the runtime the installation uses: the four reads and `execute`, `narrate`, `subscribeCapabilities`, and `signal`.
+`VacpWebMcpSource` is the part of the runtime the installation uses: `observe`, `getCapabilities`, `getState`, `execute`, `narrate`, `subscribeCapabilities`, and `signal`.
 
 ### VacpWebMcpInstallation
 

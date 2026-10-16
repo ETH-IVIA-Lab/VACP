@@ -19,7 +19,7 @@ type VacpDuckDbClient = VacpDuckDbQueryClient & {
 };
 ```
 
-The vgplot adapter and the handlers need a query client. The Vega-Lite adapter loads chart data, so it needs a full client. `loadObjectsAsTable` creates or replaces `table`. Columns named in `types` hold text that loads with that type: wall-clock text such as `2012-06-01T00:00:00.000` as `TIMESTAMP`, decimal text as `DOUBLE`. Other columns take the types DuckDB infers. Query results convert dates to ISO text and large integers to numbers or strings that keep their value.
+The vgplot adapter and the handlers need a query client. The Vega-Lite adapter loads chart data, so it needs a full client. `loadObjectsAsTable` creates `table`. To replace a table, drop it first. Columns named in `types` hold text that loads with that type: wall-clock text such as `2012-06-01T00:00:00.000` as `TIMESTAMP`, decimal text as `DOUBLE`. Other columns take the types DuckDB infers. Query results convert dates to ISO text and large integers to numbers or strings that keep their value.
 
 ### createDuckDbWasmClient
 
@@ -30,9 +30,9 @@ createDuckDbWasmClient(options?:
 ): Promise<VacpDuckDbWasmClient>
 ```
 
-With `bundles` or no options, starts [DuckDB-Wasm](https://duckdb.org/docs/api/wasm/overview) in a worker and owns it. Without `bundles`, the engine files load from jsDelivr, so the page needs network access to that origin. With `duckdb`, borrows a database the application already runs, such as Mosaic's, and opens a connection unless `connection` is given. `dispose()` closes what the client opened and terminates an owned database. A borrowed database and connection stay open.
+With `bundles` or no options, the client owns a [DuckDB-Wasm](https://duckdb.org/docs/stable/clients/wasm/overview) database and starts it in a worker on first use. Without `bundles`, the engine files load from jsDelivr, so the page needs network access to that origin. With `duckdb`, borrows a database the application already runs, such as Mosaic's, and opens a connection on first use unless `connection` is given. `dispose()` closes what the client opened and terminates an owned database. A borrowed database and connection stay open.
 
-`instantiateDuckDbWasm({ bundles?, log? })` starts a database without wrapping it, for an application that shares it with Mosaic.
+`instantiateDuckDbWasm({ bundles?, log? })` starts a database at once, without wrapping it, for an application that shares it with Mosaic.
 
 ## Handlers
 

@@ -55,7 +55,7 @@ Containment alone carries no analytical meaning. A provider adds `controls` or `
 
 ## State and summaries
 
-State holds the current value of each entity, keyed by ref. Values are JSON:
+State holds the current value of each entity, keyed by ref. Keep values JSON, since transports serialize them and restoration applies them back:
 
 ```json
 { "state": { "vacp://example/threshold": { "value": 42 } } }
@@ -120,7 +120,7 @@ An operation is a named change or query that an agent or an interface can execut
 | `operation.refParameters` | Parameters whose values are refs                                           |
 | `operation.results`       | State, entities, data, visualizations, or artifacts the operation produces |
 
-A call runs in two phases. Preparation validates every parameter and resolves the native target without changing anything. Execution then applies the change once. A call with invalid parameters fails during preparation with `error.details.code: 'invalid-params'` and one issue per field, and the analysis stays as it was.
+A call runs in two phases. Preparation validates every parameter and resolves the native target without changing anything. Execution then applies the change once. A call with invalid parameters fails during preparation with `error.details.code: 'invalid-params'` and an issue with the `path` of each failed check, and the analysis stays as it was.
 
 ```js
 await window.__vacp.execute({ callId: 'c1', name: 'threshold.set', params: { value: 42 } });

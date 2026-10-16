@@ -38,7 +38,7 @@ Each adapter builds one binding inventory per provider generation. Discovery, st
 
 ### Observation ownership
 
-`createSharedSubscription` connects one native resource once while it has consumers. `createProviderSubscription` binds lazily, coalesces notifications within 120 ms, and isolates listener failures. Instrumentation preserves native return values and promise identity, restores only methods it still owns, and releases every acquired hook when setup fails. Borrowing a visualization never grants permission to finalize it.
+`createSharedSubscription` connects one native resource once while it has consumers. `createProviderSubscription` binds lazily, coalesces notifications within its `quietMs`, 120 ms in the visualization adapters, and isolates listener failures. Instrumentation preserves native return values and promise identity, restores only methods it still owns, and releases every acquired hook when setup fails. Borrowing a visualization never grants permission to finalize it.
 
 ### Completion and freshness
 
@@ -61,7 +61,7 @@ Unattributed changes are recorded only from provider invalidation. `refresh({ ac
 
 ## Execution
 
-`runtime.execute` resolves the owner, checks availability, prepares, waits for bounded execution gates, checks availability again, and executes once. Preparation validates every input and resolves its native target before any change, and its closure is single-use. Dispatch captures the before-state immediately before effects and records the terminal outcome once. A later cancellation, read failure, or presentation failure cannot replace a known result. Error details carry a `VacpActionError`'s details only.
+`runtime.execute` resolves the owner, checks availability, prepares, waits for bounded execution gates, checks availability again, and executes once. Preparation validates every input and resolves its native target before any change, and its closure is single-use. Dispatch captures the before-state immediately before effects and records the terminal outcome once. A later cancellation, read failure, or presentation failure cannot replace a known result. Error details carry a `VacpActionError`'s details or a thrown JSON primitive. Any other error contributes its message.
 
 Execution options belong to the host: `actor`, `narration`, `signal`, and `restoration` never come from model parameters. Cancellation combines the caller's signal with the provider generation's lifetime. Replacing a provider aborts calls pending on its old binding.
 
@@ -69,15 +69,15 @@ Execution options belong to the host: `actor`, `narration`, `signal`, and `resto
 
 ## Narration and turns
 
-The narration contract lives once in `protocol`: the guidance text, `parseVacpNarration` (trimmed, at most 280 code points, one whitespace set shared with Python), and the progress tool's fields. Every transport offers the same five tools, and `vacp_progress` speaks through `runtime.narrate()`.
+The narration contract lives once in `protocol`: the guidance text, `parseVacpNarration` (trimmed, at most 280 code points, one whitespace set shared with Python), and the progress tool's fields. The bridge and AI SDK transports offer the same five tools. The Python CLI adds page navigation and page info, and WebMCP projects each operation as its own tool. Every progress tool speaks through `runtime.narrate()`.
 
-One request is one turn. `narrate` opens a turn when none is open, joins one a host opened with `beginAgentActivity`, and closes it on `done`. An agent's first execution without an open turn opens one, so every step shares the turn's `activityId`. A turn with no sentence and no step for 60 seconds closes once the actor has no execution in flight. An execution's `narration` is fixed at acceptance: the call's own sentence, or the actor's live words no earlier step carried. A finished turn is recorded as a `turn` record before its completion is published.
+One request is one turn. `narrate` opens a turn when none is open, joins one a host opened with `beginAgentActivity`, and closes it on `done`. An agent's first execution without an open turn opens one, so every step shares the turn's `activityId`. A turn that narration or a first step opened closes after 60 seconds with no sentence and no step, once the actor has no execution in flight. A host closes a turn it opened with `beginAgentActivity` itself. An execution's `narration` is fixed at acceptance: the call's own sentence, or the actor's live words no earlier step carried. A finished turn is recorded as a `turn` record before its completion is published.
 
 `vacpAgentActor` is the default actor of every transport, pinned in `agent-tools.json` for Python.
 
 ## Provenance and restoration
 
-The journal owns record identity, retention, epochs, and revisions. Each record is cloned once at capture, deeply frozen, and shared by every reader. Consumers mirror appended records by revision and resynchronize only after an epoch change or a revision gap. Observation records carry an explicit actor and cause, and concurrent observations list overlapping executions without claiming causality.
+The journal owns record identity, retention, epochs, and revisions. Each record is cloned once at capture, deeply frozen, and shared by every reader. A record holding mutable built-ins such as `Date` or `Map` gives each reader its own copy. Consumers mirror appended records by revision and resynchronize only after an epoch change or a revision gap. Observation records carry an explicit actor and cause, and concurrent observations list overlapping executions without claiming causality.
 
 `provenance-core` projects checkpoints over the whole chronology before any actor filter. A replay controller owns one viewer's selection, review trail, and saved return state, keeps only scalar epoch and revision cursors, and reads retention from the journal. Restoration is a separate capability, `VacpRestore`, supplied by the host. `createVacpRestorer` routes each source its state through `vacp.apply_state`, runs as `vacpHumanActor`, waits for every source, and reports per-source results. It is not a transaction across engines.
 

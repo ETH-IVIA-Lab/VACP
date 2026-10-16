@@ -10,7 +10,7 @@ Tests protect behavior at the boundary a consumer uses: package exports for libr
 | Browser         | `make e2e`                  | Examples, presence, WebMCP, the built gallery, and the docs             |
 | Benchmarks      | `make bench`                | Hot paths, run one package at a time. See [performance](performance.md) |
 
-Unit tests run with `node --test` and a 10-second deadline, so a missing asynchronous signal fails instead of hanging. Timing contracts use controlled clocks and observable phases. Benchmarks are never correctness checks.
+Unit tests run with `node --test` and a 10-second deadline, 20 seconds for the eval suite, so a missing asynchronous signal fails instead of hanging. Timing contracts use controlled clocks and observable phases. Benchmarks are never correctness checks.
 
 ## Browser suite
 

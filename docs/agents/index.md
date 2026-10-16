@@ -1,6 +1,6 @@
 # Connect an agent
 
-An agent reaches a page's runtime through five tools. Pick the transport by where the agent runs:
+An agent reaches a page's runtime through five shared tools. Pick the transport by where the agent runs:
 
 | Agent                                                                         | Transport                    | Package                  |
 | ----------------------------------------------------------------------------- | ---------------------------- | ------------------------ |
@@ -8,7 +8,7 @@ An agent reaches a page's runtime through five tools. Pick the transport by wher
 | An agent you run inside the page                                              | AI SDK tools over the bridge | `@vacp/agent-ai-sdk`     |
 | A browser agent that reads the page's tools                                   | WebMCP                       | `@vacp/transport-webmcp` |
 
-Every transport offers the same tools with the same descriptions, defined once in `@vacp/protocol`:
+The MCP server and the AI SDK tools offer these tools with the same descriptions, defined once in `@vacp/protocol`. The MCP server adds `vacp_open_url` and `vacp_page_info`, and [WebMCP](./webmcp) registers one tool per operation in place of `vacp_execute`:
 
 ```text
 vacp_observe()
@@ -37,7 +37,7 @@ The server listens at `http://localhost:8000/mcp`. Pass `--transport stdio` for 
 
 ```ts
 import { createOpenAICompatible } from '@ai-sdk/openai-compatible';
-import { createVacpToolLoopAgent } from '@vacp/agent-ai-sdk';
+import { createVacpChatRuntime, createVacpToolLoopAgent } from '@vacp/agent-ai-sdk';
 import { getVacpBridge } from '@vacp/runtime-browser';
 import { createVacpTransport } from '@vacp/transport-bridge';
 
@@ -62,7 +62,7 @@ const { transport } = createVacpChatRuntime({
 });
 ```
 
-`createVacpAgentTools(transport)` returns the five tools alone, for an agent you assemble yourself. Each tool forwards the AI SDK's abort signal, so stopping a request cancels the step it is running.
+`createVacpAgentTools(transport)` returns the five tools alone, for an agent you assemble yourself. `vacp_execute` and `vacp_progress` forward the AI SDK's abort signal, so stopping a request cancels the step it is running.
 
 ## Browser-native tools
 

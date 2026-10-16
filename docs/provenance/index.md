@@ -69,9 +69,9 @@ if (first) {
 replay.dispose();
 ```
 
-The restorer applies each source's recorded state through its `vacp.apply_state` operation and reports one result per source. Sources restore independently, so one can succeed while another fails. Restoration runs as an operation by `vacpHumanActor` that carries a restoration ID, and checkpoint projection leaves it out of the trail.
+The restorer first checks that every recorded ref has an owner with a `vacp.apply_state` operation, and applies nothing when one is missing. It then applies each source's recorded state through that operation and reports one result per source. Sources restore independently, so one can succeed while another fails. Restoration runs as an operation by `vacpHumanActor` that carries a restoration ID, and checkpoint projection leaves it out of the trail.
 
-`replay.getState()` returns the `steps`, the finished agent `turns`, the `selected` checkpoint, the `latest` checkpoint, `working`, and a `phase` of `live`, `restoring`, `reviewing`, or `error`. An `error` phase carries the failure message. `working` is true while another actor's execution has started and its record has not reached `steps`. Review requests wait while it is true.
+`replay.getState()` returns the `steps`, the finished agent `turns`, the `selected` checkpoint, the `latest` checkpoint, `working`, and a `phase` of `live`, `restoring`, `reviewing`, or `error`. An `error` phase carries the failure message. `working` is true from the moment an execution that changes the analysis is prepared until its record reaches `steps`. Queries and this viewer's own restorations leave it false. A review request made while `working` is true, or while a restoration runs, is declined, so the viewer asks again once the work settles.
 
 A new change by another actor, a changed external observation, or a session reset ends the review and keeps the new state. `close()` returns to the state captured when review began. `interrupt()` and `dispose()` end the review without restoring anything.
 

@@ -48,7 +48,7 @@ Reads the sources and records the change as an observation by `actor`, the syste
 | `beginAgentActivity({ actor, summary?, signal? })` | Opens a turn. The handle's `update(summary)` replaces its words, `end({ outcome?, summary? })` closes it |
 | `narrate({ actor, message, done?, signal? })`      | Speaks one sentence. Opens a turn when none is open, or joins the open one. `done: true` closes it       |
 
-A summary is at most 500 Unicode code points, trimmed of the same whitespace as narration. A turn left with no sentence and no step for 60 seconds closes once the actor has no execution in flight. An agent's first execution with no turn open opens one, so every step of a request shares one `activityId`. The runtime keeps at most 32 actors with an open turn. Opening a turn for another actor cancels the oldest one.
+A summary is at most 500 Unicode code points, trimmed of the same whitespace as narration. A turn that `narrate` or a first step opened closes after 60 seconds with no sentence and no step, once the actor has no execution in flight. A turn opened with `beginAgentActivity` stays open until its handle ends it. An agent's first execution with no turn open opens one, so every step of a request shares one `activityId`. The runtime keeps at most 32 actors with an open turn. Opening a turn for another actor cancels the oldest one.
 
 ### Subscriptions
 
@@ -129,7 +129,7 @@ const restorer = createVacpRestorer(runtime);
 restorer.restore(state: Record<VacpRef, unknown>, options?: VacpActionExecutionOptions): Promise<VacpRestorationResult>
 ```
 
-Splits `state` by source ownership, read through `inspect()`, and executes each source's `vacp.apply_state` operation as `vacpHumanActor` unless `options.actor` names another. Requests through one restorer run one at a time. The result is `{ ok, result: { sources } }` with one `{ sourceId, action, result }` per source. `ok` is false when any source fails or when a source owning part of the state has no `vacp.apply_state` operation. `restore` keeps no reference to the restorer, so pass it where a `VacpRestore` is expected.
+Splits `state` by source ownership, read through `inspect()`, and executes each source's `vacp.apply_state` operation as `vacpHumanActor` unless `options.actor` names another. Requests through one restorer run one at a time. Every ref must have an owner with exactly one `vacp.apply_state` operation, checked before any source changes. A failed check returns `{ ok: false, error: { message } }` and applies nothing. After the check, sources restore independently. Success returns `{ ok: true, result: { sources } }`, and a failure in any source returns `{ ok: false, error: { message, details: { sources } } }`, both with one `{ sourceId, action, result }` per source. `restore` keeps no reference to the restorer, so pass it where a `VacpRestore` is expected.
 
 ## Subscription helpers
 

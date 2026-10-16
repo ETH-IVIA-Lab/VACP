@@ -28,39 +28,39 @@ createVgplotProvider(options: {
 | `data.describe`                   |         | States row counts, `metadata`, and `stats` for each handle                         |
 | `options.appId`, `options.viewId` |         | The root of every ref the provider creates                                         |
 
-Throws when an interactor, legend, or input comes from a second copy of a Mosaic package, naming the package. The source ID is `vacp-source://<appId>/<viewId>/vgplot`.
+The dashboard and the adapter must share one copy of each Mosaic package. Provider creation throws, naming the package, when it meets an interactor, legend, or input from a second copy whose class names are readable. A minified second copy goes unrecognized. The source ID is `vacp-source://<appId>/<viewId>/vgplot`.
 
 ## Operations
 
-Every operation targets an entity by `ref`. Interval and domain values are in data units: numbers, or dates as ISO text or epoch milliseconds on a temporal scale.
+Every operation targets an entity by `ref`. Values are in data units. Interval operations take numbers, or dates as ISO text or epoch milliseconds on a temporal scale. Pan and zoom domains take numbers, epoch milliseconds on a temporal scale.
 
-| Contract                        | Parameters                                       | Registered when the dashboard has            |
-| ------------------------------- | ------------------------------------------------ | -------------------------------------------- |
-| `vgplot.set_interval_1d`        | `ref`, `min`, `max`                              | An `intervalX` or `intervalY` interactor     |
-| `vgplot.clear_interval_1d`      | `ref`                                            | The same                                     |
-| `vgplot.set_interval_2d`        | `ref`, `x0`, `x1`, `y0`, `y1`                    | An `intervalXY` interactor                   |
-| `vgplot.clear_interval_2d`      | `ref`                                            | The same                                     |
-| `vgplot.set_toggle`             | `ref`, `value`: points as arrays of field values | A `toggle` interactor                        |
-| `vgplot.clear_toggle`           | `ref`                                            | The same                                     |
-| `vgplot.set_region`             | `ref`, `value`                                   | A `region` interactor                        |
-| `vgplot.clear_region`           | `ref`                                            | The same                                     |
-| `vgplot.clear_nearest`          | `ref`                                            | A selection-backed `nearest` interactor      |
-| `vgplot.set_pan_zoom`           | `ref`, `x0`, `x1`, `y0`, `y1`                    | A `panZoom` interactor                       |
-| `vgplot.clear_pan_zoom`         | `ref`                                            | The same                                     |
-| `vgplot.set_legend_toggle`      | `ref`, `value`                                   | A categorical legend with a toggle selection |
-| `vgplot.clear_legend_toggle`    | `ref`                                            | The same                                     |
-| `vgplot.set_input_value`        | `ref`, `value`                                   | A menu, search, or slider input              |
-| `vgplot.set_input_option_index` | `ref`, `index`                                   | A menu whose options are not plain strings   |
-| `vgplot.clear_input`            | `ref`                                            | An input                                     |
-| `vgplot.table_set_sort`         | `ref`, `column`, `desc?`                         | A table                                      |
-| `vgplot.table_clear_sort`       | `ref`                                            | A table                                      |
-| `vgplot.table_set_page`         | `ref`, `offset?`, `limit?`                       | A table                                      |
-| `vacp.widget_options`           | `ref`, `offset?`, `limit?`, `query?`             | A menu input                                 |
-| `vacp.apply_state`              | `state`                                          | Always                                       |
-| `vacp.data_sql`                 | `handleRef`, `sql`, `format?`, `maxRows?`        | `data` with `sql` not `false`                |
-| `vacp.data_schema`              | `handleRef`, `detail?`, `sampleRows?`            | `data`                                       |
+| Contract                        | Parameters                                       | Registered when the dashboard has                |
+| ------------------------------- | ------------------------------------------------ | ------------------------------------------------ |
+| `vgplot.set_interval_1d`        | `ref`, `min`, `max`                              | An `intervalX` or `intervalY` interactor         |
+| `vgplot.clear_interval_1d`      | `ref`                                            | The same                                         |
+| `vgplot.set_interval_2d`        | `ref`, `x0`, `x1`, `y0`, `y1`                    | An `intervalXY` interactor                       |
+| `vgplot.clear_interval_2d`      | `ref`                                            | The same                                         |
+| `vgplot.set_toggle`             | `ref`, `value`: points as arrays of field values | A `toggle` interactor                            |
+| `vgplot.clear_toggle`           | `ref`                                            | The same                                         |
+| `vgplot.set_region`             | `ref`, `value`                                   | A `region` interactor                            |
+| `vgplot.clear_region`           | `ref`                                            | The same                                         |
+| `vgplot.clear_nearest`          | `ref`                                            | A selection-backed `nearest` interactor          |
+| `vgplot.set_pan_zoom`           | `ref`, `x0`, `x1`, `y0`, `y1`                    | A `panZoom` interactor                           |
+| `vgplot.clear_pan_zoom`         | `ref`                                            | The same                                         |
+| `vgplot.set_legend_toggle`      | `ref`, `value`                                   | A categorical legend with a toggle selection     |
+| `vgplot.clear_legend_toggle`    | `ref`                                            | The same                                         |
+| `vgplot.set_input_value`        | `ref`, `value`                                   | A menu, search, or slider input                  |
+| `vgplot.set_input_option_index` | `ref`, `index`                                   | A menu with options                              |
+| `vgplot.clear_input`            | `ref`                                            | An input                                         |
+| `vgplot.table_set_sort`         | `ref`, `column`, `desc?`                         | A table                                          |
+| `vgplot.table_clear_sort`       | `ref`                                            | A table                                          |
+| `vgplot.table_set_page`         | `ref`, `offset?`, `limit?`                       | A table                                          |
+| `vacp.widget_options`           | `ref`, `offset?`, `limit?`, `query?`             | An input                                         |
+| `vacp.apply_state`              | `state`                                          | Always                                           |
+| `vacp.data_sql`                 | `handleRef`, `sql`, `format?`, `maxRows?`        | `data` with `sql` not `false`, and a data handle |
+| `vacp.data_schema`              | `handleRef`, `detail?`, `sampleRows?`            | `data`, and a data handle                        |
 
-A call fails during preparation, before anything changes, when its ref names no entity of the operation's kind or a value falls outside what the interactor accepts. Interval endpoints may come in either order. `set_input_option_index` and `vacp.widget_options` apply to menus. A slider applies its own bounds and step, and `set_input_value` returns the value the slider holds, so a request for 12.5 on a step-1 slider returns 13.
+A call fails during preparation, before anything changes, when its ref names no entity of the operation's kind or a value falls outside what the interactor accepts. Interval endpoints may come in either order. `set_input_option_index` applies to menus. `vacp.widget_options` lists a menu's options and an empty list for other inputs. A slider applies its own bounds and step, and `set_input_value` returns the value the slider holds, so a request for 12.5 on a step-1 slider returns 13.
 
 ## State
 

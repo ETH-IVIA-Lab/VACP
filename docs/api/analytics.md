@@ -13,7 +13,7 @@ installVacpRuntimeAnalytics(options: {
 }): { dispose(): void }
 ```
 
-Captures a `vacp_runtime_init` event, then one `vacp_<kind>` event per provenance record, with the record's actor, operation, and outcome. It mirrors the latest 50 records into the session's properties, at most once a second, and starts session recording when the provider supports it. `captureSnapshots: true` adds analytical state to the events, at most one snapshot a second. `getBaseProperties()` adds properties to every event, such as application and view IDs.
+Captures a `vacp_runtime_init` event, then one `vacp_<kind>` event per action, turn, and session record, with the record's actor, operation, and outcome. It mirrors the latest 50 of those records into the session's properties, at most once a second, and starts session recording when the provider supports it. `captureSnapshots: true` adds each action's before and after state to its event, and also sends observation records, coalesced to at most one event a second. `getBaseProperties()` adds properties to every event, such as application and view IDs.
 
 `dispose()` stops forwarding and cancels pending deliveries. Disposing the runtime does the same. Throws when the runtime is already disposed.
 

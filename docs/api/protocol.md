@@ -238,20 +238,33 @@ A `DataHandle` node stands for a table its provider can query. Its node `data` a
 | `selectionWhere` | state       | The predicate the current selections add, or `null` when none narrows `vacp_handle`                   |
 | `stats`          | state       | Current figures from the host's `data.describe` hook                                                  |
 
+A handle's node and its state in an observation:
+
 ```json
 {
   "graph": {
-    "ref": "vacp://vacp-examples/data/main",
-    "kind": "DataHandle",
-    "data": {
-      "table": "cars",
-      "columns": [
-        { "name": "mpg", "type": "DOUBLE" },
-        { "name": "weight", "type": "DOUBLE" }
-      ]
-    }
+    "nodes": [
+      {
+        "ref": "vacp://vacp-examples/data/main",
+        "kind": "DataHandle",
+        "layer": "DataLayer",
+        "data": {
+          "table": "cars",
+          "columns": [
+            { "name": "mpg", "type": "DOUBLE" },
+            { "name": "weight", "type": "DOUBLE" }
+          ]
+        }
+      }
+    ]
   },
-  "state": { "kind": "DataHandle", "rowCount": 406, "selectionWhere": "(\"mpg\" >= 20 AND \"mpg\" <= 30)" }
+  "state": {
+    "vacp://vacp-examples/data/main": {
+      "kind": "DataHandle",
+      "rowCount": 406,
+      "selectionWhere": "(\"mpg\" >= 20 AND \"mpg\" <= 30)"
+    }
+  }
 }
 ```
 
@@ -264,7 +277,7 @@ The node's description says which rows `vacp_handle` and `vacp_all` hold. `vacp.
 | Export                                                                | Contents                                                                                      |
 | --------------------------------------------------------------------- | --------------------------------------------------------------------------------------------- |
 | `vacpAgentTools`                                                      | Each tool's name, input fields, and description                                               |
-| `vacpAgentToolGuidance`                                               | The shared guidance every transport gives the model                                           |
+| `vacpAgentToolGuidance`                                               | The shared instructions the default agent and the MCP server give the model                   |
 | `vacpNarrationGuidance`, `vacpProgressGuidance`, `vacpProgressFields` | The wording of the narration field and the progress tool                                      |
 | `parseVacpNarration(value, field?)`                                   | A trimmed sentence of at most `VACP_NARRATION_MAX_LENGTH` (280) code points, or a `TypeError` |
 | `vacpToolCapabilitiesRequest(input)`, `vacpToolStateRequest(input)`   | The bridge request for a tool's input                                                         |

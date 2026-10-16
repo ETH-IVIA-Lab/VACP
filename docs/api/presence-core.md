@@ -54,7 +54,7 @@ type PresenceActivity = {
 
 The renderer receives a frame for every change to live, retained, or replayed presentation. `reason: 'layout'` means only target geometry moved. `summary` is the step's or turn's sentence. `subject` names the view the step works on. `freshness` is `current` only when the provider reported a current output for the step's target.
 
-`navigation` lists the shown request's `frames` with the shown `index`, `canBack`, `canForward`, `reviewing`, `restoring`, `working`, and `diverged`, and the callbacks `go(index)`, `back()`, `forward()`, and `close()`. Stepping waits while `working` is true.
+`navigation` lists the shown request's `frames` with the shown `index`, `canBack`, `canForward`, `reviewing`, `restoring`, `working`, and `diverged`, and the callbacks `go(index)`, `back()`, `forward()`, and `close()`. While `working` is true, `canBack` and `canForward` are false and step calls do nothing, so call again once the work settles.
 
 ## Targets
 
@@ -80,7 +80,7 @@ Browser geometry for resolvers, in CSS viewport pixels on the `viewport` surface
 | Function                                                | Returns                                                                                                                                                                 |
 | ------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `elementPresenceTarget(element, precision?)`            | The element's box, `surface` precision by default                                                                                                                       |
-| `viewportPresenceTarget(element, geometry, precision?)` | Geometry in the element's coordinates, mapped to the viewport                                                                                                           |
+| `viewportPresenceTarget(element, geometry, precision?)` | Geometry already in viewport coordinates, clipped to the visible part of `element`'s scroll containers                                                                  |
 | `svgPresenceTarget(element, geometry, precision?)`      | Geometry in an SVG element's coordinates, through its screen transform                                                                                                  |
 | `createElementPresenceResolver(resolve)`                | A resolver that maps a focus to an element                                                                                                                              |
 | `observePresenceLayout(root, invalidate)`               | Calls `invalidate` at most once per frame when `root` resizes or its content changes. Paint-only attribute changes are ignored. Returns a function that stops observing |

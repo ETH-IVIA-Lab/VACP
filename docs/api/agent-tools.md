@@ -1,6 +1,6 @@
 # Agent tools
 
-Every agent transport offers five tools with the same names, input fields, and descriptions, defined once in `@vacp/protocol` as `vacpAgentTools`. The AI SDK tools and the Python MCP server use these names. [WebMCP](./webmcp) registers the three reads and the progress tool as `vacp.observe`, `vacp.capabilities`, `vacp.state`, and `vacp.progress`, and one tool per operation in place of `vacp_execute`.
+VACP defines five agent tools with fixed names, input fields, and descriptions, once in `@vacp/protocol` as `vacpAgentTools`. The bridge transport, the AI SDK tools, and the Python MCP server offer them. The MCP server adds `vacp_open_url` and `vacp_page_info` for page navigation. [WebMCP](./webmcp) registers the three reads and the progress tool as `vacp.observe`, `vacp.capabilities`, `vacp.state`, and `vacp.progress`, and one tool per operation in place of `vacp_execute`.
 
 ```text
 vacp_observe()
@@ -10,7 +10,7 @@ vacp_execute({ name, params?, narration, call_id? })
 vacp_progress({ message, done? })
 ```
 
-Each transport gives the model `vacpAgentToolGuidance` with the tools: read `vacp_observe` once per request, read changes with `vacp_state` and `since`, scope reads once targets are known, and narrate every step.
+`vacpAgentToolGuidance` holds the shared instructions for a model. The default AI SDK agent and the Python MCP server send it, and a host running its own model loop adds it to its instructions: read `vacp_observe` once per request, read changes with `vacp_state` and `since`, scope reads once targets are known, and narrate every step.
 
 ## vacp_observe
 
@@ -18,7 +18,7 @@ Returns one observation: the graph with the operations available now, state, sum
 
 ## vacp_capabilities
 
-Returns the graph, scoped by `refs`, `prefixes`, `kinds`, and `layers`. A scoped read keeps the transitive prerequisites of matching nodes as context. An unscoped read, or a bare `vacp://` in `refs` or `prefixes`, returns everything and leaves out node `data` unless `includeNodeData` is `true`.
+Returns the graph, scoped by `refs`, `prefixes`, `kinds`, and `layers`. A scoped read keeps the transitive prerequisites of matching nodes as context. A bare `vacp://` entry in `refs` or `prefixes` is dropped, so a read with no other filter returns everything. An unscoped read leaves out node `data` unless `includeNodeData` is `true`.
 
 ## vacp_state
 

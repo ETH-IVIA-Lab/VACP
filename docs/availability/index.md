@@ -74,9 +74,11 @@ A rejected call carries `error.details`:
 {
   "code": "action-unavailable",
   "action": "chart.select",
-  "status": { "available": false, "blockedBy": ["vacp://dashboard/dataset"], "reason": "Select a dataset" }
+  "status": { "available": false, "blockedBy": ["vacp://dashboard/chart"] }
 }
 ```
+
+`blockedBy` lists the unmet prerequisites the operation declares itself, and `reason` appears when the operation has its own `unavailable` reason. The chart's status in turn names the dataset and its reason, `"Select a dataset"`, which [inspection](#explain-a-blocked-operation) reads.
 
 `code` is `unknown-action`, `action-unavailable`, or `input-unavailable`. An `input-unavailable` error also names the `ref` of the unavailable input.
 

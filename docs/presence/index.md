@@ -52,7 +52,7 @@ try {
 }
 ```
 
-Sentences are public text for the person: at most 280 characters for a step and 500 for a progress summary. Keep reasoning, tool arguments, and query results out of them.
+Sentences are public text for the person: at most 280 characters for a step or a progress sentence, and 500 for a summary a host passes to `beginAgentActivity`. Keep reasoning, tool arguments, and query results out of them.
 
 ## Replay the trail
 

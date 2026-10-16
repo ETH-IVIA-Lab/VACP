@@ -38,4 +38,4 @@ type ProvenanceReplayState = {
 } & ({ phase: 'live' | 'restoring' | 'reviewing' } | { phase: 'error'; error: string });
 ```
 
-Outside `live`, `steps` and `turns` stay as they were when review began. `working` is true while another actor's execution has started and its record has not reached `steps`. A review request made then, or while another review runs, is declined. A new change by another actor, a changed external observation, or a new session ends the review and keeps the new state.
+Outside `live`, `steps` and `turns` stay as they were when review began. `working` is true from the moment an execution that changes the analysis is prepared until its record reaches `steps`. Queries and this viewer's own restorations leave it false. A review request made while `working` is true, or while another review runs, is declined, and the viewer asks again once the work settles. A new change by another actor, a changed external observation, or a new session ends the review and keeps the new state.

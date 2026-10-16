@@ -25,7 +25,7 @@ webmcp?.dispose();
 | `vacp.progress`      | `message`, `done`                          | Shows one sentence to the person watching                  |
 | `vacp.action.<name>` | The operation's parameters and `narration` | The operation's result envelope                            |
 
-Each available operation is its own tool, so the graph that `vacp.observe` and `vacp.capabilities` return leaves operations out. An operation tool takes the operation's parameters directly, with `narration` beside them. When the parameter schema is not an object, or already has a `narration` property, the tool takes `{ params, narration }` instead:
+Each available operation is its own tool, so the graph that `vacp.observe` and `vacp.capabilities` return leaves operations out. An operation tool takes the operation's parameters directly, with `narration` beside them, when its schema is a plain object schema. A schema that is not an object, has a `narration` property, references other schemas with `$ref`, or constrains the whole object, such as with `additionalProperties`, keeps its parameters under `params`:
 
 ```json
 { "params": "hello", "narration": "Searching for hello." }

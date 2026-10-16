@@ -32,7 +32,7 @@ createVacpChatRuntime(options: VacpAgentOptions & { contextCompactionPolicy?: Va
 
 Returns the agent and a chat transport for the AI SDK's `useChat`. With `activity`, each chat request opens and closes one turn, as for the standalone agent. Message metadata reports the provider, model, and token usage per step and in total.
 
-`contextCompactionPolicy` bounds the history sent with each request. `defaultVacpContextCompactionPolicy` keeps the last turns' tool payloads and reasoning in full and shortens older ones. Set `enabled: false` to send the full history.
+`contextCompactionPolicy` bounds the history sent with each request. `defaultVacpContextCompactionPolicy` keeps the last turns' tool payloads within the tool result bounds, cuts their reasoning to 1,600 characters per part, and summarizes older payloads. Set `enabled: false` to send the full history.
 
 ## createVacpAgentTools
 
@@ -40,7 +40,7 @@ Returns the agent and a chat transport for the AI SDK's `useChat`. With `activit
 createVacpAgentTools(transport: VacpTransport): VacpAgentTools
 ```
 
-Returns the five tools as AI SDK tools, with the shared descriptions and input schemas. Each tool forwards the AI SDK's abort signal to the transport.
+Returns the five tools as AI SDK tools, with the shared descriptions and input schemas. `vacp_execute` and `vacp_progress` forward the AI SDK's abort signal to the transport.
 
 ## defaultVacpAgentInstructions
 

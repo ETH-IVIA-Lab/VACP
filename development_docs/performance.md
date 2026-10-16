@@ -1,6 +1,6 @@
 # Performance
 
-`make bench` builds the libraries and runs each package's `bench` script one package at a time, then the Python availability benchmark. Each workload warms up, then reports the median of five rounds, and checks that every operation it times succeeded. CI runs no benchmarks.
+`make bench` builds the libraries and runs each package's `bench` script one package at a time, then the Python availability benchmark. Each timing workload warms up, reports the median of five rounds, and checks that every operation it times succeeded. The lifetime workload reports the heap three disposed runtimes retain. CI runs no benchmarks.
 
 | Package             | Workloads                                                                                                                                                                                                                                                     |
 | ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |

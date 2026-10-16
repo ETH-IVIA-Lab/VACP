@@ -5,7 +5,7 @@ Each package page lists its entry points, signatures, options with defaults, ret
 ## Contracts
 
 - [Protocol records](./protocol): nodes, edges, operations, observations, state updates, freshness, availability, executions, and provenance records from `@vacp/protocol`.
-- [Agent tools](./agent-tools): the five tools every agent transport offers, their inputs, results, and bounds.
+- [Agent tools](./agent-tools): the five shared agent tools, their inputs, results, and bounds.
 
 ## Runtime
 

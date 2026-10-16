@@ -17,27 +17,27 @@ uv sync --package vacp --extra server
 uv run --package vacp vacp --url <page> [options]
 ```
 
-Opens `<page>` in a browser through Playwright and serves the page's runtime as the five [agent tools](./agent-tools). With `--transport http`, the default, the MCP endpoint is `http://<host>:<port>/mcp` and `GET /healthz` answers when the server is up.
+Opens `<page>` in a browser through Playwright and serves the page's runtime as the five [agent tools](./agent-tools), plus `vacp_open_url` to navigate the page and `vacp_page_info` to read its URL and title. With `--transport http`, the default, the MCP endpoint is `http://<host>:<port>/mcp` and `GET /healthz` answers when the server is up.
 
-| Option                              | Default     | Meaning                                                                                                                                                      |
-| ----------------------------------- | ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `--url`                             |             | The page to open                                                                                                                                             |
-| `--transport`                       | `http`      | `http`, or `stdio` for clients that start the server as a subprocess                                                                                         |
-| `--host`                            | `127.0.0.1` | The HTTP interface. `0.0.0.0` accepts other machines, with no authentication                                                                                 |
-| `--port`                            | `8000`      | The HTTP port                                                                                                                                                |
-| `--headless`                        | off         | Run the browser without a window                                                                                                                             |
-| `--browser-type`                    | `chromium`  | `chromium`, `firefox`, or `webkit`                                                                                                                           |
-| `--browser-path`                    |             | A browser executable                                                                                                                                         |
-| `--window-mode`                     | `default`   | `default`, `maximized`, or `fullscreen`, in Chromium                                                                                                         |
-| `--screen-width`, `--screen-height` |             | Screen size hints for sizing the browser window                                                                                                              |
-| `--cdp-url`                         |             | Attach to a running Chromium over the [Chrome DevTools Protocol](https://chromedevtools.github.io/devtools-protocol/) (CDP), such as `http://localhost:9222` |
-| `--auto-attach-cdp`                 | off         | Try CDP endpoints on `--auto-attach-cdp-ports` (9222, 9223) before launching                                                                                 |
-| `--reuse-page-url-contains`         |             | With CDP, reuse an open page whose URL contains this text                                                                                                    |
-| `--global-key`                      | `__vacp`    | The window global holding the bridge                                                                                                                         |
-| `--startup-wait-for-bridge`         | off         | Wait for the bridge before serving tools, up to `--startup-ready-timeout-ms` (30000)                                                                         |
-| `--startup-wait-for-selector`       |             | Wait for a selector before serving tools, up to `--startup-selector-timeout-ms` (30000), in `--startup-selector-state` (`visible`)                           |
-| `--enable-browser-tools`            | off         | Add screenshot, eval, wait-for-selector, click, fill, press, and sleep tools                                                                                 |
-| `--show-banner`, `--mcp-log-level`  |             | FastMCP diagnostics                                                                                                                                          |
+| Option                              | Default                  | Meaning                                                                                                                                                      |
+| ----------------------------------- | ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `--url`                             | `http://localhost:5173/` | The page to open                                                                                                                                             |
+| `--transport`                       | `http`                   | `http`, or `stdio` for clients that start the server as a subprocess                                                                                         |
+| `--host`                            | `127.0.0.1`              | The HTTP interface. `0.0.0.0` accepts other machines, with no authentication                                                                                 |
+| `--port`                            | `8000`                   | The HTTP port                                                                                                                                                |
+| `--headless`                        | off                      | Run the browser without a window                                                                                                                             |
+| `--browser-type`                    | `chromium`               | `chromium`, `firefox`, or `webkit`                                                                                                                           |
+| `--browser-path`                    |                          | A browser executable                                                                                                                                         |
+| `--window-mode`                     | `fullscreen`             | `default`, `maximized`, or `fullscreen`, in Chromium                                                                                                         |
+| `--screen-width`, `--screen-height` |                          | Screen size hints for sizing the browser window                                                                                                              |
+| `--cdp-url`                         |                          | Attach to a running Chromium over the [Chrome DevTools Protocol](https://chromedevtools.github.io/devtools-protocol/) (CDP), such as `http://localhost:9222` |
+| `--auto-attach-cdp`                 | off                      | Try CDP endpoints on `--auto-attach-cdp-ports` (9222, 9223) before launching                                                                                 |
+| `--reuse-page-url-contains`         |                          | With CDP, reuse an open page whose URL contains this text                                                                                                    |
+| `--global-key`                      | `__vacp`                 | The window global holding the bridge                                                                                                                         |
+| `--startup-wait-for-bridge`         | off                      | Wait for the bridge before serving tools, up to `--startup-ready-timeout-ms` (30000)                                                                         |
+| `--startup-wait-for-selector`       |                          | Wait for a selector before serving tools, up to `--startup-selector-timeout-ms` (30000), in `--startup-selector-state` (`visible`)                           |
+| `--enable-browser-tools`            | off                      | Add screenshot, eval, wait-for-selector, click, fill, press, and sleep tools                                                                                 |
+| `--show-banner`, `--mcp-log-level`  |                          | FastMCP diagnostics                                                                                                                                          |
 
 The browser tools let a client run arbitrary script and input in the page. Enable them only for clients you trust with the page. `vacp_progress` fails when the page's bridge cannot narrate.
 
@@ -63,7 +63,7 @@ A `Provider` has a `source`, `observe()`, `prepare(call, context)`, `subscribe(i
 | `subscribe(invalidate)` | A function that removes the subscription                                  |
 | `dispose()`             | Releases subscriptions and disposes providers                             |
 
-Records are frozen dataclasses with the protocol's field names in snake case: `Node`, `Edge`, `ActionDescriptor`, `OperationSemantics`, `GraphFragment`, `Observation`, `Freshness`, `Availability`, `ActionCall`, `ActionResult`. `as_dict(record)` serializes one to the JSON shape TypeScript reads. `Availability(requires=(ref,), unavailable=reason)` follows the [availability rules](../availability/), checked against fixtures shared with TypeScript.
+Records are frozen dataclasses with the protocol's field names in snake case: `Node`, `Edge`, `ActionDescriptor`, `OperationSemantics`, `GraphFragment`, `Observation`, `Freshness`, `Availability`, `ActionCall`, `ActionResult`. `as_dict(observation)` serializes a composed `Observation` to the JSON shape TypeScript reads. `Availability(requires=(ref,), unavailable=reason)` follows the [availability rules](../availability/), checked against fixtures shared with TypeScript.
 
 ## Inspection endpoint
 

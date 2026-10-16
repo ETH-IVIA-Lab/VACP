@@ -67,7 +67,7 @@ const provider = createVegaLiteProvider({ root, view, spec, vgSpec, data: { duck
 await duckdb.dispose();
 ```
 
-`createDuckDbWasmClient()` starts [DuckDB-Wasm](https://duckdb.org/docs/stable/clients/wasm/overview) in a worker. Without `bundles`, it downloads the engine from the [jsDelivr](https://www.jsdelivr.com) CDN, so the page needs network access and a [content security policy](https://developer.mozilla.org/en-US/docs/Web/HTTP/Guides/CSP) that allows that origin. Pass `bundles` to serve the engine files yourself. An application that already runs DuckDB-Wasm passes `{ duckdb, connection }` to share it.
+`createDuckDbWasmClient()` starts [DuckDB-Wasm](https://duckdb.org/docs/stable/clients/wasm/overview) in a worker on the first query. Without `bundles`, it downloads the engine from the [jsDelivr](https://www.jsdelivr.com) CDN, so the page needs network access and a [content security policy](https://developer.mozilla.org/en-US/docs/Web/HTTP/Guides/CSP) that allows that origin. Pass `bundles` to serve the engine files yourself. An application that already runs DuckDB-Wasm passes `{ duckdb, connection }` to share it.
 
 `vacp.data_sql` reads two relations:
 

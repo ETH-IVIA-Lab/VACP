@@ -28,7 +28,7 @@ make dev
 
 ## Connect an agent through MCP
 
-The `vacp` Python package runs an [MCP](https://modelcontextprotocol.io) server. MCP is the protocol agent clients such as Claude Code, Codex, and Cursor use to call external tools. The server opens the page in a Chromium window and serves the page's runtime to the agent as five tools.
+The `vacp` Python package runs an [MCP](https://modelcontextprotocol.io) server. MCP is the protocol agent clients such as Claude Code, Codex, and Cursor use to call external tools. The server opens the page in a Chromium window and serves the page's runtime to the agent as the five VACP tools, plus tools to open a URL and read the page's URL and title.
 
 Install Chromium for the server once:
 

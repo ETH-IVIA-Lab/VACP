@@ -25,7 +25,7 @@ Create the provider after the plots render, for example after `await plot.update
 
 ## Install one copy of Mosaic
 
-The adapter recognizes interactors, legends, and inputs by their Mosaic classes, which survive minification where constructor names do not. `@uwdata/mosaic-plot`, `@uwdata/mosaic-inputs`, and `@uwdata/mosaic-sql` are peer dependencies at `^0.33.0`. Install the versions `@uwdata/vgplot` uses, so the application bundles one copy of each. Provider creation fails with an error naming the package when it meets a class from a second copy.
+The adapter recognizes interactors, legends, and inputs by their Mosaic classes, which survive minification where constructor names do not. `@uwdata/mosaic-plot`, `@uwdata/mosaic-inputs`, and `@uwdata/mosaic-sql` are peer dependencies at `^0.33.0`. Install the versions `@uwdata/vgplot` uses, so the application bundles one copy of each. Provider creation fails with an error naming the package when it meets an object from a second copy whose class names are readable. A minified second copy goes unrecognized.
 
 ## Operations
 

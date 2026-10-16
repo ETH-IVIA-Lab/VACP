@@ -33,7 +33,7 @@ Containment alone carries no analytical meaning. Declare `controls` or `derivedF
 
 ## Find an operation by contract
 
-Each operation's `name` is unique across the composed graph, and the runtime routes a call to the operation's owner. Providers qualify their operation names with their source identity, so two Vega-Lite charts each offer their own selection operation.
+Each operation's `name` is unique across the composed graph, and the runtime routes a call to the operation's owner. The visualization adapters qualify their operation names with their source identity, so two Vega-Lite charts each offer their own selection operation. A custom provider passes its source ID to `createVacpActions(sourceId)` for the same qualification, or chooses names that are already unique.
 
 Several sources can implement one shared contract under different names. To find the SQL operation for a data handle, match the contract and the handle:
 

@@ -65,7 +65,7 @@ A call whose parameters fail the schema changes nothing. Its result carries the 
 }
 ```
 
-Each issue has a `path` of field names and array indices, so an agent can correct the field without parsing the message. A union failure lists each branch's issues in `errors`. To report a domain failure from a handler, throw `new VacpActionError(message, details)` from `@vacp/protocol`. Its `details` reach the result unchanged. Any other exception reaches the result as its message alone.
+Each issue has a `path` of field names and array indices, so an agent can correct the field without parsing the message. A union failure lists each branch's issues in `errors`. To report a domain failure from a handler, throw `new VacpActionError(message, details)` from `@vacp/protocol`. Its `details` reach the result unchanged. An `Error` of another kind reaches the result as its message alone.
 
 ## Report human changes
 

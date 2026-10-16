@@ -16,7 +16,7 @@ A source is a system that owns analytical values: a [Vega-Lite](https://vega.git
 - It reports the current value of each entity as state.
 - It prepares and executes operations against the source, through the source's own API.
 
-`@vacp/adapter-vega-lite` and `@vacp/adapter-vgplot` provide this for Vega-Lite and Mosaic vgplot. `@vacp/sdk` builds a provider for any other application. Each entity has a stable ref such as `vacp://analysis/overview/scatter/param/brush`, so an agent can refer to it across reads and rerenders.
+`@vacp/adapter-vega-lite` and `@vacp/adapter-vgplot` provide this for Vega-Lite and Mosaic vgplot. Any other application defines its operations with `@vacp/sdk` and its provider with `createVacpProvider` from `@vacp/runtime`. Each entity has a stable ref such as `vacp://analysis/overview/scatter/param/brush`, so an agent can refer to it across reads and rerenders.
 
 ## The runtime composes one observation
 
