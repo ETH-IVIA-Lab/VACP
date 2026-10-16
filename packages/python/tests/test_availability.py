@@ -2,6 +2,7 @@ import asyncio
 import json
 from collections.abc import Awaitable, Callable
 from pathlib import Path
+from typing import TypeAlias
 
 import pytest
 from vacp import (
@@ -24,7 +25,7 @@ from vacp import (
 )
 from vacp.availability import AvailabilityError, require_action, resolve_observation
 
-type Prepare = Callable[[ActionCall, ActionContext], PreparedAction]
+Prepare: TypeAlias = Callable[[ActionCall, ActionContext], PreparedAction]
 
 
 def preparing(run: Callable[[ActionCall], ActionResult | Awaitable[ActionResult]]) -> Prepare:

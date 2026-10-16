@@ -143,7 +143,7 @@ class BrowserManager:
         return p
 
     @asynccontextmanager
-    async def session(self) -> AsyncGenerator[Page]:
+    async def session(self) -> AsyncGenerator[Page, None]:
         """
         Own the browser for one server run. Cleanup covers a start that failed partway, and a page
         attached over CDP is disconnected, never closed.

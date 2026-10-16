@@ -1,6 +1,14 @@
 # vacp (Python)
 
-The `vacp` Python package runs an MCP server that drives a VACP page in a browser, and defines providers and composition for Python analytical systems. It requires Python 3.12 or newer. Install it from a checkout of the repository with uv:
+The `vacp` Python package runs a [Model Context Protocol](https://modelcontextprotocol.io/) (MCP) server that drives a VACP page in a browser, and defines providers and composition for Python analytical systems. It supports Python 3.10 through 3.14. Install the server extra with [pip](https://pip.pypa.io/en/stable/) and download Chromium for [Playwright](https://playwright.dev/python/), the browser automation library:
+
+```bash
+pip install 'vacp[server]'
+python -m playwright install chromium
+vacp --url http://localhost:5173/
+```
+
+From a repository checkout, install the locked workspace with [uv](https://docs.astral.sh/uv/):
 
 ```bash
 uv sync --package vacp --extra server
