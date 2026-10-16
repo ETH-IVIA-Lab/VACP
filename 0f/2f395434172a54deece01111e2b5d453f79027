@@ -1,0 +1,135 @@
+docs/.vitepress/theme/components/ArchitectureDiagram.vue
+  ai_agent 1-64,66,68,71,73-115,117
+docs/api/webmcp.md
+  ai_agent 1-46
+docs/availability/index.md
+  ai_agent 1,3,9,12,14,16,19,23,25-29,31,33-35,38,43,45-58,60,62-65,67,69,71,73-78,81,83,85,87
+docs/api/provenance.md
+  ai_agent 1-41
+docs/api/transport-bridge.md
+  ai_agent 1,3,5,7-8,11-22,24,26,32-33
+docs/.vitepress/config.mts
+  ai_agent 4-87,91-94,101,104,106-107,109
+docs/api/index.md
+  ai_agent 1,3,5,7-8,12-14,16,18-20,22,24-27,29,31-35
+docs/api/python.md
+  ai_agent 1-76
+docs/inspector/index.md
+  ai_agent 1,3,8,11-12,15-18,22,27,29,31,33,35-40,42,44,49,52,54,56,58,60-63,65,67,69,71,73-77,82,85,87-90,92
+docs/api/data-duckdb.md
+  ai_agent 1-66
+docs/api/inspector.md
+  ai_agent 1,3,5,7-9,11,13-74
+docs/agents/index.md
+  ai_agent 1-73
+docs/api/vega-lite.md
+  ai_agent 1-61
+docs/api/sdk.md
+  ai_agent 1-61
+docs/api/vgplot.md
+  ai_agent 1-86
+examples/athlete-explorer/README.md
+  ai_agent 17
+docs/index.md
+  ai_agent 5-7,16-17,20-31
+apps/e2e/tests/docs/site.spec.ts
+  ai_agent 5-7,12,15-19,22-28
+docs/vega-lite/index.md
+  ai_agent 3,5,8,10,12,17-18,20,23-42,44,46,48-50,52,54,56,58-68,70,72,74-75,77,79,81,83-87,89,91
+examples/README.md
+  ai_agent 6
+docs/what-is-vacp/index.md
+  ai_agent 3,5,7,9,11,13,15-17,19,21,23,25-29,31-74
+docs/composition/index.md
+  ai_agent 1,3,6,8-13,17-19,21,23-27,30,32,34,36,38,40-44,46,48,50,52,54,56
+docs/provenance/index.md
+  ai_agent 1,3,8,10-11,14-15,19,21,23-28,30,32,34,36,38,41-42,50,52,54,58,61,63,65-66,72,74,76,80,83,86,89,91
+packages/adapter-vgplot/README.md
+  ai_agent 3,31,33,35-39
+docs/api/analytics.md
+  ai_agent 1,3,5,7-13,16,18,20-26,28,30-33,35-37,39
+packages/analytics/README.md
+  ai_agent 3,8-9,12,14-16
+packages/inspector-core/README.md
+  ai_agent 27
+docs/api/protocol.md
+  ai_agent 1-290
+docs/api/runtime.md
+  ai_agent 1,3,5,7-13,16,18,20-28,30,32-34,36,38-40,42,44,46-49,51,53,55-61,63,65,67-76,78,80-88,90,92,94-99,102,104,106,108-115,117-122,124,126,129-130,133-135,137-139,141
+docs/api/browser.md
+  ai_agent 1,3-5,8-18,20-27,29-34,37,39,41-43,45
+docs/agents/webmcp.md
+  ai_agent 1,3,8,12-14,16,18,20-26,28,30-31,34-36,38-44,46,50,52,54,56,58,60,66
+docs/api/presence-core.md
+  ai_agent 1-100
+packages/transport-webmcp/README.md
+  ai_agent 8,11,13,15-17
+docs/.vitepress/env.d.ts
+  ai_agent 1-5
+development_docs/contributing.md
+  ai_agent 3,10-12,16-17,23,27,29,38-44,46-54,58,60,62,66,69,71,75,77,81,84-88,91,96,99,102-108,112,114,116,118
+packages/adapter-vega-lite/README.md
+  ai_agent 3,15,35,37,39-41
+docs/get-started/index.md
+  ai_agent 3-7,10-11,14,16-18,23-24,27-44,46,48,50,52-55
+development_docs/architecture.md
+  ai_agent 3,5,7-25,27,29,31,33,35,37,39,41,43,45-50,52,54,56,58,60,62,64,66,68,70,72,74,76,78,80,82,84,86,88,90,92,94,96,98,100,102,104
+packages/runtime/README.md
+  ai_agent 12,14
+apps/e2e/tests/smoke/portless.spec.ts
+  ai_agent 99
+docs/api/agent-tools.md
+  ai_agent 1,3,8,13,17,21,25,27-34,36,38,40,44,46,48,50-55,57,59,61,63,67-68
+docs/concepts/index.md
+  ai_agent 1-166
+packages/data-duckdb/README.md
+  ai_agent 20,28,46-48,52-53
+packages/sdk/README.md
+  ai_agent 3,5-9,11-25,29
+packages/transport-bridge/README.md
+  ai_agent 3,8,10-14,17-19
+packages/runtime-browser/README.md
+  ai_agent 8,16
+README.md
+  ai_agent 5,7,9,11-37
+docs/integrate/index.md
+  ai_agent 1,3,7,9-11,13-21,25,35-66,68,70,72,74-79,81,83,85,88,90-91,93,95,103,105,107,109-144,146-153,155,157,159,161
+packages/protocol/README.md
+  ai_agent 7,20,29-31
+packages/analytics-posthog/README.md
+  ai_agent 3,6-8,10-14,17,20
+apps/evals/README.md
+  ai_agent 50
+development_docs/testing.md
+  ai_agent 1,3,5-11,13,15,17,19-26,28,30,32,34,36,38-43,45,47,49
+development_docs/examples.md
+  ai_agent 1,3,5-7,9,11,13,15-21,23,25,27,29-36,38,40,42-49,51-70
+development_docs/performance.md
+  ai_agent 1,3,5-15,17,19
+packages/python/README.md
+  ai_agent 19,21
+development_docs/index.md
+  ai_agent 3-9
+docs/.vitepress/theme/index.ts
+  ai_agent 1,3,5-10
+docs/api/agent-ai-sdk.md
+  ai_agent 1,3,5,7-9,11-20,22,24,26-31,33,35,37,39-41,43,45,47
+docs/vgplot/index.md
+  ai_agent 1,3,7,10-15,17-32,34-40,43-55,57,59,61,63,65,67,69,71,73,76-83,85,88,90,92,94-95,97-98,100
+packages/agent-ai-sdk/README.md
+  ai_agent 3,6-7,10,12-14,19,21,23-27,47
+apps/e2e/README.md
+  ai_agent 3
+docs/presence/index.md
+  ai_agent 3,5,7,13,15-17,22,25,27,29,31,34-37,40,42,45-51,55,57,59,63,66,69,74-78,80,82,84,86,88,94-96,100,102,104,107,110,112,121,123,127,129-132,137,139,141,147,151
+docs/examples/index.md
+  ai_agent 3,5-11,13,15-17
+docs/api/presence-browser.md
+  ai_agent 1-70
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "0f2f395434172a54deece01111e2b5d453f79027",
+  "prompts": {}
+}
