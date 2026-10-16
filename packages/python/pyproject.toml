@@ -15,5 +15,5 @@ server = ["fastmcp>=4.1.0", "httpx>=0.27.0", "playwright>=1.49.0", "pydantic>=2.
 vacp = "vacp.main:main"
 
 [build-system]
-requires = ["uv_build>=0.12,<0.13"]
+requires = ["uv_build>=0.13,<0.14"]
 build-backend = "uv_build"
