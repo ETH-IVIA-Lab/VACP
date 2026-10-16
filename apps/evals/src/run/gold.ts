@@ -35,7 +35,7 @@ export async function auditGold(repoRoot: string, scenarios: readonly Scenario[]
           return reader(join(repoRoot, file));
         });
         try {
-          const rows = (await (await connection.runAndReadAll(sql)).getRowObjectsJS()) as Record<string, unknown>[];
+          const rows = (await connection.runAndReadAll(sql)).getRowObjectsJS() as Record<string, unknown>[];
           const row = rows[0] ?? {};
           const wrong = Object.entries(gold.row).filter(([key, value]) => !agrees(value, row[key]));
           findings.push({

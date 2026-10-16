@@ -31,3 +31,5 @@ export * from './data-handle';
 export * from './agent-tools';
 
 export * from './instant';
+
+export { abortable } from './abort';

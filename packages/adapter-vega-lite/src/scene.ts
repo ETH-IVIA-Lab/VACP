@@ -13,7 +13,7 @@ export type VegaSceneItem = {
 };
 
 function* sceneItems(view: VegaViewLike): Generator<VegaSceneItem> {
-  const graph = view.scenegraph?.() as { root?: VegaSceneItem } | undefined;
+  const graph = view.scenegraph() as { root?: VegaSceneItem } | undefined;
   if (!graph?.root) return;
   const stack = [graph.root];
   while (stack.length) {
@@ -36,8 +36,8 @@ export function sceneOffset(item: VegaSceneItem | undefined): { x: number; y: nu
 
 /** Convert scene coordinates using Vega's renderer origin and CSS viewport transform. */
 export function scenePointToViewport(view: VegaViewLike, target: Element, point: { x: number; y: number }) {
-  const origin = view.origin?.() ?? [0, 0];
-  const padding = view.padding?.();
+  const origin = view.origin();
+  const padding = view.padding();
   const x = point.x + (origin[0] ?? 0) + (typeof padding === 'number' ? padding : (padding?.left ?? 0));
   const y = point.y + (origin[1] ?? 0) + (typeof padding === 'number' ? padding : (padding?.top ?? 0));
   if (target.tagName.toLowerCase() === 'svg') {

@@ -1,3 +1,4 @@
+import { specUnits } from './params';
 import type {
   VacpActionDescriptor,
   VacpDataHandleData,
@@ -6,7 +7,6 @@ import type {
   VacpNode,
   VacpRef,
 } from '@vacp/protocol';
-import { VACP_SCHEMA_VERSION } from '@vacp/protocol';
 
 import type { VegaLiteBindings } from './bindings';
 import { makeRef } from './refs';
@@ -24,64 +24,6 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return !!value && typeof value === 'object' && !Array.isArray(value);
 }
 
-function markTypeFromSpec(spec: VegaLiteSpecLike, inherited?: string): string | undefined {
-  const mark = spec.mark;
-
-  if (typeof mark === 'string' && mark) return mark;
-
-  if (isRecord(mark) && typeof mark.type === 'string' && mark.type.length) return mark.type;
-
-  return inherited;
-}
-
-function stableStringify(value: unknown): string {
-  const seen = new WeakSet<object>();
-
-  const walk = (v: unknown): unknown => {
-    if (v == null) return v;
-
-    if (typeof v === 'function' || typeof v === 'symbol') return undefined;
-
-    if (typeof v !== 'object') return v;
-    const obj = v;
-
-    if (seen.has(obj)) return '[Circular]';
-    seen.add(obj);
-
-    if (Array.isArray(v)) return v.map(walk);
-    const rec = v as Record<string, unknown>;
-    const out: Record<string, unknown> = {};
-    Object.keys(rec)
-      .sort()
-      .forEach((k) => {
-        out[k] = walk(rec[k]);
-      });
-
-    return out;
-  };
-
-  return JSON.stringify(walk(value)) ?? 'null';
-}
-
-function safeJsonValue(value: unknown) {
-  try {
-    return JSON.parse(stableStringify(value));
-  } catch {
-    return String(value);
-  }
-}
-
-function fnv1a32(input: string): string {
-  let hash = 0x811c9dc5;
-
-  for (let i = 0; i < input.length; i++) {
-    hash ^= input.charCodeAt(i);
-    hash = Math.imul(hash, 0x01000193);
-  }
-
-  return (hash >>> 0).toString(16).padStart(8, '0');
-}
-
 function fieldNameFromDescriptor(raw: unknown): string | null {
   if (typeof raw === 'string' && raw.length) return raw;
 
@@ -92,50 +34,12 @@ function fieldNameFromDescriptor(raw: unknown): string | null {
   return typeof field === 'string' && field.length ? field : null;
 }
 
-type VegaLiteUnit = {
-  spec: VegaLiteSpecLike;
-  path: string;
-  markType?: string;
-};
-
-function collectVegaLiteUnits(spec: VegaLiteSpecLike): VegaLiteUnit[] {
-  const units: VegaLiteUnit[] = [];
-
-  const walk = (next: unknown, path: string[], inheritedMark?: string): void => {
-    if (!isRecord(next)) return;
-    const s = next;
-    const markType = markTypeFromSpec(s, inheritedMark);
-
-    if (isRecord(s.encoding)) {
-      units.push({ spec: s, path: path.join('/'), markType });
-    }
-
-    const pushChildren = (key: 'layer' | 'hconcat' | 'vconcat' | 'concat') => {
-      const child = s[key];
-
-      if (!Array.isArray(child)) return;
-      child.forEach((c, i) => walk(c, [...path, `${key}[${i}]`], markType));
-    };
-
-    pushChildren('layer');
-    pushChildren('hconcat');
-    pushChildren('vconcat');
-    pushChildren('concat');
-
-    if (s.spec) walk(s.spec, [...path, 'spec'], markType);
-  };
-
-  walk(spec, ['root']);
-
-  return units;
-}
-
 type ExtractedBinding = {
   channel: string;
   bindingKind: 'primary' | 'condition' | 'tooltip';
   bindingIndex: number;
   descriptor: unknown;
-  fieldName: string | null;
+  fieldName: string;
 };
 
 function collectChannelBindings(spec: VegaLiteSpecLike): ExtractedBinding[] {
@@ -226,107 +130,99 @@ export function buildGraph(args: {
 
   const edges: VacpEdge[] = [];
 
-  collectVegaLiteUnits(args.spec).forEach((unit) => {
-    const bindings = collectChannelBindings(unit.spec);
+  [...specUnits(args.spec)]
+    .filter((unit) => isRecord(unit.spec.encoding))
+    .forEach((unit) => {
+      const bindings = collectChannelBindings(unit.spec);
 
-    if (!bindings.length) return;
+      if (!bindings.length) return;
 
-    const markRef = makeRef({
-      appId: args.options.appId,
-      viewId: args.options.viewId,
-      vizId: args.options.vizId,
-      suffix: `/mark/${encodeURIComponent(unit.path)}`,
-    });
+      const markRef = makeRef({
+        appId: args.options.appId,
+        viewId: args.options.viewId,
+        vizId: args.options.vizId,
+        suffix: `/mark/${encodeURIComponent(unit.path)}`,
+      });
 
-    nodes.push({
-      ref: markRef,
-      kind: 'Mark',
-      layer: 'VisualizationLayer',
-      title: unit.markType ?? 'unit',
-      description: `Vega-Lite unit mark (${unit.path})`,
-      data: { unitPath: unit.path, markType: unit.markType },
-    });
-    edges.push({ from: vizRef, to: markRef, kind: 'contains' });
+      nodes.push({
+        ref: markRef,
+        kind: 'Mark',
+        layer: 'VisualizationLayer',
+        title: unit.markType ?? 'unit',
+        description: `Vega-Lite unit mark (${unit.path})`,
+        data: { unitPath: unit.path, markType: unit.markType },
+      });
+      edges.push({ from: vizRef, to: markRef, kind: 'contains' });
 
-    const byChannel = new Map<string, ExtractedBinding[]>();
-    bindings.forEach((b) => {
-      const list = byChannel.get(b.channel) ?? [];
-      list.push(b);
-      byChannel.set(b.channel, list);
-    });
+      const byChannel = new Map<string, ExtractedBinding[]>();
+      bindings.forEach((b) => {
+        const list = byChannel.get(b.channel) ?? [];
+        list.push(b);
+        byChannel.set(b.channel, list);
+      });
 
-    Array.from(byChannel.entries())
-      .sort(([a], [b]) => a.localeCompare(b))
-      .forEach(([channel, channelBindings]) => {
-        const channelRef = makeRef({
-          appId: args.options.appId,
-          viewId: args.options.viewId,
-          vizId: args.options.vizId,
-          suffix: `/mark/${encodeURIComponent(unit.path)}/encoding/${encodeURIComponent(channel)}`,
-        });
-
-        nodes.push({
-          ref: channelRef,
-          kind: 'EncodingChannel',
-          layer: 'VisualizationLayer',
-          title: channel,
-          description: `Vega-Lite encoding channel "${channel}"`,
-          data: {
-            unitPath: unit.path,
-            channel,
-            markType: unit.markType,
-            bindingCount: channelBindings.length,
-          },
-        });
-        edges.push({ from: markRef, to: channelRef, kind: 'contains' });
-
-        channelBindings.forEach((binding) => {
-          const hashInput = (() => {
-            try {
-              return stableStringify(binding.descriptor);
-            } catch {
-              return String(binding.descriptor);
-            }
-          })();
-
-          const fieldId = binding.fieldName
-            ? `field-${encodeURIComponent(binding.fieldName)}`
-            : `field-${fnv1a32(hashInput)}`;
-
-          const fieldRef = makeRef({
+      Array.from(byChannel.entries())
+        .sort(([a], [b]) => a.localeCompare(b))
+        .forEach(([channel, channelBindings]) => {
+          const channelRef = makeRef({
             appId: args.options.appId,
             viewId: args.options.viewId,
             vizId: args.options.vizId,
-            suffix: `/mark/${encodeURIComponent(unit.path)}/encoding/${encodeURIComponent(channel)}/field/${binding.bindingKind}-${binding.bindingIndex}-${fieldId}`,
+            suffix: `/mark/${encodeURIComponent(unit.path)}/encoding/${encodeURIComponent(channel)}`,
           });
-
-          const descriptor = isRecord(binding.descriptor) ? binding.descriptor : null;
 
           nodes.push({
-            ref: fieldRef,
-            kind: 'EncodedField',
-            layer: 'DataLayer',
-            title: binding.fieldName ?? `field (${fieldId.replace(/^field-/, '')})`,
-            description: `Field binding for "${channel}" (${binding.bindingKind}).`,
+            ref: channelRef,
+            kind: 'EncodingChannel',
+            layer: 'VisualizationLayer',
+            title: channel,
+            description: `Vega-Lite encoding channel "${channel}"`,
             data: {
               unitPath: unit.path,
-              markType: unit.markType,
               channel,
-              bindingKind: binding.bindingKind,
-              bindingIndex: binding.bindingIndex,
-              fieldName: binding.fieldName ?? undefined,
-              field: safeJsonValue(binding.descriptor),
-              type: typeof descriptor?.type === 'string' ? descriptor.type : undefined,
-              aggregate: typeof descriptor?.aggregate === 'string' ? descriptor.aggregate : undefined,
-              timeUnit: typeof descriptor?.timeUnit === 'string' ? descriptor.timeUnit : undefined,
-              bin: descriptor && 'bin' in descriptor ? safeJsonValue(descriptor.bin) : undefined,
-              title: typeof descriptor?.title === 'string' ? descriptor.title : undefined,
+              markType: unit.markType,
+              bindingCount: channelBindings.length,
             },
           });
-          edges.push({ from: channelRef, to: fieldRef, kind: 'contains' });
+          edges.push({ from: markRef, to: channelRef, kind: 'contains' });
+
+          channelBindings.forEach((binding) => {
+            const fieldId = `field-${encodeURIComponent(binding.fieldName)}`;
+
+            const fieldRef = makeRef({
+              appId: args.options.appId,
+              viewId: args.options.viewId,
+              vizId: args.options.vizId,
+              suffix: `/mark/${encodeURIComponent(unit.path)}/encoding/${encodeURIComponent(channel)}/field/${binding.bindingKind}-${binding.bindingIndex}-${fieldId}`,
+            });
+
+            const descriptor = isRecord(binding.descriptor) ? binding.descriptor : null;
+
+            nodes.push({
+              ref: fieldRef,
+              kind: 'EncodedField',
+              layer: 'DataLayer',
+              title: binding.fieldName,
+              description: `Field binding for "${channel}" (${binding.bindingKind}).`,
+              data: {
+                unitPath: unit.path,
+                markType: unit.markType,
+                channel,
+                bindingKind: binding.bindingKind,
+                bindingIndex: binding.bindingIndex,
+                fieldName: binding.fieldName ?? undefined,
+                field: structuredClone(binding.descriptor),
+                type: typeof descriptor?.type === 'string' ? descriptor.type : undefined,
+                aggregate: typeof descriptor?.aggregate === 'string' ? descriptor.aggregate : undefined,
+                timeUnit: typeof descriptor?.timeUnit === 'string' ? descriptor.timeUnit : undefined,
+                bin: descriptor && 'bin' in descriptor ? structuredClone(descriptor.bin) : undefined,
+                title: typeof descriptor?.title === 'string' ? descriptor.title : undefined,
+              },
+            });
+            edges.push({ from: channelRef, to: fieldRef, kind: 'contains' });
+          });
         });
-      });
-  });
+    });
 
   args.bindings.paramByRef.forEach(({ param: p }, pref) => {
     const { kind, details } = classifyParam(p);
@@ -354,5 +250,5 @@ export function buildGraph(args: {
     edges.push({ from: vizRef, to: h.ref, kind: 'contains' });
   });
 
-  return { version: VACP_SCHEMA_VERSION, nodes, edges, actions: args.actions };
+  return { nodes, edges, actions: args.actions };
 }

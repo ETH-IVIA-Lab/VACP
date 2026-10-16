@@ -16,11 +16,10 @@ export async function tool(page: Page, suffix: string, params: Record<string, un
         action = (await context.getTools()).find((tool) => tool.name.endsWith(suffix));
       }
       if (!action) throw new Error(`Missing tool: ${suffix}`);
-      // Chrome reports each registered schema as JSON text.
-      const schema = typeof action.inputSchema === 'string' ? JSON.parse(action.inputSchema) : action.inputSchema;
-      const required: string[] = schema?.required ?? [];
+      const schema: { required?: string[] } = action.inputSchema ?? {};
+      const required = schema.required ?? [];
       const input = required.includes('narration') ? { narration: 'Adjusting the view.', ...params } : params;
-      return JSON.parse(await context.executeTool(action, JSON.stringify(input)));
+      return JSON.parse(await context.executeTool(action, input));
     },
     { suffix, params },
   );

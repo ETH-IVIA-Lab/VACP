@@ -1,12 +1,12 @@
 import type { VacpActor, VacpPageBridge } from '@vacp/protocol';
-import type { LanguageModel, TelemetryOptions, ToolLoopAgentSettings } from 'ai';
+import type { JSONSchema7, LanguageModel, TelemetryOptions, ToolLoopAgentSettings } from 'ai';
 
 import type { Act, Scenario } from './core/scenario';
 import type { Trace } from './core/trace';
 import type { ModelPrice } from './core/usage';
 
 /** A WebMCP tool as the page registers it. */
-export type PageTool = { name: string; description: string; inputSchema: Record<string, unknown> };
+export type PageTool = { name: string; description: string; inputSchema: JSONSchema7 };
 
 /** A browser-side failure of a WebMCP tool, with the message the browser reports. */
 export class ToolError extends Error {
@@ -16,7 +16,7 @@ export class ToolError extends Error {
 /** The page's runtime as an agent reaches it across the browser boundary. */
 export type AgentBridge = Pick<
   VacpPageBridge,
-  'version' | 'observe' | 'getCapabilities' | 'getState' | 'execute' | 'beginAgentActivity'
+  'version' | 'observe' | 'getCapabilities' | 'getState' | 'execute' | 'beginAgentActivity' | 'narrate'
 >;
 
 /** The page a condition's agent works on. */
@@ -56,7 +56,7 @@ export type ResolvedModel = Omit<ModelConfig, 'provider'> & {
 };
 
 /** How a host names its tools to the model. A host that aliases WebMCP names maps them back. */
-export type RecordOptions = { toolName?(name: string): string };
+export type RecordOptions = { toolName?: (name: string) => string };
 
 /**
  * The run's AI SDK telemetry. It exports OpenTelemetry spans under the run's span and fills the run's

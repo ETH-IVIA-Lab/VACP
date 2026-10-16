@@ -1,9 +1,6 @@
 import './gallery.css';
+import { escapeHtml } from '@vacp/example-shared';
 import { examples as entries } from '../examples.manifest';
-
-function escapeHtml(value: string): string {
-  return value.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;');
-}
 
 function renderHome(root: HTMLElement): void {
   const cards = entries

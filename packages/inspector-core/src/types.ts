@@ -1,16 +1,16 @@
-import type { VacpActionCall, VacpActionResult, VacpObservation, VacpRef } from '@vacp/protocol';
+import type { VacpActionCall, VacpActionResult, VacpObservation, VacpRef, VacpRestore } from '@vacp/protocol';
 
 export type InspectorRequest = { signal: AbortSignal };
 
 /** A host-owned analytical session. Optional methods describe available capabilities. */
-export interface InspectorClient<Params = unknown, Result = unknown> {
+export interface InspectorClient {
   readonly id: string;
   readonly title: string;
   /** Complete catalog, including unavailable entities and operations. */
   observe(options: InspectorRequest): Promise<VacpObservation>;
-  execute?(call: VacpActionCall<Params>, options: InspectorRequest): Promise<VacpActionResult<Result>>;
+  execute?(call: VacpActionCall, options: InspectorRequest): Promise<VacpActionResult>;
   subscribe?(invalidate: () => void): () => void;
-  restore?(observation: InspectionObservation, options: InspectorRequest): Promise<VacpActionResult<Result>>;
+  restore?: VacpRestore;
   reveal?(ref: VacpRef, options: InspectorRequest): void | Promise<void>;
 }
 
@@ -22,27 +22,27 @@ export type InspectionSnapshot<T> = T extends Date
 export type InspectionObservation = InspectionSnapshot<VacpObservation>;
 export type InspectionRecord = { readonly id: number; readonly observation: InspectionObservation };
 
-export type InspectorOperation<Params = unknown> =
-  | { readonly kind: 'execute'; readonly call: InspectionSnapshot<VacpActionCall<Params>> }
+export type InspectorOperation =
+  | { readonly kind: 'execute'; readonly call: InspectionSnapshot<VacpActionCall> }
   | { readonly kind: 'restore'; readonly observation: InspectionObservation };
 
-export type InspectorOperationState<Params = unknown, Result = unknown> =
+export type InspectorOperationState =
   | { readonly status: 'idle' }
-  | { readonly status: 'running'; readonly operation: InspectorOperation<Params> }
+  | { readonly status: 'running'; readonly operation: InspectorOperation }
   | {
       readonly status: 'complete';
-      readonly operation: InspectorOperation<Params>;
-      readonly result: InspectionSnapshot<VacpActionResult<Result>>;
+      readonly operation: InspectorOperation;
+      readonly result: InspectionSnapshot<VacpActionResult>;
     }
-  | { readonly status: 'error'; readonly operation: InspectorOperation<Params>; readonly error: Error }
-  | { readonly status: 'capture-error'; readonly operation: InspectorOperation<Params>; readonly error: Error };
+  | { readonly status: 'error'; readonly operation: InspectorOperation; readonly error: Error }
+  | { readonly status: 'capture-error'; readonly operation: InspectorOperation; readonly error: Error };
 
-export type InspectorState<Params = unknown, Result = unknown> = {
+export type InspectorState = {
   readonly status: 'idle' | 'loading' | 'ready' | 'error' | 'disposed';
   readonly observation: InspectionObservation | null;
   readonly observationError: Error | null;
   readonly records: readonly InspectionRecord[];
-  readonly operation: InspectorOperationState<Params, Result>;
+  readonly operation: InspectorOperationState;
 };
 
 export type InspectorSessionOptions = {
@@ -50,16 +50,16 @@ export type InspectorSessionOptions = {
   historyLimit?: number;
 };
 
-export interface InspectorSession<Params = unknown, Result = unknown> {
-  readonly client: InspectorClient<Params, Result>;
-  getState(): InspectorState<Params, Result>;
+export interface InspectorSession {
+  readonly client: InspectorClient;
+  getState(): InspectorState;
   /** Listen to state changes. Subscription alone performs no I/O. */
   subscribe(listener: () => void): () => void;
   /** Start observation and source invalidation. Repeated starts are idempotent. */
   start(): void;
   refresh(): Promise<void>;
-  execute(call: VacpActionCall<Params>, options?: { signal?: AbortSignal }): Promise<VacpActionResult<Result>>;
-  restore(observation: InspectionObservation, options?: { signal?: AbortSignal }): Promise<VacpActionResult<Result>>;
+  execute(call: VacpActionCall, options?: { signal?: AbortSignal }): Promise<VacpActionResult>;
+  restore(observation: InspectionObservation, options?: { signal?: AbortSignal }): Promise<VacpActionResult>;
   reveal(ref: VacpRef, options?: { signal?: AbortSignal }): Promise<void>;
   clearHistory(): void;
   dispose(): void;

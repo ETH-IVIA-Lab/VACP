@@ -1,12 +1,9 @@
 import { expect, type Page } from '@playwright/test';
-import { test } from '../helpers/test';
+import { test, useWebMcp } from '../helpers/test';
 import { repoRoot } from '../helpers/paths';
-import { appServer } from '../helpers/servers';
+import { appServer, gotoApp } from '../helpers/servers';
 
-// WebMCP flags are worker options and apply to every test in this file.
-test.use({
-  launchOptions: { args: ['--enable-experimental-web-platform-features', '--enable-features=WebMCPTesting'] },
-});
+useWebMcp();
 
 async function cursorWithinVisualization(page: Page, selector: string) {
   return page.evaluate((selector) => {
@@ -49,13 +46,10 @@ test('custom SDK actions produce passive presence through native WebMCP without 
       document.addEventListener('pointerdown', onInput);
       try {
         const result = JSON.parse(
-          await context.executeTool(
-            tool,
-            JSON.stringify({
-              ranges: { Horsepower: [100, 150] },
-              narration: 'Keeping cars between 100 and 150 horsepower.',
-            }),
-          ),
+          await context.executeTool(tool, {
+            ranges: { Horsepower: [100, 150] },
+            narration: 'Keeping cars between 100 and 150 horsepower.',
+          }),
         );
         return { result, inputEvents, exposed: '__vacp' in globalThis };
       } finally {
@@ -86,9 +80,7 @@ test('custom SDK actions produce passive presence through native WebMCP without 
 });
 
 test('VGPlot presence matches the native interval brush', async ({ page }) => {
-  const server = appServer('vgplot-gallery');
-  await page.goto(`${server.url}#weather`);
-  await page.waitForFunction(() => !!globalThis.__vacp);
+  await gotoApp(page, 'vgplot-gallery', '#weather');
   const result = await page.evaluate(async () => {
     const bridge = globalThis.__vacp;
     const action = (await bridge.getCapabilities()).graph.actions.find(
@@ -98,8 +90,7 @@ test('VGPlot presence matches the native interval brush', async ({ page }) => {
       callId: 'presence',
       name: action.name,
       params: {
-        plotId: 'plot-0',
-        interactorId: '0',
+        ref: 'vacp://vacp-examples/vgplot/weather/plot-0/interactor/0',
         min: Date.UTC(2012, 5, 1),
         max: Date.UTC(2012, 8, 1),
       },

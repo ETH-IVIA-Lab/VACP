@@ -5,7 +5,7 @@ import {
   removeVacpDomSnapshotScript,
   writeVacpDomSnapshotScript,
 } from './dom-snapshot';
-import { resolveVacpGlobalKey } from './window-globals';
+import { VACP_GLOBAL_KEY } from './window-globals';
 
 const runtimes = new Map<string, VacpRuntime>();
 const domSnapshotHooks = new WeakMap<VacpRuntime, () => void>();
@@ -25,41 +25,25 @@ function installDomSnapshotHooks(runtime: VacpRuntime, options: { enabled: boole
   };
   domSnapshotHooks.set(runtime, dispose);
   runtime.signal.addEventListener('abort', dispose, { once: true });
-  void Promise.resolve(runtime.getCapabilities()).catch(() => {});
+  void runtime.getCapabilities().catch(() => {});
 }
 
 /**
- * Install-or-update a runtime bridge at a given global key (default `__vacp`).
- *
- * This keeps `window.__vacp` stable across rerenders and view switches:
- * - the bridge object stays the same
- * - providers update the underlying snapshot/action adapters
- * - history remains continuous within a session for independent inspection
- *
- * If `sessionKey` is provided and changes between installs, the runtime bridge
- * will treat it as a new session and reset its history.
+ * Install one runtime per global key, or attach `providers` to the one already installed there. The
+ * runtime keeps its identity across reinstalls, and a changed `sessionKey` starts a new history.
  */
 export function installVacpRuntime(args: {
   providers: readonly VacpProvider[];
+  /** Publish the runtime at `globalKey` on the window. */
+  exposeBridge: boolean;
+  /** Publish each observation in `application/json` script elements for agents that read the DOM. */
+  injectDomSnapshot: boolean;
   globalKey?: string;
   sessionKey?: string;
   runtimeId?: string;
-  /** Publish the runtime at the chosen window key. Defaults to true. */
-  exposeBridge?: boolean;
-  /**
-   * If true (default), inject a `type="application/json"` `<script>` tag whose
-   * contents are pure JSON containing `{ capabilities, state }`.
-   *
-   * This makes VACP discoverable to agents that only parse the DOM.
-   */
-  injectDomSnapshot?: boolean;
-  /** Optional override for the injected `<script>` element id. */
-  domSnapshotScriptId?: string;
 }): { runtime: VacpRuntime; dispose: () => void } {
-  const key = resolveVacpGlobalKey(args.globalKey);
-  const exposeBridge = args.exposeBridge ?? true;
-  const domSnapshotEnabled = args.injectDomSnapshot ?? true;
-  const domSnapshotScriptId = args.domSnapshotScriptId ?? defaultVacpDomSnapshotScriptId(key);
+  const key = args.globalKey || VACP_GLOBAL_KEY;
+  const domSnapshotScriptId = defaultVacpDomSnapshotScriptId(key);
 
   let runtime = runtimes.get(key);
   if (runtime?.signal.aborted) runtime = undefined;
@@ -70,9 +54,9 @@ export function installVacpRuntime(args: {
   }
   const detach = runtime.attachProviders(args.providers);
   runtimes.set(key, runtime);
-  if (exposeBridge) Object.assign(globalThis, { [key]: runtime });
+  if (args.exposeBridge) Object.assign(globalThis, { [key]: runtime });
   else if (Object.getOwnPropertyDescriptor(globalThis, key)?.value === runtime) Reflect.deleteProperty(globalThis, key);
-  installDomSnapshotHooks(runtime, { enabled: domSnapshotEnabled, scriptId: domSnapshotScriptId });
+  installDomSnapshotHooks(runtime, { enabled: args.injectDomSnapshot, scriptId: domSnapshotScriptId });
 
   let disposed = false;
   return {
@@ -89,7 +73,7 @@ export function installVacpRuntime(args: {
 }
 
 export function uninstallVacpRuntime(options?: { globalKey?: string }): void {
-  const key = resolveVacpGlobalKey(options?.globalKey);
+  const key = options?.globalKey || VACP_GLOBAL_KEY;
   const runtime = runtimes.get(key);
   if (!runtime) return;
   runtimes.delete(key);

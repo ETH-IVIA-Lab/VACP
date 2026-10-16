@@ -1,13 +1,13 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { setImmediate } from 'node:timers/promises';
-import { VACP_SCHEMA_VERSION, type VacpExecution, type VacpFreshness, type VacpInteraction } from '@vacp/protocol';
+import type { VacpExecution, VacpFreshness, VacpInteraction, VacpSourceId } from '@vacp/protocol';
 import { createVacpProvider, createVacpRuntime, VacpActionRegistry } from '@vacp/runtime';
 import {
   createAgentPresence,
   paceAgentPresence,
   type PresenceActivity,
-  type PresenceBinding,
+  type PresencePresentation,
   type PresenceFrame,
   type PresenceTarget,
 } from '../src/index';
@@ -31,11 +31,11 @@ function fixture(interaction?: VacpInteraction) {
     { parse: (value) => value, focus: (value) => ({ ref: 'vacp://plot', detail: value, interaction }) },
   );
   const provider = createVacpProvider({
+    subscribe: () => () => {},
     source: { id: 'vacp-source://test', type: 'test', title: 'Test' },
     actions,
     project: () => ({
       graph: {
-        version: VACP_SCHEMA_VERSION,
         nodes: [{ ref: 'vacp://plot', kind: 'View', layer: 'ViewLayer' }],
         edges: [],
         actions: actions.list(),
@@ -55,6 +55,15 @@ function fixture(interaction?: VacpInteraction) {
   };
 }
 
+function syntheticProvider(id: VacpSourceId) {
+  return createVacpProvider({
+    source: { id, type: 'test', title: 'Test' },
+    actions: new VacpActionRegistry(),
+    project: () => ({ graph: { nodes: [], edges: [], actions: [] }, state: {} }),
+    subscribe: () => () => {},
+  });
+}
+
 test('presence is independent of execution and distinguishes completion from freshness', async () => {
   const f = fixture();
   let rendered: readonly PresenceActivity[] = [];
@@ -69,9 +78,7 @@ test('presence is independent of execution and distinguishes completion from fre
       },
     },
   });
-  presence.attach({
-    ...f.runtime.getProviderBinding(f.provider),
-    sourceId: f.provider.source.id,
+  presence.attach(f.provider, {
     resolve: () => pendingTarget,
   });
   try {
@@ -103,9 +110,7 @@ test('a later action keeps actor focus when an earlier target resolves', async (
     finish = resolve;
   });
   const presence = createAgentPresence(f.runtime);
-  presence.attach({
-    ...f.runtime.getProviderBinding(f.provider),
-    sourceId: f.provider.source.id,
+  presence.attach(f.provider, {
     resolve: (focus) => (focus.detail === 0 ? slow : target),
   });
   try {
@@ -116,7 +121,7 @@ test('a later action keeps actor focus when an earlier target resolves', async (
     assert.equal(f.count(), 2);
     assert.equal(presence.getSnapshot()[0]!.execution!.callId, 'current');
     assert.deepEqual(presence.getSnapshot()[0]!.target, target);
-    f.runtime.removeProvider(f.provider.source.id);
+    f.runtime.update({ providers: [] });
     assert.deepEqual(shown(presence), []);
   } finally {
     presence.dispose();
@@ -159,7 +164,7 @@ test('replacing a source retires pending geometry and its old binding cannot tar
   });
   const presence = createAgentPresence(f.runtime);
   const lease = f.runtime.getProviderBinding(f.provider);
-  presence.attach({ ...lease, sourceId: f.provider.source.id, resolve: () => pending });
+  presence.attach(f.provider, { resolve: () => pending });
   try {
     await f.runtime.execute({ callId: 'old', name: 'set' });
     f.runtime.update({ providers: [{ ...f.provider }] });
@@ -223,9 +228,7 @@ test('disposal releases an intentional pre-execution pause', async () => {
       },
     },
   });
-  presence.attach({
-    ...f.runtime.getProviderBinding(f.provider),
-    sourceId: f.provider.source.id,
+  presence.attach(f.provider, {
     resolve: () => target,
   });
   paceAgentPresence(f.runtime, presence, { beforeExecuteMs: 30_000 });
@@ -248,9 +251,7 @@ test(
     const f = fixture();
     const presence = createAgentPresence(f.runtime);
     let x = 10;
-    presence.attach({
-      ...f.runtime.getProviderBinding(f.provider),
-      sourceId: f.provider.source.id,
+    presence.attach(f.provider, {
       resolve: () => ({ surface: 'canvas', precision: 'exact', geometry: { kind: 'point', point: { x, y: 20 } } }),
     });
     try {
@@ -279,9 +280,12 @@ test('passive viewers need no timing authority and removing host pacing leaves b
   const f = fixture();
   const passive = {
     signal: f.runtime.signal,
-    subscribeExecutions: f.runtime.subscribeExecutions,
-    getActiveExecutions: f.runtime.getActiveExecutions,
-    subscribeSnapshots: f.runtime.subscribeSnapshots,
+    subscribeExecutions: f.runtime.subscribeExecutions.bind(f.runtime),
+    getActiveExecutions: f.runtime.getActiveExecutions.bind(f.runtime),
+    subscribeSnapshots: f.runtime.subscribeSnapshots.bind(f.runtime),
+    getAgentActivities: f.runtime.getAgentActivities.bind(f.runtime),
+    subscribeAgentActivities: f.runtime.subscribeAgentActivities.bind(f.runtime),
+    getProviderBinding: f.runtime.getProviderBinding.bind(f.runtime),
   };
   const first = createAgentPresence(passive),
     second = createAgentPresence(passive);
@@ -355,9 +359,7 @@ test('geometry invalidation during renderer arrival waits for the replacement ta
       },
     },
   });
-  presence.attach({
-    ...f.runtime.getProviderBinding(f.provider),
-    sourceId: f.provider.source.id,
+  presence.attach(f.provider, {
     resolve: () => geometry,
     subscribe: (notify) => {
       invalidate = notify;
@@ -402,9 +404,7 @@ test(
         },
       },
     });
-    const detach = presence.attach({
-      ...f.runtime.getProviderBinding(f.provider),
-      sourceId: f.provider.source.id,
+    const detach = presence.attach(f.provider, {
       resolve: () => target,
     });
     try {
@@ -438,9 +438,7 @@ test(
         },
       },
     });
-    presence.attach({
-      ...f.runtime.getProviderBinding(f.provider),
-      sourceId: f.provider.source.id,
+    presence.attach(f.provider, {
       resolve: () => geometry,
       subscribe: (notify) => {
         invalidate = notify;
@@ -548,9 +546,7 @@ test('a new turn stops claiming the last step is current, while the cursor keeps
   const f = fixture();
   const actor = { id: 'analyst', kind: 'agent' as const };
   const presence = createAgentPresence(f.runtime, { narrationHoldMs: 0 });
-  presence.attach({
-    ...f.runtime.getProviderBinding(f.provider),
-    sourceId: f.provider.source.id,
+  presence.attach(f.provider, {
     resolve: () => target,
   });
   try {
@@ -644,9 +640,7 @@ test('a viewer attached during host thinking and a prepared operation follows th
   );
   await prepared;
   const presence = createAgentPresence(f.runtime);
-  presence.attach({
-    ...f.runtime.getProviderBinding(f.provider),
-    sourceId: f.provider.source.id,
+  presence.attach(f.provider, {
     resolve: () => target,
   });
   await setImmediate();
@@ -674,9 +668,7 @@ test('published activity protects nested focus and geometry across viewers and l
     geometry: { kind: 'path', points: [{ x: 1, y: 2 }] },
   };
   const presence = createAgentPresence(f.runtime, { narrationHoldMs: 0 });
-  presence.attach({
-    ...f.runtime.getProviderBinding(f.provider),
-    sourceId: f.provider.source.id,
+  presence.attach(f.provider, {
     resolve: () => geometry,
   });
   let newest: readonly PresenceActivity[] = [];
@@ -770,6 +762,9 @@ test('steps sent in the same tick still move the cursor to the latest one', asyn
   let publish!: (execution: VacpExecution) => void;
   const presence = createAgentPresence({
     signal: lifetime.signal,
+    getProviderBinding: () => ({ id: 'binding', signal: lifetime.signal }),
+    getAgentActivities: () => [],
+    subscribeAgentActivities: () => () => {},
     getActiveExecutions: () => [],
     subscribeExecutions: (listener) => {
       publish = listener;
@@ -777,10 +772,7 @@ test('steps sent in the same tick still move the cursor to the latest one', asyn
     },
     subscribeSnapshots: () => () => {},
   });
-  presence.attach({
-    id: 'binding',
-    sourceId: 'vacp-source://quick',
-    signal: lifetime.signal,
+  presence.attach(syntheticProvider('vacp-source://quick'), {
     resolve: (focus) => ({
       surface: 'test',
       precision: 'exact',
@@ -813,6 +805,9 @@ test('a step without a focus points at the first node it changes that its surfac
   let publish!: (execution: VacpExecution) => void;
   const presence = createAgentPresence({
     signal: lifetime.signal,
+    getProviderBinding: () => ({ id: 'binding', signal: lifetime.signal }),
+    getAgentActivities: () => [],
+    subscribeAgentActivities: () => () => {},
     getActiveExecutions: () => [],
     subscribeExecutions: (listener) => {
       publish = listener;
@@ -822,10 +817,7 @@ test('a step without a focus points at the first node it changes that its surfac
   });
   // The surface places its plot and inputs, but has no single place for the view that holds them.
   const places: Record<string, number> = { 'vacp://plot': 1, 'vacp://input/blur': 2 };
-  presence.attach({
-    id: 'binding',
-    sourceId: 'vacp-source://survey',
-    signal: lifetime.signal,
+  presence.attach(syntheticProvider('vacp-source://survey'), {
     resolve: (focus) =>
       places[focus.ref] === undefined
         ? null
@@ -867,6 +859,9 @@ function watchedPresence() {
   const presence = createAgentPresence(
     {
       signal: lifetime.signal,
+      getProviderBinding: () => ({ id: 'binding', signal: lifetime.signal }),
+      getAgentActivities: () => [],
+      subscribeAgentActivities: () => () => {},
       getActiveExecutions: () => [],
       subscribeExecutions: (listener) => {
         publish = listener;
@@ -877,10 +872,7 @@ function watchedPresence() {
     { lingerMs: 0 },
   );
   const surface = { watching: 0, started: 0 };
-  const binding = (): PresenceBinding => ({
-    id: 'binding',
-    sourceId: 'vacp-source://watched',
-    signal: lifetime.signal,
+  const binding = (): PresencePresentation => ({
     resolve: () => ({ surface: 'test', precision: 'exact', geometry: { kind: 'point', point: { x: 1, y: 1 } } }),
     subscribe: () => {
       surface.watching++;
@@ -904,6 +896,7 @@ function watchedPresence() {
     presence,
     surface,
     binding,
+    provider: syntheticProvider('vacp-source://watched'),
     publish: (execution: VacpExecution) => publish(execution),
     step,
     dispose() {
@@ -915,7 +908,7 @@ function watchedPresence() {
 
 test('a surface is watched for layout only while a pointer rests on it', async () => {
   const f = watchedPresence();
-  f.presence.attach(f.binding());
+  f.presence.attach(f.provider, f.binding());
   assert.equal(f.surface.watching, 0, 'nothing rests on the surface yet');
   f.publish(f.step('step', 'prepared'));
   await setImmediate();
@@ -929,7 +922,7 @@ test('a surface is watched for layout only while a pointer rests on it', async (
 
 test('consecutive steps on one surface keep a single layout witness', async () => {
   const f = watchedPresence();
-  f.presence.attach(f.binding());
+  f.presence.attach(f.provider, f.binding());
   f.publish(f.step('first', 'prepared'));
   f.publish(f.step('first', 'succeeded'));
   f.publish(f.step('second', 'prepared'));
@@ -940,9 +933,9 @@ test('consecutive steps on one surface keep a single layout witness', async () =
 
 test('a detach handle from an earlier attachment leaves the newer binding watched', async () => {
   const f = watchedPresence();
-  const stale = f.presence.attach(f.binding());
+  const stale = f.presence.attach(f.provider, f.binding());
   stale();
-  f.presence.attach(f.binding());
+  f.presence.attach(f.provider, f.binding());
   f.publish(f.step('step', 'prepared'));
   await setImmediate();
   stale();

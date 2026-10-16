@@ -2,7 +2,7 @@ import embed from 'vega-embed';
 import { changeset } from 'vega';
 import type { TopLevelSpec } from 'vega-lite';
 import { Coordinator, DuckDBWASMConnector, Selection } from '@uwdata/mosaic-core';
-import { and, eq, isBetween, literal, or } from '@uwdata/mosaic-sql';
+import { and, column, eq, isBetween, literal, or } from '@uwdata/mosaic-sql';
 import { createAPIContext } from '@uwdata/vgplot';
 import { createDuckDbWasmClient, instantiateDuckDbWasm } from '@vacp/data-duckdb';
 import { exampleDuckDbBundles } from '@vacp/example-shared';
@@ -135,6 +135,7 @@ export async function createCharts(
         ].filter((term) => term !== null);
         selection.update({
           source: external,
+          fields: ['sport', 'sex', 'weight', 'height'].map((field) => column(field)),
           value: { sports, sex, body },
           predicate: terms.length ? and(terms) : null,
         });
@@ -169,7 +170,7 @@ export async function createCharts(
       embedded.view.removeSignalListener('body', onBody);
     };
     sync();
-    return { view: embedded.view, spec, plot, ageElement, data, dispose };
+    return { view: embedded.view, spec, vgSpec: embedded.vgSpec, plot, data, dispose };
   } catch (error) {
     await dispose();
     throw error;

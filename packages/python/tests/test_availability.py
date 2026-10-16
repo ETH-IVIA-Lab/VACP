@@ -1,17 +1,20 @@
 import asyncio
 import json
+from collections.abc import Awaitable, Callable
 from pathlib import Path
 
 import pytest
 from vacp import (
+    ActionCall,
+    ActionContext,
+    ActionDescriptor,
+    ActionResult,
     Availability,
     GraphFragment,
-    Invocation,
-    InvocationResult,
     Node,
     Observation,
-    OperationDescriptor,
     OperationSemantics,
+    PreparedAction,
     ProviderComposer,
     ProviderObservation,
     RefParameter,
@@ -20,6 +23,14 @@ from vacp import (
     resolve_availability,
 )
 from vacp.availability import AvailabilityError, require_action, resolve_observation
+
+type Prepare = Callable[[ActionCall, ActionContext], PreparedAction]
+
+
+def preparing(run: Callable[[ActionCall], ActionResult | Awaitable[ActionResult]]) -> Prepare:
+    """A preparation with nothing to validate, whose execution runs `run` once."""
+    return lambda call, _context: PreparedAction(lambda: run(call))
+
 
 CASES = json.loads((Path(__file__).parents[2] / 'protocol/test/fixtures/availability.json').read_text())
 
@@ -42,7 +53,7 @@ def test_shared_availability_contract(case: dict[str, object]) -> None:
         ),
         (),
         tuple(
-            OperationDescriptor(
+            ActionDescriptor(
                 action['name'],
                 action['name'],
                 OperationSemantics(
@@ -76,7 +87,7 @@ def test_shared_availability_contract(case: dict[str, object]) -> None:
     calls = case.get('calls', [])
     assert isinstance(calls, list)
     for invocation in calls:
-        call = Invocation('fixture', invocation['name'], invocation.get('params'))
+        call = ActionCall('fixture', invocation['name'], invocation.get('params'))
         if 'error' in invocation:
             with pytest.raises(AvailabilityError) as failure:
                 require_action(resolved, call)
@@ -105,7 +116,7 @@ async def test_discovery_and_inspection_share_one_execution_guard() -> None:
                 ),
                 (),
                 (
-                    OperationDescriptor(
+                    ActionDescriptor(
                         'click',
                         'Click bar',
                         OperationSemantics('mutation'),
@@ -116,25 +127,25 @@ async def test_discovery_and_inspection_share_one_execution_guard() -> None:
             {'vacp://chart': 42},
         )
 
-    def invoke(call: Invocation) -> InvocationResult:
+    def invoke(call: ActionCall) -> ActionResult:
         nonlocal mutations
         mutations += 1
-        return InvocationResult(call.call_id, True)
+        return ActionResult(call.call_id, True)
 
     composer = ProviderComposer(
-        [SimpleProvider(SourceDescription('vacp-source://chart', 'chart', 'Chart'), project, invoke)]
+        [SimpleProvider(SourceDescription('vacp-source://chart', 'chart', 'Chart'), project, preparing(invoke))]
     )
     try:
         assert (await composer.observe()).graph.actions == ()
         assert (await composer.observe()).state == {}
         assert len((await composer.inspect()).graph.actions) == 1
-        assert not (await composer.invoke(Invocation('blocked', 'click'))).ok
+        assert not (await composer.execute(ActionCall('blocked', 'click'))).ok
         assert mutations == 0
         ready = True
         assert len((await composer.observe()).graph.actions) == 1
-        assert (await composer.invoke(Invocation('ready', 'click'))).ok
+        assert (await composer.execute(ActionCall('ready', 'click'))).ok
         ready = False
-        assert not (await composer.invoke(Invocation('stale', 'click'))).ok
+        assert not (await composer.execute(ActionCall('stale', 'click'))).ok
         assert mutations == 1
     finally:
         composer.dispose()
@@ -151,7 +162,7 @@ async def test_composer_owns_invocation_across_observation() -> None:
         return ProviderObservation(
             '1',
             '',
-            GraphFragment((), (), (OperationDescriptor('run', 'Run', OperationSemantics('query')),)),
+            GraphFragment((), (), (ActionDescriptor('run', 'Run', OperationSemantics('query')),)),
             {},
         )
 
@@ -160,13 +171,13 @@ async def test_composer_owns_invocation_across_observation() -> None:
             SimpleProvider(
                 SourceDescription('vacp-source://input', 'test', 'Input'),
                 project,
-                lambda call: InvocationResult(call.call_id, True, result=call.params),
+                preparing(lambda call: ActionResult(call.call_id, True, result=call.params)),
             ),
         ]
     )
     try:
         params = {'value': 'original'}
-        executing = asyncio.create_task(composer.invoke(Invocation('owned', 'run', params)))
+        executing = asyncio.create_task(composer.execute(ActionCall('owned', 'run', params)))
         await entered.wait()
         params['value'] = 'changed'
         release.set()

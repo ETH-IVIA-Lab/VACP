@@ -8,40 +8,12 @@ import type {
   VacpFocus,
   VacpSourceId,
 } from '@vacp/protocol';
-import {
-  registerVacpApplyStateAction,
-  type VacpApplyStatePreparation,
-  registerVacpDataSchemaAction,
-  type VacpDataSchemaHandler,
-  registerVacpDataSqlAction,
-  type VacpDataSqlHandler,
-  registerVacpWidgetOptionsAction,
-  type VacpWidgetOptionsHandler,
-  VacpActionRegistry,
-  type VacpActionHandler,
-} from '@vacp/runtime';
+import { VacpActionRegistry, type VacpActionHandler } from '@vacp/runtime';
 
 export type VacpActions = {
+  /** Register standard actions here with `registerVacp*Action` from `@vacp/runtime`. */
   registry: VacpActionRegistry;
   operation: (kind: VacpOperationKind, name: string, description: string) => VacpActionBuilder;
-  standard: {
-    applyState: <Result>(
-      prepare: VacpApplyStatePreparation<Result>,
-      options?: Parameters<typeof registerVacpApplyStateAction>[2],
-    ) => VacpActionDescriptor;
-    dataSchema: (
-      handler: VacpDataSchemaHandler,
-      options?: Parameters<typeof registerVacpDataSchemaAction>[2],
-    ) => VacpActionDescriptor;
-    dataSql: (
-      handler: VacpDataSqlHandler,
-      options?: Parameters<typeof registerVacpDataSqlAction>[2],
-    ) => VacpActionDescriptor | null;
-    widgetOptions: (
-      handler: VacpWidgetOptionsHandler,
-      options?: Parameters<typeof registerVacpWidgetOptionsAction>[2],
-    ) => VacpActionDescriptor;
-  };
 };
 
 export function createVacpActions(sourceId?: VacpSourceId): VacpActions {
@@ -51,12 +23,6 @@ export function createVacpActions(sourceId?: VacpSourceId): VacpActions {
     registry,
     operation: (kind, name, description) =>
       new ActionDefinition(registry, { name, description, operation: { kind } }, (value) => value),
-    standard: {
-      applyState: (prepare, options) => registerVacpApplyStateAction(registry, prepare, options),
-      dataSchema: (handler, options) => registerVacpDataSchemaAction(registry, handler, options),
-      dataSql: (handler, options) => registerVacpDataSqlAction(registry, handler, options),
-      widgetOptions: (handler, options) => registerVacpWidgetOptionsAction(registry, handler, options),
-    },
   };
 }
 

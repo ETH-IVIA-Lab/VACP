@@ -1,9 +1,8 @@
-import type { VacpActionDescriptor, VacpClock, VacpDataSchemaColumn, VacpRef } from '@vacp/protocol';
+import type { VacpClock, VacpDataSchemaColumn, VacpRef } from '@vacp/protocol';
 import {
   createDuckDbDataSchemaHandler,
   createDuckDbDataSqlHandler,
-  createDuckDbWasmClient,
-  describeDuckDbTable,
+  describeDuckDbColumns,
   makeVacpDuckDbTableName,
   type VacpDuckDbClient,
   type VacpDuckDbLoadType,
@@ -13,7 +12,7 @@ import { registerVacpDataSchemaAction, registerVacpDataSqlAction, type VacpActio
 import type { VegaLiteBindings } from './bindings';
 import { tableRows, type TableRows } from './data-rows';
 import { collectSelectionFields, describeSource, scoreDataRows } from './data-sources';
-import { whereClauseForCurrentSelections } from './duckdb-selection';
+import { hoverRule, whereClauseForCurrentSelections } from './duckdb-selection';
 import { makeRef } from './refs';
 import type { VegaLiteProviderOptions, VegaLiteSpecLike, VegaViewLike } from './types';
 
@@ -39,7 +38,7 @@ async function loadTable(db: VacpDuckDbClient, table: string, { rows, timestamps
   for (const column of timestamps.keys()) types[column] = 'TIMESTAMP';
   for (const column of numbers) types[column] = 'DOUBLE';
   await db.exec(`DROP TABLE IF EXISTS main.${table}`);
-  await db.loadObjectsAsTable(table, rows, { create: true, types });
+  await db.loadObjectsAsTable(table, rows, { types });
 }
 
 /** A key that changes when the loaded columns or their load types do. */
@@ -57,26 +56,19 @@ export function createVegaLiteDataBinding(args: {
   bindings: VegaLiteBindings;
   options: VegaLiteProviderOptions;
   actionRegistry: VacpActionRegistry;
-  actionDescriptors: VacpActionDescriptor[];
+  data: { duckdb: VacpDuckDbClient | Promise<VacpDuckDbClient>; sql?: boolean } | undefined;
   getHoverFields?: () => Readonly<Record<string, unknown>> | null;
 }): { handles: VegaLiteDuckDbDataHandle[]; dispose: () => Promise<void> } {
-  const { spec, view, bindings, options, actionRegistry, actionDescriptors } = args;
+  const { spec, view, bindings, options, actionRegistry } = args;
 
-  if (!(options.enableDuckDbDataHandle ?? true)) return { handles: [], dispose: async () => {} };
-
-  let disposeClient = async (): Promise<void> => {};
-  const duckdbPromise = options.duckdbClient
-    ? Promise.resolve(options.duckdbClient)
-    : createDuckDbWasmClient({ log: false }).then((client) => {
-        disposeClient = () => client.dispose();
-        return client;
-      });
+  if (!args.data) return { handles: [], dispose: async () => {} };
+  const duckdbPromise = Promise.resolve(args.data.duckdb);
   const base = `vacp_vl_${options.appId}_${options.viewId}_${options.vizId}`;
   const { sources } = bindings.dataflow;
 
   const shownRows = (dataset: string): unknown[] => {
     try {
-      const rows = view.data?.(dataset);
+      const rows = view.data(dataset);
       return Array.isArray(rows) ? rows : [];
     } catch {
       return [];
@@ -113,7 +105,6 @@ export function createVegaLiteDataBinding(args: {
       dataVersion++;
     };
     const listening = (() => {
-      if (!view.addDataListener || !view.removeDataListener) return false;
       try {
         view.addDataListener(source.shown, onData);
         return true;
@@ -208,7 +199,7 @@ export function createVegaLiteDataBinding(args: {
         const columns = ensureDuckDbData().then(() => {
           const next = loading.then(async () => {
             if (described?.schema !== loadedSchema) {
-              const { columns } = await describeDuckDbTable({ duckdb: await duckdbPromise, table: tableName });
+              const columns = await describeDuckDbColumns({ duckdb: await duckdbPromise, table: tableName });
               described = { schema: loadedSchema!, columns };
             }
             return described!.columns;
@@ -224,7 +215,7 @@ export function createVegaLiteDataBinding(args: {
       dispose: async () => {
         if (disposed) return;
         disposed = true;
-        if (listening) view.removeDataListener!(source.shown, onData);
+        if (listening) view.removeDataListener(source.shown, onData);
         prepared = undefined;
         await loading;
         if (!tableTouched) return;
@@ -246,33 +237,30 @@ export function createVegaLiteDataBinding(args: {
   const handlesByRef = new Map(handlesInternal.map((h) => [h.ref, h] as const));
   const inputRefs = handlesInternal.flatMap((handle) => (handle.ref.endsWith('/data/main') ? [handle.ref] : []));
 
-  const dataSqlDesc = registerVacpDataSqlAction(
-    actionRegistry,
-    createDuckDbDataSqlHandler({
-      duckdb: duckdbPromise,
-      resolveHandle: async (ref) => {
-        const handle = handlesByRef.get(ref);
-        if (!handle) return null;
-        await handle.ensureDuckDbData();
-        const where = handle.selectionWhere();
-        const shown = `SELECT * FROM ${handle.tableName}`;
-        return {
-          allSql: `SELECT * FROM ${handle.allTableName}`,
-          selectedSql: where ? `${shown} WHERE ${where}` : shown,
-        };
+  if (args.data.sql ?? true)
+    registerVacpDataSqlAction(
+      actionRegistry,
+      createDuckDbDataSqlHandler({
+        duckdb: duckdbPromise,
+        resolveHandle: async (ref) => {
+          const handle = handlesByRef.get(ref);
+          if (!handle) return null;
+          await handle.ensureDuckDbData();
+          const where = handle.selectionWhere();
+          const shown = `SELECT * FROM ${handle.tableName}`;
+          return {
+            allSql: `SELECT * FROM ${handle.allTableName}`,
+            selectedSql: where ? `${shown} WHERE ${where}` : shown,
+          };
+        },
+      }),
+      {
+        inputRefs,
+        description: `Query the chart data with DuckDB SQL. ${hoverRule} \`vacp_all\` holds every row the source loaded.`,
       },
-    }),
-    {
-      inputRefs,
-      enabled: options.enableSql ?? true,
-      description:
-        'Query the chart data with DuckDB SQL. `vacp_handle` holds the rows the marks read, narrowed by the current selections and hover. `vacp_all` holds every row the source loaded.',
-    },
-  );
+    );
 
-  if (dataSqlDesc) actionDescriptors.push(dataSqlDesc);
-
-  const dataSchemaDesc = registerVacpDataSchemaAction(
+  registerVacpDataSchemaAction(
     actionRegistry,
     createDuckDbDataSchemaHandler({
       duckdb: duckdbPromise,
@@ -290,8 +278,6 @@ export function createVegaLiteDataBinding(args: {
     },
   );
 
-  actionDescriptors.push(dataSchemaDesc);
-
   let disposal: Promise<void> | undefined;
   return {
     handles: handlesInternal,
@@ -299,7 +285,6 @@ export function createVegaLiteDataBinding(args: {
       (disposal ??= (async () => {
         const results = await Promise.allSettled(handlesInternal.map((handle) => handle.dispose()));
         await duckdbPromise;
-        await disposeClient();
         const errors = results.flatMap((result) => (result.status === 'rejected' ? [result.reason] : []));
         if (errors.length) throw new AggregateError(errors, 'Failed to release Vega-Lite data tables');
       })()),

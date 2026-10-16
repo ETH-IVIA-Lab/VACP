@@ -1,27 +1,36 @@
 from __future__ import annotations
 
 import asyncio
-from collections.abc import Callable, Mapping
+from collections.abc import Awaitable, Callable, Mapping
 from datetime import UTC, datetime
 from typing import cast
 
 import pytest
 from vacp import (
+    ActionCall,
+    ActionContext,
+    ActionDescriptor,
+    ActionResult,
     Edge,
     Freshness,
     GraphFragment,
-    Invocation,
-    InvocationResult,
     Node,
-    OperationDescriptor,
     OperationResultDescriptor,
     OperationSemantics,
+    PreparedAction,
     ProviderComposer,
     ProviderObservation,
     SimpleProvider,
     SourceDescription,
     as_dict,
 )
+
+type Prepare = Callable[[ActionCall, ActionContext], PreparedAction]
+
+
+def preparing(run: Callable[[ActionCall], ActionResult | Awaitable[ActionResult]]) -> Prepare:
+    """A preparation with nothing to validate, whose execution runs `run` once."""
+    return lambda call, _context: PreparedAction(lambda: run(call))
 
 
 def record(value: object) -> Mapping[str, object]:
@@ -40,7 +49,7 @@ def source(source_id: str, ref: str, operation: str, *, edge: Edge | None = None
                 nodes=(Node(ref, 'TestOutput', 'AnalysisLayer'),),
                 edges=(edge,) if edge else (),
                 actions=(
-                    OperationDescriptor(
+                    ActionDescriptor(
                         operation,
                         operation,
                         OperationSemantics(
@@ -57,9 +66,7 @@ def source(source_id: str, ref: str, operation: str, *, edge: Edge | None = None
         )
 
     return SimpleProvider(
-        description,
-        project,
-        lambda call: InvocationResult(call.call_id, True, result=source_id),
+        description, project, preparing(lambda call: ActionResult(call.call_id, True, result=source_id))
     )
 
 
@@ -100,7 +107,7 @@ async def test_composition_preserves_ownership_relations_freshness_and_routing()
             'role': 'visualization',
             'ref': chart_ref,
         }
-        assert await composer.invoke(Invocation('run', 'notebook.evaluate')) == InvocationResult(
+        assert await composer.execute(ActionCall('run', 'notebook.evaluate')) == ActionResult(
             'run', True, result='vacp-source://notebook'
         )
     finally:
@@ -128,13 +135,13 @@ async def test_composer_routes_a_changed_catalog_and_disposes_once() -> None:
         nonlocal close_count
         close_count += 1
 
-    current.close = close
+    current.dispose = close
     composer = ProviderComposer([current])
     await composer.observe()
-    current.project = source('vacp-source://dynamic', 'vacp://dynamic', 'second').project
-    result = await composer.invoke(Invocation('new', 'second'))
+    current.observe = source('vacp-source://dynamic', 'vacp://dynamic', 'second').observe
+    result = await composer.execute(ActionCall('new', 'second'))
     assert result.ok
-    assert not (await composer.invoke(Invocation('old', 'first'))).ok
+    assert not (await composer.execute(ActionCall('old', 'first'))).ok
     composer.dispose()
     composer.dispose()
     assert close_count == 1
@@ -145,7 +152,7 @@ async def test_composer_routes_a_changed_catalog_and_disposes_once() -> None:
 @pytest.mark.asyncio
 async def test_disposal_rejects_pending_observations_before_operation_dispatch() -> None:
     current = source('source', 'node', 'run')
-    project = current.project
+    project = current.observe
     entered, release = asyncio.Event(), asyncio.Event()
     invoked = False
 
@@ -156,14 +163,14 @@ async def test_disposal_rejects_pending_observations_before_operation_dispatch()
         assert isinstance(result, ProviderObservation)
         return result
 
-    def invoke(call: Invocation) -> InvocationResult:
+    def invoke(call: ActionCall) -> ActionResult:
         nonlocal invoked
         invoked = True
-        return InvocationResult(call.call_id, True)
+        return ActionResult(call.call_id, True)
 
-    current.project, current.invoke_operation = observe, invoke
+    current.observe, current.prepare = observe, preparing(invoke)
     composer = ProviderComposer([current])
-    pending = asyncio.create_task(composer.invoke(Invocation('call', 'run')))
+    pending = asyncio.create_task(composer.execute(ActionCall('call', 'run')))
     await entered.wait()
     composer.dispose()
     release.set()
@@ -173,23 +180,101 @@ async def test_disposal_rejects_pending_observations_before_operation_dispatch()
 
 
 @pytest.mark.asyncio
-async def test_disposal_rejects_late_operation_results() -> None:
+async def test_disposal_during_preparation_prevents_execution() -> None:
     current = source('source', 'node', 'run')
     entered, release = asyncio.Event(), asyncio.Event()
+    executed = False
 
-    async def invoke(call: Invocation) -> InvocationResult:
+    def run(call: ActionCall) -> ActionResult:
+        nonlocal executed
+        executed = True
+        return ActionResult(call.call_id, True)
+
+    async def prepare(call: ActionCall, _context: ActionContext) -> PreparedAction:
         entered.set()
         await release.wait()
-        return InvocationResult(call.call_id, True)
+        return PreparedAction(lambda: run(call))
 
-    current.invoke_operation = invoke
+    current.prepare = prepare
     composer = ProviderComposer([current])
-    pending = asyncio.create_task(composer.invoke(Invocation('call', 'run')))
+    pending = asyncio.create_task(composer.execute(ActionCall('call', 'run')))
     await entered.wait()
     composer.dispose()
     release.set()
     with pytest.raises(RuntimeError, match='disposed'):
         await pending
+    assert not executed
+
+
+@pytest.mark.asyncio
+async def test_a_completed_result_stands_when_the_composer_is_disposed_during_execution() -> None:
+    current = source('source', 'node', 'run')
+    entered, release = asyncio.Event(), asyncio.Event()
+
+    async def run(call: ActionCall) -> ActionResult:
+        entered.set()
+        await release.wait()
+        return ActionResult(call.call_id, True, result='applied')
+
+    current.prepare = preparing(run)
+    composer = ProviderComposer([current])
+    pending = asyncio.create_task(composer.execute(ActionCall('call', 'run')))
+    await entered.wait()
+    composer.dispose()
+    release.set()
+    assert await pending == ActionResult('call', True, result='applied')
+
+
+@pytest.mark.asyncio
+async def test_a_prepared_action_runs_once() -> None:
+    runs: list[str] = []
+    prepared = PreparedAction(lambda: runs.append('ran') or ActionResult('call', True))
+    assert (await prepared.execute()).ok
+    with pytest.raises(RuntimeError, match='already been executed'):
+        await prepared.execute()
+    assert runs == ['ran']
+
+
+@pytest.mark.asyncio
+async def test_a_failed_preparation_is_a_failure_result_before_any_effect() -> None:
+    current = source('source', 'node', 'run')
+
+    def prepare(_call: ActionCall, _context: ActionContext) -> PreparedAction:
+        raise ValueError('Expected a value')
+
+    current.prepare = prepare
+    composer = ProviderComposer([current])
+    try:
+        assert await composer.execute(ActionCall('call', 'run')) == ActionResult(
+            'call', False, error={'message': 'Expected a value'}
+        )
+    finally:
+        composer.dispose()
+
+
+@pytest.mark.asyncio
+async def test_observations_are_captured_once_and_isolated_from_providers_and_consumers() -> None:
+    shared: dict[str, object] = {'values': [1, 2]}
+    current = source('source', 'vacp://node', 'run')
+
+    def observe() -> ProviderObservation:
+        return ProviderObservation(
+            '1', '', GraphFragment((Node('vacp://node', 'Param', 'ConfigLayer'),), (), ()), {'vacp://node': shared}
+        )
+
+    current.observe = observe
+    composer = ProviderComposer([current])
+    try:
+        first = await composer.observe()
+        values = first.state['vacp://node']
+        assert isinstance(values, dict)
+        values['values'].append('consumer')
+        shared['values'] = ['provider']
+        assert first.state['vacp://node'] == {'values': [1, 2, 'consumer']}
+        assert (await composer.inspect()).state['vacp://node'] == {'values': ['provider']}
+        assert shared == {'values': ['provider']}
+    finally:
+        composer.dispose()
 
 
 def test_failed_construction_releases_acquired_subscriptions() -> None:
@@ -203,7 +288,7 @@ def test_failed_construction_releases_acquired_subscriptions() -> None:
         raise RuntimeError('Cannot subscribe')
 
     first, second = source('first', 'a', 'a'), source('second', 'b', 'b')
-    first.subscribe_changes, second.subscribe_changes = subscribe, fail
+    first.subscribe, second.subscribe = subscribe, fail
     with pytest.raises(RuntimeError, match='Cannot subscribe'):
         ProviderComposer([first, second])
     assert not attached
@@ -217,10 +302,10 @@ def test_disposal_releases_every_source_even_when_cleanup_fails() -> None:
         raise RuntimeError('Cleanup failed')
 
     first, second = source('first', 'a', 'a'), source('second', 'b', 'b')
-    first.subscribe_changes = lambda _callback: failing_cleanup
-    first.close = failing_cleanup
-    second.subscribe_changes = lambda _callback: lambda: released.append('second subscription')
-    second.close = lambda: released.append('second provider')
+    first.subscribe = lambda _callback: failing_cleanup
+    first.dispose = failing_cleanup
+    second.subscribe = lambda _callback: lambda: released.append('second subscription')
+    second.dispose = lambda: released.append('second provider')
     composer = ProviderComposer([first, second])
     with pytest.raises(RuntimeError, match='Cleanup failed'):
         composer.dispose()
@@ -242,21 +327,44 @@ async def test_subscriber_failure_does_not_change_operation_result_or_skip_other
         callbacks.append(callback)
         return lambda: callbacks.remove(callback)
 
-    def invoke(call: Invocation) -> InvocationResult:
+    def invoke(call: ActionCall) -> ActionResult:
         for callback in callbacks:
             callback()
-        return InvocationResult(call.call_id, True)
+        return ActionResult(call.call_id, True)
 
     def fail() -> None:
         raise RuntimeError('Broken viewer')
 
-    current.subscribe_changes, current.invoke_operation = subscribe, invoke
+    current.subscribe, current.prepare = subscribe, preparing(invoke)
     composer = ProviderComposer([current])
     composer.subscribe(fail)
     composer.subscribe(lambda: notified.append('changed'))
     try:
-        assert (await composer.invoke(Invocation('call', 'run'))).ok
+        assert (await composer.execute(ActionCall('call', 'run'))).ok
         assert notified == ['changed']
         assert 'Broken viewer' in caplog.text
+    finally:
+        composer.dispose()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize('supplied', [False, True])
+async def test_composer_preserves_parameter_presence(supplied: bool) -> None:
+    provider = source('vacp-source://params', 'vacp://params', 'reset')
+    seen: list[bool] = []
+
+    def prepare(call: ActionCall, _context: ActionContext) -> PreparedAction:
+        seen.append(call.has_params)
+        if call.has_params:
+            assert call.params is None
+        return PreparedAction(lambda: ActionResult(call.call_id, True))
+
+    provider.prepare = prepare
+    composer = ProviderComposer([provider])
+    try:
+        call = ActionCall('reset', 'reset', None) if supplied else ActionCall('reset', 'reset')
+        result = await composer.execute(call)
+        assert result.ok, result.error
+        assert seen == [supplied]
     finally:
         composer.dispose()

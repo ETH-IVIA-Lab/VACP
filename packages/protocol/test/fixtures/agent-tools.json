@@ -9,8 +9,8 @@
       "input": ["refs", "prefixes", "kinds", "layers", "includeActions", "includeEdges", "includeNodeData"]
     },
     "vacp_state": {
-      "description": "Read state keyed by stable refs. Without input it returns the full snapshot. With mode \"delta\" and the token of an earlier read it returns only what changed, and refs limits the read.",
-      "input": ["mode", "since", "refs", "includeSummary"]
+      "description": "Read state keyed by stable refs. Without since it returns the full state and a token. With since set to the token of an earlier read it returns only what changed since then. refs limits the read.",
+      "input": ["since", "refs", "includeSummary"]
     },
     "vacp_execute": {
       "description": "Run one semantic action by its name from the graph, with params matching its parameters schema and a narration sentence for this step. Returns { callId, ok, result, error }.",
@@ -21,7 +21,7 @@
       "input": ["message", "done"]
     }
   },
-  "guidance": "Read vacp_observe once at the start of a request. Only the actions available now are disclosed. Observe again only when the available actions may have changed, such as after loading a dataset, or when vacp_execute reports an unknown or unavailable action. Read what an action changed from its result and vacp_state. After actions, prefer vacp_state with mode \"delta\" and the token of the previous read, and read once with mode \"full\" when the lineage is unclear. Scope vacp_capabilities and vacp_state by refs once targets are known. Omit scope fields for an unscoped read, which leaves out node data unless includeNodeData is true. Call vacp_progress once before the first action with one plain sentence for the person, give every vacp_execute its own narration, and close the task with vacp_progress and done set to true.",
+  "guidance": "Read vacp_observe once at the start of a request. Only the actions available now are disclosed. Observe again only when the available actions may have changed, such as after loading a dataset, or when vacp_execute reports an unknown or unavailable action. Read what an action changed from its result and vacp_state. After actions, prefer vacp_state with since set to the token of the previous read, and read once without since when the lineage is unclear. Scope vacp_capabilities and vacp_state by refs once targets are known. Omit scope fields for an unscoped read, which leaves out node data unless includeNodeData is true. Call vacp_progress once before the first action with one plain sentence for the person, give every vacp_execute its own narration, and close the task with vacp_progress and done set to true.",
   "capabilities": [
     {
       "input": {},
@@ -75,21 +75,19 @@
   "state": [
     {
       "input": {},
-      "expected": null
+      "expected": {}
     },
     {
       "input": {
         "refs": ["vacp://"]
       },
-      "expected": null
+      "expected": {}
     },
     {
       "input": {
-        "mode": "delta",
         "since": "t1"
       },
       "expected": {
-        "mode": "delta",
         "since": "t1"
       }
     },
@@ -103,5 +101,10 @@
         "includeSummary": false
       }
     }
-  ]
+  ],
+  "actor": {
+    "id": "agent",
+    "kind": "agent",
+    "label": "Agent"
+  }
 }

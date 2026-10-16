@@ -1,3 +1,1 @@
-export * from './provider';
-
-export * from './install';
+export { createPosthogProvider } from './provider';

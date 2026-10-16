@@ -1,8 +1,9 @@
+import { hoverRule } from './duckdb-selection';
+import type { View } from 'vega';
 import { readSelectionTuples } from './selection-state';
 import { providerBindings } from './provider-bindings';
 import {
   vacpDataHandle,
-  type VacpActionDescriptor,
   type VacpDataHandleData,
   type VacpProvider,
   type VacpSourceId,
@@ -16,7 +17,7 @@ import { executeVegaLiteActions, prepareVegaLiteAction } from './execute';
 import { createVegaLiteDataBinding } from './duckdb-handle';
 import { createVegaLiteBindings } from './bindings';
 import { makeRef } from './refs';
-import type { VegaLiteProviderOptions, VegaLiteSpecLike, VegaViewLike } from './types';
+import type { VegaLiteProviderOptions, VegaLiteSpecLike } from './types';
 
 import { createVegaLiteTooltipBinding } from './tooltip';
 import { createVegaLiteObservationBinding } from './observe';
@@ -39,19 +40,16 @@ async function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T
   }
 }
 
-/**
- * Vega-Lite provider (project concepts).
- *
- * Vega-Lite defines parameters (`params`) for interactivity:
- * - variable params (scalars) can be bound to inputs or modified via signals
- * - selection params define interactive selections and compile to signals/state
- *
- * For VACP, parameters are the natural first-class control/state surface.
- */
 export function createVegaLiteProvider(args: {
   root?: HTMLElement;
-  view: VegaViewLike;
+  view: View;
   spec: VegaLiteSpecLike;
+  vgSpec: import('vega').Spec;
+  data?: {
+    duckdb: import('@vacp/data-duckdb').VacpDuckDbClient | Promise<import('@vacp/data-duckdb').VacpDuckDbClient>;
+    sql?: boolean;
+    describe?: import('@vacp/protocol').VacpDataHandleDescriber;
+  };
   options: VegaLiteProviderOptions;
 }): VacpProvider {
   const { view, spec, options } = args;
@@ -59,9 +57,9 @@ export function createVegaLiteProvider(args: {
   const sourceId: VacpSourceId = `vacp-source://${options.appId}/${options.viewId}/${options.vizId}/vega-lite`;
   const actionRegistry = new VacpActionRegistry(sourceId);
 
-  const helpers = createVegaLiteBindings(spec, view, options);
+  const helpers = createVegaLiteBindings(spec, view, args.vgSpec, options);
 
-  const actionDescriptors: VacpActionDescriptor[] = actionsForSpec(options, spec);
+  const actionDescriptors = actionsForSpec(options, spec);
   actionDescriptors.forEach((desc) => {
     actionRegistry.register(
       { ...desc, operation: { ...desc.operation, contract: desc.name } },
@@ -76,7 +74,7 @@ export function createVegaLiteProvider(args: {
   // Standard action for applying a desired state map through provider refs.
   const vizRef = makeRef({ appId: options.appId, viewId: options.viewId, vizId: options.vizId, suffix: '' });
 
-  const applyDescriptor = registerVacpApplyStateAction(
+  registerVacpApplyStateAction(
     actionRegistry,
     (state) => {
       const plans: Array<ReturnType<typeof prepareVegaLiteAction>> = [];
@@ -112,14 +110,11 @@ export function createVegaLiteProvider(args: {
     { affects: [vizRef], description: 'Apply a state map to Vega-Lite params.' },
   );
 
-  actionDescriptors.push(applyDescriptor);
-
   const tooltip = createVegaLiteTooltipBinding({
     view,
     spec,
     root: args.root,
     actionRegistry,
-    actionDescriptors,
     vizRef,
     temporal: helpers.dataflow.temporal,
   });
@@ -129,8 +124,8 @@ export function createVegaLiteProvider(args: {
     view,
     bindings: helpers,
     options,
+    data: args.data,
     actionRegistry,
-    actionDescriptors,
     getHoverFields: tooltip.fields,
   });
 
@@ -143,7 +138,7 @@ export function createVegaLiteProvider(args: {
     dataHandles: dataHandles.map((h) => ({
       ref: h.ref,
       title: h.title,
-      description: `The rows this chart's marks read from ${h.title}. \`vacp_handle\` narrows them by the current selections and hover, and \`vacp_all\` holds every row the source loaded.`,
+      description: `The rows this chart's marks read from ${h.title}. ${hoverRule} \`vacp_all\` holds every row the source loaded.`,
       data: { table: h.tableName } satisfies VacpDataHandleData,
     })),
   });
@@ -154,20 +149,42 @@ export function createVegaLiteProvider(args: {
         await Promise.all(
           dataHandles.map(async (handle) => {
             const { rowCount, columns } = handle.observe();
+            let selectionWhere: string | null = null;
+            let selectionError: string | undefined;
+            try {
+              selectionWhere = handle.selectionWhere();
+            } catch (error) {
+              selectionError = error instanceof Error ? error.message : String(error);
+            }
             const read = {
               ref: handle.ref,
               table: handle.tableName,
               columns: (await withTimeout(columns, HANDLE_COLUMNS_TIMEOUT_MS).catch(() => null)) ?? undefined,
               rowCount,
-              selectionWhere: handle.selectionWhere(),
+              selectionWhere,
             };
-            return [handle.ref, await vacpDataHandle(read, options.describeDataHandle)] as const;
+            const captured = await vacpDataHandle(read, args.data?.describe);
+            const { selectionWhere: _where, ...state } = captured.state;
+            return [
+              handle.ref,
+              {
+                data: captured.data,
+                state: selectionError ? { ...state, selectionError } : captured.state,
+                unavailable: selectionError,
+              },
+            ] as const;
           }),
         ),
       );
       const nodes = graph.nodes.map((node) => {
         const handle = handles.get(node.ref);
-        return handle ? { ...node, data: handle.data } : node;
+        return handle
+          ? {
+              ...node,
+              data: handle.data,
+              availability: handle.unavailable ? { unavailable: handle.unavailable } : undefined,
+            }
+          : node;
       });
 
       const state: Record<string, unknown> = {};

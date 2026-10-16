@@ -16,12 +16,11 @@
     "@vacp/adapter-vega-lite": "workspace:*",
     "@vacp/data-duckdb": "workspace:*",
     "@vacp/example-shared": "workspace:*",
-    "vega": "^6.4.0",
-    "vega-embed": "^7.2.0",
-    "vega-lite": "^6.4.3"
+    "vega": "catalog:",
+    "vega-embed": "catalog:",
+    "vega-lite": "catalog:"
   },
   "devDependencies": {
-    "@tailwindcss/vite": "catalog:",
     "portless": "catalog:",
     "vite-plus": "catalog:"
   },

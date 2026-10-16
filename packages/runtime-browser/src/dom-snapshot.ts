@@ -307,9 +307,7 @@ export function writeVacpDomSnapshotScript(args: {
 }
 
 export function defaultVacpDomSnapshotScriptId(globalKey: string): string {
-  const key = globalKey.length ? globalKey : '__vacp';
-
-  return sanitizeDomId(`${key}_snapshot`);
+  return sanitizeDomId(`${globalKey}_snapshot`);
 }
 
 export function removeVacpDomSnapshotScript(scriptId: string): void {

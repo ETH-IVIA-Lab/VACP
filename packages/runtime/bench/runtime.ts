@@ -1,16 +1,9 @@
 import { measure } from '../../../tools/benchmark';
-import {
-  VACP_SCHEMA_VERSION,
-  fnv1a64Hex,
-  stableStringify,
-  type VacpGraphFragment,
-  type VacpProvider,
-} from '@vacp/protocol';
+import { fnv1a64Hex, stableStringify, type VacpGraphFragment, type VacpProvider } from '@vacp/protocol';
 import { composeVacpProviders, createVacpRuntime } from '../src/index';
 
 const size = 1_000;
 const graph: VacpGraphFragment = {
-  version: VACP_SCHEMA_VERSION,
   nodes: Array.from({ length: size }, (_, i) => ({
     ref: `vacp://bench/${i}`,
     kind: 'Param',
@@ -27,6 +20,7 @@ const graph: VacpGraphFragment = {
 };
 const state = Object.fromEntries(graph.nodes.map(({ ref }, i) => [ref, { value: i, selected: false }]));
 const provider: VacpProvider = {
+  subscribe: () => () => {},
   source: { id: 'vacp-source://benchmark', type: 'benchmark', title: 'Runtime benchmark' },
   observe: () => ({ revision: 'static', observedAt: '', graph, state }),
   prepare: async (call) => ({ intent: { affects: [] }, execute: async () => ({ callId: call.callId, ok: true }) }),
@@ -37,11 +31,10 @@ await measure('hash 100 KiB', () => fnv1a64Hex('x'.repeat(100 * 1024)));
 const runtime = createVacpRuntime({ providers: [provider] });
 try {
   await measure('capabilities without subscribers', () => runtime.getCapabilities());
-  await measure('full state update', () => runtime.getState({ mode: 'full' }));
-  const initial = await runtime.getState({ mode: 'full' });
-  await measure('unchanged delta', () => runtime.getState({ mode: 'delta', since: initial.token }));
+  await measure('full state update', () => runtime.getState());
+  const initial = await runtime.getState();
+  await measure('unchanged delta', () => runtime.getState({ since: initial.token }));
   const unsubscribe = runtime.subscribeSnapshots(() => {});
-  runtime.stopObserving();
   await measure('unchanged subscribed snapshot', () => runtime.getCapabilities());
   unsubscribe();
 } finally {
@@ -87,7 +80,6 @@ const changing = createVacpRuntime({
 });
 try {
   changing.subscribeSnapshots(() => {});
-  changing.stopObserving();
   await measure('changing subscribed snapshot', () => changing.getCapabilities());
 } finally {
   changing.dispose();

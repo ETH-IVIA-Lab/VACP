@@ -3,6 +3,7 @@ import {
   isVacpExecutionSettled,
   captureVacpValue,
   type VacpActor,
+  type VacpProvider,
   type VacpExecution,
   type VacpGraph,
   type VacpObservation,
@@ -12,9 +13,10 @@ import { stepSubject } from './subject';
 import { createPresenceTargets, stepPlaces, type PresenceFocus } from './targets';
 import { createTargetTracker } from './tracker';
 import { createPresencePresentation } from './presentation';
-import { isAgentActor } from './types';
+import { isAgentActor, samePresenceActivity } from './types';
 import type {
   PresenceActivity,
+  PresencePresentation,
   PresenceBinding,
   PresenceFreshness,
   PresenceOptions,
@@ -114,14 +116,7 @@ export function createAgentPresence(source: PresenceSource, options: PresenceOpt
       freshness: entry.freshness,
     };
     const previous = entry.published;
-    if (
-      previous &&
-      previous.actor.id === actor.id &&
-      previous.actor.label === actor.label &&
-      previous.actor.kind === actor.kind &&
-      (Object.keys(next) as (keyof typeof next)[]).every((key) => previous[key] === next[key])
-    )
-      return previous;
+    if (samePresenceActivity(previous, { actor, ...next })) return previous!;
     return (entry.published = Object.freeze({ actor: Object.freeze({ ...actor }), ...next }));
   };
   let snapshotted: readonly PresenceActivity[] = Object.freeze([]);
@@ -334,8 +329,8 @@ export function createAgentPresence(source: PresenceSource, options: PresenceOpt
   const subscriptions: Array<() => void> = [];
   try {
     subscriptions.push(source.subscribeExecutions(onExecution));
-    if (source.subscribeAgentActivities) subscriptions.push(source.subscribeAgentActivities(onActivity));
-    for (const activity of source.getAgentActivities?.() ?? []) onActivity(activity);
+    subscriptions.push(source.subscribeAgentActivities(onActivity));
+    for (const activity of source.getAgentActivities()) onActivity(activity);
     for (const execution of source.getActiveExecutions()) onExecution(execution);
     subscriptions.push(source.subscribeSnapshots(({ observation }) => onObservation(observation)));
   } catch (error) {
@@ -395,7 +390,8 @@ export function createAgentPresence(source: PresenceSource, options: PresenceOpt
         listeners.delete(listener);
       };
     },
-    attach(binding: PresenceBinding) {
+    attach(provider: VacpProvider, presentation: PresencePresentation) {
+      const binding = { ...presentation, ...source.getProviderBinding(provider), sourceId: provider.source.id };
       return targets.attach(binding, () => {
         for (const [actorId, entry] of active) {
           if (entry.placed?.bindingId === binding.id) entry.placed = undefined;

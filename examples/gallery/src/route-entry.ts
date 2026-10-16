@@ -1,13 +1,6 @@
 import './gallery.css';
-import { examples as entries } from '../examples.manifest';
-
-function escapeHtml(value: string): string {
-  return value.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;');
-}
-
-function renderError(root: HTMLElement, message: string): void {
-  root.innerHTML = `<pre class="gallery-error">${escapeHtml(message)}</pre>`;
-}
+import { renderExampleError } from '@vacp/example-shared';
+import { examples } from '../examples.manifest';
 
 /** A shared frame only: each example owns its own heading and describes its own data. */
 function renderRouteShell(root: HTMLElement, layout = 'viewport'): HTMLElement {
@@ -26,38 +19,20 @@ function renderRouteShell(root: HTMLElement, layout = 'viewport'): HTMLElement {
   return mount;
 }
 
-async function mountRoute(): Promise<void> {
-  const root = document.getElementById('gallery-example-root');
-
-  if (!root) throw new Error('Missing #gallery-example-root');
-
+async function mountRoute(root: HTMLElement): Promise<void> {
   const route = document.body.dataset.vacpGalleryRoute ?? '';
-  const entry = entries.find((e) => e.route === route);
+  const entry = examples.find((example) => example.route === route);
+  if (!entry) throw new Error(`Unknown example route: ${route}`);
 
-  if (!entry) {
-    renderError(root, `Unknown example route: ${route}`);
-
-    return;
-  }
-
-  const mountRoot = renderRouteShell(root, entry.layout);
-
-  let unmount: void | (() => void | Promise<void>);
-
+  const target = renderRouteShell(root, entry.layout);
   try {
-    const module = await entry.load();
-    unmount = await module.mount(mountRoot);
+    const unmount = await (await entry.load()).mount(target);
+    window.addEventListener('beforeunload', () => void unmount(), { once: true });
   } catch (error) {
-    renderError(mountRoot, `Failed to mount ${entry.id}: ${String(error)}`);
-
-    return;
-  }
-
-  if (unmount) {
-    window.addEventListener('beforeunload', () => {
-      void unmount();
-    });
+    renderExampleError(target, `Failed to mount ${entry.id}: ${String(error)}`);
   }
 }
 
-void mountRoute();
+const root = document.getElementById('gallery-example-root');
+if (!root) throw new Error('Missing #gallery-example-root');
+mountRoute(root).catch((error: unknown) => renderExampleError(root, error));

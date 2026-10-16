@@ -4,7 +4,7 @@ from platform import python_version
 from statistics import median
 from time import perf_counter
 
-from vacp import Availability, GraphFragment, Node, OperationDescriptor, OperationSemantics, resolve_availability
+from vacp import ActionDescriptor, Availability, GraphFragment, Node, OperationSemantics, resolve_availability
 
 SIZE = 5_000
 
@@ -28,9 +28,7 @@ def measure(label: str, graph: GraphFragment, expected: int) -> None:
 
 print(f'Python {python_version()}; {SIZE} nodes and actions')
 nodes = tuple(Node(f'vacp://bench/{index}', 'Param', 'ConfigLayer') for index in range(SIZE))
-actions = tuple(
-    OperationDescriptor(f'set.{index}', 'Set value', OperationSemantics('mutation')) for index in range(SIZE)
-)
+actions = tuple(ActionDescriptor(f'set.{index}', 'Set value', OperationSemantics('mutation')) for index in range(SIZE))
 measure('unrestricted availability', GraphFragment(nodes, (), actions), SIZE)
 gated_nodes = tuple(
     Node(
@@ -46,9 +44,7 @@ gated_nodes = tuple(
     for index, node in enumerate(nodes)
 )
 gated_actions = tuple(
-    OperationDescriptor(
-        action.name, action.description, action.operation, availability=Availability(requires=(node.ref,))
-    )
+    ActionDescriptor(action.name, action.description, action.operation, availability=Availability(requires=(node.ref,)))
     for node, action in zip(nodes, actions, strict=True)
 )
 measure('half-hidden availability', GraphFragment(gated_nodes, (), gated_actions), SIZE // 2 - 1)

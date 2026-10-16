@@ -1,13 +1,13 @@
 import { createHash } from 'node:crypto';
 import { expect, type Page } from '@playwright/test';
-import { test } from '../helpers/test';
+import { test, useWebMcp } from '../helpers/test';
 import { appServer } from '../helpers/servers';
 import { tool } from '../helpers/presence';
 
 test.use({
   viewport: { width: 1440, height: 1600 },
-  launchOptions: { args: ['--enable-experimental-web-platform-features', '--enable-features=WebMCPTesting'] },
 });
+useWebMcp();
 
 async function rendered(page: Page, engine: 'vega-lite' | 'vgplot') {
   const pixels = await page.evaluate(
@@ -40,15 +40,17 @@ for (const engine of ['vega-lite', 'vgplot'] as const) {
     const errors: string[] = [];
     page.on('pageerror', (error) => errors.push(error.message));
     await page.goto(`${server.url}#${engine === 'vega-lite' ? 'seattle-weather' : 'nyc-taxi-rides'}`);
-    await page.waitForFunction(() => !!window.__vacp?.beginAgentActivity);
+    // The taxi spec reads a remote dataset, so its tools can take a minute to register.
     await expect
-      .poll(() => page.evaluate(async () => (await document.modelContext?.getTools())?.length ?? 0))
+      .poll(() => page.evaluate(async () => (await document.modelContext?.getTools())?.length ?? 0), {
+        timeout: 60_000,
+      })
       .toBeGreaterThan(0);
     const before = await rendered(page, engine);
     expect(before.length).toBeGreaterThan(0);
     await page.evaluate(() => {
       window.__vacpStream = window.__vacp!.beginAgentActivity({
-        actor: { id: 'webmcp', kind: 'agent', label: 'Analyst' },
+        actor: { id: 'agent', kind: 'agent', label: 'Analyst' },
         summary: 'Looking at **patterns**',
       });
     });
@@ -79,8 +81,7 @@ for (const engine of ['vega-lite', 'vgplot'] as const) {
       expect(
         (
           await tool(page, 'vgplot.set_interval_2d', {
-            plotId: 'plot-0',
-            interactorId: '0',
+            ref: 'vacp://vacp-examples/vgplot/nyc-taxi-rides/plot-0/interactor/0',
             x0: 982500,
             x1: 997500,
             y0: 202500,
@@ -91,7 +92,13 @@ for (const engine of ['vega-lite', 'vgplot'] as const) {
       await expect.poll(async () => (await rendered(page, engine))[1]).not.toBe(before[1]);
       const first = await rendered(page, engine);
       expect(
-        (await tool(page, 'vgplot.set_interval_1d', { plotId: 'plot-2', interactorId: '0', min: 18, max: 22 })).ok,
+        (
+          await tool(page, 'vgplot.set_interval_1d', {
+            ref: 'vacp://vacp-examples/vgplot/nyc-taxi-rides/plot-2/interactor/0',
+            min: 18,
+            max: 22,
+          })
+        ).ok,
       ).toBe(true);
       await expect.poll(() => rendered(page, engine)).not.toEqual(first);
       await verifyReplay(page, engine, first, await rendered(page, engine));

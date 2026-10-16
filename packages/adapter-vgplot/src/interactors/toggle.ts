@@ -39,10 +39,11 @@ export function preparePointSelection(interactor: VgplotInteractorLike, raw: unk
   const update = selection?.update;
   const clause = interactor.clause;
   if (!update || !clause) throw new Error('Selection is missing selection.update/clause');
+  const selectionClause = clause.call(interactor, points);
   return () => {
     if (interactor.selection !== selection) throw new Error('Selection binding changed; prepare again');
     interactor.value = points;
-    update.call(selection, clause.call(interactor, points));
+    update.call(selection, selectionClause);
     return points ? { set: true } : { cleared: true };
   };
 }

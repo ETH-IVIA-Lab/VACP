@@ -1,6 +1,6 @@
 import type { VacpDataSchemaParams, VacpDataSchemaResult, VacpRef } from '@vacp/protocol';
 
-import type { VacpDuckDbClient } from './client';
+import type { VacpDuckDbQueryClient } from './client';
 import { describeDuckDbTable } from './metadata';
 
 /** The relation `vacp_handle` reads, and `vacp_all`'s when that reads another relation. */
@@ -12,7 +12,7 @@ type SchemaHandle = { table: string; allTable?: string };
  * `vacp_all` when it is another. An unknown handle rejects.
  */
 export function createDuckDbDataSchemaHandler(args: {
-  duckdb: VacpDuckDbClient | Promise<VacpDuckDbClient>;
+  duckdb: VacpDuckDbQueryClient | Promise<VacpDuckDbQueryClient>;
   resolveHandle(handleRef: VacpRef): SchemaHandle | null | Promise<SchemaHandle | null>;
 }): (params: VacpDataSchemaParams) => Promise<VacpDataSchemaResult> {
   return async ({ handleRef, detail = 'columns', sampleRows }) => {

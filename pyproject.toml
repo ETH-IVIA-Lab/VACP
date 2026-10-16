@@ -1,3 +1,8 @@
+[tool.uv]
+required-version = ">=0.13.1"
+# Resolve releases at least 18 hours old, matching minimumReleaseAge in pnpm-workspace.yaml.
+exclude-newer = "18 hours"
+
 [tool.uv.workspace]
 members = ["packages/python"]
 

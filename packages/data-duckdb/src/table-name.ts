@@ -1,15 +1,4 @@
-/**
- * DuckDB table name helpers (project concepts).
- *
- * In this repo, DuckDB tables are used as the *single* data-access surface:
- * transports query `vacp_all` / `vacp_handle` via SQL, rather than inventing
- * bespoke data APIs.
- *
- * These helpers keep examples/providers terse and avoid repeating ad-hoc
- * `crypto.randomUUID().slice(...)` snippets all over the codebase.
- */
-
-function randomSuffix(length = 8): string {
+export function randomSuffix(length = 8): string {
   const raw =
     typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
       ? crypto.randomUUID()

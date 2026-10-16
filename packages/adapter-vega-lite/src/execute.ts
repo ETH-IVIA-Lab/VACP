@@ -1,7 +1,7 @@
 import { selectionTuple, selectionValues, type SelectionTuple } from './selection-state';
 import { intervalVisualSignals } from './selection-signals';
 import type { VacpActionCall, VacpClock, VacpFocus, VacpInteraction, VacpRef } from '@vacp/protocol';
-import { changeset } from 'vega';
+import { changeset, type View } from 'vega';
 
 import { findSignalContext, readStateSignal, runtimeUnit, type VegaLiteBindings } from './bindings';
 import { tryGetSignal, trySetSignal } from './signals';
@@ -152,14 +152,17 @@ export async function executeVegaLiteActions(view: VegaViewLike, plans: readonly
   let previousTrigger: boolean | undefined;
   let changedTrigger = false;
   try {
-    if (states.length)
-      await view.runAsync(null, (native) => {
+    if (states.length) {
+      // Vega's native prerun callback runs before the queued pulse, before selection triggers fire.
+      const runAsync = view.runAsync.bind(view) as typeof view.runAsync &
+        ((encode: null, prerun: (view: VegaViewLike) => void) => Promise<View>);
+      await runAsync(null, (native) => {
         previousTrigger = native._trigger;
         changedTrigger = true;
         native._trigger = false;
         for (const state of states) native._runtime!.setState!(state);
       });
-    else await view.runAsync();
+    } else await view.runAsync();
   } finally {
     if (changedTrigger) view._trigger = previousTrigger;
   }
@@ -176,11 +179,10 @@ function intervalState(
   helpers: VegaLiteBindings,
   unit?: string,
 ): VegaStateSnapshot {
-  if (!view.getState) return undefined;
   const visual = intervalVisualSignals(name, fields);
   const names = new Set(visual.values());
   const state = view.getState({
-    signals: (signal: string) => names.has(signal),
+    signals: (signal) => signal !== undefined && names.has(signal),
     data: () => false,
     recurse: true,
   }) as VegaStateSnapshot;
@@ -218,9 +220,8 @@ function prepareSelectionStore(
   helpers: VegaLiteBindings,
   anyRange: boolean,
 ) {
-  if (!view.data || !view.change) return null;
   const storeName = `${name}_store`;
-  const snapshotBefore = view.getState?.() as VegaStateSnapshot;
+  const snapshotBefore = view.getState() as VegaStateSnapshot;
   let existing: unknown[];
   try {
     existing = view.data!(storeName) as unknown[];
@@ -321,20 +322,6 @@ export function prepareVegaLiteAction(
   if (typeof input !== 'object' || Array.isArray(input)) throw new Error('Expected action parameters');
   const params = input as Record<string, unknown>;
 
-  if (call.name === 'vega.set_signal') {
-    const name = typeof params.name === 'string' ? params.name : null;
-
-    if (!name) throw new Error('Expected params.name string');
-    view.signal(name);
-    return {
-      focus: undefined,
-      write: () => {
-        if (!trySetSignal(view, name, params.value)) throw new Error(`Failed to set signal: ${name}`);
-      },
-      read: () => ({ ok: true }),
-    };
-  }
-
   const ref = typeof params.ref === 'string' ? params.ref : null;
 
   if (!ref) throw new Error('Expected params.ref string');
@@ -403,7 +390,7 @@ export function prepareVegaLiteAction(
   // Resolve the clear route during preparation; native failures never trigger a second mutation route.
   const storeName = `${name}_store`;
   let hasStore = false;
-  if (view.data && view.change) {
+  {
     try {
       view.data(storeName);
       hasStore = true;

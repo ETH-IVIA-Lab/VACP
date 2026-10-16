@@ -1,5 +1,6 @@
+import { jsonValue } from './json';
 import { providerBindings } from './provider-bindings';
-import type { VacpRef, VacpProvider, VacpSourceId } from '@vacp/protocol';
+import type { VacpRef, VacpProvider, VacpSourceId, VacpWidgetOptionsResult } from '@vacp/protocol';
 import { createDuckDbDataSchemaHandler, createDuckDbDataSqlHandler } from '@vacp/data-duckdb';
 import {
   registerVacpApplyStateAction,
@@ -16,8 +17,8 @@ import { createVgplotBindings } from './bindings';
 import { createVgplotOperations } from './operations';
 import { createVgplotDashboardSnapshots } from './dashboard-snapshots';
 import { collectVgplotDataHandles } from './data-handles';
-import { quoteTableRef, whereClauseForVgplotTable } from './duckdb-selection';
-import { collectInputs, type CollectedInput } from './inputs';
+import { selectedSqlForVgplotTable } from './duckdb-selection';
+import { collectInputs, menuOptions, type CollectedInput } from './inputs';
 import { buildDashboardGraph } from './graph';
 import { createVgplotObservationBinding } from './observe';
 import { makePlotRef, makeViewRef } from './refs';
@@ -27,6 +28,13 @@ export function createVgplotProvider(args: {
   root?: ParentNode;
   plots: Array<{ plotId: string; plot: VgplotPlotLike }>;
   tables?: Array<{ tableId: string; table: VgplotTableLike }>;
+  data?: {
+    duckdb:
+      | import('@vacp/data-duckdb').VacpDuckDbQueryClient
+      | Promise<import('@vacp/data-duckdb').VacpDuckDbQueryClient>;
+    sql?: boolean;
+    describe?: import('@vacp/protocol').VacpDataHandleDescriber;
+  };
   options: VgplotProviderOptions;
 }): VacpProvider {
   const { root, plots, options } = args;
@@ -57,128 +65,106 @@ export function createVgplotProvider(args: {
   const viewRef = makeViewRef({ appId: options.appId, viewId: options.viewId, suffix: '' });
 
   if (inputs.length) {
-    const widgetOptionsDesc = registerVacpWidgetOptionsAction(
+    registerVacpWidgetOptionsAction(
       actionRegistry,
-      async (params) => {
+      async (params): Promise<VacpWidgetOptionsResult> => {
         const ref = params.ref;
         const input = inputByRef.get(ref);
 
         if (!input) throw new Error(`Unknown input ref: ${ref}`);
 
-        const offset = params.offset ?? 0;
-        const limit = params.limit ?? 200;
-        const q = typeof params.query === 'string' ? params.query.trim().toLowerCase() : '';
+        try {
+          const offset = params.offset ?? 0;
+          const limit = params.limit ?? 200;
+          const q = typeof params.query === 'string' ? params.query.trim().toLowerCase() : '';
 
-        const safe = (value: unknown) => {
-          if (value == null) return value;
+          const rawOptions = menuOptions(input.input);
 
-          if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') return value;
+          const filtered = q
+            ? rawOptions.filter((o) => {
+                const label = (o.label ?? '').toLowerCase();
+                const value = (
+                  o.value == null
+                    ? ''
+                    : typeof o.value === 'string' ||
+                        typeof o.value === 'number' ||
+                        typeof o.value === 'boolean' ||
+                        typeof o.value === 'bigint' ||
+                        typeof o.value === 'symbol' ||
+                        typeof o.value === 'function' ||
+                        Array.isArray(o.value)
+                      ? String(o.value)
+                      : JSON.stringify(o.value)
+                ).toLowerCase();
 
-          try {
-            return JSON.parse(JSON.stringify(value));
-          } catch {
-            return String(value);
-          }
-        };
+                return label.includes(q) || value.includes(q);
+              })
+            : rawOptions;
 
-        const rawOptions: Array<{ value: unknown; label?: string }> = (() => {
-          const inst = input.input;
-          const select = inst.select;
+          const count = filtered.length;
+          const slice = filtered.slice(offset, offset + limit);
 
-          if (select && typeof select.options?.length === 'number') {
-            return Array.from(select.options).map((o) => ({
-              value: o.value,
-              label: (typeof o.label === 'string' && o.label) || o.textContent?.trim() || undefined,
-            }));
-          }
-
-          if (Array.isArray(inst.data)) {
-            return inst.data.map((o) => ({
-              value: safe(o.value),
-              label: typeof o.label === 'string' ? o.label : undefined,
-            }));
-          }
-
-          return [];
-        })();
-
-        const filtered = q
-          ? rawOptions.filter((o) => {
-              const label = (o.label ?? '').toLowerCase();
-              const value = String(o.value ?? '').toLowerCase();
-
-              return label.includes(q) || value.includes(q);
-            })
-          : rawOptions;
-
-        const count = filtered.length;
-        const slice = filtered.slice(offset, offset + limit);
-
-        return {
-          ref,
-          offset,
-          limit,
-          count,
-          truncated: offset + limit < count,
-          options: slice.map((o) => ({ value: safe(o.value), label: o.label })),
-        };
+          return {
+            ref,
+            offset,
+            limit,
+            count,
+            truncated: offset + limit < count,
+            options: slice.map((o) => ({ value: jsonValue(o.value), label: o.label })),
+          };
+        } catch (error) {
+          return { ref, kind: 'Widget', readError: error instanceof Error ? error.message : String(error) };
+        }
       },
       { inputRefs: [viewRef] },
     );
-
-    actionDescriptors.push(widgetOptionsDesc);
   }
 
-  const applyDesc = registerVacpApplyStateAction(
-    actionRegistry,
-    (state) => prepareVgplotRestoration(bindings, operations, state),
-    {
-      affects: [viewRef],
-      description: 'Apply a state map to VGPlot plots, tables, and inputs.',
-    },
-  );
-
-  actionDescriptors.push(applyDesc);
+  registerVacpApplyStateAction(actionRegistry, (state) => prepareVgplotRestoration(bindings, operations, state), {
+    affects: [viewRef],
+    description: 'Apply a state map to VGPlot plots, tables, and inputs.',
+  });
 
   const preferredTables = Array.from(
     new Set(inputs.map((i) => i.meta.from).filter((t): t is string => typeof t === 'string' && t.length > 0)),
   );
 
-  const dataHandles = collectVgplotDataHandles({
-    plots: plots.map((p) => ({ plotId: p.plotId, plot: p.plot })),
-    tables: tables.map((t) => ({ tableId: t.tableId, table: t.table })),
-    options,
-    preferredTables,
-  });
+  const dataHandles = args.data
+    ? collectVgplotDataHandles({
+        plots: plots.map((p) => ({ plotId: p.plotId, plot: p.plot })),
+        tables: tables.map((t) => ({ tableId: t.tableId, table: t.table })),
+        options,
+        preferredTables,
+      })
+    : [];
 
   const tableByRef = new Map<VacpRef, string>(dataHandles.map((h) => [h.ref, h.table]));
   const surfaces = { plots: plots.map((p) => p.plot), tables: tables.map((t) => t.table) };
 
-  if (options.duckdbClient && dataHandles.length) {
-    const duckdbClient = options.duckdbClient;
+  if (args.data && dataHandles.length) {
+    const duckdbClient = args.data.duckdb;
 
-    const dataSqlDesc = registerVacpDataSqlAction(
-      actionRegistry,
-      createDuckDbDataSqlHandler({
-        duckdb: duckdbClient,
-        resolveHandle: (ref) => {
-          const table = tableByRef.get(ref);
-          if (!table) return null;
-          const where = whereClauseForVgplotTable(table, surfaces);
-          const allSql = `SELECT * FROM ${quoteTableRef(table)}`;
-          return { allSql, selectedSql: where ? `${allSql} WHERE ${where}` : allSql };
+    if (args.data.sql ?? true)
+      registerVacpDataSqlAction(
+        actionRegistry,
+        createDuckDbDataSqlHandler({
+          duckdb: duckdbClient,
+          resolveHandle: (ref) => {
+            const table = tableByRef.get(ref);
+            if (!table) return null;
+            return {
+              allSql: selectedSqlForVgplotTable(table, { plots: [], tables: [] }),
+              selectedSql: selectedSqlForVgplotTable(table, surfaces),
+            };
+          },
+        }),
+        {
+          inputRefs: [viewRef],
+          description: 'Query the current VGPlot selection using DuckDB SQL.',
         },
-      }),
-      {
-        enabled: options.enableSql ?? true,
-        inputRefs: [viewRef],
-        description: 'Query the current VGPlot selection using DuckDB SQL.',
-      },
-    );
+      );
 
-    if (dataSqlDesc) actionDescriptors.push(dataSqlDesc);
-
-    const dataSchemaDesc = registerVacpDataSchemaAction(
+    registerVacpDataSchemaAction(
       actionRegistry,
       createDuckDbDataSchemaHandler({
         duckdb: duckdbClient,
@@ -189,8 +175,6 @@ export function createVgplotProvider(args: {
       }),
       { inputRefs: [viewRef] },
     );
-
-    actionDescriptors.push(dataSchemaDesc);
   }
 
   const graph = buildDashboardGraph({
@@ -200,7 +184,7 @@ export function createVgplotProvider(args: {
     dataHandles,
   });
 
-  const projection = createVgplotDashboardSnapshots({ bindings, graph, options, dataHandles });
+  const projection = createVgplotDashboardSnapshots({ bindings, graph, data: args.data, dataHandles });
 
   const binding = createVgplotObservationBinding(bindings);
 

@@ -2,13 +2,14 @@ import asyncio
 
 from starlette.testclient import TestClient
 from vacp import (
+    ActionCall,
+    ActionDescriptor,
+    ActionResult,
     Availability,
     GraphFragment,
-    Invocation,
-    InvocationResult,
     Node,
-    OperationDescriptor,
     OperationSemantics,
+    PreparedAction,
     ProviderComposer,
     ProviderObservation,
     SimpleProvider,
@@ -36,7 +37,7 @@ def test_http_client_observes_and_executes_one_host_owned_session() -> None:
                 ),
                 (),
                 (
-                    OperationDescriptor(
+                    ActionDescriptor(
                         'increment',
                         'Increment',
                         OperationSemantics('mutation', contract='counter.increment', affects=('vacp://value',)),
@@ -46,17 +47,24 @@ def test_http_client_observes_and_executes_one_host_owned_session() -> None:
             {'vacp://value': current},
         )
 
-    def execute(call: Invocation) -> InvocationResult:
+    def execute(call: ActionCall) -> ActionResult:
         nonlocal current
         current += 1
-        return InvocationResult(call.call_id, True, result=current)
+        return ActionResult(call.call_id, True, result=current)
 
     def close() -> None:
         nonlocal closed
         closed = True
 
     session = ProviderComposer(
-        [SimpleProvider(SourceDescription('vacp-source://test', 'test', 'Test'), observe, execute, close=close)]
+        [
+            SimpleProvider(
+                SourceDescription('vacp-source://test', 'test', 'Test'),
+                observe,
+                lambda call, _context: PreparedAction(lambda: execute(call)),
+                dispose=close,
+            )
+        ]
     )
     assert asyncio.run(session.observe()).graph.nodes == ()
     with TestClient(create_inspection_app(session)) as client:

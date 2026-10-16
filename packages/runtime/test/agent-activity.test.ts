@@ -55,12 +55,12 @@ test('a step carries the words it began with; words that arrive while it runs be
   const runtime = createVacpRuntime({
     providers: [
       {
+        subscribe: () => () => {},
         source: { id: 'vacp-source://narrated', type: 'test', title: 'Narrated' },
         observe: () => ({
           revision: 'static',
           observedAt: '',
           graph: {
-            version: '0.1.0',
             nodes: [{ ref: 'vacp://narrated/value', kind: 'Param', layer: 'ConfigLayer' }],
             edges: [],
             actions: [
@@ -105,12 +105,12 @@ test('each step keeps its own words, and a step without new words never repeats 
   const runtime = createVacpRuntime({
     providers: [
       {
+        subscribe: () => () => {},
         source: { id: 'vacp-source://steps', type: 'test', title: 'Steps' },
         observe: () => ({
           revision: String(value),
           observedAt: '',
           graph: {
-            version: '0.1.0',
             nodes: [{ ref: 'vacp://steps/value', kind: 'Param', layer: 'ConfigLayer' }],
             edges: [],
             actions: [
@@ -162,12 +162,12 @@ test('a finished turn is recorded with its opening and closing words, and its st
   const runtime = createVacpRuntime({
     providers: [
       {
+        subscribe: () => () => {},
         source: { id: 'vacp-source://turn', type: 'test', title: 'Turn' },
         observe: () => ({
           revision: String(value),
           observedAt: '',
           graph: {
-            version: '0.1.0',
             nodes: [{ ref: 'vacp://turn/value', kind: 'Param', layer: 'ConfigLayer' }],
             edges: [],
             actions: [
@@ -224,12 +224,12 @@ test('narration opens one turn per actor, closes on done, and closes a quiet tur
   const runtime = createVacpRuntime({
     providers: [
       {
+        subscribe: () => () => {},
         source: { id: 'vacp-source://narrator', type: 'test', title: 'Narrator' },
         observe: () => ({
           revision: 'static',
           observedAt: '',
           graph: {
-            version: '0.1.0',
             nodes: [{ ref: 'vacp://narrator/value', kind: 'Param', layer: 'ConfigLayer' }],
             edges: [],
             actions: [
@@ -280,12 +280,12 @@ function stepRuntime() {
   return createVacpRuntime({
     providers: [
       {
+        subscribe: () => () => {},
         source: { id: 'vacp-source://steps', type: 'test', title: 'Steps' },
         observe: () => ({
           revision: 'static',
           observedAt: '',
           graph: {
-            version: '0.1.0',
             nodes: [{ ref: 'vacp://steps/value', kind: 'Param', layer: 'ConfigLayer' }],
             edges: [],
             actions: [
@@ -353,8 +353,44 @@ test('a person’s or the system’s step opens no agent turn', async (t) => {
   const runtime = stepRuntime();
   t.after(() => runtime.dispose());
   await runtime.execute({ callId: 'human', name: 'set' }, { actor: { id: 'person', kind: 'human' } });
-  await runtime.dispatch({ callId: 'system', name: 'set' }, { actor: { id: 'app', kind: 'system' } });
+  await runtime.execute({ callId: 'system', name: 'set' }, { actor: { id: 'app', kind: 'system' } });
   assert.deepEqual(runtime.getAgentActivities(), []);
   for (const step of runtime.getProvenance().records.filter((record) => record.kind === 'action'))
     assert.equal(step.kind === 'action' && step.execution.activityId, undefined);
+});
+
+test('an agent that acts before it narrates keeps one turn through its later sentences', async (t) => {
+  const runtime = stepRuntime();
+  t.after(() => runtime.dispose());
+  const actor = { id: 'agent', kind: 'agent' as const };
+  await runtime.execute({ callId: 'sex', name: 'set' }, { actor, narration: 'Keeping female athletes.' });
+  runtime.narrate({ actor, message: 'Next I compare the sports.' });
+  await runtime.execute({ callId: 'sport', name: 'set' }, { actor, narration: 'Keeping aquatics.' });
+  runtime.narrate({ actor, message: 'Female swimmers are in view.', done: true });
+  const records = runtime.getProvenance().records;
+  const turns = records.filter((record) => record.kind === 'turn');
+  assert.equal(turns.length, 1);
+  assert.equal(turns[0]!.kind === 'turn' && turns[0]!.outcome, 'completed');
+  assert.equal(turns[0]!.kind === 'turn' && turns[0]!.message, 'Female swimmers are in view.');
+  for (const step of records.filter((record) => record.kind === 'action'))
+    assert.equal(
+      step.kind === 'action' && step.execution.activityId,
+      turns[0]!.kind === 'turn' && turns[0]!.activityId,
+    );
+});
+
+test('narration joins a turn its host began, and the host’s later end leaves the closed turn alone', async (t) => {
+  const runtime = stepRuntime();
+  t.after(() => runtime.dispose());
+  const actor = { id: 'agent', kind: 'agent' as const };
+  const host = runtime.beginAgentActivity({ actor });
+  runtime.narrate({ actor, message: 'Looking at the age spread.' });
+  await runtime.execute({ callId: 'age', name: 'set' }, { actor, narration: 'Narrowing to ages 18 to 25.' });
+  runtime.narrate({ actor, message: 'Most medalists are 22 to 28.', done: true });
+  host.end({ outcome: 'failed' });
+  const turns = runtime.getProvenance().records.filter((record) => record.kind === 'turn');
+  assert.deepEqual(
+    turns.map((turn) => turn.kind === 'turn' && [turn.outcome, turn.opening, turn.message]),
+    [['completed', 'Looking at the age spread.', 'Most medalists are 22 to 28.']],
+  );
 });

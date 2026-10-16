@@ -1,21 +1,20 @@
 import { expect } from '@playwright/test';
 import { test } from '../helpers/test';
 
-import { appServer } from '../helpers/servers';
+import { gotoApp } from '../helpers/servers';
 
-test('window.__vacp.getState(request) supports full/delta and stale-token fallback', async ({ page }) => {
-  const srv = appServer('cars-parallel-coords');
-
-  await page.goto(srv.url, { waitUntil: 'domcontentloaded' });
-  await page.waitForFunction(() => !!globalThis.__vacp);
+test('window.__vacp.getState returns a full read with a token, deltas since a token, and a full read for a stale one', async ({
+  page,
+}) => {
+  await gotoApp(page, 'cars-parallel-coords');
 
   const result = await page.evaluate(async () => {
     const b = globalThis.__vacp;
 
-    const full = await b.getState({ mode: 'full' });
-    const fullDefault = await b.getState();
+    const full = await b.getState();
+    if (full.mode !== 'full') throw new Error('A read without since is a full read');
 
-    const state = fullDefault?.state ?? {};
+    const state = full.snapshot.state;
 
     const paramRef = Object.keys(state).find((ref) => {
       const v = state[ref];
@@ -37,9 +36,9 @@ test('window.__vacp.getState(request) supports full/delta and stale-token fallba
       params: { order: swapped },
     });
 
-    const delta = await b.getState({ mode: 'delta', since: full.token });
-    const stale = await b.getState({ mode: 'delta', since: 'st_missing' });
-    const noop = await b.getState({ mode: 'delta', since: delta.token });
+    const delta = await b.getState({ since: full.token });
+    const stale = await b.getState({ since: 'st_missing' });
+    const noop = await b.getState({ since: delta.token });
 
     return { full, delta, stale, noop, paramRef };
   });

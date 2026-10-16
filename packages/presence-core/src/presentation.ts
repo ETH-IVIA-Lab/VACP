@@ -1,14 +1,7 @@
-import {
-  provenanceActor,
-  provenanceFocus,
-  provenanceMessage,
-  provenanceTurn,
-  type ProvenanceCheckpoint,
-  type ProvenanceReplayState,
-} from '@vacp/provenance-core';
-import type { VacpActor, VacpTurnRecord } from '@vacp/protocol';
+import { type ProvenanceCheckpoint, type ProvenanceReplayState } from '@vacp/provenance-core';
+import { provenanceActor, provenanceFocus, provenanceTurn, type VacpActor, type VacpTurnRecord } from '@vacp/protocol';
 import type { PresenceActivity, PresenceFrame, PresenceNavigation, PresenceOptions } from './types';
-import { isAgentActor } from './types';
+import { isAgentActor, samePresenceActivity } from './types';
 import { stepPlaces, type PresenceFocus } from './targets';
 import { stepSubject } from './subject';
 import { createTargetTracker } from './tracker';
@@ -28,8 +21,6 @@ type TrailFrame =
   | { kind: 'conclusion'; conclusion: Conclusion };
 type Trail = { frames: readonly TrailFrame[]; actor?: VacpActor; opening?: string };
 
-const startWords = "The view before the agent's first change.";
-const conclusionWords = "The view after the agent's last change.";
 const empty: Trail = { frames: [] };
 
 const concluded = (turn: VacpTurnRecord): Conclusion => ({
@@ -39,22 +30,6 @@ const concluded = (turn: VacpTurnRecord): Conclusion => ({
   message: turn.message,
   opening: turn.opening,
 });
-
-/** Frames and their navigation change only when what they show changes. */
-function sameActivity(a: PresenceActivity | undefined, b: PresenceActivity): boolean {
-  return (
-    !!a &&
-    a.actor.id === b.actor.id &&
-    a.actor.label === b.actor.label &&
-    a.phase === b.phase &&
-    a.summary === b.summary &&
-    a.recordId === b.recordId &&
-    a.subject === b.subject &&
-    a.execution === b.execution &&
-    a.target === b.target &&
-    a.freshness === b.freshness
-  );
-}
 
 /**
  * The request to show: the latest one, by journal order. A request is a turn's steps, or a turn that
@@ -176,7 +151,7 @@ export function createPresencePresentation(
     const index = frameIndex();
     const restoring = state?.phase === 'restoring';
     const waiting = working();
-    const diverged = !!state?.error;
+    const diverged = state?.phase === 'error';
     const stepping = !!replay && !restoring && !waiting;
     const current = navigation;
     if (!frames.length) navigation = undefined;
@@ -245,7 +220,7 @@ export function createPresencePresentation(
     const shown = { ...activity, target: same ? recorded!.activity.target : null };
     recorded = {
       id: activity.recordId!,
-      activity: sameActivity(recorded?.activity, shown) ? recorded!.activity : shown,
+      activity: samePresenceActivity(recorded?.activity, shown) ? recorded!.activity : shown,
       places,
     };
     render([recorded.activity], reason);
@@ -285,7 +260,8 @@ export function createPresencePresentation(
           actor: conclusion.actor,
           recordId: conclusion.id,
           phase: conclusion.outcome,
-          summary: conclusion.message ?? conclusionWords,
+          frame: 'conclusion',
+          summary: conclusion.message,
           target: null,
           freshness: 'unknown',
         },
@@ -299,7 +275,8 @@ export function createPresencePresentation(
           actor,
           recordId: frame.checkpoint.id,
           phase: 'reviewing',
-          summary: trail.opening ?? startWords,
+          frame: 'start',
+          summary: trail.opening,
           target: null,
           freshness: 'unknown',
         },
@@ -321,7 +298,10 @@ export function createPresencePresentation(
         recordId: checkpoint.id,
         phase: reviewing() ? 'reviewing' : 'completed',
         subject: stepSubject(graph, execution, focus?.ref),
-        summary: provenanceMessage(checkpoint.record),
+        frame: 'step',
+        summary: execution
+          ? (execution.narration ?? execution.title ?? checkpoint.record.message)
+          : checkpoint.record.message,
         execution,
         target: null,
         freshness: 'unknown',

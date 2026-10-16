@@ -1,4 +1,5 @@
 import { resolve } from 'node:path';
+import type { Page } from '@playwright/test';
 import { exampleDir, repoRoot } from './paths';
 
 /**
@@ -18,7 +19,7 @@ const applications = {
   'vgplot-gallery': { cwd: exampleDir('vgplot-gallery'), command: vp('dev'), dev: true },
   // Served from `make build-apps` output, as people receive them.
   'gallery-build': { cwd: exampleDir('gallery'), command: vp('preview'), dev: false },
-  docs: { cwd: resolve(repoRoot, 'apps/docs'), command: 'node_modules/.bin/vitepress preview .', dev: false },
+  docs: { cwd: resolve(repoRoot, 'docs'), command: 'node_modules/.bin/vitepress preview .', dev: false },
 } as const;
 
 export type AppName = keyof typeof applications;
@@ -44,3 +45,11 @@ export function appServer(name: AppName): AppServer {
  * first, which takes several seconds when parallel workers start them together.
  */
 export const appReady = { timeout: 30_000 } as const;
+
+/** Open `path` on the application's shared server and wait until the page installs its VACP bridge. */
+export async function gotoApp(page: Page, name: AppName, path = ''): Promise<AppServer> {
+  const server = appServer(name);
+  await page.goto(new URL(path, server.url).href);
+  await page.waitForFunction(() => !!window.__vacp, undefined, appReady);
+  return server;
+}

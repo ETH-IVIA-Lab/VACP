@@ -38,22 +38,26 @@ class _FakeBrowser:
 
 
 class _FakeLauncher:
-    def __init__(self, browser: _FakeBrowser) -> None:
+    def __init__(self, browser: _FakeBrowser, failure: Exception | None = None) -> None:
         self.browser = browser
+        self.failure = failure
 
     async def launch(self, **kwargs: Any) -> _FakeBrowser:
+        if self.failure:
+            raise self.failure
         return self.browser
 
 
 class _FakePlaywright:
-    def __init__(self) -> None:
+    def __init__(self, failure: Exception | None = None) -> None:
         self.browser = _FakeBrowser()
-        self.chromium = _FakeLauncher(self.browser)
-        self.firefox = _FakeLauncher(self.browser)
-        self.webkit = _FakeLauncher(self.browser)
+        self.chromium = _FakeLauncher(self.browser, failure)
+        self.firefox = _FakeLauncher(self.browser, failure)
+        self.webkit = _FakeLauncher(self.browser, failure)
+        self.stopped = False
 
     async def stop(self) -> None:
-        return None
+        self.stopped = True
 
 
 class _FakePlaywrightFactory:
@@ -64,42 +68,36 @@ class _FakePlaywrightFactory:
         return self.playwright
 
 
-async def _start_with_config(
-    config: BrowserConfig,
-    monkeypatch: pytest.MonkeyPatch,
-) -> tuple[BrowserManager, _FakePlaywright]:
+async def _context_kwargs(config: BrowserConfig, monkeypatch: pytest.MonkeyPatch) -> dict[str, Any] | None:
     fake_playwright = _FakePlaywright()
     monkeypatch.setattr(browser_module, 'async_playwright', lambda: _FakePlaywrightFactory(fake_playwright))
-    manager = BrowserManager(config)
-    await manager.start()
-    return manager, fake_playwright
+    async with BrowserManager(config).session():
+        kwargs = fake_playwright.browser.context_kwargs
+    assert fake_playwright.stopped
+    return kwargs
 
 
 @pytest.mark.asyncio
 async def test_start_keeps_headed_browser_context_at_os_window_size(monkeypatch: pytest.MonkeyPatch) -> None:
-    manager, fake_playwright = await _start_with_config(BrowserConfig(headless=False), monkeypatch)
-    try:
-        assert fake_playwright.browser.context_kwargs == {'no_viewport': True}
-    finally:
-        await manager.stop()
+    assert await _context_kwargs(BrowserConfig(headless=False), monkeypatch) == {'no_viewport': True}
 
 
 @pytest.mark.asyncio
 async def test_start_uses_playwright_headless_default_viewport(monkeypatch: pytest.MonkeyPatch) -> None:
-    manager, fake_playwright = await _start_with_config(BrowserConfig(headless=True), monkeypatch)
-    try:
-        assert fake_playwright.browser.context_kwargs == {}
-    finally:
-        await manager.stop()
+    assert await _context_kwargs(BrowserConfig(headless=True), monkeypatch) == {}
 
 
 @pytest.mark.asyncio
 async def test_start_uses_screen_hint_as_headless_viewport(monkeypatch: pytest.MonkeyPatch) -> None:
-    manager, fake_playwright = await _start_with_config(
-        BrowserConfig(headless=True, screen_width=1600, screen_height=900),
-        monkeypatch,
-    )
-    try:
-        assert fake_playwright.browser.context_kwargs == {'viewport': {'width': 1600, 'height': 900}}
-    finally:
-        await manager.stop()
+    config = BrowserConfig(headless=True, screen_width=1600, screen_height=900)
+    assert await _context_kwargs(config, monkeypatch) == {'viewport': {'width': 1600, 'height': 900}}
+
+
+@pytest.mark.asyncio
+async def test_a_browser_that_fails_to_launch_still_releases_playwright(monkeypatch: pytest.MonkeyPatch) -> None:
+    fake_playwright = _FakePlaywright(RuntimeError('no browser'))
+    monkeypatch.setattr(browser_module, 'async_playwright', lambda: _FakePlaywrightFactory(fake_playwright))
+    with pytest.raises(RuntimeError, match='no browser'):
+        async with BrowserManager(BrowserConfig(headless=True)).session():
+            pass
+    assert fake_playwright.stopped

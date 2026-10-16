@@ -1,5 +1,5 @@
-import { isVacpExecutionSettled, nowIso, type VacpExecution, type VacpExecutionGate } from '@vacp/protocol';
-import { notify } from './helpers';
+import { isVacpExecutionSettled, type VacpExecution, type VacpExecutionGate } from '@vacp/protocol';
+import { notify, nowIso } from './helpers';
 
 /** Optional presentation work never owns action success or cancellation. */
 export function createExecutionChannel(lifetime: AbortSignal) {
@@ -69,14 +69,14 @@ export function createExecutionChannel(lifetime: AbortSignal) {
       notify(listeners, execution);
     },
     getActiveExecutions: () => structuredClone([...pending.values()]),
-    subscribeExecutions(listener: (execution: VacpExecution) => void) {
+    subscribeExecutions(this: void, listener: (execution: VacpExecution) => void) {
       lifetime.throwIfAborted();
       listeners.add(listener);
       return () => {
         listeners.delete(listener);
       };
     },
-    addExecutionGate(gate: VacpExecutionGate, options: { timeoutMs: number; stage?: 'before' | 'after' }) {
+    addExecutionGate(this: void, gate: VacpExecutionGate, options: { timeoutMs: number; stage?: 'before' | 'after' }) {
       lifetime.throwIfAborted();
       if (!Number.isFinite(options.timeoutMs) || options.timeoutMs < 0)
         throw new Error('Gate timeout must be finite and non-negative');

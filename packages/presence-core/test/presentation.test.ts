@@ -1,3 +1,4 @@
+import { createVacpProvider, VacpActionRegistry } from '@vacp/runtime';
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { setImmediate } from 'node:timers/promises';
@@ -16,7 +17,6 @@ const observation: VacpObservation = {
   revision: '1',
   observedAt: '',
   graph: {
-    version: VACP_SCHEMA_VERSION,
     nodes: [],
     edges: [],
     actions: [],
@@ -143,6 +143,7 @@ function fixture() {
   const presence = createAgentPresence(
     {
       signal: new AbortController().signal,
+      getProviderBinding: () => ({ id: 'generation', signal: new AbortController().signal }),
       getActiveExecutions: () => [],
       subscribeExecutions: () => () => {},
       subscribeSnapshots: () => () => {},
@@ -162,7 +163,14 @@ function fixture() {
       },
     },
   );
+  const provider = createVacpProvider({
+    source: { id: 'vacp-source://test', type: 'test', title: 'Test' },
+    actions: new VacpActionRegistry(),
+    project: () => ({ graph: { nodes: [], edges: [], actions: [] }, state: {} }),
+    subscribe: () => () => {},
+  });
   return {
+    provider,
     presence,
     visits,
     activity: (value: VacpAgentActivity) => activity(value),
@@ -204,10 +212,7 @@ test('presence derives agent-only navigation from complete independent provenanc
 test('retained and replay targets use the attached provider binding and refresh on layout', async () => {
   const f = fixture();
   let x = 10;
-  const detach = f.presence.attach({
-    sourceId: 'vacp-source://test',
-    id: 'generation',
-    signal: new AbortController().signal,
+  const detach = f.presence.attach(f.provider, {
     resolve: () => ({ surface: 'test', precision: 'exact', geometry: { kind: 'point', point: { x, y: 20 } } }),
   });
   await setImmediate();
@@ -245,10 +250,7 @@ test('a recorded step without a focus points at the first node it changed that a
   };
   const f = fixture();
   f.change({ phase: 'live', selected: null, working: false, steps: [step], turns: [], latest: step });
-  f.presence.attach({
-    sourceId: 'vacp-source://test',
-    id: 'generation',
-    signal: new AbortController().signal,
+  f.presence.attach(f.provider, {
     resolve: (focus) =>
       focus.ref === 'vacp://input/blur'
         ? { surface: 'test', precision: 'exact', geometry: { kind: 'point', point: { x: 3, y: 0 } } }
@@ -572,10 +574,11 @@ test('a partly restored frame keeps its recorded words and says the view may dif
   f.frame().navigation!.back();
   await setImmediate();
   assert.equal(f.frame().activities[0]?.summary, 'one');
-  f.change({ ...f.state(), phase: 'error', error: 'A source refused the restore' });
+  const restored = f.state();
+  f.change({ ...restored, phase: 'error', error: 'A source refused the restore' });
   assert.equal(f.frame().navigation?.diverged, true);
   assert.equal(f.frame().activities[0]?.summary, 'one', 'the frame keeps the words it recorded');
-  f.change({ ...f.state(), phase: 'reviewing', error: undefined });
+  f.change(restored);
   assert.equal(f.frame().navigation?.diverged, false);
   f.presence.dispose();
 });

@@ -6,15 +6,20 @@ import {
   type LanguageModel,
   type LanguageModelUsage,
   type StreamTextTransform,
-  type ToolLoopAgentSettings,
 } from 'ai';
+import { vacpAgentActor } from '@vacp/protocol';
 
-import { withAgentActivity } from './activity-transport';
-import type { AgentTurns } from './agent-turn';
+import { createActivityRequests, withAgentActivity } from './activity-transport';
 import { wrapTransportWithVacpContextCompaction } from './context-compaction';
-import { buildVacpAgentInstructions } from './instructions';
-import type { VacpAgentFactoryOptions, VacpChatMessage, VacpChatMessageMetadata, VacpTokenUsage } from './types';
-import { buildVacpAgentTools, type VacpAgentTools } from './vacp-tools';
+import { defaultVacpAgentInstructions } from './instructions';
+import type {
+  VacpAgentOptions,
+  VacpChatMessage,
+  VacpChatMessageMetadata,
+  VacpChatRuntimeOptions,
+  VacpTokenUsage,
+} from './types';
+import { createVacpAgentTools, type VacpAgentTools } from './vacp-tools';
 
 /** The loop settings an agent uses when the host leaves them unset. */
 export const vacpAgentDefaults = { maxSteps: 8, temperature: 0.2 } as const;
@@ -65,92 +70,74 @@ function createVacpMessageMetadata(model: LanguageModel) {
   };
 }
 
-/** A tool loop whose requests close the turn the model opened, however they end. */
-class VacpToolLoopAgent extends ToolLoopAgent<never, VacpAgentTools> {
-  readonly #turns: AgentTurns | undefined;
-
-  constructor(settings: ToolLoopAgentSettings<never, VacpAgentTools>, turns: AgentTurns | undefined) {
-    // A turn the model opened through vacp_progress closes with the request, chat transport or not.
-    super({ ...settings, onEnd: () => turns?.end() });
-    this.#turns = turns;
-  }
-
-  #fail(signal: AbortSignal | undefined) {
-    this.#turns?.end(signal?.aborted ? 'cancelled' : 'failed');
-  }
-
-  override async generate(options: Parameters<ToolLoopAgent<never, VacpAgentTools>['generate']>[0]) {
+/** An AI SDK `ToolLoopAgent` over the five VACP tools. */
+export function createVacpToolLoopAgent(options: VacpAgentOptions): ToolLoopAgent<never, VacpAgentTools> {
+  const agent = new ToolLoopAgent({
+    model: options.model,
+    instructions: options.instructions ?? defaultVacpAgentInstructions,
+    stopWhen: isStepCount(options.maxSteps ?? vacpAgentDefaults.maxSteps),
+    temperature: options.temperature ?? vacpAgentDefaults.temperature,
+    maxOutputTokens: options.maxOutputTokens,
+    maxRetries: options.maxRetries,
+    providerOptions: options.providerOptions,
+    tools: createVacpAgentTools(options.transport),
+    telemetry: options.telemetry,
+  });
+  if (!options.activity) return agent;
+  const begin = createActivityRequests(options.activity.control, options.activity.actor ?? vacpAgentActor);
+  const generate = agent.generate.bind(agent);
+  agent.generate = async (request) => {
+    const end = begin(request.abortSignal);
     try {
-      return await super.generate(options);
+      const result = await generate(request);
+      end('completed');
+      return result;
     } catch (error) {
-      this.#fail(options.abortSignal);
+      end(request.abortSignal?.aborted ? 'cancelled' : 'failed');
       throw error;
     }
-  }
-
-  override async stream(options: Parameters<ToolLoopAgent<never, VacpAgentTools>['stream']>[0]) {
-    // A step that fails or is aborted after an earlier one finished ends the stream as a part, so the
-    // request's own error and abort parts close the turn.
-    const closing: StreamTextTransform<VacpAgentTools> = () =>
+  };
+  const stream = agent.stream.bind(agent);
+  agent.stream = async (request) => {
+    const end = begin(request.abortSignal);
+    const observe: StreamTextTransform<VacpAgentTools> = () =>
       new TransformStream({
-        transform: (part, controller) => {
-          if (part.type === 'error') this.#turns?.end('failed');
-          else if (part.type === 'abort') this.#turns?.end('cancelled');
+        transform(part, controller) {
+          if (part.type === 'error') end(request.abortSignal?.aborted ? 'cancelled' : 'failed');
+          else if (part.type === 'abort') end('cancelled');
           controller.enqueue(part);
         },
+        flush() {
+          end(request.abortSignal?.aborted ? 'cancelled' : 'completed');
+        },
       });
-    let result: Awaited<ReturnType<ToolLoopAgent<never, VacpAgentTools>['stream']>>;
+    const transforms = request.experimental_transform;
     try {
-      result = await super.stream({
-        ...options,
-        experimental_transform: [closing, ...[options.experimental_transform ?? []].flat()],
+      return await stream({
+        ...request,
+        experimental_transform: [observe, ...(Array.isArray(transforms) ? transforms : transforms ? [transforms] : [])],
       });
     } catch (error) {
-      this.#fail(options.abortSignal);
+      end(request.abortSignal?.aborted ? 'cancelled' : 'failed');
       throw error;
     }
-    // A stream that throws before any step finished rejects its text.
-    result.text.then(undefined, () => this.#fail(options.abortSignal));
-    return result;
-  }
+  };
+  return agent;
 }
 
-function createAgent(options: VacpAgentFactoryOptions) {
-  const { tools, turns } = buildVacpAgentTools(options);
-  const agent = new VacpToolLoopAgent(
-    {
-      model: options.model,
-      instructions: buildVacpAgentInstructions({
-        baseInstructions: options.instructions,
-        interactionPolicy: options.interactionPolicy,
-      }),
-      stopWhen: isStepCount(options.maxSteps ?? vacpAgentDefaults.maxSteps),
-      temperature: options.temperature ?? vacpAgentDefaults.temperature,
-      maxOutputTokens: options.maxOutputTokens,
-      maxRetries: options.maxRetries,
-      providerOptions: options.providerOptions,
-      tools,
-      telemetry: options.telemetry,
-    },
-    turns,
-  );
-  return { agent, turns };
-}
-
-export function createVacpToolLoopAgent(options: VacpAgentFactoryOptions): ToolLoopAgent<never, VacpAgentTools> {
-  return createAgent(options).agent;
-}
-
-export function createVacpChatRuntime(options: VacpAgentFactoryOptions): {
+/** The same agent with an AI SDK chat transport for `useChat`, its context compaction, and request turns. */
+export function createVacpChatRuntime(options: VacpChatRuntimeOptions): {
   agent: ToolLoopAgent<never, VacpAgentTools>;
   transport: ChatTransport<VacpChatMessage>;
 } {
-  const { agent, turns } = createAgent(options);
-  const baseTransport = new DirectChatTransport({ agent, messageMetadata: createVacpMessageMetadata(options.model) });
-
-  const transport = wrapTransportWithVacpContextCompaction(baseTransport, options.contextCompactionPolicy, {
+  const agent = createVacpToolLoopAgent({ ...options, activity: undefined });
+  const direct = new DirectChatTransport({ agent, messageMetadata: createVacpMessageMetadata(options.model) });
+  const transport = wrapTransportWithVacpContextCompaction(direct, options.contextCompactionPolicy, {
     availableToolNames: Object.keys(agent.tools),
   });
-
-  return { agent, transport: turns ? withAgentActivity(transport, turns) : transport };
+  const { activity } = options;
+  return {
+    agent,
+    transport: activity ? withAgentActivity(transport, activity.control, activity.actor ?? vacpAgentActor) : transport,
+  };
 }

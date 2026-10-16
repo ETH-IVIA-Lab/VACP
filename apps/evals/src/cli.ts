@@ -264,6 +264,8 @@ main(tracing)
   // its copy of them.
   .finally(() =>
     tracing.shutdown().catch((error: unknown) => {
-      console.error(`${tracing.otlp} refused the last spans: ${error instanceof Error ? error.message : error}`);
+      console.error(
+        `${tracing.otlp} refused the last spans: ${error instanceof Error ? error.message : String(error)}`,
+      );
     }),
   );

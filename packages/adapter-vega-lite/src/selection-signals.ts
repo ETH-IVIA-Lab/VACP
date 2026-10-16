@@ -1,11 +1,12 @@
+import { varName } from 'vega-lite';
+
 /** Vega-Lite allocates data signals before visual signals, avoiding collisions within a selection. */
 export function intervalVisualSignals(name: string, fields: readonly unknown[]): Map<string, string> {
   const used = new Set<string>();
   const visual = new Map<string, string>();
   const allocate = (suffix: string) => {
     const base = `${name}_${suffix}`;
-    let candidate = base.replace(/\W/g, '_');
-    if (/^\d/.test(base)) candidate = `_${candidate}`;
+    let candidate = varName(base);
     const stem = candidate;
     for (let index = 1; used.has(candidate); index++) candidate = `${stem}_${index}`;
     used.add(candidate);

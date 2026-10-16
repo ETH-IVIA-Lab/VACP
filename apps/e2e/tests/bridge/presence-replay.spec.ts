@@ -1,17 +1,17 @@
 import { expect, type Page } from '@playwright/test';
-import { test } from '../helpers/test';
-import { appServer } from '../helpers/servers';
+import { test, useWebMcp } from '../helpers/test';
+import { appServer, gotoApp } from '../helpers/servers';
 import { tool } from '../helpers/presence';
 
 test.use({
   exampleOptions: { paceAgentSteps: true },
-  launchOptions: { args: ['--enable-experimental-web-platform-features', '--enable-features=WebMCPTesting'] },
 });
+useWebMcp();
 const bodyRef = 'vacp://vacp-examples/athletes/physique/param/body';
 /** The cohort filters as the shared state reports them. */
 async function filters(page: Page) {
   return page.evaluate(async () => {
-    const cohort = (await window.__vacp!.getState()).state['vacp://vacp-examples/athletes/cohort'] as {
+    const cohort = (await window.__vacp!.observe()).state['vacp://vacp-examples/athletes/cohort'] as {
       age?: unknown;
       body?: unknown;
     };
@@ -22,11 +22,9 @@ async function filters(page: Page) {
 test('hover-only replay restores all three athlete sources and yields to new human work', async ({
   page,
 }, testInfo) => {
-  const server = appServer('athlete-explorer');
   const errors: string[] = [];
   page.on('pageerror', (error) => errors.push(error.message));
-  await page.goto(server.url);
-  await page.waitForFunction(() => !!window.__vacp?.beginAgentActivity);
+  await gotoApp(page, 'athlete-explorer');
   await expect(page.locator('[data-vacp-bubble]')).toHaveCount(0);
   const sex = page.getByRole('combobox', { name: 'Sex' });
   await sex.selectOption('female');
@@ -37,16 +35,16 @@ test('hover-only replay restores all three athlete sources and yields to new hum
     .poll(() =>
       page.evaluate(
         async () =>
-          (await window.__vacp!.getProvenance!()).records.filter(
-            (entry) => entry.kind === 'observation' && entry.actor.kind === 'human',
-          ).length,
+          window
+            .__vacp!.getProvenance()
+            .records.filter((entry) => entry.kind === 'observation' && entry.actor.kind === 'human').length,
       ),
     )
     .toBeGreaterThan(0);
   await page.evaluate(
     () =>
       (window.__vacpStream = window.__vacp!.beginAgentActivity({
-        actor: { id: 'webmcp', label: 'Analyst', kind: 'agent' },
+        actor: { id: 'agent', label: 'Analyst', kind: 'agent' },
         summary: 'Comparing rowers and canoeists',
       })),
   );
@@ -56,13 +54,20 @@ test('hover-only replay restores all three athlete sources and yields to new hum
     (await tool(page, 'vega_lite.set_selection', { ref: bodyRef, value: { x: [65.5, 90.5], y: [1.705, 1.955] } })).ok,
   ).toBe(true);
   const bodyCount = await page.locator('.athlete-summary strong').first().textContent();
-  expect((await tool(page, 'vgplot.set_interval_1d', { plotId: 'age', interactorId: '0', min: 22, max: 28 })).ok).toBe(
-    true,
-  );
+  expect(
+    (
+      await tool(page, 'vgplot.set_interval_1d', {
+        ref: 'vacp://vacp-examples/athletes/age/interactor/0',
+        min: 22,
+        max: 28,
+      })
+    ).ok,
+  ).toBe(true);
   await expect(page.locator('.athlete-summary strong').first()).toHaveText('117');
   const ageEntry = await page.evaluate(async () =>
-    (await window.__vacp!.getProvenance!()).records
-      .slice()
+    window
+      .__vacp!.getProvenance()
+      .records.slice()
       .reverse()
       .find((entry) => entry.kind === 'action' && entry.execution.name.endsWith('vgplot.set_interval_1d')),
   );
@@ -129,7 +134,7 @@ test('hover-only replay restores all three athlete sources and yields to new hum
   // The human change applies to the live cohort the agent left behind.
   await expect(page.locator('.athlete-summary strong').first()).toHaveText('185');
   await expect(bubble).toHaveCount(0);
-  const entries = await page.evaluate(async () => (await window.__vacp!.getProvenance!()).records);
+  const entries = await page.evaluate(async () => window.__vacp!.getProvenance().records);
   expect(
     entries
       .filter((entry) => entry.kind === 'action' && entry.execution.restoration)
@@ -141,13 +146,11 @@ test('hover-only replay restores all three athlete sources and yields to new hum
 });
 
 test('stepping waits while the agent works and resumes when its turn ends', async ({ page }) => {
-  const server = appServer('athlete-explorer');
-  await page.goto(server.url);
-  await page.waitForFunction(() => !!window.__vacp?.beginAgentActivity);
+  await gotoApp(page, 'athlete-explorer');
   await page.evaluate(
     () =>
       (window.__vacpStream = window.__vacp!.beginAgentActivity({
-        actor: { id: 'webmcp', label: 'Analyst', kind: 'agent' },
+        actor: { id: 'agent', label: 'Analyst', kind: 'agent' },
         summary: 'Comparing rowers and canoeists',
       })),
   );
@@ -163,7 +166,11 @@ test('stepping waits while the agent works and resumes when its turn ends', asyn
   // Keyboard focus stays on the control while it waits through the next step.
   await page.locator('[data-vacp-bubble]').hover();
   await back.focus();
-  const step = tool(page, 'vgplot.set_interval_1d', { plotId: 'age', interactorId: '0', min: 22, max: 28 });
+  const step = tool(page, 'vgplot.set_interval_1d', {
+    ref: 'vacp://vacp-examples/athletes/age/interactor/0',
+    min: 22,
+    max: 28,
+  });
   await expect(back).toBeFocused();
   await back.press('Enter');
   expect((await step).ok).toBe(true);
@@ -247,9 +254,7 @@ test('react-dashboard replay returns to the empty dashboard and forward through 
     await expect(selected).toHaveText(frame.selection);
   }
   const restorations = await page.evaluate(async () =>
-    (await window.__vacp!.getProvenance!()).records.filter(
-      (record) => record.kind === 'action' && record.execution.restoration,
-    ),
+    window.__vacp!.getProvenance().records.filter((record) => record.kind === 'action' && record.execution.restoration),
   );
   expect(restorations.length).toBeGreaterThan(0);
   expect(restorations.every((record) => record.kind === 'action' && record.result.ok)).toBe(true);

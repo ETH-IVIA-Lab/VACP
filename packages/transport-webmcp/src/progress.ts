@@ -7,7 +7,6 @@ import {
   type VacpActor,
   type VacpAgentActivityControl,
 } from '@vacp/protocol';
-import { webMcpExecutionSignal } from './execution';
 
 const progressInputSchema: Record<string, unknown> = {
   type: 'object',
@@ -35,7 +34,7 @@ export function createVacpWebMcpProgressTool(
     description: vacpProgressGuidance,
     inputSchema: progressInputSchema,
     execute: (input, context) => {
-      webMcpExecutionSignal(context).throwIfAborted();
+      context?.signal?.throwIfAborted();
       options.signal.throwIfAborted();
       const record = input && typeof input === 'object' ? (input as Record<string, unknown>) : {};
       let message: string;
@@ -45,7 +44,7 @@ export function createVacpWebMcpProgressTool(
         message = parseVacpNarration(record.message, 'message');
       } catch (error) {
         // Browsers withhold a tool's thrown message from the agent, so the failure is its result.
-        return { ok: false, error: { message: (error as Error).message } };
+        return { ok: false, error: { message: error instanceof Error ? error.message : String(error) } };
       }
       control.narrate({ actor: options.actor, message, done: record.done === true, signal: options.signal });
       return { ok: true };

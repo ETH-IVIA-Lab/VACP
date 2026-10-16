@@ -12,7 +12,7 @@ from starlette.requests import Request
 from starlette.responses import JSONResponse
 from starlette.routing import Route
 
-from vacp.provider import Invocation, InvocationResult, Observation, as_dict
+from vacp.provider import ActionCall, ActionResult, Observation, as_dict
 
 
 class InspectionSession(Protocol):
@@ -20,7 +20,7 @@ class InspectionSession(Protocol):
     def session_id(self) -> str: ...
 
     async def inspect(self) -> Observation: ...
-    async def invoke(self, call: Invocation) -> InvocationResult: ...
+    async def execute(self, call: ActionCall) -> ActionResult: ...
 
 
 def create_inspection_app(
@@ -56,16 +56,21 @@ def create_inspection_app(
         except ValueError:
             return JSONResponse({'error': 'Expected JSON input'}, status_code=400)
         if not isinstance(body, dict) or not isinstance(body.get('name'), str) or not body['name'].strip():
-            return JSONResponse({'error': 'Expected a non-empty operation name'}, status_code=400)
+            return JSONResponse({'error': 'Expected a non-empty action name'}, status_code=400)
         if not isinstance(body.get('callId'), str) or not body['callId']:
             return JSONResponse({'error': 'Expected a callId'}, status_code=400)
         async with gate:
-            result = await session.invoke(Invocation(body['callId'], body['name'], body.get('params')))
+            call = (
+                ActionCall(body['callId'], body['name'], body['params'])
+                if 'params' in body
+                else ActionCall(body['callId'], body['name'])
+            )
+            result = await session.execute(call)
         payload: dict[str, object] = {'callId': result.call_id, 'ok': result.ok}
         if result.ok:
             payload['result'] = result.result
         else:
-            payload['error'] = dict(result.error or {'message': 'Operation failed'})
+            payload['error'] = dict(result.error or {'message': 'Action failed'})
         return JSONResponse(payload)
 
     routes: list[Route] = [

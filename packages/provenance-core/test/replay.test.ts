@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { setImmediate } from 'node:timers/promises';
+import { provenanceActor, captureVacpValue } from '@vacp/protocol';
 import type {
   VacpActor,
   VacpExecution,
@@ -10,7 +11,6 @@ import type {
 } from '@vacp/protocol';
 import {
   createProvenanceReplay,
-  provenanceActor,
   provenanceCheckpoints,
   type ProvenanceCheckpoint,
   type ProvenanceReplayOptions,
@@ -24,7 +24,7 @@ function observation(value: number): VacpObservation {
     version: '0.1.0',
     revision: String(value),
     observedAt: '2026-09-22T00:00:00.000Z',
-    graph: { version: '0.1.0', sources: [], ownership: { nodes: {}, actions: {} }, nodes: [], edges: [], actions: [] },
+    graph: { sources: [], ownership: { nodes: {}, actions: {} }, nodes: [], edges: [], actions: [] },
     state: { 'vacp://value': value },
   };
 }
@@ -45,12 +45,13 @@ function fixture() {
   const executionListeners = new Set<(execution: VacpExecution) => void>();
   let value = 0,
     epoch = 0,
-    revision = 0;
+    revision = 0,
+    nextId = 0;
   const source = {
     signal: lifetime.signal,
     getActiveExecutions: (): readonly VacpExecution[] => [],
-    inspect: () => observation(value),
-    getProvenance: () => ({ runtimeId: 'test', epoch, revision, limit: 256, records: structuredClone(records) }),
+    inspect: async () => observation(value),
+    getProvenance: () => ({ runtimeId: 'test', epoch, revision, limit: 256, records: Object.freeze(records.slice()) }),
     subscribeProvenance(listener: (event: VacpProvenanceEvent) => void) {
       recordingListeners.add(listener);
       return () => {
@@ -65,32 +66,34 @@ function fixture() {
     },
   };
   const emit = (record: VacpProvenanceRecord | null) => {
+    if (record) {
+      record = captureVacpValue(record)();
+      records.push(record);
+      if (records.length > 256) records.shift();
+    }
     revision++;
     for (const listener of recordingListeners) listener({ epoch, revision, record });
   };
   const record = (next: number, actor = agent) => {
     value = next;
-    const entry = captured(String(++revision), next, actor);
-    records.push(entry);
+    const entry = captured(String(++nextId), next, actor);
     emit(entry);
   };
   const restore: ProvenanceReplayOptions['restore'] = async (next, options) => {
-    value = Number(next.state['vacp://value']);
+    value = Number(next['vacp://value']);
     const entry: VacpProvenanceRecord = {
-      ...captured(String(++revision), value, human),
+      ...captured(String(++nextId), value, human),
       kind: 'observation',
-      observation: next,
+      observation: observation(value),
       actor: human,
       cause: { kind: 'concurrent', executions: [{ executionId: 'restoring', restoration: options.restoration }] },
     };
-    records.push(entry);
     emit(entry);
     return { callId: 'restore', ok: true, result: undefined };
   };
   return {
     source,
     evidence: (record: VacpProvenanceRecord) => {
-      records.push(record);
       emit(record);
     },
     execution: (execution: VacpExecution) => {
@@ -112,7 +115,6 @@ function fixture() {
         before,
         observation: observation(next),
       };
-      records.push(entry);
       emit(entry);
     },
     record,
@@ -124,6 +126,9 @@ function fixture() {
       records.length = 0;
       value = 0;
       emit(null);
+    },
+    gap() {
+      revision++;
     },
     dispose: () => lifetime.abort(),
   };
@@ -179,7 +184,7 @@ test('nonlinear review restores real checkpoints and close returns to the saved 
   f.record(2, human);
   f.record(3);
   const replay = createProvenanceReplay(f.source, { restore: f.restore });
-  t.after(replay.dispose);
+  t.after(() => replay.dispose());
   const steps = replay.getState().steps;
   await replay.review(steps[0]!.id);
   assert.equal(f.value(), 1);
@@ -198,7 +203,7 @@ test('unattributed external changes interrupt review and prevent stale baseline 
   f.record(1);
   f.record(2);
   const replay = createProvenanceReplay(f.source, { restore: f.restore });
-  t.after(replay.dispose);
+  t.after(() => replay.dispose());
   await replay.review(replay.getState().steps[0]!.id);
   f.record(9, system);
   assert.equal(replay.getState().phase, 'live');
@@ -222,7 +227,7 @@ test('an epoch reset during baseline capture cancels navigation without hydratin
     },
     { restore: f.restore },
   );
-  t.after(replay.dispose);
+  t.after(() => replay.dispose());
   const pending = replay.review(replay.getState().steps[0]!.id);
   await setImmediate();
   f.reset();
@@ -249,11 +254,13 @@ test('failed restoration can be retried and an external change cancels the pendi
       return new Promise(() => {});
     },
   });
-  t.after(replay.dispose);
+  t.after(() => replay.dispose());
   const checkpoint = replay.getState().steps[0]!.id;
   await replay.review(checkpoint);
   assert.equal(replay.getState().phase, 'error');
-  assert.equal(replay.getState().error, 'Source unavailable');
+  const failed = replay.getState();
+  assert(failed.phase === 'error');
+  assert.equal(failed.error, 'Source unavailable');
   const pending = replay.review(checkpoint);
   await setImmediate();
   assert.equal(replay.getState().phase, 'restoring');
@@ -272,7 +279,8 @@ test('replay exposes every retained checkpoint through a stable frozen view', ()
   for (let i = 0; i < 300; i++) f.record(i);
   const replay = createProvenanceReplay(f.source, { restore: f.restore });
   const state = replay.getState();
-  assert.equal(state.steps.length, 300);
+  assert.equal(state.steps.length, 256);
+  assert.equal(state.steps[0]?.observation.state['vacp://value'], 44);
   assert.equal(replay.getState(), state, 'an unchanged view keeps its identity for external stores');
   assert.throws(() => {
     (state.steps as ProvenanceCheckpoint[]).pop();
@@ -282,7 +290,8 @@ test('replay exposes every retained checkpoint through a stable frozen view', ()
   }, TypeError);
   f.record(300);
   assert.notEqual(replay.getState(), state);
-  assert.equal(replay.getState().steps.length, 301);
+  assert.equal(replay.getState().steps.length, 256);
+  assert.equal(replay.getState().steps[0]?.observation.state['vacp://value'], 45);
   replay.dispose();
   f.dispose();
 });
@@ -293,7 +302,7 @@ test('another viewer restoration interrupts review before its effects', async (t
   f.record(1);
   f.record(2);
   const replay = createProvenanceReplay(f.source, { restore: f.restore });
-  t.after(replay.dispose);
+  t.after(() => replay.dispose());
   await replay.review(replay.getState().steps[0]!.id);
   f.execution({
     id: 'other',
@@ -351,7 +360,7 @@ test('a late viewer waits for already active mutations before restoring a checkp
     { ...f.source, getActiveExecutions: () => activeExecutions },
     { restore: f.restore },
   );
-  t.after(replay.dispose);
+  t.after(() => replay.dispose());
   const checkpoint = replay.getState().steps[0]!;
   await replay.review(checkpoint.id);
   assert.equal(f.value(), 2);
@@ -367,18 +376,18 @@ test('concurrent evidence stays in recording without masking terminal checkpoint
   f.record(1);
   f.record(2);
   const replay = createProvenanceReplay(f.source, {
-    restore: async (observation, options) => {
+    restore: async (state, options) => {
       f.evidence({
         ...captured('intermediate', 8, system),
         kind: 'observation',
         actor: system,
-        observation: observation,
+        observation: { ...observation(0), state },
         cause: { kind: 'concurrent', executions: [{ executionId: 'own', restoration: options.restoration }] },
       });
-      return f.restore(observation, options);
+      return f.restore(state, options);
     },
   });
-  t.after(replay.dispose);
+  t.after(() => replay.dispose());
   await replay.review(replay.getState().steps[0]!.id);
   assert.equal(replay.getState().phase, 'reviewing');
   assert.equal(replay.getState().steps.length, 2);
@@ -400,7 +409,7 @@ test('explicit host input intent abandons pending restoration and never rolls ba
       return new Promise(() => {});
     },
   });
-  t.after(replay.dispose);
+  t.after(() => replay.dispose());
   const pending = replay.review(replay.getState().steps[0]!.id);
   await setImmediate();
   replay.interrupt();
@@ -444,7 +453,7 @@ test('live work is part of the state until its record arrives, and review waits 
   f.record(1);
   f.record(2);
   const replay = createProvenanceReplay(f.source, { restore: f.restore });
-  t.after(replay.dispose);
+  t.after(() => replay.dispose());
   let published = 0;
   replay.subscribe(() => published++);
   const step = (phase: VacpExecution['phase']): VacpExecution => ({
@@ -494,7 +503,7 @@ test('a session reset ends live work, and the controller’s own restorations ar
       return f.restore(next, options);
     },
   });
-  t.after(replay.dispose);
+  t.after(() => replay.dispose());
   await replay.review(replay.getState().steps[0]!.id);
   assert.equal(replay.getState().phase, 'reviewing');
   await replay.close();
@@ -511,4 +520,75 @@ test('a session reset ends live work, and the controller’s own restorations ar
   assert.equal(replay.getState().working, true);
   f.reset();
   assert.equal(replay.getState().working, false);
+});
+
+test('contiguous appends extend replay without rereading the journal', (t) => {
+  const f = fixture();
+  t.after(f.dispose);
+  let reads = 0;
+  const replay = createProvenanceReplay(
+    {
+      ...f.source,
+      getProvenance: () => {
+        reads++;
+        return f.source.getProvenance();
+      },
+    },
+    { restore: f.restore },
+  );
+  t.after(() => replay.dispose());
+  f.record(1);
+  f.record(2);
+  assert.deepEqual(
+    replay.getState().steps.map((step) => step.observation.state['vacp://value']),
+    [1, 2],
+  );
+  assert.equal(reads, 1);
+});
+
+test('a revision gap resynchronizes the retained journal', (t) => {
+  const f = fixture();
+  t.after(f.dispose);
+  const replay = createProvenanceReplay(f.source, { restore: f.restore });
+  t.after(() => replay.dispose());
+  f.record(1);
+  f.gap();
+  f.record(2);
+  assert.deepEqual(
+    replay.getState().steps.map((step) => step.observation.state['vacp://value']),
+    [1, 2],
+  );
+});
+
+test('epoch reset replaces the retained replay trail', (t) => {
+  const f = fixture();
+  t.after(f.dispose);
+  f.record(1);
+  const replay = createProvenanceReplay(f.source, { restore: f.restore });
+  t.after(() => replay.dispose());
+  f.reset();
+  f.record(9);
+  assert.deepEqual(
+    replay.getState().steps.map((step) => step.observation.state['vacp://value']),
+    [9],
+  );
+});
+
+test('restoration receives the captured checkpoint state by identity', async (t) => {
+  const f = fixture();
+  t.after(f.dispose);
+  f.record(1);
+  f.record(2);
+  let received: unknown;
+  const replay = createProvenanceReplay(f.source, {
+    restore: async (state, options) => {
+      received = state;
+      return f.restore(state, options);
+    },
+  });
+  t.after(() => replay.dispose());
+  const checkpoint = replay.getState().steps[0]!;
+  await replay.review(checkpoint.id);
+  assert.equal(received, checkpoint.observation.state);
+  assert.equal(Object.isFrozen(received), true);
 });

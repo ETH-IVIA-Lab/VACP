@@ -1,11 +1,10 @@
-import { VACP_SCHEMA_VERSION, type VacpGraphFragment, type VacpProvider } from '@vacp/protocol';
+import type { VacpGraphFragment, VacpProvider } from '@vacp/protocol';
 import { createVacpRuntime } from '@vacp/runtime';
 import { measure } from '../../../tools/benchmark';
 import { createProvenanceReplay } from '../src/index';
 
 const size = 1_000;
 const graph: VacpGraphFragment = {
-  version: VACP_SCHEMA_VERSION,
   nodes: Array.from({ length: size }, (_, i) => ({ ref: `vacp://bench/${i}`, kind: 'Param', layer: 'ConfigLayer' })),
   edges: [],
   actions: [
@@ -19,6 +18,7 @@ const graph: VacpGraphFragment = {
 };
 let value = 0;
 const provider: VacpProvider = {
+  subscribe: () => () => {},
   source: { id: 'vacp-source://benchmark', type: 'benchmark', title: 'Replay benchmark' },
   observe: () => ({
     revision: String(value),
@@ -42,7 +42,6 @@ let steps = 0;
 replay.subscribe(() => {
   steps = replay.getState().steps.length;
 });
-runtime.stopObserving();
 const execute = () => runtime.execute({ callId: `call-${value}`, name: 'set', params: {} });
 try {
   for (let index = 0; index < 256; index++) await execute();

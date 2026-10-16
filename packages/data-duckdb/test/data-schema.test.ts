@@ -1,9 +1,9 @@
 import assert from 'node:assert/strict';
 import { after, before, test } from 'node:test';
-import { createDuckDbDataSchemaHandler, type VacpDuckDbClient } from '../src/index';
+import { createDuckDbDataSchemaHandler, type VacpDuckDbQueryClient } from '../src/index';
 import { wasmDuckDb } from './wasm';
 
-let client: VacpDuckDbClient;
+let client: VacpDuckDbQueryClient;
 let close: () => void;
 let schema: ReturnType<typeof createDuckDbDataSchemaHandler>;
 
@@ -65,3 +65,25 @@ test('a handle whose vacp_all reads another relation describes both', async () =
 test('an unknown handle rejects', async () => {
   await assert.rejects(schema({ handleRef: 'vacp://app/missing' }), /Unknown DataHandle: vacp:\/\/app\/missing/);
 });
+
+test('full summaries distinguish columns whose names differ by punctuation', async () => {
+  await client.exec('CREATE TABLE punctuated AS SELECT 1 AS "a-b", 9 AS a_b UNION ALL SELECT 3, 19');
+  const handler = createDuckDbDataSchemaHandler({ duckdb: client, resolveHandle: () => ({ table: 'punctuated' }) });
+  const result = await handler({ handleRef: 'vacp://app/punctuated', detail: 'full' });
+  assert.deepEqual(result.vacp_handle.numeric, {
+    'a-b': { min: 1, max: 3, avg: 2 },
+    a_b: { min: 9, max: 19, avg: 14 },
+  });
+});
+
+for (const name of ['main.dotted', "a'b"]) {
+  test(`schema columns and counts read the same table named ${name}`, async () => {
+    const identifier = '"' + name.replaceAll('"', '""') + '"';
+    await client.exec(`CREATE TABLE ${identifier} AS SELECT 35 AS value`);
+    const handler = createDuckDbDataSchemaHandler({ duckdb: client, resolveHandle: () => ({ table: name }) });
+    const result = await handler({ handleRef: 'vacp://app/named', detail: 'full' });
+    assert.deepEqual(result.vacp_handle.columns, [{ name: 'value', type: 'INTEGER' }]);
+    assert.equal(result.vacp_handle.rowCount, 1);
+    assert.deepEqual(result.vacp_handle.numeric, { value: { min: 35, max: 35, avg: 35 } });
+  });
+}

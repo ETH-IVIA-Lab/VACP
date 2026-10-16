@@ -7,7 +7,6 @@ export function observation(value = 0): VacpObservation {
     revision: String(value),
     observedAt: '2026-09-18T12:00:00Z',
     graph: {
-      version: VACP_SCHEMA_VERSION,
       sources: [{ id: 'vacp-source://test', type: 'test', title: 'Test' }],
       ownership: { nodes: { 'vacp://value': 'vacp-source://test' }, actions: { set: 'vacp-source://test' } },
       nodes: [{ ref: 'vacp://value', kind: 'CustomParameter', layer: 'ConfigLayer' }],
@@ -18,7 +17,7 @@ export function observation(value = 0): VacpObservation {
     freshness: { 'vacp://value': { status: 'current' } },
   };
 }
-export function client(): InspectorClient<number, number> & { value: number; calls: number } {
+export function client(): InspectorClient & { value: number; calls: number } {
   return {
     id: 'session',
     title: 'Session',
@@ -29,12 +28,12 @@ export function client(): InspectorClient<number, number> & { value: number; cal
     },
     async execute(call) {
       this.calls++;
-      this.value = call.params ?? this.value;
+      if (typeof call.params === 'number') this.value = call.params;
       return { callId: call.callId, ok: true, result: this.value };
     },
     async restore(snapshot) {
       this.calls++;
-      this.value = Number(snapshot.state['vacp://value']);
+      this.value = Number(snapshot['vacp://value']);
       return { callId: 'restore', ok: true, result: this.value };
     },
   };
@@ -47,10 +46,10 @@ export function deferred<T>() {
   return { promise, resolve };
 }
 
-export function whenState<Params, Result>(
-  session: InspectorSession<Params, Result>,
-  matches: (state: InspectorState<Params, Result>) => boolean,
-): Promise<InspectorState<Params, Result>> {
+export function whenState(
+  session: InspectorSession,
+  matches: (state: InspectorState) => boolean,
+): Promise<InspectorState> {
   return new Promise((resolve) => {
     const check = () => {
       if (!matches(session.getState())) return;

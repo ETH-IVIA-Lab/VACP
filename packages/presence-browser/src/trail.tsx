@@ -108,7 +108,7 @@ export function Trail({ navigation }: { navigation: PresenceNavigation }) {
         const past = index < navigation.index;
         return (
           // The k-th step keeps its key as later steps join, so focus stays on the frame it was on.
-          <Fragment key={frame === 'step' ? names[index] : frame}>
+          <Fragment key={frame === 'step' ? `step-${index}` : frame}>
             {index ? <span {...stylex.props(styles.link, past && styles.linkPast)} /> : null}
             <button
               type="button"
@@ -160,7 +160,7 @@ function Chevron({ path }: { path: string }) {
 
 /**
  * Step through the request, or leave it. With nowhere to step, such as a single recorded step or a closing
- * answer, only dismissal remains. Reviewing returns to the live analysis; otherwise the same control
+ * answer, only dismissal remains. Reviewing returns to the live analysis. Otherwise the same control
  * dismisses the retained step.
  */
 export function Stepper({ navigation }: { navigation: PresenceNavigation }) {
@@ -176,7 +176,7 @@ export function Stepper({ navigation }: { navigation: PresenceNavigation }) {
             title={navigation.working ? waiting : 'Previous analytical step'}
             aria-label="Previous analytical step"
             {...unavailable(!navigation.canBack)}
-            onClick={navigation.back}
+            onClick={() => navigation.back()}
             {...stylex.props(styles.control, !navigation.canBack && styles.controlUnavailable)}
           >
             <Chevron path="M15 5l-7 7 7 7" />
@@ -186,7 +186,7 @@ export function Stepper({ navigation }: { navigation: PresenceNavigation }) {
             title={navigation.working ? waiting : 'Next analytical step'}
             aria-label="Next analytical step"
             {...unavailable(!navigation.canForward)}
-            onClick={navigation.forward}
+            onClick={() => navigation.forward()}
             {...stylex.props(styles.control, !navigation.canForward && styles.controlUnavailable)}
           >
             <Chevron path="M9 5l7 7-7 7" />
@@ -198,7 +198,7 @@ export function Stepper({ navigation }: { navigation: PresenceNavigation }) {
         title={close}
         aria-label={close}
         {...unavailable(navigation.restoring)}
-        onClick={navigation.close}
+        onClick={() => navigation.close()}
         {...stylex.props(styles.control, navigation.restoring && styles.controlUnavailable)}
       >
         <Chevron path="M6 6l12 12M18 6L6 18" />

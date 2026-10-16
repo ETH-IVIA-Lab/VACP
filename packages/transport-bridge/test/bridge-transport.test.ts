@@ -1,139 +1,152 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { createVacpTransport } from '../src/index';
+import { VACP_SCHEMA_VERSION } from '@vacp/protocol';
+import { createVacpTransport, type VacpTransportBridge } from '../src/index';
 
-test('graph reads reach the agent without source ownership, and state as read', async () => {
-  const graph = {
-    version: '1.0.0',
-    sources: [{ id: 'vacp-source://chart', type: 'chart' }],
-    nodes: [{ ref: 'vacp://chart/a', kind: 'Mark' }],
-    edges: [],
-    actions: [{ name: 'chart.set' }],
-  };
-  const snapshot = {
-    createdAt: '2026-01-01T00:00:00.000Z',
-    version: '1.0.0',
-    graph: {
-      ...graph,
-      ownership: {
-        nodes: { 'vacp://chart/a': 'vacp-source://chart' },
-        actions: { 'chart.set': 'vacp-source://chart' },
-      },
+const graph = { sources: [], nodes: [], edges: [], actions: [] };
+const ownership = { nodes: {}, actions: {} };
+
+/** A bridge that answers every read with `extra` beside its fields and records what each call received. */
+function bridge(extra: Record<string, unknown> = {}) {
+  const calls: Array<[string, ...unknown[]]> = [];
+  const page: VacpTransportBridge = {
+    version: VACP_SCHEMA_VERSION,
+    observe: async () => {
+      calls.push(['observe']);
+      const read = {
+        version: VACP_SCHEMA_VERSION,
+        revision: 'r',
+        observedAt: '',
+        graph: { ...graph, ownership },
+        state: {},
+        ...extra,
+      };
+      return read;
+    },
+    getCapabilities: async (request) => {
+      calls.push(['capabilities', request]);
+      const read = { version: VACP_SCHEMA_VERSION, createdAt: '', graph: { ...graph, ownership }, ...extra };
+      return read;
+    },
+    getState: async (request) => {
+      calls.push(['state', request]);
+      const snapshot = { version: VACP_SCHEMA_VERSION, createdAt: '', state: {} };
+      const read = {
+        version: VACP_SCHEMA_VERSION,
+        createdAt: '',
+        mode: 'full' as const,
+        token: 'st_1',
+        snapshot,
+        ...extra,
+      };
+      return read;
+    },
+    execute: async (call, options) => {
+      calls.push(['execute', call, options]);
+      return { callId: call.callId, ok: true, result: extra.note ?? call.params };
+    },
+    narrate: (input) => {
+      calls.push(['narrate', input]);
     },
   };
-  const expectedCaps = { ...snapshot, graph };
+  return { bridge: page, calls };
+}
 
-  const expectedState = { createdAt: '2026-01-01T00:00:00.000Z', version: '1.0.0', state: {} };
-
-  const expectedUpdate = {
-    createdAt: '2026-01-01T00:00:00.000Z',
-    version: '1.0.0',
-    mode: 'full' as const,
-    token: 'st_test',
-    snapshot: expectedState,
-  };
-
-  let gotStateOptions: unknown = null;
-  let gotCapabilitiesOptions: unknown = null;
-
-  const bridge = {
-    getCapabilities: async (options?: unknown) => {
-      gotCapabilitiesOptions = options ?? null;
-
-      return snapshot;
-    },
-    getState: async (options?: unknown) => {
-      gotStateOptions = options ?? null;
-
-      return options ? expectedUpdate : expectedState;
-    },
-    execute: async () => ({ callId: 'unused', ok: true }),
-  };
-
-  const transport = createVacpTransport(bridge);
-  assert.deepEqual(await transport.vacp_capabilities(), expectedCaps);
-  assert.deepEqual(gotCapabilitiesOptions, { includeNodeData: false });
-  const capabilitiesOptions = { prefixes: ['vacp://chart'], includeNodeData: true };
-  assert.deepEqual(await transport.vacp_capabilities(capabilitiesOptions), expectedCaps);
-  assert.deepEqual(gotCapabilitiesOptions, capabilitiesOptions);
-  assert.deepEqual(await transport.vacp_state(), expectedState);
-  assert.equal(gotStateOptions, null);
-
-  const stateOptions = {
-    mode: 'delta' as const,
-    since: 'st_prev',
-    refs: ['vacp://chart/a'] as const,
-    includeSummary: false,
-  };
-
-  assert.deepEqual(await transport.vacp_state(stateOptions), expectedUpdate);
-  assert.deepEqual(gotStateOptions, stateOptions);
+test('graph reads reach the agent without source ownership', async () => {
+  const transport = createVacpTransport(bridge().bridge);
+  assert.deepEqual(await transport.vacp_observe(), {
+    version: VACP_SCHEMA_VERSION,
+    revision: 'r',
+    observedAt: '',
+    graph,
+    state: {},
+  });
+  assert.deepEqual(await transport.vacp_capabilities(), { version: VACP_SCHEMA_VERSION, createdAt: '', graph });
 });
 
-test('empty reads stay authoritative and execution forwards the call', async () => {
-  let reads = 0;
-  const transport = createVacpTransport({
-    observe: async () => ({ revision: 'empty', graph: { nodes: [], edges: [], actions: [] }, state: {} }),
-    getCapabilities: async () => {
-      reads++;
-      return { graph: { nodes: [], edges: [], actions: [] } };
-    },
-    getState: async () => {
-      reads++;
-      return { state: {} };
-    },
-    execute: async (call) => ({ callId: call.callId, ok: true, result: call.params }),
-  });
-  assert.equal((await transport.vacp_observe()).revision, 'empty');
-  assert.deepEqual((await transport.vacp_capabilities()).graph.nodes, []);
-  assert.deepEqual((await transport.vacp_state()).state, {});
-  assert.equal(reads, 2);
-  assert.deepEqual(await transport.vacp_execute('set', { value: 2 }, 'test'), {
-    callId: 'test',
-    ok: true,
-    result: { value: 2 },
-  });
-});
-
-test('a bare vacp:// scope reads everything, and an unscoped graph read leaves out node data', async () => {
-  const requests: Array<{ read: string; request: unknown }> = [];
-  const transport = createVacpTransport({
-    getCapabilities: async (request?: unknown) => {
-      requests.push({ read: 'capabilities', request: request ?? null });
-      return { graph: { nodes: [], edges: [], actions: [] } };
-    },
-    getState: async (request?: unknown) => {
-      requests.push({ read: 'state', request: request ?? null });
-      return { state: {} };
-    },
-    execute: async (call) => ({ callId: call.callId, ok: true }),
-  });
+test('a bare vacp:// scope reads everything, and every state read asks for a token', async () => {
+  const { bridge: page, calls } = bridge();
+  const transport = createVacpTransport(page);
   await transport.vacp_capabilities({ refs: ['vacp://'] });
-  await transport.vacp_capabilities({ prefixes: ['vacp://', 'vacp://chart/'] });
+  await transport.vacp_capabilities({ prefixes: ['vacp://', 'vacp://chart/'], includeNodeData: true });
+  await transport.vacp_state();
   await transport.vacp_state({ refs: ['vacp://'] });
-  assert.deepEqual(requests, [
-    { read: 'capabilities', request: { includeNodeData: false } },
-    { read: 'capabilities', request: { prefixes: ['vacp://chart/'] } },
-    { read: 'state', request: null },
+  await transport.vacp_state({ since: 'st_1', refs: ['vacp://chart/a'], includeSummary: false });
+  assert.deepEqual(calls, [
+    ['capabilities', { includeNodeData: false }],
+    ['capabilities', { prefixes: ['vacp://chart/'], includeNodeData: true }],
+    ['state', {}],
+    ['state', {}],
+    ['state', { since: 'st_1', refs: ['vacp://chart/a'], includeSummary: false }],
   ]);
+});
+
+test('execution carries the step’s sentence, the transport’s actor, and the caller’s signal', async () => {
+  const { bridge: page, calls } = bridge();
+  const actor = { id: 'analyst', kind: 'agent' as const, label: 'Analyst' };
+  const transport = createVacpTransport(page, { actor });
+  const controller = new AbortController();
+  assert.deepEqual(
+    await transport.vacp_execute(
+      { name: ' set ', params: { value: 2 }, narration: ' Raising the threshold. ', call_id: 'c1' },
+      controller.signal,
+    ),
+    { callId: 'c1', ok: true, result: { value: 2 } },
+  );
+  assert.deepEqual(calls, [
+    [
+      'execute',
+      { callId: 'c1', name: 'set', params: { value: 2 } },
+      { actor, narration: 'Raising the threshold.', signal: controller.signal },
+    ],
+  ]);
+  await assert.rejects(transport.vacp_execute({ name: 'set', narration: '  ' }), /requires a sentence/);
+  await assert.rejects(transport.vacp_execute({ name: ' ', narration: 'Setting.' }), /non-empty action name/);
+  assert.equal(calls.length, 1);
+});
+
+test('progress speaks through the bridge narrator as the default agent', async () => {
+  const { bridge: page, calls } = bridge();
+  const transport = createVacpTransport(page);
+  assert.deepEqual(await transport.vacp_progress({ message: ' Looking at the age spread. ' }), { ok: true });
+  assert.deepEqual(await transport.vacp_progress({ message: 'Most are 22 to 28.', done: true }), { ok: true });
+  await assert.rejects(transport.vacp_progress({ message: '' }), /requires a sentence/);
+  const actor = { id: 'agent', kind: 'agent', label: 'Agent' };
+  assert.deepEqual(calls, [
+    ['narrate', { actor, message: 'Looking at the age spread.', done: false, signal: undefined }],
+    ['narrate', { actor, message: 'Most are 22 to 28.', done: true, signal: undefined }],
+  ]);
+});
+
+test('a step the agent cancels reaches the action handler through its signal', async () => {
+  let cancelled: unknown;
+  const page: VacpTransportBridge = {
+    ...bridge().bridge,
+    execute: (_call, options) =>
+      new Promise<never>((_, reject) => {
+        options?.signal?.addEventListener('abort', () => {
+          cancelled = options.signal?.reason;
+          reject(options.signal?.reason);
+        });
+      }),
+  };
+  const controller = new AbortController();
+  const running = createVacpTransport(page).vacp_execute({ name: 'slow', narration: 'Waiting.' }, controller.signal);
+  controller.abort(new Error('stopped'));
+  await assert.rejects(running, /stopped/);
+  assert.match(String(cancelled), /stopped/);
 });
 
 test('every answer reaches the model cut to the limits every transport shares', async () => {
   const note = 'x'.repeat(12_001);
   const cut = `${'x'.repeat(11_976)}... [25 more characters]`;
-  const graph = { nodes: [], edges: [], actions: [] };
-  const transport = createVacpTransport({
-    observe: async () => ({ revision: 'r', graph, state: {}, note }) as never,
-    getCapabilities: async () => ({ graph, note }) as never,
-    getState: async () => ({ state: {}, note }) as never,
-    execute: async (call) => ({ callId: call.callId, ok: true, result: note }),
-  });
+  const transport = createVacpTransport(bridge({ note }).bridge);
   const reads = [
     await transport.vacp_observe(),
     await transport.vacp_capabilities(),
     await transport.vacp_state(),
-    await transport.vacp_execute('set', undefined, 'c1'),
+    await transport.vacp_execute({ name: 'set', narration: 'Setting.', call_id: 'c1' }),
   ] as Array<{ note?: string; result?: string }>;
   assert.deepEqual(
     reads.map((read) => read.note ?? read.result),

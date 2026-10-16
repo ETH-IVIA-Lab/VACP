@@ -13,15 +13,7 @@ body {
   max-width: 1360px;
   margin: 0 auto;
   padding: clamp(24px, 3vw, 48px) clamp(20px, 3vw, 40px) 48px;
-  font-family:
-    'Geist',
-    'Segoe UI',
-    -apple-system,
-    BlinkMacSystemFont,
-    Roboto,
-    'Helvetica Neue',
-    Arial,
-    sans-serif;
+  font-family: 'Geist', 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, 'Helvetica Neue', Arial, sans-serif;
 }
 
 .cars-header {

@@ -9,7 +9,6 @@ const ignoredPaths = [
   '**/.vite-plus/**',
   '**/.vite/**',
   '**/.artifacts/**',
-  '**/tasks/**',
   '**/node_modules/**',
   '**/.venv/**',
   '**/__pycache__/**',
@@ -18,9 +17,6 @@ const ignoredPaths = [
   '**/.pytest_cache/**',
   '**/test-results/**',
   'examples/**/public/data/**',
-  'nogit/**',
-  'plans/**',
-  'ara/**',
   '**/.generated-public/**',
   '**/public/**',
   '**/.vitepress/cache/**',
@@ -54,6 +50,7 @@ export default defineConfig({
     ignorePatterns: ignoredPaths,
   },
   lint: {
+    options: { typeAware: true, typeCheck: true },
     plugins: ['typescript', 'import'],
     jsPlugins: [{ name: 'anti-slop', specifier: './tools/oxlint/anti-slop/index.ts' }],
     ignorePatterns: ignoredPaths,
@@ -62,6 +59,15 @@ export default defineConfig({
       'oxc/no-accumulating-spread': 'error',
       'eslint/no-console': 'off',
       'import/no-cycle': 'error',
+      // node:test reports every registered test's failure itself, so its registration promise needs no handler.
+      'typescript/no-floating-promises': [
+        'error',
+        {
+          allowForKnownSafeCalls: [
+            { from: 'package', package: 'node:test', name: ['test', 'describe', 'it', 'suite'] },
+          ],
+        },
+      ],
     },
     overrides: [
       {
@@ -109,9 +115,8 @@ export default defineConfig({
         'transport-bridge': ['protocol'],
         'transport-webmcp': ['protocol'],
         'data-duckdb': ['protocol'],
-        'diagram-mermaid': ['protocol'],
-        analytics: ['protocol', 'provenance-core'],
-        'analytics-posthog': ['protocol', 'analytics'],
+        analytics: ['protocol'],
+        'analytics-posthog': ['analytics'],
         'agent-ai-sdk': ['protocol', 'transport-bridge'],
         sdk: ['protocol', 'runtime', 'runtime-browser'],
         'adapter-vega-lite': ['protocol', 'runtime', 'data-duckdb'],
@@ -120,8 +125,8 @@ export default defineConfig({
         'provenance-core': ['protocol'],
         'presence-core': ['protocol', 'provenance-core'],
         'presence-browser': ['protocol', 'presence-core'],
-        'adapter-vega-lite/src/presentation.ts': ['protocol', 'presence-core', 'presence-browser/targets'],
-        'adapter-vgplot/src/presentation.ts': ['protocol', 'presence-core', 'presence-browser/targets'],
+        'adapter-vega-lite/src/presentation.ts': ['protocol', 'presence-core', 'presence-core/dom'],
+        'adapter-vgplot/src/presentation.ts': ['protocol', 'presence-core', 'presence-core/dom'],
       }).map(
         ([owner, dependencies]) =>
           ({

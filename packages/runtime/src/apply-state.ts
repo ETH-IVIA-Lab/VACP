@@ -1,6 +1,6 @@
 import type { VacpActionExecutionOptions } from '@vacp/protocol';
 import { z } from 'zod';
-import { vacpRefSchema } from '@vacp/protocol';
+import { vacpRefSchema } from '@vacp/protocol/validation';
 import type { VacpActionDescriptor, VacpRef } from '@vacp/protocol';
 import { VACP_APPLY_STATE_ACTION } from '@vacp/protocol';
 
@@ -15,13 +15,9 @@ export type VacpApplyStatePreparation<Result = unknown> = (
 const paramsSchema = z.object({ state: z.record(vacpRefSchema, z.unknown()) });
 
 /**
- * Register the standard action `vacp.apply_state`.
- *
- * This action lets a caller submit a JSON "desired state" map keyed by VACP
- * refs. The provider decides how to interpret and apply these values to the
- * live app (usually by translating them into more precise semantic actions).
- * Replay restores any recorded state through it, including states in which other
- * nodes are unavailable, so the action declares no prerequisites.
+ * Register `vacp.apply_state`. `prepare` validates a desired state keyed by refs and returns the
+ * closure that applies it. Replay restores any recorded state through it, including states in which
+ * other nodes are unavailable, so the action declares no prerequisites.
  */
 export function registerVacpApplyStateAction<Result>(
   registry: VacpActionRegistrar,

@@ -21,7 +21,7 @@ const delay = `${crossfilter}/plot-0/interactor/0`;
 const departure = `${crossfilter}/plot-1/interactor/0`;
 const distance = `${crossfilter}/plot-2/interactor/0`;
 const brush = (plotId: string, min: number, max: number) =>
-  act('vgplot.set_interval_1d', { plotId, interactorId: '0', min, max });
+  act('vgplot.set_interval_1d', { ref: `${crossfilter}/${plotId}/interactor/0`, min, max });
 
 export default [
   defineScenario({
@@ -34,8 +34,8 @@ export default [
       {
         say: 'Change the interpolation method to nearest neighbor and set the blur to 3. What range of magnetic readings does the survey cover?',
         expect: [
-          state(interpolation, 'value', equals('nearest')),
-          state(blur, 'value', equals(3)),
+          state(interpolation, 'selectionValue', equals('nearest')),
+          state(blur, 'selectionValue', equals(3)),
           mentions(-161),
           mentions(414),
         ],
@@ -64,7 +64,10 @@ export default [
     turns: [
       {
         say: 'Use barycentric interpolation with a blur of 10.',
-        expect: [state(interpolation, 'value', equals('barycentric')), state(blur, 'value', equals(10))],
+        expect: [
+          state(interpolation, 'selectionValue', equals('barycentric')),
+          state(blur, 'selectionValue', equals(10)),
+        ],
         oracle: {
           steps: [
             act('vgplot.set_input_value', { ref: interpolation, value: 'barycentric' }),
@@ -75,7 +78,7 @@ export default [
       },
       {
         say: 'Undo both of those changes.',
-        expect: [restored(interpolation, 'value'), restored(blur, 'value')],
+        expect: [restored(interpolation, 'selectionValue'), restored(blur, 'selectionValue')],
         oracle: {
           steps: [
             act('vgplot.set_input_value', { ref: interpolation, value: 'random-walk' }),
@@ -96,10 +99,10 @@ export default [
       {
         say: 'Show only flights delayed by more than an hour that departed at or after 6 pm. How many flights is that?',
         expect: [
-          state(delay, 'value.0', within(60, 70)),
-          state(delay, 'value.1', within(170, 200)),
-          state(departure, 'value.0', within(17.9, 18.5)),
-          state(departure, 'value.1', within(23.5, 24.5)),
+          state(delay, 'selectionValue.0', within(60, 70)),
+          state(delay, 'selectionValue.1', within(170, 200)),
+          state(departure, 'selectionValue.0', within(17.9, 18.5)),
+          state(departure, 'selectionValue.1', within(23.5, 24.5)),
           mentions(5606),
         ],
         oracle: {
@@ -137,9 +140,13 @@ export default [
     turns: [
       {
         say: 'Remove the distance filter but keep the delay filter.',
-        expect: [state(distance, 'value', empty()), state(delay, 'value', range([60, 180])), unchanged(delay, 'value')],
+        expect: [
+          state(distance, 'selectionValue', empty()),
+          state(delay, 'selectionValue', range([60, 180])),
+          unchanged(delay, 'selectionValue'),
+        ],
         oracle: {
-          steps: [act('vgplot.clear_interval_1d', { plotId: 'plot-2', interactorId: '0' })],
+          steps: [act('vgplot.clear_interval_1d', { ref: distance })],
           answer: 'The distance filter is gone; the delay filter stays at 60 to 180 minutes.',
         },
       },

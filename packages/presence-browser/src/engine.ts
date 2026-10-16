@@ -62,7 +62,7 @@ export function createPresenceEngine(doc: Document, motion: 'system' | 'reduced'
     },
     motion: {
       get: () => state,
-      subscribe(listener: () => void) {
+      subscribe(this: void, listener: () => void) {
         listeners.add(listener);
         return () => {
           listeners.delete(listener);

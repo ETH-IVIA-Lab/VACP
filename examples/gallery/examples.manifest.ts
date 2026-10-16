@@ -1,5 +1,6 @@
+/** Every example mounts into a target and resolves to the function that unmounts it. */
 type ExampleModule = {
-  mount(target: HTMLElement): void | (() => void | Promise<void>) | Promise<void | (() => void | Promise<void>)>;
+  mount(target: HTMLElement): Promise<() => void | Promise<void>>;
 };
 
 type ExampleEntry = {

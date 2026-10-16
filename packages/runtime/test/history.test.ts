@@ -15,11 +15,11 @@ test('bounded provenance preserves the host actor, public summary, and isolated 
     historyLimit: 3,
     providers: [
       createVacpProvider({
+        subscribe: () => () => {},
         source: { id: 'vacp-source://history', title: 'History', type: 'test' },
         actions,
         project: () => ({
           graph: {
-            version: '0.1.0',
             nodes: [{ ref: 'vacp://value', kind: 'Param', layer: 'ConfigLayer' }],
             edges: [],
             actions: actions.list(),
@@ -87,7 +87,7 @@ test('invalid provenance retention is rejected before acquiring provider subscri
   const provider = createVacpProvider({
     source: { id: 'vacp-source://validation', type: 'test', title: 'Validation' },
     actions: new VacpActionRegistry(),
-    project: () => ({ graph: { version: '0.1.0', nodes: [], edges: [], actions: [] }, state: {} }),
+    project: () => ({ graph: { nodes: [], edges: [], actions: [] }, state: {} }),
     subscribe: () => {
       subscriptions++;
       return () => {
@@ -109,9 +109,11 @@ test('concurrent observations retain unknown causality while explicit human chan
   const blocked = new Promise<void>((resolve) => {
     finish = resolve;
   });
+  let invalidate = () => {};
   const actions = new VacpActionRegistry();
   actions.register({ name: 'slow', description: 'Slow change', operation: { kind: 'mutation' } }, async () => {
     value = 1;
+    invalidate();
     started();
     await blocked;
     value = 4;
@@ -119,11 +121,14 @@ test('concurrent observations retain unknown causality while explicit human chan
   const runtime = createVacpRuntime({
     providers: [
       createVacpProvider({
+        subscribe: (listener) => {
+          invalidate = listener;
+          return () => {};
+        },
         source: { id: 'vacp-source://concurrent', title: 'Concurrent', type: 'test' },
         actions,
         project: () => ({
           graph: {
-            version: '0.1.0',
             nodes: [{ ref: 'vacp://value', kind: 'Param', layer: 'ConfigLayer' }],
             edges: [],
             actions: actions.list(),
@@ -137,7 +142,16 @@ test('concurrent observations retain unknown causality while explicit human chan
     finish();
     runtime.dispose();
   });
+  let observed = () => {};
+  runtime.subscribeProvenance(({ record }) => {
+    if (record?.kind === 'observation') observed();
+  });
+  const nextObservation = () =>
+    new Promise<void>((resolve) => {
+      observed = resolve;
+    });
   await runtime.refresh();
+  const recordedStep = nextObservation();
   const pending = runtime.execute({ callId: 'slow', name: 'slow' }, { restoration: { id: 'review', entryId: 'step' } });
   await began;
   const active = runtime.getActiveExecutions();
@@ -145,9 +159,11 @@ test('concurrent observations retain unknown causality while explicit human chan
   assert.equal(active[0]!.phase, 'running');
   active[0]!.actor.id = 'tampered';
   assert.equal(runtime.getActiveExecutions()[0]!.actor.id, 'agent');
-  await runtime.getState();
+  await recordedStep;
+  const recordedChange = nextObservation();
   value = 2;
-  await runtime.getState();
+  invalidate();
+  await recordedChange;
   value = 3;
   await runtime.refresh({ actor: { id: 'person', kind: 'human' }, message: 'Manual change during operation' });
   const records = runtime.getProvenance().records.filter((record) => record.kind === 'observation');
@@ -182,9 +198,10 @@ test('uncapturable result payloads retain truthful provenance without changing t
   const runtime = createVacpRuntime({
     providers: [
       createVacpProvider({
+        subscribe: () => () => {},
         source: { id: 'vacp-source://capture', title: 'Capture', type: 'test' },
         actions,
-        project: () => ({ graph: { version: '0.1.0', nodes: [], edges: [], actions: actions.list() }, state: {} }),
+        project: () => ({ graph: { nodes: [], edges: [], actions: actions.list() }, state: {} }),
       }),
     ],
   });

@@ -1,27 +1,25 @@
 import { expect } from '@playwright/test';
-import { test } from '../helpers/test';
-import { appServer } from '../helpers/servers';
+import { test, useWebMcp } from '../helpers/test';
+import { gotoApp } from '../helpers/servers';
 import { settled, tool } from '../helpers/presence';
 
 test.use({
   exampleOptions: { paceAgentSteps: true },
   viewport: { width: 1440, height: 1000 },
-  launchOptions: { args: ['--enable-experimental-web-platform-features', '--enable-features=WebMCPTesting'] },
 });
+useWebMcp();
 const bodyRef = 'vacp://vacp-examples/athletes/physique/param/body';
 
 test('the step bubble follows the agent cursor through replay, and dismissal removes the whole trail', async ({
   page,
 }, testInfo) => {
-  const server = appServer('athlete-explorer');
   const errors: string[] = [];
   page.on('pageerror', (error) => errors.push(error.message));
-  await page.goto(server.url);
-  await page.waitForFunction(() => !!window.__vacp?.beginAgentActivity);
+  await gotoApp(page, 'athlete-explorer');
   await page.evaluate(
     () =>
       (window.__vacpStream = window.__vacp!.beginAgentActivity({
-        actor: { id: 'webmcp', label: 'Analyst', kind: 'agent' },
+        actor: { id: 'agent', label: 'Analyst', kind: 'agent' },
         summary: 'Comparing rowers and canoeists',
       })),
   );
@@ -36,7 +34,7 @@ test('the step bubble follows the agent cursor through replay, and dismissal rem
   );
   const body = { ref: bodyRef, value: { x: [65.5, 90.5], y: [1.705, 1.955] }, narration: narration.body };
   expect((await tool(page, 'vega_lite.set_selection', body)).ok).toBe(true);
-  const age = { plotId: 'age', interactorId: '0', min: 22, max: 28, narration: narration.age };
+  const age = { ref: 'vacp://vacp-examples/athletes/age/interactor/0', min: 22, max: 28, narration: narration.age };
   expect((await tool(page, 'vgplot.set_interval_1d', age)).ok).toBe(true);
   await page.evaluate(() => window.__vacpStream!.end({ summary: 'The comparison is ready.' }));
 
@@ -110,7 +108,7 @@ test('the step bubble follows the agent cursor through replay, and dismissal rem
 
   // New agent work brings presence back; the retained step offers the same full dismissal.
   await page.evaluate(() => {
-    const turn = window.__vacp!.beginAgentActivity({ actor: { id: 'webmcp', label: 'Analyst', kind: 'agent' } });
+    const turn = window.__vacp!.beginAgentActivity({ actor: { id: 'agent', label: 'Analyst', kind: 'agent' } });
     window.__vacpStream = turn;
   });
   await expect(bubble).toHaveCount(1);

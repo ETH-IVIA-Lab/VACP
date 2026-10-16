@@ -20,7 +20,8 @@ await view.runAsync();
 const provider = createVegaLiteProvider({
   view,
   spec,
-  options: { appId: 'benchmark', viewId: 'signals', vizId: 'plot', enableDuckDbDataHandle: false },
+  vgSpec: compile(spec).spec,
+  options: { appId: 'benchmark', viewId: 'signals', vizId: 'plot' },
 });
 try {
   console.log(`Node ${process.version}; native Vega view; ${size} parameters`);

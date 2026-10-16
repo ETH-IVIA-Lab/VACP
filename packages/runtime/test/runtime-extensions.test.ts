@@ -1,22 +1,17 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import {
-  VACP_SCHEMA_VERSION,
-  type VacpActionDescriptor,
-  type VacpProvider,
-  type VacpProviderObservation,
-} from '@vacp/protocol';
+import { type VacpActionDescriptor, type VacpProvider, type VacpProviderObservation } from '@vacp/protocol';
 import { createVacpProvider, createVacpRuntime, VacpActionRegistry } from '../src/index';
 
 const source = { id: 'vacp-source://runtime-test' as const, type: 'test', title: 'Runtime test' };
 
 function provider(title: string, actions = new VacpActionRegistry()): VacpProvider {
   return createVacpProvider({
+    subscribe: () => () => {},
     source,
     actions,
     project: () => ({
       graph: {
-        version: VACP_SCHEMA_VERSION,
         nodes: [{ ref: 'vacp://view', title, kind: 'View', layer: 'ViewLayer' }],
         edges: [],
         actions: actions.list(),
@@ -50,6 +45,7 @@ test('capability observers follow live replacements, and disposal cancels reads'
 test('a late observation from a replaced provider cannot overwrite current capabilities', async () => {
   let complete!: (value: VacpProviderObservation) => void;
   const old: VacpProvider = {
+    subscribe: () => () => {},
     source,
     observe: () => new Promise((resolve) => (complete = resolve)),
     prepare: async (call) => ({ intent: { affects: [] }, execute: async () => ({ callId: call.callId, ok: true }) }),
@@ -94,6 +90,7 @@ test('a queued action cannot execute against a replacement provider', async () =
   const actions = new VacpActionRegistry();
   actions.register(descriptor('set'), () => called++);
   const old: VacpProvider = {
+    subscribe: () => () => {},
     source,
     observe: () => new Promise((resolve) => (complete = resolve)),
     prepare: (call, options) => actions.prepare(call, options),
@@ -121,6 +118,7 @@ test('a late post-action observation cannot attach an old call to a new session 
   let reads = 0;
   const base = provider('old', actions);
   const old: VacpProvider = {
+    subscribe: () => () => {},
     source,
     prepare: (call, options) => actions.prepare(call, options),
     observe: async () => {
@@ -149,7 +147,6 @@ test('a late post-action observation cannot attach an old call to a new session 
 
 test('subscribed snapshots detect in-place graph and summary edits without timestamp churn', async () => {
   const graph = {
-    version: VACP_SCHEMA_VERSION,
     nodes: [{ ref: 'vacp://view' as const, title: 'before subscription', kind: 'View', layer: 'ViewLayer' }],
     edges: [],
     actions: [],
@@ -157,6 +154,7 @@ test('subscribed snapshots detect in-place graph and summary edits without times
   const summary: Record<'vacp://view', string> = { 'vacp://view': 'first' };
   const description = { ...source };
   const sourceProvider = createVacpProvider({
+    subscribe: () => () => {},
     source: description,
     actions: new VacpActionRegistry(),
     project: () => ({ graph, state: {}, summary }),
@@ -172,7 +170,6 @@ test('subscribed snapshots detect in-place graph and summary edits without times
       sourceTitles.push(value.graph.sources[0]!.title);
     });
     runtime.subscribeSnapshots((value) => summaries.push(String(value.state.summary?.['vacp://view'])));
-    runtime.stopObserving();
     await runtime.getCapabilities();
     await runtime.getCapabilities();
     assert.deepEqual(titles, ['before subscription']);
@@ -197,11 +194,11 @@ test('freshness changes publish observations and history retains the observed re
   const runtime = createVacpRuntime({
     providers: [
       createVacpProvider({
+        subscribe: () => () => {},
         source,
         actions: new VacpActionRegistry(),
         project: () => ({
           graph: {
-            version: VACP_SCHEMA_VERSION,
             nodes: [{ ref: 'vacp://view', kind: 'Visualization', layer: 'VisualizationLayer' }],
             edges: [],
             actions: [],
@@ -256,9 +253,10 @@ test('replacing an unrelated source preserves an in-flight action', async () => 
     await began;
     runtime.attachProviders([
       createVacpProvider({
+        subscribe: () => () => {},
         source: { id: 'vacp-source://unrelated', type: 'test', title: 'Unrelated' },
         actions: new VacpActionRegistry(),
-        project: () => ({ graph: { version: VACP_SCHEMA_VERSION, nodes: [], edges: [], actions: [] }, state: {} }),
+        project: () => ({ graph: { nodes: [], edges: [], actions: [] }, state: {} }),
       }),
     ]);
     finish();
@@ -271,21 +269,26 @@ test('replacing an unrelated source preserves an in-flight action', async () => 
 
 test('recorded observations are isolated from providers, read results, and other subscribers', async () => {
   const graph = {
-    version: VACP_SCHEMA_VERSION,
     nodes: [{ ref: 'vacp://view' as const, title: 'first', kind: 'View', layer: 'ViewLayer' }],
     edges: [],
     actions: [],
   };
   const state = { 'vacp://view': { value: 1 } };
   const runtime = createVacpRuntime({
-    providers: [createVacpProvider({ source, actions: new VacpActionRegistry(), project: () => ({ graph, state }) })],
+    providers: [
+      createVacpProvider({
+        subscribe: () => () => {},
+        source,
+        actions: new VacpActionRegistry(),
+        project: () => ({ graph, state }),
+      }),
+    ],
   });
   const titles: string[] = [];
   runtime.subscribeSnapshots(({ observation }) => {
     observation.graph.nodes[0]!.title = 'subscriber mutation';
   });
   runtime.subscribeSnapshots(({ observation }) => titles.push(observation.graph.nodes[0]!.title!));
-  runtime.stopObserving();
   try {
     await runtime.refresh();
     const first = runtime.getProvenance();
@@ -399,7 +402,6 @@ test('unattributed invalidations and semantic actions keep distinct history attr
         actions,
         project: () => ({
           graph: {
-            version: VACP_SCHEMA_VERSION,
             nodes: [{ ref: 'vacp://view', kind: 'View', layer: 'ViewLayer' }],
             edges: [],
             actions: actions.list(),
@@ -416,8 +418,6 @@ test('unattributed invalidations and semantic actions keep distinct history attr
   try {
     runtime.subscribeProvenance(() => {});
     await runtime.refresh();
-    runtime.stopObserving();
-    await runtime.getState();
     const changed = () =>
       new Promise<void>((resolve) => {
         const unsubscribe = runtime.subscribeProvenance(({ record: entry }) => {
@@ -492,12 +492,12 @@ test('host revisions cover the complete projected action catalog', async () => {
   const runtime = createVacpRuntime({
     providers: [
       createVacpProvider({
+        subscribe: () => () => {},
         source,
         actions,
         project: () => ({
           revision: String(revision),
           graph: {
-            version: VACP_SCHEMA_VERSION,
             nodes: [{ ref: 'vacp://view', kind: 'View', layer: 'ViewLayer' }],
             edges: [],
             actions: actions.list(),
@@ -511,7 +511,6 @@ test('host revisions cover the complete projected action catalog', async () => {
   runtime.subscribeCapabilities((capabilities) =>
     catalogs.push(capabilities.graph.actions.map((action) => action.name)),
   );
-  runtime.stopObserving();
   try {
     await runtime.getCapabilities();
     actions.register(descriptor('second'), () => {});
@@ -545,12 +544,16 @@ test('session reset retires old operations and causal scopes before publishing t
   nextActions.register(descriptor('next'), () => {
     value++;
   });
+  let invalidate = () => {};
   const replacement = createVacpProvider({
+    subscribe: (listener) => {
+      invalidate = listener;
+      return () => {};
+    },
     source,
     actions: nextActions,
     project: () => ({
       graph: {
-        version: VACP_SCHEMA_VERSION,
         nodes: [{ ref: 'vacp://view', kind: 'View', layer: 'ViewLayer' }],
         edges: [],
         actions: nextActions.list(),
@@ -571,8 +574,10 @@ test('session reset retires old operations and causal scopes before publishing t
   const rejected = assert.rejects(old, /abort/i);
   await began;
   let newAction: Promise<unknown> | undefined;
+  let observed = () => {};
   runtime.subscribeProvenance((event) => {
     if (!event.record) newAction = runtime.execute({ callId: 'new-on-reset', name: 'next' });
+    else if (event.record.kind === 'observation') observed();
   });
   runtime.update({ providers: [replacement], sessionKey: 'new' });
   assert.equal(
@@ -581,10 +586,12 @@ test('session reset retires old operations and causal scopes before publishing t
   );
   await newAction;
   assert.deepEqual(terminal, ['old']);
-  runtime.stopObserving();
-  await runtime.getState();
+  const recorded = new Promise<void>((resolve) => {
+    observed = resolve;
+  });
   value = 10;
-  await runtime.getState();
+  invalidate();
+  await recorded;
   const observations = runtime.getProvenance().records.filter((record) => record.kind === 'observation');
   const changed = observations.at(-1)!;
   assert.equal(changed.observation.state['vacp://view'], 10);

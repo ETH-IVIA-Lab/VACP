@@ -10,6 +10,9 @@ export function actorLabel(actor: PresenceActivity['actor']): string {
  */
 export function describePresence(activity: PresenceActivity): string {
   if (activity.summary) return activity.summary;
+  if (activity.frame === 'start') return "The view before the agent's first change.";
+  if (activity.frame === 'conclusion') return "The view after the agent's last change.";
+  if (activity.frame === 'step') return 'Updated the analysis';
   const view = activity.subject ?? 'the view';
   const change = activity.execution?.title;
   if (activity.phase === 'thinking' || activity.phase === 'failed') return `Looking at ${view}`;
@@ -29,7 +32,7 @@ export function frameNames(frames: readonly PresenceTrailFrame[]): string[] {
   );
 }
 
-/** A recorded frame is named by its place in the request; live work by the view it works on. */
+/** A recorded frame is named by its place in the request. Live work is named by its view. */
 export function headingOf(activity: PresenceActivity, navigation: PresenceNavigation | undefined): string {
   const frame = activity.recordId && navigation ? navigation.frames[navigation.index] : undefined;
   if (frame && navigation) return frameNames(navigation.frames)[navigation.index]!;

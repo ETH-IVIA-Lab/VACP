@@ -35,7 +35,13 @@ test('Mosaic table actions update native rows, sort indicators, and page state o
   await expect(page.locator('#app tbody tr')).toHaveCount(100);
   for (const column of ['delay', 'distance']) {
     expect(
-      (await executeOperation(page, 'vgplot.table_set_sort', { tableId: 'table-0', column, desc: true }))?.ok,
+      (
+        await executeOperation(page, 'vgplot.table_set_sort', {
+          ref: 'vacp://vacp-examples/vgplot/table/table-0',
+          column,
+          desc: true,
+        })
+      )?.ok,
     ).toBe(true);
     await expect(page.locator('#app th').filter({ hasText: column })).toContainText('▾');
     await expect(page.locator('#app tbody tr')).toHaveCount(100);
@@ -43,7 +49,13 @@ test('Mosaic table actions update native rows, sort indicators, and page state o
   }
   const previous = await page.locator('#app tbody tr').first().textContent();
   expect(
-    (await executeOperation(page, 'vgplot.table_set_page', { tableId: 'table-0', offset: 100, limit: 25 }))?.ok,
+    (
+      await executeOperation(page, 'vgplot.table_set_page', {
+        ref: 'vacp://vacp-examples/vgplot/table/table-0',
+        offset: 100,
+        limit: 25,
+      })
+    )?.ok,
   ).toBe(true);
   await expect(page.locator('#app tbody tr')).toHaveCount(25);
   expect(await page.locator('#app tbody tr').first().textContent()).not.toBe(previous);
@@ -55,7 +67,12 @@ test('Mosaic table actions update native rows, sort indicators, and page state o
   expect(state).toMatchObject({ offset: 100, limit: 25 });
   const rows = await page.locator('#app tbody').textContent();
   expect(
-    (await executeOperation(page, 'vgplot.table_set_sort', { tableId: 'table-0', column: 'missing-column' }))?.ok,
+    (
+      await executeOperation(page, 'vgplot.table_set_sort', {
+        ref: 'vacp://vacp-examples/vgplot/table/table-0',
+        column: 'missing-column',
+      })
+    )?.ok,
   ).toBe(false);
   expect(await page.locator('#app tbody').textContent()).toBe(rows);
 });
@@ -65,8 +82,12 @@ test('linked Mosaic legends expose their shared visible selection and exact entr
   await page.goto(`${server.url}#legends`);
   await page.waitForFunction(() => globalThis.__vacp?.sessionKey === 'vgplot/legends');
   expect(
-    (await executeOperation(page, 'vgplot.set_legend_toggle', { plotId: 'plot-0', channel: 'color', value: 'bar' }))
-      ?.ok,
+    (
+      await executeOperation(page, 'vgplot.set_legend_toggle', {
+        ref: 'vacp://vacp-examples/vgplot/legends/plot-0/legend/0',
+        value: 'bar',
+      })
+    )?.ok,
   ).toBe(true);
   await expect(page.locator('[data-vacp-presence] path[data-precision]')).toHaveAttribute('data-precision', 'exact');
   const state = await page.evaluate(async () =>
@@ -74,13 +95,19 @@ test('linked Mosaic legends expose their shared visible selection and exact entr
       .filter(([ref]) => ref.includes('/plot-0/legend/'))
       .map(([, value]) => value),
   );
-  expect(state).toEqual([expect.objectContaining({ value: [['bar']] }), expect.objectContaining({ value: [['bar']] })]);
+  expect(state).toEqual([
+    expect.objectContaining({ selectionValue: [['bar']] }),
+    expect.objectContaining({ selectionValue: [['bar']] }),
+  ]);
   const saved = await page.evaluate(async () =>
     Object.fromEntries(
       Object.entries((await globalThis.__vacp.observe()).state).filter(([ref]) => ref.includes('/plot-0/legend/')),
     ),
   );
-  await executeOperation(page, 'vgplot.set_legend_toggle', { plotId: 'plot-0', channel: 'color', value: 'baz' });
+  await executeOperation(page, 'vgplot.set_legend_toggle', {
+    ref: 'vacp://vacp-examples/vgplot/legends/plot-0/legend/0',
+    value: 'baz',
+  });
   expect((await executeOperation(page, 'vacp.apply_state', { state: saved }))?.ok).toBe(true);
   const visible = await page.evaluate(() =>
     [...document.querySelectorAll('.legend')]

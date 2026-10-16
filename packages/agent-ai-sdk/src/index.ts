@@ -2,13 +2,7 @@ export * from './types';
 
 export * from './instructions';
 
-export * from './create-openai-compatible-model';
-
-export * from './create-gemini-model';
-
-export * from './create-llm-model';
-
-export { createVacpAgentTools, type VacpAgentTools, type VacpAgentToolsOptions } from './vacp-tools';
+export { createVacpAgentTools, type VacpAgentTools } from './vacp-tools';
 
 export * from './context-compaction';
 

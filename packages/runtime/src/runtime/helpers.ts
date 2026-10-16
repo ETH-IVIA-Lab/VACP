@@ -8,6 +8,14 @@ export function makeEntryId(): string {
   return `vacp_${Math.random().toString(16).slice(2)}_${Date.now().toString(16)}`;
 }
 
+export function nowIso(): string {
+  return new Date().toISOString();
+}
+
+export function systemActor(): VacpActor {
+  return { id: 'system', kind: 'system' };
+}
+
 /**
  * Deliver an event, captured once. Ordinary records and arrays reach every listener as one frozen
  * value; exotic host values, such as a Date, are copied for each listener.
@@ -25,7 +33,7 @@ export function notify<Value>(listeners: Set<(entry: Value) => void>, entry: Val
 }
 
 export function entryActor(actor?: VacpActor): VacpActor {
-  return actor ? structuredClone(actor) : { id: 'system', kind: 'system' };
+  return actor ? structuredClone(actor) : systemActor();
 }
 
 export function entryMessage(message?: string): string | undefined {

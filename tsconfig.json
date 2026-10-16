@@ -1,59 +1,20 @@
 {
-  "files": [],
-  "references": [
-    {
-      "path": "packages/protocol"
-    },
-    {
-      "path": "packages/data-duckdb"
-    },
-    {
-      "path": "packages/runtime"
-    },
-    {
-      "path": "packages/sdk"
-    },
-    {
-      "path": "packages/diagram-mermaid"
-    },
-    {
-      "path": "packages/adapter-vgplot"
-    },
-    {
-      "path": "packages/adapter-vega-lite"
-    },
-    {
-      "path": "packages/analytics"
-    },
-    {
-      "path": "packages/agent-ai-sdk"
-    },
-    {
-      "path": "apps/e2e"
-    },
-    {
-      "path": "apps/evals"
-    },
-    {
-      "path": "packages/runtime-browser"
-    },
-    {
-      "path": "packages/transport-bridge"
-    },
-    {
-      "path": "packages/analytics-posthog"
-    },
-    {
-      "path": "packages/transport-webmcp"
-    },
-    {
-      "path": "packages/inspector-core"
-    },
-    {
-      "path": "packages/presence-core"
-    },
-    {
-      "path": "packages/presence-browser"
-    }
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "types": ["node", "vite/client"],
+    "jsx": "react-jsx",
+    "resolveJsonModule": true,
+    "allowImportingTsExtensions": true
+  },
+  "include": [
+    "vite.config.ts",
+    "vite.shared.ts",
+    "apps/*/vite.config.ts",
+    "packages/*/vite.config.ts",
+    "examples/custom-integration/**/*.ts",
+    "examples/*/vite.config.ts",
+    "packages/*/bench/**/*.ts",
+    "tools/stylex/**/*.ts"
   ]
 }

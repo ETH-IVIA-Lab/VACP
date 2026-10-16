@@ -1,4 +1,4 @@
-import type { VacpFocus, VacpInteraction, VacpActionExecutionOptions } from '@vacp/protocol';
+import type { VacpFocus, VacpInteraction, VacpActionExecutionOptions, VacpRef } from '@vacp/protocol';
 import type { VgplotBinding, VgplotBindings } from './bindings';
 import { prepareInputAction } from './inputs';
 import { plotLegends } from './legends';
@@ -13,14 +13,14 @@ import { interactorType } from './native-classes';
 type Params = Record<string, unknown>;
 export type VgplotOperation = {
   focus: VacpFocus;
-  execute(options?: VacpActionExecutionOptions): unknown | Promise<unknown>;
+  execute(options?: VacpActionExecutionOptions): unknown;
 };
 type Prepare = (params: Params) => VgplotOperation;
 
 /** A closed native target plus a validated mutation; execution never resolves the target again. */
 function bound(
   binding: VgplotBinding,
-  execute: () => unknown | Promise<unknown>,
+  execute: () => unknown,
   detail?: unknown,
   interaction: VacpInteraction = { kind: 'activate' },
 ): VgplotOperation {
@@ -68,7 +68,18 @@ function bound(
 }
 
 export function createVgplotOperations(bindings: VgplotBindings) {
-  const interactor = (params: Params) => bindings.interactor(bindings.plot(params.plotId).plot, params.interactorId);
+  const target = (params: Params) => {
+    if (typeof params.ref !== 'string' || !params.ref.startsWith('vacp://')) throw new Error('Expected target ref');
+    const ref: VacpRef = `vacp://${params.ref.slice(7)}`;
+    const binding = bindings.byRef.get(ref);
+    if (!binding) throw new Error(`Unknown target ref: ${ref}`);
+    return binding;
+  };
+  const interactor = (params: Params) => {
+    const binding = target(params);
+    if (binding.kind !== 'interactor') throw new Error('Expected interactor ref');
+    return binding;
+  };
   const interval = (params: Params, dimension: 1 | 2, clear: boolean) => {
     const binding = interactor(params);
     const values = clear
@@ -97,7 +108,9 @@ export function createVgplotOperations(bindings: VgplotBindings) {
     );
   };
   const legend = (params: Params, clear: boolean) => {
-    const binding = bindings.legend(bindings.plot(params.plotId).plot, params.channel);
+    const binding = target(params);
+    if (binding.kind !== 'legend') throw new Error('Expected legend ref');
+    if (interactorType(binding.legend.handler) !== 'Toggle') throw new Error('Expected toggle legend');
     const handler = binding.legend.handler;
     if (!handler) throw new Error('Legend has no writable toggle handler');
     return bound(binding, preparePointSelection(handler, clear ? null : params.value), {
@@ -105,13 +118,15 @@ export function createVgplotOperations(bindings: VgplotBindings) {
     });
   };
   const table = (params: Params, name: string) => {
-    const binding = bindings.table(params.tableId);
+    const binding = target(params);
+    if (binding.kind !== 'table') throw new Error('Expected table ref');
     return bound(binding, prepareTableAction(binding.table, { name, params }), {
       column: name === 'vgplot.table_set_page' ? undefined : (params.column ?? binding.table.sortColumn),
     });
   };
   const input = (params: Params, name: string) => {
-    const binding = bindings.input(params.ref);
+    const binding = target(params);
+    if (binding.kind !== 'input') throw new Error('Expected input ref');
     return bound(
       binding,
       prepareInputAction(binding.input, { name, params }),
@@ -138,15 +153,18 @@ export function createVgplotOperations(bindings: VgplotBindings) {
     'vgplot.clear_legend_toggle': (p) => legend(p, true),
     'vgplot.clear_nearest': (p) => {
       const b = interactor(p);
+      if (b.type !== 'Nearest') throw new Error('Expected Nearest interactor');
       return bound(b, prepareNearestClear(b.interactor), undefined, { kind: 'point' });
     },
     'vgplot.set_pan_zoom': (p) => {
       const b = interactor(p);
+      if (b.type !== 'PanZoom') throw new Error('Expected PanZoom interactor');
       const plan = preparePanZoom(b.interactor, p);
       return bound(b, plan.execute, undefined, plan.interaction);
     },
     'vgplot.clear_pan_zoom': (p) => {
       const b = interactor(p);
+      if (b.type !== 'PanZoom') throw new Error('Expected PanZoom interactor');
       const plan = preparePanZoom(b.interactor, null);
       return bound(b, plan.execute, undefined, plan.interaction);
     },
@@ -168,20 +186,10 @@ export function createVgplotOperations(bindings: VgplotBindings) {
     /** Restore against the same native identities and validation used by direct actions. */
     restore(binding: VgplotBinding, raw: unknown): VgplotOperation[] | null {
       const state = raw && typeof raw === 'object' && !Array.isArray(raw) ? (raw as Params) : undefined;
-      const desired = state ? (Object.hasOwn(state, 'value') ? state.value : state.selectionValue) : raw;
+      const desired = state?.selectionValue;
       if (binding.kind === 'input') {
-        const name =
-          typeof state?.optionIndex === 'number'
-            ? 'vgplot.set_input_option_index'
-            : desired == null
-              ? 'vgplot.clear_input'
-              : 'vgplot.set_input_value';
-        return [
-          bound(
-            binding,
-            prepareInputAction(binding.input, { name, params: { index: state?.optionIndex, value: desired } }),
-          ),
-        ];
+        const name = desired == null ? 'vgplot.clear_input' : 'vgplot.set_input_value';
+        return [bound(binding, prepareInputAction(binding.input, { name, params: { value: desired } }))];
       }
       if (binding.kind === 'table') {
         const params = state ?? {};
@@ -212,7 +220,7 @@ export function createVgplotOperations(bindings: VgplotBindings) {
       const kind = binding.type;
       // Hover is transient. It cannot be recreated from recorded pointer-derived values.
       if (kind === 'Nearest') return null;
-      const value = state?.selectionValue !== undefined ? state.selectionValue : desired;
+      const value = desired;
       if (kind === 'Toggle' || kind === 'Region') return [bound(binding, preparePointSelection(target, value))];
       if (kind === 'Interval1D' || kind === 'Interval2D') {
         const dimension = kind === 'Interval1D' ? 1 : 2;
@@ -222,7 +230,7 @@ export function createVgplotOperations(bindings: VgplotBindings) {
             : dimension === 1
               ? Array.isArray(value)
                 ? value
-                : [state?.min, state?.max]
+                : []
               : Array.isArray(value) && Array.isArray(value[0]) && Array.isArray(value[1])
                 ? [...value[0], ...value[1]]
                 : [];

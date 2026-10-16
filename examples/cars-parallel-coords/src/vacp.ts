@@ -1,28 +1,25 @@
-import { elementPresenceTarget, observePresenceLayout, svgPresenceTarget } from '@vacp/presence-browser';
-import { createExamplePresence, exampleDuckDbBundles } from '@vacp/example-shared';
-import { exampleOptions } from '../../config';
 import { z } from 'zod';
-
-import { createVacpActions, createVacpProvider, createVacpRefBuilder, installVacp } from '@vacp/sdk';
+import type { VacpDataHandleState, VacpDataSchemaColumn, VacpGraphFragment, VacpRef } from '@vacp/protocol';
+import {
+  createVacpProvider,
+  registerVacpApplyStateAction,
+  registerVacpDataSchemaAction,
+  registerVacpDataSqlAction,
+  type VacpRuntime,
+} from '@vacp/runtime';
+import { createVacpActions, createVacpRefBuilder } from '@vacp/sdk';
 import {
   createDuckDbDataSchemaHandler,
-  createDuckDbSqlRouter,
+  createDuckDbDataSqlHandler,
   createDuckDbWasmClient,
   describeDuckDbTable,
   makeVacpDuckDbTableName,
   sqlIdentifier,
 } from '@vacp/data-duckdb';
-import { installVacpPosthogAnalytics, type VacpPosthogOptions } from '@vacp/analytics-posthog';
-import {
-  VACP_SCHEMA_VERSION,
-  type VacpDataHandleState,
-  type VacpDataSchemaColumn,
-  type VacpGraphFragment,
-  type VacpRef,
-} from '@vacp/protocol';
-
-import type { BrushRange, CarDatum, ParallelCoordsSource } from './chart';
-import type { ParallelCoordsState } from './chart';
+import { exampleDuckDbBundles, installExampleRuntime } from '@vacp/example-shared';
+import { exampleOptions } from '@vacp/example-shared/config';
+import { elementPresenceTarget, observePresenceLayout, svgPresenceTarget } from '@vacp/presence-core/dom';
+import type { BrushRange, CarDatum, ParallelCoordsChart } from './chart';
 
 function numberExtent(data: CarDatum[], dim: string): BrushRange {
   let lo = Number.POSITIVE_INFINITY;
@@ -45,24 +42,16 @@ function nearlyEqual(a: number, b: number): boolean {
   return Math.abs(a - b) <= 1e-9;
 }
 
-export function installVacpForCarsParallelCoords(args: {
+/** Expose the chart's brushes, axis order, hover, and rows through VACP for the lifetime of `signal`. */
+export async function connectVacp(args: {
+  chart: ParallelCoordsChart;
   root: HTMLElement;
-  globalKey?: string;
   title: string;
   data: CarDatum[];
   dimensions: string[];
-  getState: () => ParallelCoordsState;
-  getBrushBounds: (
-    dimension: string,
-    range: BrushRange,
-  ) => { element: SVGGraphicsElement; x: number; y: number; width: number; height: number } | null;
-  getSelectedIds: () => number[];
-  setBrushRanges: (ranges: Partial<Record<string, BrushRange | null>>, source: ParallelCoordsSource) => void;
-  resetBrushes: (source: ParallelCoordsSource) => void;
-  setDimensionOrder: (order: string[], source: ParallelCoordsSource) => void;
-  resetDimensionOrder: (source: ParallelCoordsSource) => void;
-  setHoveredId: (id: number | null, source: ParallelCoordsSource) => void;
-}) {
+  signal: AbortSignal;
+}): Promise<VacpRuntime> {
+  const { chart, root, data, dimensions, signal } = args;
   const appId = 'vacp-examples';
   const viewId = 'vanilla/cars-parallel-coords';
   const vizId = 'parallel-coords';
@@ -76,29 +65,29 @@ export function installVacpForCarsParallelCoords(args: {
   const hoverRef = vizRefs.ref('/selection/hover');
   const handleRef = vizRefs.ref('/data/cars');
 
-  const extents = Object.fromEntries(args.dimensions.map((d) => [d, numberExtent(args.data, d)]));
+  const extents = Object.fromEntries(dimensions.map((d) => [d, numberExtent(data, d)]));
 
   const tableName = makeVacpDuckDbTableName({ prefix: 'vacp_cars_parallel_coords' });
   let columns: VacpDataSchemaColumn[] | undefined;
 
-  const duckdb = (async () => {
-    const db = await createDuckDbWasmClient({ log: false, bundles: exampleDuckDbBundles });
-    await db.loadObjectsAsTable(tableName, args.data, { create: true });
+  const duckdb = createDuckDbWasmClient({ log: false, bundles: exampleDuckDbBundles }).then(async (db) => {
+    await db.loadObjectsAsTable(tableName, data, {});
     columns = (await describeDuckDbTable({ duckdb: db, table: tableName }).catch(() => null))?.columns;
     return db;
-  })();
+  });
+  signal.addEventListener(
+    'abort',
+    () => void duckdb.then((db) => db.dispose()).catch((error) => console.error('Cars data cleanup failed', error)),
+    { once: true },
+  );
 
   const actions = createVacpActions();
 
+  const dimension = z.enum(dimensions);
   const brushRange = z
     .tuple([z.coerce.number(), z.coerce.number()])
     .transform(([a, b]): BrushRange => (a <= b ? [a, b] : [b, a]))
     .nullable();
-  const brushParams = z.object({ ranges: z.partialRecord(z.enum(args.dimensions), brushRange) });
-  const parseRange = (value: unknown): BrushRange | null => {
-    const parsed = brushRange.safeParse(value);
-    return parsed.success ? parsed.data : null;
-  };
 
   actions
     .operation(
@@ -108,12 +97,12 @@ export function installVacpForCarsParallelCoords(args: {
     )
     .title('Filter cars')
     .affects(brushRef)
-    .params(brushParams)
+    .params(z.object({ ranges: z.partialRecord(dimension, brushRange) }))
     .focus(({ ranges }) => ({ ref: brushRef, detail: { ranges } }))
     .handle(({ ranges }) => {
-      args.setBrushRanges(ranges, 'agent');
+      chart.setBrushRanges(ranges);
 
-      return { selectedCount: args.getState().selectedCount };
+      return { selectedCount: chart.getState().selectedCount };
     });
 
   actions
@@ -122,9 +111,9 @@ export function installVacpForCarsParallelCoords(args: {
     .params(z.object({}).default({}))
     .focus(() => ({ ref: brushRef }))
     .handle(() => {
-      args.resetBrushes('agent');
+      chart.resetBrushes();
 
-      return { ok: true, selectedCount: args.getState().selectedCount };
+      return { ok: true, selectedCount: chart.getState().selectedCount };
     });
 
   actions
@@ -132,7 +121,7 @@ export function installVacpForCarsParallelCoords(args: {
     .affects(orderRef)
     .params(z.object({ order: z.array(z.coerce.string()) }))
     .handle(({ order }) => {
-      args.setDimensionOrder(order, 'agent');
+      chart.setDimensionOrder(order);
 
       return { ok: true };
     });
@@ -142,158 +131,62 @@ export function installVacpForCarsParallelCoords(args: {
     .affects(orderRef)
     .params(z.object({}).default({}))
     .handle(() => {
-      args.resetDimensionOrder('agent');
+      chart.resetDimensionOrder();
 
       return { ok: true };
     });
-
-  const normalizeText = (value: string): string => value.trim().toLowerCase();
-  const isFiniteNumber = (value: unknown): value is number => typeof value === 'number' && Number.isFinite(value);
 
   actions
     .operation(
       'mutation',
       'parallel_coords.set_hover',
-      'Set the hovered line by row id or car-name match and show its tooltip. The result reports the hovered row and how many selected rows matched: pass an id to pick one of several.',
+      'Hover the line of one selected car and show its tooltip, or pass null to clear the hover. Find the row id with SQL over the cars handle.',
     )
     .affects(hoverRef)
-    .params(
-      z.object({
-        clear: z.boolean().describe('If true, clear the current hover.').optional(),
-        id: z.number().describe('Row id (internal numeric id used by this demo).').optional(),
-        car: z.string().describe('Car-name substring to match within the current selection.').optional(),
-        prefer: z
-          .enum(['first', 'min_horsepower_nonzero', 'max_horsepower'])
-          .describe('When multiple matches exist, how to pick a single row.')
-          .optional(),
-      }),
-    )
-    .handle((params) => {
-      const rec = params ?? {};
+    .params(z.object({ id: z.number().int().nullable().describe('Row id of a car inside every brush, or null.') }))
+    .handle(({ id }) => {
+      const row = id === null ? null : data.find((d) => d.id === id);
+      if (row === undefined || (row && !chart.getSelectedIds().includes(row.id)))
+        throw new Error(`No selected row with id=${id}`);
+      chart.setHoveredId(id);
 
-      if (rec.clear === true) {
-        args.setHoveredId(null, 'agent');
-
-        return { ok: true, row: null };
-      }
-
-      const id = isFiniteNumber(rec.id) ? Math.floor(rec.id) : null;
-      const car = typeof rec.car === 'string' && rec.car.trim() ? rec.car.trim() : null;
-      const prefer = typeof rec.prefer === 'string' ? rec.prefer : 'first';
-
-      const selected = new Set(args.getSelectedIds());
-      const candidates = args.data.filter((d) => selected.has(d.id));
-
-      const pickById = (targetId: number) => {
-        const found = candidates.find((d) => d.id === targetId) ?? null;
-
-        if (!found) throw new Error(`No selected row with id=${targetId}`);
-        args.setHoveredId(found.id, 'agent');
-
-        return { ok: true, row: found, matches: 1 };
-      };
-
-      if (id !== null) return pickById(id);
-
-      if (!car) throw new Error('Expected params.id or params.car (or params.clear=true)');
-
-      const needle = normalizeText(car);
-      const matches = candidates.filter((d) => normalizeText(String(d.Car ?? '')).includes(needle));
-
-      if (!matches.length) throw new Error(`No selected row matches car="${car}"`);
-
-      const hp = (d: CarDatum): number => {
-        const raw = d.Horsepower;
-        const n = typeof raw === 'number' ? raw : Number(raw);
-
-        return Number.isFinite(n) ? n : 0;
-      };
-
-      let chosen = matches[0]!;
-
-      if (prefer === 'min_horsepower_nonzero') {
-        const nonzero = matches.filter((d) => hp(d) > 0);
-        const pool = nonzero.length ? nonzero : matches;
-        chosen = pool.reduce((a, b) => (hp(b) < hp(a) ? b : a));
-      } else if (prefer === 'max_horsepower') {
-        chosen = matches.reduce((a, b) => (hp(b) > hp(a) ? b : a));
-      }
-
-      args.setHoveredId(chosen.id, 'agent');
-
-      return { ok: true, row: chosen, matches: matches.length };
+      return { ok: true, row };
     });
 
-  actions
-    .operation('mutation', 'parallel_coords.clear_hover', 'Clear the currently hovered line (hides tooltip).')
-    .affects(hoverRef)
-    .params(z.object({}).default({}))
-    .handle(() => {
-      args.setHoveredId(null, 'agent');
+  const brushState = z.object({
+    ranges: z.record(
+      dimension,
+      z.tuple([z.number(), z.number()]).refine(([lo, hi]) => lo <= hi, 'Brush ranges run from low to high'),
+    ),
+  });
+  const orderState = z.object({
+    value: z
+      .array(dimension)
+      .length(dimensions.length)
+      .refine((order) => new Set(order).size === order.length, 'Axis order names every dimension once'),
+  });
+  const hoverState = z.object({ hoveredId: z.number().int().nullable() });
 
-      return { ok: true, row: null };
-    });
-
-  actions.standard.applyState(
+  registerVacpApplyStateAction(
+    actions.registry,
     (state) => {
-      const mutations: Array<() => unknown | Promise<unknown>> = [];
-      let applied = 0;
-
-      const order = state[orderRef];
-
-      if (order) {
-        const rec = order && typeof order === 'object' ? (order as Record<string, unknown>) : {};
-        const v = rec.value ?? rec.order ?? order;
-
-        if (Array.isArray(v)) {
-          mutations.push(() => args.setDimensionOrder(v.map(String), 'agent'));
-          applied += 1;
-        }
-      }
-
-      const sel = state[brushRef];
-
-      if (sel) {
-        const rec = sel && typeof sel === 'object' ? (sel as Record<string, unknown>) : {};
-        const v = rec.ranges ?? rec.brushRanges ?? rec.value ?? sel;
-
-        if (v === null) {
-          mutations.push(() => args.resetBrushes('agent'));
-          applied += 1;
-        } else if (v && typeof v === 'object') {
-          const patch: Partial<Record<string, BrushRange | null>> = {};
-
-          for (const [dim, raw] of Object.entries(v as Record<string, unknown>)) {
-            if (!args.dimensions.includes(dim)) continue;
-            patch[dim] = parseRange(raw);
-          }
-
-          mutations.push(() => args.setBrushRanges(patch, 'agent'));
-          applied += 1;
-        }
-      }
-
-      const hover = state[hoverRef];
-
-      if (hover) {
-        const rec = hover && typeof hover === 'object' ? (hover as Record<string, unknown>) : {};
-        const v = rec.hoveredId ?? rec.id ?? rec.value ?? hover;
-
-        if (v === null) {
-          mutations.push(() => args.setHoveredId(null, 'agent'));
-          applied += 1;
-        } else if (typeof v === 'number' && Number.isFinite(v)) {
-          mutations.push(() => args.setHoveredId(Math.floor(v), 'agent'));
-          applied += 1;
-        }
-      }
-
-      return async ({ signal }) => {
-        for (const mutate of mutations) {
-          signal?.throwIfAborted();
-          await mutate();
-        }
-        return { applied };
+      const owned = new Set<string>([brushRef, orderRef, hoverRef, handleRef]);
+      for (const ref of Object.keys(state))
+        if (!owned.has(ref)) throw new Error(`Unknown parallel coordinates state: ${ref}`);
+      const read = <Schema extends z.ZodType>(ref: VacpRef, schema: Schema): z.output<Schema> | undefined =>
+        state[ref] === undefined ? undefined : schema.parse(state[ref]);
+      const brushes = read(brushRef, brushState);
+      const order = read(orderRef, orderState);
+      const hover = read(hoverRef, hoverState);
+      return () => {
+        if (order) chart.setDimensionOrder(order.value);
+        if (brushes) chart.setBrushRanges(brushes.ranges);
+        if (hover) chart.setHoveredId(hover.hoveredId);
+        return {
+          applied: [order ? [orderRef] : [], brushes ? [brushRef] : [], hover ? [hoverRef] : []].flat(),
+          // The handle's state follows the brushes, so restoring them restores it.
+          skipped: state[handleRef] === undefined ? [] : [handleRef],
+        };
       };
     },
     { affects: [vizRef], description: 'Apply brush ranges, axis order, and hover state.' },
@@ -301,7 +194,7 @@ export function installVacpForCarsParallelCoords(args: {
 
   /** The brush ranges as a predicate over the table, or null while every axis spans its full extent. */
   const brushWhere = (): string | null => {
-    const st = args.getState();
+    const st = chart.getState();
     const preds: string[] = [];
 
     for (const dim of st.dimensions) {
@@ -317,22 +210,23 @@ export function installVacpForCarsParallelCoords(args: {
     return preds.length ? preds.join(' AND ') : null;
   };
 
-  const sql = createDuckDbSqlRouter({ duckdb });
-  sql.addHandle({
-    handleRef,
-    getAllSql: () => `SELECT * FROM ${tableName}`,
-    getSelectedSql: () => {
+  const sql = createDuckDbDataSqlHandler({
+    duckdb,
+    resolveHandle: (ref) => {
+      if (ref !== handleRef) return null;
+      const allSql = `SELECT * FROM ${tableName}`;
       const where = brushWhere();
-      return where ? `SELECT * FROM ${tableName} WHERE ${where}` : `SELECT * FROM ${tableName}`;
+      return { allSql, selectedSql: where ? `${allSql} WHERE ${where}` : allSql };
     },
   });
-  actions.standard.dataSql(sql.handler, {
-    enabled: exampleOptions.enableSql,
-    inputRefs: [handleRef],
-    description: 'Query the cars with DuckDB SQL. `vacp_handle` holds the cars inside every brush.',
-  });
+  if (exampleOptions.enableSql)
+    registerVacpDataSqlAction(actions.registry, sql, {
+      inputRefs: [handleRef],
+      description: 'Query the cars with DuckDB SQL. `vacp_handle` holds the cars inside every brush.',
+    });
 
-  actions.standard.dataSchema(
+  registerVacpDataSchemaAction(
+    actions.registry,
     createDuckDbDataSchemaHandler({
       duckdb,
       resolveHandle: (ref) => (ref === handleRef ? { table: tableName } : null),
@@ -342,7 +236,6 @@ export function installVacpForCarsParallelCoords(args: {
 
   const graph: VacpGraphFragment = {
     actions: actions.registry.list(),
-    version: VACP_SCHEMA_VERSION,
     nodes: [
       { ref: viewRef, kind: 'View', layer: 'ViewLayer', title: args.title },
       { ref: vizRef, kind: 'Visualization', layer: 'VisualizationLayer', title: 'Parallel coordinates (SVG)' },
@@ -352,7 +245,7 @@ export function installVacpForCarsParallelCoords(args: {
         layer: 'InteractionFeedbackLayer',
         title: 'Brush ranges',
         description: 'Per-axis brush ranges in data units.',
-        data: { type: 'intervals', dimensions: args.dimensions },
+        data: { type: 'intervals', dimensions },
       },
       {
         ref: orderRef,
@@ -396,8 +289,9 @@ export function installVacpForCarsParallelCoords(args: {
       title: args.title,
     },
     actions: actions.registry,
+    subscribe: (invalidate) => chart.subscribe(invalidate),
     project: () => {
-      const st = args.getState();
+      const st = chart.getState();
 
       const state = {
         [brushRef]: {
@@ -410,7 +304,7 @@ export function installVacpForCarsParallelCoords(args: {
         [hoverRef]: {
           kind: 'Selection',
           hoveredId: st.hoveredId,
-          hoveredCar: st.hoveredId === null ? null : (args.data.find((d) => d.id === st.hoveredId)?.Car ?? null),
+          hoveredCar: st.hoveredId === null ? null : (data.find((d) => d.id === st.hoveredId)?.Car ?? null),
         },
         [handleRef]: {
           kind: 'DataHandle',
@@ -424,65 +318,39 @@ export function installVacpForCarsParallelCoords(args: {
       return { graph: { ...graph, nodes }, state };
     },
   });
-  const vacp = installVacp({
-    globalKey: args.globalKey,
-    exposeBridge: exampleOptions.exposeBridge,
-    injectDomSnapshot: exampleOptions.injectDomSnapshot,
-    providers: [provider],
-  });
 
-  const presence = createExamplePresence(vacp.bridge, args.root);
-  presence.attach(provider, {
-    resolve: (focus) => {
-      if (focus.ref !== brushRef) return null;
-      const parsed = z
-        .object({ ranges: z.record(z.string(), z.tuple([z.number(), z.number()]).nullable()) })
-        .safeParse(focus.detail);
-      const first = parsed.success ? Object.entries(parsed.data.ranges).find(([, range]) => range !== null) : undefined;
-      if (first?.[1]) {
-        const bounds = args.getBrushBounds(first[0], first[1]);
-        if (bounds)
-          return svgPresenceTarget(bounds.element, {
-            kind: 'region',
-            x: bounds.x,
-            y: bounds.y,
-            width: bounds.width,
-            height: bounds.height,
-          });
-      }
-      return elementPresenceTarget(args.root);
-    },
-    subscribe: (invalidate) => observePresenceLayout(args.root, invalidate),
-  });
-
-  // Optional analytics: if PostHog is configured, stream VACP history into the session replay.
-  const posthogApiKey = import.meta.env.VACP_POSTHOG_API_KEY as string | undefined;
-
-  if (posthogApiKey) {
-    const posthogDefaults = import.meta.env.VACP_POSTHOG_DEFAULTS as string | undefined;
-    const captureSnapshots = (import.meta.env.VACP_POSTHOG_CAPTURE_SNAPSHOTS as string | undefined) === '1';
-    installVacpPosthogAnalytics({
-      bridge: vacp.bridge,
-      posthog: {
-        apiKey: posthogApiKey,
-        apiHost: import.meta.env.VACP_POSTHOG_API_HOST as string | undefined,
-        config: posthogDefaults
-          ? { defaults: posthogDefaults as NonNullable<VacpPosthogOptions['config']>['defaults'] }
-          : undefined,
+  const focusRanges = z.object({ ranges: z.record(z.string(), z.tuple([z.number(), z.number()]).nullable()) });
+  return installExampleRuntime({
+    sources: [
+      {
+        provider,
+        presentation: {
+          resolve: (focus) => {
+            if (focus.ref !== brushRef) return null;
+            const parsed = focusRanges.safeParse(focus.detail);
+            const first = parsed.success
+              ? Object.entries(parsed.data.ranges).find(([, range]) => range !== null)
+              : undefined;
+            if (first?.[1]) {
+              const bounds = chart.getBrushBounds(first[0], first[1]);
+              if (bounds)
+                return svgPresenceTarget(bounds.element, {
+                  kind: 'region',
+                  x: bounds.x,
+                  y: bounds.y,
+                  width: bounds.width,
+                  height: bounds.height,
+                });
+            }
+            return elementPresenceTarget(root);
+          },
+          subscribe: (invalidate) => observePresenceLayout(root, invalidate),
+        },
       },
-      analytics: {
-        getBaseProperties: () => ({ vacp_app_id: appId, vacp_view_id: viewId, vacp_viz_id: vizId }),
-        captureSnapshots,
-      },
-    });
-  }
-
-  return {
-    ...vacp,
-    dispose: () => {
-      presence.dispose();
-      vacp.dispose();
-    },
-    refs: { viewRef, vizRef, brushRef, orderRef, hoverRef, handleRef },
-  };
+    ],
+    root,
+    sessionKey: viewId,
+    analytics: { vacp_app_id: appId, vacp_view_id: viewId, vacp_viz_id: vizId },
+    signal,
+  });
 }

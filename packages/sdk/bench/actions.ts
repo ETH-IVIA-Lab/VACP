@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { measure } from '../../../tools/benchmark';
+import { executeVacpAction } from '@vacp/runtime';
 import { createVacpActions } from '../src/actions';
 
 const actions = createVacpActions();
@@ -15,14 +16,14 @@ console.log(`Node ${process.version}; SDK validation, preparation and execution`
 const noSignal = await measure(
   'coerced brush with no signal',
   async () => {
-    if (!(await actions.registry.execute(call)).ok) throw new Error('Expected a valid action');
+    if (!(await executeVacpAction(actions.registry, call)).ok) throw new Error('Expected a valid action');
   },
   10_000,
 );
 const callerSignal = await measure(
   'coerced brush with caller signal',
   async () => {
-    if (!(await actions.registry.execute(call, { signal: controller.signal })).ok)
+    if (!(await executeVacpAction(actions.registry, call, { signal: controller.signal })).ok)
       throw new Error('Expected a valid action');
   },
   10_000,
@@ -30,7 +31,7 @@ const callerSignal = await measure(
 const invalid = await measure(
   'invalid brush with structured diagnostics',
   async () => {
-    if ((await actions.registry.execute({ ...call, params: { ranges: { x: [1] } } })).ok)
+    if ((await executeVacpAction(actions.registry, { ...call, params: { ranges: { x: [1] } } })).ok)
       throw new Error('Expected validation failure');
   },
   1_000,

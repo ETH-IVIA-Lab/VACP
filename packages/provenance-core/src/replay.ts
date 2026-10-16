@@ -1,9 +1,9 @@
+import { abortable, vacpHumanActor } from '@vacp/protocol';
 import type {
   VacpExecution,
   VacpObservation,
   VacpProvenanceEvent,
   VacpProvenanceRecord,
-  VacpProvenanceSnapshot,
   VacpTurnRecord,
 } from '@vacp/protocol';
 import {
@@ -19,19 +19,6 @@ import type {
   ProvenanceReplayState,
 } from './types';
 
-/** Cancellation releases a viewer even if its host ignores the signal. */
-function wait<T>(work: Promise<T>, signal: AbortSignal): Promise<T> {
-  return new Promise((resolve, reject) => {
-    const abort = () => {
-      signal.removeEventListener('abort', abort);
-      reject(signal.reason);
-    };
-    signal.addEventListener('abort', abort, { once: true });
-    if (signal.aborted) abort();
-    void work.then(resolve, reject).finally(() => signal.removeEventListener('abort', abort));
-  });
-}
-
 /** Viewer-owned navigation over runtime-owned recording, with explicit restoration authority. */
 export function createProvenanceReplay(
   source: ProvenanceReplaySource,
@@ -42,30 +29,28 @@ export function createProvenanceReplay(
   const viewerId = globalThis.crypto.randomUUID();
   const listeners = new Set<() => void>();
   const running = new Set<string>();
-  // A mirror of the retained journal, extended by events instead of re-reading the whole journal.
-  let journal: VacpProvenanceSnapshot = source.getProvenance();
   const projection = createCheckpointProjection();
-  projection.reset(journal);
-  let epoch = journal.epoch;
+  let epoch = 0;
+  let revision = 0;
   let steps: readonly ProvenanceCheckpoint[] = [];
   let turns: readonly VacpTurnRecord[] = [];
   let latest: ProvenanceCheckpoint | null = null;
   let baseline: VacpObservation | undefined;
   let currentObservation: VacpObservation | undefined;
   let selected = -1;
-  let phase: ProvenanceReplayState['phase'] = 'live';
-  let error: string | undefined;
+  let status: { phase: 'error'; error: string } | { phase: 'live' | 'restoring' | 'reviewing' } = { phase: 'live' };
   let request: AbortController | undefined;
 
   let view: ProvenanceReplayState | undefined;
   const synchronize = () => {
-    journal = source.getProvenance();
+    const journal = source.getProvenance();
     projection.reset(journal);
     epoch = journal.epoch;
+    revision = journal.revision;
   };
   const project = () => {
     latest = projection.latest();
-    if (baseline || phase === 'restoring') return;
+    if (baseline || status.phase === 'restoring') return;
     steps = projection.snapshot();
     turns = projection.turns();
   };
@@ -84,8 +69,7 @@ export function createProvenanceReplay(
     baseline = undefined;
     currentObservation = undefined;
     selected = -1;
-    phase = 'live';
-    error = undefined;
+    status = { phase: 'live' };
     project();
     publish();
   };
@@ -110,17 +94,17 @@ export function createProvenanceReplay(
       resume();
       return;
     }
-    if (event.revision <= journal.revision) return;
+    if (event.revision <= revision) return;
     // A foreign step counts as live work until its record is in the trail, so stepping resumes with it.
     if (event.record.kind === 'action') running.delete(event.record.execution.id);
-    if (event.revision === journal.revision + 1) {
+    if (event.revision === revision + 1) {
       projection.append(event.record);
-      journal = { ...journal, revision: event.revision };
+      revision = event.revision;
     } else {
       synchronize();
       seedRunning();
     }
-    if ((baseline || phase === 'restoring') && externalChange(event.record)) resume();
+    if ((baseline || status.phase === 'restoring') && externalChange(event.record)) resume();
     else {
       project();
       publish();
@@ -138,6 +122,7 @@ export function createProvenanceReplay(
     source.signal.removeEventListener('abort', dispose);
   };
   try {
+    synchronize();
     project();
     detachRecords = source.subscribeProvenance(onRecord);
     detachExecutions = source.subscribeExecutions((execution) => {
@@ -145,7 +130,7 @@ export function createProvenanceReplay(
       // Live work outside this viewer ends review. Its record, not its outcome, ends the live work.
       if (execution.phase !== 'prepared' || running.has(execution.id)) return;
       running.add(execution.id);
-      if (baseline || phase === 'restoring') return resume();
+      if (baseline || status.phase === 'restoring') return resume();
       if (running.size === 1) publish();
     });
     seedRunning();
@@ -160,21 +145,13 @@ export function createProvenanceReplay(
     const current = new AbortController();
     request = current;
     const signal = AbortSignal.any([lifetime.signal, source.signal, current.signal]);
-    phase = 'restoring';
-    error = undefined;
+    status = { phase: 'restoring' };
     publish();
     try {
-      await wait(
-        Promise.resolve().then(() => {
-          signal.throwIfAborted();
-          return operation(signal);
-        }),
-        signal,
-      );
+      await abortable(signal, () => operation(signal));
     } catch (cause) {
       if (!signal.aborted) {
-        phase = 'error';
-        error = cause instanceof Error ? cause.message : String(cause);
+        status = { phase: 'error', error: cause instanceof Error ? cause.message : String(cause) };
         publish();
       }
     } finally {
@@ -183,9 +160,9 @@ export function createProvenanceReplay(
   };
   const restore = async (observation: VacpObservation, signal: AbortSignal, entryId?: string) => {
     currentObservation = observation;
-    const result = await options.restore(structuredClone(observation), {
+    const result = await options.restore(observation.state, {
       signal,
-      actor: { id: 'human', kind: 'human', label: 'You' },
+      actor: vacpHumanActor,
       restoration: { id: viewerId, entryId },
     });
     signal.throwIfAborted();
@@ -193,7 +170,7 @@ export function createProvenanceReplay(
   };
   const review = async (checkpointId: string) => {
     lifetime.signal.throwIfAborted();
-    if (phase === 'restoring' || running.size) return;
+    if (status.phase === 'restoring' || running.size) return;
     const index = steps.findIndex((step) => step.id === checkpointId);
     const checkpoint = steps[index];
     if (!checkpoint) throw new Error(`Unknown provenance checkpoint: ${checkpointId}`);
@@ -206,7 +183,7 @@ export function createProvenanceReplay(
         baseline = observation;
       }
       await restore(checkpoint.observation, signal, checkpoint.record.id);
-      phase = 'reviewing';
+      status = { phase: 'reviewing' };
       publish();
     });
   };
@@ -215,15 +192,15 @@ export function createProvenanceReplay(
       const current = selected < 0 ? null : (steps[selected] ?? null);
       const working = running.size > 0;
       if (
-        view?.phase !== phase ||
+        view?.phase !== status.phase ||
         view.working !== working ||
         view.steps !== steps ||
         view.turns !== turns ||
         view.latest !== latest ||
         view.selected !== current ||
-        view.error !== error
+        (view.phase === 'error' ? view.error : undefined) !== (status.phase === 'error' ? status.error : undefined)
       )
-        view = Object.freeze({ phase, steps, turns, latest, selected: current, working, error });
+        view = Object.freeze({ steps, turns, latest, selected: current, working, ...status });
       return view;
     },
     subscribe(listener) {
@@ -240,7 +217,7 @@ export function createProvenanceReplay(
     },
     close: async () => {
       lifetime.signal.throwIfAborted();
-      if (phase === 'restoring') return;
+      if (status.phase === 'restoring') return;
       if (!baseline) {
         resume();
         return;

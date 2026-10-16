@@ -1,5 +1,2 @@
-const DEFAULT_GLOBAL_KEY = '__vacp';
-
-export function resolveVacpGlobalKey(globalKey: string | undefined): string {
-  return globalKey?.length ? globalKey : DEFAULT_GLOBAL_KEY;
-}
+/** The window key a runtime is published at unless the host names another. */
+export const VACP_GLOBAL_KEY = '__vacp';

@@ -31,7 +31,7 @@ export function findSignalContext(state: VegaRuntimeContext | undefined, name: s
 
 export function readStateSignal(view: VegaViewLike, name: string): unknown {
   try {
-    return findSignalContext(view.getState?.() as VegaRuntimeContext | undefined, name)?.context.signals?.[name];
+    return findSignalContext(view.getState() as VegaRuntimeContext | undefined, name)?.context.signals?.[name];
   } catch {
     return undefined;
   }
@@ -50,7 +50,12 @@ function selectionContexts(view: VegaViewLike, name: string) {
   );
 }
 
-export function createVegaLiteBindings(spec: VegaLiteSpecLike, view: VegaViewLike, options: VegaLiteProviderOptions) {
+export function createVegaLiteBindings(
+  spec: VegaLiteSpecLike,
+  view: VegaViewLike,
+  vgSpec: import('vega').Spec,
+  options: VegaLiteProviderOptions,
+) {
   const allSignals = signalNamesFromView(view);
   const ownedMarks = selectionMarkTypes(spec);
   const paramByRef = new Map<
@@ -76,12 +81,12 @@ export function createVegaLiteBindings(spec: VegaLiteSpecLike, view: VegaViewLik
   }
   const scale = (name: string) => {
     try {
-      return view.scale?.(name) as VegaScale | undefined;
+      return view.scale(name) as VegaScale | undefined;
     } catch {
       return undefined;
     }
   };
-  const dataflow = vegaLiteDataflow(spec);
+  const dataflow = vegaLiteDataflow(spec, vgSpec);
   return {
     paramByRef,
     allSignals,
@@ -92,15 +97,15 @@ export function createVegaLiteBindings(spec: VegaLiteSpecLike, view: VegaViewLik
       (unit ? scale(`${unit}_${channel}`) : undefined) ?? scale(channel),
     /** A dataset's rows as they entered it, before its own transforms. */
     datasetInput(name: string): unknown[] | null {
-      const input = view._runtime?.data?.[name];
-      const value =
-        input && typeof input === 'object' ? (input as { input?: { value?: unknown } }).input?.value : undefined;
+      const value = view.getState({ signals: () => false, data: (dataset) => dataset === name, recurse: false }).data?.[
+        name
+      ];
       return Array.isArray(value) ? value : null;
     },
     readValues() {
       let state: VegaRuntimeContext | undefined;
       try {
-        state = view.getState?.() as VegaRuntimeContext | undefined;
+        state = view.getState() as VegaRuntimeContext | undefined;
       } catch {
         /* Native signal reads remain available when snapshot export is unavailable. */
       }

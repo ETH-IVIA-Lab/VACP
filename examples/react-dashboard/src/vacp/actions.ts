@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { registerVacpApplyStateAction } from '@vacp/runtime';
 import type { VacpActions } from '@vacp/sdk';
 import { listDatasets } from '../datasets/registry';
 import { numericValues, quantile, assertDashboardEncoding, assertDashboardSelection } from '../lib/dashboard';
@@ -171,7 +172,7 @@ export function registerDashboardActions(actions: VacpActions, model: ReactDashb
     });
 
   // Restoration reaches every recorded state, including the empty dashboard before a dataset loads.
-  actions.standard.applyState((state) => prepareDashboardRestoration(model, state), {
+  registerVacpApplyStateAction(actions.registry, (state) => prepareDashboardRestoration(model, state), {
     affects: [vizRef],
     description: 'Apply dashboard state (dataset/encoding/selection).',
   });

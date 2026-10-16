@@ -49,7 +49,7 @@ export function createProvenanceJournal(options: { runtimeId: string; sessionKey
     get subscribed() {
       return listeners.size > 0;
     },
-    getProvenance(): VacpProvenanceSnapshot {
+    getProvenance(this: void): VacpProvenanceSnapshot {
       return Object.freeze({
         runtimeId: options.runtimeId,
         sessionKey,
@@ -59,13 +59,13 @@ export function createProvenanceJournal(options: { runtimeId: string; sessionKey
         records: Object.freeze(records.map((read) => read())),
       });
     },
-    subscribeProvenance(listener: (event: VacpProvenanceEvent) => void) {
+    subscribeProvenance(this: void, listener: (event: VacpProvenanceEvent) => void) {
       listeners.add(listener);
       return () => {
         listeners.delete(listener);
       };
     },
-    record(record: VacpProvenanceRecord) {
+    record(this: void, record: VacpProvenanceRecord) {
       const captured = captureRecord(record);
       records.push(captured);
       if (records.length > limit) records.shift();

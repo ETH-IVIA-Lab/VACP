@@ -1,26 +1,13 @@
 import type { VacpClock } from '@vacp/protocol';
 import { splitAccessPath } from 'vega';
-import { compile, type TopLevelSpec } from 'vega-lite';
+import type { Spec } from 'vega';
 
 import { collectVegaLiteParams } from './params';
 import type { VegaLiteSpecLike } from './types';
 
-type Transform = { type: string; [key: string]: unknown };
-type Dataset = {
-  name: string;
-  source?: string | string[];
-  url?: string;
-  values?: unknown;
-  format?: { parse?: Record<string, unknown> };
-  transform?: Transform[];
-};
-type Scale = { name?: string; type?: string; domain?: unknown };
-type Mark = {
-  from?: { data?: string; facet?: { name?: string; data?: string } };
-  marks?: Mark[];
-  scales?: Scale[];
-  encode?: Record<string, unknown>;
-};
+type Dataset = import('vega').Data;
+type Scale = import('vega').Scale;
+type Mark = import('vega').Mark;
 
 /** The fields of one source's rows that Vega holds as instants or reads as numbers. */
 export type VegaLiteFieldTypes = {
@@ -71,16 +58,6 @@ const arithmetic = new Set([
 /** The clock of a Vega scale type: local for `time`, UTC for `utc`, and none for other scales. */
 export const scaleClock = (type: string | undefined): VacpClock | undefined => (type ? clocks[type] : undefined);
 
-const silent = {
-  level() {
-    return silent;
-  },
-  error: () => silent,
-  warn: () => silent,
-  info: () => silent,
-  debug: () => silent,
-};
-
 function record(value: unknown): value is Record<string, unknown> {
   return !!value && typeof value === 'object' && !Array.isArray(value);
 }
@@ -98,11 +75,14 @@ function* marksOf(
   facets: ReadonlyMap<string, string> = new Map(),
 ): Generator<{ mark: Mark; data?: string }> {
   for (const mark of marks ?? []) {
-    const from = mark.from?.facet?.data ?? mark.from?.data;
+    const from = mark.from && 'facet' in mark.from ? mark.from.facet.data : mark.from?.data;
     const data = from === undefined ? undefined : (facets.get(from) ?? from);
     yield { mark, data };
-    const facet = mark.from?.facet?.name;
-    yield* marksOf(mark.marks, facet && data ? new Map(facets).set(facet, data) : facets);
+    const facet = mark.from && 'facet' in mark.from ? mark.from.facet.name : undefined;
+    yield* marksOf(
+      mark.type === 'group' ? mark.marks : undefined,
+      facet && data ? new Map(facets).set(facet, data) : facets,
+    );
   }
 }
 
@@ -151,20 +131,24 @@ function fieldTypes(datasets: readonly Dataset[], reads: readonly ScaleRead[]): 
   const temporal = new Map<string, VacpClock>();
   const numeric = new Set<string>();
   for (const dataset of datasets) {
-    for (const [field, type] of Object.entries(dataset.format?.parse ?? {}))
+    for (const [field, type] of Object.entries(
+      'format' in dataset && dataset.format && 'parse' in dataset.format && typeof dataset.format.parse === 'object'
+        ? dataset.format.parse
+        : {},
+    ))
       if (typeof type === 'string' && /^(date|utc)\b/.test(type))
         temporal.set(field, type.startsWith('utc') ? 'utc' : 'local');
     for (const transform of dataset.transform ?? []) {
       if (transform.type === 'timeunit') {
         const clock: VacpClock = transform.timezone === 'utc' ? 'utc' : 'local';
-        const outputs = Array.isArray(transform.as) ? transform.as : [];
+        const outputs = 'as' in transform && Array.isArray(transform.as) ? transform.as : [];
         for (const field of [rowKey(transform.field), ...outputs])
           if (typeof field === 'string') temporal.set(field, clock);
       }
       // Vega-Lite parses an inline source's temporal fields with a formula that writes epoch milliseconds.
       const parsed =
         transform.type === 'formula' && typeof transform.expr === 'string' ? /^toDate\(/.test(transform.expr) : false;
-      if (parsed && typeof transform.as === 'string' && !temporal.has(transform.as))
+      if (parsed && transform.type === 'formula' && typeof transform.as === 'string' && !temporal.has(transform.as))
         temporal.set(transform.as, 'local');
     }
   }
@@ -186,16 +170,21 @@ function fieldTypes(datasets: readonly Dataset[], reads: readonly ScaleRead[]): 
     };
     for (const dataset of datasets)
       for (const transform of dataset.transform ?? []) {
-        const outputs = Array.isArray(transform.as) ? transform.as : [];
-        if (transform.type === 'bin' && outputs.some((field) => numeric.has(field as string)))
+        const outputs = 'as' in transform && Array.isArray(transform.as) ? transform.as : [];
+        if (transform.type === 'bin' && outputs.some((field) => typeof field === 'string' && numeric.has(field)))
           add(rowKey(transform.field));
         if (transform.type !== 'aggregate' && transform.type !== 'joinaggregate') continue;
         const fields = Array.isArray(transform.fields) ? transform.fields : [];
         const ops = Array.isArray(transform.ops) ? transform.ops : [];
         fields.forEach((field, index) => {
           const op = ops[index];
-          const output = outputs[index] ?? `${op}_${field}`;
-          if ((arithmetic.has(op as string) || op === 'min' || op === 'max') && numeric.has(output as string))
+          const output =
+            outputs[index] ?? (typeof op === 'string' && typeof field === 'string' ? `${op}_${field}` : undefined);
+          if (
+            ((typeof op === 'string' && arithmetic.has(op)) || op === 'min' || op === 'max') &&
+            typeof output === 'string' &&
+            numeric.has(output)
+          )
             add(rowKey(field));
         });
       }
@@ -205,27 +194,26 @@ function fieldTypes(datasets: readonly Dataset[], reads: readonly ScaleRead[]): 
 }
 
 /**
- * Compile the chart's spec and read its dataflow: each source's root dataset, the dataset its marks
+ * Read the host's compiled dataflow: each source's root dataset, the dataset its marks
  * read, and the fields each source's rows hold as instants or numbers. The adapter's data relations
  * and temporal parsing follow the compiled datasets, wherever Vega-Lite's optimizer placed the transforms.
  */
-export function vegaLiteDataflow(spec: VegaLiteSpecLike): VegaLiteDataflow {
-  const compiled = compile(spec as TopLevelSpec, { logger: silent as never }).spec as {
-    data?: Dataset[];
-    marks?: Mark[];
-    scales?: Scale[];
-  };
+export function vegaLiteDataflow(spec: VegaLiteSpecLike, vgSpec: Spec): VegaLiteDataflow {
+  const compiled = vgSpec;
   const datasets = compiled.data ?? [];
   const byName = new Map(datasets.map((dataset) => [dataset.name, dataset]));
   const marks = [...marksOf(compiled.marks)];
   const shownBy = marks.flatMap(({ data }) => data ?? []);
-  const reads = scaleReads([...(compiled.scales ?? []), ...marks.flatMap(({ mark }) => mark.scales ?? [])], marks);
+  const reads = scaleReads(
+    [...(compiled.scales ?? []), ...marks.flatMap(({ mark }) => (mark.type === 'group' ? (mark.scales ?? []) : []))],
+    marks,
+  );
 
   const lineage = (name: string): Dataset[] => {
     const chain: Dataset[] = [];
     for (let dataset = byName.get(name); dataset;) {
       chain.unshift(dataset);
-      dataset = typeof dataset.source === 'string' ? byName.get(dataset.source) : undefined;
+      dataset = 'source' in dataset && typeof dataset.source === 'string' ? byName.get(dataset.source) : undefined;
     }
     return chain;
   };
@@ -233,7 +221,7 @@ export function vegaLiteDataflow(spec: VegaLiteSpecLike): VegaLiteDataflow {
     chain.every((dataset) => !(dataset.transform ?? []).some((transform) => transform.type === 'aggregate'));
 
   const stores = new Set(collectVegaLiteParams(spec).flatMap((param) => (param.select ? [`${param.name}_store`] : [])));
-  const roots = datasets.filter((dataset) => dataset.source === undefined && !stores.has(dataset.name));
+  const roots = datasets.filter((dataset) => !('source' in dataset) && !stores.has(dataset.name));
   const sources = roots.map((root): VegaLiteSource => {
     const chains = shownBy.flatMap((name) => {
       const chain = lineage(name);
@@ -249,9 +237,9 @@ export function vegaLiteDataflow(spec: VegaLiteSpecLike): VegaLiteDataflow {
       shown,
       transformed: shown !== root.name || !!root.transform?.length,
       data: {
-        ...(root.url !== undefined ? { url: root.url } : {}),
-        ...(Array.isArray(root.values) ? { values: root.values } : {}),
-        ...(root.format !== undefined ? { format: root.format } : {}),
+        ...('url' in root && typeof root.url === 'string' ? { url: root.url } : {}),
+        ...('values' in root && Array.isArray(root.values) ? { values: root.values } : {}),
+        ...('format' in root && root.format !== undefined ? { format: root.format } : {}),
       },
       ...fieldTypes(
         family,

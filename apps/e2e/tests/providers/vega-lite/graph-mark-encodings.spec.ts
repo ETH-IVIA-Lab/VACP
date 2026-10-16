@@ -1,7 +1,7 @@
 import { expect } from '@playwright/test';
 import { test } from '../../helpers/test';
 
-import { appServer } from '../../helpers/servers';
+import { gotoApp } from '../../helpers/servers';
 
 async function expectBridge(page: import('@playwright/test').Page): Promise<void> {
   await page.waitForFunction(() => !!globalThis.__vacp);
@@ -25,10 +25,7 @@ async function waitForCapabilityRefContains(
 }
 
 test('vega-lite: capability graph includes mark encoding channels + fields across gallery specs', async ({ page }) => {
-  const srv = appServer('vega-lite-gallery');
-
-  await page.goto(`${srv.url}`, { waitUntil: 'domcontentloaded' });
-  await expectBridge(page);
+  await gotoApp(page, 'vega-lite-gallery');
 
   const specIds = await page.evaluate(() =>
     Array.from(document.querySelectorAll<HTMLSelectElement>('#spec option')).map((o) => o.value),

@@ -7,6 +7,7 @@ import type {
   VacpSourceId,
   VacpActor,
   VacpAgentActivitySource,
+  VacpProvider,
 } from '@vacp/protocol';
 
 export type PresencePoint = { x: number; y: number };
@@ -27,19 +28,16 @@ export type PresenceResolver = (
   options: { signal: AbortSignal },
 ) => PresenceTarget | null | Promise<PresenceTarget | null>;
 
-export type PresenceBinding = {
-  sourceId: VacpSourceId;
-  /** The generation returned by the runtime's getProviderBinding(provider). */
-  id: string;
-  signal: AbortSignal;
+export type PresencePresentation = {
   resolve: PresenceResolver;
   /**
-   * Notify when geometry on this surface may have changed. Presence subscribes only while a pointer or
-   * a recorded frame rests on the binding's source, and unsubscribes when none does. A subscription
-   * that throws is reported through `onError` and tried again the next time the source is watched.
+   * Notify when source geometry changes. Active while a live pointer or recorded frame rests on the source.
+   * Setup failures reach `onError` and are retried the next time the source is watched.
    */
   subscribe?: (invalidate: () => void) => () => void;
 };
+
+export type PresenceBinding = PresencePresentation & { sourceId: VacpSourceId; id: string; signal: AbortSignal };
 
 export type PresenceFreshness = 'unknown' | 'updating' | 'current' | 'error';
 export type PresenceActivity = {
@@ -47,6 +45,7 @@ export type PresenceActivity = {
   phase: 'thinking' | 'acting' | 'completed' | 'failed' | 'cancelled' | 'reviewing';
   /** Public narration supplied by the host. */
   summary?: string;
+  frame?: PresenceTrailFrame;
   /** A deliberate presentation of a recorded checkpoint, separate from live narration. */
   recordId?: string;
   /** Identity of the host progress session, independent of action execution. */
@@ -94,7 +93,8 @@ export type PresenceRenderer = {
 };
 
 export type PresenceSource = VacpExecutionSource &
-  Partial<VacpAgentActivitySource> & {
+  VacpAgentActivitySource & {
+    getProviderBinding(provider: VacpProvider): { id: string; signal: AbortSignal };
     subscribeSnapshots(listener: (snapshots: { observation: VacpObservation }) => void): () => void;
   };
 
@@ -135,4 +135,22 @@ export type PresenceArrival = {
 /** Presentation policy only. Recording always retains every actor. */
 export function isAgentActor(actor: VacpActor): boolean {
   return actor.kind === 'agent';
+}
+
+export function samePresenceActivity(a: PresenceActivity | undefined, b: PresenceActivity): boolean {
+  return (
+    !!a &&
+    a.actor.id === b.actor.id &&
+    a.actor.kind === b.actor.kind &&
+    a.actor.label === b.actor.label &&
+    a.phase === b.phase &&
+    a.summary === b.summary &&
+    a.frame === b.frame &&
+    a.recordId === b.recordId &&
+    a.activityId === b.activityId &&
+    a.subject === b.subject &&
+    a.execution === b.execution &&
+    a.target === b.target &&
+    a.freshness === b.freshness
+  );
 }

@@ -3,28 +3,24 @@
 from __future__ import annotations
 
 import sys
-from contextlib import suppress
+from collections.abc import AsyncGenerator
+from contextlib import asynccontextmanager, suppress
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Literal
 
 from playwright.async_api import Browser, Page, Playwright, async_playwright
 
 
 @dataclass(frozen=True)
 class BrowserConfig:
-    browser_type: str = 'chromium'
+    browser_type: Literal['chromium', 'firefox', 'webkit'] = 'chromium'
     browser_path: str | None = None
+    # Headed mode uses the OS window size. Headless mode uses Playwright defaults unless screen
+    # dimensions are provided.
     headless: bool = False
-    # Explicit Playwright viewport. Headed mode otherwise uses the OS window size.
-    # Headless mode uses Playwright defaults unless screen dimensions are provided.
-    viewport_width: int | None = None
-    viewport_height: int | None = None
     url: str = 'http://localhost:5173/'
-    # Embedded browser window mode.
-    # - default: Playwright defaults
-    # - maximized: request a maximized window
-    # - fullscreen: request fullscreen mode (Chromium only)
-    window_mode: str = 'fullscreen'
+    # Embedded browser window mode. `fullscreen` and `maximized` apply to Chromium only.
+    window_mode: Literal['default', 'maximized', 'fullscreen'] = 'fullscreen'
     # Host screen size hint for embedded browser windows.
     screen_width: int | None = None
     screen_height: int | None = None
@@ -36,8 +32,6 @@ class BrowserConfig:
     # Probe common CDP endpoints before launching an embedded browser.
     auto_attach_cdp: bool = False
     auto_attach_cdp_ports: tuple[int, ...] = (9222, 9223)
-    # Request remote browser close when shutting down a CDP-backed session.
-    close_on_exit: bool = False
     # Reuse a CDP page whose URL contains this substring before creating a page.
     reuse_page_url_contains: str | None = None
 
@@ -90,8 +84,6 @@ class BrowserManager:
                 return w, h
 
         with suppress(Exception):
-            import sys  # noqa: PLC0415
-
             if sys.platform.startswith('win'):
                 import ctypes  # noqa: PLC0415
 
@@ -107,9 +99,6 @@ class BrowserManager:
         """
         Return Playwright context options for the configured viewport policy.
         """
-        if self._config.viewport_width and self._config.viewport_height:
-            return {'viewport': {'width': self._config.viewport_width, 'height': self._config.viewport_height}}
-
         if self._config.headless and self._config.screen_width and self._config.screen_height:
             return {'viewport': {'width': self._config.screen_width, 'height': self._config.screen_height}}
 
@@ -153,7 +142,19 @@ class BrowserManager:
         await self._best_effort_goto(p, self._config.url)
         return p
 
-    async def start(self) -> None:
+    @asynccontextmanager
+    async def session(self) -> AsyncGenerator[Page]:
+        """
+        Own the browser for one server run. Cleanup covers a start that failed partway, and a page
+        attached over CDP is disconnected, never closed.
+        """
+        try:
+            await self._start()
+            yield self.page
+        finally:
+            await self._stop()
+
+    async def _start(self) -> None:
         self._playwright = await async_playwright().start()
 
         if self._config.cdp_url:
@@ -182,7 +183,7 @@ class BrowserManager:
             launcher = self._playwright.webkit
 
         args: list[str] = []
-        window_mode = (self._config.window_mode or 'default').lower()
+        window_mode = self._config.window_mode
         if not self._config.headless and self._config.browser_type == 'chromium':
             if window_mode == 'fullscreen':
                 args.append('--start-fullscreen')
@@ -204,22 +205,19 @@ class BrowserManager:
         self._page = await context.new_page()
         await self._best_effort_goto(self._page, self._config.url)
 
-    async def stop(self) -> None:
-        if self._browser is not None:
-            with suppress(Exception):
-                if self._launched_browser:
-                    await self._browser.close()
-                else:
-                    if self._config.close_on_exit:
-                        await self._browser.close()
-                    else:
-                        await self._browser.close()
-        if self._playwright is not None:
-            await self._playwright.stop()
+    async def _stop(self) -> None:
+        browser, playwright = self._browser, self._playwright
         self._browser = None
         self._playwright = None
         self._page = None
         self._launched_browser = False
+        try:
+            if browser is not None:
+                with suppress(Exception):
+                    await browser.close()
+        finally:
+            if playwright is not None:
+                await playwright.stop()
 
     async def get_page_info(self) -> dict[str, str]:
         title = ''

@@ -2,8 +2,9 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { z } from 'zod';
 import * as mini from 'zod/mini';
-import { VACP_SCHEMA_VERSION, VacpActionError, type VacpActionCall, type VacpActionResult } from '@vacp/protocol';
-import { createVacpActions, createVacpProvider } from '@vacp/sdk';
+import { VacpActionError, type VacpActionCall, type VacpActionResult } from '@vacp/protocol';
+import { createVacpProvider, executeVacpAction } from '@vacp/runtime';
+import { createVacpActions } from '@vacp/sdk';
 
 interface Selection {
   group: string;
@@ -45,17 +46,17 @@ test('custom actions infer transformed parameters and accept domain interface re
     ok: true,
     result: { selection: { group: 'a', ids: ['one', 'two'] }, count: 2 },
   };
-  assert.deepEqual(await actions.registry.execute(call), expected);
-  assert.equal((await actions.registry.execute({ ...call, params: { group: 'a', ids: [] } })).ok, false);
+  assert.deepEqual(await executeVacpAction(actions.registry, call), expected);
+  assert.equal((await executeVacpAction(actions.registry, { ...call, params: { group: 'a', ids: [] } })).ok, false);
   assert.deepEqual(selected.ids, ['one', 'two']);
   assert.equal(actions.registry.list()[0]?.parameters?.['x-app-kind'], 'selection');
 
   const provider = createVacpProvider({
+    subscribe: () => () => {},
     source: { id: 'vacp-source://custom/selection', type: 'test', title: 'Selection test' },
     actions: actions.registry,
     project: () => ({
       graph: {
-        version: VACP_SCHEMA_VERSION,
         nodes: [
           { ref: 'vacp://custom/selection', kind: 'Selection', layer: 'InteractionFeedbackLayer', data: selected },
         ],
@@ -88,12 +89,15 @@ test('async Zod validation and transforms feed normalized parameters to the hand
     .handle(({ message }) => message.toUpperCase());
 
   assert.equal(descriptor.parameters?.type, 'string');
-  assert.deepEqual(await actions.registry.execute({ callId: 'ok', name: 'custom.echo', params: 'hello' }), {
+  assert.deepEqual(await executeVacpAction(actions.registry, { callId: 'ok', name: 'custom.echo', params: 'hello' }), {
     callId: 'ok',
     ok: true,
     result: 'HELLO',
   });
-  assert.equal((await actions.registry.execute({ callId: 'bad', name: 'custom.echo', params: '' })).ok, false);
+  assert.equal(
+    (await executeVacpAction(actions.registry, { callId: 'bad', name: 'custom.echo', params: '' })).ok,
+    false,
+  );
 });
 
 test('application failure details preserve scalar values and explicit domain diagnostics', async () => {
@@ -101,7 +105,7 @@ test('application failure details preserve scalar values and explicit domain dia
   actions.operation('mutation', 'custom.fail', 'Report a domain error').handle(() => {
     throw 42;
   });
-  assert.deepEqual(await actions.registry.execute({ callId: 'failure', name: 'custom.fail' }), {
+  assert.deepEqual(await executeVacpAction(actions.registry, { callId: 'failure', name: 'custom.fail' }), {
     callId: 'failure',
     ok: false,
     error: { message: '42', details: 42 },
@@ -109,10 +113,18 @@ test('application failure details preserve scalar values and explicit domain dia
   actions.operation('query', 'custom.rows', 'Read available rows').handle(() => {
     throw new VacpActionError('Dataset is still loading', { code: 'loading', dataset: 'cars' });
   });
-  assert.deepEqual(await actions.registry.execute({ callId: 'rows', name: 'custom.rows' }), {
+  assert.deepEqual(await executeVacpAction(actions.registry, { callId: 'rows', name: 'custom.rows' }), {
     callId: 'rows',
     ok: false,
     error: { message: 'Dataset is still loading', details: { code: 'loading', dataset: 'cars' } },
+  });
+  actions.operation('query', 'custom.crash', 'Fail unexpectedly').handle(() => {
+    throw new Error('Connection lost', { cause: new Error('socket closed') });
+  });
+  assert.deepEqual(await executeVacpAction(actions.registry, { callId: 'crash', name: 'custom.crash' }), {
+    callId: 'crash',
+    ok: false,
+    error: { message: 'Connection lost' },
   });
 });
 
@@ -125,7 +137,7 @@ test('invalid parameters report structured field diagnostics before invoking the
       throw new Error('Validation must run before the handler');
     });
   assert.deepEqual(
-    await actions.registry.execute({ callId: 'invalid', name: 'set', params: { items: [{ count: 0 }] } }),
+    await executeVacpAction(actions.registry, { callId: 'invalid', name: 'set', params: { items: [{ count: 0 }] } }),
     {
       callId: 'invalid',
       ok: false,
@@ -154,34 +166,37 @@ test('union diagnostics retain branch and nested key failures without copying su
       ),
     )
     .handle((value) => value);
-  assert.deepEqual(await actions.registry.execute({ callId: 'union', name: 'select', params: { other: 17 } }), {
-    callId: 'union',
-    ok: false,
-    error: {
-      message: 'Invalid parameters for action "select"',
-      details: {
-        code: 'invalid-params',
-        issues: [
-          {
-            path: [],
-            code: 'invalid_union',
-            message: 'Choose a field map or a saved name',
-            errors: [
-              [
-                {
-                  path: ['other'],
-                  code: 'invalid_key',
-                  message: 'Invalid field map',
-                  issues: [{ path: [], code: 'invalid_format', message: 'Use a field_ key' }],
-                },
+  assert.deepEqual(
+    await executeVacpAction(actions.registry, { callId: 'union', name: 'select', params: { other: 17 } }),
+    {
+      callId: 'union',
+      ok: false,
+      error: {
+        message: 'Invalid parameters for action "select"',
+        details: {
+          code: 'invalid-params',
+          issues: [
+            {
+              path: [],
+              code: 'invalid_union',
+              message: 'Choose a field map or a saved name',
+              errors: [
+                [
+                  {
+                    path: ['other'],
+                    code: 'invalid_key',
+                    message: 'Invalid field map',
+                    issues: [{ path: [], code: 'invalid_format', message: 'Use a field_ key' }],
+                  },
+                ],
+                [{ path: [], code: 'invalid_type', message: 'Use a saved name' }],
               ],
-              [{ path: [], code: 'invalid_type', message: 'Use a saved name' }],
-            ],
-          },
-        ],
+            },
+          ],
+        },
       },
     },
-  });
+  );
 });
 
 test('application exceptions from parameter transforms retain their identity', async () => {
@@ -214,12 +229,12 @@ test('scoped action registries retain shared contracts and return their executab
     .handle(() => 'right');
   assert.notEqual(first.name, second.name);
   assert.equal(first.operation.contract, second.operation.contract);
-  assert.deepEqual(await left.registry.execute({ callId: 'left', name: first.name }), {
+  assert.deepEqual(await executeVacpAction(left.registry, { callId: 'left', name: first.name }), {
     callId: 'left',
     ok: true,
     result: 'left',
   });
-  assert.deepEqual(await right.registry.execute({ callId: 'right', name: second.name }), {
+  assert.deepEqual(await executeVacpAction(right.registry, { callId: 'right', name: second.name }), {
     callId: 'right',
     ok: true,
     result: 'right',
@@ -258,13 +273,13 @@ test('a projection owns live action descriptions and state without changing the 
   actions.operation('mutation', 'selection.clear', 'Clear the selection').handle(() => {});
   let selected = false;
   const provider = createVacpProvider({
+    subscribe: () => () => {},
     source: { id: 'vacp-source://selection', type: 'test', title: 'Selection' },
     actions: actions.registry,
     project: () => {
       const current = selected;
       return {
         graph: {
-          version: VACP_SCHEMA_VERSION,
           nodes: [{ ref: 'vacp://selection', kind: 'Selection', layer: 'InteractionFeedbackLayer' }],
           edges: [],
           actions: actions.registry.list().map((action) => ({
@@ -330,7 +345,13 @@ test('one schema publishes input constraints and prepares coerced values and def
     result: { ranges: { x: [2, 6], y: null }, mode: 'replace' },
   });
   assert.equal(
-    (await actions.registry.execute({ callId: 'invalid', name: descriptor.name, params: { ranges: { x: [1] } } })).ok,
+    (
+      await executeVacpAction(actions.registry, {
+        callId: 'invalid',
+        name: descriptor.name,
+        params: { ranges: { x: [1] } },
+      })
+    ).ok,
     false,
   );
 });
@@ -341,11 +362,14 @@ test('Zod Mini schemas infer handler parameters', async () => {
     .operation('query', 'double', 'Double a value')
     .params(mini.object({ value: mini.number() }))
     .handle(({ value }) => value * 2);
-  assert.deepEqual(await actions.registry.execute({ callId: 'mini', name: minimal.name, params: { value: 3 } }), {
-    callId: 'mini',
-    ok: true,
-    result: 6,
-  });
+  assert.deepEqual(
+    await executeVacpAction(actions.registry, { callId: 'mini', name: minimal.name, params: { value: 3 } }),
+    {
+      callId: 'mini',
+      ok: true,
+      result: 6,
+    },
+  );
 });
 
 test('unrepresentable input fails during definition while JSON inputs may transform to domain values', async () => {
@@ -362,7 +386,11 @@ test('unrepresentable input fails during definition while JSON inputs may transf
   assert.equal(descriptor.parameters?.type, 'string');
   assert.equal(descriptor.parameters?.format, 'date-time');
   assert.deepEqual(
-    await actions.registry.execute({ callId: 'year', name: descriptor.name, params: '2026-09-19T00:00:00Z' }),
+    await executeVacpAction(actions.registry, {
+      callId: 'year',
+      name: descriptor.name,
+      params: '2026-09-19T00:00:00Z',
+    }),
     { callId: 'year', ok: true, result: 2026 },
   );
 });

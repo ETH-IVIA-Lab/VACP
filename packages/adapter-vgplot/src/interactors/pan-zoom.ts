@@ -42,7 +42,7 @@ export function preparePanZoom(interactor: VgplotInteractorLike, params: Record<
   if (!mutations.length) throw new Error('Expected at least one axis domain');
   return {
     interaction: params ? panZoomInteraction(changes) : ({ kind: 'activate' } satisfies VacpInteraction),
-    execute() {
+    execute(this: void) {
       if (mutations.some((mutation) => !mutation.current())) throw new Error('Axis binding changed; prepare again');
       for (const mutation of mutations) mutation.apply();
       return params ? { set: true } : { cleared: true };

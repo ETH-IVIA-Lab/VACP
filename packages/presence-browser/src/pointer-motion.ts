@@ -317,7 +317,7 @@ export function createPointerMotion(options: {
     /** The acknowledgement the cursor plays, for components that draw it. */
     activation: {
       get: () => activation,
-      subscribe(watcher: () => void) {
+      subscribe(this: void, watcher: () => void) {
         watchers.add(watcher);
         return () => {
           watchers.delete(watcher);

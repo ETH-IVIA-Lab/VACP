@@ -1,6 +1,5 @@
 import {
   fnv1a64Hex,
-  nowIso,
   stableStringify,
   type VacpFreshness,
   type VacpGraphFragment,
@@ -9,6 +8,7 @@ import {
   type VacpSourceDescription,
 } from '@vacp/protocol';
 import type { VacpActionExecutor } from './action-registry';
+import { nowIso } from './runtime/helpers';
 
 export type VacpAnalyticalProjection<NodeData = Record<string, unknown>> = {
   graph: VacpGraphFragment<NodeData>;
@@ -24,7 +24,7 @@ export function createVacpProvider<NodeData = Record<string, unknown>>(args: {
   source: VacpSourceDescription;
   actions: Pick<VacpActionExecutor, 'prepare'>;
   project: () => VacpAnalyticalProjection<NodeData> | Promise<VacpAnalyticalProjection<NodeData>>;
-  subscribe?: (invalidate: () => void) => () => void;
+  subscribe: (invalidate: () => void) => () => void;
   dispose?: () => void;
 }): VacpProvider<NodeData> {
   return {

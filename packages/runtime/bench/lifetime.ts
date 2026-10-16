@@ -1,5 +1,5 @@
 import { setImmediate } from 'node:timers/promises';
-import { VACP_SCHEMA_VERSION, type VacpProvider } from '@vacp/protocol';
+import type { VacpProvider } from '@vacp/protocol';
 import { createVacpRuntime, type VacpRuntime } from '../src/index';
 
 const collect = globalThis.gc;
@@ -9,12 +9,12 @@ async function closedRuntime() {
   const values = Array.from({ length: 50_000 }, (_, index) => index);
   let revision = 0;
   const provider: VacpProvider = {
+    subscribe: () => () => {},
     source: { id: 'vacp-source://lifetime', type: 'benchmark', title: 'Lifetime' },
     observe: () => ({
       revision: String(++revision),
       observedAt: '',
       graph: {
-        version: VACP_SCHEMA_VERSION,
         nodes: [{ ref: 'vacp://values', kind: 'Param', layer: 'ConfigLayer' }],
         edges: [],
         actions: [],
@@ -28,7 +28,7 @@ async function closedRuntime() {
   const runtime = createVacpRuntime({ providers: [provider] });
   for (let index = 0; index < 8; index++) {
     await runtime.refresh();
-    await runtime.getState({ mode: 'full' });
+    await runtime.getState();
   }
   runtime.dispose();
   return runtime;

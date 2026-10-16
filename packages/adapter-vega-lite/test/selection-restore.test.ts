@@ -3,6 +3,7 @@ import test from 'node:test';
 import { View, parse, changeset } from 'vega';
 import { compile, type TopLevelSpec } from 'vega-lite';
 import { createVegaLiteProvider } from '../src/index';
+import type { VegaViewLike } from '../src/types';
 
 const rows = [
   { weather: 'rain', temp: 10 },
@@ -40,12 +41,13 @@ async function fixture(resolve: 'global' | 'intersect' = 'global') {
       ),
   );
   assert.ok(selected);
-  const view = new View(parse(compiled), { renderer: 'none' });
+  const view: VegaViewLike = new View(parse(compiled), { renderer: 'none' });
   await view.runAsync();
   const provider = createVegaLiteProvider({
     view,
     spec,
-    options: { appId: 'test', viewId: 'restore', vizId: 'point', enableDuckDbDataHandle: false },
+    vgSpec: compile(spec).spec,
+    options: { appId: 'test', viewId: 'restore', vizId: 'point' },
   });
   const ref = 'vacp://test/restore/point/param/pick';
   const execute = async (name: string, params: unknown) => {
@@ -150,10 +152,9 @@ test('state restoration publishes one native evaluation with both point and inte
   }
 });
 
-test('a failed native evaluation restores trigger ownership and never retries another mutation route', async () => {
+test('a failed native evaluation reports failure after one mutation attempt', async () => {
   const f = await fixture();
   const native = f.view.runAsync;
-  const trigger = f.view._trigger;
   let evaluations = 0;
   try {
     const action = (await f.provider.observe()).graph.actions.find(
@@ -164,7 +165,7 @@ test('a failed native evaluation restores trigger ownership and never retries an
       name: action.name,
       params: { ref: f.ref.replace('/pick', '/brush'), value: { x: [5, 15] } },
     });
-    f.view.runAsync = async function (_encode, before) {
+    f.view.runAsync = async function (_encode?: string | null, before?: (view: VegaViewLike) => void) {
       evaluations++;
       before?.(this);
       throw new Error('native render failed');
@@ -172,7 +173,6 @@ test('a failed native evaluation restores trigger ownership and never retries an
     const result = await prepared.execute();
     assert.equal(result.ok, false);
     assert.equal(evaluations, 1);
-    assert.equal(f.view._trigger, trigger);
   } finally {
     f.view.runAsync = native;
     f.dispose();

@@ -1,19 +1,11 @@
 import { expect } from '@playwright/test';
-import { test } from '../helpers/test';
+import { test, useWebMcp } from '../helpers/test';
 import { repoRoot } from '../helpers/paths';
-import { appServer } from '../helpers/servers';
-import type { WebMCP } from 'webmcp-types';
+import { gotoApp } from '../helpers/servers';
 
-type Caller = WebMCP.ModelContext & {
-  executeTool(tool: WebMCP.RegisteredTool, input: string): Promise<string>;
-};
-
-test.use({
-  launchOptions: { args: ['--enable-experimental-web-platform-features', '--enable-features=WebMCPTesting'] },
-});
+useWebMcp();
 
 test('dashboard discovery follows dataset, selection, restoration, and native view changes', async ({ page }) => {
-  const server = appServer('react-dashboard');
   const scatterRef = 'vacp://vacp-examples/react/dashboard/recharts/viz/scatter/mark/scatter';
   const chartRef = 'vacp://vacp-examples/react/dashboard/recharts/viz/scatter';
   // Applying a saved state is acquisition too: replay restores views recorded before any dataset loaded.
@@ -26,8 +18,7 @@ test('dashboard discovery follows dataset, selection, restoration, and native vi
     'vacp.progress',
     'vacp.state',
   ];
-  await page.goto(server.url);
-  await page.waitForFunction(() => !!window.__vacp);
+  await gotoApp(page, 'react-dashboard');
   const names = () =>
     page.evaluate(async () =>
       (await window.__vacp!.getCapabilities()).graph.actions.map((action) => action.name).sort(),
@@ -63,11 +54,9 @@ test('dashboard discovery follows dataset, selection, restoration, and native vi
 
   await test.step('native WebMCP acquisition reveals the chart and its prerequisites', async () => {
     const loaded = await page.evaluate(async () => {
-      const context = document.modelContext! as Caller;
+      const context = document.modelContext!;
       const tool = (await context.getTools()).find((tool) => tool.name === 'vacp.action.dashboard.set_dataset')!;
-      return JSON.parse(
-        await context.executeTool(tool, JSON.stringify({ id: 'iris', narration: 'Loading the iris measurements.' })),
-      );
+      return JSON.parse(await context.executeTool(tool, { id: 'iris', narration: 'Loading the iris measurements.' }));
     });
     expect(loaded.ok).toBe(true);
     await expect(page.locator('svg circle[data-point-id]')).toHaveCount(150);
@@ -143,10 +132,24 @@ test('dashboard discovery follows dataset, selection, restoration, and native vi
     await expect.poll(names).toContain('dashboard.set_encoding');
     await expect.poll(tools).not.toContain('vacp.action.dashboard.set_brush_2d');
     const inspection = await page.evaluate(async (root) => {
-      const { createInspectionIndex } = await import(`/@fs${root}/packages/inspector-core/src/index.ts`);
-      const { createRuntimeInspectorClient } = await import(`/@fs${root}/packages/inspector-core/src/runtime.ts`);
-      const client = createRuntimeInspectorClient({ id: 'dashboard', title: 'Dashboard', runtime: window.__vacp });
-      const observation = await client.observe({ signal: new AbortController().signal });
+      const { createInspectionIndex, createInspectorSession, createRuntimeInspectorClient } = await import(
+        `/@fs${root}/apps/e2e/fixtures/inspection.ts`
+      );
+      // The page publishes the runtime itself, whose snapshot subscription drives the session.
+      const session = createInspectorSession(
+        createRuntimeInspectorClient({ id: 'dashboard', title: 'Dashboard', runtime: window.__vacp }),
+      );
+      const ready = new Promise<void>((resolve) => {
+        const stop = session.subscribe(() => {
+          if (session.getState().status !== 'ready') return;
+          stop();
+          resolve();
+        });
+      });
+      session.start();
+      await ready;
+      const { observation } = session.getState();
+      session.dispose();
       const action = createInspectionIndex(observation).action('dashboard.set_brush_2d');
       return {
         catalog: observation.graph.actions.map((action: { name: string }) => action.name).sort(),
@@ -176,14 +179,11 @@ test('dashboard discovery follows dataset, selection, restoration, and native vi
 });
 
 test('native WebMCP lets an operation withdraw itself without losing its completed result', async ({ page }) => {
-  const server = appServer('react-dashboard');
-  await page.goto(server.url);
-  await page.waitForFunction(() => !!window.__vacp);
+  await gotoApp(page, 'react-dashboard');
   const result = await page.evaluate(async (root) => {
     const { createVacpRuntime, createVacpProvider, VacpActionRegistry } = await import(
       `/@fs${root}/packages/runtime/src/index.ts`
     );
-    const { VACP_SCHEMA_VERSION } = await import(`/@fs${root}/packages/protocol/src/index.ts`);
     const { installVacpWebMcp } = await import(`/@fs${root}/packages/transport-webmcp/src/index.ts`);
     const actions = new VacpActionRegistry();
     let available = true;
@@ -202,9 +202,9 @@ test('native WebMCP lets an operation withdraw itself without losing its complet
     const provider = createVacpProvider({
       source: { id: 'vacp-source://lifecycle', type: 'test', title: 'Lifecycle' },
       actions,
+      subscribe: () => () => {},
       project: () => ({
         graph: {
-          version: VACP_SCHEMA_VERSION,
           nodes: [
             {
               ref: 'vacp://step',
@@ -222,11 +222,9 @@ test('native WebMCP lets an operation withdraw itself without losing its complet
     const runtime = createVacpRuntime({ providers: [provider] });
     const installation = await installVacpWebMcp(runtime, { namespace: 'lifecycle' });
     try {
-      const context = document.modelContext! as Caller;
+      const context = document.modelContext!;
       const tool = (await context.getTools()).find((candidate) => candidate.name === 'lifecycle.action.complete')!;
-      const response = JSON.parse(
-        await context.executeTool(tool, JSON.stringify({ narration: 'Completing the task.' })),
-      );
+      const response = JSON.parse(await context.executeTool(tool, { narration: 'Completing the task.' }));
       await installation.refresh();
       return {
         response,

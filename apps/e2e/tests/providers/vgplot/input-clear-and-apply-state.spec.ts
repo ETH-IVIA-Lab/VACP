@@ -1,22 +1,13 @@
 import { expect, type Page } from '@playwright/test';
 import { test } from '../../helpers/test';
 
-import { appServer } from '../../helpers/servers';
+import { gotoApp } from '../../helpers/servers';
 import { executeOperation, operationNames } from '../operations';
-
-async function waitForBridge(page: Page): Promise<void> {
-  await page.waitForFunction(
-    () =>
-      !!globalThis.__vacp &&
-      typeof globalThis.__vacp.getState === 'function' &&
-      typeof globalThis.__vacp.execute === 'function',
-  );
-}
 
 async function firstStateRef(page: Page, kind: string): Promise<string> {
   const ref = await page.evaluate(async (kind) => {
     const vacp = globalThis.__vacp;
-    const snap = await vacp.getState();
+    const snap = await vacp.observe();
 
     return Object.entries(snap.state).find(([, value]) => (value as any)?.kind === kind)?.[0] ?? null;
   }, kind);
@@ -27,10 +18,7 @@ async function firstStateRef(page: Page, kind: string): Promise<string> {
 }
 
 test('vgplot: apply_state reports read-only DataHandle refs', async ({ page }) => {
-  const srv = appServer('vgplot-gallery');
-
-  await page.goto(`${srv.url}#us-state-map`, { waitUntil: 'domcontentloaded' });
-  await waitForBridge(page);
+  await gotoApp(page, 'vgplot-gallery', '#us-state-map');
 
   const handleRef = await firstStateRef(page, 'DataHandle');
 
@@ -38,7 +26,7 @@ test('vgplot: apply_state reports read-only DataHandle refs', async ({ page }) =
   const result = await page.evaluate(
     async ({ ref, names }) => {
       const vacp = globalThis.__vacp;
-      const snap = await vacp.getState();
+      const snap = await vacp.observe();
       const state = structuredClone(snap.state);
       state[ref] = { ...state[ref], auditProbe: 'json-tab-apply' };
 
@@ -64,53 +52,42 @@ test('vgplot: apply_state reports read-only DataHandle refs', async ({ page }) =
 });
 
 test('vgplot: apply_state restores PanZoom domains', async ({ page }) => {
-  const srv = appServer('vgplot-gallery');
-
-  await page.goto(`${srv.url}#pan-zoom`, { waitUntil: 'domcontentloaded' });
-  await waitForBridge(page);
+  await gotoApp(page, 'vgplot-gallery', '#pan-zoom');
 
   const names = await operationNames(page, ['vgplot.set_pan_zoom', 'vgplot.clear_pan_zoom', 'vacp.apply_state']);
   const replay = await page.evaluate(async (names) => {
     const vacp = globalThis.__vacp;
-    const snap = await vacp.getState();
+    const snap = await vacp.observe();
     const panZoomEntry = Object.entries(snap.state).find(([, value]) => (value as any)?.kind === 'PanZoom');
 
     if (!panZoomEntry) throw new Error('Missing PanZoom state');
     const [ref, panZoom] = panZoomEntry;
-    if (
-      !panZoom ||
-      typeof panZoom !== 'object' ||
-      !('xDomain' in panZoom) ||
-      !('yDomain' in panZoom) ||
-      !('plotId' in panZoom)
-    )
+    if (!panZoom || typeof panZoom !== 'object' || !('xDomain' in panZoom) || !('yDomain' in panZoom))
       throw new Error('Invalid pan/zoom state');
     if (!Array.isArray(panZoom.xDomain) || !Array.isArray(panZoom.yDomain)) throw new Error('Missing pan/zoom domains');
     const [x0, x1] = panZoom.xDomain;
     const [y0, y1] = panZoom.yDomain;
     const xSpan = x1 - x0 || 1;
     const ySpan = y1 - y0 || 1;
-    const interactorId = ref.split('/interactor/').at(-1);
     await vacp.execute({
       callId: crypto.randomUUID(),
       name: names['vgplot.set_pan_zoom'],
       params: {
-        plotId: panZoom.plotId,
-        interactorId,
+        ref,
         x0: x0 + xSpan * 0.25,
         x1: x0 + xSpan * 0.75,
         y0: y0 + ySpan * 0.25,
         y1: y0 + ySpan * 0.75,
       },
     });
-    const afterSet = await vacp.getState();
+    const afterSet = await vacp.observe();
     const expected = structuredClone(afterSet.state[ref]);
     const clearResult = await vacp.execute({
       callId: crypto.randomUUID(),
       name: names['vgplot.clear_pan_zoom'],
-      params: { plotId: panZoom.plotId, interactorId },
+      params: { ref },
     });
-    const cleared = (await vacp.getState()).state[ref];
+    const cleared = (await vacp.observe()).state[ref];
 
     const applyResult = await vacp.execute({
       callId: crypto.randomUUID(),
@@ -118,7 +95,7 @@ test('vgplot: apply_state restores PanZoom domains', async ({ page }) => {
       params: { state: structuredClone(afterSet.state) },
     });
 
-    const afterReplay = await vacp.getState();
+    const afterReplay = await vacp.observe();
 
     return { clearResult, cleared, applyResult, expected, actual: afterReplay.state[ref] };
   }, names);
@@ -135,14 +112,11 @@ test('vgplot: apply_state restores PanZoom domains', async ({ page }) => {
 });
 
 test('vgplot: slider input actions keep DataHandle SQL valid', async ({ page }) => {
-  const srv = appServer('vgplot-gallery');
-
-  await page.goto(`${srv.url}#athlete-height`, { waitUntil: 'domcontentloaded' });
-  await waitForBridge(page);
+  await gotoApp(page, 'vgplot-gallery', '#athlete-height');
 
   const refs = await page.evaluate(async () => {
     const vacp = globalThis.__vacp;
-    const [caps, snap] = await Promise.all([vacp.getCapabilities(), vacp.getState()]);
+    const [caps, snap] = await Promise.all([vacp.getCapabilities(), vacp.observe()]);
 
     return {
       widgetRef: Object.entries(snap.state).find(([, value]) => (value as any)?.kind === 'Widget')?.[0],
@@ -173,7 +147,7 @@ test('vgplot: slider input actions keep DataHandle SQL valid', async ({ page }) 
 
   expect(clearResult?.ok).toBe(true);
 
-  const clearState = await page.evaluate(async () => await globalThis.__vacp.getState());
+  const clearState = await page.evaluate(async () => await globalThis.__vacp.observe());
   expect(clearState?.state?.[refs.handleRef!]?.selectionWhere ?? null).toBeNull();
 
   const sqlResult = await executeOperation(page, 'vacp.data_sql', {
@@ -187,9 +161,7 @@ test('vgplot: slider input actions keep DataHandle SQL valid', async ({ page }) 
 });
 
 test('vgplot: menu option indices update the chart and clear restores the default frame', async ({ page }) => {
-  const srv = appServer('vgplot-gallery');
-  await page.goto(`${srv.url}#moving-average`, { waitUntil: 'domcontentloaded' });
-  await waitForBridge(page);
+  await gotoApp(page, 'vgplot-gallery', '#moving-average');
   const inputRef = await firstStateRef(page, 'Widget');
   const line = page.locator('#app svg g[aria-label="line"] path').first();
   await expect(line).toHaveAttribute('d', /^M/);
@@ -204,28 +176,29 @@ test('vgplot: menu option indices update the chart and clear restores the defaul
       return Boolean(path?.startsWith('M') && path !== originalPath);
     })
     .toBe(true);
-  expect((await page.evaluate(async () => globalThis.__vacp.getState())).state[inputRef].value).toEqual([-3, 3]);
+  expect((await page.evaluate(async () => globalThis.__vacp.observe())).state[inputRef].selectionValue).toEqual([
+    -3, 3,
+  ]);
 
   const clearResult = await executeOperation(page, 'vgplot.clear_input', { ref: inputRef });
   expect(clearResult.ok).toBe(true);
   expect(clearResult.result.value).toEqual([-6, 0]);
   await expect(line).toHaveAttribute('d', originalPath!);
-  expect((await page.evaluate(async () => globalThis.__vacp.getState())).state[inputRef].value).toEqual([-6, 0]);
+  expect((await page.evaluate(async () => globalThis.__vacp.observe())).state[inputRef].selectionValue).toEqual([
+    -6, 0,
+  ]);
   const choices = await executeOperation(page, 'vacp.widget_options', { ref: inputRef });
   expect(choices.ok).toBe(true);
   expect(choices.result.options).toEqual(
-    expect.arrayContaining([expect.objectContaining({ value: '-6,0' }), expect.objectContaining({ value: '-3,3' })]),
+    expect.arrayContaining([expect.objectContaining({ value: [-6, 0] }), expect.objectContaining({ value: [-3, 3] })]),
   );
 });
 
 test('vgplot: transient hover state stays bounded and read-only during restoration', async ({ page }) => {
-  const srv = appServer('vgplot-gallery');
-
-  await page.goto(`${srv.url}#normalize`, { waitUntil: 'domcontentloaded' });
-  await waitForBridge(page);
+  await gotoApp(page, 'vgplot-gallery', '#normalize');
 
   const nearest = await page.evaluate(async () => {
-    const snap = await globalThis.__vacp.getState();
+    const snap = await globalThis.__vacp.observe();
 
     return Object.values(snap.state).find((value: any) => value?.kind === 'Nearest') ?? null;
   });
@@ -250,7 +223,7 @@ test('vgplot: transient hover state stays bounded and read-only during restorati
   const names = await operationNames(page, ['vacp.apply_state']);
   const result = await page.evaluate(async (names) => {
     const vacp = globalThis.__vacp;
-    const snap = await vacp.getState();
+    const snap = await vacp.observe();
     const state = structuredClone(snap.state);
     const nearestEntry = Object.entries(state).find(([, value]) => (value as any)?.kind === 'Nearest');
 
@@ -259,22 +232,19 @@ test('vgplot: transient hover state stays bounded and read-only during restorati
     const [ref, value] = nearestEntry;
     state[ref] = {
       ...value,
-      value: ['2013-05-13T00:00:00.000Z'],
       selectionValue: {
-        value: '2013-05-13T00:00:00.000Z',
-        source: { value: ['2013-05-13T00:00:00.000Z'] },
-        predicate: { type: 'IN' },
+        date: '2013-05-13T00:00:00.000Z',
       },
     };
 
-    const cleared = { ...snap.state, [ref]: { ...value, value: null } };
+    const cleared = { ...snap.state, [ref]: { ...value, selectionValue: null } };
     const replay = async (operation: 'clear' | 'set', desired: typeof state) => {
       const applied = await vacp.execute({
         callId: crypto.randomUUID(),
         name: names['vacp.apply_state'],
         params: { state: desired },
       });
-      const after = await vacp.getState();
+      const after = await vacp.observe();
       return { operation, applied, actual: after.state[ref] };
     };
     return { ref, replays: [await replay('clear', cleared), await replay('set', state)] };
@@ -297,13 +267,11 @@ test('vgplot: transient hover state stays bounded and read-only during restorati
 });
 
 test('vgplot: search actions update native text, selection and observable state together', async ({ page }) => {
-  const srv = appServer('vgplot-gallery');
-  await page.goto(`${srv.url}#athletes`, { waitUntil: 'domcontentloaded' });
-  await waitForBridge(page);
+  await gotoApp(page, 'vgplot-gallery', '#athletes');
   const search = page.getByLabel('Name', { exact: true });
   await expect(search).toBeVisible();
   const inputRef = await page.evaluate(async () => {
-    const { state } = await globalThis.__vacp.getState();
+    const { state } = await globalThis.__vacp.observe();
     const entry = Object.entries(state).find(
       ([, value]) => value && typeof value === 'object' && 'widgetKind' in value && value.widgetKind === 'Search',
     );
@@ -313,12 +281,13 @@ test('vgplot: search actions update native text, selection and observable state 
   const set = await executeOperation(page, 'vgplot.set_input_value', { ref: inputRef, value: 'Smith' });
   expect(set.ok).toBe(true);
   await expect(search).toHaveValue('Smith');
-  const state = await page.evaluate(async (ref) => (await globalThis.__vacp.getState()).state[ref], inputRef);
-  expect(state.value).toBe('Smith');
-  expect(JSON.stringify(state.selectionValue)).toContain('Smith');
+  const state = await page.evaluate(async (ref) => (await globalThis.__vacp.observe()).state[ref], inputRef);
+  expect(state.selectionValue).toBe('Smith');
   await search.fill('Jones');
   await expect
-    .poll(async () => page.evaluate(async (ref) => (await globalThis.__vacp.getState()).state[ref].value, inputRef))
+    .poll(async () =>
+      page.evaluate(async (ref) => (await globalThis.__vacp.observe()).state[ref].selectionValue, inputRef),
+    )
     .toBe('Jones');
   const clear = await executeOperation(page, 'vgplot.clear_input', { ref: inputRef });
   expect(clear.ok).toBe(true);

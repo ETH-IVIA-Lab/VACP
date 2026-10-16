@@ -1,8 +1,9 @@
 import { exampleDuckDbBundles } from '@vacp/example-shared';
+import { registerVacpDataSchemaAction, registerVacpDataSqlAction } from '@vacp/runtime';
 import type { VacpActions } from '@vacp/sdk';
 import {
   createDuckDbDataSchemaHandler,
-  createDuckDbSqlRouter,
+  createDuckDbDataSqlHandler,
   createDuckDbWasmClient,
   describeDuckDbTable,
   makeVacpDuckDbTableName,
@@ -46,7 +47,7 @@ export function createDashboardData(actions: VacpActions, model: ReactDashboardM
       const load = (async () => {
         const db = await duckdb;
         await db.exec(`DROP TABLE IF EXISTS ${tableName}`);
-        await db.loadObjectsAsTable(tableName, dataset.rows, { create: true });
+        await db.loadObjectsAsTable(tableName, dataset.rows, {});
         columns = (await describeDuckDbTable({ duckdb: db, table: tableName }).catch(() => null))?.columns;
 
         loadedDatasetId = datasetId;
@@ -62,29 +63,25 @@ export function createDashboardData(actions: VacpActions, model: ReactDashboardM
     }
   };
 
-  const sql = createDuckDbSqlRouter({ duckdb });
-  sql.addHandle({
-    handleRef,
-    getAllSql: async () => {
+  const sql = createDuckDbDataSqlHandler({
+    duckdb,
+    resolveHandle: async (ref) => {
+      if (ref !== handleRef) return null;
       await ensureDuckDbLoaded();
-
-      return `SELECT * FROM ${tableName}`;
-    },
-    getSelectedSql: async () => {
-      await ensureDuckDbLoaded();
+      const allSql = `SELECT * FROM ${tableName}`;
       const where = selectionWhere(model.read());
-
-      return where ? `SELECT * FROM ${tableName} WHERE ${where}` : `SELECT * FROM ${tableName}`;
+      return { allSql, selectedSql: where ? `${allSql} WHERE ${where}` : allSql };
     },
   });
-  actions.standard.dataSql(sql.handler, {
-    enabled: enableSql,
-    availability: { requires: [handleRef] },
-    inputRefs: [handleRef],
-    description: 'Query the current dataset via DuckDB SQL.',
-  });
+  if (enableSql)
+    registerVacpDataSqlAction(actions.registry, sql, {
+      availability: { requires: [handleRef] },
+      inputRefs: [handleRef],
+      description: 'Query the current dataset via DuckDB SQL.',
+    });
 
-  actions.standard.dataSchema(
+  registerVacpDataSchemaAction(
+    actions.registry,
     createDuckDbDataSchemaHandler({
       duckdb,
       resolveHandle: async (ref) => {

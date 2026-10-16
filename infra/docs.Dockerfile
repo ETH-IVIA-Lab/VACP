@@ -1,20 +1,18 @@
 # syntax=docker/dockerfile:1.7
-FROM node:24.16.0-slim AS build
-ENV PNPM_HOME=/pnpm
-ENV PATH=$PNPM_HOME:$PATH
+FROM ghcr.io/pnpm/pnpm:12 AS build
 WORKDIR /app
-RUN corepack enable
-COPY package.json pnpm-lock.yaml pnpm-workspace.yaml tsconfig.json tsconfig.base.json vite.config.ts vite.shared.ts Makefile ./
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml tsconfig.json tsconfig.base.json vite.config.ts vite.shared.ts ./
+COPY patches patches
 COPY apps apps
 COPY docs docs
 COPY examples examples
 COPY packages packages
 COPY tools tools
-RUN --mount=type=cache,id=pnpm-store,target=/pnpm/store \
-    pnpm install --frozen-lockfile
+RUN --mount=type=cache,id=pnpm-store,target=/var/cache/pnpm \
+    pnpm install --frozen-lockfile --store-dir /var/cache/pnpm
 RUN pnpm --filter '@vacp/docs...' build
 
 FROM nginx:stable-alpine AS runtime
-COPY --from=build /app/apps/docs/.vitepress/dist/ /usr/share/nginx/html/
+COPY --from=build /app/docs/.vitepress/dist/ /usr/share/nginx/html/
 COPY infra/nginx.conf /etc/nginx/conf.d/default.conf
 EXPOSE 3000

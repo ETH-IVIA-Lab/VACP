@@ -1,14 +1,11 @@
-import type { PresenceResolver } from '@vacp/presence-core';
-import { elementPresenceTarget, observePresenceLayout, svgPresenceTarget } from '@vacp/presence-browser/targets';
+import type { PresencePresentation, PresenceResolver } from '@vacp/presence-core';
+import { elementPresenceTarget, observePresenceLayout, svgPresenceTarget } from '@vacp/presence-core/dom';
 import { providerBindings } from './provider-bindings';
 import type { VacpProvider } from '@vacp/protocol';
 import { intervalDomainValue } from './interactors/interval';
 
 /** Project semantic interaction refs through the live interactor's scales and facet groups. */
-export function createVgplotPresentation(args: { provider: VacpProvider; root: Element }): {
-  resolve: PresenceResolver;
-  subscribe: (invalidate: () => void) => () => void;
-} {
+export function createVgplotPresentation(args: { provider: VacpProvider; root: Element }): PresencePresentation {
   const bindings = providerBindings.get(args.provider);
   if (!bindings) throw new Error('VGPlot presentation requires a live VGPlot provider');
   const resolve: PresenceResolver = (focus, { signal }) => {

@@ -3,38 +3,24 @@
 from __future__ import annotations
 
 import json
-from dataclasses import dataclass
+from collections.abc import Callable
 from typing import Any, Protocol
 
 from playwright.async_api import Page
 
-from vacp.agent_tools import CapabilitiesRequest, StateRequest
+from vacp.agent_tools import AGENT_ACTOR, CapabilitiesRequest, StateRequest
+from vacp.provider import VACP_SCHEMA_VERSION, ActionCall, ActionResult
 
-_OMITTED = object()
-
-
-@dataclass(frozen=True)
-class ActionCall:
-    call_id: str
-    name: str
-    params: object = _OMITTED
-
-    @property
-    def has_params(self) -> bool:
-        """Whether the caller supplied parameters, including an explicit null."""
-        return self.params is not _OMITTED
-
-
-@dataclass(frozen=True)
-class ActionResult:
-    call_id: str
-    ok: bool
-    result: object | None = None
-    error: dict[str, object] | None = None
-
-
-# Steps and narration share one actor, so they join one presence entry and one turn.
-AGENT: dict[str, str] = {'id': 'agent', 'kind': 'agent', 'label': 'Agent'}
+# The members the five agent tools call. A page whose bridge lacks one cannot serve them.
+_BRIDGE_CHECK = """
+({ key, version }) => {
+  const b = globalThis?.[key];
+  return !!(b
+    && typeof b === 'object'
+    && b.version === version
+    && ['observe', 'getCapabilities', 'getState', 'execute', 'narrate'].every((m) => typeof b[m] === 'function'));
+}
+"""
 
 
 class VacpBridgeClient(Protocol):
@@ -42,79 +28,58 @@ class VacpBridgeClient(Protocol):
 
     async def get_capabilities(self, request: CapabilitiesRequest | None = None) -> dict[str, object]: ...
 
-    async def get_state(self, request: StateRequest | None = None) -> dict[str, object]: ...
+    async def get_state(self, request: StateRequest) -> dict[str, object]: ...
 
-    async def execute(self, call: ActionCall, *, narration: str | None = None) -> ActionResult: ...
+    async def execute(self, call: ActionCall, *, narration: str) -> ActionResult: ...
 
     async def progress(self, message: str, *, done: bool = False) -> None: ...
 
 
 class PlaywrightVacpBridgeClient(VacpBridgeClient):
     """
-    Call `window.__vacp` through a Playwright page.
+    Call the page's `window[global_key]` bridge through the Playwright page `page()` returns. Steps and
+    narration share `AGENT_ACTOR`, so they join one presence entry and one turn.
     """
 
-    def __init__(self, page: Page, *, global_key: str = '__vacp'):
+    def __init__(self, page: Callable[[], Page], *, global_key: str = '__vacp'):
         self._page = page
         self._global_key = global_key
 
     async def _require_bridge(self) -> None:
-        ok = bool(
-            await self._page.evaluate(
-                """
-                (key) => {
-                  const b = globalThis?.[key];
-                  return !!(b
-                    && typeof b === 'object'
-                    && typeof b.observe === 'function'
-                    && typeof b.getCapabilities === 'function'
-                    && typeof b.getState === 'function'
-                    && typeof b.execute === 'function');
-                }
-                """,
-                self._global_key,
-            )
-        )
-        if not ok:
-            raise RuntimeError('VACP window bridge not available (expected window.__vacp)')
+        if not await self._page().evaluate(_BRIDGE_CHECK, {'key': self._global_key, 'version': VACP_SCHEMA_VERSION}):
+            raise RuntimeError(f'No VACP {VACP_SCHEMA_VERSION} bridge that can narrate at window.{self._global_key}')
 
     async def _read(self, call: str, arg: object) -> Any:
         """Run `call` in the page and read its value as the page's JSON writes it.
 
         Dates arrive as ISO instants and undefined fields stay out, as they do for TypeScript tools.
         """
-        text = await self._page.evaluate(f'async (arg) => JSON.stringify(await ({call})(arg))', arg)
+        await self._require_bridge()
+        text = await self._page().evaluate(f'async (arg) => JSON.stringify(await ({call})(arg))', arg)
         return json.loads(text) if isinstance(text, str) else None
 
     async def observe(self) -> dict[str, object]:
-        await self._require_bridge()
         return await self._read('(key) => globalThis[key].observe()', self._global_key)
 
     async def get_capabilities(self, request: CapabilitiesRequest | None = None) -> dict[str, object]:
-        await self._require_bridge()
         return await self._read(
-            '({ key, request }) => (request ? globalThis[key].getCapabilities(request) : '
-            'globalThis[key].getCapabilities())',
+            '({ key, request }) => globalThis[key].getCapabilities(request ?? undefined)',
             {'key': self._global_key, 'request': request},
         )
 
-    async def get_state(self, request: StateRequest | None = None) -> dict[str, object]:
-        await self._require_bridge()
+    async def get_state(self, request: StateRequest) -> dict[str, object]:
         return await self._read(
-            '({ key, request }) => request ? globalThis[key].getState(request) : globalThis[key].getState()',
-            {'key': self._global_key, 'request': request},
+            '({ key, request }) => globalThis[key].getState(request)', {'key': self._global_key, 'request': request}
         )
 
-    async def execute(self, call: ActionCall, *, narration: str | None = None) -> ActionResult:
+    async def execute(self, call: ActionCall, *, narration: str) -> ActionResult:
         """Execute one action. `narration` is the step's own sentence, which the execution carries."""
-        await self._require_bridge()
         payload: dict[str, object] = {'callId': call.call_id, 'name': call.name}
         if call.has_params:
             payload['params'] = call.params
         raw = await self._read(
-            """({ key, payload, actor, narration }) =>
-              globalThis[key].execute(payload, narration ? { actor, narration } : undefined)""",
-            {'key': self._global_key, 'payload': payload, 'actor': AGENT, 'narration': narration},
+            '({ key, payload, actor, narration }) => globalThis[key].execute(payload, { actor, narration })',
+            {'key': self._global_key, 'payload': payload, 'actor': AGENT_ACTOR, 'narration': narration},
         )
         if isinstance(raw, dict) and 'callId' in raw and 'ok' in raw:
             return ActionResult(
@@ -131,13 +96,7 @@ class PlaywrightVacpBridgeClient(VacpBridgeClient):
         turn, later ones replace its words, and `done` closes it. The runtime closes a turn left quiet
         once the agent has no step in flight.
         """
-        await self._require_bridge()
-        await self._page.evaluate(
-            """
-            ({ key, actor, message, done }) => {
-              const bridge = globalThis[key];
-              if (typeof bridge.narrate === 'function') bridge.narrate({ actor, message, done });
-            }
-            """,
-            {'key': self._global_key, 'actor': AGENT, 'message': message, 'done': done},
+        await self._read(
+            '({ key, actor, message, done }) => globalThis[key].narrate({ actor, message, done })',
+            {'key': self._global_key, 'actor': AGENT_ACTOR, 'message': message, 'done': done},
         )

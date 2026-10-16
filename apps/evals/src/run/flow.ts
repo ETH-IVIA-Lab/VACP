@@ -31,7 +31,7 @@ export type RunOptions = {
   fresh?: boolean;
   /** Record prompts, replies, and tool payloads in spans. Transcripts under `traces/` always hold them. */
   traceContent?: boolean;
-  log(line: string): void;
+  log: (line: string) => void;
   signal: AbortSignal;
 };
 

@@ -62,22 +62,5 @@ export function actionsForSpec(options: VegaLiteProviderOptions, spec: VegaLiteS
     });
   }
 
-  if (options.includeSetSignalAction) {
-    actions.push({
-      name: 'vega.set_signal',
-      title: 'Set signal',
-      description: 'Set a named Vega signal for debugging.',
-      operation: { kind: 'mutation', affects: [vizRef] },
-      parameters: {
-        type: 'object',
-        properties: {
-          name: { type: 'string' },
-          value: {},
-        },
-        required: ['name', 'value'],
-      },
-    });
-  }
-
   return actions;
 }

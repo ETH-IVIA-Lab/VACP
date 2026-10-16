@@ -5,12 +5,7 @@ import { performance } from 'node:perf_hooks';
  * untimed ahead of each operation, for state the operation consumes, and then each operation is
  * timed alone.
  */
-export async function measure(
-  name: string,
-  run: () => unknown | Promise<unknown>,
-  iterations = 100,
-  before?: () => unknown | Promise<unknown>,
-) {
+export async function measure(name: string, run: () => unknown, iterations = 100, before?: () => unknown) {
   const batch = async () => {
     if (!before) {
       const start = performance.now();

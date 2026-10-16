@@ -1,5 +1,5 @@
 import { test as base } from '@playwright/test';
-import type { ExampleOptions } from '../../../../examples/config';
+import type { ExampleOptions } from '@vacp/example-shared/config';
 
 /**
  * Examples pace agent steps so a person can follow them. Wiring tests run unpaced; presence specs

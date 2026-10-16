@@ -1,15 +1,13 @@
 import { expect } from '@playwright/test';
 import { test } from '../../helpers/test';
-import { appServer } from '../../helpers/servers';
+import { gotoApp } from '../../helpers/servers';
 
 test('explicit apply_state restores a recorded interval brush and later human brushing still applies', async ({
   page,
 }) => {
-  const srv = appServer('vgplot-gallery');
   const errors: string[] = [];
   page.on('pageerror', (error) => errors.push(error.message));
-  await page.goto(`${srv.url}#weather`, { waitUntil: 'domcontentloaded' });
-  await page.waitForFunction(() => !!globalThis.__vacp);
+  await gotoApp(page, 'vgplot-gallery', '#weather');
 
   const overlay = page.locator('#app svg').first().locator('rect.overlay').first();
   await expect(overlay).toBeVisible();
@@ -37,7 +35,7 @@ test('explicit apply_state restores a recorded interval brush and later human br
   await expect.poll(async () => (await painted()).width).toBeGreaterThan(2);
   const recorded = await painted();
   await page.evaluate(() =>
-    globalThis.__vacp.refresh!({ actor: { id: 'human', kind: 'human' }, message: 'First brush' }),
+    globalThis.__vacp.refresh({ actor: { id: 'human', kind: 'human' }, message: 'First brush' }),
   );
   await brush(0.6, 0.9);
   await expect.poll(near).toBe(false);

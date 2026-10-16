@@ -3,16 +3,14 @@ import { test } from '../helpers/test';
 
 // Presence follows agent steps at the pace people see them.
 test.use({ exampleOptions: { paceAgentSteps: true } });
-import { appServer } from '../helpers/servers';
+import { gotoApp } from '../helpers/servers';
 
 test('public progress waits visibly, then streams incremental Markdown without remounting old words and accepts corrections', async ({
   page,
 }) => {
-  const server = appServer('athlete-explorer');
   const errors: string[] = [];
   page.on('pageerror', (error) => errors.push(error.message));
-  await page.goto(server.url);
-  await page.waitForFunction(() => !!window.__vacp?.beginAgentActivity);
+  await gotoApp(page, 'athlete-explorer');
   await page.evaluate(() => {
     window.__vacpStream = window.__vacp!.beginAgentActivity({
       actor: { id: 'writer', kind: 'agent', label: 'Analyst' },

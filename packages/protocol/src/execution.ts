@@ -1,4 +1,4 @@
-import type { VacpActionExecutionOptions, VacpActionResult, VacpRef, VacpSourceId } from './schema';
+import type { VacpActionResult, VacpOperationKind, VacpRef, VacpSourceId } from './schema';
 
 /** An action failure with transport-neutral, serializable details. */
 export class VacpActionError<Details = unknown> extends Error {
@@ -13,6 +13,26 @@ export class VacpActionError<Details = unknown> extends Error {
 
 /** Identity supplied by the calling host, separate from action parameters. */
 export type VacpActor = { id: string; label?: string; kind: 'agent' | 'human' | 'system' };
+
+/** The actor every agent transport attributes calls to when the host names none. `test/fixtures/agent-tools.json` pins it for the Python server. */
+export const vacpAgentActor: VacpActor = Object.freeze({ id: 'agent', kind: 'agent', label: 'Agent' });
+
+/** The actor restoration and replay attribute to when the host names none. */
+export const vacpHumanActor: VacpActor = Object.freeze({ id: 'human', kind: 'human', label: 'You' });
+
+/** In-process execution controls; these are not part of the serialized call. */
+export type VacpActionExecutionOptions = {
+  signal?: AbortSignal;
+  /** Host attribution, never inferred from model-supplied action parameters. */
+  actor?: VacpActor;
+  /** Host-owned provenance for restoring a recorded state, not a new analytical step. */
+  restoration?: { id: string; entryId?: string };
+  /**
+   * The step's own public sentence for the person watching. The execution carries it from acceptance,
+   * so the live step and its replay show the same words. At most `VACP_NARRATION_MAX_LENGTH` code points.
+   */
+  narration?: string;
+};
 
 /** Optional interaction meaning. Renderers choose their own assets and feedback. */
 export type VacpInteraction = {
@@ -43,7 +63,7 @@ export type VacpExecution = {
   callId: string;
   name: string;
   title?: string;
-  operationKind?: import('./schema').VacpOperationKind;
+  operationKind?: VacpOperationKind;
   actor: VacpActor;
   /** The actor's public activity, its turn, when the execution began. Steps of one request share it. */
   activityId?: string;

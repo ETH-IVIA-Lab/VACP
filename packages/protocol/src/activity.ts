@@ -25,10 +25,11 @@ export type VacpAgentActivityHandle = {
 export interface VacpAgentActivityControl {
   beginAgentActivity(options: { actor: VacpActor; summary?: string; signal?: AbortSignal }): VacpAgentActivityHandle;
   /**
-   * Speak for an agent whose turns have no lifecycle of their own, such as a model calling a progress
-   * tool. The first sentence opens a turn, later sentences replace its words, and `done` closes it with
-   * its sentence. A turn left quiet closes once the actor has no execution in flight. Aborting `signal`
-   * cancels the open turn.
+   * Speak for an agent, such as a model calling a progress tool. A sentence joins the actor's open
+   * turn, whether a host, a step, or an earlier sentence opened it, and otherwise opens one. Later
+   * sentences replace its words, and `done` closes it with its sentence. A turn opened by a sentence or
+   * a step closes once quiet with no execution in flight. Aborting `signal` cancels a turn this call
+   * opens.
    */
   narrate(input: { actor: VacpActor; message: string; done?: boolean; signal?: AbortSignal }): void;
 }

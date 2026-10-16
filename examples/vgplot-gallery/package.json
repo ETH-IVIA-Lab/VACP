@@ -13,17 +13,19 @@
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
-    "@uwdata/mosaic-core": "^0.21.1",
-    "@uwdata/mosaic-spec": "^0.21.1",
-    "@uwdata/vgplot": "^0.21.1",
+    "@uwdata/mosaic-core": "catalog:",
+    "@uwdata/mosaic-inputs": "catalog:",
+    "@uwdata/mosaic-plot": "catalog:",
+    "@uwdata/mosaic-spec": "catalog:",
+    "@uwdata/vgplot": "catalog:",
     "@vacp/adapter-vgplot": "workspace:*",
     "@vacp/data-duckdb": "workspace:*",
     "@vacp/example-shared": "workspace:*",
+    "@vacp/protocol": "workspace:*",
     "marked": "^17.0.6",
     "yaml": "catalog:"
   },
   "devDependencies": {
-    "@tailwindcss/vite": "catalog:",
     "portless": "catalog:",
     "vite-plus": "catalog:"
   },

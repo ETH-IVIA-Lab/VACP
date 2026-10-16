@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { VACP_SCHEMA_VERSION, type VacpExecution } from '@vacp/protocol';
+import type { VacpExecution } from '@vacp/protocol';
 import { createVacpProvider, createVacpRuntime, VacpActionRegistry } from '../src/index';
 
 function fixture() {
@@ -25,11 +25,11 @@ function fixture() {
     },
   );
   const provider = createVacpProvider({
+    subscribe: () => () => {},
     source: { id: 'vacp-source://test', type: 'test', title: 'Test' },
     actions,
     project: () => ({
       graph: {
-        version: VACP_SCHEMA_VERSION,
         nodes: [{ ref: 'vacp://plot', kind: 'View', layer: 'ViewLayer' }],
         edges: [],
         actions: actions.list(),
@@ -142,7 +142,7 @@ test('presentation gates fail open, but provider replacement aborts prepared exe
     const lease = f.runtime.getProviderBinding(f.provider);
     const pending = f.runtime.execute({ callId: 'replaced', name: 'set', params: 2 });
     await entered;
-    f.runtime.removeProvider(f.provider.source.id);
+    f.runtime.update({ providers: [] });
     await assert.rejects(pending, /abort/i);
     assert.equal(lease.signal.aborted, true);
     assert.equal(f.events.at(-1)!.phase, 'cancelled');
@@ -332,11 +332,11 @@ test('an uncloneable post-action state is unavailable evidence, not a failed com
   const runtime = createVacpRuntime({
     providers: [
       createVacpProvider({
+        subscribe: () => () => {},
         source: { id: 'vacp-source://capture-state', type: 'test', title: 'Capture state' },
         actions,
         project: () => ({
           graph: {
-            version: VACP_SCHEMA_VERSION,
             nodes: [{ ref: 'vacp://value', kind: 'Param', layer: 'ConfigLayer' }],
             edges: [],
             actions: actions.list(),

@@ -88,14 +88,14 @@ export function createLiveObservations(read: () => Promise<VacpResolvedObservati
       snapshotKey = undefined;
       graph = undefined;
     },
-    subscribeCapabilities(listener: (snapshot: VacpCapabilitiesSnapshot) => void) {
+    subscribeCapabilities(this: void, listener: (snapshot: VacpCapabilitiesSnapshot) => void) {
       signal.throwIfAborted();
       capabilityListeners.add(listener);
       return () => {
         capabilityListeners.delete(listener);
       };
     },
-    subscribeSnapshots(listener: (snapshots: VacpLiveSnapshots) => void) {
+    subscribeSnapshots(this: void, listener: (snapshots: VacpLiveSnapshots) => void) {
       signal.throwIfAborted();
       snapshotListeners.add(listener);
       snapshotKey = undefined;

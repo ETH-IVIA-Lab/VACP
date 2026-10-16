@@ -7,14 +7,15 @@ function fixture() {
   const actions = new VacpActionRegistry();
   actions.register({ name: 'change', description: 'Change', operation: { kind: 'mutation' } }, () => 1);
   const provider = createVacpProvider({
+    subscribe: () => () => {},
     source: { id: 'vacp-source://analytics-test', type: 'test', title: 'Analytics test' },
     actions,
-    project: () => ({ graph: { version: '0.1.0', nodes: [], edges: [], actions: actions.list() }, state: {} }),
+    project: () => ({ graph: { nodes: [], edges: [], actions: actions.list() }, state: {} }),
   });
   return { provider, runtime: createVacpRuntime({ runtimeId: 'runtime-1', providers: [provider] }) };
 }
 
-test('telemetry replaces subscriptions and old cleanup cannot detach its successor', async (t) => {
+test('telemetry installations detach independently', async (t) => {
   const { runtime } = fixture();
   t.after(() => runtime.dispose());
   const bridge = Object.freeze({ ...runtime });
@@ -22,18 +23,18 @@ test('telemetry replaces subscriptions and old cleanup cannot detach its success
   const nextEvents: string[] = [];
   const first = installVacpRuntimeAnalytics({
     bridge,
-    provider: { name: 'test', capture: (event) => firstEvents.push(event) },
+    provider: { capture: (event) => firstEvents.push(event) },
   });
   const next = installVacpRuntimeAnalytics({
     bridge,
-    provider: { name: 'test', capture: (event) => nextEvents.push(event) },
+    provider: { capture: (event) => nextEvents.push(event) },
   });
-  t.after(() => next.cleanup());
-  first.cleanup();
+  t.after(() => next.dispose());
   await runtime.execute({ callId: 'change', name: 'change' });
-  assert.deepEqual(firstEvents, ['vacp_runtime_init']);
+  assert.deepEqual(firstEvents, ['vacp_runtime_init', 'vacp_action']);
+  first.dispose();
   assert.deepEqual(nextEvents, ['vacp_runtime_init', 'vacp_action']);
-  next.cleanup();
+  next.dispose();
   await runtime.execute({ callId: 'next', name: 'change' });
   assert.equal(nextEvents.length, 2);
 });
@@ -46,20 +47,19 @@ test('session reset discards pending telemetry snapshots and flushes only the cu
   const sessions: Array<Record<string, unknown>> = [];
   const telemetry = installVacpRuntimeAnalytics({
     bridge: runtime,
-    options: { captureSnapshots: true, snapshotCaptureIntervalMs: 1000, sessionFlushIntervalMs: 50 },
+    captureSnapshots: true,
     provider: {
-      name: 'test',
       capture: (_event, props) => captures.push(props ?? {}),
       setSessionProperties: (props) => sessions.push(props),
     },
   });
-  t.after(() => telemetry.cleanup());
+  t.after(() => telemetry.dispose());
   await runtime.refresh({ message: 'old-first' });
   await runtime.refresh({ message: 'old-pending' });
   runtime.update({ providers: [provider], sessionKey: 'new' });
   await runtime.refresh({ message: 'new-session' });
   t.mock.timers.tick(1000);
-  // The pending snapshot of the previous session is dropped; delivered ones keep their order.
+  // The pending snapshot of the previous session is dropped. Delivered ones keep their order.
   const observed = new Set(['old-first', 'old-pending', 'new-session']);
   assert.deepEqual(
     captures.flatMap(({ message }) => (observed.has(message as string) ? [message] : [])),
@@ -73,4 +73,28 @@ test('session reset discards pending telemetry snapshots and flushes only the cu
     ['session', 'observation'],
   );
   assert.equal(history.at(-1)!.message, 'new-session');
+});
+
+test('runtime disposal cancels pending session and snapshot delivery', async (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  const { runtime } = fixture();
+  t.after(() => runtime.dispose());
+  const events: string[] = [];
+  const sessions: unknown[] = [];
+  const telemetry = installVacpRuntimeAnalytics({
+    bridge: runtime,
+    captureSnapshots: true,
+    provider: {
+      capture: (event) => events.push(event),
+      setSessionProperties: (properties) => sessions.push(properties),
+    },
+  });
+  t.after(() => telemetry.dispose());
+  await runtime.refresh({ message: 'first' });
+  await runtime.refresh({ message: 'pending' });
+  const before = [...events];
+  runtime.dispose();
+  t.mock.timers.tick(2000);
+  assert.deepEqual(events, before);
+  assert.deepEqual(sessions, []);
 });

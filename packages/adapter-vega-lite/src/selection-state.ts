@@ -35,7 +35,6 @@ export function selectionTuple(value: unknown, defaultUnit?: string): SelectionT
 
 /** Retain only selection tuples, never arbitrary Vega data or signal state. */
 export function readSelectionTuples(view: VegaViewLike, name: string): SelectionTuple[] | undefined {
-  if (!view.data) return undefined;
   let rows: unknown;
   try {
     rows = view.data(`${name}_store`);

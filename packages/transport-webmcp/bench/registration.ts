@@ -3,7 +3,6 @@ import { VACP_SCHEMA_VERSION, type VacpGraph, type VacpCapabilitiesSnapshot } fr
 import { installVacpWebMcp, type VacpWebMcpSource } from '../src/index';
 
 const revisions: VacpGraph[] = Array.from({ length: 51 }, (_, revision) => ({
-  version: VACP_SCHEMA_VERSION,
   sources: [{ id: 'vacp-source://benchmark', type: 'benchmark', title: 'WebMCP benchmark' }],
   ownership: {
     nodes: {},
@@ -25,7 +24,7 @@ async function measureBurst() {
   let registrations = 0;
   const source: VacpWebMcpSource = {
     signal: new AbortController().signal,
-    observe: () => ({
+    observe: async () => ({
       version: VACP_SCHEMA_VERSION,
       revision: 'benchmark',
       observedAt: '',
@@ -36,11 +35,12 @@ async function measureBurst() {
       publish = listener;
       return () => {};
     },
-    getCapabilities: () => ({ version: VACP_SCHEMA_VERSION, createdAt: '', graph }),
+    getCapabilities: async () => ({ version: VACP_SCHEMA_VERSION, createdAt: '', graph }),
     getState: async () => {
       throw new Error('This benchmark only registers tools');
     },
     execute: async (call) => ({ callId: call.callId, ok: true }),
+    narrate: () => {},
   };
   const installation = await installVacpWebMcp(source, {
     context: {

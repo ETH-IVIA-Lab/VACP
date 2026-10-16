@@ -1,18 +1,22 @@
-import '../../shell.css';
-import { run } from './app';
+import { createDuckDbWasmClient } from '@vacp/data-duckdb';
+import { exampleDuckDbBundles, mountSpecGallery } from '@vacp/example-shared';
+import { loadGallery } from './gallery';
+import { renderSpec } from './vacp';
 
-export async function mount(target: HTMLElement): Promise<void> {
-  target.innerHTML = `
-    <section class="example-shell">
-      <div class="example-shell__panel">
-        <header class="example-shell__header">
-          <h1 id="spec-title" class="example-shell__title"></h1>
-          <label class="example-shell__picker">Other views<select id="spec" class="example-shell__select" aria-label="Visualization"></select></label>
-        </header>
-        <p id="spec-meta" class="example-shell__meta"></p>
-        <div id="app" class="example-shell__stage"></div>
-      </div>
-    </section>
-  `;
-  await run();
+export async function mount(target: HTMLElement): Promise<() => Promise<void>> {
+  const duckdb = createDuckDbWasmClient({ bundles: exampleDuckDbBundles });
+  const release = () => duckdb.then((client) => client.dispose());
+  try {
+    const unmount = await mountSpecGallery(target, {
+      entries: loadGallery(),
+      render: (entry, context) => renderSpec(entry, { ...context, duckdb }),
+    });
+    return async () => {
+      await unmount();
+      await release();
+    };
+  } catch (error) {
+    await release().catch(() => {});
+    throw error;
+  }
 }

@@ -155,6 +155,7 @@ test('wrapTransportWithVacpContextCompaction bounds recent tool payloads before 
   });
 
   const toolPart = seen[1]!.parts[0];
+  assert.ok(toolPart && toolPart.type === 'tool-vacp_state');
   assert.deepEqual(toolPart.input, { at: '2026-03-05T12:34:56.000Z' });
   assert.deepEqual(toolPart.output, { values: [1, null, '2026-03-05T12:34:56.000Z'] });
 });

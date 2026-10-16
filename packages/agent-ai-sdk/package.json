@@ -8,21 +8,23 @@
   "type": "module",
   "exports": {
     ".": {
+      "vacp-source": "./src/index.ts",
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
     }
   },
   "scripts": {
     "build": "vp pack",
-    "typecheck": "tsc -p tsconfig.json",
     "test": "pnpm exec tsx --test --test-timeout=10000 test/*.test.ts"
   },
   "dependencies": {
-    "@ai-sdk/google": "^4.0.85",
-    "@ai-sdk/openai-compatible": "catalog:",
+    "@types/json-schema": "7.0.15",
     "@vacp/protocol": "workspace:*",
     "@vacp/transport-bridge": "workspace:*",
     "ai": "catalog:",
     "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@vacp/runtime": "workspace:*"
   }
 }

@@ -14,22 +14,21 @@ VACP composes analytical sources, state, freshness, and semantic operations thro
 - `packages/adapter-vega-lite`, `packages/adapter-vgplot`: visualization providers.
 - `packages/agent-ai-sdk`, `packages/python`: model orchestration and MCP transport.
 - `packages/provenance-core`: checkpoint projection and independently owned replay controllers.
-- `packages/presence-core`: headless agent activity, semantic target resolution, and presentation ports.
-- `packages/presence-browser`: optional React cursor overlay styled with StyleX, and browser geometry helpers.
+- `packages/presence-core`: headless agent activity, semantic target resolution, presentation ports, and DOM geometry (`./dom`).
+- `packages/presence-browser`: optional React cursor overlay styled with StyleX.
 - `packages/inspector-core`: viewer contracts, local history, and client connections.
-- `packages/diagram-mermaid`, `packages/analytics`: graph rendering and telemetry.
+- `packages/analytics`: telemetry delivery.
 - `packages/analytics-posthog`: PostHog implementation of the telemetry provider port.
-- `vite.shared.ts`: shared Vite configuration for applications.
-- `examples/shared`: example-only presence and gallery lifecycle composition.
+- `vite.shared.ts`: `defineExampleConfig`, the shared Vite configuration for examples.
+- `examples/shared`: example-only runtime composition, presence and replay, gallery shell, and options.
 - `examples/gallery`: gallery composition and generated routes.
 - `examples/cars-parallel-coords`, `examples/react-dashboard`, `examples/vega-lite-gallery`, `examples/vgplot-gallery`: runnable examples.
 - `apps/e2e`: Playwright tests through the browser and public bridge.
 - `apps/evals`: agent evals that run conditions (agent loops, including AI SDK harnesses) and models on the examples through VACP and grade page state, replies, tokens, and latency. Eval runs call models, so `make check` runs only its unit tests.
-- `docs/`: user-facing guides and API reference.
-- `apps/docs`: VitePress configuration, theme, and public assets.
+- `docs/`: the VitePress documentation site: guides, API reference, and `docs/.vitepress` configuration and theme.
 - `development_docs/`: architecture, contributing, and testing guides.
 
-Use capability families for package names: `adapter-*` for visualization adapters, `diagram-*` for diagram formats, `analytics-*` for analytics providers, `data-*` for data backends, and `agent-*` for agent implementations. Keep `packages/` flat.
+Use capability families for package names: `adapter-*` for visualization adapters, `analytics-*` for analytics providers, `data-*` for data backends, and `agent-*` for agent implementations. Keep `packages/` flat.
 
 ## Dependency rules
 
@@ -44,13 +43,12 @@ Add an integration as a focused provider implementing the source, projection, ob
 Run from the repository root:
 
 ```bash
-corepack enable
 make setup
 make build check
 make browser-install e2e
 ```
 
-`pnpm dev` starts the gallery at `https://examples.vacp.localhost`. `make docs-serve` serves `https://docs.vacp.localhost`. `make dev-all` starts these plus the standalone `*.examples.vacp.localhost` apps. Names live in each app's `package.json` under `portless`. Vite+ receives its port from Portless. VitePress reads `PORT` in its config. Preserve the `PORTLESS=0` bypass and explicit ports in the Playwright server helper. Use `pnpm --filter <package-name> <script>` for focused work. Vite+ owns JavaScript task orchestration, formatting, linting, and application builds. Vite+ Pack emits library JavaScript and declarations. TypeScript checks source without emitting files. uv owns the Python workspace and Ruff, ty, basedpyright, pyrefly, and pytest tools. The root Makefile defines the workflows; pnpm scripts and GitHub Actions call those targets. Run `make help` for focused commands.
+`pnpm dev` starts the gallery at `https://examples.vacp.localhost`. `make docs-serve` serves `https://docs.vacp.localhost`. `make dev-all` starts these plus the standalone `*.examples.vacp.localhost` apps. Names live in each app's `package.json` under `portless`. Vite+ receives its port from Portless. VitePress reads `PORT` in its config. Preserve the `PORTLESS=0` bypass and explicit ports in the Playwright server helper. Use `pnpm --filter <package-name> <script>` for focused work. Vite+ owns JavaScript task orchestration, formatting, type-aware linting, type checking, and application builds. Vite+ Pack emits library JavaScript and declarations. uv owns the Python workspace and Ruff, ty, basedpyright, pyrefly, and pytest tools. The root Makefile defines the workflows; pnpm scripts and GitHub Actions call those targets. Run `make help` for focused commands.
 
 ## Python QA
 
@@ -62,9 +60,9 @@ Use `make python-check` for all Python gates, or `make python-lint`, `make pytho
 
 Use extensionless relative imports and re-exports in owned TypeScript source, including type imports: `./types` and `./Component`. Workspace dependencies use public package exports such as `@vacp/protocol`. Keep actual asset filenames and vendored source conventions intact.
 
-The root `vite.config.ts` owns library packaging policy. Each library runs `vp pack`, which inherits that configuration, preserves module structure with `unbundle`, and emits Node-compatible ESM and declarations. `tsconfig.base.json` owns no-emit type checking with bundler resolution. Vite+ orders package tasks using the pnpm workspace dependency graph. Do not add import-rewriting scripts, custom loaders, or source aliases for package consumers.
+The root `vite.config.ts` owns library packaging policy. Each library runs `vp pack`, which inherits that configuration, preserves module structure with `unbundle`, and emits Node-compatible ESM and declarations. `tsconfig.base.json` owns no-emit type checking with bundler resolution. Vite+ orders package tasks using the pnpm workspace dependency graph. Do not add import-rewriting scripts, custom loaders, or source aliases for package consumers. Every library export lists a `vacp-source` condition first, and only `defineExampleConfig` enables it.
 
-`presence-browser` components use StyleX and render into a shadow root. Its `vite.config.ts` adds `vacpPresenceSheet` from `vite.shared.ts` to `vp pack`, and every example app adds the same plugin because it aliases the package source. Style components with `stylex.create`, and keep motion that runs every frame in the motion controllers.
+`presence-browser` components use StyleX and render into a shadow root. Its `vite.config.ts` adds `vacpPresenceSheet` from `vite.shared.ts` to `vp pack`, and `defineExampleConfig` adds the same plugin because examples compile the package source through the `vacp-source` export condition. Style components with `stylex.create`, and keep motion that runs every frame in the motion controllers.
 
 `make test-package-imports` exercises every JavaScript package export in native Node and a strict NodeNext TypeScript consumer using the built declarations. Keep this check working alongside browser builds when changing imports, exports, or compiler options. Public declaration dependencies belong in the declaring package's dependencies.
 

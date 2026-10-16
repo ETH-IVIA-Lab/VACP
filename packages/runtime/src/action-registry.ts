@@ -35,51 +35,21 @@ export type VacpActionHandler<Params = unknown, Result = unknown> = (
   options: VacpActionExecutionOptions,
 ) => Result | Promise<Result>;
 
-function toSerializableErrorDetails(cause: unknown): unknown {
-  if (cause instanceof Error) {
-    return {
-      name: cause.name,
-      message: cause.message,
-      stack: cause.stack,
-      cause:
-        cause.cause instanceof Error
-          ? { name: cause.cause.name, message: cause.cause.message, stack: cause.cause.stack }
-          : cause.cause === undefined
-            ? undefined
-            : String(cause.cause),
-    };
-  }
-
-  if (cause == null || typeof cause === 'string' || typeof cause === 'number' || typeof cause === 'boolean')
-    return cause;
-
-  try {
-    return JSON.parse(JSON.stringify(cause));
-  } catch {
-    return String(cause);
-  }
-}
-
 /** Stable routing identity for an action owned by one analytical source. */
-export function qualifyVacpActionName(sourceId: VacpSourceId, localName: string): string {
+function qualifyVacpActionName(sourceId: VacpSourceId, localName: string): string {
   return `source_${fnv1a64Hex(sourceId)}.${localName}`;
 }
 
-/**
- * Action registry (concepts).
- *
- * Providers register *semantic* actions here (e.g. "set_interval_2d") rather
- * than wiring agents to DOM events. This is the core of the VACP "control
- * plane".
- *
- * Actions should be a small, explicit set of validated operations exposed by
- * the UI control surface.
- */
+/** Semantic actions of one source, each validated during preparation before any effect. */
 export class VacpActionRegistry implements VacpActionExecutor, VacpActionRegistrar {
   private readonly descriptors = new Map<string, VacpActionDescriptor>();
   private readonly handlers = new Map<
     string,
-    (params: unknown) => Promise<{ execute: VacpActionHandler; focus?: VacpFocus; affects?: VacpRef[] }>
+    (params: unknown) => Promise<{
+      execute: (options: VacpActionExecutionOptions) => unknown;
+      focus?: VacpFocus;
+      affects?: VacpRef[];
+    }>
   >();
 
   constructor(private readonly sourceId?: VacpSourceId) {}
@@ -98,16 +68,14 @@ export class VacpActionRegistry implements VacpActionExecutor, VacpActionRegistr
     const registered = structuredClone(descriptor);
     if (this.sourceId) registered.name = qualifyVacpActionName(this.sourceId, descriptor.name);
     if (this.handlers.has(registered.name)) {
-      throw new Error(
-        `Duplicate action registration for "${descriptor.name}". Register each action name once (handlers should route via params).`,
-      );
+      throw new Error(`Duplicate action registration for "${descriptor.name}"`);
     }
 
     this.descriptors.set(registered.name, registered);
     this.handlers.set(registered.name, async (raw) => {
       const params = preparation ? await preparation.parse(raw) : (raw as Params);
       return {
-        execute: (_input, options) => handler(params, options),
+        execute: (options) => handler(params, options),
         focus: preparation?.focus?.(params),
         affects: preparation?.affects?.(params),
       };
@@ -148,7 +116,7 @@ export class VacpActionRegistry implements VacpActionExecutor, VacpActionRegistr
             : (preparedSignal ?? executionSignal);
         signal?.throwIfAborted();
         try {
-          const result = await prepared.execute(undefined, { ...options, ...executionOptions, signal });
+          const result = await prepared.execute({ ...options, ...executionOptions, signal });
           signal?.throwIfAborted();
           return { callId: call.callId, ok: true, result };
         } catch (error) {
@@ -158,22 +126,16 @@ export class VacpActionRegistry implements VacpActionExecutor, VacpActionRegistr
       },
     };
   }
-
-  /** Execute directly when no runtime instrumentation is needed. */
-  execute(call: VacpActionCall, options?: VacpActionExecutionOptions): Promise<VacpActionResult> {
-    return executeVacpAction(this, call, options);
-  }
 }
 
+const primitive = (value: unknown) =>
+  value == null || typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean';
+
+/** A failure result. Details are a `VacpActionError`'s own details or a thrown primitive; nothing else is copied. */
 export function actionFailure(call: VacpActionCall, error: unknown): Extract<VacpActionResult, { ok: false }> {
-  return {
-    callId: call.callId,
-    ok: false,
-    error: {
-      message: error instanceof Error ? error.message : String(error),
-      details: error instanceof VacpActionError ? error.details : toSerializableErrorDetails(error),
-    },
-  };
+  const message = error instanceof Error ? error.message : String(error);
+  const details = error instanceof VacpActionError ? error.details : primitive(error) ? error : undefined;
+  return { callId: call.callId, ok: false, error: details === undefined ? { message } : { message, details } };
 }
 
 /** Execute the preparation port without lifecycle instrumentation. */

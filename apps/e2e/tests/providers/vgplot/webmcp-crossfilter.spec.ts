@@ -1,12 +1,10 @@
 import { createHash } from 'node:crypto';
 import { expect, type Page } from '@playwright/test';
-import { test } from '../../helpers/test';
+import { test, useWebMcp } from '../../helpers/test';
 import { appServer } from '../../helpers/servers';
 import { tool } from '../../helpers/presence';
 
-test.use({
-  launchOptions: { args: ['--enable-experimental-web-platform-features', '--enable-features=WebMCPTesting'] },
-});
+useWebMcp();
 
 test('WebMCP time changes and reads preserve a human spatial brush with source-specific state', async ({ page }) => {
   const server = appServer('vgplot-gallery');
@@ -36,11 +34,17 @@ test('WebMCP time changes and reads preserve a human spatial brush with source-s
   expect(manual).toHaveLength(2);
   expect(Array.isArray(manual) && Array.isArray(manual[0])).toBe(true);
   expect(
-    (await tool(page, 'vgplot.set_interval_1d', { plotId: 'plot-2', interactorId: '0', min: 20, max: 22 })).ok,
+    (
+      await tool(page, 'vgplot.set_interval_1d', {
+        ref: 'vacp://vacp-examples/vgplot/nyc-taxi-rides/plot-2/interactor/0',
+        min: 20,
+        max: 22,
+      })
+    ).ok,
   ).toBe(true);
   await expect
     .poll(async () => {
-      const state = (await tool(page, 'vacp.state')).state;
+      const state = (await tool(page, 'vacp.state')).snapshot.state;
       return [0, 1, 2].map((index) => state[ref(index)].selectionValue);
     })
     .toEqual([null, manual, [20, 22]]);
@@ -53,15 +57,27 @@ test('WebMCP time changes and reads preserve a human spatial brush with source-s
   expect(
     (await tool(page, 'vacp.data_sql', { handleRef, sql: 'SELECT count(*)::INTEGER AS n FROM vacp_handle' })).ok,
   ).toBe(true);
-  expect((await tool(page, 'vgplot.clear_interval_2d', { plotId: 'plot-0', interactorId: '0' })).ok).toBe(true);
-  expect((await tool(page, 'vacp.state')).state[ref(1)].selectionValue).toEqual(manual);
+  expect(
+    (
+      await tool(page, 'vgplot.clear_interval_2d', {
+        ref: 'vacp://vacp-examples/vgplot/nyc-taxi-rides/plot-0/interactor/0',
+      })
+    ).ok,
+  ).toBe(true);
+  expect((await tool(page, 'vacp.state')).snapshot.state[ref(1)].selectionValue).toEqual(manual);
   await expect(plots.nth(1).locator('rect.selection')).toBeVisible();
-  expect((await tool(page, 'vgplot.clear_interval_2d', { plotId: 'plot-1', interactorId: '0' })).ok).toBe(true);
+  expect(
+    (
+      await tool(page, 'vgplot.clear_interval_2d', {
+        ref: 'vacp://vacp-examples/vgplot/nyc-taxi-rides/plot-1/interactor/0',
+      })
+    ).ok,
+  ).toBe(true);
   await expect(plots.nth(1).locator('rect.selection')).toBeHidden();
   expect((await tool(page, 'vacp.apply_state', { state: observation.state })).ok).toBe(true);
   await expect
     .poll(async () => {
-      const state = (await tool(page, 'vacp.state')).state;
+      const state = (await tool(page, 'vacp.state')).snapshot.state;
       return [0, 1, 2].map((index) => state[ref(index)].selectionValue);
     })
     .toEqual([null, manual, [20, 22]]);
@@ -101,7 +117,7 @@ test('WebMCP taxi brushes update linked rasters, preserve context, and accept ei
     sql: 'SELECT floor(px/2500)*2500 AS px_bin, floor(py/2500)*2500 AS py_bin, count(*) AS n FROM vacp_all GROUP BY 1, 2 ORDER BY n DESC LIMIT 10',
   });
   expect(query.ok).toBe(true);
-  const target = { plotId: 'plot-0', interactorId: '0' };
+  const target = { ref: 'vacp://vacp-examples/vgplot/nyc-taxi-rides/plot-0/interactor/0' };
   const region = { ...target, x0: 982500, x1: 997500, y0: 202500, y1: 227500 };
   expect((await tool(page, 'vgplot.set_interval_2d', region)).ok).toBe(true);
   await expect.poll(async () => (await rasters(page))[1]).not.toBe(before[1]);
@@ -135,14 +151,19 @@ test('WebMCP taxi brushes update linked rasters, preserve context, and accept ei
   expect(
     (
       await tool(page, 'vgplot.set_interval_1d', {
-        plotId: 'plot-2',
-        interactorId: '0',
+        ref: 'vacp://vacp-examples/vgplot/nyc-taxi-rides/plot-2/interactor/0',
         min: 5,
         max: 7,
       })
     ).ok,
   ).toBe(true);
   await expect.poll(async () => (await rasters(page)).every((image, i) => image !== before[i])).toBe(true);
-  expect((await tool(page, 'vgplot.clear_interval_1d', { plotId: 'plot-2', interactorId: '0' })).ok).toBe(true);
+  expect(
+    (
+      await tool(page, 'vgplot.clear_interval_1d', {
+        ref: 'vacp://vacp-examples/vgplot/nyc-taxi-rides/plot-2/interactor/0',
+      })
+    ).ok,
+  ).toBe(true);
   await expect.poll(() => rasters(page)).toEqual(before);
 });

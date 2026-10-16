@@ -1,7 +1,8 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import Ajv from 'ajv/dist/2020.js';
 import type { WebMCP } from 'webmcp-types';
-import { VACP_SCHEMA_VERSION, vacpNarrationGuidance, type VacpGraphFragment } from '@vacp/protocol';
+import { vacpNarrationGuidance, type VacpGraphFragment } from '@vacp/protocol';
 import { createVacpProvider, createVacpRuntime, VacpActionRegistry } from '@vacp/runtime';
 import { compileVacpWebMcpTools, installVacpWebMcp, type VacpWebMcpRegistry } from '../src/index';
 
@@ -36,7 +37,6 @@ function fixture(detail: Record<string, unknown> = {}) {
   const actions = new VacpActionRegistry();
   let value = 1;
   const graph: VacpGraphFragment = {
-    version: VACP_SCHEMA_VERSION,
     nodes: [
       { ref: 'vacp://app', kind: 'App', layer: 'ViewLayer', title: 'Application' },
       {
@@ -65,6 +65,7 @@ function fixture(detail: Record<string, unknown> = {}) {
     },
   );
   const provider = createVacpProvider({
+    subscribe: () => () => {},
     source: { id: 'vacp-source://webmcp-test', type: 'test', title: 'WebMCP test' },
     actions,
     project: () => {
@@ -96,7 +97,7 @@ test('graph projection preserves schemas and context, and executes through runti
     const options = { signal: new AbortController().signal };
     const result = await action.execute({ value: 35, narration: '  Raising the threshold to 35.  ' }, options);
     assert.equal((result as { ok: boolean }).ok, true);
-    assert.deepEqual((await runtime.getState()).state['vacp://app/threshold'], { value: 35 });
+    assert.deepEqual((await runtime.observe()).state['vacp://app/threshold'], { value: 35 });
     const record = runtime
       .getProvenance()
       .records.filter((entry) => entry.kind === 'action')
@@ -117,10 +118,11 @@ test('graph reads give the model entities and relationships, and leave actions t
     const options = { signal: new AbortController().signal };
     const read = async (name: string) =>
       (await tools.find((tool) => tool.name === name)!.execute({}, options)) as { graph: object; state?: object };
-    const { version, sources, nodes, edges } = (await runtime.getCapabilities()).graph;
-    assert.deepEqual((await read('vacp.capabilities')).graph, { version, sources, nodes, edges });
+    const { sources, nodes, edges } = (await runtime.getCapabilities()).graph;
+    const entities = nodes.map(({ ref, kind, layer, title }) => ({ ref, kind, layer, title }));
+    assert.deepEqual((await read('vacp.capabilities')).graph, { sources, nodes: entities, edges });
     const observed = await read('vacp.observe');
-    assert.deepEqual(observed.graph, { version, sources, nodes, edges });
+    assert.deepEqual(observed.graph, { sources, nodes, edges });
     assert.deepEqual(observed.state, (await runtime.observe()).state);
   } finally {
     runtime.dispose();
@@ -140,9 +142,10 @@ test('reads and action results reach the model cut to the limits every transport
     const call = async (name: string, input: Record<string, unknown> = {}) =>
       (await tools.find((tool) => tool.name === name)!.execute(input, { signal: new AbortController().signal })) as {
         state?: Record<string, { note: string }>;
+        snapshot?: { state: Record<string, { note: string }> };
         result?: { note: string };
       };
-    assert.equal((await call('vacp.state')).state!['vacp://app/threshold']!.note, cut);
+    assert.equal((await call('vacp.state')).snapshot!.state['vacp://app/threshold']!.note, cut);
     assert.equal((await call('vacp.observe')).state!['vacp://app/threshold']!.note, cut);
     assert.equal((await call('vacp.action.note.read', { narration: 'Reading the note.' })).result!.note, cut);
   } finally {
@@ -161,18 +164,18 @@ test('an action call without a usable sentence returns a failure the agent can r
     assert.equal(missing.error?.message, 'narration must be a string');
     const blank = (await action.execute({ value: 35, narration: '  ' }, options)) as { error?: { message: string } };
     assert.equal(blank.error?.message, 'narration requires a sentence');
-    assert.deepEqual((await runtime.getState()).state['vacp://app/threshold'], { value: 1 });
+    assert.deepEqual((await runtime.observe()).state['vacp://app/threshold'], { value: 1 });
     assert.equal(runtime.getProvenance().records.filter((entry) => entry.kind === 'action').length, 0);
   } finally {
     runtime.dispose();
   }
 });
 
-test('non-object inputs use a params envelope while custom naming and selection stay optional', async () => {
+test('non-object inputs use a params envelope, and tool names must be valid and distinct', async () => {
   const { runtime, actions } = fixture();
   actions.register(
     {
-      name: 'custom/echo',
+      name: 'custom.echo',
       description: 'Echo a scalar',
       operation: { kind: 'evaluation', results: [{ role: 'artifact', mediaType: 'text/plain' }] },
       parameters: { type: 'string', minLength: 1 },
@@ -180,32 +183,77 @@ test('non-object inputs use a params envelope while custom naming and selection 
     (input) => input,
   );
   try {
-    const tools = compileVacpWebMcpTools((await runtime.getCapabilities()).graph, runtime, {
-      namespace: 'chart',
-      includeAction: (action) => action.name === 'custom/echo',
-      actionName: () => 'chart.echo',
-    });
+    const graph = (await runtime.getCapabilities()).graph;
+    const tools = compileVacpWebMcpTools(graph, runtime, { namespace: 'chart' });
     assert.deepEqual(
       tools.map((tool) => tool.name),
-      ['chart.observe', 'chart.capabilities', 'chart.state', 'chart.echo'],
+      ['chart.observe', 'chart.capabilities', 'chart.state', 'chart.action.threshold.set', 'chart.action.custom.echo'],
     );
-    const result = await tools[3]?.execute(
+    const result = await tools[4]?.execute(
       { params: 'hello', narration: 'Echoing the word.' },
       { signal: new AbortController().signal },
     );
     assert.equal((result as { result: string }).result, 'hello');
-    const currentGraph = (await runtime.getCapabilities()).graph;
+    const echo = graph.actions.find((action) => action.name === 'custom.echo')!;
     assert.throws(
-      () => compileVacpWebMcpTools({ ...currentGraph, nodes: [], edges: [], actions: actions.list() }, runtime),
+      () => compileVacpWebMcpTools({ ...graph, actions: [{ ...echo, name: 'custom/echo' }] }, runtime),
       /Invalid WebMCP tool name/,
     );
-    assert.throws(
-      () =>
-        compileVacpWebMcpTools({ ...currentGraph, nodes: [], edges: [], actions: actions.list() }, runtime, {
-          actionName: () => 'vacp.state',
-        }),
-      /Duplicate/,
-    );
+    assert.throws(() => compileVacpWebMcpTools({ ...graph, actions: [echo, echo] }, runtime), /Duplicate/);
+  } finally {
+    runtime.dispose();
+  }
+});
+
+test('graph and state reads take the shared tool input fields', async () => {
+  const { runtime } = fixture();
+  try {
+    const tools = compileVacpWebMcpTools((await runtime.getCapabilities()).graph, runtime);
+    const read = async (name: string, input: Record<string, unknown>) =>
+      (await tools
+        .find((tool) => tool.name === name)!
+        .execute(input, {
+          signal: new AbortController().signal,
+        })) as {
+        graph?: { nodes: Array<{ ref: string; data?: unknown }> };
+        mode?: string;
+        token?: string;
+        delta?: { changed: object };
+      };
+    const scoped = await read('vacp.capabilities', { refs: ['vacp://app/threshold'] });
+    assert.deepEqual(scoped.graph?.nodes, [
+      {
+        ref: 'vacp://app/threshold',
+        kind: 'Param',
+        layer: 'ConfigLayer',
+        title: 'Threshold',
+        data: { units: 'percent' },
+      },
+    ]);
+    const full = await read('vacp.state', {});
+    assert.equal(full.mode, 'full');
+    const unchanged = await read('vacp.state', { since: full.token });
+    assert.equal(unchanged.mode, 'delta');
+    assert.deepEqual(unchanged.delta?.changed, {});
+    await assert.rejects(read('vacp.state', { refs: ['app/threshold'] }), /vacp:\/\//);
+  } finally {
+    runtime.dispose();
+  }
+});
+
+test('a completed action result stays the answer when the caller aborts after completion', async () => {
+  const { runtime, actions } = fixture();
+  const controller = new AbortController();
+  actions.register({ name: 'finish', description: 'Finish', operation: { kind: 'mutation' } }, () => 'done');
+  try {
+    const tools = compileVacpWebMcpTools((await runtime.getCapabilities()).graph, runtime);
+    const finish = tools.find((tool) => tool.name === 'vacp.action.finish')!;
+    runtime.subscribeExecutions((execution) => {
+      if (execution.phase === 'succeeded') controller.abort();
+    });
+    const result = await finish.execute({ narration: 'Finishing the step.' }, { signal: controller.signal });
+    assert.deepEqual(result, { callId: (result as { callId: string }).callId, ok: true, result: 'done' });
+    assert.equal(controller.signal.aborted, true);
   } finally {
     runtime.dispose();
   }
@@ -259,7 +307,7 @@ test('automatic registration follows graph changes, preserves foreign tools, and
   await assert.rejects(again.refresh(), /abort/i);
 });
 
-test('indirect input schemas retain references inside an object envelope, and object mode needs an object root', async () => {
+test('indirect input schemas retain references inside an object envelope', async () => {
   const { runtime, actions } = fixture();
   const parameters = {
     $schema: 'https://json-schema.org/draft/2020-12/schema',
@@ -290,10 +338,6 @@ test('indirect input schemas retain references inside an object envelope, and ob
         )) as { result: unknown }
       ).result,
       null,
-    );
-    assert.throws(
-      () => compileVacpWebMcpTools(graph, runtime, { inputMode: () => 'object' }),
-      /vacp.action.indirect needs inputMode 'params'/,
     );
   } finally {
     runtime.dispose();
@@ -367,7 +411,7 @@ test('browser cancellation reaches the application handler; revoked tools cannot
       ),
       /abort/i,
     );
-    assert.deepEqual((await runtime.getState()).state['vacp://app/threshold'], { value: 1 });
+    assert.deepEqual((await runtime.observe()).state['vacp://app/threshold'], { value: 1 });
   } finally {
     runtime.dispose();
   }
@@ -487,7 +531,7 @@ test('catalog bursts merge waiting revisions and refresh waits for the latest re
   const registration = await installVacpWebMcp(
     {
       ...runtime,
-      getCapabilities: () => snapshot,
+      getCapabilities: async () => snapshot,
       subscribeCapabilities: (listener) => {
         publish = listener;
         return () => {};
@@ -607,7 +651,7 @@ test('overlapping refreshes await the newest discovery and ignore stale failures
       ...runtime,
       subscribeCapabilities: () => () => {},
       getCapabilities: () => {
-        if (!deferReads) return snapshot;
+        if (!deferReads) return Promise.resolve(snapshot);
         return new Promise<typeof snapshot>((resolve, reject) => {
           reads.push({ resolve, reject });
         });
@@ -654,7 +698,7 @@ test('a progress tool narrates one public activity per turn and closes forgotten
     await context.call('vacp.progress', { message: 'Raising it to 35' });
     await context.call('vacp.action.threshold.set', { value: 35 });
     assert.equal(runtime.getAgentActivities()[0]?.summary, 'Raising it to 35');
-    assert.equal(runtime.getAgentActivities()[0]?.actor.id, 'webmcp', 'narration joins the WebMCP execution actor');
+    assert.equal(runtime.getAgentActivities()[0]?.actor.id, 'agent', 'narration joins the WebMCP execution actor');
     await context.call('vacp.progress', { message: 'The threshold is 35.', done: true });
     assert.deepEqual(phases, [
       'thinking:Looking at the threshold',
@@ -703,3 +747,80 @@ test('every narrated action carries its own sentence from acceptance, beside the
     runtime.dispose();
   }
 });
+
+test('object schemas with dialect metadata accept action fields beside narration', async (t) => {
+  const { runtime, actions } = fixture();
+  t.after(() => runtime.dispose());
+  actions.register(
+    {
+      name: 'with-dialect',
+      description: 'Set a value',
+      operation: { kind: 'mutation' },
+      parameters: {
+        $schema: 'https://json-schema.org/draft/2020-12/schema',
+        type: 'object',
+        properties: { value: { type: 'number' } },
+        required: ['value'],
+      },
+    },
+    (params) => {
+      assert.deepEqual(params, { value: 35 });
+      return params;
+    },
+  );
+  const tool = compileVacpWebMcpTools((await runtime.getCapabilities()).graph, runtime).find(
+    (tool) => tool.name === 'vacp.action.with-dialect',
+  )!;
+  const input = { value: 35, narration: 'Setting the value to 35.' };
+  const validate = new Ajv({ strict: false }).compile(tool.inputSchema!);
+  assert.equal(validate(input), true, JSON.stringify(validate.errors));
+  const result = await tool.execute(input, { signal: new AbortController().signal });
+  assert.ok(result && typeof result === 'object' && 'result' in result);
+  assert.deepEqual(result.result, { value: 35 });
+});
+
+for (const constraint of [
+  { maxProperties: 1 },
+  { minProperties: 1 },
+  { additionalProperties: false },
+  { propertyNames: { enum: ['value'] } },
+  { dependentRequired: { other: ['unit'] } },
+  { if: { required: ['value'] }, then: { maxProperties: 1 } },
+  { patternProperties: { '^narration$': { type: 'number' } } },
+  { unevaluatedProperties: false },
+  { allOf: [{ maxProperties: 1 }] },
+]) {
+  test(`whole-object constraint ${Object.keys(constraint).join('/')} keeps its action input semantics`, async (t) => {
+    const { runtime, actions } = fixture();
+    t.after(() => runtime.dispose());
+    const parameters = {
+      type: 'object',
+      properties: { value: { type: 'number' } },
+      required: ['value'],
+      ...constraint,
+    };
+    actions.register(
+      { name: 'constrained', description: 'Set a constrained value', operation: { kind: 'mutation' }, parameters },
+      (input) => {
+        assert.deepEqual(input, { value: 35 });
+        return input;
+      },
+    );
+    const tool = compileVacpWebMcpTools((await runtime.getCapabilities()).graph, runtime).find(
+      (tool) => tool.name === 'vacp.action.constrained',
+    )!;
+    const validate = new Ajv({ strict: false }).compile(tool.inputSchema!);
+    const input = { params: { value: 35 }, narration: 'Setting the value to 35.' };
+    assert.equal(validate(input), true, JSON.stringify(validate.errors));
+    const invalidParams =
+      'minProperties' in constraint
+        ? {}
+        : 'patternProperties' in constraint
+          ? { value: 35, narration: 'An invalid nested sentence.' }
+          : { value: 35, other: true };
+    assert.equal(validate({ ...input, params: invalidParams }), false);
+    const result = await tool.execute(input, { signal: new AbortController().signal });
+    assert.ok(result && typeof result === 'object' && 'result' in result);
+    assert.deepEqual(result.result, { value: 35 });
+  });
+}

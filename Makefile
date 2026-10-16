@@ -7,7 +7,9 @@ PNPM ?= pnpm
 UV ?= uv
 VP := $(PNPM) exec vp
 UV_RUN := $(UV) run --all-packages --all-groups --locked
-WORKSPACE_FILTERS := --filter './packages/*' --filter './apps/*' --filter './examples/*'
+WORKSPACE_FILTERS := --filter './packages/*' --filter './apps/*' --filter './examples/*' --filter './docs'
+# Oxfmt and Oxlint read the repository .gitignore only, so name the source roots they check.
+SOURCE_PATHS := .github apps development_docs docs examples packages tools $(wildcard *.ts *.json *.jsonc *.yaml *.md)
 
 .PHONY: bench help setup setup-web setup-python dev dev-all dev-status format lint typecheck
 .PHONY: python-format python-lint python-typecheck python-test python-check
@@ -28,30 +30,28 @@ dev: ## Serve the gallery at examples.vacp.localhost.
 	$(VP) run @vacp/examples#dev
 
 dev-all: ## Serve docs, gallery, and every standalone example.
-	$(VP) run --parallel --filter './apps/docs' --filter './examples/*' dev
+	$(VP) run --parallel --filter './docs' --filter './examples/*' dev
 
 dev-status: ## Show registered local development URLs.
-	$(PNPM) portless list
+	$(PNPM) --filter @vacp/examples exec portless list
 
 format: python-format ## Apply lint fixes and format owned source.
-	$(VP) lint --fix
-	$(VP) fmt
+	$(VP) check --fix $(SOURCE_PATHS)
 
-lint: python-lint ## Check JavaScript and Python formatting and lint rules.
-	$(VP) check
+lint: build-libs python-lint ## Check formatting, lint rules, and TypeScript types, and lint Python.
+	$(VP) check $(SOURCE_PATHS)
 
 build-libs:
-	rm -rf packages/*/dist packages/*/*.tsbuildinfo
+	rm -rf packages/*/dist
 	$(VP) run --filter './packages/*' build
 
 build-apps: build-libs
-	$(VP) run --filter './examples/*' --filter './apps/docs' build
+	$(VP) run --filter './examples/*' --filter './docs' build
 
 build: build-apps ## Build libraries, examples, and docs.
 
 typecheck: build-libs python-typecheck ## Run workspace TypeScript and Python type checks.
-	$(PNPM) exec tsc -p tsconfig.tools.json
-	$(VP) run $(WORKSPACE_FILTERS) typecheck
+	$(VP) check --no-fmt --no-lint $(SOURCE_PATHS)
 
 python-format: ## Format all Python source and tests.
 	$(UV_RUN) ruff format .
@@ -84,7 +84,7 @@ test-package-imports: build-libs ## Verify public package exports in native Node
 test: build-libs test-package-imports python-test ## Run JavaScript and Python unit tests.
 	$(VP) run $(WORKSPACE_FILTERS) test
 
-check: lint typecheck test-tools knip test ## Run the complete local static and unit-test gates.
+check: lint python-typecheck test-tools knip test ## Run the complete local static and unit-test gates.
 
 docs: ## Build the documentation site.
 	$(VP) run @vacp/docs#build
@@ -104,14 +104,5 @@ e2e: build-apps ## Test examples and the published documentation in Chromium.
 ci: build check package ## Run the source-validation CI pipeline.
 
 bench: build-libs ## Measure runtime, browser snapshot, SDK, adapter, inspection, presence, and transport hot paths.
-	$(PNPM) --filter @vacp/runtime bench
-	$(PNPM) --filter @vacp/runtime bench:memory
-	$(PNPM) --filter @vacp/runtime bench:discovery
-	$(PNPM) --filter @vacp/sdk bench
-	$(PNPM) --filter @vacp/transport-webmcp bench
-	$(PNPM) --filter @vacp/inspector-core bench
-	$(PNPM) --filter @vacp/adapter-vega-lite bench
-	$(PNPM) --filter @vacp/presence-core bench
-	$(PNPM) --filter @vacp/provenance-core bench
-	$(PNPM) --filter @vacp/runtime-browser bench
+	$(VP) run --filter './packages/*' --concurrency-limit 1 bench
 	$(UV_RUN) python packages/python/bench/availability.py

@@ -1,12 +1,12 @@
 import { expect, type Page } from '@playwright/test';
-import { test } from '../helpers/test';
+import { test, useWebMcp } from '../helpers/test';
 import { appReady, appServer } from '../helpers/servers';
 
 test.use({
   exampleOptions: { paceAgentSteps: true },
   viewport: { width: 1440, height: 900 },
-  launchOptions: { args: ['--enable-experimental-web-platform-features', '--enable-features=WebMCPTesting'] },
 });
+useWebMcp();
 
 /** Invoke a registered WebMCP tool the way a browser agent would, timing the call from the agent's side. */
 async function call(page: Page, suffix: string, params: Record<string, unknown> = {}) {
@@ -15,12 +15,11 @@ async function call(page: Page, suffix: string, params: Record<string, unknown> 
       const context = document.modelContext!;
       const tool = (await context.getTools()).find((tool) => tool.name.endsWith(suffix));
       if (!tool) throw new Error(`Missing tool: ${suffix}`);
-      // Chrome reports each registered schema as JSON text.
-      const schema = typeof tool.inputSchema === 'string' ? JSON.parse(tool.inputSchema) : tool.inputSchema;
-      const required: string[] = schema?.required ?? [];
+      const schema: { required?: string[] } = tool.inputSchema ?? {};
+      const required = schema.required ?? [];
       const input = required.includes('narration') ? { narration: 'Adjusting the view.', ...params } : params;
       const started = performance.now();
-      const result = JSON.parse(await context.executeTool(tool, JSON.stringify(input)));
+      const result = JSON.parse(await context.executeTool(tool, input));
       return { result, elapsed: performance.now() - started };
     },
     { suffix, params },
@@ -50,7 +49,11 @@ const scenarios = [
     subject: 'Seattle Weather',
     narration: 'Keeping only the summer days',
     action: 'vgplot.set_interval_1d',
-    params: async () => ({ plotId: 'plot-0', interactorId: '0', min: 1338508800000, max: 1346457600000 }),
+    params: async () => ({
+      ref: 'vacp://vacp-examples/vgplot/weather/plot-0/interactor/0',
+      min: 1338508800000,
+      max: 1346457600000,
+    }),
     closing: 'Summer days are selected.',
   },
   {

@@ -13,6 +13,7 @@
     "@vacp/example-athlete-explorer": "workspace:*",
     "@vacp/example-cars-parallel-coords": "workspace:*",
     "@vacp/example-react-dashboard": "workspace:*",
+    "@vacp/example-shared": "workspace:*",
     "@vacp/example-vega-lite-gallery": "workspace:*",
     "@vacp/example-vgplot-gallery": "workspace:*"
   },

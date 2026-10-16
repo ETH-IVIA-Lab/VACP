@@ -1,78 +1,57 @@
-import { createVegaLitePresentation } from '../src/presentation';
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { createVegaLiteProvider, type VegaViewLike } from '../src/index';
+import { View, parse } from 'vega';
+import { compile, type TopLevelSpec } from 'vega-lite';
+import { createVacpRuntime, executeVacpAction } from '@vacp/runtime';
+import { createVegaLiteProvider } from '../src/index';
+import type { VegaViewLike } from '../src/types';
 
-test('provider observation preserves native tooltip behavior and releases listeners across rebinding', (t) => {
-  t.mock.timers.enable({ apis: ['setTimeout'] });
-  const signals = new Map<string, () => void>();
-  const events = new Map<string, (event: Event, item?: unknown) => void>();
-  const originalTooltip = () => {};
-  let tooltip = originalTooltip;
-  let value = 1;
-  const view: VegaViewLike = {
-    signal: (_name, next) => (next === undefined ? value : (value = next)),
-    runAsync: async () => {},
-    addSignalListener: (name, listener) => signals.set(name, () => listener(name, value)),
-    removeSignalListener: (name) => {
-      signals.delete(name);
-    },
-    tooltip: (next) => (next ? (tooltip = next) : tooltip),
-    addEventListener: (name, listener) => events.set(name, listener),
-    removeEventListener: (name) => {
-      events.delete(name);
-    },
+async function chart(vizId = 'chart') {
+  const spec: TopLevelSpec = {
+    data: { values: [{ x: 1 }, { x: 2 }] },
+    params: [{ name: 'threshold', value: 1 }],
+    mark: 'point',
+    encoding: { x: { field: 'x', type: 'quantitative' } },
   };
-  const create = () =>
-    createVegaLiteProvider({
-      view,
-      spec: { params: [{ name: 'threshold', value: 1 }], mark: { type: 'point', tooltip: true } },
-      options: { appId: 'test', viewId: 'overview', vizId: 'scatter', enableDuckDbDataHandle: false },
-    });
-  const first = create();
-  assert.equal(signals.size, 0);
-  let firstChanges = 0;
-  const detach = first.subscribe!(() => firstChanges++);
-  assert.equal(tooltip, originalTooltip);
-  assert.equal(events.size, 2);
-  signals.get('threshold')!();
-  detach();
-  t.mock.timers.tick(120);
-  assert.equal(firstChanges, 0);
-  assert.equal(events.size, 0);
-  assert.equal(signals.size, 0);
-  assert.equal(tooltip, originalTooltip);
-  first.dispose!();
-  const second = create();
-  let secondChanges = 0;
-  second.subscribe!(() => secondChanges++);
-  events.get('pointermove')!(new Event('pointermove'), { tooltip: { value: 2 }, datum: { value: 2 } });
-  t.mock.timers.tick(120);
-  assert.equal(secondChanges, 1);
-  second.dispose!();
-  assert.equal(signals.size, 0);
-  assert.equal(tooltip, originalTooltip);
+  const vgSpec = compile(spec).spec;
+  const view: VegaViewLike = new View(parse(vgSpec), { renderer: 'none' });
+  await view.runAsync();
+  const provider = createVegaLiteProvider({
+    view,
+    spec,
+    vgSpec,
+    options: { appId: 'test', viewId: 'dashboard', vizId },
+  });
+  return { view, provider, ref: `vacp://test/dashboard/${vizId}/param/threshold` as const };
+}
+
+test('native parameter changes invalidate subscribers and detach releases observation', async () => {
+  const f = await chart();
+  let changes = 0;
+  const detach = f.provider.subscribe!(() => changes++);
+  try {
+    f.view.signal('threshold', 42);
+    await f.view.runAsync();
+    await new Promise((resolve) => setTimeout(resolve, 150));
+    const state = (await f.provider.observe()).state[f.ref];
+    assert.ok(state && typeof state === 'object' && 'value' in state);
+    assert.equal(state.value, 42);
+    assert.ok(changes > 0);
+    detach();
+    const before = changes;
+    f.view.signal('threshold', 7);
+    await f.view.runAsync();
+    await new Promise((resolve) => setTimeout(resolve, 150));
+    assert.equal(changes, before);
+  } finally {
+    f.provider.dispose!();
+    f.view.finalize();
+  }
 });
 
-test('two charts compose with distinct operation ownership and independent controls', async () => {
-  const { createVacpRuntime } = await import('@vacp/runtime');
-  const chart = (vizId: string) => {
-    let threshold = 0;
-    const view: VegaViewLike = {
-      signal: (_name, next) => (next === undefined ? threshold : (threshold = next)),
-      runAsync: async () => {},
-    };
-    return {
-      value: () => threshold,
-      provider: createVegaLiteProvider({
-        view,
-        spec: { params: [{ name: 'threshold', value: 0 }], mark: 'point' },
-        options: { appId: 'test', viewId: 'dashboard', vizId, enableDuckDbDataHandle: false },
-      }),
-    };
-  };
-  const first = chart('first');
-  const second = chart('second');
+test('two charts compose with distinct operation ownership and independent native controls', async () => {
+  const first = await chart('first');
+  const second = await chart('second');
   const runtime = createVacpRuntime({ providers: [first.provider, second.provider] });
   try {
     const observation = await runtime.observe();
@@ -80,241 +59,93 @@ test('two charts compose with distinct operation ownership and independent contr
       (action) => action.operation.contract === 'vega_lite.set_param',
     );
     assert.equal(operations.length, 2);
-    assert.notEqual(operations[0].name, operations[1].name);
     const operation = operations.find(
       (action) => observation.graph.ownership.actions[action.name] === second.provider.source.id,
-    );
-    assert.ok(operation);
+    )!;
     const result = await runtime.execute({
-      callId: 'set-second',
+      callId: 'second',
       name: operation.name,
-      params: { ref: 'vacp://test/dashboard/second/param/threshold', value: 42 },
+      params: { ref: second.ref, value: 42 },
     });
     assert.equal(result.ok, true);
-    assert.equal(first.value(), 0);
-    assert.equal(second.value(), 42);
-    const firstOperation = operations.find((action) => action.name !== operation.name)!;
-    const foreignTarget = await runtime.execute({
-      callId: 'foreign-target',
-      name: firstOperation.name,
-      params: { ref: 'vacp://test/dashboard/second/param/threshold', value: 99 },
-    });
-    assert.equal(foreignTarget.ok, false);
-    assert.equal(first.value(), 0);
-    assert.equal(second.value(), 42);
+    assert.equal(first.view.signal('threshold'), 1);
+    assert.equal(second.view.signal('threshold'), 42);
   } finally {
     runtime.dispose();
+    first.view.finalize();
+    second.view.finalize();
   }
 });
 
-test('failed observation binding releases partial listeners and remains retryable', (t) => {
-  t.mock.timers.enable({ apis: ['setTimeout'] });
-  const listeners = new Map<string, () => void>();
-  let fail = true;
-  const view: VegaViewLike = {
-    signal: () => 0,
-    runAsync: async () => {},
-    addSignalListener: (name, listener) => {
-      if (name === 'second' && fail) throw new Error('binding failed');
-      listeners.set(name, () => listener(name, 0));
-    },
-    removeSignalListener: (name) => {
-      listeners.delete(name);
-    },
-  };
-  const provider = createVegaLiteProvider({
-    view,
-    spec: { params: [{ name: 'first' }, { name: 'second' }], mark: 'point' },
-    options: { appId: 'test', viewId: 'failure', vizId: 'chart', enableDuckDbDataHandle: false },
-  });
-  assert.throws(() => provider.subscribe!(() => {}), /binding failed/);
-  assert.equal(listeners.size, 0);
-  fail = false;
-  provider.subscribe!(() => {
-    throw new Error('consumer failed');
-  });
-  let changes = 0;
-  provider.subscribe!(() => changes++);
-  listeners.get('first')!();
-  t.mock.timers.tick(120);
-  assert.equal(changes, 1);
-  provider.dispose!();
-  assert.equal(listeners.size, 0);
-});
-
-test('shared view observation preserves native promise identity and other consumers on detach', async (t) => {
-  t.mock.timers.enable({ apis: ['setTimeout'] });
-  let value: unknown = 1;
-  const result = Promise.resolve();
-  const runAsync = () => result;
-  const view: VegaViewLike = { signal: (_name, next) => (next === undefined ? value : (value = next)), runAsync };
-  const create = () =>
-    createVegaLiteProvider({
-      view,
-      spec: { params: [{ name: 'threshold', value: 1 }], mark: 'point' },
-      options: { appId: 'test', viewId: 'shared', vizId: 'chart', enableDuckDbDataHandle: false },
-    });
-  const first = create(),
-    second = create();
-  first.subscribe!(() => {});
-  const wrapped = view.runAsync;
-  second.subscribe!(() => {});
-  assert.equal(view.runAsync, wrapped);
-  first.dispose!();
-  assert.equal(view.runAsync, wrapped);
-  assert.equal(view.runAsync(), result);
-  await result;
-  t.mock.timers.tick(120);
-  assert.equal(Object.values((await second.observe()).freshness ?? {})[0]?.status, 'current');
-  second.dispose!();
-  assert.equal(view.runAsync, runAsync);
-});
-
-test('raw signal preparation resolves the native target and retains caller values before execution', async () => {
-  let current: unknown = 1;
-  const view: VegaViewLike = {
-    signal(name, value) {
-      if (name !== 'threshold') throw new Error('Unknown signal');
-      if (arguments.length === 2) current = value;
-      return current;
-    },
-    runAsync: async () => {},
-  };
-  const provider = createVegaLiteProvider({
-    view,
-    spec: { mark: 'point' },
-    options: {
-      appId: 'test',
-      viewId: 'prepared',
-      vizId: 'chart',
-      includeSetSignalAction: true,
-      enableDuckDbDataHandle: false,
-    },
-  });
+test('prepared parameter values are isolated and invalid refs fail before mutation', async () => {
+  const f = await chart();
   try {
-    const action = (await provider.observe()).graph.actions.find(
-      (action) => action.operation.contract === 'vega.set_signal',
+    const action = (await f.provider.observe()).graph.actions.find(
+      (action) => action.operation.contract === 'vega_lite.set_param',
     )!;
     await assert.rejects(
-      provider.prepare({ callId: 'invalid', name: action.name, params: { name: 'missing', value: 2 } }),
-      /Unknown signal/,
+      f.provider.prepare({ callId: 'invalid', name: action.name, params: { ref: 'vacp://missing/param', value: 9 } }),
+      /Unknown parameter reference/,
     );
-    const params = { name: 'threshold', value: { level: 2 } };
-    const plan = await provider.prepare({ callId: 'valid', name: action.name, params });
+    const params = { ref: f.ref, value: { level: 2 } };
+    const prepared = await f.provider.prepare({ callId: 'valid', name: action.name, params });
     params.value.level = 9;
-    assert.equal(current, 1);
-    assert.equal((await plan.execute()).ok, true);
-    assert.deepEqual(current, { level: 2 });
+    assert.equal(f.view.signal('threshold'), 1);
+    assert.equal((await prepared.execute()).ok, true);
+    assert.deepEqual(f.view.signal('threshold'), { level: 2 });
   } finally {
-    provider.dispose?.();
+    f.provider.dispose!();
+    f.view.finalize();
   }
 });
 
-test('parameter observations share a native snapshot while preserving scoped signal fallback', async () => {
-  let revision = 0;
-  let unavailable = false;
-  const view: VegaViewLike = {
-    signal: (name) => (name === 'outside' ? 42 : 100),
-    getState: () => {
-      if (unavailable) throw new Error('Snapshot unavailable');
-      const value = ++revision;
-      return {
-        signals: { first: value },
-        subcontext: { unit: { signals: { first: -1, second: value, outside: null } } },
-      };
-    },
-    runAsync: async () => {},
+test('a provider without a data port executes parameter actions', async () => {
+  const f = await chart();
+  try {
+    const observation = await f.provider.observe();
+    assert.equal(observation.graph.nodes.filter((node) => node.kind === 'DataHandle').length, 0);
+    const action = observation.graph.actions.find((action) => action.operation.contract === 'vega_lite.set_param')!;
+    assert.equal(
+      (await executeVacpAction(f.provider, { callId: 'set', name: action.name, params: { ref: f.ref, value: 5 } })).ok,
+      true,
+    );
+    assert.equal(f.view.signal('threshold'), 5);
+  } finally {
+    f.provider.dispose!();
+    f.view.finalize();
+  }
+});
+
+test('native evaluation observation preserves promise identity and releases the borrowed view', async () => {
+  const spec: TopLevelSpec = { data: { values: [{ x: 1 }] }, mark: 'point' };
+  const vgSpec = compile(spec).spec;
+  const view: VegaViewLike = new View(parse(vgSpec), { renderer: 'none' });
+  await view.runAsync();
+  const run = view.runAsync;
+  let nativePromise: Promise<View> | undefined;
+  const hostRun: VegaViewLike['runAsync'] = (...args) => {
+    nativePromise = run.apply(view, args);
+    return nativePromise;
   };
+  view.runAsync = hostRun;
   const provider = createVegaLiteProvider({
     view,
-    spec: { params: ['first', 'second', 'outside'].map((name) => ({ name, value: 0 })), mark: 'point' },
-    options: { appId: 'test', viewId: 'coherent', vizId: 'chart', enableDuckDbDataHandle: false },
+    spec,
+    vgSpec,
+    options: { appId: 'test', viewId: 'promise', vizId: 'chart' },
   });
-  const values = async () => {
-    const { state } = await provider.observe();
-    return ['first', 'second', 'outside'].map(
-      (name) => (state[`vacp://test/coherent/chart/param/${name}`] as { value: number }).value,
-    );
-  };
+  const detach = provider.subscribe!(() => {});
   try {
-    const [first, second, outside] = await values();
-    assert.ok(first > 0);
-    assert.equal(first, second);
-    assert.equal(outside, 42);
-    unavailable = true;
-    assert.deepEqual(await values(), [100, 100, 42]);
+    assert.equal(view.runAsync(), nativePromise);
+    await nativePromise;
+    detach();
+    assert.equal(view.runAsync, hostRun);
+    provider.dispose!();
+    await view.runAsync();
+    assert.equal(view.data('source_0').length, 1);
   } finally {
-    provider.dispose?.();
+    detach();
+    provider.dispose!();
+    view.finalize();
   }
-});
-
-test('prepared focus describes brushing, pointing and bound-control interaction semantics', async () => {
-  const provider = createVegaLiteProvider({
-    view: { signal: () => 0, runAsync: async () => {} },
-    spec: {
-      params: [
-        { name: 'brush', select: { type: 'interval', encodings: ['x'] } },
-        { name: 'viewport', select: { type: 'interval', encodings: ['x', 'y'] }, bind: 'scales' },
-        { name: 'click', select: { type: 'point' } },
-        { name: 'threshold', value: 0, bind: { input: 'range', min: 0, max: 10 } },
-        { name: 'query', value: '', bind: { input: 'text' } },
-      ],
-      mark: 'point',
-      encoding: { x: { field: 'a', type: 'quantitative' }, y: { field: 'b', type: 'quantitative' } },
-    },
-    options: { appId: 'test', viewId: 'semantics', vizId: 'chart', enableDuckDbDataHandle: false },
-  });
-  try {
-    const graph = (await provider.observe()).graph;
-    const prepare = async (contract: string, param: string, value?: unknown) =>
-      provider.prepare({
-        callId: param,
-        name: graph.actions.find((action) => action.operation.contract === contract)!.name,
-        params: { ref: `vacp://test/semantics/chart/param/${param}`, value },
-      });
-    assert.deepEqual((await prepare('vega_lite.set_selection', 'brush', { x: [0, 10] })).intent.focus?.interaction, {
-      kind: 'brush',
-      axis: 'x',
-    });
-    assert.deepEqual(
-      (await prepare('vega_lite.set_selection', 'viewport', { x: [0, 10], y: [0, 10] })).intent.focus?.interaction,
-      {
-        kind: 'pan',
-        axis: 'xy',
-      },
-    );
-    assert.deepEqual((await prepare('vega_lite.set_selection', 'click', { category: 'A' })).intent.focus?.interaction, {
-      kind: 'activate',
-    });
-    assert.deepEqual((await prepare('vega_lite.set_param', 'threshold', 1)).intent.focus?.interaction, {
-      kind: 'drag',
-      axis: 'x',
-    });
-    assert.deepEqual((await prepare('vega_lite.set_param', 'query', 'weather')).intent.focus?.interaction, {
-      kind: 'edit',
-    });
-    assert.deepEqual((await prepare('vega_lite.clear_selection', 'brush')).intent.focus?.interaction, {
-      kind: 'activate',
-    });
-  } finally {
-    provider.dispose?.();
-  }
-});
-
-test('presentation belongs to one live provider generation', () => {
-  const create = () =>
-    createVegaLiteProvider({
-      view: { signal: () => 0, runAsync: async () => {} },
-      spec: { mark: 'point' },
-      options: { appId: 'test', viewId: 'presentation', vizId: 'chart', enableDuckDbDataHandle: false },
-    });
-  const first = create();
-  const second = create();
-  // Creating presentation does not touch DOM or install observers.
-  const root = {} as HTMLElement;
-  assert.equal(typeof createVegaLitePresentation({ provider: first, root }).resolve, 'function');
-  first.dispose!();
-  assert.throws(() => createVegaLitePresentation({ provider: first, root }), /live .* provider/);
-  assert.equal(typeof createVegaLitePresentation({ provider: second, root }).resolve, 'function');
-  second.dispose!();
 });

@@ -9,7 +9,6 @@ const observation: VacpObservation = {
   revision: 'benchmark',
   observedAt: '',
   graph: {
-    version: VACP_SCHEMA_VERSION,
     sources: [],
     ownership: { nodes: {}, actions: {} },
     nodes: [],

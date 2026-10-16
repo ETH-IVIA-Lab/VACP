@@ -11,6 +11,7 @@ from fastmcp.exceptions import ValidationError as ToolInputError
 from fastmcp.tools.function_tool import FunctionTool
 from playwright.async_api import Page
 from vacp.agent_tools import (
+    AGENT_ACTOR,
     AGENT_TOOLS,
     TOOL_GUIDANCE,
     TOOL_RESULT_LIMITS,
@@ -21,8 +22,9 @@ from vacp.agent_tools import (
     tool_read,
     tool_result,
 )
-from vacp.bridge import AGENT, ActionCall, ActionResult, PlaywrightVacpBridgeClient, VacpBridgeClient
+from vacp.bridge import PlaywrightVacpBridgeClient, VacpBridgeClient
 from vacp.narration import NARRATION_GUIDANCE, NARRATION_MAX_LENGTH, PROGRESS_FIELDS, PROGRESS_GUIDANCE, parse_narration
+from vacp.provider import ActionCall, ActionResult
 from vacp.server import create_mcp
 
 
@@ -49,10 +51,10 @@ class _FakeClient(VacpBridgeClient):
         self.last_capabilities_request = request
         return {'graph': {'nodes': [], 'edges': [], 'actions': []}}
 
-    async def get_state(self, request: StateRequest | None = None) -> dict:
+    async def get_state(self, request: StateRequest) -> dict:
         self.last_state_request = request
-        if request is None:
-            return {'state': {}}
+        if 'since' not in request:
+            return {'mode': 'full', 'token': 'st_1', 'snapshot': {'state': {}}}
         return {
             'mode': 'delta',
             'token': 'st_next',
@@ -60,7 +62,7 @@ class _FakeClient(VacpBridgeClient):
             'delta': {'changed': {}, 'removed': []},
         }
 
-    async def execute(self, call: ActionCall, *, narration: str | None = None) -> ActionResult:
+    async def execute(self, call: ActionCall, *, narration: str) -> ActionResult:
         self.messages.append(narration)
         return ActionResult(
             call_id=call.call_id,
@@ -148,17 +150,16 @@ async def test_vacp_capabilities_rejects_invalid_fields(arguments: dict[str, obj
 
 
 @pytest.mark.asyncio
-async def test_vacp_state_without_input_reads_the_full_snapshot() -> None:
+async def test_vacp_state_without_input_reads_the_full_state_with_a_token() -> None:
     client = _FakeClient()
-    assert await _run(client, 'vacp_state', {}) == {'state': {}}
-    assert client.last_state_request is None
+    assert await _run(client, 'vacp_state', {}) == {'mode': 'full', 'token': 'st_1', 'snapshot': {'state': {}}}
+    assert client.last_state_request == {}
 
 
 @pytest.mark.asyncio
 async def test_vacp_state_forwards_fields_for_delta_requests() -> None:
     client = _FakeClient()
     arguments: dict[str, object] = {
-        'mode': 'delta',
         'since': 'st_prev',
         'refs': ['vacp://a', 'vacp://b'],
         'includeSummary': False,
@@ -174,7 +175,7 @@ async def test_vacp_state_forwards_fields_for_delta_requests() -> None:
     'arguments',
     [
         {'bogus': 1},
-        {'mode': 'nope'},
+        {'mode': 'delta'},
         {'since': '   '},
         {'refs': ['vacp://a', 'app/chart']},
         {'includeSummary': 'nope'},
@@ -210,8 +211,8 @@ async def test_mcp_execution_preserves_json_values_and_omission_through_the_brow
     cases = [{}, {'params': None}, {'params': 'hello'}, {'params': [1, 2]}, {'params': {'value': 3}}]
     payloads: list[object] = []
 
-    def evaluate(_expression: str, argument: str | dict[str, object]) -> object:
-        if isinstance(argument, str):
+    def evaluate(_expression: str, argument: dict[str, object]) -> object:
+        if 'version' in argument:
             return True
         payloads.append(argument['payload'])
         assert argument['narration'] == 'Reading the input.'
@@ -219,7 +220,7 @@ async def test_mcp_execution_preserves_json_values_and_omission_through_the_brow
         return json.dumps({'callId': 'c1', 'ok': True})
 
     page.evaluate.side_effect = evaluate
-    mcp = create_mcp(PlaywrightVacpBridgeClient(page))
+    mcp = create_mcp(PlaywrightVacpBridgeClient(lambda: page))
     tool = await mcp.get_tool('vacp_execute')
     assert isinstance(tool, FunctionTool)
     for supplied in cases:
@@ -233,7 +234,8 @@ async def test_mcp_execution_preserves_json_values_and_omission_through_the_brow
 
 @pytest.mark.asyncio
 async def test_create_mcp_registers_page_tools_when_page_provided() -> None:
-    mcp = create_mcp(_FakeClient(), page=_FakePage())
+    page = _FakePage()
+    mcp = create_mcp(_FakeClient(), page=lambda: page)
     tools = await mcp.list_tools()
     assert {tool.name for tool in tools} == {
         'vacp_observe',
@@ -248,12 +250,14 @@ async def test_create_mcp_registers_page_tools_when_page_provided() -> None:
 
 @pytest.mark.asyncio
 async def test_browser_tools_are_gated_by_enable_flag(tmp_path) -> None:
-    mcp = create_mcp(_FakeClient(), page=_FakePage(), enable_browser_tools=True)
+    page = _FakePage()
+    mcp = create_mcp(_FakeClient(), page=lambda: page, enable_browser_tools=True)
 
-    tools = await mcp.list_tools()
-    tool_names = {tool.name for tool in tools}
-    assert 'browser_screenshot' in tool_names
-    assert 'browser_eval' in tool_names
+    tools = {tool.name: tool for tool in await mcp.list_tools()}
+    assert 'browser_screenshot' in tools
+    # Evaluating arbitrary page code can change the page, so the tool never claims to be read-only.
+    annotations = tools['browser_eval'].annotations
+    assert annotations is not None and annotations.read_only_hint is False
 
     screenshot = await mcp.get_tool('browser_screenshot')
     assert isinstance(screenshot, FunctionTool)
@@ -283,8 +287,17 @@ async def test_vacp_progress_narrates_and_closes_a_turn() -> None:
         ('Narrowing to sprinters under 25', False),
         ('Sprinters under 25 win most medals.', True),
     ]
-    with pytest.raises(ValueError, match='requires a sentence'):
+    with pytest.raises(ValueError, match='message requires a sentence'):
         await tool.run({'message': '   '})
+
+
+@pytest.mark.asyncio
+async def test_progress_fails_visibly_on_a_page_whose_bridge_cannot_narrate() -> None:
+    page = AsyncMock(spec=Page)
+    page.evaluate.return_value = False
+    client = PlaywrightVacpBridgeClient(lambda: page)
+    with pytest.raises(RuntimeError, match='narrate at window.__vacp'):
+        await client.progress('Looking at the age spread')
 
 
 @pytest.mark.asyncio
@@ -292,22 +305,22 @@ async def test_browser_bridge_progress_speaks_through_the_runtime_narrator() -> 
     page = AsyncMock(spec=Page)
     payloads: list[object] = []
 
-    def evaluate(_expression: str, argument: str | dict[str, object]) -> object:
-        if isinstance(argument, str):
+    def evaluate(_expression: str, argument: dict[str, object]) -> object:
+        if 'version' in argument:
             return True
         payloads.append(argument)
         return None
 
     page.evaluate.side_effect = evaluate
-    client = PlaywrightVacpBridgeClient(page)
+    client = PlaywrightVacpBridgeClient(lambda: page)
     await client.progress('Looking at the age spread')
     await client.progress('Done.', done=True)
     assert payloads == [
-        {'key': '__vacp', 'actor': AGENT, 'message': 'Looking at the age spread', 'done': False},
-        {'key': '__vacp', 'actor': AGENT, 'message': 'Done.', 'done': True},
+        {'key': '__vacp', 'actor': AGENT_ACTOR, 'message': 'Looking at the age spread', 'done': False},
+        {'key': '__vacp', 'actor': AGENT_ACTOR, 'message': 'Done.', 'done': True},
     ]
     expression = page.evaluate.call_args_list[-1].args[0]
-    assert 'bridge.narrate' in expression
+    assert '.narrate(' in expression
 
 
 FIXTURE = json.loads((Path(__file__).parents[2] / 'protocol/test/fixtures/narration.json').read_text())
@@ -355,6 +368,7 @@ AGENT_TOOLS_FIXTURE = json.loads((PROTOCOL_FIXTURES / 'agent-tools.json').read_t
 async def test_mcp_tools_match_the_agent_tools_of_every_transport() -> None:
     assert AGENT_TOOLS_FIXTURE['tools'] == AGENT_TOOLS
     assert AGENT_TOOLS_FIXTURE['guidance'] == TOOL_GUIDANCE
+    assert AGENT_TOOLS_FIXTURE['actor'] == AGENT_ACTOR
     mcp = create_mcp(_FakeClient())
     assert TOOL_GUIDANCE in (mcp.instructions or '')
     tools = {tool.name: tool for tool in await mcp.list_tools()}
@@ -414,10 +428,10 @@ class _LongClient(_FakeClient):
     async def get_capabilities(self, request: CapabilitiesRequest | None = None) -> dict:
         return {'graph': {'nodes': [], 'edges': [], 'actions': []}, 'note': _LONG}
 
-    async def get_state(self, request: StateRequest | None = None) -> dict:
+    async def get_state(self, request: StateRequest) -> dict:
         return {'state': {}, 'note': _LONG}
 
-    async def execute(self, call: ActionCall, *, narration: str | None = None) -> ActionResult:
+    async def execute(self, call: ActionCall, *, narration: str) -> ActionResult:
         return ActionResult(call_id=call.call_id, ok=True, result={'note': _LONG})
 
 

@@ -1,6 +1,5 @@
-export * from './targets';
-export * from './renderer';
-export * from './install';
+export { createBrowserPresenceRenderer } from './renderer';
+export { createBrowserPresence } from './install';
 
 export type { BrowserPresenceOptions } from './options';
 export type { CursorTravel } from './motion';

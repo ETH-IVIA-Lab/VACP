@@ -22,7 +22,7 @@ test('application options control exposure while DOM snapshots remain readable',
         expect(manifest.state.refCount).toBeGreaterThan(0);
         expect(await page.evaluate(() => '__vacp' in globalThis)).toBe(enabled);
         if (enabled) {
-          const state = await page.evaluate(async () => (await globalThis.__vacp.getState()).state);
+          const state = await page.evaluate(async () => (await globalThis.__vacp.observe()).state);
           expect(Object.keys(state).length).toBe(manifest.state.refCount);
         }
       } finally {

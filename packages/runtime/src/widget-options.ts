@@ -1,6 +1,6 @@
 import type { VacpActionExecutionOptions, VacpAvailability } from '@vacp/protocol';
 import { z } from 'zod';
-import { vacpRefSchema } from '@vacp/protocol';
+import { vacpRefSchema } from '@vacp/protocol/validation';
 import type { VacpActionDescriptor, VacpRef, VacpWidgetOptionsParams, VacpWidgetOptionsResult } from '@vacp/protocol';
 import { VACP_WIDGET_OPTIONS_ACTION } from '@vacp/protocol';
 
@@ -11,19 +11,17 @@ export type VacpWidgetOptionsHandler = (
   options: VacpActionExecutionOptions,
 ) => VacpWidgetOptionsResult | Promise<VacpWidgetOptionsResult>;
 
+const MAX_LIMIT = 2000;
+const MAX_QUERY = 200;
+
 const paramsSchema = z.object({
   ref: vacpRefSchema,
-  offset: z.coerce.number().finite().nonnegative().default(0).transform(Math.floor),
-  limit: z.coerce.number().finite().positive().max(2000).default(200).transform(Math.floor),
-  query: z.string().max(200).optional(),
+  offset: z.number().int().min(0).default(0),
+  limit: z.number().int().min(1).max(MAX_LIMIT).default(200),
+  query: z.string().max(MAX_QUERY).optional(),
 });
 
-/**
- * Register the standard action `vacp.widget_options`.
- *
- * Intended for Menu-like widgets where agents need to discover available
- * values/labels before calling provider-specific input actions.
- */
+/** Register `vacp.widget_options`, which pages through a menu-like widget's options. */
 export function registerVacpWidgetOptionsAction(
   registry: VacpActionRegistrar,
   handler: VacpWidgetOptionsHandler,
@@ -46,9 +44,9 @@ export function registerVacpWidgetOptionsAction(
       type: 'object',
       properties: {
         ref: { type: 'string', description: 'The vacp:// ref of a Widget node.' },
-        offset: { type: 'number', description: 'Pagination offset (default: 0).' },
-        limit: { type: 'number', description: 'Max options to return (default: 200).' },
-        query: { type: 'string', description: 'Optional substring filter applied to label/value.' },
+        offset: { type: 'integer', minimum: 0, default: 0, description: 'Pagination offset.' },
+        limit: { type: 'integer', minimum: 1, maximum: MAX_LIMIT, default: 200, description: 'Options to return.' },
+        query: { type: 'string', maxLength: MAX_QUERY, description: 'Substring filter applied to labels and values.' },
       },
       required: ['ref'],
       examples: [{ ref: 'vacp://.../input/0', query: 'judo' }],

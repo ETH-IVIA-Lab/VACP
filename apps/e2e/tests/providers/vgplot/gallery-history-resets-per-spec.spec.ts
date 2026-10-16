@@ -8,7 +8,7 @@ test('switching gallery specs replaces the session and releases the previous rec
   await page.waitForFunction(() => globalThis.__vacp?.sessionKey === 'vgplot/weather');
   const before = await page.evaluate(async () => {
     const runtime = window.__vacp!;
-    await runtime.refresh!({ actor: { id: 'inspector', kind: 'human' }, message: 'Weather checkpoint' });
+    await runtime.refresh({ actor: { id: 'inspector', kind: 'human' }, message: 'Weather checkpoint' });
     return runtime.getProvenance();
   });
   expect(before.records.some((record) => record.message === 'Weather checkpoint')).toBe(true);

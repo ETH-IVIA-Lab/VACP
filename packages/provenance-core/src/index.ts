@@ -1,12 +1,9 @@
-export {
-  provenanceActor,
-  provenanceFocus,
-  provenanceMessage,
-  provenanceTurn,
-  isRestorationRecord,
-  sameAnalyticalState,
-  provenanceCheckpoints,
-} from './checkpoints';
+export { provenanceCheckpoints } from './checkpoints';
 export type { ProvenanceCheckpoint } from './checkpoints';
-export * from './types';
+export type {
+  ProvenanceReplayState,
+  ProvenanceReplaySource,
+  ProvenanceReplayOptions,
+  ProvenanceReplayController,
+} from './types';
 export { createProvenanceReplay } from './replay';

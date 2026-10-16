@@ -1,6 +1,6 @@
 import type { VacpActionExecutionOptions, VacpAvailability } from '@vacp/protocol';
 import { z } from 'zod';
-import { vacpRefSchema } from '@vacp/protocol';
+import { vacpRefSchema } from '@vacp/protocol/validation';
 import type { VacpActionDescriptor, VacpDataSchemaParams, VacpDataSchemaResult, VacpRef } from '@vacp/protocol';
 import { VACP_DATA_SCHEMA_ACTION } from '@vacp/protocol';
 
@@ -17,13 +17,7 @@ const paramsSchema = z.object({
   sampleRows: z.number().finite().nonnegative().optional(),
 });
 
-/**
- * Register the standard action `vacp.data_schema`.
- *
- * This action is intentionally provider-defined:
- * providers decide how a DataHandle maps to an underlying relation and which
- * schema details can be returned efficiently.
- */
+/** Register `vacp.data_schema`. The provider maps each DataHandle to its relations and their summaries. */
 export function registerVacpDataSchemaAction(
   registry: VacpActionRegistrar,
   handler: VacpDataSchemaHandler,
@@ -49,6 +43,7 @@ export function registerVacpDataSchemaAction(
         detail: { type: 'string', enum: ['columns', 'full'], description: 'Detail level (default: columns).' },
         sampleRows: {
           type: 'number',
+          minimum: 0,
           description: 'Bounds rows scanned for summaries when detail=full. Providers tune the default for speed.',
         },
       },

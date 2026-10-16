@@ -1,9 +1,9 @@
+import { createVacpProvider } from '@vacp/runtime';
+import { installVacpRuntime } from '@vacp/runtime-browser';
+import { createVacpActions } from '@vacp/sdk';
 import { z } from 'zod';
 
 const thresholdParams = z.object({ value: z.number().finite().min(0).max(100) });
-
-import { VACP_SCHEMA_VERSION } from '@vacp/protocol';
-import { createVacpActions, createVacpProvider, installVacp } from '@vacp/sdk';
 
 type ThresholdControl = Pick<HTMLInputElement, 'value' | 'valueAsNumber' | 'addEventListener' | 'removeEventListener'>;
 
@@ -27,24 +27,33 @@ export function connectThreshold(input: ThresholdControl) {
     actions: actions.registry,
     project: () => ({
       graph: {
-        version: VACP_SCHEMA_VERSION,
         nodes: [{ ref, kind: 'Param', layer: 'ConfigLayer', title: 'Threshold' }],
         edges: [],
         actions: actions.registry.list(),
       },
       state: { [ref]: { value: input.valueAsNumber } },
     }),
+    subscribe: (invalidate) => {
+      input.addEventListener('input', invalidate);
+      return () => input.removeEventListener('input', invalidate);
+    },
   });
-  const integration = installVacp({ providers: [provider] });
+  const { runtime, dispose } = installVacpRuntime({
+    providers: [provider],
+    exposeBridge: true,
+    injectDomSnapshot: true,
+  });
 
-  const onInput = () => integration.refresh({ id: 'human', kind: 'human' }, 'Threshold changed');
+  const onInput = () => {
+    void runtime.refresh({ actor: { id: 'human', kind: 'human' }, message: 'Threshold changed' }).catch(() => {});
+  };
   input.addEventListener('input', onInput);
 
   return {
-    bridge: integration.bridge,
+    runtime,
     dispose() {
       input.removeEventListener('input', onInput);
-      integration.dispose();
+      dispose();
     },
   };
 }

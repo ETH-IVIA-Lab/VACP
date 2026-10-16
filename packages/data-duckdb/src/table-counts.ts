@@ -1,14 +1,16 @@
 import type { VacpDataHandleDescriber } from '@vacp/protocol';
 
-import type { VacpDuckDbClient } from './client';
+import type { VacpDuckDbQueryClient } from './client';
 import { describeDuckDbTable } from './metadata';
 
 /**
- * A `describeDataHandle` hook for a host whose tables stay as they loaded: it counts each table's
+ * A `data.describe` hook for a host whose tables stay as they loaded: it counts each table's
  * rows the first time a handle reads it, then states that count on every later read. A count that
  * fails, such as for a table still loading, is tried again on the next read.
  */
-export function countDuckDbTablesOnce(duckdb: VacpDuckDbClient | Promise<VacpDuckDbClient>): VacpDataHandleDescriber {
+export function countDuckDbTablesOnce(
+  duckdb: VacpDuckDbQueryClient | Promise<VacpDuckDbQueryClient>,
+): VacpDataHandleDescriber {
   const counts = new Map<string, Promise<number | null>>();
   return async ({ table }) => {
     let count = counts.get(table);

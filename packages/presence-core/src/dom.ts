@@ -1,7 +1,7 @@
-import type { PresenceGeometry, PresenceResolver, PresenceTarget } from '@vacp/presence-core';
+import type { PresenceGeometry, PresenceResolver, PresenceTarget } from './types';
 import type { VacpFocus } from '@vacp/protocol';
 
-export const browserPresenceSurface = 'viewport';
+const browserPresenceSurface = 'viewport';
 
 type Edges = { left: number; top: number; right: number; bottom: number };
 
@@ -21,7 +21,7 @@ function clipPresenceRect(element: Element, rect: Edges): Edges | null {
     if (parent === doc.documentElement || parent === doc.body) continue;
     const style = view.getComputedStyle(parent);
     const bounds = parent.getBoundingClientRect();
-    // client metrics are layout pixels; the clipping rectangle lives in viewport pixels.
+    // client metrics are layout pixels. The clipping rectangle lives in viewport pixels.
     const scaleX = parent instanceof view.HTMLElement && parent.offsetWidth ? bounds.width / parent.offsetWidth : 1;
     const scaleY = parent instanceof view.HTMLElement && parent.offsetHeight ? bounds.height / parent.offsetHeight : 1;
     if (/auto|scroll|hidden|clip/.test(style.overflowX)) {
@@ -115,7 +115,7 @@ export function svgPresenceTarget(
   geometry: PresenceGeometry,
   precision: PresenceTarget['precision'] = 'exact',
 ): PresenceTarget | null {
-  // The projected geometry is clipped once below; this only rejects an unrendered element.
+  // The projected geometry is clipped once below. This only rejects an unrendered element.
   const rect = element.getBoundingClientRect();
   if (rect.width <= 0 || rect.height <= 0) return null;
   const matrix = element.getScreenCTM();

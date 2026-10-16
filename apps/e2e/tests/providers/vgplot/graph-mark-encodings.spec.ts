@@ -1,13 +1,10 @@
 import { expect } from '@playwright/test';
 import { test } from '../../helpers/test';
 
-import { appServer } from '../../helpers/servers';
+import { gotoApp } from '../../helpers/servers';
 
 test('vgplot: capability graph includes mark encoding channels + fields (Seattle Weather)', async ({ page }) => {
-  const srv = appServer('vgplot-gallery');
-
-  await page.goto(`${srv.url}#weather`, { waitUntil: 'domcontentloaded' });
-  await page.waitForFunction(() => !!globalThis.__vacp);
+  await gotoApp(page, 'vgplot-gallery', '#weather');
 
   const graph = await page.evaluate(async () => {
     const cap = await globalThis.__vacp.getCapabilities?.();
@@ -55,10 +52,7 @@ test('vgplot: capability graph includes mark encoding channels + fields (Seattle
 });
 
 test('vgplot: capability graph keeps refs unique when marks share a runtime index (Axes)', async ({ page }) => {
-  const srv = appServer('vgplot-gallery');
-
-  await page.goto(`${srv.url}#axes`, { waitUntil: 'domcontentloaded' });
-  await page.waitForFunction(() => !!globalThis.__vacp);
+  await gotoApp(page, 'vgplot-gallery', '#axes');
 
   const nodes = await page.evaluate(async () => {
     const cap = await globalThis.__vacp.getCapabilities?.();

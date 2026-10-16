@@ -1,14 +1,11 @@
 import { expect, type Page } from '@playwright/test';
 import { test } from '../../helpers/test';
 
-import { appServer } from '../../helpers/servers';
+import { gotoApp } from '../../helpers/servers';
 import { executeOperation, operationNames } from '../operations';
 
 test('vgplot: set_interval_1d triggers downstream crossfilters (Seattle Weather)', async ({ page }) => {
-  const srv = appServer('vgplot-gallery');
-
-  await page.goto(`${srv.url}#weather`, { waitUntil: 'domcontentloaded' });
-  await page.waitForFunction(() => !!globalThis.__vacp);
+  await gotoApp(page, 'vgplot-gallery', '#weather');
 
   const beforeRows = await selectedAndAllRowCounts(page);
   expect(beforeRows.selected).toBe(beforeRows.all);
@@ -20,8 +17,7 @@ test('vgplot: set_interval_1d triggers downstream crossfilters (Seattle Weather)
 
   // Programmatic brush (June-Aug) on the scatter plot should change the bottom bar chart.
   const res = await executeOperation(page, 'vgplot.set_interval_1d', {
-    plotId: 'plot-0',
-    interactorId: '0',
+    ref: 'vacp://vacp-examples/vgplot/weather/plot-0/interactor/0',
     min: 1338508800000,
     max: 1346457600000,
   });

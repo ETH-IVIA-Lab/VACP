@@ -15,7 +15,7 @@ export async function auditScenarios(input: {
   tracing: Tracing;
   scenarios: readonly Scenario[];
   baseURL?: string;
-  log(line: string): void;
+  log: (line: string) => void;
   signal: AbortSignal;
 }): Promise<number> {
   const { suite, scenarios, log } = input;

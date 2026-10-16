@@ -69,7 +69,7 @@ export type Check = {
   /** Unique within its turn, and a soft check's label within its scenario, where it names the metric. */
   label: string;
   assertion: Assertion;
-  read(context: CheckContext): unknown | Promise<unknown>;
+  read(context: CheckContext): unknown;
 };
 
 type Oracle = {

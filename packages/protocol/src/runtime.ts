@@ -1,44 +1,39 @@
 import type { VacpProvenanceSource } from './provenance';
 import type { VacpAgentActivityControl } from './activity';
-import type { VacpActor, VacpExecutionSource, VacpFocus } from './execution';
+import type { VacpActionExecutionOptions, VacpActor, VacpExecutionSource, VacpFocus } from './execution';
 import type {
   VacpActionCall,
-  VacpActionExecutionOptions,
   VacpActionResult,
+  VacpCapabilitiesRequest,
+  VacpCapabilitiesSnapshot,
   VacpObservation,
+  VacpSchemaVersion,
+  VacpStateRequest,
   VacpStateSnapshot,
-  VacpWindowBridge,
+  VacpStateUpdate,
 } from './schema';
 
-/**
- * Optional live recording and execution capabilities.
- *
- * Runtime instrumentation for in-page tools such as the inspector.
- */
-export interface VacpRuntimeBridge extends VacpWindowBridge, VacpProvenanceSource {
-  /** Full catalog and state for inspection. Execution still enforces current availability. */
-  inspect(): Promise<VacpObservation> | VacpObservation;
-  readonly runtimeId?: string;
-  readonly sessionKey?: string;
-  /** Capture a fresh state snapshot after human-driven UI changes. */
-  refresh?: (options?: { actor?: VacpActor; message?: string; focus?: VacpFocus }) => Promise<VacpStateSnapshot>;
-  /**
-   * Dispatch an action with an explicit actor for the local runtime
-   * timeline. `execute()` remains MCP-friendly and defaults to an agent actor.
-   */
-  dispatch?: (call: VacpActionCall, options?: VacpActionExecutionOptions) => Promise<VacpActionResult>;
-
-  /**
-   * Optional state observer:
-   * - records timeline entries when snapshots change
-   * - records unattributed changes as system observations unless the host supplies an actor
-   */
-  startObserving?: (options?: { intervalMs?: number; actor?: VacpActor; message?: string }) => void;
-  stopObserving?: () => void;
+/** The reads and execution a model reaches through a transport. */
+export interface VacpWindowBridge {
+  readonly version: VacpSchemaVersion;
+  /** One coherent read of graph, state, ownership, and freshness. */
+  observe(): Promise<VacpObservation>;
+  getCapabilities(request?: VacpCapabilitiesRequest): Promise<VacpCapabilitiesSnapshot>;
+  /** A full update with a token when `since` is absent or unknown, otherwise the changes since that token. */
+  getState(request?: VacpStateRequest): Promise<VacpStateUpdate>;
+  execute(call: VacpActionCall, options?: VacpActionExecutionOptions): Promise<VacpActionResult>;
 }
 
 /**
- * The runtime a page publishes at `window.__vacp` and `getVacpBridge()` returns: reads and execution,
- * the provenance record, agent activity for narration, and the live execution stream.
+ * The runtime a page publishes at `window.__vacp` and `getVacpBridge()` returns: model-facing reads and
+ * execution, full inspection, the provenance record, agent activity, and the live execution stream.
  */
-export type VacpPageBridge = VacpRuntimeBridge & VacpAgentActivityControl & VacpExecutionSource;
+export interface VacpPageBridge
+  extends VacpWindowBridge, VacpProvenanceSource, VacpAgentActivityControl, VacpExecutionSource {
+  readonly runtimeId: string;
+  readonly sessionKey: string | undefined;
+  /** Full catalog and state for inspection. Execution still enforces current availability. */
+  inspect(): Promise<VacpObservation>;
+  /** Record the current state after a native change, attributed to `actor`, a system actor by default. */
+  refresh(options?: { actor?: VacpActor; message?: string; focus?: VacpFocus }): Promise<VacpStateSnapshot>;
+}

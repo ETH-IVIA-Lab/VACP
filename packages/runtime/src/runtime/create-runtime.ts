@@ -1,36 +1,18 @@
-import { z } from 'zod';
-import { vacpRefSchema } from '@vacp/protocol';
-import type {
-  VacpActionCall,
-  VacpActionExecutionOptions,
-  VacpActionResult,
-  VacpCapabilitiesRequest,
-  VacpActor,
-  VacpFocus,
-  VacpProvider,
-  VacpStateRequest,
-  VacpStateSnapshot,
-  VacpStateUpdate,
-} from '@vacp/protocol';
-import { nowIso, VACP_SCHEMA_VERSION } from '@vacp/protocol';
+import { vacpAgentActor } from '@vacp/protocol';
+import { parseCapabilitiesRequest, parseStateRequest } from '@vacp/protocol/validation';
+import type { VacpProvider, VacpStateSnapshot } from '@vacp/protocol';
+import { VACP_SCHEMA_VERSION } from '@vacp/protocol';
 import { createDispatcher } from './dispatch';
 import { createAgentActivityChannel } from './activities';
 import { createExecutionChannel } from './executions';
 import { composeVacpProviders } from '../composition';
-import { createRuntimeObserver } from './observer';
+import { createObservationRecorder } from './observer';
 import type { VacpRuntime } from './types';
 import { scopeCapabilitiesSnapshot } from './capabilities-scope';
 import { buildStateUpdate } from './state-update';
-import { entryMessage, entryActor, makeEntryId } from './helpers';
+import { entryMessage, entryActor, makeEntryId, nowIso, systemActor } from './helpers';
 import { createProvenanceJournal } from './provenance';
 import { createLiveObservations } from './observations';
-
-const stateRequestSchema = z.object({
-  mode: z.enum(['auto', 'full', 'delta']).default('auto'),
-  since: z.string().optional(),
-  refs: z.array(vacpRefSchema).optional(),
-  includeSummary: z.boolean().optional(),
-});
 
 const STATE_UPDATE_CACHE_LIMIT = 64;
 
@@ -43,8 +25,6 @@ export function createVacpRuntime(args: {
   runtimeId?: string;
   historyLimit?: number;
 }): VacpRuntime {
-  type AdapterUpdate = { providers: readonly VacpProvider[]; sessionKey?: string };
-
   const runtimeId = args.runtimeId?.trim() || makeEntryId();
   const provenance = createProvenanceJournal({
     runtimeId,
@@ -58,7 +38,7 @@ export function createVacpRuntime(args: {
     providers.set(provider.source.id, provider);
   }
   let adapter = composeVacpProviders([...providers.values()]);
-  let sessionKey = args.sessionKey?.length ? args.sessionKey : null;
+  let sessionKey = args.sessionKey || undefined;
 
   const lifetime = new AbortController();
   const executions = createExecutionChannel(lifetime.signal);
@@ -112,29 +92,15 @@ export function createVacpRuntime(args: {
   const stateUpdateCache = new Map<string, VacpStateSnapshot>();
 
   const cacheStateSnapshot = (token: string, snapshot: VacpStateSnapshot): void => {
-    if (!token) return;
-
-    if (stateUpdateCache.has(token)) stateUpdateCache.delete(token);
+    stateUpdateCache.delete(token);
     stateUpdateCache.set(token, snapshot);
-
-    while (stateUpdateCache.size > STATE_UPDATE_CACHE_LIMIT) {
-      const oldest = stateUpdateCache.keys().next().value;
-
-      if (!oldest) break;
+    for (const oldest of stateUpdateCache.keys()) {
+      if (stateUpdateCache.size <= STATE_UPDATE_CACHE_LIMIT) break;
       stateUpdateCache.delete(oldest);
     }
   };
 
-  const {
-    recordIfStateChanged,
-    reset: resetObserver,
-    acknowledge,
-    startObserving,
-    stopObserving,
-    readObserved,
-    actionStarted,
-    actionFinished,
-  } = createRuntimeObserver({ ensureLive, record });
+  const recorder = createObservationRecorder({ ensureLive, record });
 
   // One read follows a burst of invalidations; each read already observes the latest state.
   let following: { trailing: boolean } | undefined;
@@ -147,10 +113,10 @@ export function createVacpRuntime(args: {
     const current = { trailing: false };
     following = current;
     const epoch = provenance.epoch;
-    void readObserved()
+    void recorder
+      .readObserved()
       .then(({ inspection, cause }) => {
-        if (epoch === provenance.epoch)
-          recordIfStateChanged(inspection, { id: 'system', kind: 'system' }, 'Observed a change', cause);
+        if (epoch === provenance.epoch && hasSubscribers()) recorder.recordChange(inspection, cause);
       })
       .catch(() => {})
       .finally(() => {
@@ -161,6 +127,28 @@ export function createVacpRuntime(args: {
   const followProviderInvalidations = () => adapter.subscribe(observeInvalidation);
   let detachProviderInvalidations = followProviderInvalidations();
 
+  // A first subscriber needs a baseline, so the first invalidation it follows can record a change.
+  const followed =
+    <Listener>(subscribe: (listener: Listener) => () => void) =>
+    (listener: Listener) => {
+      lifetime.signal.throwIfAborted();
+      const first = !hasSubscribers();
+      const release = subscribe(listener);
+      if (first) {
+        const epoch = provenance.epoch;
+        void recorder
+          .readObserved()
+          .then(({ inspection }) => {
+            if (epoch === provenance.epoch && hasSubscribers()) recorder.prime(inspection);
+          })
+          .catch(() => {});
+      }
+      return () => {
+        release();
+        if (!hasSubscribers()) recorder.forget();
+      };
+    };
+
   const dispatch = createDispatcher({
     lifetime: lifetime.signal,
     providers,
@@ -170,9 +158,9 @@ export function createVacpRuntime(args: {
     executions,
     agentActivities,
     record,
-    acknowledge,
-    actionStarted,
-    actionFinished,
+    acknowledge: recorder.acknowledge,
+    actionStarted: recorder.actionStarted,
+    actionFinished: recorder.actionFinished,
   });
 
   const replaceProviders = (next: readonly VacpProvider[], resetLifetimes = false): void => {
@@ -193,53 +181,34 @@ export function createVacpRuntime(args: {
     }
   };
 
-  const updateAdapters = (next: AdapterUpdate, options?: { actor?: VacpActor; message?: string }): void => {
+  const update: VacpRuntime['update'] = (next) => {
     lifetime.signal.throwIfAborted();
     replaceProviders(next.providers, true);
     providerLeases.clear();
-    const nextSessionKey = next.sessionKey?.length ? next.sessionKey : null;
-    const prevSessionKey = sessionKey;
-    const sessionChanged = Boolean(nextSessionKey && nextSessionKey !== prevSessionKey);
-
-    sessionKey = nextSessionKey ?? sessionKey;
+    const previous = sessionKey;
+    const sessionChanged = Boolean(next.sessionKey && next.sessionKey !== previous);
+    sessionKey = next.sessionKey || sessionKey;
 
     if (sessionChanged) {
       agentActivities.clear();
       const publishCancellations = executions.reset('Runtime session changed');
-      resetObserver();
+      recorder.reset();
       observations.reset();
       stateUpdateCache.clear();
-      provenance.reset(sessionKey ?? undefined);
+      provenance.reset(sessionKey);
       publishCancellations();
-
-      if (hasSubscribers()) {
-        stopObserving();
-        startObserving({ actor: { id: 'system', kind: 'system' }, message: 'observe' });
-      }
-
       record({
         id: makeEntryId(),
         at: nowIso(),
         kind: 'session',
-        actor: { id: 'system', kind: 'system' },
-        message: `session changed: ${prevSessionKey ?? '(unknown)'} -> ${nextSessionKey}`,
+        actor: systemActor(),
+        message: `session changed: ${previous ?? '(unknown)'} -> ${sessionKey}`,
       });
     }
 
     void bridge
-      .refresh?.({
-        actor: entryActor(options?.actor),
-        message: entryMessage(options?.message) ?? (sessionChanged ? 'session started' : 'bridge updated'),
-      })
+      .refresh({ actor: systemActor(), message: sessionChanged ? 'session started' : 'bridge updated' })
       .catch(() => {});
-  };
-
-  const removeProvider = (sourceId: string): void => {
-    lifetime.signal.throwIfAborted();
-    if (!providers.has(sourceId)) return;
-    replaceProviders([...providers.values()].filter((provider) => provider.source.id !== sourceId));
-    providerLeases.delete(sourceId);
-    void ensureLive().catch(() => {});
   };
 
   const attachProviders = (incoming: readonly VacpProvider[]): (() => void) => {
@@ -264,36 +233,21 @@ export function createVacpRuntime(args: {
     };
   };
 
-  async function getState(): Promise<VacpStateSnapshot>;
-  async function getState(request: VacpStateRequest): Promise<VacpStateUpdate>;
-  async function getState(request?: VacpStateRequest): Promise<VacpStateSnapshot | VacpStateUpdate> {
-    const epoch = provenance.epoch;
-    const { state: current, inspection, cause } = await readObserved();
-    if (epoch === provenance.epoch)
-      recordIfStateChanged(inspection, { id: 'system', kind: 'system' }, 'Observed state', cause);
-
-    if (!request) return structuredClone(current);
-
-    const normalizedRequest = stateRequestSchema.parse(request);
-    const baseline = normalizedRequest.since ? stateUpdateCache.get(normalizedRequest.since) : undefined;
-
-    const { update, snapshot } = buildStateUpdate({
-      current,
-      request: normalizedRequest,
-      baseline,
-    });
-
+  const getState: VacpRuntime['getState'] = async (request = {}) => {
+    const parsed = parseStateRequest(request);
+    const { state: current } = await ensureLive();
+    const baseline = parsed.since ? stateUpdateCache.get(parsed.since) : undefined;
+    const { update, snapshot } = buildStateUpdate({ current, request: parsed, baseline });
     cacheStateSnapshot(update.token, snapshot);
-
     return structuredClone(update);
-  }
+  };
 
   const bridge: VacpRuntime = {
     version: VACP_SCHEMA_VERSION,
     runtimeId,
     signal: lifetime.signal,
     get sessionKey() {
-      return sessionKey ?? undefined;
+      return sessionKey;
     },
     get providerIds() {
       return [...providers.keys()];
@@ -307,8 +261,7 @@ export function createVacpRuntime(args: {
     getAgentActivities: agentActivities.getAgentActivities,
     subscribeAgentActivities: agentActivities.subscribeAgentActivities,
     addExecutionGate: executions.addExecutionGate,
-    removeProvider,
-    update: (next) => updateAdapters(next, { actor: { id: 'system', kind: 'system' } }),
+    update,
     dispose: () => {
       if (lifetime.signal.aborted) return;
       lifetime.abort();
@@ -320,62 +273,28 @@ export function createVacpRuntime(args: {
       observations.dispose();
       provenance.dispose();
       stateUpdateCache.clear();
-      stopObserving();
+      recorder.reset();
     },
 
     inspect: async () => structuredClone((await ensureLive()).inspection),
     observe: async () => structuredClone((await ensureLive()).observation),
 
-    getCapabilities: async (request?: VacpCapabilitiesRequest) => {
+    getCapabilities: async (request) => {
+      const scope = request && parseCapabilitiesRequest(request);
       const { capabilities } = await ensureLive();
-
-      if (!request) return structuredClone(capabilities);
-
-      return structuredClone(scopeCapabilitiesSnapshot(capabilities, request));
+      return structuredClone(scope ? scopeCapabilitiesSnapshot(capabilities, scope) : capabilities);
     },
 
     getState,
 
-    execute: async (call: VacpActionCall, options?: VacpActionExecutionOptions): Promise<VacpActionResult> => {
-      return dispatch(call, { ...options, actor: options?.actor ?? { id: 'agent', kind: 'agent' } });
-    },
+    execute: (call, options) => dispatch(call, { ...options, actor: options?.actor ?? vacpAgentActor }),
 
     getProvenance: provenance.getProvenance,
-    subscribeProvenance: (listener) => {
-      lifetime.signal.throwIfAborted();
-      const release = provenance.subscribeProvenance(listener);
-      startObserving({ actor: { id: 'system', kind: 'system' }, message: 'observe' });
-      return () => {
-        release();
-        if (!hasSubscribers()) stopObserving();
-      };
-    },
+    subscribeProvenance: followed(provenance.subscribeProvenance),
+    subscribeCapabilities: followed(observations.subscribeCapabilities),
+    subscribeSnapshots: followed(observations.subscribeSnapshots),
 
-    subscribeCapabilities: (listener) => {
-      lifetime.signal.throwIfAborted();
-      const release = observations.subscribeCapabilities(listener);
-      startObserving();
-      return () => {
-        release();
-        if (!hasSubscribers()) stopObserving();
-      };
-    },
-
-    subscribeSnapshots: (listener) => {
-      lifetime.signal.throwIfAborted();
-      const release = observations.subscribeSnapshots(listener);
-      startObserving();
-      return () => {
-        release();
-        if (!hasSubscribers()) stopObserving();
-      };
-    },
-
-    refresh: async (options?: {
-      actor?: VacpActor;
-      message?: string;
-      focus?: VacpFocus;
-    }): Promise<VacpStateSnapshot> => {
+    refresh: async (options) => {
       const captured = structuredClone(options ?? {});
       const epoch = provenance.epoch;
       observations.invalidate();
@@ -391,16 +310,9 @@ export function createVacpRuntime(args: {
         focus: captured.focus,
         observation: inspection,
       });
-      acknowledge(inspection);
+      recorder.acknowledge(inspection);
       return structuredClone(state);
     },
-
-    dispatch,
-    startObserving: (options) => {
-      lifetime.signal.throwIfAborted();
-      startObserving(options);
-    },
-    stopObserving,
   };
 
   return bridge;

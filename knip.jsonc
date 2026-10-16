@@ -14,19 +14,22 @@
       ],
     },
     "examples/gallery": {
-      // Generated route HTML loads this entry point.
-      "entry": ["src/route-entry.ts", "examples.manifest.ts", "vite.config.ts"],
+      "entry": ["examples.manifest.ts", "vite.config.ts"],
       "vite": { "config": "vite.config.ts" },
     },
     "apps/e2e": {
       // Browser fixtures load through Vite's /@fs route; setup files run as a Playwright project.
-      "entry": ["fixtures/presence.ts", "fixtures/webmcp.ts", "tests/*.setup.ts"],
+      "entry": ["fixtures/presence.ts", "fixtures/inspection.ts", "fixtures/webmcp.ts", "tests/*.setup.ts"],
     },
     "apps/evals": {
       // src/index.ts is the authoring API that suites and scenarios build on.
       "entry": ["evals.config.ts", "src/index.ts", "test/*.test.ts"],
     },
-    "apps/docs": {
+    "packages/agent-ai-sdk": {
+      // @ai-sdk/provider's public declarations import json-schema, whose types it omits from dependencies.
+      "ignoreDependencies": ["@types/json-schema"],
+    },
+    "docs": {
       // VitePress loads this optional minifier dynamically for Rolldown builds.
       "ignoreDependencies": ["oxc-minify"],
     },

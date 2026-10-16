@@ -4,8 +4,6 @@ export type BrushRange = [number, number];
 
 type BrushRanges = Record<string, BrushRange>;
 
-export type ParallelCoordsSource = 'human' | 'agent' | 'system';
-
 export type ParallelCoordsState = {
   dimensions: string[];
   dimensionOrder: string[];
@@ -51,7 +49,8 @@ export function createParallelCoordsChart(args: {
   tooltip: HTMLElement;
   data: CarDatum[];
   dimensions: string[];
-  onStateChange?: (state: ParallelCoordsState, change: { source: ParallelCoordsSource; message: string }) => void;
+  /** Reports each change a person makes in the chart, after its listeners have seen it. */
+  onGesture: (message: string) => void;
 }) {
   const lineStroke = '#a8d5e2';
   const lineStrokeWidth = 2;
@@ -79,8 +78,13 @@ export function createParallelCoordsChart(args: {
     hoveredId,
   });
 
-  const emit = (source: ParallelCoordsSource, message: string) => {
-    args.onStateChange?.(getState(), { source, message });
+  const listeners = new Set<() => void>();
+  const changed = () => {
+    for (const listener of listeners) listener();
+  };
+  const gesture = (message: string) => {
+    changed();
+    args.onGesture(message);
   };
 
   const computeSelection = (): void => {
@@ -229,18 +233,16 @@ export function createParallelCoordsChart(args: {
         hoveredId = d.id;
         showTooltip(event, d);
         updateHoverStrokeWidths();
-        emit('human', 'hover line');
+        gesture('hover line');
       })
       .on('mousemove', (event, d) => {
-        if (!selectedIds.has(d.id)) return;
-        moveTooltip(event);
-        void d;
+        if (selectedIds.has(d.id)) moveTooltip(event);
       })
       .on('mouseout', () => {
         hoveredId = null;
         hideTooltip();
         updateHoverStrokeWidths();
-        emit('human', 'clear hover');
+        gesture('clear hover');
       });
 
     const axisGroups = g
@@ -340,7 +342,7 @@ export function createParallelCoordsChart(args: {
 
       computeSelection();
       render();
-      emit('human', 'reorder dimensions');
+      gesture('reorder dimensions');
     };
 
     axisGroups
@@ -414,7 +416,7 @@ export function createParallelCoordsChart(args: {
             })
             .style('pointer-events', (d) => (selectedIds.has(d.id) ? 'all' : 'none'));
 
-          emit('human', 'brush selection');
+          gesture('brush selection');
         })
         .on('end', (event) => {
           const hasSelection = Boolean(event.selection);
@@ -423,7 +425,7 @@ export function createParallelCoordsChart(args: {
           if (event.selection) return;
           brushRanges[dim] = [lo, hi];
           computeSelection();
-          emit('human', 'clear brush');
+          gesture('clear brush');
           render();
         });
 
@@ -431,12 +433,12 @@ export function createParallelCoordsChart(args: {
 
       const isFiltering = range[0] !== lo || range[1] !== hi;
 
-      if (isFiltering) brushGroup.call(brush.move, [scale(range[1]), scale(range[0])]);
+      if (isFiltering) brush.move(brushGroup, [scale(range[1]), scale(range[0])]);
       applyBrushSelectionStyle(brushGroup, { show: isFiltering });
     });
   };
 
-  const setBrushRanges = (ranges: Partial<Record<string, BrushRange | null>>, source: ParallelCoordsSource): void => {
+  const setBrushRanges = (ranges: Partial<Record<string, BrushRange | null>>): void => {
     for (const dim of args.dimensions) {
       const next = ranges[dim];
       const [lo, hi] = extents[dim] ?? [0, 0];
@@ -454,10 +456,10 @@ export function createParallelCoordsChart(args: {
 
     if (hoveredId !== null && !selectedIds.has(hoveredId)) hideTooltip();
     render();
-    emit(source, 'set brush ranges');
+    changed();
   };
 
-  const resetBrushes = (source: ParallelCoordsSource): void => {
+  const resetBrushes = (): void => {
     for (const dim of args.dimensions) {
       brushRanges[dim] = extents[dim]!;
     }
@@ -466,10 +468,10 @@ export function createParallelCoordsChart(args: {
 
     if (hoveredId !== null && !selectedIds.has(hoveredId)) hideTooltip();
     render();
-    emit(source, 'reset brushes');
+    changed();
   };
 
-  const setDimensionOrder = (order: string[], source: ParallelCoordsSource): void => {
+  const setDimensionOrder = (order: string[]): void => {
     if (order.length !== args.dimensions.length) {
       throw new Error('dimension order must include every dimension exactly once');
     }
@@ -486,23 +488,23 @@ export function createParallelCoordsChart(args: {
 
     dimensionOrder.splice(0, dimensionOrder.length, ...order);
     render();
-    emit(source, 'set dimension order');
+    changed();
   };
 
-  const resetDimensionOrder = (source: ParallelCoordsSource): void => {
+  const resetDimensionOrder = (): void => {
     dimensionOrder.splice(0, dimensionOrder.length);
     render();
-    emit(source, 'reset dimension order');
+    changed();
   };
 
-  const setHoveredId = (id: number | null, source: ParallelCoordsSource): void => {
+  const setHoveredId = (id: number | null): void => {
     if (id === hoveredId) return;
     hoveredId = id;
 
     if (hoveredId === null) {
       hideTooltip();
       render();
-      emit(source, 'clear hover');
+      changed();
 
       return;
     }
@@ -513,7 +515,7 @@ export function createParallelCoordsChart(args: {
       hoveredId = null;
       hideTooltip();
       render();
-      emit(source, 'clear hover');
+      changed();
 
       return;
     }
@@ -523,7 +525,7 @@ export function createParallelCoordsChart(args: {
     const pageY = rect.top + window.scrollY + rect.height * 0.25;
     showTooltipAt(pageX, pageY, d);
     render();
-    emit(source, 'set hover');
+    changed();
   };
 
   const destroy = (): void => {
@@ -533,7 +535,6 @@ export function createParallelCoordsChart(args: {
 
   computeSelection();
   render();
-  emit('system', 'init');
 
   return {
     render,
@@ -546,5 +547,13 @@ export function createParallelCoordsChart(args: {
     setDimensionOrder,
     resetDimensionOrder,
     setHoveredId,
+    subscribe(listener: () => void) {
+      listeners.add(listener);
+      return () => {
+        listeners.delete(listener);
+      };
+    },
   };
 }
+
+export type ParallelCoordsChart = ReturnType<typeof createParallelCoordsChart>;

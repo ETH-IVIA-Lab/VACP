@@ -1,5 +1,4 @@
 import {
-  VACP_SCHEMA_VERSION,
   type VacpActionDescriptor,
   type VacpDataHandleData,
   type VacpDataHandleState,
@@ -42,7 +41,6 @@ export function projectDashboard(
     handleRef,
   } = dashboardRefs;
   const graph: VacpGraphFragment = {
-    version: VACP_SCHEMA_VERSION,
     actions,
     nodes: [
       { ref: appRef, kind: 'App', layer: 'ViewLayer', title: 'VACP examples' },

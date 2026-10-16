@@ -2,16 +2,18 @@
 
 from vacp.availability import Availability, AvailabilityError, AvailabilityStatus, resolve_availability
 from vacp.provider import (
+    ActionCall,
+    ActionContext,
+    ActionDescriptor,
+    ActionResult,
     Edge,
     Freshness,
     GraphFragment,
-    Invocation,
-    InvocationResult,
     Node,
     Observation,
-    OperationDescriptor,
     OperationResultDescriptor,
     OperationSemantics,
+    PreparedAction,
     Provider,
     ProviderComposer,
     ProviderObservation,
@@ -22,6 +24,10 @@ from vacp.provider import (
 )
 
 __all__ = [
+    'ActionCall',
+    'ActionContext',
+    'ActionDescriptor',
+    'ActionResult',
     'Availability',
     'AvailabilityError',
     'AvailabilityStatus',
@@ -29,13 +35,11 @@ __all__ = [
     'Edge',
     'Freshness',
     'GraphFragment',
-    'Invocation',
-    'InvocationResult',
     'Node',
     'Observation',
-    'OperationDescriptor',
     'OperationResultDescriptor',
     'OperationSemantics',
+    'PreparedAction',
     'Provider',
     'ProviderComposer',
     'ProviderObservation',

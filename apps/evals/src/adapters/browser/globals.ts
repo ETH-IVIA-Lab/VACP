@@ -9,11 +9,4 @@ declare global {
   var __vacpEvalLog: { entries: Map<string, ExecutionRecord>; settled: Set<string> } | undefined;
   /** Agent turns the eval opened in the page, by handle id, until they end. */
   var __vacpEvalTurns: Map<string, VacpAgentActivityHandle> | undefined;
-
-  namespace WebMCP {
-    interface ModelContext {
-      /** Chromium's WebMCP testing entry point, enabled by `--enable-features=WebMCPTesting`. */
-      executeTool(tool: RegisteredTool, input: string): Promise<unknown>;
-    }
-  }
 }

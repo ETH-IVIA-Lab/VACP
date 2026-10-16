@@ -20,7 +20,8 @@ test('a hover that matches no mark lists the named marks and their fields, and t
   const provider = createVegaLiteProvider({
     view,
     spec,
-    options: { appId: 'test', viewId: 'scores', vizId: 'chart', enableDuckDbDataHandle: false },
+    vgSpec: compile(spec).spec,
+    options: { appId: 'test', viewId: 'scores', vizId: 'chart' },
   });
   const hover = async (params: unknown) => {
     const descriptor = (await provider.observe()).graph.actions.find(

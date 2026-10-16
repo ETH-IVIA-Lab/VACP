@@ -1,21 +1,19 @@
 import { expect } from '@playwright/test';
-import { test } from '../helpers/test';
-import { appServer } from '../helpers/servers';
+import { test, useWebMcp } from '../helpers/test';
+import { gotoApp } from '../helpers/servers';
 
 test.use({
   exampleOptions: { paceAgentSteps: true },
-  launchOptions: { args: ['--enable-experimental-web-platform-features', '--enable-features=WebMCPTesting'] },
 });
+useWebMcp();
 
 test('thinking appears before execution, follows real athlete actions, and respects reduced motion and cancellation', async ({
   page,
 }) => {
-  const server = appServer('athlete-explorer');
-  await page.goto(server.url);
-  await page.waitForFunction(() => !!window.__vacp?.beginAgentActivity);
+  await gotoApp(page, 'athlete-explorer');
   await page.evaluate(() =>
     window.__vacp!.beginAgentActivity({
-      actor: { id: 'webmcp', label: 'Analyst', kind: 'agent' },
+      actor: { id: 'agent', label: 'Analyst', kind: 'agent' },
       summary: 'Comparing rowers and canoeists',
     }),
   );
@@ -38,16 +36,13 @@ test('thinking appears before execution, follows real athlete actions, and respe
     const context = document.modelContext!;
     const tool = (await context.getTools()).find((tool) => tool.name === 'vacp.action.cohort.set_sports')!;
     return JSON.parse(
-      await context.executeTool(
-        tool,
-        JSON.stringify({ sports: ['rowing', 'canoe'], narration: 'Comparing rowers and canoeists.' }),
-      ),
+      await context.executeTool(tool, { sports: ['rowing', 'canoe'], narration: 'Comparing rowers and canoeists.' }),
     );
   });
   expect(applied.ok).toBe(true);
   await expect(page.locator('.athlete-summary strong').first()).toHaveText('878');
   await page.evaluate(() =>
-    window.__vacp!.beginAgentActivity({ actor: { id: 'webmcp', kind: 'agent' }, summary: '<b>Public summary</b>' }),
+    window.__vacp!.beginAgentActivity({ actor: { id: 'agent', kind: 'agent' }, summary: '<b>Public summary</b>' }),
   );
   await expect(bubble).toContainText('<b>Public summary</b>');
   await expect(bubble.locator('b')).toHaveCount(0);
@@ -58,7 +53,7 @@ test('thinking appears before execution, follows real athlete actions, and respe
   expect(await painted()).toBe(still);
   await page.evaluate(() => {
     const cancellation = new AbortController();
-    window.__vacp!.beginAgentActivity({ actor: { id: 'webmcp', kind: 'agent' }, signal: cancellation.signal });
+    window.__vacp!.beginAgentActivity({ actor: { id: 'agent', kind: 'agent' }, signal: cancellation.signal });
     cancellation.abort();
   });
   await expect(pointer).toHaveAttribute('data-vacp-phase', 'cancelled');

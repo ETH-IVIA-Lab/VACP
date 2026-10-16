@@ -12,7 +12,6 @@ export type DashboardState = {
   loading: boolean;
   error: string | null;
   actions: {
-    init: () => Promise<void>;
     setDatasetId: (id: DatasetId | null) => Promise<void>;
     setEncoding: (patch: Partial<Encoding>) => void;
     toggleSelectedId: (id: string) => void;
@@ -36,14 +35,6 @@ export const useDashboardStore = create<DashboardState>((set, get) => ({
   loading: false,
   error: null,
   actions: {
-    init: async () => {
-      const { dataset, datasetId } = get();
-
-      if (dataset) return;
-
-      if (!datasetId) return;
-      await get().actions.setDatasetId(datasetId);
-    },
     setDatasetId: async (id) => {
       const seq = ++loadSeq;
 

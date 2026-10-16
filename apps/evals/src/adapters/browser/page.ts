@@ -1,14 +1,7 @@
-import {
-  VACP_SCHEMA_VERSION,
-  type VacpActor,
-  type VacpAgentActivityHandle,
-  type VacpCapabilitiesRequest,
-  type VacpGraph,
-  type VacpStateRequest,
-} from '@vacp/protocol';
+import { VACP_SCHEMA_VERSION, type VacpActor, type VacpAgentActivityHandle, type VacpGraph } from '@vacp/protocol';
 import { compileVacpWebMcpTools } from '@vacp/transport-webmcp';
 import type { BrowserContext, Page } from 'playwright';
-import type { ExampleOptions } from '../../../../../examples/config';
+import type { ExampleOptions } from '@vacp/example-shared/config';
 
 import { resolveAction } from '../../core/resolve';
 import type { Act, ExecutionRecord } from '../../core/scenario';
@@ -153,11 +146,7 @@ export class EvalPage implements AgentPage {
       (await document.modelContext!.getTools()).map((tool) => ({
         name: tool.name,
         description: tool.description,
-        // Chromium reports a registered tool's input schema as JSON text.
-        inputSchema: JSON.parse(String(tool.inputSchema ?? '{"type":"object","properties":{}}')) as Record<
-          string,
-          unknown
-        >,
+        inputSchema: tool.inputSchema ?? { type: 'object', properties: {} },
       })),
     );
   }
@@ -168,7 +157,7 @@ export class EvalPage implements AgentPage {
         const tool = (await document.modelContext!.getTools()).find((each) => each.name === name);
         if (!tool) return { error: `Tool ${name} is not registered on this page.` };
         try {
-          const result = await document.modelContext!.executeTool(tool, JSON.stringify(input ?? {}));
+          const result = await document.modelContext!.executeTool(tool, input ?? {});
           return { result: typeof result === 'string' ? result : JSON.stringify(result) };
         } catch (error) {
           return { error: `${(error as Error)?.name ?? 'Error'}: ${(error as Error)?.message ?? String(error)}` };
@@ -181,7 +170,9 @@ export class EvalPage implements AgentPage {
   }
 
   async state(): Promise<Record<string, unknown>> {
-    return (await this.bridge.getState()).state as Record<string, unknown>;
+    const update = await this.bridge.getState();
+    if (update.mode !== 'full') throw new Error('A state read without a token is a full read');
+    return update.snapshot.state;
   }
 
   async graph(): Promise<VacpGraph> {
@@ -210,20 +201,13 @@ export class EvalPage implements AgentPage {
  */
 function remoteBridge(page: Page): AgentBridge {
   const quietly = (work: Promise<unknown>) => void work.catch(() => {});
-  const getCapabilities = (request?: VacpCapabilitiesRequest) =>
-    request
-      ? page.evaluate((request) => globalThis.__vacp.getCapabilities(request), request)
-      : page.evaluate(() => globalThis.__vacp.getCapabilities());
-  const getState = (request?: VacpStateRequest) =>
-    request
-      ? page.evaluate((request) => globalThis.__vacp.getState(request), request)
-      : page.evaluate(() => globalThis.__vacp.getState());
   return {
     version: VACP_SCHEMA_VERSION,
     observe: () => page.evaluate(() => globalThis.__vacp.observe()),
-    // One implementation serves both overloads of each read, which TypeScript cannot check against them.
-    getCapabilities: getCapabilities as AgentBridge['getCapabilities'],
-    getState: getState as AgentBridge['getState'],
+    getCapabilities: (request) => page.evaluate((request) => globalThis.__vacp.getCapabilities(request), request),
+    getState: (request) => page.evaluate((request) => globalThis.__vacp.getState(request), request),
+    narrate: ({ actor, message, done }) =>
+      quietly(page.evaluate((input) => globalThis.__vacp.narrate(input), { actor, message, done })),
     execute: (call, options) =>
       page.evaluate(({ call, options }) => globalThis.__vacp.execute(call, options), {
         call,

@@ -71,7 +71,7 @@ test('a value reached twice without a loop reads in full both times', () => {
 test('a large collection is read only as far as the cut', () => {
   let read = 0;
   class Counted extends Set<number> {
-    override *[Symbol.iterator]() {
+    override *[Symbol.iterator](): SetIterator<number> {
       for (const value of this.values()) {
         read++;
         yield value;

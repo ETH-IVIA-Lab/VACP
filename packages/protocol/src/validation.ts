@@ -1,6 +1,15 @@
 import { z } from 'zod';
-import { VACP_SCHEMA_VERSION, type VacpActionResult, type VacpObservation } from './schema';
-import { vacpRefSchema } from './util';
+import {
+  VACP_SCHEMA_VERSION,
+  type VacpActionResult,
+  type VacpCapabilitiesRequest,
+  type VacpObservation,
+  type VacpRef,
+  type VacpStateRequest,
+} from './schema';
+import { isVacpRef } from './util';
+
+export const vacpRefSchema = z.custom<VacpRef>(isVacpRef, 'Expected a vacp:// reference');
 const fields = z.record(z.string(), z.unknown());
 const sourceId = z.templateLiteral(['vacp-source://', z.string()]);
 const availability = z.object({
@@ -33,7 +42,6 @@ const observationSchema = z.object({
   revision: z.string(),
   observedAt: z.string(),
   graph: z.object({
-    version: z.literal(VACP_SCHEMA_VERSION),
     sources: z.array(
       z.object({
         id: sourceId,
@@ -90,5 +98,24 @@ const resultSchema = z.discriminatedUnion('ok', [
   }),
 ]) satisfies z.ZodType<VacpActionResult>;
 
+const scope = z.array(vacpRefSchema).optional();
+const capabilitiesRequestSchema = z.object({
+  refs: scope,
+  prefixes: scope,
+  kinds: z.array(z.string()).optional(),
+  layers: z.array(z.string()).optional(),
+  includeActions: z.boolean().optional(),
+  includeEdges: z.boolean().optional(),
+  includeNodeData: z.boolean().optional(),
+}) satisfies z.ZodType<VacpCapabilitiesRequest>;
+const stateRequestSchema = z.object({
+  since: z.string().optional(),
+  refs: scope,
+  includeSummary: z.boolean().optional(),
+}) satisfies z.ZodType<VacpStateRequest>;
+
 export const parseObservation = (value: unknown) => observationSchema.parse(value);
+export const parseCapabilitiesRequest = (value: unknown): VacpCapabilitiesRequest =>
+  capabilitiesRequestSchema.parse(value);
+export const parseStateRequest = (value: unknown): VacpStateRequest => stateRequestSchema.parse(value);
 export const parseActionResult = (value: unknown) => resultSchema.parse(value);

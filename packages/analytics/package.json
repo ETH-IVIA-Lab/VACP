@@ -8,18 +8,17 @@
   "type": "module",
   "exports": {
     ".": {
+      "vacp-source": "./src/index.ts",
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
     }
   },
   "scripts": {
     "build": "vp pack",
-    "typecheck": "tsc -p tsconfig.json",
     "test": "tsx --test --test-timeout=10000 test/*.test.ts"
   },
   "dependencies": {
-    "@vacp/protocol": "workspace:*",
-    "@vacp/provenance-core": "workspace:*"
+    "@vacp/protocol": "workspace:*"
   },
   "devDependencies": {
     "@vacp/runtime": "workspace:*"

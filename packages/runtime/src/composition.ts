@@ -1,14 +1,9 @@
-import { actionFailure, executeVacpAction } from './action-registry';
 import { notify } from './runtime/helpers';
 import {
   fnv1a64Hex,
-  assertVacpActionAvailable,
   resolveVacpObservation,
   stableStringify,
   VACP_SCHEMA_VERSION,
-  type VacpActionCall,
-  type VacpActionExecutionOptions,
-  type VacpActionResult,
   type VacpGraph,
   type VacpObservation,
   type VacpResolvedObservation,
@@ -56,9 +51,6 @@ function composeObservations(
     const provider = providers[index]!;
     const observation = observations[index]!;
     const sourceId = provider.source.id;
-    if (observation.graph.version !== VACP_SCHEMA_VERSION) {
-      throw new Error(`Source ${sourceId} published unsupported graph version ${observation.graph.version}`);
-    }
     for (const node of observation.graph.nodes) {
       const owner = ownership.nodes[node.ref];
       if (owner) duplicate('Node', node.ref, owner, sourceId);
@@ -105,7 +97,6 @@ function composeObservations(
 
   ownership.actions = Object.fromEntries(actionOwners);
   const graph: VacpGraph = {
-    version: VACP_SCHEMA_VERSION,
     sources: providers.map((provider) => structuredClone(provider.source)),
     ownership,
     nodes,
@@ -128,7 +119,10 @@ function composeObservations(
   };
 }
 
-/** Compose independently owned analytical sources into one coherent runtime port. */
+/**
+ * Compose independently owned analytical sources into one coherent read. The runtime routes and
+ * guards execution against the composed ownership.
+ */
 export function composeVacpProviders(inputProviders: readonly VacpProvider[]) {
   let providers = [...inputProviders];
   const bySource = new Map<VacpSourceId, VacpProvider>();
@@ -144,14 +138,12 @@ export function composeVacpProviders(inputProviders: readonly VacpProvider[]) {
   const detach: Array<() => void> = [];
   try {
     for (const provider of providers) {
-      if (provider.subscribe) {
-        detach.push(
-          provider.subscribe(() => {
-            epoch += 1;
-            notify(listeners, undefined);
-          }),
-        );
-      }
+      detach.push(
+        provider.subscribe(() => {
+          epoch += 1;
+          notify(listeners, undefined);
+        }),
+      );
     }
   } catch (error) {
     for (const unsubscribe of detach) unsubscribe();
@@ -172,44 +164,8 @@ export function composeVacpProviders(inputProviders: readonly VacpProvider[]) {
     throw new Error('VACP sources did not settle into one coherent observation');
   };
 
-  const execute = async (
-    inputCall: VacpActionCall,
-    options?: VacpActionExecutionOptions,
-  ): Promise<VacpActionResult> => {
-    const call = structuredClone(inputCall);
-    options?.signal?.throwIfAborted();
-    const resolved = await read();
-    options?.signal?.throwIfAborted();
-    if (disposed) throw new Error('VACP composition is disposed');
-    try {
-      assertVacpActionAvailable(resolved, call);
-    } catch (error) {
-      return actionFailure(call, error);
-    }
-    const sourceId = resolved.inspection.graph.ownership.actions[call.name]!;
-    return executeVacpAction(
-      {
-        prepare: async (input, controls) => {
-          const prepared = await bySource.get(sourceId)!.prepare(input, controls);
-          return {
-            ...prepared,
-            execute: async (executionOptions) => {
-              const current = await read();
-              executionOptions?.signal?.throwIfAborted();
-              assertVacpActionAvailable(current, input);
-              return prepared.execute(executionOptions);
-            },
-          };
-        },
-      },
-      call,
-      options,
-    );
-  };
-
   return {
     read,
-    execute,
     subscribe(listener: () => void) {
       listeners.add(listener);
       return () => listeners.delete(listener);

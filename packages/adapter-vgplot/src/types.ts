@@ -1,23 +1,9 @@
-/**
- * VGPlot/vgplot provider (project concepts).
- *
- * vgplot is a semantic runtime (marks, selections, interactors, widgets).
- * The provider exposes that runtime as a stable, agent-friendly protocol:
- * - VACP graph (what exists)
- * - VACP state snapshots (what is active)
- * - semantic actions (what can be done)
- */
-
-/**
- * Structural views of the Mosaic objects the provider reads and writes. Which class an
- * object is comes from `native-classes`, never from these shapes.
- */
 export interface VgplotMarkLike {
   type?: string;
   index?: number;
   sourceTable?: () => string | null;
   /** The selection whose predicate filters the rows the mark reads, as Mosaic's `filterBy`. */
-  filterBy?: VgplotSelectionLike;
+  filterBy?: Pick<VgplotSelectionLike, 'predicate'>;
   channels?: Array<{ channel: string; as?: string; field?: unknown }>;
 }
 
@@ -35,7 +21,7 @@ export interface VgplotSelectionLike<Value = unknown> {
   valueFor?: (source: VgplotInteractorLike) => unknown;
   update?: (value: Value) => unknown;
   pending?: (type: string) => Promise<unknown>;
-  predicate?: (...args: unknown[]) => unknown;
+  predicate?: (client?: undefined, noSkip?: boolean) => unknown;
 }
 
 export interface VgplotInteractorLike<Value = unknown> {
@@ -65,7 +51,7 @@ export interface VgplotPlotLike {
   element?: HTMLElement;
   marks: VgplotMarkLike[];
   interactors: VgplotInteractorLike[];
-  legends?: Array<{ legend: unknown; include?: boolean } | unknown>;
+  legends?: unknown[];
   setAttribute?: (name: string, value: unknown, options?: { silent?: boolean }) => boolean;
   update?: (...args: unknown[]) => unknown;
   getAttribute?: (name: string) => unknown;
@@ -79,16 +65,10 @@ export interface VgplotLegendLike {
   legend?: Element | null;
 }
 
-/**
- * Structural type for VGPlot/vgplot `table` surfaces.
- *
- * These views are not SVG plots, but they still represent a first-class,
- * interactive surface over a backing DuckDB table (sort + scroll/pagination).
- */
 export interface VgplotTableLike {
   schema?: Array<{ column: string }>;
   /** The selection whose predicate filters the rows the table view shows, as Mosaic's `filterBy`. */
-  filterBy?: VgplotSelectionLike;
+  filterBy?: Pick<VgplotSelectionLike, 'predicate'>;
   readonly pending?: Promise<unknown>;
   sortHeader?: HTMLElement | null;
   element?: HTMLElement;
@@ -101,10 +81,10 @@ export interface VgplotTableLike {
   selection?: {
     value?: unknown;
     update?: (...args: unknown[]) => unknown;
-    predicate?: (...args: unknown[]) => unknown;
+    predicate?: (client?: undefined, noSkip?: boolean) => unknown;
   };
   update?: (...args: unknown[]) => unknown;
-  requestData?: (...args: unknown[]) => unknown | Promise<unknown>;
+  requestData?: (...args: unknown[]) => unknown;
 }
 
 export interface VgplotProviderOptions {
@@ -112,17 +92,4 @@ export interface VgplotProviderOptions {
   viewId: string;
   title?: string;
   description?: string;
-  enableSql?: boolean;
-  /**
-   * Optional DuckDB client to back the standard `vacp.data_sql` action.
-   *
-   * If omitted, this provider will still expose selections/actions, but callers
-   * won't be able to query selected rows via SQL.
-   */
-  duckdbClient?: import('@vacp/data-duckdb').VacpDuckDbClient;
-  /**
-   * States facts about each DataHandle, such as a row count. Mosaic reports no revision for the
-   * tables it reads, so a DataHandle's `rowCount` is null unless this hook states one.
-   */
-  describeDataHandle?: import('@vacp/protocol').VacpDataHandleDescriber;
 }

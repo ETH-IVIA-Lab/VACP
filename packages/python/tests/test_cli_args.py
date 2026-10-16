@@ -15,11 +15,6 @@ def test_parse_args_accepts_stdio_transport() -> None:
     assert args.transport == 'stdio'
 
 
-def test_parse_args_stdio_alias_overrides_transport() -> None:
-    args = parse_args(['--transport', 'http', '--stdio'])
-    assert args.transport == 'stdio'
-
-
 def test_parse_args_stdio_banner_and_log_level() -> None:
     args = parse_args(['--transport', 'stdio', '--show-banner', '--mcp-log-level', 'debug'])
     assert args.transport == 'stdio'

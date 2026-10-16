@@ -9,7 +9,7 @@ so an MCP client gets the tools `@vacp/agent-ai-sdk` gives an in-page agent.
 from __future__ import annotations
 
 import math
-from typing import Literal, TypedDict, overload
+from typing import TypedDict, overload
 
 from vacp.narration import PROGRESS_GUIDANCE
 
@@ -33,10 +33,10 @@ AGENT_TOOLS: dict[str, AgentTool] = {
     },
     'vacp_state': {
         'description': (
-            'Read state keyed by stable refs. Without input it returns the full snapshot. With mode "delta" and '
-            'the token of an earlier read it returns only what changed, and refs limits the read.'
+            'Read state keyed by stable refs. Without since it returns the full state and a token. With since set '
+            'to the token of an earlier read it returns only what changed since then. refs limits the read.'
         ),
-        'input': ['mode', 'since', 'refs', 'includeSummary'],
+        'input': ['since', 'refs', 'includeSummary'],
     },
     'vacp_execute': {
         'description': (
@@ -53,8 +53,8 @@ TOOL_GUIDANCE = ' '.join(
         'Read vacp_observe once at the start of a request. Only the actions available now are disclosed.',
         'Observe again only when the available actions may have changed, such as after loading a dataset, or '
         'when vacp_execute reports an unknown or unavailable action.',
-        'Read what an action changed from its result and vacp_state. After actions, prefer vacp_state with mode '
-        '"delta" and the token of the previous read, and read once with mode "full" when the lineage is unclear.',
+        'Read what an action changed from its result and vacp_state. After actions, prefer vacp_state with since '
+        'set to the token of the previous read, and read once without since when the lineage is unclear.',
         'Scope vacp_capabilities and vacp_state by refs once targets are known. Omit scope fields for an unscoped '
         'read, which leaves out node data unless includeNodeData is true.',
         'Call vacp_progress once before the first action with one plain sentence for the person, give every '
@@ -73,8 +73,17 @@ class CapabilitiesRequest(TypedDict, total=False):
     includeNodeData: bool
 
 
+class Actor(TypedDict):
+    id: str
+    kind: str
+    label: str
+
+
+AGENT_ACTOR: Actor = {'id': 'agent', 'kind': 'agent', 'label': 'Agent'}
+"""The actor steps and narration are attributed to, as every agent transport attributes them."""
+
+
 class StateRequest(TypedDict, total=False):
-    mode: Literal['auto', 'full', 'delta']
     since: str
     refs: list[str]
     includeSummary: bool
@@ -121,23 +130,20 @@ def capabilities_request(
 
 def state_request(
     *,
-    mode: Literal['auto', 'full', 'delta'] | None = None,
     since: str | None = None,
     refs: list[str] | None = None,
     includeSummary: bool | None = None,
-) -> StateRequest | None:
-    """The state request a tool input asks for, or none for the full snapshot."""
+) -> StateRequest:
+    """The state request a tool input asks for. Every answer carries a token."""
     request: StateRequest = {}
     scoped_refs = _scope(refs)
-    if mode is not None:
-        request['mode'] = mode
     if since is not None:
         request['since'] = since
     if scoped_refs is not None:
         request['refs'] = scoped_refs
     if includeSummary is not None:
         request['includeSummary'] = includeSummary
-    return request or None
+    return request
 
 
 def tool_read(read: dict[str, object]) -> dict[str, object]:

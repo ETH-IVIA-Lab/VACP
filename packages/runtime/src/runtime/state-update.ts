@@ -6,188 +6,98 @@ import type {
   VacpStateSnapshot,
   VacpStateUpdate,
 } from '@vacp/protocol';
-import { isVacpRef, VACP_SCHEMA_VERSION, fnv1a64Hex, stableStringify } from '@vacp/protocol';
+import { VACP_SCHEMA_VERSION, fnv1a64Hex, stableStringify } from '@vacp/protocol';
 
-// Normalize and dedupe requested refs so token/delta output stays deterministic.
-function normalizeRefs(refs: VacpRef[] | undefined): VacpRef[] | undefined {
-  if (!Array.isArray(refs) || refs.length === 0) return undefined;
-  const uniq = Array.from(new Set(refs.filter((x) => x.length > 0)));
-
-  if (uniq.length === 0) return undefined;
-
-  return uniq.sort();
+function scopeValues(values: Record<VacpRef, unknown>, scope: ReadonlySet<string>): Record<VacpRef, unknown> {
+  const scoped: Record<VacpRef, unknown> = {};
+  for (const [ref, value] of Object.entries(values) as [VacpRef, unknown][])
+    if (matchesRefScope(ref, scope)) scoped[ref] = value;
+  return scoped;
 }
 
-// Apply request scope (`refs`, `includeSummary`) to a full snapshot.
-// This keeps both full and delta paths operating on the exact same scoped view.
-type ScopedSnapshot = { snapshot: VacpStateSnapshot; refs?: VacpRef[] };
-
-export function scopeStateSnapshot(snapshot: VacpStateSnapshot, request: VacpStateRequest): ScopedSnapshot {
-  const refs = normalizeRefs(request.refs);
-  const includeSummary = request.includeSummary ?? true;
-
-  if (!refs) {
-    return {
-      snapshot: {
-        version: snapshot.version,
-        createdAt: snapshot.createdAt,
-        state: snapshot.state,
-        summary: includeSummary ? snapshot.summary : undefined,
-      },
-    };
-  }
-
-  const scopeRefs = new Set(refs);
-  const state: Record<VacpRef, unknown> = {};
-
-  for (const [ref, value] of Object.entries(snapshot.state)) {
-    if (isVacpRef(ref) && matchesRefScope(ref, scopeRefs)) {
-      state[ref] = value;
-    }
-  }
-
-  let summary: Record<VacpRef, unknown> | undefined;
-
-  if (includeSummary && snapshot.summary) {
-    summary = {};
-
-    for (const [ref, value] of Object.entries(snapshot.summary)) {
-      if (isVacpRef(ref) && matchesRefScope(ref, scopeRefs)) {
-        summary[ref] = value;
-      }
-    }
-
-    if (Object.keys(summary).length === 0) summary = undefined;
-  }
-
+/** The request's refs and summary choice applied to a full snapshot, so full and delta reads share one view. */
+export function scopeStateSnapshot(
+  snapshot: VacpStateSnapshot,
+  request: VacpStateRequest,
+): { snapshot: VacpStateSnapshot; refs?: VacpRef[] } {
+  const refs = request.refs?.length ? [...new Set(request.refs)].sort() : undefined;
+  const summary = request.includeSummary === false ? undefined : snapshot.summary;
+  if (!refs) return { snapshot: { ...snapshot, summary } };
+  const scope = new Set<string>(refs);
+  const scopedSummary = summary && scopeValues(summary, scope);
   return {
     snapshot: {
-      version: snapshot.version,
-      createdAt: snapshot.createdAt,
-      state,
-      summary,
+      ...snapshot,
+      state: scopeValues(snapshot.state, scope),
+      summary: scopedSummary && Object.keys(scopedSummary).length ? scopedSummary : undefined,
     },
     refs,
   };
 }
 
-// Compute a stable content token for a scoped snapshot.
-// Equal scoped payloads always produce the same token.
-function computeStateToken(snapshot: VacpStateSnapshot): string {
-  const payload: Record<string, unknown> = { state: snapshot.state };
-
-  if (snapshot.summary) payload.summary = snapshot.summary;
-
+/**
+ * A content token for a scoped snapshot. JSON leaves out undefined values, so the sorted ref lists
+ * tell a ref holding undefined from an absent one.
+ */
+function stateToken({ state, summary }: VacpStateSnapshot): string {
+  const payload = {
+    state,
+    stateRefs: Object.keys(state).sort(),
+    summary,
+    summaryRefs: summary ? Object.keys(summary).sort() : undefined,
+  };
   return `st_${fnv1a64Hex(stableStringify(payload))}`;
 }
 
-function sameRefs(before: Record<VacpRef, unknown> = {}, after: Record<VacpRef, unknown> = {}): boolean {
-  const refs = Object.keys(before);
-  return refs.length === Object.keys(after).length && refs.every((ref) => Object.hasOwn(after, ref));
+function diff(
+  baseline: Record<VacpRef, unknown> = {},
+  current: Record<VacpRef, unknown> = {},
+): { changed: Record<VacpRef, unknown>; removed: VacpRef[] } {
+  const changed: Record<VacpRef, unknown> = {};
+  for (const [ref, value] of Object.entries(current) as [VacpRef, unknown][])
+    if (!Object.hasOwn(baseline, ref) || stableStringify(baseline[ref]) !== stableStringify(value))
+      changed[ref] = value;
+  const removed = (Object.keys(baseline) as VacpRef[]).filter((ref) => !Object.hasOwn(current, ref)).sort();
+  return { changed, removed };
 }
 
-// Compute per-ref delta between two already-scoped snapshots.
-// Comparison is structural (stable JSON), so caller ordering does not matter.
-function diffStateSnapshots(args: { baseline: VacpStateSnapshot; current: VacpStateSnapshot }): VacpStateDeltaPayload {
-  const baseline = args.baseline;
-  const current = args.current;
+const unchanged = (): VacpStateDeltaPayload => ({
+  changed: {},
+  removed: [],
+  summaryChanged: undefined,
+  summaryRemoved: undefined,
+});
 
-  const changed: Record<VacpRef, unknown> = {};
-  const removed: VacpRef[] = [];
-
-  for (const [ref, value] of Object.entries(current.state)) {
-    if (!isVacpRef(ref)) continue;
-
-    if (!Object.prototype.hasOwnProperty.call(baseline.state, ref)) {
-      changed[ref] = value;
-      continue;
-    }
-
-    const prev = baseline.state[ref];
-
-    if (stableStringify(prev) !== stableStringify(value)) changed[ref] = value;
-  }
-
-  for (const ref of Object.keys(baseline.state).filter(isVacpRef)) {
-    if (!Object.prototype.hasOwnProperty.call(current.state, ref)) removed.push(ref);
-  }
-
-  const currSummary = current.summary ?? {};
-  const baseSummary = baseline.summary ?? {};
-  const summaryChanged: Record<VacpRef, unknown> = {};
-  const summaryRemoved: VacpRef[] = [];
-
-  for (const [ref, value] of Object.entries(currSummary)) {
-    if (!isVacpRef(ref)) continue;
-
-    if (!Object.prototype.hasOwnProperty.call(baseSummary, ref)) {
-      summaryChanged[ref] = value;
-      continue;
-    }
-
-    const prev = baseSummary[ref];
-
-    if (stableStringify(prev) !== stableStringify(value)) summaryChanged[ref] = value;
-  }
-
-  for (const ref of Object.keys(baseSummary).filter(isVacpRef)) {
-    if (!Object.prototype.hasOwnProperty.call(currSummary, ref)) summaryRemoved.push(ref);
-  }
-
+function changes(baseline: VacpStateSnapshot, current: VacpStateSnapshot): VacpStateDeltaPayload {
+  const state = diff(baseline.state, current.state);
+  const summary = diff(baseline.summary, current.summary);
   return {
-    changed,
-    removed: removed.sort(),
-    summaryChanged: Object.keys(summaryChanged).length ? summaryChanged : undefined,
-    summaryRemoved: summaryRemoved.length ? summaryRemoved.sort() : undefined,
+    ...state,
+    summaryChanged: Object.keys(summary.changed).length ? summary.changed : undefined,
+    summaryRemoved: summary.removed.length ? summary.removed : undefined,
   };
 }
 
-// Build the public `VacpStateUpdate` envelope.
-// If `since` cannot be resolved (or mode forces full), this returns full snapshot mode.
+/** The full scoped state when `baseline` is unknown, else the changes since it. */
 export function buildStateUpdate(args: {
   current: VacpStateSnapshot;
   request: VacpStateRequest;
   baseline?: VacpStateSnapshot;
 }): { update: VacpStateUpdate; snapshot: VacpStateSnapshot } {
-  const mode = args.request.mode ?? 'auto';
-  const { snapshot: scopedCurrent, refs } = scopeStateSnapshot(args.current, args.request);
-  const token = computeStateToken(scopedCurrent);
-  const scopedBaseline = args.baseline ? scopeStateSnapshot(args.baseline, args.request).snapshot : undefined;
-
-  const scope = refs ? { refs } : undefined;
-
-  if (!args.request.since || !scopedBaseline || mode === 'full') {
-    const update: VacpStateUpdate = {
-      version: VACP_SCHEMA_VERSION,
-      createdAt: scopedCurrent.createdAt,
-      mode: 'full',
-      token,
-      snapshot: scopedCurrent,
-    };
-
-    if (scope) update.scope = scope;
-
-    return { update, snapshot: scopedCurrent };
-  }
-
-  // JSON tokens omit undefined values. Preserve additions/removals of those refs.
-  const delta: VacpStateDeltaPayload =
-    token === args.request.since &&
-    sameRefs(scopedBaseline.state, scopedCurrent.state) &&
-    sameRefs(scopedBaseline.summary, scopedCurrent.summary)
-      ? { changed: {}, removed: [], summaryChanged: undefined, summaryRemoved: undefined }
-      : diffStateSnapshots({ baseline: scopedBaseline, current: scopedCurrent });
-
-  const update: VacpStateUpdate = {
+  const { snapshot, refs } = scopeStateSnapshot(args.current, args.request);
+  const token = stateToken(snapshot);
+  const envelope = {
     version: VACP_SCHEMA_VERSION,
-    createdAt: scopedCurrent.createdAt,
-    mode: 'delta',
+    createdAt: snapshot.createdAt,
     token,
-    baseToken: args.request.since,
-    delta,
+    ...(refs && { scope: { refs } }),
   };
+  if (!args.request.since || !args.baseline) return { update: { ...envelope, mode: 'full', snapshot }, snapshot };
 
-  if (scope) update.scope = scope;
-
-  return { update, snapshot: scopedCurrent };
+  // Tokens identify values and ref membership, so a matching token is an empty delta.
+  const delta =
+    token === args.request.since
+      ? unchanged()
+      : changes(scopeStateSnapshot(args.baseline, args.request).snapshot, snapshot);
+  return { update: { ...envelope, mode: 'delta', baseToken: args.request.since, delta }, snapshot };
 }

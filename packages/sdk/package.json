@@ -8,20 +8,22 @@
   "type": "module",
   "exports": {
     ".": {
+      "vacp-source": "./src/index.ts",
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
     }
   },
   "scripts": {
     "build": "vp pack",
-    "typecheck": "tsc -p tsconfig.json && tsc -p tsconfig.test.json",
     "test": "tsx --test --test-timeout=10000 test/*.test.ts",
     "bench": "tsx bench/actions.ts"
   },
   "dependencies": {
     "@vacp/protocol": "workspace:*",
     "@vacp/runtime": "workspace:*",
-    "@vacp/runtime-browser": "workspace:*",
     "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@vacp/runtime-browser": "workspace:*"
   }
 }

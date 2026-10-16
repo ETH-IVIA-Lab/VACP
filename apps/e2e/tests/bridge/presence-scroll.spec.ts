@@ -1,12 +1,12 @@
 import { expect, type Page } from '@playwright/test';
-import { test } from '../helpers/test';
-import { appServer } from '../helpers/servers';
+import { test, useWebMcp } from '../helpers/test';
+import { gotoApp } from '../helpers/servers';
 import { tool } from '../helpers/presence';
 
 test.use({
   exampleOptions: { paceAgentSteps: true },
-  launchOptions: { args: ['--enable-experimental-web-platform-features', '--enable-features=WebMCPTesting'] },
 });
+useWebMcp();
 async function aligned(page: Page, selector: string, anchor: 'corner' | 'center' = 'corner') {
   return page.evaluate(
     ({ selector, anchor }) => {
@@ -37,9 +37,7 @@ async function frames(page: Page) {
 test('human provenance stays invisible while retained agent presence follows document and nested scrolling', async ({
   page,
 }, testInfo) => {
-  const server = appServer('athlete-explorer');
-  await page.goto(server.url);
-  await page.waitForFunction(() => !!window.__vacp);
+  await gotoApp(page, 'athlete-explorer');
   // The dashboard fits a laptop viewport; trailing page content lets document scrolling carry it out of view.
   await page.evaluate(() => document.body.insertAdjacentHTML('beforeend', '<div style="height:1600px"></div>'));
   await page.getByRole('combobox', { name: 'Sex' }).selectOption('female');
@@ -49,16 +47,22 @@ test('human provenance stays invisible while retained agent presence follows doc
   expect(
     await page.evaluate(
       async () =>
-        (await window.__vacp!.getProvenance!()).records.filter(
-          (entry) => entry.kind === 'observation' && entry.actor.kind === 'human',
-        ).length,
+        window
+          .__vacp!.getProvenance()
+          .records.filter((entry) => entry.kind === 'observation' && entry.actor.kind === 'human').length,
     ),
   ).toBeGreaterThanOrEqual(2);
   await page.evaluate(() => scrollTo(0, 0));
   expect((await tool(page, 'cohort.set_sex', { sex: 'male' })).ok).toBe(true);
-  expect((await tool(page, 'vgplot.set_interval_1d', { plotId: 'age', interactorId: '0', min: 22, max: 28 })).ok).toBe(
-    true,
-  );
+  expect(
+    (
+      await tool(page, 'vgplot.set_interval_1d', {
+        ref: 'vacp://vacp-examples/athletes/age/interactor/0',
+        min: 22,
+        max: 28,
+      })
+    ).ok,
+  ).toBe(true);
   expect((await tool(page, 'vacp.progress', { message: 'Men aged 22 to 28 are in view.', done: true })).ok).toBe(true);
   // The finished request's recorded steps keep tracking the page as it scrolls.
   const bubble = page.locator('[data-vacp-bubble]');
@@ -109,9 +113,9 @@ test('human provenance stays invisible while retained agent presence follows doc
   await expect(bubble).toHaveCount(0);
   expect(
     await page.evaluate(async () =>
-      (await window.__vacp!.getProvenance!()).records.some(
-        (entry) => entry.kind === 'observation' && entry.actor.kind === 'human',
-      ),
+      window
+        .__vacp!.getProvenance()
+        .records.some((entry) => entry.kind === 'observation' && entry.actor.kind === 'human'),
     ),
   ).toBe(true);
 });

@@ -37,11 +37,11 @@ function sanitizeDuckDbValue(value: unknown) {
     try {
       return JSON.stringify(value);
     } catch {
-      return String(value);
+      return Object.prototype.toString.call(value);
     }
   }
 
-  return String(value);
+  return typeof value === 'symbol' || typeof value === 'function' ? String(value) : null;
 }
 
 /** Rows ready for DuckDB, with the columns they hold and the columns the loader types. */

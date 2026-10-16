@@ -1,7 +1,7 @@
 import { expect, type Page } from '@playwright/test';
-import { test } from '../helpers/test';
+import { test, useWebMcp } from '../helpers/test';
 import type { VacpExecutionControl, VacpExecutionSource } from '@vacp/protocol';
-import { appServer } from '../helpers/servers';
+import { gotoApp } from '../helpers/servers';
 import { tool } from '../helpers/presence';
 
 declare global {
@@ -10,9 +10,7 @@ declare global {
   }
 }
 
-test.use({
-  launchOptions: { args: ['--enable-experimental-web-platform-features', '--enable-features=WebMCPTesting'] },
-});
+useWebMcp();
 
 async function ageBrush(page: Page) {
   return page.locator('[data-view="age"] rect.selection').evaluate((element) => ({
@@ -22,15 +20,19 @@ async function ageBrush(page: Page) {
 }
 
 test('native input abandons a pending restoration without rollback or late effects', async ({ page }) => {
-  const server = appServer('athlete-explorer');
   const errors: string[] = [];
   page.on('pageerror', (error) => errors.push(error.message));
-  await page.goto(server.url);
-  await page.waitForFunction(() => !!window.__vacp?.beginAgentActivity);
+  await gotoApp(page, 'athlete-explorer');
   expect((await tool(page, 'cohort.set_sports', { sports: ['canoe', 'rowing'] })).ok).toBe(true);
-  expect((await tool(page, 'vgplot.set_interval_1d', { plotId: 'age', interactorId: '0', min: 22, max: 28 })).ok).toBe(
-    true,
-  );
+  expect(
+    (
+      await tool(page, 'vgplot.set_interval_1d', {
+        ref: 'vacp://vacp-examples/athletes/age/interactor/0',
+        min: 22,
+        max: 28,
+      })
+    ).ok,
+  ).toBe(true);
   await expect(page.locator('.athlete-summary strong').first()).toHaveText('506');
   expect((await tool(page, 'vacp.progress', { message: 'Paddlers aged 22 to 28 are in view.', done: true })).ok).toBe(
     true,
@@ -56,7 +58,7 @@ test('native input abandons a pending restoration without rollback or late effec
   const original = await ageBrush(page);
   // Returning to live analysis dismissed the trail; a new agent turn offers it again.
   await expect(bubble).toHaveCount(0);
-  await page.evaluate(() => window.__vacp!.beginAgentActivity({ actor: { id: 'webmcp', kind: 'agent' } }).end());
+  await page.evaluate(() => window.__vacp!.beginAgentActivity({ actor: { id: 'agent', kind: 'agent' } }).end());
   await expect(back).toBeEnabled();
 
   await page.evaluate(() => {

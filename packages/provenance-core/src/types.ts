@@ -1,8 +1,7 @@
 import type {
-  VacpActionExecutionOptions,
-  VacpActionResult,
   VacpExecutionSource,
   VacpObservation,
+  VacpRestore,
   VacpProvenanceSource,
   VacpTurnRecord,
 } from '@vacp/protocol';
@@ -14,7 +13,6 @@ import type { ProvenanceCheckpoint } from './checkpoints';
  * person. `selected` names the checkpoint being restored from the moment it is asked for.
  */
 export type ProvenanceReplayState = {
-  phase: 'live' | 'restoring' | 'reviewing' | 'error';
   steps: readonly ProvenanceCheckpoint[];
   /** Finished agent turns in the current session, oldest first. Their steps share `activityId`. */
   turns: readonly VacpTurnRecord[];
@@ -23,14 +21,13 @@ export type ProvenanceReplayState = {
   working: boolean;
   /** Latest original checkpoint, before the viewer's filter. */
   latest: ProvenanceCheckpoint | null;
-  error?: string;
-};
+} & ({ phase: 'error'; error: string } | { phase: 'live' | 'restoring' | 'reviewing' });
 export type ProvenanceReplaySource = VacpProvenanceSource &
   VacpExecutionSource & {
-    inspect(): Promise<VacpObservation> | VacpObservation;
+    inspect(): Promise<VacpObservation>;
   };
 export type ProvenanceReplayOptions = {
-  restore: (observation: VacpObservation, options: VacpActionExecutionOptions) => Promise<VacpActionResult>;
+  restore: VacpRestore;
 };
 export interface ProvenanceReplayController {
   getState(): ProvenanceReplayState;

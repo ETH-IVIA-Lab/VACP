@@ -1,11 +1,4 @@
-import {
-  sameVacpValue,
-  type VacpActor,
-  type VacpFocus,
-  type VacpObservation,
-  type VacpProvenanceRecord,
-  type VacpTurnRecord,
-} from '@vacp/protocol';
+import { sameVacpValue, type VacpObservation, type VacpProvenanceRecord, type VacpTurnRecord } from '@vacp/protocol';
 
 /** A captured view of a record. Metadata has one owner: the record itself. */
 export type ProvenanceCheckpoint = {
@@ -14,33 +7,6 @@ export type ProvenanceCheckpoint = {
   observation: VacpObservation;
   position: 'before' | 'after';
 };
-
-export function provenanceActor(record: VacpProvenanceRecord): VacpActor {
-  return record.kind === 'action' ? record.execution.actor : record.actor;
-}
-
-export function provenanceFocus(record: VacpProvenanceRecord): VacpFocus | undefined {
-  return record.kind === 'action'
-    ? record.execution.intent?.focus
-    : record.kind === 'observation'
-      ? record.focus
-      : undefined;
-}
-
-/** The agent turn, and so the request, a record belongs to. */
-export function provenanceTurn(record: VacpProvenanceRecord): string | undefined {
-  return record.kind === 'action'
-    ? record.execution.activityId
-    : record.kind === 'turn'
-      ? record.activityId
-      : undefined;
-}
-
-/** The words a record shows: a step's own narration, else its change; other records keep their message. */
-export function provenanceMessage(record: VacpProvenanceRecord): string {
-  const words = record.kind === 'action' ? (record.execution.narration ?? record.execution.title) : record.message;
-  return words ?? 'Updated the analysis';
-}
 
 export function isRestorationRecord(record: VacpProvenanceRecord): boolean {
   return record.kind === 'action' && Boolean(record.execution.restoration);
@@ -82,7 +48,7 @@ function appendCheckpointRecord(checkpoints: ProvenanceCheckpoint[], record: Vac
     );
   };
   if (!checkpoints.length && observations.before) append(observations.before, 'before');
-  // Failed operations can have applied effects; their captured outputs remain checkpoints.
+  // Failed operations can have applied effects. Their captured outputs remain checkpoints.
   if (observations.after) append(observations.after, 'after');
 }
 

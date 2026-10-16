@@ -1,6 +1,5 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { VACP_SCHEMA_VERSION } from '@vacp/protocol';
 import { createVacpProvider, createVacpRuntime, VacpActionRegistry } from '@vacp/runtime';
 import { compileVacpWebMcpTools, installVacpWebMcp } from '../src/index.ts';
 
@@ -9,10 +8,11 @@ test('native callers may omit execution context while runtime disposal remains a
   const actions = new VacpActionRegistry();
   actions.register({ name: 'answer', description: 'Return an answer', operation: { kind: 'query' } }, () => 42);
   const provider = createVacpProvider({
+    subscribe: () => () => {},
     source: { id: 'vacp-source://native', type: 'test', title: 'Native' },
     actions,
     project: () => ({
-      graph: { version: VACP_SCHEMA_VERSION, nodes: [], edges: [], actions: actions.list() },
+      graph: { nodes: [], edges: [], actions: actions.list() },
       state: {},
     }),
   });

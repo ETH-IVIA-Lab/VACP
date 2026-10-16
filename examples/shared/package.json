@@ -4,13 +4,16 @@
   "private": true,
   "type": "module",
   "exports": {
-    ".": "./index.ts"
+    ".": "./index.ts",
+    "./config": "./config.ts",
+    "./html": "./html.ts"
   },
   "scripts": {
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
     "@duckdb/duckdb-wasm": "catalog:",
+    "@vacp/analytics": "workspace:*",
     "@vacp/analytics-posthog": "workspace:*",
     "@vacp/presence-browser": "workspace:*",
     "@vacp/presence-core": "workspace:*",
@@ -18,6 +21,7 @@
     "@vacp/provenance-core": "workspace:*",
     "@vacp/runtime": "workspace:*",
     "@vacp/runtime-browser": "workspace:*",
-    "@vacp/transport-webmcp": "workspace:*"
+    "@vacp/transport-webmcp": "workspace:*",
+    "posthog-js": "^1.438.10"
   }
 }

@@ -1,4 +1,4 @@
-import type { VacpActionResult } from '@vacp/protocol';
+import { abortable, type VacpActionResult } from '@vacp/protocol';
 import type {
   InspectorClient,
   InspectorOperation,
@@ -6,17 +6,17 @@ import type {
   InspectorSessionOptions,
   InspectorState,
 } from './types';
-import { asError, request } from './request';
+import { asError } from './request';
 import { snapshot } from './snapshot';
 import { notify } from './notify';
 
-export function createInspectorSession<Params = unknown, Result = unknown>(
-  client: InspectorClient<Params, Result>,
+export function createInspectorSession(
+  client: InspectorClient,
   options: InspectorSessionOptions = {},
-): InspectorSession<Params, Result> {
+): InspectorSession {
   const limit = options.historyLimit ?? 0;
   if (!Number.isSafeInteger(limit) || limit < 0) throw new RangeError('historyLimit must be a non-negative integer');
-  let state: InspectorState<Params, Result> = Object.freeze({
+  let state: InspectorState = Object.freeze({
     status: 'idle',
     observation: null,
     observationError: null,
@@ -32,7 +32,7 @@ export function createInspectorSession<Params = unknown, Result = unknown>(
   let queued = false;
   let invalidated = false;
 
-  const publish = (patch: Partial<InspectorState<Params, Result>>) => {
+  const publish = (patch: Partial<InspectorState>) => {
     if (lifetime.signal.aborted) return;
     state = Object.freeze({ ...state, ...patch });
     notify(listeners);
@@ -45,7 +45,7 @@ export function createInspectorSession<Params = unknown, Result = unknown>(
     const signal = AbortSignal.any([lifetime.signal, current.signal]);
     publish({ status: 'loading', observationError: null });
     try {
-      const observation = snapshot(await request(signal, () => client.observe({ signal })));
+      const observation = snapshot(await abortable(signal, () => client.observe({ signal })));
       if (signal.aborted) return;
       const changed = state.observation?.revision !== observation.revision;
       const records =
@@ -79,8 +79,8 @@ export function createInspectorSession<Params = unknown, Result = unknown>(
     });
   };
   const invoke = async (
-    operation: InspectorOperation<Params>,
-    run: (signal: AbortSignal) => Promise<VacpActionResult<Result>>,
+    operation: InspectorOperation,
+    run: (signal: AbortSignal) => Promise<VacpActionResult>,
     external?: AbortSignal,
   ) => {
     lifetime.signal.throwIfAborted();
@@ -88,9 +88,9 @@ export function createInspectorSession<Params = unknown, Result = unknown>(
     const signal = external ? AbortSignal.any([lifetime.signal, external]) : lifetime.signal;
     signal.throwIfAborted();
     publish({ operation: Object.freeze({ status: 'running', operation }) });
-    let result: VacpActionResult<Result>;
+    let result: VacpActionResult;
     try {
-      result = await request(signal, () => run(signal));
+      result = await abortable(signal, () => run(signal));
       signal.throwIfAborted();
     } catch (error) {
       publish({ operation: Object.freeze({ status: 'error', operation, error: asError(error) }) });
@@ -132,13 +132,13 @@ export function createInspectorSession<Params = unknown, Result = unknown>(
     },
     refresh,
     async execute(call, controls = {}) {
-      const execute = client.execute;
+      const execute = client.execute?.bind(client);
       if (!execute) throw new Error('This client does not support execution');
       if (!state.observation?.graph.actions.some((action) => action.name === call.name))
         throw new Error(`Unknown operation: ${call.name}`);
       const operation = Object.freeze({ kind: 'execute' as const, call: snapshot(call) });
       const captured = structuredClone(call);
-      return invoke(operation, (signal) => execute.call(client, captured, { signal }), controls.signal);
+      return invoke(operation, (signal) => execute(captured, { signal }), controls.signal);
     },
     async restore(observation, controls = {}) {
       const restore = client.restore;
@@ -146,15 +146,15 @@ export function createInspectorSession<Params = unknown, Result = unknown>(
       const captured = snapshot(observation);
       return invoke(
         Object.freeze({ kind: 'restore', observation: captured }),
-        (signal) => restore.call(client, captured, { signal }),
+        (signal) => restore.call(client, captured.state, { signal }),
         controls.signal,
       );
     },
     async reveal(ref, controls = {}) {
-      const reveal = client.reveal;
+      const reveal = client.reveal?.bind(client);
       if (!reveal) throw new Error('This client does not support reveal');
       const signal = controls.signal ? AbortSignal.any([lifetime.signal, controls.signal]) : lifetime.signal;
-      await request(signal, () => reveal.call(client, ref, { signal }));
+      await abortable(signal, () => reveal(ref, { signal }));
     },
     clearHistory() {
       publish({ records: Object.freeze([]) });

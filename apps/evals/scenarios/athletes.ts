@@ -18,7 +18,11 @@ import { athletes as page } from './pages';
 const cohort = 'vacp://vacp-examples/athletes/cohort';
 const body = 'vacp://vacp-examples/athletes/physique/param/body';
 const age = (min: number, max: number) =>
-  act('vgplot.set_interval_1d', { plotId: 'age', interactorId: '0', min, max }, `Keeping ages ${min} to ${max}.`);
+  act(
+    'vgplot.set_interval_1d',
+    { ref: 'vacp://vacp-examples/athletes/age/interactor/0', min, max },
+    `Keeping ages ${min} to ${max}.`,
+  );
 const ageSql = `2016 - year(date_of_birth::DATE) - (strftime(date_of_birth::DATE, '%m-%d') > '08-05')::INT`;
 
 export default [

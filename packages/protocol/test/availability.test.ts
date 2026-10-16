@@ -28,7 +28,7 @@ type Case = {
 };
 const cases: Case[] = JSON.parse(readFileSync(new URL('./fixtures/availability.json', import.meta.url), 'utf8'));
 for (const example of cases)
-  test(example.name, () => {
+  void test(example.name, () => {
     if (example.error) {
       assert.throws(() => resolveVacpAvailability(example), { message: example.error });
       return;
@@ -39,7 +39,6 @@ for (const example of cases)
       observedAt: '',
       state: {},
       graph: {
-        version: VACP_SCHEMA_VERSION,
         sources: [],
         ownership: { nodes: {}, actions: {} },
         edges: [],
@@ -83,7 +82,6 @@ test('disclosure filters state, edges, freshness and ownership without mutating 
     revision: '1',
     observedAt: '',
     graph: {
-      version: VACP_SCHEMA_VERSION,
       sources: [],
       ownership: {
         nodes: { 'vacp://data': 'vacp-source://data', 'vacp://menu': 'vacp-source://menu' },

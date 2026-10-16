@@ -45,7 +45,8 @@ async function brushFixture() {
   const provider = createVegaLiteProvider({
     view,
     spec,
-    options: { appId: 'test', viewId: 'physique', vizId: 'body', enableDuckDbDataHandle: false },
+    vgSpec: compile(spec).spec,
+    options: { appId: 'test', viewId: 'physique', vizId: 'body' },
   });
   const select = async (value: unknown) => {
     const descriptor = (await provider.observe()).graph.actions.find(
@@ -78,7 +79,10 @@ test('an interval given for one channel of a two-channel brush spans the other c
     const value = f.view.signal('body') as { weight?: number[]; height?: number[] };
     assert.deepEqual(value.height, [1.9, 2.25]);
     assert.deepEqual(value.weight, f.view.scale('concat_0_x').domain());
-    assert.deepEqual(f.heights().sort(), [1.91, 1.94]);
+    assert.deepEqual(
+      f.heights().sort((a, b) => a - b),
+      [1.91, 1.94],
+    );
   } finally {
     f.dispose();
   }
@@ -90,7 +94,10 @@ test('a range that is not two numbers is rejected before the brush changes', asy
     assert.equal((await f.select({ y: [1.9, 2.25] })).ok, true);
     await assert.rejects(f.select({ y: ['tall', 'taller'] }), /y \(height\) as \[min, max\] numbers/);
     assert.deepEqual((f.view.signal('body') as { height?: number[] }).height, [1.9, 2.25]);
-    assert.deepEqual(f.heights().sort(), [1.91, 1.94]);
+    assert.deepEqual(
+      f.heights().sort((a, b) => a - b),
+      [1.91, 1.94],
+    );
   } finally {
     f.dispose();
   }
@@ -105,7 +112,10 @@ test('a range outside the axis domain is rejected with the domain, before the br
       /y \(height\) spans 1\.\d+ to 1\.\d+, so 3 to 4 would select nothing/,
     );
     assert.deepEqual((f.view.signal('body') as { height?: number[] }).height, [1.9, 2.25]);
-    assert.deepEqual(f.heights().sort(), [1.91, 1.94]);
+    assert.deepEqual(
+      f.heights().sort((a, b) => a - b),
+      [1.91, 1.94],
+    );
   } finally {
     f.dispose();
   }
@@ -154,7 +164,8 @@ async function seasonFixture() {
   const provider = createVegaLiteProvider({
     view,
     spec,
-    options: { appId: 'test', viewId: 'weather', vizId: 'season', enableDuckDbDataHandle: false },
+    vgSpec: compile(spec).spec,
+    options: { appId: 'test', viewId: 'weather', vizId: 'season' },
   });
   const select = async (value: unknown) => {
     const descriptor = (await provider.observe()).graph.actions.find(
@@ -214,7 +225,8 @@ async function selection(spec: TopLevelSpec, param: string) {
   const provider = createVegaLiteProvider({
     view,
     spec,
-    options: { appId: 'test', viewId: 'view', vizId: 'chart', enableDuckDbDataHandle: false },
+    vgSpec: compile(spec).spec,
+    options: { appId: 'test', viewId: 'view', vizId: 'chart' },
   });
   const select = async (value: unknown) => {
     const descriptor = (await provider.observe()).graph.actions.find(

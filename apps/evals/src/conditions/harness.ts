@@ -4,7 +4,7 @@ import { createCodex, type CodexHarnessSettings } from '@ai-sdk/harness-codex';
 import { createOpenCode, type OpenCodeHarnessSettings } from '@ai-sdk/harness-opencode';
 import { createPi, type PiHarnessSettings } from '@ai-sdk/harness-pi';
 import { createVacpAgentTools } from '@vacp/agent-ai-sdk';
-import { vacpAgentTools } from '@vacp/protocol';
+import { vacpAgentActor, vacpAgentTools } from '@vacp/protocol';
 import { createVacpTransport } from '@vacp/transport-bridge';
 import { isStepCount, type TelemetryOptions, type ToolSet } from 'ai';
 import { join } from 'node:path';
@@ -83,13 +83,15 @@ export function harnessCondition(options: HarnessConditionOptions): Condition {
           settings: options.settings,
         },
         async conversation({ page, signal: runSignal, maxSteps, telemetry }) {
-          const vacp = createVacpAgentTools({ transport: createVacpTransport(page.bridge), activity: page.bridge });
+          const vacp = createVacpAgentTools(createVacpTransport(page.bridge));
           // HarnessAgent reports telemetry only when it is configured, unlike registered AI SDK calls.
-          const agent = agentFor(vacp.tools, maxSteps, telemetry());
+          const agent = agentFor(vacp, maxSteps, telemetry());
           const sandbox = await LocalSandbox.create(sandboxes);
           const session = await agent.createSession({ sandboxSession: sandbox });
           return {
             async say(message) {
+              // One request is one turn: the model's sentences and steps join it, and its outcome closes it.
+              const turn = page.bridge.beginAgentActivity({ actor: vacpAgentActor });
               let outcome: 'completed' | 'failed' | 'cancelled' = 'failed';
               try {
                 const result = await agent.generate({ session, prompt: message, abortSignal: runSignal });
@@ -103,7 +105,7 @@ export function harnessCondition(options: HarnessConditionOptions): Condition {
                 if (runSignal.aborted) outcome = 'cancelled';
                 throw error;
               } finally {
-                vacp.end(outcome);
+                turn.end({ outcome });
               }
             },
             async close() {

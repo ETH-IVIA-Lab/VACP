@@ -1,30 +1,36 @@
 import {
+  parseVacpNarration,
+  vacpAgentActor,
   vacpToolCapabilitiesRequest,
   vacpToolRead,
   vacpToolResult,
   vacpToolStateRequest,
-  type VacpWindowBridge,
+  type VacpActor,
 } from '@vacp/protocol';
-import type { VacpTransport } from './types';
+import type { VacpTransport, VacpTransportBridge } from './types';
 
 /**
- * Map agent tool input to the bridge's settled reads and execution, and each answer back to the
- * bounded JSON a model reads: graph reads without source ownership, cut to the shared limits.
+ * Map agent tool input to the bridge's reads, execution, and narration, attributed to `actor`, and
+ * each answer back to the bounded JSON a model reads.
  */
-export function createVacpTransport(bridge: VacpWindowBridge): VacpTransport {
+export function createVacpTransport(
+  bridge: VacpTransportBridge,
+  { actor = vacpAgentActor }: { actor?: VacpActor } = {},
+): VacpTransport {
   return {
     vacp_observe: async () => vacpToolResult(vacpToolRead(await bridge.observe())),
     vacp_capabilities: async (input) =>
       vacpToolResult(vacpToolRead(await bridge.getCapabilities(vacpToolCapabilitiesRequest(input)))),
-    vacp_state: async (input) => {
-      const request = vacpToolStateRequest(input);
-      return vacpToolResult(request ? await bridge.getState(request) : await bridge.getState());
-    },
-    vacp_execute: async (name, params, call_id, options) => {
+    vacp_state: async (input) => vacpToolResult(await bridge.getState(vacpToolStateRequest(input))),
+    vacp_execute: async ({ name, params, narration, call_id }, signal) => {
       const action = name.trim();
-      if (!action) throw new Error('Expected a non-empty action name');
+      if (!action) throw new TypeError('Expected a non-empty action name');
       const call = { callId: call_id?.trim() || crypto.randomUUID(), name: action, params };
-      return vacpToolResult(await bridge.execute(call, options));
+      return vacpToolResult(await bridge.execute(call, { actor, narration: parseVacpNarration(narration), signal }));
+    },
+    vacp_progress: async ({ message, done = false }, signal) => {
+      bridge.narrate({ actor, message: parseVacpNarration(message, 'message'), done, signal });
+      return { ok: true };
     },
   };
 }

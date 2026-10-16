@@ -31,7 +31,6 @@ const state = Object.fromEntries(
   Array.from({ length: refs }, (_, index) => [ref(index), index % 20 ? { value: index } : { rows }]),
 );
 const graph: VacpGraph = {
-  version: VACP_SCHEMA_VERSION,
   sources: [],
   ownership: { nodes: {}, actions: {} },
   nodes: Array.from({ length: refs }, (_, index) => ({ ref: ref(index), kind: 'Param', layer: 'ConfigLayer' })),

@@ -7,21 +7,19 @@ import { connectVacp } from './vacp';
 export async function mount(target: HTMLElement): Promise<() => Promise<void>> {
   const root = document.createElement('div');
   root.className = 'athlete-explorer';
-  target.append(root);
   root.textContent = 'Loading Olympic athletes…';
-  let disposeDashboard = () => {};
-  let disposeCharts: (() => Promise<void>) | undefined;
-  let disposeVacp = () => {};
+  target.append(root);
+  const lifetime = new AbortController();
+  const cleanup: Array<() => void | Promise<void>> = [];
   const dispose = async () => {
-    disposeVacp();
-    disposeDashboard();
-    await disposeCharts?.();
+    lifetime.abort();
+    for (const release of cleanup.splice(0).reverse()) await release();
     root.remove();
   };
   try {
     const model = createCohort(await loadAthletes());
     const dashboard = createDashboard(root, model);
-    disposeDashboard = dashboard.dispose;
+    cleanup.push(() => dashboard.dispose());
     const onError = (error: unknown) => {
       root.dataset.error = 'true';
       const message = root.querySelector<HTMLElement>('.athlete-error');
@@ -31,15 +29,11 @@ export async function mount(target: HTMLElement): Promise<() => Promise<void>> {
       }
     };
     const charts = await createCharts(dashboard.body, dashboard.age, model, onError);
-    disposeCharts = charts.dispose;
-    disposeVacp = await connectVacp(model, charts, dashboard);
+    cleanup.push(charts.dispose);
+    await connectVacp({ model, charts, dashboard, root, signal: lifetime.signal });
     return dispose;
   } catch (error) {
     await dispose();
-    const message = document.createElement('p');
-    message.textContent = `Could not load athlete explorer: ${String(error)}`;
-    message.setAttribute('role', 'alert');
-    target.append(message);
     throw error;
   }
 }

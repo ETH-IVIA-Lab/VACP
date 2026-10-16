@@ -7,7 +7,7 @@ from dataclasses import dataclass, replace
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from vacp.provider import GraphFragment, Invocation, Observation
+    from vacp.provider import ActionCall, GraphFragment, Observation
 
 
 @dataclass(frozen=True)
@@ -27,7 +27,7 @@ _AVAILABLE = AvailabilityStatus(True)
 
 
 class AvailabilityError(ValueError):
-    """An invocation rejected by the shared eligibility contract."""
+    """An action call rejected by the shared eligibility contract."""
 
     def __init__(self, message: str, details: Mapping[str, object]) -> None:
         super().__init__(message)
@@ -136,7 +136,7 @@ def _status_details(status: AvailabilityStatus) -> dict[str, object]:
     return result
 
 
-def require_action(resolved: ResolvedObservation, call: Invocation) -> None:
+def require_action(resolved: ResolvedObservation, call: ActionCall) -> None:
     status = resolved.actions.get(call.name)
     if status is None:
         raise AvailabilityError(f'Unknown action: {call.name}', {'code': 'unknown-action', 'action': call.name})

@@ -1,25 +1,8 @@
-/**
- * VACP core model (project concepts).
- *
- * VACP gives a visual analytics UI a stable contract for:
- * - Discovery: what exists and what actions are available?
- * - State: what is currently selected/configured?
- * - Control: execute semantic actions (not clicks) with parameters.
- *
- * The canonical shape is: graph + actions + snapshots. Transports and tooling
- * (inspector, MCP, etc.) are adapters on top.
- */
 export const VACP_SCHEMA_VERSION = '0.1.0' as const;
 
 export type VacpSchemaVersion = typeof VACP_SCHEMA_VERSION;
 
-/**
- * Stable reference identifier for VACP nodes.
- *
- * Identity must survive rerenders. Avoid DOM scan order. Providers should derive
- * refs from their semantic runtime model (plot ids, mark indices, selection
- * names, etc.).
- */
+/** Stable node identity derived from the provider's semantic model, never from DOM order. */
 export type VacpRef = `vacp://${string}`;
 
 /** Stable identity for one analytical source participating in a composed view. */
@@ -34,12 +17,6 @@ export type VacpSourceDescription<Data = Record<string, unknown>> = {
   data?: { [Key in keyof Data]: Data[Key] };
 };
 
-/**
- * Semantic layers (not rendering layers).
- *
- * Layers help agents prioritize: configuration vs visual structure vs data vs
- * interaction feedback.
- */
 export type VacpCoreLayer =
   | 'ConfigLayer'
   | 'ViewLayer'
@@ -50,12 +27,6 @@ export type VacpCoreLayer =
 /** Core layers remain recognizable while providers may add domain-specific layers. */
 export type VacpLayer = VacpCoreLayer | (string & {});
 
-/**
- * App-agnostic node kinds.
- *
- * Providers can attach additional structured fields in `VacpNode.data` (kept
- * JSON-serializable).
- */
 export type VacpCoreNodeKind =
   | 'App'
   | 'View'
@@ -79,12 +50,6 @@ export type VacpCoreEdgeKind = 'contains' | 'controls' | 'derivedFrom' | 'target
 /** Relationship vocabulary is extensible without weakening stable ref identity. */
 export type VacpEdgeKind = VacpCoreEdgeKind | (string & {});
 
-/**
- * A node in the UI/analytics graph.
- *
- * Prefer small, stable summaries and handles over raw data. Large plots should
- * expose queryable handles instead of embedding complete datasets in the graph.
- */
 /** Current host readiness and conjunctive node prerequisites. Omission means available. */
 export type VacpAvailability = {
   /** All listed nodes must be available. Cycles and missing refs are invalid. */
@@ -109,18 +74,6 @@ export type VacpEdge = {
   kind: VacpEdgeKind;
 };
 
-/**
- * A semantic interaction (not a DOM event).
- *
- * Examples:
- * - set brush interval in domain units
- * - clear selection
- * - set axis domain
- * - toggle series visibility
- *
- * The parameter schema is intentionally lightweight: enough for agents and
- * validators, without requiring a specific JSON schema dialect.
- */
 export type VacpOperationKind = 'mutation' | 'creation' | 'evaluation' | 'query';
 
 export type VacpOperationResultDescriptor = {
@@ -153,22 +106,12 @@ export type VacpActionDescriptor<Parameters = Record<string, unknown>> = {
   availability?: VacpAvailability;
   title?: string;
   description: string;
-  /** JSON schema-like object, kept intentionally minimal. */
+  /** JSON Schema of the action's input. */
   parameters?: Parameters;
   operation: VacpOperationSemantics;
 };
 
-/**
- * Standard semantic contracts (protocol-level).
- *
- * `vacp.apply_state` is intentionally broad:
- * - the caller supplies a *desired state map* keyed by `vacp://...` refs
- * - the provider decides how to interpret and apply that state, then reports
- *   refs it could not apply
- *
- * This enables generic tooling (inspectors, transports, tests) without
- * hardcoding provider-specific action names.
- */
+/** Applies a desired state keyed by refs. The provider interprets each value and reports refs it skipped. */
 export const VACP_APPLY_STATE_ACTION = 'vacp.apply_state' as const;
 
 export type VacpApplyStateParams = {
@@ -177,16 +120,8 @@ export type VacpApplyStateParams = {
 };
 
 /**
- * Standard action: run a DuckDB SQL query over a VACP DataHandle.
- *
- * This is the primary "data access" mechanism in this repo:
- * - the app keeps its data in an in-browser DuckDB (WASM) database
- * - the VACP graph exposes DataHandle nodes that map to DuckDB relations
- * - callers run SQL against those handles using this action
- *
- * The SQL string can reference two reserved identifiers:
- * - `vacp_handle`: the handle's *selected* relation
- * - `vacp_all`: the handle's *unfiltered/base* relation
+ * Runs SQL over a DataHandle. `vacp_handle` names the handle's selected relation and `vacp_all` its
+ * unfiltered relation.
  */
 export const VACP_DATA_SQL_ACTION = 'vacp.data_sql' as const;
 
@@ -223,12 +158,7 @@ export type VacpDataSqlResult<Row = Record<string, unknown>> =
       arrowIpcBase64: string;
     };
 
-/**
- * Standard action: return schema (and optional lightweight summaries) for a DataHandle.
- *
- * This is meant to reduce SQL trial-and-error:
- * agents can ask "what columns exist and what types are they?" before writing queries.
- */
+/** Describes a DataHandle's columns and row count, with bounded summaries on request. */
 export const VACP_DATA_SCHEMA_ACTION = 'vacp.data_schema' as const;
 
 export type VacpDataSchemaDetail = 'columns' | 'full';
@@ -241,10 +171,7 @@ export type VacpDataSchemaParams = {
    * temporal, and top-category summaries.
    */
   detail?: VacpDataSchemaDetail;
-  /**
-   * When `detail="full"`, bound the amount of data scanned for summaries.
-   * Providers may ignore this when unsupported.
-   */
+  /** Rows scanned for `full` summaries, at least 0. Providers may ignore it. */
   sampleRows?: number;
 };
 
@@ -293,38 +220,34 @@ export type VacpDataSchemaResult = {
   vacp_all?: VacpDataSchemaTable;
 };
 
-/**
- * Standard action: list options for a Widget ref (e.g., Menu inputs).
- *
- * This lets agents map from human-readable labels to stable values/indices
- * before calling provider-specific input actions.
- */
+/** Lists a widget's options, so a caller maps labels to values before setting an input. */
 export const VACP_WIDGET_OPTIONS_ACTION = 'vacp.widget_options' as const;
 
 export type VacpWidgetOptionsParams = {
   /** Widget vacp:// ref (kind: "Widget"). */
   ref: VacpRef;
-  /** Pagination offset (default: 0). */
+  /** Integer offset, at least 0. Defaults to 0. */
   offset?: number;
-  /** Max options to return (default: 200). */
+  /** Integer page size from 1 to 2000. Defaults to 200. */
   limit?: number;
-  /** Optional substring filter applied to label/value. */
+  /** Substring filter over labels and values, at most 200 characters. */
   query?: string;
 };
 
 export type VacpWidgetOption<Value = unknown> = { value: Value; label?: string };
 
-export type VacpWidgetOptionsResult = {
-  ref: VacpRef;
-  offset: number;
-  limit: number;
-  count: number;
-  truncated: boolean;
-  options: VacpWidgetOption[];
-};
+export type VacpWidgetOptionsResult =
+  | {
+      ref: VacpRef;
+      offset: number;
+      limit: number;
+      count: number;
+      truncated: boolean;
+      options: VacpWidgetOption[];
+    }
+  | { ref: VacpRef; kind: 'Widget'; readError: string };
 
 export type VacpGraph<NodeData = Record<string, unknown>> = {
-  version: VacpSchemaVersion;
   sources: VacpSourceDescription[];
   ownership: {
     nodes: Record<VacpRef, VacpSourceId>;
@@ -358,11 +281,6 @@ export type VacpObservation<NodeData = Record<string, unknown>> = {
   freshness?: Record<VacpRef, VacpFreshness>;
 };
 
-/**
- * Capabilities snapshot: the "what exists / what can I do?" view.
- *
- * This should be safe and cheap to call frequently.
- */
 export type VacpCapabilitiesSnapshot<NodeData = Record<string, unknown>> = {
   version: VacpSchemaVersion;
   createdAt: string;
@@ -386,12 +304,6 @@ export type VacpCapabilitiesRequest = {
   includeNodeData?: boolean;
 };
 
-/**
- * State snapshot: current values keyed by stable node refs.
- *
- * Selections and params live here, so agents can ask "what is active?"
- * without scraping the DOM.
- */
 export type VacpStateSnapshot<State = Record<VacpRef, unknown>, Summary = Record<VacpRef, unknown>> = {
   version: VacpSchemaVersion;
   createdAt: string;
@@ -401,17 +313,8 @@ export type VacpStateSnapshot<State = Record<VacpRef, unknown>, Summary = Record
   summary?: { [Ref in keyof Summary]: Summary[Ref] };
 };
 
-export type VacpStateRequestMode = 'auto' | 'full' | 'delta';
-
 export type VacpStateRequest = {
-  /**
-   * Retrieval mode:
-   * - `full`: always return a scoped full snapshot envelope.
-   * - `delta`: return a delta when `since` is known, else fallback to full.
-   * - `auto` (default): choose delta when possible, else full.
-   */
-  mode?: VacpStateRequestMode;
-  /** Baseline token from a previous state-update response. */
+  /** Token of an earlier read. Absent or unknown tokens read the full state. */
   since?: string;
   /** Optional scope: include only these refs in full/delta computation. */
   refs?: VacpRef[];
@@ -445,11 +348,6 @@ export type VacpStateUpdate =
       delta: VacpStateDeltaPayload;
     };
 
-/**
- * Action invocation request.
- *
- * `callId` enables correlating asynchronous execution and results.
- */
 export type VacpActionCall<Params = unknown, Name extends string = string> = {
   callId: string;
   name: Name;
@@ -459,38 +357,3 @@ export type VacpActionCall<Params = unknown, Name extends string = string> = {
 export type VacpActionResult<Result = unknown, ErrorDetails = unknown> =
   | { callId: string; ok: true; result?: Result }
   | { callId: string; ok: false; error: { message: string; details?: ErrorDetails } };
-
-/** In-process execution controls; these are not part of the serialized call. */
-export type VacpActionExecutionOptions = {
-  signal?: AbortSignal;
-  /** Host attribution, never inferred from model-supplied action parameters. */
-  actor?: import('./execution').VacpActor;
-  /** Host-owned provenance for restoring a recorded state, not a new analytical step. */
-  restoration?: { id: string; entryId?: string };
-  /**
-   * The step's own public sentence for the person watching. The execution carries it from acceptance,
-   * so the live step and its replay show the same words. At most `VACP_NARRATION_MAX_LENGTH` characters.
-   */
-  narration?: string;
-};
-
-/**
- * In-page bridge contract (preferred integration path).
- *
- * A bridge is:
- * - stable (not DOM-order-dependent),
- * - fast (no full DOM scans),
- * - able to expose non-DOM state (selections, params, summaries).
- *
- * The Python MCP server calls this via Playwright `page.evaluate`.
- */
-export interface VacpWindowBridge {
-  version: VacpSchemaVersion;
-  /** Canonical atomic read for graph, state, ownership, and freshness. */
-  observe(): Promise<VacpObservation> | VacpObservation;
-  getCapabilities(request: VacpCapabilitiesRequest): Promise<VacpCapabilitiesSnapshot> | VacpCapabilitiesSnapshot;
-  getCapabilities(): Promise<VacpCapabilitiesSnapshot> | VacpCapabilitiesSnapshot;
-  getState(request: VacpStateRequest): Promise<VacpStateUpdate>;
-  getState(): Promise<VacpStateSnapshot>;
-  execute(call: VacpActionCall, options?: VacpActionExecutionOptions): Promise<VacpActionResult>;
-}

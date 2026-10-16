@@ -1,5 +1,4 @@
-import type { VacpProvenanceRecord, VacpRuntimeBridge } from '@vacp/protocol';
-import { provenanceActor } from '@vacp/provenance-core';
+import { provenanceActor, type VacpProvenanceRecord } from '@vacp/protocol';
 import type { InstallVacpRuntimeAnalyticsArgs, VacpRuntimeAnalyticsInstallation } from './types';
 
 function entryToPayload(entry: VacpProvenanceRecord, captureSnapshots: boolean): Record<string, unknown> {
@@ -24,20 +23,14 @@ function entryToPayload(entry: VacpProvenanceRecord, captureSnapshots: boolean):
   return payload;
 }
 
-const installations = new WeakMap<VacpRuntimeBridge, Map<string, VacpRuntimeAnalyticsInstallation>>();
+const prefix = 'vacp';
+const limit = 50;
+const flushInterval = 1000;
+const snapshotInterval = 1000;
 
 export function installVacpRuntimeAnalytics(args: InstallVacpRuntimeAnalyticsArgs): VacpRuntimeAnalyticsInstallation {
-  const { bridge, provider, options } = args;
-  const prefix = options?.eventPrefix ?? 'vacp';
-  const limit = Math.max(1, options?.historyLimit ?? 50);
-  const flushInterval = Math.max(50, options?.sessionFlushIntervalMs ?? 1000);
-  const captureSnapshots = options?.captureSnapshots ?? false;
-  const snapshotInterval = Math.max(50, options?.snapshotCaptureIntervalMs ?? 1000);
-  const key = `${provider.name}|${prefix}`;
-  const registry = installations.get(bridge) ?? new Map<string, VacpRuntimeAnalyticsInstallation>();
-  installations.set(bridge, registry);
-  registry.get(key)?.cleanup();
-
+  const { bridge, provider, captureSnapshots = false, getBaseProperties } = args;
+  bridge.signal.throwIfAborted();
   let disposed = false;
   let flushTimer: ReturnType<typeof setTimeout> | undefined;
   let snapshotTimer: ReturnType<typeof setTimeout> | undefined;
@@ -53,7 +46,7 @@ export function installVacpRuntimeAnalytics(args: InstallVacpRuntimeAnalyticsArg
   const properties = () => {
     let base: Record<string, unknown> = {};
     safe(() => {
-      base = options?.getBaseProperties?.() ?? {};
+      base = getBaseProperties?.() ?? {};
     });
     const snapshot = bridge.getProvenance();
     return {
@@ -64,10 +57,10 @@ export function installVacpRuntimeAnalytics(args: InstallVacpRuntimeAnalyticsArg
     };
   };
   const scheduleFlush = () => {
-    if (!provider.setSessionProperties || flushTimer !== undefined) return;
+    if (disposed || !provider.setSessionProperties || flushTimer !== undefined) return;
     flushTimer = setTimeout(() => {
       flushTimer = undefined;
-      // The runtime journal owns retention and resets; telemetry owns only delivery pacing.
+      // The runtime journal owns retention and resets. Telemetry owns only delivery pacing.
       const records = bridge
         .getProvenance()
         .records.filter((entry) => captureSnapshots || entry.kind !== 'observation')
@@ -81,6 +74,7 @@ export function installVacpRuntimeAnalytics(args: InstallVacpRuntimeAnalyticsArg
     }, flushInterval);
   };
   const capture = (entry: VacpProvenanceRecord) => {
+    if (disposed) return;
     safe(() =>
       provider.capture(`${prefix}_${entry.kind}`, { ...properties(), ...entryToPayload(entry, captureSnapshots) }),
     );
@@ -115,7 +109,7 @@ export function installVacpRuntimeAnalytics(args: InstallVacpRuntimeAnalyticsArg
       }
     }
   });
-  if (options?.startSessionRecording ?? true) safe(() => provider.startSessionRecording?.());
+  safe(() => provider.startSessionRecording?.());
   safe(() =>
     provider.capture(`${prefix}_runtime_init`, {
       ...properties(),
@@ -124,16 +118,15 @@ export function installVacpRuntimeAnalytics(args: InstallVacpRuntimeAnalyticsArg
   );
   scheduleFlush();
 
-  const installation: VacpRuntimeAnalyticsInstallation = {
-    cleanup() {
-      if (disposed) return;
-      disposed = true;
-      unsubscribe();
-      clearTimeout(flushTimer);
-      clearPendingSnapshot();
-      registry.delete(key);
-    },
-  };
-  registry.set(key, installation);
-  return installation;
+  function dispose() {
+    if (disposed) return;
+    disposed = true;
+    unsubscribe();
+    clearTimeout(flushTimer);
+    clearPendingSnapshot();
+    bridge.signal.removeEventListener('abort', dispose);
+  }
+  bridge.signal.addEventListener('abort', dispose, { once: true });
+  if (bridge.signal.aborted) dispose();
+  return { dispose };
 }

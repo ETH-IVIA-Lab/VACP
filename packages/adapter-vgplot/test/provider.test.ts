@@ -1,30 +1,37 @@
+import type { VgplotInteractorLike } from '../src/types';
 import { Interval1D, PanZoom, Toggle } from '@uwdata/mosaic-plot';
-import { ExprNode, count } from '@uwdata/mosaic-sql';
+import { ExprNode, count, sql } from '@uwdata/mosaic-sql';
 import { createVgplotPresentation } from '../src/presentation';
 import { nodeDuckDb } from './duckdb';
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import type { VacpDataHandleState } from '@vacp/protocol';
 import { createVacpRuntime } from '@vacp/runtime';
-import { createVgplotProvider, type VgplotInteractorLike, type VgplotPlotLike } from '../src/index';
+import { createVgplotProvider, type VgplotPlotLike } from '../src/index';
 
 /** An instance of a Mosaic class with only the fields a test needs; its constructor needs a rendered mark. */
-function mosaic<Fields extends object>(type: abstract new (...args: never[]) => unknown, fields: Fields) {
+function mosaic<Fields extends object>(
+  type: abstract new (...args: never[]) => unknown,
+  fields: Fields & VgplotInteractorLike,
+) {
   return Object.assign(Object.create(type.prototype) as object, fields) as VgplotInteractorLike & Fields;
 }
 
-test('table actions preserve default targets when parameters are omitted', async () => {
+test('table actions resolve their explicit target ref', async () => {
   const table = { sortColumn: 'x', sortDesc: true, update: () => undefined };
   const provider = createVgplotProvider({
     plots: [],
     tables: [{ tableId: 'table', table }],
-    options: { appId: 'test', viewId: 'table', enableSql: false },
+    options: { appId: 'test', viewId: 'table' },
   });
   const runtime = createVacpRuntime({ providers: [provider] });
   try {
     const graph = (await runtime.getCapabilities()).graph;
     const action = graph.actions.find((action) => action.operation.contract === 'vgplot.table_clear_sort')!;
-    assert.equal((await runtime.execute({ callId: 'clear', name: action.name })).ok, true);
+    assert.equal(
+      (await runtime.execute({ callId: 'clear', name: action.name, params: { ref: 'vacp://test/table/table' } })).ok,
+      true,
+    );
     assert.equal(table.sortColumn, null);
     assert.equal(table.sortDesc, false);
   } finally {
@@ -36,8 +43,8 @@ test('provider subscriptions release selection patches and rebind the same live 
   t.mock.timers.enable({ apis: ['setTimeout'] });
   const selection = {
     value: 0,
-    update(value: unknown) {
-      this.value = Number(value);
+    update: (value: unknown) => {
+      selection.value = Number(value);
     },
   };
   const original = selection.update;
@@ -73,7 +80,7 @@ test('provider subscriptions release selection patches and rebind the same live 
 
 test('failed dashboard binding rolls back patches and isolates consumer failures', (t) => {
   t.mock.timers.enable({ apis: ['setTimeout'] });
-  const selection = { update() {} };
+  const selection = { update: () => {} };
   const original = selection.update;
   const interactor: VgplotInteractorLike = mosaic(Toggle, { selection });
   Object.defineProperty(interactor, 'init', { value: () => {}, writable: false, configurable: true });
@@ -109,14 +116,19 @@ test('preparation validates complete table and axis mutations before changing na
   const provider = createVgplotProvider({
     plots: [{ plotId: 'plot', plot: { marks: [], interactors: [pan] } }],
     tables: [{ tableId: 'table', table }],
-    options: { appId: 'test', viewId: 'prepared', enableSql: false },
+    options: { appId: 'test', viewId: 'prepared' },
   });
   try {
     const { graph } = await provider.observe();
-    const call = (contract: string, params: unknown) => ({
+    const call = (contract: string, params: Record<string, unknown>) => ({
       callId: contract,
       name: graph.actions.find((action) => action.operation.contract === contract)!.name,
-      params,
+      params: {
+        ref: contract.startsWith('vgplot.table_')
+          ? 'vacp://test/prepared/table'
+          : 'vacp://test/prepared/plot/interactor/0',
+        ...params,
+      },
     });
     await assert.rejects(
       provider.prepare(call('vgplot.table_set_sort', { column: 'missing' })),
@@ -124,19 +136,19 @@ test('preparation validates complete table and axis mutations before changing na
     );
     await assert.rejects(provider.prepare(call('vgplot.table_set_page', { offset: 20, limit: 'invalid' })), /finite/);
     await assert.rejects(
-      provider.prepare(call('vgplot.set_pan_zoom', { interactorId: 0, x0: 0, x1: 10, y0: 0, y1: 'bad' })),
+      provider.prepare(call('vgplot.set_pan_zoom', { x0: 0, x1: 10, y0: 0, y1: 'bad' })),
       /numeric y0/,
     );
     assert.equal(table.offset, 0);
     assert.equal(table.limit, 10);
-    assert.deepEqual(axes, []);
-    const zoom = await provider.prepare(call('vgplot.set_pan_zoom', { interactorId: 0, x0: 0, x1: 10, y0: 0, y1: 10 }));
+    assert.equal(axes.length, 0);
+    const zoom = await provider.prepare(call('vgplot.set_pan_zoom', { x0: 0, x1: 10, y0: 0, y1: 10 }));
     assert.deepEqual(zoom.intent.focus?.interaction, { kind: 'zoom', direction: 'in' });
-    const panning = await provider.prepare(call('vgplot.set_pan_zoom', { interactorId: 0, x0: 10, x1: 30 }));
+    const panning = await provider.prepare(call('vgplot.set_pan_zoom', { x0: 10, x1: 30 }));
     assert.deepEqual(panning.intent.focus?.interaction, { kind: 'pan' });
     pan.ysel = { update: (value) => axes.push(value) };
     assert.equal((await zoom.execute()).ok, false);
-    assert.deepEqual(axes, []);
+    assert.equal(axes.length, 0);
     const plan = await provider.prepare(call('vgplot.table_set_page', { offset: 20, limit: 5 }));
     assert.equal(table.offset, 0);
     assert.equal((await plan.execute()).ok, true);
@@ -243,7 +255,7 @@ test('a prepared operation cannot mutate an interactor replaced within its nativ
     const plan = await provider.prepare({
       callId: 'old-binding',
       name: action.name,
-      params: { interactorId: 0, value: 'x' },
+      params: { ref: 'vacp://test/replacement/plot/interactor/0', value: 'x' },
     });
     plot.interactors[0] = { ...interactor };
     const result = await plan.execute();
@@ -300,7 +312,7 @@ test('pan and zoom semantics use the rendered domain after prior programmatic ch
   });
   const provider = createVgplotProvider({
     plots: [{ plotId: 'plot', plot: { marks: [], interactors: [pan] } }],
-    options: { appId: 'test', viewId: 'live-domain', enableSql: false },
+    options: { appId: 'test', viewId: 'live-domain' },
   });
   try {
     const { graph } = await provider.observe();
@@ -313,7 +325,7 @@ test('pan and zoom semantics use the rendered domain after prior programmatic ch
       const plan = await provider.prepare({
         callId: String(x0),
         name: action.name,
-        params: { interactorId: 0, x0, x1 },
+        params: { ref: 'vacp://test/live-domain/plot/interactor/0', x0, x1 },
       });
       assert.deepEqual(plan.intent.focus?.interaction, interaction);
       assert.equal((await plan.execute()).ok, true);
@@ -338,12 +350,16 @@ test('interval preparation orders domain and inverted-axis brush extents before 
   });
   const provider = createVgplotProvider({
     plots: [{ plotId: 'plot', plot: { marks: [], interactors: [interactor] } }],
-    options: { appId: 'test', viewId: 'interval', enableSql: false },
+    options: { appId: 'test', viewId: 'interval' },
   });
   try {
     const { graph } = await provider.observe();
     const action = graph.actions.find((action) => action.operation.contract === 'vgplot.set_interval_1d')!;
-    const call = { callId: 'range', name: action.name, params: { interactorId: '0', min: 60, max: 20 } };
+    const call = {
+      callId: 'range',
+      name: action.name,
+      params: { ref: 'vacp://test/interval/plot/interactor/0', min: 60, max: 20 },
+    };
     const plan = await provider.prepare(call);
     assert.deepEqual(writes, []);
     assert.deepEqual(brushes, []);
@@ -362,8 +378,7 @@ test('interval preparation orders domain and inverted-axis brush extents before 
 });
 
 test('presentation belongs to one live provider generation', () => {
-  const create = () =>
-    createVgplotProvider({ plots: [], options: { appId: 'test', viewId: 'presentation', enableSql: false } });
+  const create = () => createVgplotProvider({ plots: [], options: { appId: 'test', viewId: 'presentation' } });
   const first = create();
   const second = create();
   // Creating presentation does not touch DOM or install observers.
@@ -403,7 +418,7 @@ test('shared selection provenance restores its active source after all clause va
       { plotId: 'first', plot: { marks: [], interactors: [first] } },
       { plotId: 'second', plot: { marks: [], interactors: [second] } },
     ],
-    options: { appId: 'test', viewId: 'active-source', enableSql: false },
+    options: { appId: 'test', viewId: 'active-source' },
   });
   const runtime = createVacpRuntime({ providers: [provider] });
   try {
@@ -447,18 +462,19 @@ test('shared selection provenance restores its active source after all clause va
 });
 
 test('a crossfilter shared by several plots filters their data handle once', async () => {
-  const selection = { predicate: () => '"time" BETWEEN 8 AND 10' };
+  const selection = { predicate: () => sql`"time" BETWEEN 8 AND 10` };
   const plot = (): VgplotPlotLike => ({
     marks: [{ type: 'rectY', sourceTable: () => 'trips', filterBy: selection }],
     interactors: [mosaic(Interval1D, { selection, channel: 'x', scale: { domain: [0, 24], apply: Number } })],
   });
   const provider = createVgplotProvider({
     plots: ['pickups', 'dropoffs', 'hours'].map((plotId) => ({ plotId, plot: plot() })),
-    options: { appId: 'test', viewId: 'taxi', enableSql: false },
+    data: { duckdb: (await nodeDuckDb()).client },
+    options: { appId: 'test', viewId: 'taxi' },
   });
   const runtime = createVacpRuntime({ providers: [provider] });
   try {
-    const { state } = await runtime.getState();
+    const { state } = await runtime.observe();
     const handle = state['vacp://test/taxi/data/main'] as { selectionWhere: string };
     assert.equal(handle.selectionWhere.match(/BETWEEN 8 AND 10/g)?.length, 1);
   } finally {
@@ -467,7 +483,7 @@ test('a crossfilter shared by several plots filters their data handle once', asy
 });
 
 test('each data handle narrows by the selections that filter views of its own table', async () => {
-  const brush = { predicate: () => '"time" BETWEEN 8 AND 10' };
+  const brush = { predicate: () => sql`"time" BETWEEN 8 AND 10` };
   const hover = { predicate: () => '"zone" = 4' };
   const provider = createVgplotProvider({
     plots: [
@@ -486,7 +502,8 @@ test('each data handle narrows by the selections that filter views of its own ta
         plot: { marks: [{ type: 'geo', sourceTable: () => 'zones' }], interactors: [{ selection: hover }] },
       },
     ],
-    options: { appId: 'test', viewId: 'taxi', enableSql: false },
+    data: { duckdb: (await nodeDuckDb()).client },
+    options: { appId: 'test', viewId: 'taxi' },
   });
   const runtime = createVacpRuntime({ providers: [provider] });
   try {
@@ -532,7 +549,7 @@ test('native custom bin descriptors exclude rendering ownership and retain stabl
   const graph = async () => {
     const provider = createVgplotProvider({
       plots: [{ plotId: 'histogram', plot }],
-      options: { appId: 'test', viewId: 'fields', enableSql: false },
+      options: { appId: 'test', viewId: 'fields' },
     });
     try {
       return (await provider.observe()).graph;
@@ -576,7 +593,7 @@ test('Mosaic interactors keep their actions and kinds when a production build re
     providers: [
       createVgplotProvider({
         plots: [{ plotId: 'age', plot: { marks: [], interactors: [brush] } }],
-        options: { appId: 'test', viewId: 'minified', enableSql: false },
+        options: { appId: 'test', viewId: 'minified' },
       }),
     ],
   });
@@ -603,14 +620,14 @@ test('an interactor from a second Mosaic copy is reported instead of silently lo
     () =>
       createVgplotProvider({
         plots: [{ plotId: 'age', plot: { marks: [], interactors: [new Interval1D()] } }],
-        options: { appId: 'test', viewId: 'duplicate', enableSql: false },
+        options: { appId: 'test', viewId: 'duplicate' },
       }),
     /different copy of @uwdata\/mosaic-plot/,
   );
 });
 
 test('a data handle names its table and columns in the graph, and its selection in state', async () => {
-  const selection = { predicate: () => '"time" BETWEEN 8 AND 10' };
+  const selection = { predicate: () => sql`"time" BETWEEN 8 AND 10` };
   const db = await nodeDuckDb();
   await db.client.exec('CREATE TABLE trips AS SELECT range::DOUBLE AS time FROM range(12)');
   const provider = createVgplotProvider({
@@ -623,7 +640,8 @@ test('a data handle names its table and columns in the graph, and its selection 
         },
       },
     ],
-    options: { appId: 'test', viewId: 'taxi', duckdbClient: db.client },
+    data: { duckdb: db.client },
+    options: { appId: 'test', viewId: 'taxi' },
   });
   const runtime = createVacpRuntime({ providers: [provider] });
   try {
@@ -650,8 +668,10 @@ test('a host hook states the row count, metadata, and stats a vgplot data handle
     options: {
       appId: 'test',
       viewId: 'taxi',
-      duckdbClient: db.client,
-      describeDataHandle: ({ table }) => ({
+    },
+    data: {
+      duckdb: db.client,
+      describe: ({ table }) => ({
         rowCount: 12,
         metadata: { source: `${table} as loaded by the dashboard` },
         stats: { loadedAt: '2026-09-30' },

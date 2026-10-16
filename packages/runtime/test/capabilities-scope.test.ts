@@ -1,16 +1,16 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { resolveVacpAvailability, VACP_SCHEMA_VERSION, type VacpProvider } from '@vacp/protocol';
+import { resolveVacpAvailability, type VacpProvider } from '@vacp/protocol';
 import { createVacpRuntime } from '../src/index';
 
 test('scoped capabilities retain prerequisite context without expanding the requested action space', async () => {
   const source: VacpProvider = {
+    subscribe: () => () => {},
     source: { id: 'vacp-source://scope', type: 'test', title: 'Scope' },
     observe: () => ({
       observedAt: '',
       revision: '1',
       graph: {
-        version: VACP_SCHEMA_VERSION,
         nodes: [
           { ref: 'vacp://data', kind: 'DataHandle', layer: 'DataLayer', data: { rows: 20 } },
           { ref: 'vacp://view', kind: 'View', layer: 'ViewLayer', availability: { requires: ['vacp://data'] } },
@@ -86,12 +86,12 @@ test('ref scoping preserves exact matches, ancestor actions, and slash boundarie
   const runtime = createVacpRuntime({
     providers: [
       {
+        subscribe: () => () => {},
         source: { id: 'vacp-source://scope', type: 'test', title: 'Scope' },
         observe: () => ({
           revision: '1',
           observedAt: '',
           graph: {
-            version: VACP_SCHEMA_VERSION,
             nodes: refs.map((ref) => ({ ref, kind: 'Param', layer: 'ConfigLayer' })),
             edges: [],
             actions: refs.map((ref) => ({
@@ -125,7 +125,7 @@ test('ref scoping preserves exact matches, ancestor actions, and slash boundarie
       nested.graph.nodes.map((node) => node.ref),
       selected,
     );
-    const state = await runtime.getState({ mode: 'full', refs: ['vacp://scope/a'] });
+    const state = await runtime.getState({ refs: ['vacp://scope/a'] });
     assert.equal(state.mode, 'full');
     if (state.mode === 'full') {
       assert.deepEqual(Object.keys(state.snapshot.state), selected);

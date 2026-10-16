@@ -13,18 +13,16 @@
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
-    "@vacp/analytics-posthog": "workspace:*",
     "@vacp/data-duckdb": "workspace:*",
     "@vacp/example-shared": "workspace:*",
-    "@vacp/presence-browser": "workspace:*",
+    "@vacp/presence-core": "workspace:*",
     "@vacp/protocol": "workspace:*",
+    "@vacp/runtime": "workspace:*",
     "@vacp/sdk": "workspace:*",
-    "@vacp/transport-webmcp": "workspace:*",
     "d3": "^7.9.0",
     "zod": "catalog:"
   },
   "devDependencies": {
-    "@tailwindcss/vite": "catalog:",
     "@types/d3": "^7.4.3",
     "portless": "catalog:",
     "vite-plus": "catalog:"

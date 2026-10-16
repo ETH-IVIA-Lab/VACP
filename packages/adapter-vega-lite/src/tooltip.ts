@@ -1,8 +1,12 @@
+import { specUnits } from './params';
 import { matchingSceneItems, sceneMarks, sceneOffset, scenePointToViewport } from './scene';
 import type { VacpActionDescriptor, VacpClock, VacpRef } from '@vacp/protocol';
 import type { VacpActionRegistry } from '@vacp/runtime';
 import { inputInstant } from './temporal';
 import type { VegaLiteSpecLike, VegaViewLike } from './types';
+import type { VegaSceneItem } from './scene';
+
+type TooltipGetter = () => (handler: unknown, event: Event, item: VegaSceneItem | null, value: unknown) => void;
 
 const VEGA_LITE_TOOLTIP_HOVER_ACTION = 'vega_lite.hover_tooltip';
 
@@ -16,33 +20,9 @@ type TooltipFieldInfo = {
 };
 
 function specHasTooltip(spec: VegaLiteSpecLike): boolean {
-  const encoding = spec.encoding;
-
-  if (isRecord(encoding) && encoding.tooltip != null) return true;
-
-  const mark = spec.mark;
-
-  if (isRecord(mark) && mark.tooltip != null) return true;
-
-  const children: unknown[] = [];
-
-  if (Array.isArray(spec.layer)) children.push(...spec.layer);
-
-  if (Array.isArray(spec.hconcat)) children.push(...spec.hconcat);
-
-  if (Array.isArray(spec.vconcat)) children.push(...spec.vconcat);
-
-  if (Array.isArray(spec.concat)) children.push(...spec.concat);
-
-  if (spec.spec) children.push(spec.spec);
-
-  for (const child of children) {
-    if (!child || typeof child !== 'object') continue;
-
-    if (specHasTooltip(child)) return true;
-  }
-
-  return false;
+  return [...specUnits(spec)].some(
+    ({ spec }) => spec.encoding?.tooltip != null || (isRecord(spec.mark) && spec.mark.tooltip != null),
+  );
 }
 
 function collectTooltipFieldInfo(spec: VegaLiteSpecLike): TooltipFieldInfo {
@@ -74,30 +54,7 @@ function collectTooltipFieldInfo(spec: VegaLiteSpecLike): TooltipFieldInfo {
     if (field && title && !titleToField.has(title)) titleToField.set(title, field);
   };
 
-  const walk = (s: VegaLiteSpecLike) => {
-    const enc = s.encoding;
-
-    if (isRecord(enc) && enc.tooltip != null) visitTooltip(enc.tooltip);
-
-    const children: unknown[] = [];
-
-    if (Array.isArray(s.layer)) children.push(...s.layer);
-
-    if (Array.isArray(s.hconcat)) children.push(...s.hconcat);
-
-    if (Array.isArray(s.vconcat)) children.push(...s.vconcat);
-
-    if (Array.isArray(s.concat)) children.push(...s.concat);
-
-    if (s.spec) children.push(s.spec);
-
-    for (const child of children) {
-      if (!child || typeof child !== 'object') continue;
-      walk(child);
-    }
-  };
-
-  walk(spec);
+  for (const unit of specUnits(spec)) visitTooltip(unit.spec.encoding?.tooltip);
 
   return { fields, titleToField };
 }
@@ -139,16 +96,15 @@ function sanitizeHoverValue(value: unknown) {
     try {
       return JSON.stringify(value);
     } catch {
-      return String(value);
+      return Object.prototype.toString.call(value);
     }
   }
 
-  return String(value);
+  return typeof value === 'symbol' || typeof value === 'function' ? String(value) : null;
 }
 
 function computeHoverFields(args: {
   tooltipInfo: TooltipFieldInfo;
-  allowed: Set<string> | null;
   item: unknown;
   value: unknown;
 }): Record<string, unknown> {
@@ -165,30 +121,15 @@ function computeHoverFields(args: {
 
     if (sanitized === null || sanitized === undefined) return;
 
-    if (args.allowed && !args.allowed.has(field)) return;
     out[field] = sanitized;
   });
 
   if (tooltipValue) {
     for (const [title, field] of args.tooltipInfo.titleToField.entries()) {
-      if (args.allowed && !args.allowed.has(field)) continue;
-
       if (Object.prototype.hasOwnProperty.call(out, field)) continue;
 
       if (!Object.prototype.hasOwnProperty.call(tooltipValue, title)) continue;
       const sanitized = sanitizeHoverValue(tooltipValue[title]);
-
-      if (sanitized === null || sanitized === undefined) continue;
-      out[field] = sanitized;
-    }
-  }
-
-  // Last resort: if we still have no predicates but we know the DuckDB columns,
-  // pick any overlapping datum fields so `vacp_handle` can still resemble focus.
-  if (!Object.keys(out).length && datum && args.allowed) {
-    for (const field of args.allowed) {
-      if (!Object.prototype.hasOwnProperty.call(datum, field)) continue;
-      const sanitized = sanitizeHoverValue(datum[field]);
 
       if (sanitized === null || sanitized === undefined) continue;
       out[field] = sanitized;
@@ -203,7 +144,6 @@ export function createVegaLiteTooltipBinding({
   spec,
   root,
   actionRegistry,
-  actionDescriptors,
   vizRef,
   temporal,
 }: {
@@ -211,11 +151,12 @@ export function createVegaLiteTooltipBinding({
   spec: VegaLiteSpecLike;
   root?: HTMLElement;
   actionRegistry: VacpActionRegistry;
-  actionDescriptors: VacpActionDescriptor[];
   vizRef: VacpRef;
   /** Fields Vega holds as instants. A requested value for one becomes its instant. */
   temporal: ReadonlyMap<string, VacpClock>;
 }) {
+  // Vega implements a getter overload that its published types omit.
+  const getTooltip = () => (view.tooltip as typeof view.tooltip & TooltipGetter).call(view);
   let hover: { fields: Record<string, unknown>; markName: string; value: unknown } | null = null;
   let suppressed = false;
   const hasTooltip = specHasTooltip(spec);
@@ -298,28 +239,24 @@ export function createVegaLiteTooltipBinding({
       hoverDescriptor,
       async (prepared: ReturnType<typeof parseHover>) => {
         const { clear, fields, requested, valueParam, markName } = prepared;
-        const viewAny = view;
 
         if (clear) {
           hover = null;
 
-          // Best-effort: explicitly hide the tooltip via Vega's tooltip handler.
           try {
-            if (typeof viewAny.tooltip === 'function') {
-              const handler = viewAny.tooltip();
+            const handler = getTooltip();
 
-              if (typeof handler === 'function') {
-                suppressed = true;
-                handler(
-                  null,
-                  new MouseEvent('mousemove', { bubbles: true, cancelable: true, clientX: 0, clientY: 0 }),
-                  null,
-                  null,
-                );
-              }
+            if (typeof handler === 'function') {
+              suppressed = true;
+              handler(
+                null,
+                new MouseEvent('mousemove', { bubbles: true, cancelable: true, clientX: 0, clientY: 0 }),
+                null,
+                null,
+              );
             }
           } catch {
-            // ignore
+            // Tooltip teardown must not change a completed clear operation.
           } finally {
             queueMicrotask(() => {
               suppressed = false;
@@ -357,8 +294,7 @@ export function createVegaLiteTooltipBinding({
             ? matchingSceneItems(view, fields, markName, Number.POSITIVE_INFINITY)
             : [];
           matches = found.length;
-          if (typeof viewAny.tooltip !== 'function') return outcome();
-          const tooltipHandler = viewAny.tooltip();
+          const tooltipHandler = getTooltip();
 
           if (typeof tooltipHandler !== 'function') return outcome();
 
@@ -410,7 +346,6 @@ export function createVegaLiteTooltipBinding({
         }),
       },
     );
-    actionDescriptors.push(hoverDescriptor);
   }
 
   return {
@@ -427,10 +362,7 @@ export function createVegaLiteTooltipBinding({
         const key = value == null || value === '' ? null : `${markName}|${stableJson(value)}`;
         if (key === lastKey) return;
         lastKey = key;
-        hover =
-          key === null
-            ? null
-            : { fields: computeHoverFields({ tooltipInfo, allowed: null, item, value }), markName, value };
+        hover = key === null ? null : { fields: computeHoverFields({ tooltipInfo, item, value }), markName, value };
         invalidate();
       };
       const move = (_event: Event, item?: unknown) => update(item);
@@ -443,8 +375,8 @@ export function createVegaLiteTooltipBinding({
         throw error;
       }
       return () => {
-        view.removeEventListener?.('pointermove', move);
-        view.removeEventListener?.('pointerout', leave);
+        view.removeEventListener('pointermove', move);
+        view.removeEventListener('pointerout', leave);
       };
     },
   };

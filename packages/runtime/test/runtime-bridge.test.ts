@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { VACP_SCHEMA_VERSION, type VacpRef } from '@vacp/protocol';
+import type { VacpRef } from '@vacp/protocol';
 import {
   createVacpRuntime,
   createVacpProvider,
@@ -21,11 +21,11 @@ function fixture(names: string[], apply: (name: string, state: Record<VacpRef, u
         values[name] = state[ref];
       });
       return createVacpProvider({
+        subscribe: () => () => {},
         source,
         actions,
         project: () => ({
           graph: {
-            version: VACP_SCHEMA_VERSION,
             nodes: [{ ref, kind: 'Widget', layer: 'ConfigLayer' }],
             edges: [],
             actions: actions.list(),
@@ -89,11 +89,11 @@ test('restoration uses complete ownership while execution still requires an avai
   const runtime = createVacpRuntime({
     providers: [
       createVacpProvider({
+        subscribe: () => () => {},
         source: { id: 'vacp-source://chart', type: 'chart', title: 'Chart' },
         actions,
         project: () => ({
           graph: {
-            version: VACP_SCHEMA_VERSION,
             nodes: [
               {
                 ref,
@@ -166,11 +166,11 @@ test('ambiguous restoration contracts fail before invoking any handler', async (
   const runtime = createVacpRuntime({
     providers: [
       createVacpProvider({
+        subscribe: () => () => {},
         source: { id: 'vacp-source://ambiguous', title: 'Ambiguous', type: 'test' },
         actions,
         project: () => ({
           graph: {
-            version: VACP_SCHEMA_VERSION,
             nodes: [{ ref: 'vacp://one', kind: 'Widget', layer: 'ConfigLayer' }],
             edges: [],
             actions: actions.list(),
@@ -199,7 +199,7 @@ test('failed restoration waits for all sources before the next explicit restorat
   const calls: string[] = [];
   const f = fixture(['one', 'two'], async (name, state) => {
     const value = state[`vacp://restore/${name}`];
-    calls.push(`${name}:${value}`);
+    calls.push(`${name}:${String(value)}`);
     if (value === 'fail' && name === 'one') throw new Error('Cannot restore one');
     if (value === 'fail' && name === 'two') {
       started();
@@ -220,7 +220,7 @@ test('failed restoration waits for all sources before the next explicit restorat
   assert.equal(failed.ok, false);
   const entries = f.runtime.getProvenance().records;
   assert.ok(
-    entries.some((entry) => entry.kind !== 'session' && entry.observation?.state['vacp://restore/two'] === 'fail'),
+    entries.some((entry) => 'observation' in entry && entry.observation?.state['vacp://restore/two'] === 'fail'),
   );
   assert.equal((await next).ok, true);
   assert.deepEqual(f.values, { one: 'next', two: 'next' });

@@ -1,15 +1,12 @@
 import type { VacpActionExecutionOptions, VacpAvailability } from '@vacp/protocol';
 import { z } from 'zod';
-import { vacpRefSchema } from '@vacp/protocol';
+import { vacpRefSchema } from '@vacp/protocol/validation';
 import type { VacpActionDescriptor, VacpDataSqlParams, VacpRef } from '@vacp/protocol';
 import { VACP_DATA_SQL_ACTION, VACP_TOOL_RESULT_LIMITS } from '@vacp/protocol';
 
 import type { VacpActionRegistrar } from './action-registry';
 
-export type VacpDataSqlHandler = (
-  params: VacpDataSqlParams,
-  options: VacpActionExecutionOptions,
-) => unknown | Promise<unknown>;
+export type VacpDataSqlHandler = (params: VacpDataSqlParams, options: VacpActionExecutionOptions) => unknown;
 
 const paramsSchema = z.object({
   handleRef: vacpRefSchema,
@@ -19,23 +16,14 @@ const paramsSchema = z.object({
 });
 
 /**
- * Register the standard action `vacp.data_sql`.
- *
- * This action is the primary data access mechanism in this repo:
- * callers provide a DataHandle ref + a SQL query, and the provider executes it
- * against an in-browser DuckDB (WASM) database.
- *
- * Providers decide how a DataHandle maps to DuckDB relations and how the
- * current selection is represented (for example as a view bound to
- * `vacp_handle`).
+ * Register `vacp.data_sql`. The provider maps each DataHandle to its relations and binds the current
+ * selection to `vacp_handle`. Hosts that withhold SQL leave the action unregistered.
  */
 export function registerVacpDataSqlAction(
   registry: VacpActionRegistrar,
   handler: VacpDataSqlHandler,
-  options?: { availability?: VacpAvailability; enabled?: boolean; inputRefs?: VacpRef[]; description?: string },
-): VacpActionDescriptor | null {
-  if (options?.enabled === false) return null;
-
+  options?: { availability?: VacpAvailability; inputRefs?: VacpRef[]; description?: string },
+): VacpActionDescriptor {
   const descriptor: VacpActionDescriptor = {
     availability: options?.availability,
     name: VACP_DATA_SQL_ACTION,

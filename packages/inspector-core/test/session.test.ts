@@ -242,13 +242,14 @@ test('captured dates and open JSON payloads retain value semantics and source is
     unset: undefined,
   };
   value.state['vacp://value'] = payload;
-  const source: InspectorClient<{ at: Date }, Date> = {
+  const source: InspectorClient = {
     id: 'dates',
     title: 'Dates',
     observe: async () => value,
     execute: async (call) => {
-      assert.ok(call.params?.at instanceof Date);
-      return { callId: call.callId, ok: true, result: call.params!.at };
+      assert.ok(call.params && typeof call.params === 'object' && 'at' in call.params);
+      assert.ok(call.params.at instanceof Date);
+      return { callId: call.callId, ok: true, result: call.params.at };
     },
   };
   const session = createInspectorSession(source, { historyLimit: 1 });

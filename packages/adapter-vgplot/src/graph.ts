@@ -6,7 +6,7 @@ import type {
   VacpNode,
   VacpRef,
 } from '@vacp/protocol';
-import { VACP_SCHEMA_VERSION, stableStringify, fnv1a64Hex } from '@vacp/protocol';
+import { stableStringify, fnv1a64Hex } from '@vacp/protocol';
 import { isNode } from '@uwdata/mosaic-sql';
 
 import { makePlotRef, makeViewRef } from './refs';
@@ -343,5 +343,5 @@ export function buildDashboardGraph(args: {
     for (const ref of group.sources.keys()) edges.push({ from: ref, to: group.ref, kind: 'updates' });
   }
 
-  return { version: VACP_SCHEMA_VERSION, nodes, edges, actions: args.actions };
+  return { nodes, edges, actions: args.actions };
 }

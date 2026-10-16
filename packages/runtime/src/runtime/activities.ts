@@ -1,12 +1,12 @@
 import {
-  nowIso,
   parseVacpNarration,
+  trimVacpWhitespace,
   type VacpAgentActivity,
   type VacpAgentActivityControl,
   type VacpAgentActivityHandle,
   type VacpActor,
 } from '@vacp/protocol';
-import { makeEntryId, notify } from './helpers';
+import { makeEntryId, notify, nowIso } from './helpers';
 
 type Outcome = 'completed' | 'failed' | 'cancelled';
 /** A finished turn with the words that opened and closed it. Words a step carried are neither. */
@@ -27,6 +27,7 @@ export function createAgentActivityChannel(
     string,
     {
       activity: VacpAgentActivity;
+      handle: VacpAgentActivityHandle;
       cancel(): void;
       /** The live words a step carried, so no later step or closing repeats them. */
       claimed?: string;
@@ -37,9 +38,9 @@ export function createAgentActivityChannel(
   >();
   const listeners = new Set<(activity: VacpAgentActivity) => void>();
   const summary = (value: string | undefined) => {
-    if (value !== undefined && (typeof value !== 'string' || value.length > 500))
+    if (value !== undefined && (typeof value !== 'string' || Array.from(value).length > 500))
       throw new Error('Agent activity summaries must be strings of at most 500 characters');
-    return value?.trim() || undefined;
+    return value === undefined ? undefined : trimVacpWhitespace(value) || undefined;
   };
   const beginAgentActivity: VacpAgentActivityControl['beginAgentActivity'] = (input) => {
     signal.throwIfAborted();
@@ -71,10 +72,7 @@ export function createAgentActivityChannel(
       notify(listeners, finished);
     };
     const cancel = () => end('cancelled');
-    active.set(activity.actor.id, { activity, cancel, stepped: false });
-    input.signal?.addEventListener('abort', cancel, { once: true });
-    notify(listeners, activity);
-    return {
+    const handle: VacpAgentActivityHandle = {
       update(text) {
         if (!current()) return;
         activity.summary = summary(text);
@@ -83,12 +81,16 @@ export function createAgentActivityChannel(
       },
       end: (settings = {}) => end(settings.outcome ?? 'completed', settings.summary),
     };
+    active.set(activity.actor.id, { activity, handle, cancel, stepped: false });
+    input.signal?.addEventListener('abort', cancel, { once: true });
+    notify(listeners, activity);
+    return handle;
   };
 
   /**
    * Turns opened by `narrate` or by an agent's first step, closed by `done`, by a quiet spell with no
    * work in flight, or by abort. Words and steps both count as activity, so a request never splits
-   * while its agent keeps working.
+   * while its agent keeps working. A turn a host began stays open until the host or `done` ends it.
    */
   type Narrated = { handle: VacpAgentActivityHandle; id: string; idle?: ReturnType<typeof setTimeout> };
   const narrated = new Map<string, Narrated>();
@@ -123,14 +125,19 @@ export function createAgentActivityChannel(
   const narrate: VacpAgentActivityControl['narrate'] = ({ actor, message, done, signal: turnSignal }) => {
     signal.throwIfAborted();
     const text = parseVacpNarration(message, 'message');
-    const turn = live(actor.id);
+    const entry = active.get(actor.id);
     if (done) {
       release(actor.id);
-      (turn?.handle ?? beginAgentActivity({ actor, signal: turnSignal })).end({ summary: text });
+      (entry?.handle ?? beginAgentActivity({ actor, signal: turnSignal })).end({ summary: text });
       return;
     }
-    if (turn) turn.handle.update(text);
-    keepOpen(actor.id, turn ?? open(actor, text, turnSignal));
+    if (!entry) {
+      keepOpen(actor.id, open(actor, text, turnSignal));
+      return;
+    }
+    entry.handle.update(text);
+    const turn = live(actor.id);
+    if (turn) keepOpen(actor.id, turn);
   };
 
   const clear = () => {
@@ -176,7 +183,7 @@ export function createAgentActivityChannel(
       const turn = live(actorId);
       if (turn) keepOpen(actorId, turn);
     },
-    subscribeAgentActivities(listener: (activity: VacpAgentActivity) => void) {
+    subscribeAgentActivities(this: void, listener: (activity: VacpAgentActivity) => void) {
       signal.throwIfAborted();
       listeners.add(listener);
       return () => {

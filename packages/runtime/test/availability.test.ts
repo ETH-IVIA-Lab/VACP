@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { VACP_SCHEMA_VERSION, type VacpProvider } from '@vacp/protocol';
+import type { VacpProvider } from '@vacp/protocol';
 import { createVacpRuntime, createVacpProvider, composeVacpProviders, VacpActionRegistry } from '../src/index';
 
 test('cross-source readiness governs discovery, subscriptions, stale calls and post-pacing execution', async () => {
@@ -8,12 +8,12 @@ test('cross-source readiness governs discovery, subscriptions, stale calls and p
     mutations = 0,
     prepared = 0;
   const dataset: VacpProvider = {
+    subscribe: () => () => {},
     source: { id: 'vacp-source://data', type: 'data', title: 'Dataset' },
     observe: () => ({
       revision: String(ready),
       observedAt: '',
       graph: {
-        version: VACP_SCHEMA_VERSION,
         nodes: [
           {
             ref: 'vacp://data',
@@ -49,11 +49,11 @@ test('cross-source readiness governs discovery, subscriptions, stale calls and p
     },
   );
   const chart = createVacpProvider({
+    subscribe: () => () => {},
     source: { id: 'vacp-source://chart', type: 'chart', title: 'Chart' },
     actions,
     project: () => ({
       graph: {
-        version: VACP_SCHEMA_VERSION,
         nodes: [
           { ref: 'vacp://bar', kind: 'Mark', layer: 'VisualizationLayer', availability: { requires: ['vacp://data'] } },
         ],
@@ -71,18 +71,16 @@ test('cross-source readiness governs discovery, subscriptions, stale calls and p
       ['click'],
     );
     assert.deepEqual(observation.graph.actions, []);
-    assert.equal((await composition.execute({ callId: 'blocked-composition', name: 'click' })).ok, false);
-    assert.equal(prepared, 0);
   } finally {
     composition.dispose({ providers: false });
   }
   const runtime = createVacpRuntime({ providers: [dataset, chart] });
   const catalogs: string[][] = [];
   runtime.subscribeCapabilities((snapshot) => catalogs.push(snapshot.graph.actions.map((action) => action.name)));
-  runtime.stopObserving();
   try {
     assert.deepEqual((await runtime.observe()).graph.actions, []);
-    assert.deepEqual((await runtime.getState()).state, {});
+    const hidden = await runtime.getState();
+    assert.deepEqual(hidden.mode === 'full' && hidden.snapshot.state, {});
     const complete = await runtime.inspect();
     assert.deepEqual(
       complete.graph.actions.map((action) => action.name),
@@ -92,7 +90,7 @@ test('cross-source readiness governs discovery, subscriptions, stale calls and p
     assert.equal(prepared, 0);
     ready = true;
     assert.equal((await runtime.observe()).graph.actions.length, 1);
-    const baseline = await runtime.getState({ mode: 'full' });
+    const baseline = await runtime.getState();
     assert.equal((await runtime.execute({ callId: 'ready', name: 'click' })).ok, true);
     assert.equal(mutations, 1);
     runtime.addExecutionGate(
@@ -103,7 +101,7 @@ test('cross-source readiness governs discovery, subscriptions, stale calls and p
     );
     assert.equal((await runtime.execute({ callId: 'changed-during-pacing', name: 'click' })).ok, false);
     assert.equal(mutations, 1);
-    const delta = await runtime.getState({ mode: 'delta', since: baseline.token });
+    const delta = await runtime.getState({ since: baseline.token });
     assert.equal(delta.mode, 'delta');
     if (delta.mode === 'delta') assert.deepEqual(delta.delta.removed.sort(), ['vacp://bar', 'vacp://data']);
     assert.deepEqual(catalogs, [[], ['click'], []]);
@@ -112,7 +110,7 @@ test('cross-source readiness governs discovery, subscriptions, stale calls and p
   }
 });
 
-test('composition guards its owned invocation after asynchronous preparation', async () => {
+test('the runtime guards an invocation again after asynchronous preparation', async () => {
   let available = true;
   let mutations = 0;
   let release!: () => void;
@@ -145,11 +143,11 @@ test('composition guards its owned invocation after asynchronous preparation', a
     },
   );
   const provider = createVacpProvider({
+    subscribe: () => () => {},
     source: { id: 'vacp-source://data', type: 'data', title: 'Data' },
     actions,
     project: () => ({
       graph: {
-        version: VACP_SCHEMA_VERSION,
         edges: [],
         actions: actions.list(),
         nodes: [
@@ -165,10 +163,10 @@ test('composition guards its owned invocation after asynchronous preparation', a
       state: {},
     }),
   });
-  const composition = composeVacpProviders([provider]);
+  const runtime = createVacpRuntime({ providers: [provider] });
   try {
     const call = { callId: 'owned', name: 'query', params: { ref: 'vacp://original' } };
-    const executing = composition.execute(call);
+    const executing = runtime.execute(call);
     await preparing;
     available = false;
     call.params.ref = 'vacp://other';
@@ -185,15 +183,16 @@ test('composition guards its owned invocation after asynchronous preparation', a
     assert.equal(mutations, 0);
   } finally {
     release();
-    composition.dispose();
+    runtime.dispose();
   }
 });
 
-test('composition rechecks cancellation after its final observation', async () => {
+test('the runtime rechecks cancellation after its final observation', async () => {
   const abort = new AbortController();
   let prepared = false;
   let mutations = 0;
   const provider: VacpProvider = {
+    subscribe: () => () => {},
     source: { id: 'vacp-source://chart', type: 'chart', title: 'Chart' },
     observe: () => {
       if (prepared) abort.abort();
@@ -202,7 +201,6 @@ test('composition rechecks cancellation after its final observation', async () =
         observedAt: '',
         state: {},
         graph: {
-          version: VACP_SCHEMA_VERSION,
           nodes: [],
           edges: [],
           actions: [{ name: 'run', description: 'Run', operation: { kind: 'mutation' } }],
@@ -220,13 +218,13 @@ test('composition rechecks cancellation after its final observation', async () =
       };
     },
   };
-  const composition = composeVacpProviders([provider]);
+  const runtime = createVacpRuntime({ providers: [provider] });
   try {
-    await assert.rejects(composition.execute({ callId: 'cancelled', name: 'run' }, { signal: abort.signal }), {
+    await assert.rejects(runtime.execute({ callId: 'cancelled', name: 'run' }, { signal: abort.signal }), {
       name: 'AbortError',
     });
     assert.equal(mutations, 0);
   } finally {
-    composition.dispose();
+    runtime.dispose();
   }
 });

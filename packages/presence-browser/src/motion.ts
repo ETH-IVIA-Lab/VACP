@@ -4,8 +4,8 @@ export type TravelStyle = { scale: number; minDistance: number; fullDistance: nu
 export function travelStyle(options: CursorTravel | undefined): TravelStyle {
   const style = {
     scale: options === false ? 1 : (options?.scale ?? 1.6),
-    minDistance: options === false ? 80 : (options?.minDistance ?? 80),
-    fullDistance: options === false ? 500 : (options?.fullDistance ?? 500),
+    minDistance: (options || undefined)?.minDistance ?? 80,
+    fullDistance: (options || undefined)?.fullDistance ?? 500,
   };
   if (
     !Object.values(style).every(Number.isFinite) ||

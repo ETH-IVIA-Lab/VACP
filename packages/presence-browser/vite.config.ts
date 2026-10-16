@@ -4,5 +4,8 @@ import workspace from '../../vite.config';
 import { vacpPresenceSheet } from '../../vite.shared';
 
 export default defineConfig({
-  pack: { ...workspace.pack, plugins: [vacpPresenceSheet(fileURLToPath(new URL('../..', import.meta.url)))] },
+  pack: {
+    ...(workspace.pack as Exclude<typeof workspace.pack, readonly unknown[]>),
+    plugins: [vacpPresenceSheet(fileURLToPath(new URL('../..', import.meta.url)))],
+  },
 });

@@ -4,32 +4,21 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "make dev",
-    "build": "make build",
-    "format": "make format",
-    "lint": "make lint",
-    "typecheck": "make typecheck",
-    "test": "make test",
-    "check": "make check",
-    "test:e2e": "make e2e",
-    "check:knip": "make knip",
-    "check:anti-slop": "make test-tools",
-    "dev:all": "make dev-all",
-    "portless": "portless"
+    "dev": "make dev"
   },
   "devDependencies": {
     "@babel/core": "catalog:",
     "@babel/plugin-syntax-jsx": "catalog:",
     "@babel/plugin-syntax-typescript": "catalog:",
-    "@oxlint/plugins": "1.83.0",
+    "@oxlint/plugins": "1.88.0",
     "@stylexjs/babel-plugin": "catalog:",
     "@types/babel__core": "catalog:",
     "@types/node": "catalog:",
-    "@vacp/protocol": "workspace:*",
+    "@vacp/runtime": "workspace:*",
+    "@vacp/runtime-browser": "workspace:*",
     "@vacp/sdk": "workspace:*",
-    "knip": "^6.35.1",
-    "oxlint": "1.83.0",
-    "portless": "catalog:",
+    "knip": "^6.41.0",
+    "oxlint": "1.88.0",
     "tsx": "catalog:",
     "typescript": "catalog:",
     "vite": "catalog:",
@@ -37,14 +26,15 @@
     "zod": "catalog:"
   },
   "devEngines": {
+    "packageManager": {
+      "name": "pnpm",
+      "version": "12.11.2",
+      "onFail": "download"
+    },
     "runtime": {
       "name": "node",
-      "version": "24.16.0",
+      "version": "24.22.0",
       "onFail": "download"
     }
-  },
-  "engines": {
-    "node": ">=24.16.0"
-  },
-  "packageManager": "pnpm@12.4.2+sha512.08adc6613180275c7c9edada39dcf08c9c61ad4e7eaf330a4f3461f102b0f907423454d117f98e72d47fef0616070644d7bffc973a6a57f5090a6d7c368b07c9"
+  }
 }

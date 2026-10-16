@@ -2,9 +2,9 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import type { VacpDataHandleData, VacpDataHandleState, VacpDataSchemaResult, VacpProvider } from '@vacp/protocol';
 import { executeVacpAction } from '@vacp/runtime';
-import { View, loader, parse } from 'vega';
+import { View, changeset, loader, parse } from 'vega';
 import { compile, type TopLevelSpec } from 'vega-lite';
-import { createVegaLiteProvider, type VegaLiteProviderOptions } from '../src/index';
+import { createVegaLiteProvider } from '../src/index';
 import { nodeDuckDb } from './duckdb';
 
 const options = { appId: 'app', viewId: 'view', vizId: 'chart' };
@@ -29,6 +29,7 @@ async function sql(provider: VacpProvider, text: string, handleIndex = 0) {
     params: { handleRef: handle.ref, sql: text },
   });
   assert.equal(result.ok, true, JSON.stringify(result));
+  assert.ok(result.ok, JSON.stringify(result));
   return (result.result as { rows: Record<string, unknown>[] }).rows;
 }
 
@@ -37,14 +38,16 @@ async function withChart(
   spec: TopLevelSpec,
   files: Record<string, unknown[]>,
   check: (provider: VacpProvider, db: Awaited<ReturnType<typeof nodeDuckDb>>, view: View) => Promise<void>,
-  providerOptions: Partial<VegaLiteProviderOptions> = {},
+  providerOptions: Partial<NonNullable<Parameters<typeof createVegaLiteProvider>[0]['data']>> = {},
 ) {
   const db = await nodeDuckDb();
   const view = await render(spec, files);
   const provider = createVegaLiteProvider({
     view,
     spec,
-    options: { ...options, ...providerOptions, duckdbClient: db.client },
+    vgSpec: compile(spec).spec,
+    data: { duckdb: db.client, ...providerOptions },
+    options: { ...options },
   });
   try {
     await check(provider, db, view);
@@ -87,6 +90,7 @@ test('layer sources keep distinct handles, each answering over its own rows', as
           name: action.name,
           params: { handleRef: handle.ref, sql: 'SELECT category FROM vacp_handle' },
         });
+        assert.ok(result.ok, JSON.stringify(result));
         return (result.result as { rows: Array<{ category: string }> }).rows.map((row) => row.category);
       }),
     );
@@ -124,7 +128,16 @@ test('replacing a chart keeps the shared client’s tables until the old binding
   const chart = async (value: string) => {
     const spec: TopLevelSpec = { data: { values: [{ value }] }, mark: 'point' };
     const view = await render(spec);
-    return { view, provider: createVegaLiteProvider({ view, spec, options: { ...options, duckdbClient: db.client } }) };
+    return {
+      view,
+      provider: createVegaLiteProvider({
+        view,
+        spec,
+        vgSpec: compile(spec).spec,
+        data: { duckdb: db.client },
+        options: { ...options },
+      }),
+    };
   };
   const original = await chart('original');
   const replacement = await chart('replacement');
@@ -227,7 +240,13 @@ async function weather(tooltip = false) {
     encoding: { x: { timeUnit: 'monthdate', field: 'date', type: 'temporal' } },
   };
   const view = await render(spec, { 'data/weather.json': days.map((date) => ({ date })) });
-  const provider = createVegaLiteProvider({ view, spec, options: { ...options, duckdbClient: db.client } });
+  const provider = createVegaLiteProvider({
+    view,
+    spec,
+    vgSpec: compile(spec).spec,
+    data: { duckdb: db.client },
+    options: { ...options },
+  });
   const act = async (contract: string, params: unknown) => {
     const { graph } = await provider.observe();
     const action = graph.actions.find((each) => each.operation.contract === contract)!;
@@ -489,6 +508,205 @@ test('a host hook adds metadata and stats to a data handle, and its row count wi
         stats: { sampled: true },
       });
     },
-    { describeDataHandle: () => ({ rowCount: 1_704, metadata: { source: 'Gapminder' }, stats: { sampled: true } }) },
+    { describe: () => ({ rowCount: 1_704, metadata: { source: 'Gapminder' }, stats: { sampled: true } }) },
   );
+});
+
+test('SQL preserves correlated point tuples and rejects an absent selection field', async () => {
+  const spec: TopLevelSpec = {
+    data: {
+      values: [
+        { origin: 'USA', cylinders: 4 },
+        { origin: 'USA', cylinders: 6 },
+        { origin: 'Japan', cylinders: 4 },
+        { origin: 'Japan', cylinders: 6 },
+      ],
+    },
+    params: [{ name: 'pick', select: { type: 'point', fields: ['origin', 'cylinders'] } }],
+    mark: 'point',
+    encoding: { x: { field: 'cylinders', type: 'quantitative' } },
+  };
+  await withChart(spec, {}, async (provider, _db, view) => {
+    const action = (await provider.observe()).graph.actions.find(
+      (action) => action.operation.contract === 'vega_lite.set_selection',
+    )!;
+    const result = await executeVacpAction(provider, {
+      callId: 'correlated',
+      name: action.name,
+      params: {
+        ref: 'vacp://app/view/chart/param/pick',
+        value: [
+          { origin: 'USA', cylinders: 4 },
+          { origin: 'Japan', cylinders: 6 },
+        ],
+      },
+    });
+    assert.equal(result.ok, true);
+    assert.deepEqual(await sql(provider, 'SELECT origin, cylinders FROM vacp_handle ORDER BY origin'), [
+      { origin: 'Japan', cylinders: 6 },
+      { origin: 'USA', cylinders: 4 },
+    ]);
+    view.data('pick_store', [{ unit: '', fields: [{ field: 'missing', type: 'E' }], values: [1] }]);
+    await view.runAsync();
+    const unavailable = await provider.observe();
+    assert.match(
+      unavailable.graph.nodes.find((node) => node.kind === 'DataHandle')!.availability!.unavailable!,
+      /absent from the data handle/,
+    );
+    await assert.rejects(sql(provider, 'SELECT * FROM vacp_handle'), /absent from the data handle/);
+  });
+});
+
+test('data handles read the compiled datasets rendered by the host', async () => {
+  const spec: TopLevelSpec = { data: { values: [{ x: 1 }] }, mark: 'point' };
+  const vgSpec: import('vega').Spec = {
+    data: [{ name: 'host_rows', values: [{ x: 42 }] }],
+    marks: [{ type: 'symbol', from: { data: 'host_rows' }, encode: { enter: { x: { field: 'x' } } } }],
+  };
+  const view = new View(parse(vgSpec), { renderer: 'none' });
+  await view.runAsync();
+  const db = await nodeDuckDb();
+  const provider = createVegaLiteProvider({ view, spec, vgSpec, options, data: { duckdb: db.client } });
+  try {
+    assert.deepEqual(await sql(provider, 'SELECT x::INTEGER AS x FROM vacp_handle'), [{ x: 42 }]);
+  } finally {
+    provider.dispose!();
+    view.finalize();
+    db.close();
+  }
+});
+
+test('identity selections reject SQL projection when the tuple has no row fields', async () => {
+  const spec: TopLevelSpec = {
+    data: { values: [{ x: 1 }] },
+    params: [{ name: 'pick', select: 'point' }],
+    mark: 'point',
+  };
+  await withChart(spec, {}, async (provider, _db, view) => {
+    view.data('pick_store', [{ unit: '', _vgsid_: 1 }]);
+    await view.runAsync();
+    const unavailable = await provider.observe();
+    assert.match(
+      unavailable.graph.nodes.find((node) => node.kind === 'DataHandle')!.availability!.unavailable!,
+      /Identity selections/,
+    );
+    await assert.rejects(sql(provider, 'SELECT * FROM vacp_handle'), /Identity selections/);
+  });
+});
+
+for (const [channel, reverse] of [
+  ['y', false],
+  ['x', true],
+] as const) {
+  test(`a human ${channel} brush on a reverse=${reverse} scale selects the chart's rows in SQL`, async () => {
+    const spec: TopLevelSpec = {
+      data: { values: [{ value: 1 }, { value: 3 }, { value: 5 }, { value: 7 }] },
+      params: [{ name: 'brush', select: { type: 'interval', encodings: [channel] } }],
+      mark: 'point',
+      encoding: { [channel]: { field: 'value', type: 'quantitative', scale: { reverse } } },
+    };
+    await withChart(spec, {}, async (provider, _db, view) => {
+      const scale = view.scale(channel);
+      const endpoints = [scale(3), scale(5)].sort((a, b) => a - b).map((pixel) => scale.invert(pixel));
+      assert.deepEqual(endpoints, [5, 3]);
+      view.change(
+        'brush_store',
+        changeset().insert({
+          unit: '',
+          fields: [{ field: 'value', channel, type: 'R' }],
+          values: [endpoints],
+        }),
+      );
+      await view.runAsync();
+      assert.deepEqual(await sql(provider, 'SELECT value FROM vacp_handle ORDER BY value'), [
+        { value: 3 },
+        { value: 5 },
+      ]);
+    });
+  });
+}
+
+test('a nominal-x interval brush selects each included category in SQL', async () => {
+  const spec: TopLevelSpec = {
+    data: {
+      values: [
+        { category: 'a', amount: 1 },
+        { category: 'b', amount: 2 },
+        { category: 'c', amount: 3 },
+      ],
+    },
+    params: [{ name: 'brush', select: { type: 'interval', encodings: ['x'] } }],
+    mark: 'bar',
+    encoding: { x: { field: 'category', type: 'nominal' }, y: { field: 'amount', type: 'quantitative' } },
+  };
+  await withChart(spec, {}, async (provider, _db, view) => {
+    view.change(
+      'brush_store',
+      changeset().insert({
+        unit: '',
+        fields: [{ field: 'category', channel: 'x', type: 'E' }],
+        values: [['a', 'b']],
+      }),
+    );
+    await view.runAsync();
+    assert.deepEqual(await sql(provider, 'SELECT category FROM vacp_handle ORDER BY category'), [
+      { category: 'a' },
+      { category: 'b' },
+    ]);
+  });
+});
+
+test('a discrete interval with an unrepresentable member makes its data handle unavailable', async () => {
+  const spec: TopLevelSpec = {
+    data: {
+      values: [
+        { category: 'a', amount: 1 },
+        { category: 'b', amount: 2 },
+      ],
+    },
+    params: [{ name: 'brush', select: { type: 'interval', encodings: ['x'] } }],
+    mark: 'bar',
+    encoding: { x: { field: 'category', type: 'nominal' }, y: { field: 'amount', type: 'quantitative' } },
+  };
+  await withChart(spec, {}, async (provider, _db, view) => {
+    await provider.observe();
+    view.change(
+      'brush_store',
+      changeset().insert({
+        unit: '',
+        fields: [{ field: 'category', channel: 'x', type: 'E' }],
+        values: [['a', Number.NaN]],
+      }),
+    );
+    await view.runAsync();
+    const { graph } = await provider.observe();
+    const handle = graph.nodes.find((node) => node.ref === 'vacp://app/view/chart/data/main')!;
+    assert.match(handle.availability?.unavailable ?? '', /literal/);
+  });
+});
+
+test('a reversed temporal brush orders instants before rounding the inclusive boundaries', async () => {
+  const start = Date.UTC(2012, 5, 1);
+  const spec: TopLevelSpec = {
+    data: { values: [0, 1, 2, 3].map((offset) => ({ time: start + offset, row_index: offset })) },
+    params: [{ name: 'brush', select: { type: 'interval', encodings: ['x'] } }],
+    mark: 'point',
+    encoding: { x: { field: 'time', type: 'temporal', scale: { type: 'utc', reverse: true } } },
+  };
+  await withChart(spec, {}, async (provider, _db, view) => {
+    await provider.observe();
+    view.change(
+      'brush_store',
+      changeset().insert({
+        unit: '',
+        fields: [{ field: 'time', channel: 'x', type: 'R' }],
+        values: [[start + 2.8, start + 0.2]],
+      }),
+    );
+    await view.runAsync();
+    assert.deepEqual(await sql(provider, 'SELECT row_index::INT AS row_index FROM vacp_handle ORDER BY row_index'), [
+      { row_index: 1 },
+      { row_index: 2 },
+    ]);
+  });
 });

@@ -22,11 +22,7 @@ __pycache__
 test-results
 .artifacts
 
-apps/docs/.vitepress/cache
-apps/docs/.vitepress/dist
-apps/docs/public/diagrams
+docs/.vitepress/cache
+docs/.vitepress/dist
 examples/gallery/.generated-public
 
-nogit
-plans
-ara

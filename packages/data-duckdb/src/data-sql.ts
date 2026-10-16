@@ -1,6 +1,6 @@
 import { VACP_TOOL_RESULT_LIMITS, type VacpDataSqlParams, type VacpDataSqlResult, type VacpRef } from '@vacp/protocol';
 
-import type { VacpDuckDbClient } from './client';
+import type { VacpDuckDbQueryClient } from './client';
 import { normalizeSingleStatementSql } from './sql';
 
 type VacpDuckDbHandle = { allSql: string; selectedSql: string };
@@ -15,7 +15,7 @@ export type VacpDuckDbHandleResolver = (
  * default, the rows one tool result keeps.
  */
 export function createDuckDbDataSqlHandler(args: {
-  duckdb: VacpDuckDbClient | Promise<VacpDuckDbClient>;
+  duckdb: VacpDuckDbQueryClient | Promise<VacpDuckDbQueryClient>;
   resolveHandle: VacpDuckDbHandleResolver;
 }): (params: VacpDataSqlParams) => Promise<VacpDataSqlResult> {
   return async (params) => {

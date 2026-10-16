@@ -1,140 +1,167 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import type { VacpStateSnapshot } from '@vacp/protocol';
+import type { VacpRef } from '@vacp/protocol';
 
-import { buildStateUpdate, scopeStateSnapshot } from '../src/runtime/state-update';
-
-const createdAt = '2026-03-06T10:00:00.000Z';
+import { createVacpProvider, createVacpRuntime, VacpActionRegistry } from '../src/index';
 
 const viewRef = 'vacp://test-app/example-view';
+const teamRef = `${viewRef}/input/0` as const;
+const athleteRef = `${viewRef}/input/1` as const;
+const dataRef = `${viewRef}/data/main` as const;
+const auxiliaryRef = `${viewRef}/data/auxiliary` as const;
+const otherRef = 'vacp://other/view/input/0' as const;
 
-const teamRef = `${viewRef}/input/0`;
+/** A runtime over one source whose state and summary the test replaces between reads. */
+function source(initial: { state: Record<VacpRef, unknown>; summary?: Record<VacpRef, unknown> }) {
+  let current = initial;
+  let invalidate = () => {};
+  const refs: VacpRef[] = [teamRef, athleteRef, dataRef, auxiliaryRef, otherRef];
+  const runtime = createVacpRuntime({
+    providers: [
+      createVacpProvider({
+        source: { id: 'vacp-source://state', type: 'test', title: 'State' },
+        actions: new VacpActionRegistry(),
+        project: () => ({
+          graph: { nodes: refs.map((ref) => ({ ref, kind: 'Widget', layer: 'ConfigLayer' })), edges: [], actions: [] },
+          state: current.state,
+          summary: current.summary,
+        }),
+        subscribe: (listener) => {
+          invalidate = listener;
+          return () => {};
+        },
+      }),
+    ],
+  });
+  return {
+    runtime,
+    set(this: void, next: typeof current) {
+      current = next;
+      invalidate();
+    },
+  };
+}
 
-const athleteRef = `${viewRef}/input/1`;
-
-const dataRef = `${viewRef}/data/main`;
-
-const auxiliaryRef = `${viewRef}/data/auxiliary`;
-
-test('scopeStateSnapshot expands container refs to descendant state and summary entries', () => {
-  const snapshot: VacpStateSnapshot = {
-    version: '0.1.0',
-    createdAt,
+test('a read without since returns the full scoped state with a token', async (t) => {
+  const { runtime } = source({
     state: {
       [teamRef]: { value: '' },
       [athleteRef]: { value: '' },
       [dataRef]: { selectionWhere: null },
-      [auxiliaryRef]: { table: 'auxiliary' },
-      'vacp://other/view/input/0': { value: 'other' },
+      [otherRef]: { value: 'other' },
     },
-    summary: {
-      [athleteRef]: { label: 'Athlete' },
-      [dataRef]: { kind: 'DataHandle' },
-      'vacp://other/view/input/0': { label: 'Other' },
-    },
-  };
-
-  const scoped = scopeStateSnapshot(snapshot, { mode: 'full', refs: [viewRef], includeSummary: true });
-
-  assert.deepEqual(scoped.refs, [viewRef]);
-  assert.deepEqual(new Set(Object.keys(scoped.snapshot.state)), new Set([teamRef, athleteRef, dataRef, auxiliaryRef]));
-  assert.deepEqual(new Set(Object.keys(scoped.snapshot.summary ?? {})), new Set([athleteRef, dataRef]));
+    summary: { [athleteRef]: { label: 'Athlete' }, [otherRef]: { label: 'Other' } },
+  });
+  t.after(() => runtime.dispose());
+  const unscoped = await runtime.getState();
+  assert.equal(unscoped.mode, 'full');
+  assert.match(unscoped.token, /^st_/);
+  const scoped = await runtime.getState({ refs: [viewRef] });
+  assert.equal(scoped.mode, 'full');
+  if (scoped.mode !== 'full') return;
+  assert.deepEqual(scoped.scope, { refs: [viewRef] });
+  assert.deepEqual(scoped.snapshot.state, {
+    [teamRef]: { value: '' },
+    [athleteRef]: { value: '' },
+    [dataRef]: { selectionWhere: null },
+  });
+  assert.deepEqual(scoped.snapshot.summary, { [athleteRef]: { label: 'Athlete' } });
+  assert.notEqual(scoped.token, unscoped.token);
 });
 
-test('buildStateUpdate rescopes broader baselines before computing a narrower delta', () => {
-  const baseline: VacpStateSnapshot = {
-    version: '0.1.0',
-    createdAt,
+test('an unknown token reads the full state', async (t) => {
+  const { runtime } = source({ state: { [teamRef]: 'A' } });
+  t.after(() => runtime.dispose());
+  const update = await runtime.getState({ since: 'st_unknown' });
+  assert.equal(update.mode, 'full');
+});
+
+test('a narrower read rescopes a broader baseline before computing its delta', async (t) => {
+  const { runtime, set } = source({
     state: {
       [teamRef]: { value: '' },
       [athleteRef]: { value: '' },
       [dataRef]: { selectionWhere: null },
       [auxiliaryRef]: { table: 'auxiliary' },
     },
-  };
-
-  const current: VacpStateSnapshot = {
-    version: '0.1.0',
-    createdAt,
+  });
+  t.after(() => runtime.dispose());
+  const baseline = await runtime.getState();
+  set({
     state: {
       [teamRef]: { value: '' },
       [athleteRef]: { value: 'Example Item' },
       [dataRef]: { selectionWhere: `category = 'Example Item'` },
-      [auxiliaryRef]: { table: 'auxiliary' },
+      [auxiliaryRef]: { table: 'changed' },
     },
-  };
-
-  const { update } = buildStateUpdate({
-    current,
-    request: {
-      mode: 'delta',
-      since: 'st_prev',
-      refs: [teamRef, athleteRef, dataRef],
-      includeSummary: true,
-    },
-    baseline,
   });
-
+  const update = await runtime.getState({ since: baseline.token, refs: [teamRef, athleteRef, dataRef] });
   assert.equal(update.mode, 'delta');
+  if (update.mode !== 'delta') return;
   assert.deepEqual(update.scope, { refs: [dataRef, teamRef, athleteRef] });
-  assert.deepEqual(update.delta.removed, []);
-  assert.deepEqual(update.delta.changed, {
-    [athleteRef]: { value: 'Example Item' },
-    [dataRef]: { selectionWhere: `category = 'Example Item'` },
+  assert.deepEqual(update.delta, {
+    changed: {
+      [athleteRef]: { value: 'Example Item' },
+      [dataRef]: { selectionWhere: `category = 'Example Item'` },
+    },
+    removed: [],
+    summaryChanged: undefined,
+    summaryRemoved: undefined,
   });
 });
 
-test('matching scoped content tokens produce empty deltas while changed summaries remain observable', () => {
-  const baseline: VacpStateSnapshot = {
-    version: '0.1.0',
-    createdAt,
-    state: { [teamRef]: { value: 'A' } },
-    summary: { [teamRef]: { count: 3 } },
-  };
-  const initial = buildStateUpdate({ current: baseline, request: { mode: 'full', refs: [viewRef] } });
-  const request = { mode: 'delta' as const, refs: [viewRef], since: initial.update.token };
-  const unchanged = buildStateUpdate({
-    current: structuredClone(baseline),
-    baseline: initial.snapshot,
-    request,
-  }).update;
+test('an unchanged read is an empty delta while a changed summary stays observable', async (t) => {
+  const { runtime, set } = source({ state: { [teamRef]: { value: 'A' } }, summary: { [teamRef]: { count: 3 } } });
+  t.after(() => runtime.dispose());
+  const initial = await runtime.getState({ refs: [viewRef] });
+  const unchanged = await runtime.getState({ refs: [viewRef], since: initial.token });
   assert.equal(unchanged.mode, 'delta');
-  assert.deepEqual(unchanged.delta, { changed: {}, removed: [], summaryChanged: undefined, summaryRemoved: undefined });
-  const changed = buildStateUpdate({
-    current: { ...baseline, summary: { [teamRef]: { count: 4 } } },
-    baseline: initial.snapshot,
-    request,
-  }).update;
+  if (unchanged.mode === 'delta')
+    assert.deepEqual(unchanged.delta, {
+      changed: {},
+      removed: [],
+      summaryChanged: undefined,
+      summaryRemoved: undefined,
+    });
+  set({ state: { [teamRef]: { value: 'A' } }, summary: { [teamRef]: { count: 4 } } });
+  const changed = await runtime.getState({ refs: [viewRef], since: initial.token });
   assert.equal(changed.mode, 'delta');
-  assert.deepEqual(changed.delta.summaryChanged, { [teamRef]: { count: 4 } });
+  if (changed.mode === 'delta') assert.deepEqual(changed.delta.summaryChanged, { [teamRef]: { count: 4 } });
 });
 
-test('equal JSON tokens still report removed and added undefined-valued refs', () => {
-  const before: VacpStateSnapshot = {
-    version: '0.1.0',
-    createdAt,
-    state: { [teamRef]: undefined },
-    summary: { [teamRef]: undefined },
-  };
-  const after: VacpStateSnapshot = {
-    version: '0.1.0',
-    createdAt,
-    state: { [athleteRef]: undefined },
-    summary: { [athleteRef]: undefined },
-  };
-  const initial = buildStateUpdate({ current: before, request: { mode: 'full' } });
-  const changed = buildStateUpdate({
-    current: after,
-    baseline: initial.snapshot,
-    request: { mode: 'delta', since: initial.update.token },
-  }).update;
-  assert.equal(changed.token, initial.update.token);
-  assert.equal(changed.mode, 'delta');
-  assert.deepEqual(changed.delta, {
-    changed: { [athleteRef]: undefined },
-    removed: [teamRef],
-    summaryChanged: { [athleteRef]: undefined },
-    summaryRemoved: [teamRef],
-  });
+test('a ref present with an undefined value and an absent ref are different states for every reader', async (t) => {
+  const { runtime, set } = source({ state: { [teamRef]: undefined }, summary: { [otherRef]: 1 } });
+  t.after(() => runtime.dispose());
+  const first = await runtime.getState();
+  set({ state: {}, summary: { [otherRef]: 1 } });
+  const second = await runtime.getState();
+  assert.notEqual(second.token, first.token);
+  const update = await runtime.getState({ since: first.token });
+  assert.equal(update.mode, 'delta');
+  if (update.mode === 'delta')
+    assert.deepEqual(update.delta, {
+      changed: {},
+      removed: [teamRef],
+      summaryChanged: undefined,
+      summaryRemoved: undefined,
+    });
+});
+
+test('a summary ref present with an undefined value and an absent one are different summaries', async (t) => {
+  const { runtime, set } = source({ state: { [teamRef]: 1 }, summary: { [athleteRef]: undefined, [otherRef]: 1 } });
+  t.after(() => runtime.dispose());
+  const first = await runtime.getState();
+  set({ state: { [teamRef]: 1 }, summary: { [otherRef]: 1 } });
+  const second = await runtime.getState();
+  assert.notEqual(second.token, first.token);
+  const update = await runtime.getState({ since: first.token });
+  assert.equal(update.mode, 'delta');
+  if (update.mode === 'delta')
+    assert.deepEqual(update.delta, {
+      changed: {},
+      removed: [],
+      summaryChanged: undefined,
+      summaryRemoved: [athleteRef],
+    });
 });

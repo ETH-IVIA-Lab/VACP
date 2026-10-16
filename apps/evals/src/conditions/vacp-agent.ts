@@ -1,10 +1,5 @@
-import {
-  buildVacpAgentInstructions,
-  createVacpToolLoopAgent,
-  vacpAgentDefaults,
-  type VacpAgentInteractionPolicy,
-} from '@vacp/agent-ai-sdk';
-import { vacpAgentTools } from '@vacp/protocol';
+import { createVacpToolLoopAgent, defaultVacpAgentInstructions, vacpAgentDefaults } from '@vacp/agent-ai-sdk';
+import { vacpAgentActor, vacpAgentTools } from '@vacp/protocol';
 import { createVacpTransport } from '@vacp/transport-bridge';
 import type { ModelMessage } from 'ai';
 
@@ -13,7 +8,6 @@ import type { Condition } from '../ports';
 export type VacpAgentConditionOptions = {
   /** Replaces the product's default instructions, for rounds that tune them. */
   instructions?: string;
-  interactionPolicy?: VacpAgentInteractionPolicy;
   temperature?: number;
 };
 
@@ -22,10 +16,7 @@ export type VacpAgentConditionOptions = {
  * application wires: the `vacp_*` tools over the in-page bridge, with the suite's model.
  */
 export function vacpAgentCondition(options: VacpAgentConditionOptions = {}): Condition {
-  const instructions = buildVacpAgentInstructions({
-    baseInstructions: options.instructions,
-    interactionPolicy: options.interactionPolicy,
-  });
+  const instructions = options.instructions ?? defaultVacpAgentInstructions;
   const temperature = options.temperature ?? vacpAgentDefaults.temperature;
   return {
     kind: 'agent',
@@ -35,15 +26,13 @@ export function vacpAgentCondition(options: VacpAgentConditionOptions = {}): Con
           loop: '@vacp/agent-ai-sdk createVacpToolLoopAgent',
           instructions,
           tools: Object.keys(vacpAgentTools).join(', '),
-          settings: { temperature, interactionPolicy: options.interactionPolicy },
+          settings: { temperature },
         },
         async conversation({ page, signal, maxSteps, telemetry }) {
           const agent = createVacpToolLoopAgent({
             model: model.language,
             transport: createVacpTransport(page.bridge),
-            activity: page.bridge,
-            instructions: options.instructions,
-            interactionPolicy: options.interactionPolicy,
+            instructions,
             maxSteps,
             temperature,
             providerOptions: model.options,
@@ -53,7 +42,19 @@ export function vacpAgentCondition(options: VacpAgentConditionOptions = {}): Con
           return {
             async say(message) {
               messages.push({ role: 'user', content: message });
-              const result = await agent.generate({ messages, abortSignal: signal });
+              // One request is one turn: the model's sentences and steps join it, and its outcome closes it.
+              const turn = page.bridge.beginAgentActivity({ actor: vacpAgentActor });
+              let outcome: 'completed' | 'failed' | 'cancelled' = 'failed';
+              let result: Awaited<ReturnType<typeof agent.generate>>;
+              try {
+                result = await agent.generate({ messages, abortSignal: signal });
+                outcome = 'completed';
+              } catch (error) {
+                if (signal.aborted) outcome = 'cancelled';
+                throw error;
+              } finally {
+                turn.end({ outcome });
+              }
               messages.push(...result.response.messages);
               const stop =
                 result.finishReason === 'length'

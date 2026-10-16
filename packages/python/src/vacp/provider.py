@@ -17,6 +17,7 @@ from vacp.availability import Availability, AvailabilityError, ResolvedObservati
 VACP_SCHEMA_VERSION = '0.1.0'
 MAX_COHERENCE_RETRIES = 8
 logger = logging.getLogger(__name__)
+_OMITTED = object()
 
 
 @dataclass(frozen=True)
@@ -72,7 +73,7 @@ class OperationSemantics:
 
 
 @dataclass(frozen=True)
-class OperationDescriptor:
+class ActionDescriptor:
     name: str
     description: str
     operation: OperationSemantics
@@ -85,8 +86,7 @@ class OperationDescriptor:
 class GraphFragment:
     nodes: tuple[Node, ...]
     edges: tuple[Edge, ...]
-    actions: tuple[OperationDescriptor, ...]
-    version: str = VACP_SCHEMA_VERSION
+    actions: tuple[ActionDescriptor, ...]
 
 
 @dataclass(frozen=True)
@@ -122,28 +122,63 @@ class Observation:
 
 
 @dataclass(frozen=True)
-class Invocation:
+class ActionCall:
     call_id: str
     name: str
-    params: object | None = None
+    params: object = _OMITTED
+
+    @property
+    def has_params(self) -> bool:
+        """Whether the caller supplied parameters, including an explicit None."""
+        return self.params is not _OMITTED
 
 
 @dataclass(frozen=True)
-class InvocationResult:
+class ActionResult:
     call_id: str
     ok: bool
     result: object | None = None
     error: Mapping[str, object] | None = None
 
 
+@dataclass(frozen=True)
+class ActionContext:
+    """The source lifetime a provider checks before it mutates its source."""
+
+    closed: Callable[[], bool]
+
+    def ensure_open(self) -> None:
+        if self.closed():
+            raise RuntimeError('VACP composer is disposed')
+
+
+class PreparedAction:
+    """A validated, single-use operation. Preparation must not mutate the analytical source."""
+
+    def __init__(
+        self, run: Callable[[], ActionResult | Awaitable[ActionResult]], *, affects: Sequence[str] = ()
+    ) -> None:
+        self.affects = tuple(affects)
+        self._run: Callable[[], ActionResult | Awaitable[ActionResult]] | None = run
+
+    async def execute(self) -> ActionResult:
+        run, self._run = self._run, None
+        if run is None:
+            raise RuntimeError('Prepared action has already been executed')
+        return await _resolve(run())
+
+
 class Provider(Protocol):
-    source: SourceDescription
+    @property
+    def source(self) -> SourceDescription: ...
 
     def observe(self) -> ProviderObservation | Awaitable[ProviderObservation]: ...
 
-    def invoke(self, call: Invocation) -> InvocationResult | Awaitable[InvocationResult]: ...
+    def prepare(self, call: ActionCall, context: ActionContext, /) -> PreparedAction | Awaitable[PreparedAction]:
+        """Validate `call` and resolve its target without mutating the source."""
+        ...
 
-    def subscribe(self, invalidate: Callable[[], None]) -> Callable[[], None]: ...
+    def subscribe(self, invalidate: Callable[[], None], /) -> Callable[[], None]: ...
 
     def dispose(self) -> None: ...
 
@@ -162,26 +197,23 @@ async def _resolve[Value](value: Value | Awaitable[Value]) -> Value:
     return value
 
 
+def _unchanging(_invalidate: Callable[[], None]) -> Callable[[], None]:
+    return lambda: None
+
+
+def _nothing() -> None:
+    return None
+
+
 @dataclass
 class SimpleProvider:
+    """A provider assembled from its members, for sources without a class of their own."""
+
     source: SourceDescription
-    project: Callable[[], ProviderObservation | Awaitable[ProviderObservation]]
-    invoke_operation: Callable[[Invocation], InvocationResult | Awaitable[InvocationResult]]
-    subscribe_changes: Callable[[Callable[[], None]], Callable[[], None]] | None = None
-    close: Callable[[], None] | None = None
-
-    def observe(self) -> ProviderObservation | Awaitable[ProviderObservation]:
-        return self.project()
-
-    def invoke(self, call: Invocation) -> InvocationResult | Awaitable[InvocationResult]:
-        return self.invoke_operation(call)
-
-    def subscribe(self, invalidate: Callable[[], None]) -> Callable[[], None]:
-        return self.subscribe_changes(invalidate) if self.subscribe_changes else lambda: None
-
-    def dispose(self) -> None:
-        if self.close:
-            self.close()
+    observe: Callable[[], ProviderObservation | Awaitable[ProviderObservation]]
+    prepare: Callable[[ActionCall, ActionContext], PreparedAction | Awaitable[PreparedAction]]
+    subscribe: Callable[[Callable[[], None]], Callable[[], None]] = _unchanging
+    dispose: Callable[[], None] = _nothing
 
 
 class ProviderComposer:
@@ -234,22 +266,34 @@ class ProviderComposer:
             self._ensure_active()
             if before != self._epoch:
                 continue
-            return resolve_observation(_compose(self._providers, observations))
+            # Capture once: later changes to provider data cannot reach this observation, and its
+            # consumers cannot reach the provider.
+            return resolve_observation(_compose(self._providers, deepcopy(observations)))
         raise RuntimeError('VACP sources did not settle into one coherent observation')
 
-    async def invoke(self, call: Invocation) -> InvocationResult:
-        call = deepcopy(call)
+    async def execute(self, call: ActionCall) -> ActionResult:
+        """Prepare `call` with its owner, recheck lifetime and eligibility, then run it once."""
+        call = (
+            ActionCall(call.call_id, call.name, deepcopy(call.params))
+            if call.has_params
+            else ActionCall(call.call_id, call.name)
+        )
         resolved = await self._read()
         try:
             require_action(resolved, call)
         except AvailabilityError as error:
-            return InvocationResult(call.call_id, False, error={'message': str(error), 'details': error.details})
-        source_id = resolved.inspection.action_owners.get(call.name)
-        if source_id is None:
-            return InvocationResult(call.call_id, False, error={'message': f'Unknown operation: {call.name}'})
-        result = await _resolve(self._by_source[source_id].invoke(call))
-        self._ensure_active()
-        return result
+            return ActionResult(call.call_id, False, error={'message': str(error), 'details': error.details})
+        provider = self._by_source[resolved.inspection.action_owners[call.name]]
+        try:
+            prepared = await _resolve(provider.prepare(call, ActionContext(lambda: self._disposed)))
+        except Exception as error:  # noqa: BLE001
+            return ActionResult(call.call_id, False, error={'message': str(error)})
+        current = await self._read()
+        try:
+            require_action(current, call)
+        except AvailabilityError as error:
+            return ActionResult(call.call_id, False, error={'message': str(error), 'details': error.details})
+        return await prepared.execute()
 
     def dispose(self) -> None:
         if self._disposed:
@@ -265,7 +309,7 @@ class ProviderComposer:
 def _compose(providers: Sequence[Provider], observations: Sequence[ProviderObservation]) -> Observation:
     nodes: list[Node] = []
     edges: list[Edge] = []
-    operations: list[OperationDescriptor] = []
+    operations: list[ActionDescriptor] = []
     node_owners: dict[str, str] = {}
     action_owners: dict[str, str] = {}
     state: dict[str, object] = {}
@@ -275,8 +319,6 @@ def _compose(providers: Sequence[Provider], observations: Sequence[ProviderObser
 
     for provider, observation in zip(providers, observations, strict=True):
         source_id = provider.source.id
-        if observation.graph.version != VACP_SCHEMA_VERSION:
-            raise ValueError(f'Source {source_id} published unsupported graph version {observation.graph.version}')
         for node in observation.graph.nodes:
             owner = node_owners.get(node.ref)
             if owner:
@@ -286,7 +328,7 @@ def _compose(providers: Sequence[Provider], observations: Sequence[ProviderObser
         for operation in observation.graph.actions:
             owner = action_owners.get(operation.name)
             if owner:
-                raise ValueError(f'Operation {operation.name} is owned by both {owner} and {source_id}')
+                raise ValueError(f'Action {operation.name} is owned by both {owner} and {source_id}')
             action_owners[operation.name] = source_id
             operations.append(operation)
         for edge in observation.graph.edges:
@@ -303,7 +345,7 @@ def _compose(providers: Sequence[Provider], observations: Sequence[ProviderObser
     for operation in operations:
         for ref in (*operation.operation.input_refs, *operation.operation.affects):
             if ref not in known_refs:
-                raise ValueError(f'Operation {operation.name} references missing entity {ref}')
+                raise ValueError(f'Action {operation.name} references missing entity {ref}')
 
     for provider, observation in zip(providers, observations, strict=True):
         for label, values in (
@@ -329,7 +371,7 @@ def _compose(providers: Sequence[Provider], observations: Sequence[ProviderObser
     return Observation(
         revision=_revision(revision_parts),
         observed_at=observed_at,
-        sources=tuple(provider.source for provider in providers),
+        sources=tuple(deepcopy(provider.source) for provider in providers),
         graph=GraphFragment(tuple(nodes), tuple(edges), tuple(operations)),
         node_owners=node_owners,
         action_owners=action_owners,
@@ -342,7 +384,6 @@ def _compose(providers: Sequence[Provider], observations: Sequence[ProviderObser
 def as_dict(value: Observation) -> dict[str, object]:
     """Serialize a composed observation using the VACP wire names."""
     graph = {
-        'version': value.graph.version,
         'sources': [_compact(asdict(source)) for source in value.sources],
         'ownership': {
             'nodes': dict(value.node_owners),
@@ -374,7 +415,7 @@ def _availability_dict(value: Availability | None) -> dict[str, object] | None:
     return _compact({'requires': list(value.requires) or None, 'unavailable': value.unavailable})
 
 
-def _operation_dict(action: OperationDescriptor) -> dict[str, object]:
+def _operation_dict(action: ActionDescriptor) -> dict[str, object]:
     semantics = action.operation
     return _compact(
         {

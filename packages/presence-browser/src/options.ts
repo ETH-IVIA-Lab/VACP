@@ -4,15 +4,13 @@ import { defaultCursorPresentation, type CursorPresentation } from './cursor-sem
 import { describePresence } from './describe';
 import { travelStyle, type CursorTravel } from './motion';
 import type { PresenceText } from './text';
-import { browserPresenceSurface } from './targets';
 
-/** Lucide `bot`, with its body rectangle expressed as a path so one stroked path draws the mark; see NOTICE. */
+/** Lucide `bot`, with its body rectangle expressed as a path so one stroked path draws the mark. See NOTICE. */
 const agentIcon =
   'M12 8V4H8M6 8h12a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2zM2 14h2M20 14h2M15 13v2M9 13v2';
 
 export type BrowserPresenceOptions = {
   document?: Document;
-  surface?: string;
   motion?: 'system' | 'reduced' | 'full';
   /** Approximate settling time. Retargeting preserves velocity. */
   durationMs?: number;
@@ -26,7 +24,6 @@ export type BrowserPresenceOptions = {
   hover?: false | { distance?: number; periodMs?: number };
   /** Initial position for an actor without a known target. */
   idlePosition?: (viewport: { width: number; height: number }) => PresencePoint;
-  zIndex?: number;
   describe?: (activity: PresenceActivity) => string;
   bloom?: false | { color?: string; radius?: number };
   cursor?: {
@@ -48,8 +45,8 @@ export function resolvePresenceOptions(options: BrowserPresenceOptions) {
   const numbers = {
     duration: options.durationMs ?? 320,
     hoverDistance: options.hover === false ? 0 : (options.hover?.distance ?? 2.5),
-    hoverPeriod: options.hover === false ? 2600 : (options.hover?.periodMs ?? 2600),
-    bubbleWidth: options.bubble === false ? 260 : (options.bubble?.width ?? 260),
+    hoverPeriod: (options.hover || undefined)?.periodMs ?? 2600,
+    bubbleWidth: (options.bubble || undefined)?.width ?? 260,
   };
   if (
     !Object.values(numbers).every(Number.isFinite) ||
@@ -84,10 +81,10 @@ export function resolvePresenceOptions(options: BrowserPresenceOptions) {
     ...numbers,
     travel: travelStyle(options.travel),
     motion: options.motion ?? 'system',
-    surface: options.surface ?? browserPresenceSurface,
+    surface: 'viewport',
     describe: options.describe ?? describePresence,
     idlePosition: options.idlePosition,
-    zIndex: options.zIndex ?? 2147483646,
+    zIndex: 2147483646,
     text: options.text,
     bubble: options.bubble !== false,
     icon,
@@ -99,7 +96,7 @@ export function resolvePresenceOptions(options: BrowserPresenceOptions) {
       stroke: options.cursor?.stroke ?? 'black',
       resolve: options.cursor?.resolve ?? defaultCursorPresentation,
       bloom: options.bloom === false ? undefined : (options.bloom?.color ?? '#78b7ff'),
-      ripple: options.ripple === false ? '#60a5fa' : (options.ripple?.color ?? '#60a5fa'),
+      ripple: (options.ripple || undefined)?.color ?? '#60a5fa',
     },
   };
 }

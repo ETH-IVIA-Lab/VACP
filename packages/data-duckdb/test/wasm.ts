@@ -1,6 +1,6 @@
 import { fileURLToPath } from 'node:url';
 import { createDuckDB, NODE_RUNTIME, VoidLogger } from '@duckdb/duckdb-wasm/blocking';
-import type { VacpDuckDbClient } from '../src/index';
+import type { VacpDuckDbQueryClient } from '../src/index';
 import { arrowTableToJson } from '../src/json';
 
 /**
@@ -10,15 +10,18 @@ import { arrowTableToJson } from '../src/json';
 export async function wasmDuckDb() {
   const db = await createDuckDB(
     {
-      mvp: { mainModule: fileURLToPath(import.meta.resolve('@duckdb/duckdb-wasm/dist/duckdb-mvp.wasm')) },
-      eh: { mainModule: fileURLToPath(import.meta.resolve('@duckdb/duckdb-wasm/dist/duckdb-eh.wasm')) },
+      mvp: {
+        mainModule: fileURLToPath(import.meta.resolve('@duckdb/duckdb-wasm/dist/duckdb-mvp.wasm')),
+        mainWorker: '',
+      },
+      eh: { mainModule: fileURLToPath(import.meta.resolve('@duckdb/duckdb-wasm/dist/duckdb-eh.wasm')), mainWorker: '' },
     },
     new VoidLogger(),
     NODE_RUNTIME,
   );
   await db.instantiate();
   const connection = db.connect();
-  const client: VacpDuckDbClient = {
+  const client: VacpDuckDbQueryClient = {
     async exec(sql) {
       connection.query(sql);
     },
@@ -28,9 +31,6 @@ export async function wasmDuckDb() {
     async queryArrowIpcBase64(sql) {
       const bytes = connection.useUnsafe((bindings, id) => bindings.runQuery(id, sql));
       return Buffer.from(bytes).toString('base64');
-    },
-    async loadObjectsAsTable() {
-      throw new Error('This fixture uses SQL-defined relations');
     },
   };
   return { client, close: () => connection.close() };

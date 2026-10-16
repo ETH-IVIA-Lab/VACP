@@ -7,14 +7,12 @@
     "dev": "portless run vitepress dev .",
     "build": "vitepress build .",
     "preview": "vitepress preview .",
-    "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "tsx --test --test-timeout=10000 test/*.test.ts"
+    "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "devDependencies": {
-    "oxc-minify": "^0.116.0",
+    "oxc-minify": "^0.154.0",
     "portless": "catalog:",
-    "tsx": "catalog:",
-    "vitepress": "2.0.0-alpha.19"
+    "vitepress": "2.0.0-alpha.20"
   },
   "portless": "docs.vacp"
 }

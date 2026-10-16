@@ -9,8 +9,8 @@ test('presence clips shadow content in scaled scroll containers and shares that 
   const server = appServer('vega-lite-gallery');
   await page.goto(server.url);
   const result = await page.evaluate(async (rootPath) => {
-    const { elementPresenceTarget }: typeof import('@vacp/presence-browser/targets') = await import(
-      `/@fs${rootPath}/packages/presence-browser/src/targets.ts`
+    const { elementPresenceTarget }: typeof import('@vacp/presence-core/dom') = await import(
+      `/@fs${rootPath}/packages/presence-core/src/dom.ts`
     );
     const { mountPresenceChart }: typeof import('../../fixtures/presence') = await import(
       `/@fs${rootPath}/apps/e2e/fixtures/presence.ts`

@@ -1,20 +1,11 @@
-import type { VacpProvider } from '@vacp/protocol';
-import {
-  createAgentPresence,
-  type PresenceBinding,
-  type PresenceOptions,
-  type PresenceSource,
-} from '@vacp/presence-core';
+import { createAgentPresence, type PresenceOptions, type PresenceSource } from '@vacp/presence-core';
 import type { BrowserPresenceOptions } from './options';
 import { createBrowserPresenceRenderer } from './renderer';
 
-type BrowserPresenceSource = PresenceSource & {
-  getProviderBinding(provider: VacpProvider): { id: string; signal: AbortSignal };
-};
 type Options = Omit<PresenceOptions, 'renderer'> & { appearance?: BrowserPresenceOptions };
 
 /** Browser wiring only. The host owns any supplied provenance replay controller. */
-export function createBrowserPresence(runtime: BrowserPresenceSource, options: Options = {}) {
+export function createBrowserPresence(runtime: PresenceSource, options: Options = {}) {
   const renderer = createBrowserPresenceRenderer(options.appearance);
   let presence: ReturnType<typeof createAgentPresence>;
   try {
@@ -53,8 +44,5 @@ export function createBrowserPresence(runtime: BrowserPresenceSource, options: O
   return {
     ...presence,
     dispose,
-    attach(provider: VacpProvider, targets: Pick<PresenceBinding, 'resolve' | 'subscribe'>) {
-      return presence.attach({ ...targets, ...runtime.getProviderBinding(provider), sourceId: provider.source.id });
-    },
   };
 }

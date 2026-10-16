@@ -10,10 +10,12 @@ test('HTTP connects by server identity and carries cancellation, custom fetch, a
     url: 'https://analysis.example/api/vacp/',
     intervalMs: 0,
     fetch: async (url, init) => {
-      requests.push({ url: String(url), init });
-      if (String(url).endsWith('/session')) return Response.json({ id: 'owner', title: 'Analysis' });
+      requests.push({ url: typeof url === 'string' ? url : url instanceof URL ? url.href : url.url, init });
+      if ((typeof url === 'string' ? url : url instanceof URL ? url.href : url.url).endsWith('/session'))
+        return Response.json({ id: 'owner', title: 'Analysis' });
       assert.equal(new Headers(init?.headers).get('X-VACP-Session'), 'owner');
-      if (String(url).endsWith('/observation')) return Response.json(observation());
+      if ((typeof url === 'string' ? url : url instanceof URL ? url.href : url.url).endsWith('/observation'))
+        return Response.json(observation());
       return Response.json({ callId: 'call', ok: true, result: { custom: [1, 2] } });
     },
   });
@@ -26,7 +28,9 @@ test('HTTP connects by server identity and carries cancellation, custom fetch, a
   });
   assert.equal(requests[1].init?.signal, signal);
   assert.equal(requests[2].init?.method, 'POST');
-  assert.deepEqual(JSON.parse(String(requests[2].init?.body)), {
+  const body = requests[2].init?.body;
+  assert.ok(typeof body === 'string');
+  assert.deepEqual(JSON.parse(body), {
     callId: 'call',
     name: 'set',
     params: { custom: true },
@@ -38,7 +42,7 @@ test('HTTP rejects stale sessions and mismatched operation results', async () =>
   const client = await connectHttpInspectorClient({
     url: 'https://analysis.example/api/vacp',
     fetch: async (url) =>
-      String(url).endsWith('/session')
+      (typeof url === 'string' ? url : url instanceof URL ? url.href : url.url).endsWith('/session')
         ? Response.json({ id: 'owner', title: 'Analysis' })
         : stale
           ? new Response('Session changed', { status: 409 })
@@ -73,7 +77,9 @@ test('HTTP polling pauses during reads and releases its timer with the last subs
     url: 'https://analysis.example/api/vacp',
     intervalMs: 1000,
     fetch: async (url) =>
-      String(url).endsWith('/session') ? Response.json({ id: 'owner', title: 'Analysis' }) : response,
+      (typeof url === 'string' ? url : url instanceof URL ? url.href : url.url).endsWith('/session')
+        ? Response.json({ id: 'owner', title: 'Analysis' })
+        : response,
   });
   let notifications = 0;
   const listener = () => {

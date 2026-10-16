@@ -8,11 +8,11 @@ const key = '__vacp_installation_test';
 
 const provider = (value: number, id = 'value') =>
   createVacpProvider({
+    subscribe: () => () => {},
     source: { id: `vacp-source://installation-${id}`, type: 'test', title: `Installation ${id}` },
     actions: new VacpActionRegistry(),
     project: () => ({
       graph: {
-        version: VACP_SCHEMA_VERSION,
         nodes: [{ ref: `vacp://example/${id}` as const, kind: 'Param', layer: 'ConfigLayer' }],
         edges: [],
         actions: [],
@@ -23,12 +23,22 @@ const provider = (value: number, id = 'value') =>
 
 test('browser installation preserves bridge identity while replacing provider ports', async () => {
   try {
-    const first = installVacpRuntime({ globalKey: key, providers: [provider(1)], injectDomSnapshot: false }).runtime;
+    const first = installVacpRuntime({
+      exposeBridge: true,
+      globalKey: key,
+      providers: [provider(1)],
+      injectDomSnapshot: false,
+    }).runtime;
     assert.equal(getVacpBridge({ globalKey: key }), first);
-    const second = installVacpRuntime({ globalKey: key, providers: [provider(2)], injectDomSnapshot: false }).runtime;
+    const second = installVacpRuntime({
+      exposeBridge: true,
+      globalKey: key,
+      providers: [provider(2)],
+      injectDomSnapshot: false,
+    }).runtime;
     assert.equal(first, second);
-    assert.equal((await second.getState()).state['vacp://example/value'], 2);
-    assert.equal(first.runtimeId, (await first.getProvenance()).runtimeId);
+    assert.equal((await second.observe()).state['vacp://example/value'], 2);
+    assert.equal(first.runtimeId, first.getProvenance().runtimeId);
     let events = 0;
     first.subscribeProvenance(() => {
       events += 1;
@@ -44,10 +54,20 @@ test('browser installation preserves bridge identity while replacing provider po
 
 test('browser installation composes distinct source owners at one global key', async () => {
   try {
-    const runtime = installVacpRuntime({ globalKey: key, providers: [provider(1)], injectDomSnapshot: false }).runtime;
-    installVacpRuntime({ globalKey: key, providers: [provider(2, 'other')], injectDomSnapshot: false });
+    const runtime = installVacpRuntime({
+      exposeBridge: true,
+      globalKey: key,
+      providers: [provider(1)],
+      injectDomSnapshot: false,
+    }).runtime;
+    installVacpRuntime({
+      exposeBridge: true,
+      globalKey: key,
+      providers: [provider(2, 'other')],
+      injectDomSnapshot: false,
+    });
     const observation = await runtime.observe();
-    assert.deepEqual(runtime.providerIds.sort(), [
+    assert.deepEqual([...runtime.providerIds].sort(), [
       'vacp-source://installation-other',
       'vacp-source://installation-value',
     ]);
@@ -60,10 +80,20 @@ test('browser installation composes distinct source owners at one global key', a
 
 test('an older installation cannot detach a replacement with the same source identity', async () => {
   try {
-    const first = installVacpRuntime({ globalKey: key, providers: [provider(1)], injectDomSnapshot: false });
-    const replacement = installVacpRuntime({ globalKey: key, providers: [provider(2)], injectDomSnapshot: false });
+    const first = installVacpRuntime({
+      exposeBridge: true,
+      globalKey: key,
+      providers: [provider(1)],
+      injectDomSnapshot: false,
+    });
+    const replacement = installVacpRuntime({
+      exposeBridge: true,
+      globalKey: key,
+      providers: [provider(2)],
+      injectDomSnapshot: false,
+    });
     first.dispose();
-    assert.equal((await replacement.runtime.getState()).state['vacp://example/value'], 2);
+    assert.equal((await replacement.runtime.observe()).state['vacp://example/value'], 2);
     replacement.dispose();
     assert.equal(getVacpBridge({ globalKey: key }), undefined);
   } finally {
@@ -84,13 +114,23 @@ test('browser discovery requires the complete versioned protocol surface', () =>
 });
 
 test('a disposed installation cannot uninstall a new runtime at the same key', async () => {
-  const first = installVacpRuntime({ globalKey: key, providers: [provider(1)], injectDomSnapshot: false });
+  const first = installVacpRuntime({
+    exposeBridge: true,
+    globalKey: key,
+    providers: [provider(1)],
+    injectDomSnapshot: false,
+  });
   uninstallVacpRuntime({ globalKey: key });
-  const replacement = installVacpRuntime({ globalKey: key, providers: [provider(2)], injectDomSnapshot: false });
+  const replacement = installVacpRuntime({
+    exposeBridge: true,
+    globalKey: key,
+    providers: [provider(2)],
+    injectDomSnapshot: false,
+  });
   try {
     first.dispose();
     assert.equal(getVacpBridge({ globalKey: key }), replacement.runtime);
-    assert.equal((await replacement.runtime.getState()).state['vacp://example/value'], 2);
+    assert.equal((await replacement.runtime.observe()).state['vacp://example/value'], 2);
   } finally {
     replacement.dispose();
   }
@@ -98,6 +138,7 @@ test('a disposed installation cannot uninstall a new runtime at the same key', a
 
 test('failed source groups leave installation, session, and exposure unchanged', async () => {
   const first = installVacpRuntime({
+    exposeBridge: true,
     globalKey: key,
     providers: [provider(1)],
     sessionKey: 'original',
@@ -123,6 +164,7 @@ test('failed source groups leave installation, session, and exposure unchanged',
     assert.throws(
       () =>
         installVacpRuntime({
+          exposeBridge: true,
           globalKey: key,
           providers: [provider(2), failing],
           sessionKey: 'replacement',
@@ -140,6 +182,7 @@ test('failed source groups leave installation, session, and exposure unchanged',
   assert.throws(
     () =>
       installVacpRuntime({
+        exposeBridge: true,
         globalKey: key,
         providers: [provider(2), failing],
         injectDomSnapshot: false,
@@ -152,11 +195,17 @@ test('failed source groups leave installation, session, and exposure unchanged',
 test('batch cleanup preserves newer leases, even when the provider instance is reused', async () => {
   const shared = provider(1);
   const first = installVacpRuntime({
+    exposeBridge: true,
     globalKey: key,
     providers: [shared, provider(2, 'other')],
     injectDomSnapshot: false,
   });
-  const second = installVacpRuntime({ globalKey: key, providers: [shared], injectDomSnapshot: false });
+  const second = installVacpRuntime({
+    exposeBridge: true,
+    globalKey: key,
+    providers: [shared],
+    injectDomSnapshot: false,
+  });
   try {
     first.dispose();
     assert.deepEqual(second.runtime.providerIds, [shared.source.id]);

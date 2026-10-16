@@ -1,13 +1,17 @@
 import * as duckdb from '@duckdb/duckdb-wasm';
 
+import { randomSuffix } from './table-name';
 import { base64FromBytes } from './base64';
 import { arrowTableToJson } from './json';
 import { normalizeSingleStatementSql, sqlIdentifier } from './sql';
 
-export type VacpDuckDbClient = {
+export type VacpDuckDbQueryClient = {
   exec(sql: string): Promise<void>;
   queryJson(sql: string): Promise<{ columns: string[]; rows: Record<string, unknown>[] }>;
   queryArrowIpcBase64(sql: string): Promise<string>;
+};
+
+export type VacpDuckDbClient = VacpDuckDbQueryClient & {
   /**
    * Load rows into `tableName`. Columns in `types` hold text that loads with that type: wall-clock
    * text such as `2012-06-01T00:00:00.000` as TIMESTAMP, and decimal text such as `24999.5` as DOUBLE.
@@ -16,7 +20,7 @@ export type VacpDuckDbClient = {
   loadObjectsAsTable(
     tableName: string,
     rows: Record<string, unknown>[],
-    options?: { create?: boolean; types?: Readonly<Record<string, VacpDuckDbLoadType>> },
+    options?: { types?: Readonly<Record<string, VacpDuckDbLoadType>> },
   ): Promise<void>;
 };
 
@@ -31,7 +35,7 @@ type DuckDbConnection = Pick<duckdb.AsyncDuckDBConnection, 'close' | 'query' | '
     ) => Result,
   ): Result;
 };
-type DuckDbDatabase = Pick<duckdb.AsyncDuckDB, 'registerFileText'> & {
+type DuckDbDatabase = Pick<duckdb.AsyncDuckDB, 'registerFileText' | 'dropFile'> & {
   connect(): Promise<DuckDbConnection>;
 };
 
@@ -70,13 +74,11 @@ export async function instantiateDuckDbWasm(options?: {
   }
 }
 
-export async function createDuckDbWasmClient(options?: {
-  log?: boolean;
-  /** Engine builds to start from when no `duckdb` is supplied. */
-  bundles?: duckdb.DuckDBBundles;
-  duckdb?: DuckDbDatabase;
-  connection?: DuckDbConnection;
-}): Promise<VacpDuckDbWasmClient> {
+export async function createDuckDbWasmClient(
+  options?:
+    | { log?: boolean; bundles?: duckdb.DuckDBBundles; duckdb?: never; connection?: never }
+    | { duckdb: DuckDbDatabase; connection?: DuckDbConnection; bundles?: never; log?: never },
+): Promise<VacpDuckDbWasmClient> {
   const log = options?.log ?? false;
   let db: DuckDbDatabase | null = options?.duckdb ?? null;
   let ownedDb: duckdb.AsyncDuckDB | null = null;
@@ -165,35 +167,43 @@ export async function createDuckDbWasmClient(options?: {
       const conn = await getConnection();
       ensureActive();
       if (!db) throw new Error('Loading objects requires a DuckDB database');
-      const create = options?.create ?? true;
-      const path = `/${tableName}.json`;
-      await db.registerFileText(path, JSON.stringify(rows));
-      ensureActive();
+      const id = randomSuffix();
+      const path = `/vacp_${id}.json`;
+      const staging = `${tableName}__load_${id}`;
       const typed = Object.entries(options?.types ?? {}).filter(([column, type]) => {
         if (type !== 'TIMESTAMP' && type !== 'DOUBLE') throw new TypeError(`Cannot load a column as ${String(type)}`);
         return rows.some((row) => Object.hasOwn(row, column));
       });
-      if (!typed.length) {
-        await conn.insertJSONFromPath(path, { name: tableName, create, schema: 'main' });
-        return;
-      }
-      // The JSON reader keeps typed text as VARCHAR, so the rows pass through one typed copy.
-      const staging = `${tableName}__load`;
-      await conn.query(`DROP TABLE IF EXISTS main.${sqlIdentifier(staging)}`);
-      await conn.insertJSONFromPath(path, { name: staging, create: true, schema: 'main' });
-      const casts = typed.map(
-        ([column, type]) => `CAST(${sqlIdentifier(column)} AS ${type}) AS ${sqlIdentifier(column)}`,
-      );
-      const select = `SELECT * REPLACE (${casts.join(', ')}) FROM main.${sqlIdentifier(staging)}`;
+      let failure: { error: unknown } | undefined;
+      let cleanupFailure: { error: unknown } | undefined;
+      let staged = false;
       try {
-        await conn.query(
-          create
-            ? `CREATE TABLE main.${sqlIdentifier(tableName)} AS ${select}`
-            : `INSERT INTO main.${sqlIdentifier(tableName)} ${select}`,
-        );
+        await db.registerFileText(path, JSON.stringify(rows));
+        ensureActive();
+        if (!typed.length) {
+          await conn.insertJSONFromPath(path, { name: tableName, create: true, schema: 'main' });
+        } else {
+          staged = true;
+          await conn.insertJSONFromPath(path, { name: staging, create: true, schema: 'main' });
+          const casts = typed.map(
+            ([column, type]) => `CAST(${sqlIdentifier(column)} AS ${type}) AS ${sqlIdentifier(column)}`,
+          );
+          await conn.query(
+            `CREATE TABLE main.${sqlIdentifier(tableName)} AS SELECT * REPLACE (${casts.join(', ')}) FROM main.${sqlIdentifier(staging)}`,
+          );
+        }
+      } catch (error) {
+        failure = { error };
       } finally {
-        await conn.query(`DROP TABLE IF EXISTS main.${sqlIdentifier(staging)}`);
+        const cleanup = await Promise.allSettled([
+          ...(staged ? [conn.query(`DROP TABLE IF EXISTS main.${sqlIdentifier(staging)}`)] : []),
+          db.dropFile(path),
+        ]);
+        const error = cleanup.find((result) => result.status === 'rejected');
+        if (error?.status === 'rejected') cleanupFailure = { error: error.reason };
       }
+      if (failure) throw failure.error;
+      if (cleanupFailure) throw cleanupFailure.error;
     },
   };
 }

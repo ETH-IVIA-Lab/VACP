@@ -1,7 +1,7 @@
 import { expect, type Page } from '@playwright/test';
 import { test } from '../helpers/test';
 
-import { appServer } from '../helpers/servers';
+import { gotoApp } from '../helpers/servers';
 import { executeOperation, operationNames } from '../providers/operations';
 
 async function waitForVacpBridge(page: Page, timeoutMs = 45_000): Promise<void> {
@@ -79,7 +79,7 @@ async function getCapabilities(page: Page): Promise<any> {
 }
 
 async function getState(page: Page): Promise<any> {
-  return page.evaluate(() => globalThis.__vacp.getState());
+  return page.evaluate(() => globalThis.__vacp.observe());
 }
 
 async function getProvenance(page: Page): Promise<any> {
@@ -108,9 +108,9 @@ async function dispatchOperation(page: Page, contract: string, params: Record<st
   const names = await operationNames(page, [contract]);
   return page.evaluate(
     ({ name, params }) =>
-      globalThis.__vacp.dispatch(
+      globalThis.__vacp.execute(
         { callId: crypto.randomUUID(), name, params },
-        { actor: { id: 'inspector', kind: 'human' }, message: `smoke:${name}` },
+        { actor: { id: 'inspector', kind: 'human' } },
       ),
     { name: names[contract]!, params },
   );
@@ -186,11 +186,7 @@ async function expectVgplotIntervalActionWorks(
   const nodes = graph.nodes ?? [];
 
   const target = nodes.find(
-    (node: any) =>
-      node?.kind === 'InteractionTarget' &&
-      /Interval1D/i.test(String(node?.title ?? '')) &&
-      typeof node?.data?.plotId === 'string' &&
-      typeof node?.data?.interactorId === 'string',
+    (node: any) => node?.kind === 'InteractionTarget' && /Interval1D/i.test(String(node?.title ?? '')),
   );
 
   expect(actions.some((action: any) => action?.operation?.contract === 'vgplot.set_interval_1d')).toBeTruthy();
@@ -221,8 +217,7 @@ async function expectVgplotIntervalActionWorks(
   const span = maxMs - minMs;
 
   const result = await dispatchOperation(page, 'vgplot.set_interval_1d', {
-    plotId: target.data.plotId,
-    interactorId: target.data.interactorId,
+    ref: target.ref,
     min: minMs + span * 0.35,
     max: minMs + span * 0.6,
   });
@@ -309,10 +304,7 @@ async function expectVegaLiteIntervalSelectionWorks(
 }
 
 test('examples: application options control raw SQL action registration', async ({ page }) => {
-  const srv = appServer('vgplot-gallery');
-
-  await page.goto(`${srv.url}#weather`, { waitUntil: 'domcontentloaded' });
-  await expectBridge(page);
+  await gotoApp(page, 'vgplot-gallery', '#weather');
   await waitForCapabilityRefContains(page, '/vgplot/weather');
 
   const enabledCaps = await getCapabilities(page);
@@ -365,14 +357,13 @@ test('examples: application options control raw SQL action registration', async 
 });
 
 test('examples: vgplot-gallery', async ({ page }) => {
-  const srv = appServer('vgplot-gallery');
-  await page.goto(`${srv.url}`, { waitUntil: 'domcontentloaded' });
-  await expectBridge(page);
+  await gotoApp(page, 'vgplot-gallery');
   await expectDomSnapshotScript(page);
 
-  // Avoid specs that require external network to load large parquet datasets. These can be
-  // flaky/slow in CI (and are not essential for validating VACP wiring).
+  // These specs load large remote datasets, which the sweep skips to stay off the network.
   const skipSpecs = new Set(['gaia', 'nyc-taxi-rides', 'observable-latency']);
+  // Every other spec declares data, so each must publish a queryable DataHandle.
+  const specsWithoutData = new Set(['axes', 'legends']);
 
   const specs = await page.evaluate(() =>
     Array.from(document.querySelectorAll<HTMLSelectElement>('#spec option')).map((o) => o.value),
@@ -402,27 +393,22 @@ test('examples: vgplot-gallery', async ({ page }) => {
       (n: any) => n?.kind === 'DataHandle' && String(n?.ref ?? '').includes(`/vgplot/${specId}/`),
     );
 
-    if (!handle) {
-      expect(hasDataSql).toBeFalsy();
+    if (specsWithoutData.has(specId)) {
+      expect(handle).toBeUndefined();
+      expect(hasDataSql).toBe(false);
       continue;
     }
 
-    expect(hasDataSql).toBeTruthy();
-
-    expect(typeof handle?.ref).toBe('string');
+    expect(handle?.ref, `${specId} publishes a DataHandle`).toEqual(expect.any(String));
+    expect(handle.data?.table, `${specId} names its table`).toEqual(expect.any(String));
+    expect(hasDataSql, `${specId} offers SQL`).toBe(true);
     const handleRef = handle.ref as string;
-    const handleTable = (handle as any)?.data?.table;
 
     const resAll = await dataSql(page, { handleRef, sql: 'SELECT COUNT(*)::INTEGER AS n FROM vacp_all' });
-    expect(resAll.ok).toBeTruthy();
+    expect(resAll.ok).toBe(true);
     const nAll = countFromResult(resAll);
-    expect(typeof nAll).toBe('number');
-
-    if (typeof handleTable === 'string' && handleTable) expect(nAll).toBeGreaterThan(0);
-
-    if (typeof handleTable === 'string' && handleTable) {
-      await expectDataSchemaWorks(page, handleRef);
-    }
+    expect(nAll, `${specId} has rows`).toBeGreaterThan(0);
+    await expectDataSchemaWorks(page, handleRef);
 
     if (specId === 'weather') {
       await expectVgplotIntervalActionWorks(page, graph, handleRef, nAll);
@@ -431,9 +417,7 @@ test('examples: vgplot-gallery', async ({ page }) => {
 });
 
 test('examples: vega-lite-gallery', async ({ page }) => {
-  const srv = appServer('vega-lite-gallery');
-  await page.goto(`${srv.url}`, { waitUntil: 'domcontentloaded' });
-  await expectBridge(page);
+  await gotoApp(page, 'vega-lite-gallery');
 
   const specIds = await page.evaluate(() =>
     Array.from(document.querySelectorAll<HTMLSelectElement>('#spec option')).map((o) => o.value),
@@ -506,7 +490,7 @@ async function settledDomSnapshot(page: Page, previousRevision?: string): Promis
               ? Object.fromEntries(Object.entries(item).sort(([left], [right]) => (left < right ? -1 : 1)))
               : item,
           );
-        const state = (await globalThis.__vacp.getState()).state as Record<string, unknown>;
+        const state = (await globalThis.__vacp.observe()).state as Record<string, unknown>;
         const read = (id: string) => JSON.parse(document.getElementById(id)!.textContent!);
         const manifest = read('__vacp_snapshot');
         const index = read(manifest.state.indexScriptId);
@@ -530,10 +514,7 @@ async function settledDomSnapshot(page: Page, previousRevision?: string): Promis
 }
 
 test('examples: the DOM snapshot advances by observation revision and rewrites only changed refs', async ({ page }) => {
-  const srv = appServer('react-dashboard');
-
-  await page.goto(`${srv.url}`, { waitUntil: 'domcontentloaded' });
-  await expectBridge(page);
+  await gotoApp(page, 'react-dashboard');
   expect((await executeVacp(page, { name: 'dashboard.set_dataset', params: { id: 'iris' } })).ok).toBe(true);
   await page.waitForFunction(() => document.querySelector('script[data-vacp="snapshot-ref"]'));
   const before = await settledDomSnapshot(page);
@@ -586,10 +567,7 @@ test('examples: the DOM snapshot advances by observation revision and rewrites o
 });
 
 test('examples: react-dashboard', async ({ page }) => {
-  const srv = appServer('react-dashboard');
-
-  await page.goto(`${srv.url}`, { waitUntil: 'domcontentloaded' });
-  await expectBridge(page);
+  await gotoApp(page, 'react-dashboard');
 
   expect((await executeVacp(page, { name: 'dashboard.set_dataset', params: { id: 'iris' } })).ok).toBe(true);
   expect(

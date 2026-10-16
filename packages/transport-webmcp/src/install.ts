@@ -1,9 +1,8 @@
-import { webMcpExecutionSignal } from './execution';
 import type { WebMCP } from 'webmcp-types';
-import { stableStringify, type VacpGraph } from '@vacp/protocol';
-import { compileVacpWebMcpTools, webMcpAgent } from './compile';
+import { abortable, stableStringify, vacpAgentActor, type VacpGraph } from '@vacp/protocol';
+import { compileVacpWebMcpTools } from './compile';
 import { createVacpWebMcpProgressTool } from './progress';
-import type { VacpWebMcpOptions, VacpWebMcpRegistry, VacpWebMcpSource } from './types';
+import type { VacpWebMcpOptions, VacpWebMcpSource } from './types';
 
 export type VacpWebMcpInstallation = {
   /** Await registration of the live graph or a newer queued revision. Failures reject. */
@@ -16,30 +15,10 @@ export type VacpWebMcpInstallation = {
 
 type Registration = { controller: AbortController; key: string; tool: WebMCP.ModelContextTool };
 
-function readWithSignal<Value>(read: () => Value | PromiseLike<Value>, signal: AbortSignal): Promise<Value> {
-  signal.throwIfAborted();
-  return new Promise((resolve, reject) => {
-    const onAbort = () => reject(signal.reason);
-    signal.addEventListener('abort', onAbort, { once: true });
-    void Promise.resolve()
-      .then(() => {
-        signal.throwIfAborted();
-        return read();
-      })
-      .then(resolve, reject)
-      .finally(() => signal.removeEventListener('abort', onAbort));
-  });
-}
-
 /** Register the current graph and follow capability changes until disposed. */
 export async function installVacpWebMcp(
   source: VacpWebMcpSource,
-  options: VacpWebMcpOptions & {
-    context?: VacpWebMcpRegistry;
-    signal?: AbortSignal;
-    exposedTo?: string[];
-    onError?: (cause: unknown) => void;
-  } = {},
+  options: VacpWebMcpOptions = {},
 ): Promise<VacpWebMcpInstallation | undefined> {
   const context = options.context ?? (typeof document === 'undefined' ? undefined : document.modelContext);
   if (!context) return undefined;
@@ -50,12 +29,10 @@ export async function installVacpWebMcp(
   const signal = AbortSignal.any(signals);
   signal.throwIfAborted();
   const registrations = new Map<string, Registration>();
-  const progress = source.narrate
-    ? createVacpWebMcpProgressTool(
-        { narrate: source.narrate.bind(source) },
-        { actor: options.actor ?? webMcpAgent, name: `${options.namespace ?? 'vacp'}.progress`, signal },
-      )
-    : undefined;
+  const progress = createVacpWebMcpProgressTool(
+    { narrate: source.narrate.bind(source) },
+    { actor: options.actor ?? vacpAgentActor, name: `${options.namespace ?? 'vacp'}.progress`, signal },
+  );
   let pending: Promise<void> = Promise.resolve();
   let latest = pending;
   let discovery = 0;
@@ -79,8 +56,7 @@ export async function installVacpWebMcp(
 
   const synchronize = async (graph: VacpGraph) => {
     signal.throwIfAborted();
-    const tools = compileVacpWebMcpTools(graph, source, options);
-    if (progress) tools.push(progress);
+    const tools = [...compileVacpWebMcpTools(graph, source, options), progress];
     const names = new Set(tools.map((tool) => tool.name));
     for (const [name, entry] of registrations) {
       if (!names.has(name)) {
@@ -97,7 +73,6 @@ export async function installVacpWebMcp(
           description: tool.description,
           inputSchema: tool.inputSchema,
           annotations: tool.annotations,
-          exposedTo: options.exposedTo,
         });
         const previous = registrations.get(tool.name);
         if (previous?.key === key) {
@@ -115,12 +90,12 @@ export async function installVacpWebMcp(
               ...tool,
               execute: async (input, execution) => {
                 registrationSignal.throwIfAborted();
-                const executionSignal = webMcpExecutionSignal(execution, signal);
+                const executionSignal = execution?.signal ? AbortSignal.any([execution.signal, signal]) : signal;
                 executionSignal.throwIfAborted();
                 return entry.tool.execute(input, { signal: executionSignal });
               },
             },
-            { signal: registrationSignal, exposedTo: options.exposedTo },
+            { signal: registrationSignal },
           );
         } catch (cause) {
           signal.throwIfAborted();
@@ -156,7 +131,7 @@ export async function installVacpWebMcp(
     signal.throwIfAborted();
     const generation = ++discovery;
     // A later read or publication owns discovery, regardless of read completion order.
-    const request = readWithSignal(() => source.getCapabilities(), signal).then(
+    const request = abortable(signal, () => source.getCapabilities()).then(
       (snapshot) => (generation === discovery ? enqueue(snapshot.graph) : latest),
       (cause) => {
         signal.throwIfAborted();

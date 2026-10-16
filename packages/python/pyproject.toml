@@ -9,14 +9,7 @@ dependencies = []
 
 [project.optional-dependencies]
 http = ["starlette>=0.40", "uvicorn>=0.30"]
-server = [
-  "fastapi>=0.115.0",
-  "fastmcp>=0.4.0",
-  "httpx>=0.27.0",
-  "playwright>=1.49.0",
-  "pydantic>=2.12.0",
-  "uvicorn>=0.30.0",
-]
+server = ["fastmcp>=4.1.0", "httpx>=0.27.0", "playwright>=1.49.0", "pydantic>=2.12.0", "starlette>=0.40"]
 
 [project.scripts]
 vacp = "vacp.main:main"

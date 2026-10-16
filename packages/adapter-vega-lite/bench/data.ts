@@ -46,7 +46,9 @@ await view.runAsync();
 const provider = createVegaLiteProvider({
   view,
   spec,
-  options: { appId: 'benchmark', viewId: 'weather', vizId: 'chart', duckdbClient: duckdb },
+  vgSpec: compile(spec).spec,
+  data: { duckdb },
+  options: { appId: 'benchmark', viewId: 'weather', vizId: 'chart' },
 });
 const { graph } = await provider.observe();
 const handleRef = graph.nodes.find((node) => node.kind === 'DataHandle')!.ref;

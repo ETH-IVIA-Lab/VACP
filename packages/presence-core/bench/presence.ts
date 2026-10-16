@@ -1,7 +1,17 @@
+import { createVacpProvider, VacpActionRegistry } from '@vacp/runtime';
 import { setImmediate } from 'node:timers/promises';
-import type { VacpExecution } from '@vacp/protocol';
+import type { VacpExecution, VacpSourceId } from '@vacp/protocol';
 import { createAgentPresence, type PresenceSource } from '../src/index';
 import { measure } from '../../../tools/benchmark';
+
+function benchmarkProvider(id: VacpSourceId) {
+  return createVacpProvider({
+    source: { id, type: 'benchmark', title: 'Benchmark' },
+    actions: new VacpActionRegistry(),
+    project: () => ({ graph: { nodes: [], edges: [], actions: [] }, state: {} }),
+    subscribe: () => () => {},
+  });
+}
 
 const points = Array.from({ length: 10_000 }, (_, id) => ({ id, x: id % 100, y: Math.floor(id / 100) }));
 const size = 200;
@@ -12,6 +22,9 @@ async function burst() {
   let publish!: (event: VacpExecution) => void;
   const source: PresenceSource = {
     signal: lifetime.signal,
+    getProviderBinding: () => ({ id: 'binding', signal: lifetime.signal }),
+    getAgentActivities: () => [],
+    subscribeAgentActivities: () => () => {},
     getActiveExecutions: () => [],
     subscribeExecutions: (listener) => {
       publish = listener;
@@ -20,10 +33,7 @@ async function burst() {
     subscribeSnapshots: () => () => {},
   };
   const presence = createAgentPresence(source);
-  presence.attach({
-    id: 'binding',
-    sourceId: 'vacp-source://benchmark',
-    signal: lifetime.signal,
+  presence.attach(benchmarkProvider('vacp-source://benchmark'), {
     resolve: (focus) => {
       resolutions++;
       const point = points.find((point) => point.id === focus.detail)!;
@@ -62,6 +72,7 @@ let progress!: (event: import('@vacp/protocol').VacpAgentActivity) => void;
 let execution!: (event: VacpExecution) => void;
 const streamingSource: PresenceSource = {
   signal: new AbortController().signal,
+  getProviderBinding: () => ({ id: 'stream-binding', signal: streamingSource.signal }),
   getActiveExecutions: () => [],
   getAgentActivities: () => [],
   subscribeExecutions: (listener) => {
@@ -76,10 +87,7 @@ const streamingSource: PresenceSource = {
 };
 const streamed = createAgentPresence(streamingSource, { renderer: { render: () => {} } });
 streamed.subscribe(() => {});
-streamed.attach({
-  id: 'stream-binding',
-  sourceId: 'vacp-source://stream',
-  signal: streamingSource.signal,
+streamed.attach(benchmarkProvider('vacp-source://stream'), {
   resolve: () => ({ surface: 'benchmark', precision: 'exact', geometry: { kind: 'path', points } }),
 });
 const activity = { id: 'work', actor: { id: 'agent', kind: 'agent' as const }, phase: 'thinking' as const, at: '' };

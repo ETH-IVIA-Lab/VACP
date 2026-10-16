@@ -8,13 +8,18 @@
   "type": "module",
   "exports": {
     ".": {
+      "vacp-source": "./src/index.ts",
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
+    },
+    "./dom": {
+      "vacp-source": "./src/dom.ts",
+      "types": "./dist/dom.d.ts",
+      "default": "./dist/dom.js"
     }
   },
   "scripts": {
     "build": "vp pack",
-    "typecheck": "tsc -p tsconfig.json && tsc -p tsconfig.test.json",
     "test": "tsx --test --test-timeout=10000 test/*.test.ts",
     "bench": "tsx bench/presence.ts"
   },

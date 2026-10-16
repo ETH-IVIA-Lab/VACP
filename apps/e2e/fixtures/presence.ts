@@ -34,8 +34,9 @@ export async function mountPresenceChart(
   const config = {
     root,
     view: result.view,
+    vgSpec: result.vgSpec,
     spec,
-    options: { appId: 'presence-test', viewId: renderer, vizId: 'chart', enableDuckDbDataHandle: false },
+    options: { appId: 'presence-test', viewId: renderer, vizId: 'chart' },
   };
   const provider = createVegaLiteProvider(config);
   const runtime = createVacpRuntime({ providers: [provider] });
@@ -320,6 +321,52 @@ export async function measureBubblePlacement() {
       changes,
       displayed: summary.textContent,
       announced: host.querySelector('[role="status"]')!.textContent,
+    };
+  } finally {
+    renderer.dispose?.();
+  }
+}
+
+export function measureGrowingTrailFocus() {
+  const renderer = createBrowserPresenceRenderer({ motion: 'reduced', hover: false });
+  const shadow = [...document.querySelectorAll('[data-vacp-presence]')].at(-1)!.shadowRoot!;
+  const render = (frames: import('@vacp/presence-core').PresenceTrailFrame[]) =>
+    renderer.render({
+      reason: 'activity',
+      activities: [
+        {
+          actor: { id: 'agent', kind: 'agent' },
+          phase: 'completed',
+          recordId: 'step',
+          summary: 'Filtering rows',
+          target: null,
+          freshness: 'current',
+        },
+      ],
+      navigation: {
+        frames,
+        index: 1,
+        canBack: true,
+        canForward: true,
+        reviewing: false,
+        restoring: false,
+        working: false,
+        diverged: false,
+        go() {},
+        back() {},
+        forward() {},
+        close() {},
+      },
+    });
+  try {
+    render(['start', 'step', 'step', 'conclusion']);
+    const button = shadow.querySelector<HTMLButtonElement>('button[aria-label="Step 1 of 2"]')!;
+    button.focus();
+    render(['start', 'step', 'step', 'step', 'conclusion']);
+    return {
+      focused: shadow.activeElement?.getAttribute('aria-label'),
+      retained: shadow.activeElement === button,
+      names: [...shadow.querySelectorAll('[data-vacp-trail] button')].map((node) => node.getAttribute('aria-label')),
     };
   } finally {
     renderer.dispose?.();

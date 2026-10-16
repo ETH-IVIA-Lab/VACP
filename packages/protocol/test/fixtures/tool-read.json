@@ -4,7 +4,6 @@
     "revision": "r1",
     "observedAt": "2026-09-29T12:00:00.000Z",
     "graph": {
-      "version": "0.1.0",
       "sources": [{ "id": "chart", "kind": "vega-lite" }],
       "ownership": {
         "nodes": { "vacp://chart/view": "chart" },
@@ -21,7 +20,6 @@
     "revision": "r1",
     "observedAt": "2026-09-29T12:00:00.000Z",
     "graph": {
-      "version": "0.1.0",
       "sources": [{ "id": "chart", "kind": "vega-lite" }],
       "nodes": [{ "ref": "vacp://chart/view", "kind": "View", "layer": "view" }],
       "edges": [],

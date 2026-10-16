@@ -1,6 +1,6 @@
 import { z } from 'zod';
-import { createVacpActions, createVacpProvider } from '@vacp/sdk';
-import { createVacpRuntime } from '@vacp/runtime';
+import { createVacpProvider, createVacpRuntime } from '@vacp/runtime';
+import { createVacpActions } from '@vacp/sdk';
 import { installVacpWebMcp } from '@vacp/transport-webmcp';
 
 export async function exerciseWebMcpSchemas() {
@@ -28,10 +28,8 @@ export async function exerciseWebMcpSchemas() {
   const provider = createVacpProvider({
     source: { id: 'vacp-source://schema-test', type: 'test', title: 'Schema inputs' },
     actions: actions.registry,
-    project: () => ({
-      graph: { version: '0.1.0', nodes: [], edges: [], actions: actions.registry.list() },
-      state: {},
-    }),
+    project: () => ({ graph: { nodes: [], edges: [], actions: actions.registry.list() }, state: {} }),
+    subscribe: () => () => {},
   });
   const runtime = createVacpRuntime({ providers: [provider] });
   try {
@@ -40,18 +38,11 @@ export async function exerciseWebMcpSchemas() {
     const execute = async (name: string, params: unknown) => {
       const tool = tools.find((entry) => entry.name === `schema.action.${name}`);
       if (!tool) throw new Error(`Missing schema tool: ${name}`);
-      return JSON.parse(await context.executeTool(tool, JSON.stringify({ params, narration: 'Checking the input.' })));
+      return JSON.parse(await context.executeTool(tool, { params, narration: 'Checking the input.' }));
     };
     return {
       schemas: Object.fromEntries(
-        tools
-          .filter((tool) => tool.name.startsWith('schema.action.'))
-          .map((tool) => {
-            // Chromium's experimental discovery API serializes schemas, unlike the draft types.
-            const schema: unknown = tool.inputSchema;
-            if (typeof schema !== 'string') throw new Error('Expected a serialized native tool schema');
-            return [tool.name, JSON.parse(schema)];
-          }),
+        tools.filter((tool) => tool.name.startsWith('schema.action.')).map((tool) => [tool.name, tool.inputSchema]),
       ),
       scalar: await execute('scalar', 4),
       text: await execute('scalar', 'hello'),

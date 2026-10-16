@@ -1,16 +1,39 @@
 import { expect } from '@playwright/test';
-import { test } from '../helpers/test';
+import { test, useWebMcp } from '../helpers/test';
 import { appReady, appServer } from '../helpers/servers';
 import { tool } from '../helpers/presence';
 
-// WebMCP flags are worker options and apply to every test in this file.
-test.use({
-  launchOptions: { args: ['--enable-experimental-web-platform-features', '--enable-features=WebMCPTesting'] },
-});
+useWebMcp();
 
 const server = appServer('gallery-build');
 
-for (const route of ['athletes', 'vgplot', 'vega-lite', 'react-dashboard', 'cars-parcoords']) {
+// Each route's opening view, as a ref its graph publishes and, where the view has loaded data, that ref's state.
+const opening = [
+  {
+    route: 'athletes',
+    ref: 'vacp://vacp-examples/athletes/cohort',
+    state: { sports: [], sex: 'all', count: 11538 },
+  },
+  {
+    route: 'vgplot',
+    ref: 'vacp://vacp-examples/vgplot/aeromagnetic-survey/data/main',
+    state: { kind: 'DataHandle', rowCount: 4434 },
+  },
+  {
+    route: 'vega-lite',
+    ref: 'vacp://vacp-examples/vega-lite/airports/airports/data/main',
+    state: { kind: 'DataHandle', rowCount: 3376 },
+  },
+  // The dashboard opens with no dataset, which leaves its view as the only node an agent sees.
+  { route: 'react-dashboard', ref: 'vacp://vacp-examples/react/dashboard', state: undefined },
+  {
+    route: 'cars-parcoords',
+    ref: 'vacp://vacp-examples/vanilla/cars-parallel-coords/parallel-coords/selection/brushes',
+    state: { selectedCount: 406, totalCount: 406 },
+  },
+] as const;
+
+for (const { route, ref, state } of opening) {
   test(`built gallery serves ${route} with its semantic bridge`, async ({ page }, testInfo) => {
     const errors: string[] = [];
     page.on('pageerror', (error) => errors.push(error.message));
@@ -18,25 +41,18 @@ for (const route of ['athletes', 'vgplot', 'vega-lite', 'react-dashboard', 'cars
     await page.locator(`a[href="./${route}/"], a[href="${route}/"]`).click();
     await expect(page).toHaveURL(new RegExp(`/${route}/$`));
     await expect(page.locator('#gallery-example-mount')).toBeVisible();
-    await expect
-      .poll(
-        () =>
-          page.evaluate(async () => {
-            const bridge = window.__vacp;
-
-            if (!bridge) return 0;
-            const capabilities = await bridge.getCapabilities();
-
-            return capabilities.graph.nodes.length;
-          }),
-        appReady,
-      )
-      .toBeGreaterThan(0);
-    const state = await page.evaluate(async () => {
-      if (!window.__vacp) throw new Error('Missing VACP bridge');
-      return window.__vacp.getState();
-    });
-    expect(state.state).toBeDefined();
+    const observe = () =>
+      page.evaluate(async (ref) => {
+        const bridge = window.__vacp;
+        if (!bridge) return null;
+        const { graph } = await bridge.getCapabilities();
+        const { state } = await bridge.observe();
+        return { published: graph.nodes.some((node) => node.ref === ref), state: state[ref] };
+      }, ref);
+    await expect.poll(async () => (await observe())?.published, appReady).toBe(true);
+    const observed = await observe();
+    if (state) expect(observed?.state).toMatchObject(state);
+    else expect(observed?.state).toBeUndefined();
     expect(errors).toEqual([]);
     await page.screenshot({ path: testInfo.outputPath(`${route}.png`), fullPage: true });
   });
@@ -81,9 +97,15 @@ test('an agent brush in the built athletes route lands on the native Mosaic brus
       appReady,
     )
     .toBe(true);
-  expect((await tool(page, 'vgplot.set_interval_1d', { plotId: 'age', interactorId: '0', min: 22, max: 28 })).ok).toBe(
-    true,
-  );
+  expect(
+    (
+      await tool(page, 'vgplot.set_interval_1d', {
+        ref: 'vacp://vacp-examples/athletes/age/interactor/0',
+        min: 22,
+        max: 28,
+      })
+    ).ok,
+  ).toBe(true);
   expect((await tool(page, 'vacp.progress', { message: 'Ages 22 to 28 are selected.', done: true })).ok).toBe(true);
   const bubble = page.locator('[data-vacp-bubble]');
   await expect(bubble.locator('[data-vacp-heading]')).toHaveText('Conclusion');

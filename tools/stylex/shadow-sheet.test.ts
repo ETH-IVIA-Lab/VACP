@@ -13,11 +13,14 @@ const hooks = { load, transform };
 const context = { addWatchFile() {} };
 
 test('every presence style is compiled away, leaving no StyleX call to run in the browser', () => {
-  const files = readdirSync(root).filter((name) => /\.tsx?$/.test(name));
-  for (const name of files) {
-    const source = readFileSync(join(root, name), 'utf8');
+  const modules = readdirSync(root)
+    .filter((name) => /\.tsx?$/.test(name))
+    .map((name) => ({ name, source: readFileSync(join(root, name), 'utf8') }))
+    .filter(({ source }) => source.includes('@stylexjs/stylex'));
+  assert.ok(modules.length > 0, 'presence-browser has StyleX modules');
+  for (const { name, source } of modules) {
     const compiled = hooks.transform(source, join(root, name));
-    if (!compiled) continue;
+    assert.ok(compiled, `${name} compiles`);
     assert.doesNotMatch(compiled.code, /stylex\.(create|keyframes|when|defineMarker|defineConsts)\b/, name);
   }
 });

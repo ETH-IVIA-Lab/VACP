@@ -1,6 +1,5 @@
 import {
   assertVacpActionAvailable,
-  nowIso,
   parseVacpNarration,
   type VacpActionCall,
   type VacpActionExecutionOptions,
@@ -15,7 +14,7 @@ import { actionFailure } from '../action-registry';
 import type { createAgentActivityChannel } from './activities';
 import type { createExecutionChannel } from './executions';
 import type { createLiveObservations } from './observations';
-import { entryActor, makeEntryId } from './helpers';
+import { entryActor, makeEntryId, nowIso } from './helpers';
 
 /** Execution has one terminal outcome. Recording and presentation cannot replace it. */
 export function createDispatcher(args: {
@@ -57,9 +56,7 @@ export function createDispatcher(args: {
     const emit = (phase: VacpExecution['phase'], detail?: string) => {
       if (terminal) return;
       Object.assign(execution, { phase, at: nowIso(), message: detail });
-      if (phase === 'succeeded' || phase === 'failed' || phase === 'cancelled') {
-        terminal = { ...execution, phase };
-      }
+      if (phase === 'succeeded' || phase === 'failed' || phase === 'cancelled') terminal = { ...execution, phase };
       args.executions.emit(execution);
     };
     let before: VacpObservation | undefined;

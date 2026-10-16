@@ -1,13 +1,13 @@
 import { expect, type Page } from '@playwright/test';
-import { test } from '../helpers/test';
+import { test, useWebMcp } from '../helpers/test';
 import { appServer } from '../helpers/servers';
 import { settled, tool } from '../helpers/presence';
 
 test.use({
   exampleOptions: { paceAgentSteps: true },
   viewport: { width: 1440, height: 900 },
-  launchOptions: { args: ['--enable-experimental-web-platform-features', '--enable-features=WebMCPTesting'] },
 });
+useWebMcp();
 
 type Sample = {
   t: number;
@@ -66,7 +66,7 @@ async function open(page: Page, url: string) {
   return errors;
 }
 
-const actor = { id: 'webmcp', kind: 'agent', label: 'Analyst' } as const;
+const actor = { id: 'agent', kind: 'agent', label: 'Analyst' } as const;
 
 test('words about the next step start with the step and ride with the cursor to its target', async ({ page }) => {
   const server = appServer('athlete-explorer');

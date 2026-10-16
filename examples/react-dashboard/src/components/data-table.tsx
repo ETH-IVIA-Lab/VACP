@@ -23,11 +23,9 @@ function formatCellValue(value: unknown): { text: string; alignRight?: boolean; 
 
   if (typeof value === 'string') return { text: value };
 
-  try {
-    return { text: JSON.stringify(value) };
-  } catch {
-    return { text: String(value) };
-  }
+  if (typeof value === 'bigint') return { text: value.toString(), alignRight: true };
+
+  return { text: JSON.stringify(value) };
 }
 
 function estimateHeaderPx(columnName: string): number {

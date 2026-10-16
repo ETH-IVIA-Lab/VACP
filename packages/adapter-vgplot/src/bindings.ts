@@ -128,42 +128,6 @@ export function createVgplotBindings(args: {
     inputs: args.inputs,
     interactors: (plot: VgplotPlotLike) => interactors.get(plot) ?? [],
     legends: (plot: VgplotPlotLike) => legends.get(plot) ?? [],
-    plot(id: unknown) {
-      const binding = typeof id === 'string' && id ? plots.get(id) : plots.values().next().value;
-      if (!binding) throw new Error(`Unknown plotId: ${String(id)}`);
-      return binding;
-    },
-    table(id: unknown) {
-      const binding = typeof id === 'string' && id ? tables.get(id) : tables.values().next().value;
-      if (!binding) throw new Error(`Unknown tableId: ${String(id)}`);
-      return binding;
-    },
-    input(ref: unknown) {
-      const binding = typeof ref === 'string' ? byRef.get(ref as VacpRef) : undefined;
-      if (binding?.kind !== 'input') throw new Error(`Unknown input ref: ${String(ref)}`);
-      return binding;
-    },
-    interactor(plot: VgplotPlotLike, id: unknown) {
-      const index = Number(id);
-      const binding = Number.isInteger(index) && index >= 0 ? interactors.get(plot)?.[index] : undefined;
-      if (!binding || plot.interactors[index] !== binding.interactor)
-        throw new Error(`Unknown interactorId: ${String(id)}`);
-      return binding;
-    },
-    legend(plot: VgplotPlotLike, channel: unknown) {
-      const binding = legends
-        .get(plot)
-        ?.find(
-          ({ legend }) =>
-            interactorType(legend.handler) === 'Toggle' &&
-            (channel === undefined ||
-              channel === null ||
-              channel === '' ||
-              (typeof channel === 'string' && legend.channel.toLowerCase() === channel.toLowerCase())),
-        );
-      if (!binding) throw new Error(`No interactive toggle legend for channel: ${String(channel)}`);
-      return binding;
-    },
   };
 }
 export type VgplotBindings = ReturnType<typeof createVgplotBindings>;

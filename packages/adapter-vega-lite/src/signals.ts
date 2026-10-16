@@ -19,8 +19,6 @@ export function trySetSignal(view: VegaViewLike, name: string, value: unknown): 
 }
 
 export function signalNamesFromView(view: VegaViewLike): string[] {
-  if (typeof view.getState !== 'function') return [];
-
   try {
     const st = view.getState();
 

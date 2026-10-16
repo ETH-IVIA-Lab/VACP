@@ -1,3 +1,4 @@
+import { sqlIdentifier, sqlStringLiteral } from './sql';
 import type {
   VacpDataSchemaColumn,
   VacpDataSchemaDetail,
@@ -6,18 +7,7 @@ import type {
   VacpDataSchemaTemporalSummary,
 } from '@vacp/protocol';
 
-import type { VacpDuckDbClient } from './client';
-
-function quoteIdent(part: string): string {
-  return `"${part.replaceAll('"', '""')}"`;
-}
-
-function quoteTableRef(table: string): string {
-  return table
-    .split('.')
-    .map((p) => quoteIdent(p))
-    .join('.');
-}
+import type { VacpDuckDbQueryClient } from './client';
 
 function isNumericType(type: string): boolean {
   const t = type.toUpperCase();
@@ -110,34 +100,43 @@ function parseTemporalValue(value: unknown): { iso: string; epochMs: number } | 
   return null;
 }
 
+export async function describeDuckDbColumns(args: {
+  duckdb: VacpDuckDbQueryClient;
+  table: string;
+}): Promise<VacpDataSchemaColumn[]> {
+  const colsRaw = await args.duckdb.queryJson(`PRAGMA table_info(${sqlStringLiteral(sqlIdentifier(args.table))})`);
+
+  // Constraints appear only where they hold, so an agent reading the schema pays for what it learns.
+  const columns: VacpDataSchemaColumn[] = colsRaw.rows.flatMap((r) => {
+    const name = typeof r.name === 'string' ? r.name : '';
+    if (!name) return [];
+    return [
+      {
+        name,
+        type: typeof r.type === 'string' ? r.type : '',
+        ...(r.notnull ? { notNull: true } : {}),
+        ...(r.pk ? { primaryKey: true } : {}),
+      },
+    ];
+  });
+
+  return columns;
+}
+
 /**
  * `table`'s columns and row count, as `vacp.data_schema` reports them. `detail: 'full'` adds bounded
  * numeric, temporal, and top-category summaries over the first `sampleRows` rows, 25,000 by default,
  * or over every row when `sampleRows` is 0.
  */
 export async function describeDuckDbTable(args: {
-  duckdb: VacpDuckDbClient;
+  duckdb: VacpDuckDbQueryClient;
   table: string;
   detail?: VacpDataSchemaDetail;
   sampleRows?: number;
 }): Promise<VacpDataSchemaTable> {
-  const tableSql = quoteTableRef(args.table);
+  const tableSql = sqlIdentifier(args.table);
 
-  const colsRaw = await args.duckdb.queryJson(`PRAGMA table_info('${args.table.replaceAll("'", "''")}')`);
-
-  // Constraints appear only where they hold, so an agent reading the schema pays for what it learns.
-  const columns: VacpDataSchemaColumn[] = colsRaw.rows.flatMap((r) => {
-    const name = typeof r.name === 'string' ? r.name : String(r.name ?? '');
-    if (!name) return [];
-    return [
-      {
-        name,
-        type: typeof r.type === 'string' ? r.type : String(r.type ?? ''),
-        ...(r.notnull ? { notNull: true } : {}),
-        ...(r.pk ? { primaryKey: true } : {}),
-      },
-    ];
-  });
+  const columns = await describeDuckDbColumns(args);
 
   const rowCountRes = await args.duckdb.queryJson(`SELECT COUNT(*)::BIGINT AS n FROM ${tableSql}`);
   const rowCount = parseNumber(rowCountRes.rows[0]?.n) ?? null;
@@ -157,14 +156,14 @@ export async function describeDuckDbTable(args: {
   const numeric: Record<string, VacpDataSchemaNumericSummary> = {};
 
   if (numericCols.length) {
-    const exprs = numericCols.flatMap((c) => {
-      const col = quoteIdent(c.name);
-      const base = c.name.replaceAll(/[^a-zA-Z0-9_]+/g, '_');
+    const exprs = numericCols.flatMap((c, index) => {
+      const col = sqlIdentifier(c.name);
+      const base = `c${index}`;
 
       return [
-        `MIN(${col})::DOUBLE AS ${quoteIdent(`${base}_min`)}`,
-        `MAX(${col})::DOUBLE AS ${quoteIdent(`${base}_max`)}`,
-        `AVG(${col})::DOUBLE AS ${quoteIdent(`${base}_avg`)}`,
+        `MIN(${col})::DOUBLE AS ${sqlIdentifier(`${base}_min`)}`,
+        `MAX(${col})::DOUBLE AS ${sqlIdentifier(`${base}_max`)}`,
+        `AVG(${col})::DOUBLE AS ${sqlIdentifier(`${base}_avg`)}`,
       ];
     });
 
@@ -172,8 +171,8 @@ export async function describeDuckDbTable(args: {
     const res = await args.duckdb.queryJson(q);
     const row = res.rows[0] ?? {};
 
-    for (const c of numericCols) {
-      const base = c.name.replaceAll(/[^a-zA-Z0-9_]+/g, '_');
+    for (const [index, c] of numericCols.entries()) {
+      const base = `c${index}`;
       const min = parseNumber(row[`${base}_min`]);
       const max = parseNumber(row[`${base}_max`]);
       const avg = parseNumber(row[`${base}_avg`]);
@@ -192,19 +191,19 @@ export async function describeDuckDbTable(args: {
   const temporal: Record<string, VacpDataSchemaTemporalSummary> = {};
 
   if (temporalCols.length) {
-    const exprs = temporalCols.flatMap((c) => {
-      const col = quoteIdent(c.name);
-      const base = c.name.replaceAll(/[^a-zA-Z0-9_]+/g, '_');
+    const exprs = temporalCols.flatMap((c, index) => {
+      const col = sqlIdentifier(c.name);
+      const base = `c${index}`;
 
-      return [`MIN(${col}) AS ${quoteIdent(`${base}_min`)}`, `MAX(${col}) AS ${quoteIdent(`${base}_max`)}`];
+      return [`MIN(${col}) AS ${sqlIdentifier(`${base}_min`)}`, `MAX(${col}) AS ${sqlIdentifier(`${base}_max`)}`];
     });
 
     const q = `${sampleCte} SELECT ${exprs.join(', ')} FROM ${sampleFrom}`;
     const res = await args.duckdb.queryJson(q);
     const row = res.rows[0] ?? {};
 
-    for (const c of temporalCols) {
-      const base = c.name.replaceAll(/[^a-zA-Z0-9_]+/g, '_');
+    for (const [index, c] of temporalCols.entries()) {
+      const base = `c${index}`;
       const minV = parseTemporalValue(row[`${base}_min`]);
       const maxV = parseTemporalValue(row[`${base}_max`]);
       temporal[c.name] = {
@@ -219,11 +218,11 @@ export async function describeDuckDbTable(args: {
   const categoricalTopValues: Record<string, Array<{ value: string; n: number }>> = {};
 
   for (const c of categoricalCols) {
-    const col = quoteIdent(c.name);
+    const col = sqlIdentifier(c.name);
     const q = `${sampleCte} SELECT ${col}::VARCHAR AS value, COUNT(*)::BIGINT AS n FROM ${sampleFrom} GROUP BY value ORDER BY n DESC LIMIT 5`;
     const res = await args.duckdb.queryJson(q);
     categoricalTopValues[c.name] = res.rows
-      .map((r) => ({ value: String(r.value ?? ''), n: parseNumber(r.n) ?? 0 }))
+      .map((r) => ({ value: typeof r.value === 'string' ? r.value : '', n: parseNumber(r.n) ?? 0 }))
       .filter((r) => r.value);
   }
 

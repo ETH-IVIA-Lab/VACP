@@ -1,12 +1,10 @@
 import { expect } from '@playwright/test';
 import { test } from '../../helpers/test';
-import { appServer } from '../../helpers/servers';
+import { gotoApp } from '../../helpers/servers';
 import { executeOperation } from '../operations';
 
 test('widget option search returns matching sport choices', async ({ page }) => {
-  const server = appServer('vgplot-gallery');
-  await page.goto(`${server.url}#athletes`, { waitUntil: 'domcontentloaded' });
-  await page.waitForFunction(() => !!globalThis.__vacp);
+  await gotoApp(page, 'vgplot-gallery', '#athletes');
   const sportRef = await page.evaluate(async () => {
     const { graph } = await globalThis.__vacp.getCapabilities();
     const sport = graph.nodes.find((node) => node.kind === 'Widget' && node.title?.includes('Sport'));

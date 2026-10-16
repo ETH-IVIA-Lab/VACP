@@ -1,3 +1,4 @@
+import { clauseNone } from '@uwdata/mosaic-core';
 import type { VacpRef, VacpActionExecutionOptions } from '@vacp/protocol';
 import type { VgplotBindings } from './bindings';
 import type { createVgplotOperations, VgplotOperation } from './operations';
@@ -26,12 +27,12 @@ export function prepareVgplotRestoration(
         clearActive.push({
           ref,
           execute: async () => {
-            update.call(group.selection, { source: null, value: null, predicate: null });
+            update.call(group.selection, { ...clauseNone(group), source: null });
             await group.selection.pending?.('value');
           },
         });
       } else if (typeof source === 'string' && group.sources.has(source as VacpRef)) activeSources.push(source);
-      else throw new Error(`Unknown active selection source: ${String(source)}`);
+      else throw new Error(`Unknown active selection source: ${JSON.stringify(source)}`);
       continue;
     }
     const binding = bindings.byRef.get(ref as VacpRef);

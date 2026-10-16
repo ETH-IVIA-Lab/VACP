@@ -1,9 +1,9 @@
 import assert from 'node:assert/strict';
 import { after, before, test } from 'node:test';
-import { createDuckDbDataSqlHandler, type VacpDuckDbClient } from '../src/index';
+import { createDuckDbDataSqlHandler, type VacpDuckDbQueryClient } from '../src/index';
 import { wasmDuckDb } from './wasm';
 
-let client: VacpDuckDbClient;
+let client: VacpDuckDbQueryClient;
 let close: () => void;
 
 before(async () => {

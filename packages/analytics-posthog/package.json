@@ -8,17 +8,16 @@
   "type": "module",
   "exports": {
     ".": {
+      "vacp-source": "./src/index.ts",
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
     }
   },
   "scripts": {
-    "build": "vp pack",
-    "typecheck": "tsc -p tsconfig.json"
+    "build": "vp pack"
   },
   "dependencies": {
     "@vacp/analytics": "workspace:*",
-    "@vacp/protocol": "workspace:*",
-    "posthog-js": "^1.433.4"
+    "posthog-js": "^1.438.10"
   }
 }

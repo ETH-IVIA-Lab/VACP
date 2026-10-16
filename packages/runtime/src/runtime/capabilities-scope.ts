@@ -19,30 +19,16 @@ type NormalizedScope = {
   includeNodeData: boolean;
 };
 
-function normalizeRefs(values: VacpRef[] | undefined): Set<string> | undefined {
-  if (!Array.isArray(values) || values.length === 0) return undefined;
-  const refs = new Set(values.filter((ref) => ref.length > 0));
-  return refs.size ? refs : undefined;
-}
-
-function normalizeKinds(values: VacpNodeKind[] | undefined): Set<VacpNodeKind> | undefined {
-  if (!Array.isArray(values) || values.length === 0) return undefined;
-
-  return new Set(values);
-}
-
-function normalizeLayers(values: VacpLayer[] | undefined): Set<VacpLayer> | undefined {
-  if (!Array.isArray(values) || values.length === 0) return undefined;
-
-  return new Set(values);
+function set<Value>(values: readonly Value[] | undefined): Set<Value> | undefined {
+  return values?.length ? new Set(values) : undefined;
 }
 
 function normalizeRequest(request: VacpCapabilitiesRequest): NormalizedScope {
   return {
-    refs: normalizeRefs(request.refs),
-    prefixes: normalizeRefs(request.prefixes),
-    kinds: normalizeKinds(request.kinds),
-    layers: normalizeLayers(request.layers),
+    refs: set<string>(request.refs),
+    prefixes: set<string>(request.prefixes),
+    kinds: set(request.kinds),
+    layers: set(request.layers),
     includeActions: request.includeActions ?? true,
     includeEdges: request.includeEdges ?? true,
     includeNodeData: request.includeNodeData ?? true,
@@ -115,7 +101,6 @@ export function scopeCapabilitiesSnapshot(
     version: snapshot.version,
     createdAt: snapshot.createdAt,
     graph: {
-      version: snapshot.graph.version,
       sources: snapshot.graph.sources,
       ownership: {
         nodes: Object.fromEntries(

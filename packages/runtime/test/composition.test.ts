@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { VACP_SCHEMA_VERSION, type VacpProvider } from '@vacp/protocol';
-import { composeVacpProviders } from '../src/composition';
+import type { VacpProvider } from '@vacp/protocol';
+import { composeVacpProviders, createVacpRuntime } from '../src/index';
 
 function provider(args: {
   id: `vacp-source://${string}`;
@@ -12,12 +12,12 @@ function provider(args: {
   freshness?: 'current' | 'stale';
 }): VacpProvider {
   return {
+    subscribe: () => () => {},
     source: { id: args.id, type: 'test', title: args.id },
     observe: () => ({
       revision: `${args.id}:1`,
       observedAt: '2026-09-18T12:00:00.000Z',
       graph: {
-        version: VACP_SCHEMA_VERSION,
         nodes: [{ ref: args.node, kind: 'TestOutput', layer: 'AnalysisLayer' }],
         edges: args.edges ?? [],
         actions: [
@@ -72,16 +72,31 @@ test('composition preserves source ownership, cross-source relationships, freshn
     assert.equal(observation.graph.ownership.actions['notebook.evaluate'], 'vacp-source://notebook');
     assert.deepEqual(observation.graph.edges, [{ from: widgetRef, to: chartRef, kind: 'controls' }]);
     assert.equal(observation.freshness?.[chartRef]?.status, 'stale');
-    assert.deepEqual(await composed.execute({ callId: 'run', name: 'notebook.evaluate' }), {
-      callId: 'run',
-      ok: true,
-      result: 'chart',
-    });
   } finally {
     composed.dispose();
   }
   assert.equal(sources.length, 2);
   await assert.rejects(composed.read(), /disposed/);
+});
+
+test('the runtime routes each action to the source that owns it', async (t) => {
+  const runtime = createVacpRuntime({
+    providers: [
+      provider({ id: 'vacp-source://widget', node: 'vacp://widget/filter', action: 'widget.update', result: 'widget' }),
+      provider({
+        id: 'vacp-source://notebook',
+        node: 'vacp://notebook/chart',
+        action: 'notebook.evaluate',
+        result: 'chart',
+      }),
+    ],
+  });
+  t.after(() => runtime.dispose());
+  assert.deepEqual(await runtime.execute({ callId: 'run', name: 'notebook.evaluate' }), {
+    callId: 'run',
+    ok: true,
+    result: 'chart',
+  });
 });
 
 test('composition rejects competing ownership instead of silently replacing providers', async () => {
@@ -112,7 +127,6 @@ test('composition retries observations invalidated while sources are being read'
         revision: String(reads),
         observedAt: '2026-09-18T12:00:00.000Z',
         graph: {
-          version: VACP_SCHEMA_VERSION,
           nodes: [{ ref: 'vacp://changing', kind: 'Output', layer: 'AnalysisLayer' }],
           edges: [],
           actions: [],
@@ -132,26 +146,25 @@ test('composition retries observations invalidated while sources are being read'
   }
 });
 
-test('action identity is independent of JavaScript object property names', async () => {
-  const composed = composeVacpProviders([
-    provider({ id: 'vacp-source://constructor', node: 'vacp://first', action: 'constructor', result: 'first' }),
-    provider({ id: 'vacp-source://prototype', node: 'vacp://second', action: '__proto__', result: 'second' }),
-  ]);
-  try {
-    assert.deepEqual(await composed.execute({ callId: 'first', name: 'constructor' }), {
-      callId: 'first',
-      ok: true,
-      result: 'first',
-    });
-    assert.deepEqual(await composed.execute({ callId: 'second', name: '__proto__' }), {
-      callId: 'second',
-      ok: true,
-      result: 'second',
-    });
-    assert.equal((await composed.execute({ callId: 'missing', name: 'toString' })).ok, false);
-  } finally {
-    composed.dispose();
-  }
+test('action identity is independent of JavaScript object property names', async (t) => {
+  const runtime = createVacpRuntime({
+    providers: [
+      provider({ id: 'vacp-source://constructor', node: 'vacp://first', action: 'constructor', result: 'first' }),
+      provider({ id: 'vacp-source://prototype', node: 'vacp://second', action: '__proto__', result: 'second' }),
+    ],
+  });
+  t.after(() => runtime.dispose());
+  assert.deepEqual(await runtime.execute({ callId: 'first', name: 'constructor' }), {
+    callId: 'first',
+    ok: true,
+    result: 'first',
+  });
+  assert.deepEqual(await runtime.execute({ callId: 'second', name: '__proto__' }), {
+    callId: 'second',
+    ok: true,
+    result: 'second',
+  });
+  assert.equal((await runtime.execute({ callId: 'missing', name: 'toString' })).ok, false);
 });
 
 test('failed composition releases subscriptions it acquired without disposing provider owners', () => {
@@ -179,8 +192,8 @@ test('failed composition releases subscriptions it acquired without disposing pr
 test('shared relationships deduplicate by endpoints and kind without delimiter ambiguity', async () => {
   const left = 'vacp://left|right';
   const right = 'vacp://right';
-  const shared = { from: left, to: right, kind: 'controls|view' };
-  const reverse = { from: right, to: left, kind: shared.kind };
+  const shared = { from: left, to: right, kind: 'controls|view' } as const;
+  const reverse = { from: right, to: left, kind: shared.kind } as const;
   const different = { ...shared, kind: 'controls' };
   const composed = composeVacpProviders([
     provider({ id: 'vacp-source://left', node: left, action: 'left', result: 'left', edges: [shared] }),

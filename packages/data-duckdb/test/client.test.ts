@@ -14,7 +14,7 @@ function connectionFixture() {
         calls.queried += 1;
         throw new Error('Query reached the connection');
       },
-      async useUnsafe(): Promise<never> {
+      useUnsafe(): never {
         throw new Error('IPC is not used by this fixture');
       },
       async insertJSONFromPath() {
@@ -33,6 +33,9 @@ test('injected connections and databases remain host-owned after disposal', asyn
     async connect() {
       connects += 1;
       return connection;
+    },
+    async dropFile() {
+      return null;
     },
     async registerFileText() {
       files += 1;
@@ -68,6 +71,9 @@ test('disposal during initialization closes the owned connection without dispatc
       entered.resolve();
       return connected.promise;
     },
+    async dropFile() {
+      return null;
+    },
     async registerFileText() {},
     async terminate() {
       terminations += 1;
@@ -94,6 +100,9 @@ test('failed connection initialization does not take ownership of an injected da
       connects += 1;
       throw new Error('Connection failed');
     },
+    async dropFile() {
+      return null;
+    },
     async registerFileText() {},
     async terminate() {
       terminations += 1;
@@ -111,4 +120,70 @@ test('an unused client disposes without initializing a database', async () => {
   const client = await createDuckDbWasmClient();
   await client.dispose();
   await assert.rejects(client.queryJson('SELECT 1'), /disposed/);
+});
+
+test('row loading releases its registered file after a failed typed import and preserves the import error', async () => {
+  const files = new Set<string>();
+  const dropped: string[] = [];
+  const statements: string[] = [];
+  const { connection } = connectionFixture();
+  const client = await createDuckDbWasmClient({
+    duckdb: {
+      connect: async () => connection,
+      registerFileText: async (path) => {
+        files.add(path);
+      },
+      dropFile: async (path) => {
+        files.delete(path);
+        dropped.push(path);
+        throw new Error('cleanup failed');
+      },
+    },
+    connection: {
+      ...connection,
+      query: async (sql) => {
+        statements.push(sql);
+        throw new Error('staging cleanup failed');
+      },
+      insertJSONFromPath: async () => {
+        throw new Error('import failed');
+      },
+    },
+  });
+  try {
+    await assert.rejects(
+      client.loadObjectsAsTable('readings', [{ value: '1.25' }], { types: { value: 'DOUBLE' } }),
+      /import failed/,
+    );
+    assert.equal(files.size, 0);
+    assert.equal(dropped.length, 1);
+    assert.ok(statements.some((sql) => sql.startsWith('DROP TABLE IF EXISTS')));
+  } finally {
+    await client.dispose();
+  }
+});
+
+test('row loading works when the host has no crypto.randomUUID', async (t) => {
+  const descriptor = Object.getOwnPropertyDescriptor(globalThis, 'crypto')!;
+  Object.defineProperty(globalThis, 'crypto', { configurable: true, value: undefined });
+  t.after(() => Object.defineProperty(globalThis, 'crypto', descriptor));
+  const { connection, calls } = connectionFixture();
+  const files = new Set<string>();
+  const client = await createDuckDbWasmClient({
+    connection,
+    duckdb: {
+      connect: async () => connection,
+      registerFileText: async (path) => {
+        files.add(path);
+      },
+      dropFile: async (path) => {
+        files.delete(path);
+        return null;
+      },
+    },
+  });
+  t.after(() => client.dispose());
+  await client.loadObjectsAsTable('readings', [{ value: 35 }]);
+  assert.equal(calls.inserted, 1);
+  assert.equal(files.size, 0);
 });

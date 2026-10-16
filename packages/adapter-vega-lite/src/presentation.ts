@@ -1,5 +1,5 @@
-import type { PresenceGeometry, PresenceResolver, PresenceTarget } from '@vacp/presence-core';
-import { viewportPresenceTarget, elementPresenceTarget, observePresenceLayout } from '@vacp/presence-browser/targets';
+import type { PresenceGeometry, PresencePresentation, PresenceResolver, PresenceTarget } from '@vacp/presence-core';
+import { viewportPresenceTarget, elementPresenceTarget, observePresenceLayout } from '@vacp/presence-core/dom';
 import { providerBindings } from './provider-bindings';
 import type { VacpProvider } from '@vacp/protocol';
 import { matchingSceneItems, sceneOffset, scenePointToViewport } from './scene';
@@ -51,10 +51,7 @@ function projectDatum(
 }
 
 /** Optional browser projection. Semantic provider creation does not install presentation. */
-export function createVegaLitePresentation(args: { provider: VacpProvider; root: HTMLElement }): {
-  resolve: PresenceResolver;
-  subscribe: (invalidate: () => void) => () => void;
-} {
+export function createVegaLitePresentation(args: { provider: VacpProvider; root: HTMLElement }): PresencePresentation {
   const { root, provider } = args;
   const native = providerBindings.get(provider);
   if (!native) throw new Error('Vega-Lite presentation requires a live Vega-Lite provider');

@@ -10,30 +10,26 @@
   "type": "module",
   "exports": {
     ".": {
+      "vacp-source": "./src/index.ts",
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
     },
-    "./targets": {
-      "types": "./dist/targets.d.ts",
-      "default": "./dist/targets.js"
-    },
     "./streamdown": {
+      "vacp-source": "./src/streamdown.tsx",
       "types": "./dist/streamdown.d.ts",
       "default": "./dist/streamdown.js"
     }
   },
   "scripts": {
     "build": "vp pack",
-    "typecheck": "tsc -p tsconfig.json && tsc -p tsconfig.test.json",
     "test": "tsx --test --test-timeout=10000 test/*.test.ts"
   },
   "dependencies": {
     "@stylexjs/stylex": "catalog:",
     "@vacp/presence-core": "workspace:*",
-    "@vacp/protocol": "workspace:*",
     "react": "catalog:",
     "react-dom": "catalog:",
-    "streamdown": "2.6.0"
+    "streamdown": "2.7.0"
   },
   "devDependencies": {
     "@types/react": "catalog:",

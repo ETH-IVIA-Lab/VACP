@@ -1,6 +1,7 @@
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
 import fs from 'node:fs';
+import { escapeHtml } from '@vacp/example-shared/html';
 import { examples } from '../examples.manifest.ts';
 
 const scriptDir = dirname(fileURLToPath(import.meta.url));
@@ -93,17 +94,8 @@ function mirrorDir(dst, sources) {
 }
 
 function renderRouteHtml(args) {
-  const escapedTitle = String(args.title)
-    .replaceAll('&', '&amp;')
-    .replaceAll('<', '&lt;')
-    .replaceAll('>', '&gt;')
-    .replaceAll('"', '&quot;');
-
-  const escapedRoute = String(args.route)
-    .replaceAll('&', '&amp;')
-    .replaceAll('<', '&lt;')
-    .replaceAll('>', '&gt;')
-    .replaceAll('"', '&quot;');
+  const escapedTitle = escapeHtml(args.title);
+  const escapedRoute = escapeHtml(args.route);
 
   return `<!doctype html>
 <html lang="en">

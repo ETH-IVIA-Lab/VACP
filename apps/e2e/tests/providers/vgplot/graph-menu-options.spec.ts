@@ -1,13 +1,10 @@
 import { expect } from '@playwright/test';
 import { test } from '../../helpers/test';
 
-import { appServer } from '../../helpers/servers';
+import { gotoApp } from '../../helpers/servers';
 
 test('vgplot: menu inputs include options in capability graph (Voronoi Diagram)', async ({ page }) => {
-  const srv = appServer('vgplot-gallery');
-
-  await page.goto(`${srv.url}#voronoi`, { waitUntil: 'domcontentloaded' });
-  await page.waitForFunction(() => !!globalThis.__vacp);
+  await gotoApp(page, 'vgplot-gallery', '#voronoi');
 
   const widgets = await page.evaluate(async () => {
     const cap = await globalThis.__vacp.getCapabilities?.();

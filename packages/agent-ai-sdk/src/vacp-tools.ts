@@ -2,23 +2,33 @@ import { tool, type Tool } from 'ai';
 import { z } from 'zod';
 
 import {
+  parseVacpNarration,
   vacpAgentTools,
   vacpNarrationGuidance,
   vacpProgressFields,
   VACP_NARRATION_MAX_LENGTH,
-  type VacpActor,
-  type VacpAgentActivityControl,
   type VacpCapabilitiesRequest,
   type VacpStateRequest,
   type VacpToolResult,
 } from '@vacp/protocol';
-import type { VacpTransport } from '@vacp/transport-bridge';
-
-import { createAgentTurns, type AgentTurns } from './agent-turn';
+import type { VacpExecuteInput, VacpProgressInput, VacpTransport } from '@vacp/transport-bridge';
 
 const refs = z.array(z.templateLiteral(['vacp://', z.string()])).optional();
 /** Text a model must fill with more than whitespace, as every transport checks it. */
 const text = z.string().regex(/\S/);
+
+/** A sentence the narration parser accepts, published with the parser's bound in code points. */
+const sentence = (field: string, description: string) =>
+  z
+    .string()
+    .superRefine((value, ctx) => {
+      try {
+        parseVacpNarration(value, field);
+      } catch (error) {
+        ctx.addIssue({ code: 'custom', message: error instanceof Error ? error.message : String(error) });
+      }
+    })
+    .meta({ minLength: 1, maxLength: VACP_NARRATION_MAX_LENGTH, description });
 
 const capabilitiesInput = z.object({
   refs,
@@ -30,55 +40,35 @@ const capabilitiesInput = z.object({
   includeNodeData: z.boolean().optional(),
 });
 
-const stateInput = z.object({
-  mode: z.enum(['auto', 'full', 'delta']).optional(),
-  since: text.optional(),
-  refs,
-  includeSummary: z.boolean().optional(),
-});
+const stateInput = z.object({ since: text.optional(), refs, includeSummary: z.boolean().optional() });
 
 const executeInput = z.object({
   name: text,
   params: z.unknown().optional(),
-  narration: z.string().trim().min(1).max(VACP_NARRATION_MAX_LENGTH).describe(vacpNarrationGuidance),
+  narration: sentence('narration', vacpNarrationGuidance),
   call_id: z.string().optional(),
 });
 
 const progressInput = z.object({
-  message: z.string().trim().min(1).max(VACP_NARRATION_MAX_LENGTH).describe(vacpProgressFields.message),
-  done: z.boolean().default(false).describe(vacpProgressFields.done),
+  message: sentence('message', vacpProgressFields.message),
+  done: z.boolean().optional().describe(vacpProgressFields.done),
 });
 
-type ProgressResult = { ok: true } | { ok: false; reason: string };
-
-/**
- * The agent tools of `vacpAgentTools`, each returning the transport's bounded answer.
- * `vacp_progress` is present when the host supplies an activity channel.
- */
+/** The tools of `vacpAgentTools`, each answering with the transport's bounded result. */
 export type VacpAgentTools = {
   vacp_observe: Tool<Record<string, never>, VacpToolResult>;
   vacp_capabilities: Tool<VacpCapabilitiesRequest, VacpToolResult>;
   vacp_state: Tool<VacpStateRequest, VacpToolResult>;
-  vacp_execute: Tool<z.output<typeof executeInput>, VacpToolResult>;
-  vacp_progress?: Tool<z.output<typeof progressInput>, ProgressResult>;
+  vacp_execute: Tool<VacpExecuteInput, VacpToolResult>;
+  vacp_progress: Tool<VacpProgressInput, VacpToolResult>;
 };
 
-export type VacpAgentToolsOptions = {
-  transport: VacpTransport;
-  /** The host's activity channel. It adds `vacp_progress` and one public activity per turn. */
-  activity?: Pick<VacpAgentActivityControl, 'beginAgentActivity'>;
-  /** The agent that steps and turns are attributed to. Defaults to `{ id: 'agent', label: 'Assistant' }`. */
-  actor?: VacpActor;
-};
-
-const defaultActor: VacpActor = { id: 'agent', kind: 'agent', label: 'Assistant' };
-
-/** The tools and the turns they narrate, shared by the public builder and the agent factories. */
-export function buildVacpAgentTools(options: VacpAgentToolsOptions): { tools: VacpAgentTools; turns?: AgentTurns } {
-  const { transport } = options;
-  const actor = options.actor ?? defaultActor;
-  const turns = options.activity ? createAgentTurns(options.activity, actor) : undefined;
-  const tools: VacpAgentTools = {
+/**
+ * The agent tools over one transport. Each call forwards the AI SDK's abort signal, so a cancelled
+ * request cancels its running step and a turn its sentence opened.
+ */
+export function createVacpAgentTools(transport: VacpTransport): VacpAgentTools {
+  return {
     vacp_observe: tool({
       description: vacpAgentTools.vacp_observe.description,
       inputSchema: z.object({}),
@@ -97,31 +87,12 @@ export function buildVacpAgentTools(options: VacpAgentToolsOptions): { tools: Va
     vacp_execute: tool({
       description: vacpAgentTools.vacp_execute.description,
       inputSchema: executeInput,
-      execute: (input) =>
-        transport.vacp_execute(input.name, input.params, input.call_id, { actor, narration: input.narration }),
+      execute: (input, { abortSignal }) => transport.vacp_execute(input, abortSignal),
     }),
-  };
-  if (turns)
-    tools.vacp_progress = tool({
+    vacp_progress: tool({
       description: vacpAgentTools.vacp_progress.description,
       inputSchema: progressInput,
-      execute: ({ message, done }): ProgressResult =>
-        turns.progress(message, done)
-          ? { ok: true }
-          : { ok: false, reason: 'Progress is not being shown to the person right now; continue the task.' },
-    });
-  return { tools, turns };
-}
-
-/**
- * The agent tools over one transport, for a host that runs its own model loop. The host calls
- * `end` with the outcome when its turn ends, so a turn the model opened through `vacp_progress`
- * closes with the request.
- */
-export function createVacpAgentTools(options: VacpAgentToolsOptions): {
-  tools: VacpAgentTools;
-  end(outcome?: 'completed' | 'failed' | 'cancelled'): void;
-} {
-  const { tools, turns } = buildVacpAgentTools(options);
-  return { tools, end: (outcome) => turns?.end(outcome) };
+      execute: (input, { abortSignal }) => transport.vacp_progress(input, abortSignal),
+    }),
+  };
 }

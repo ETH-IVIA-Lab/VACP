@@ -1,9 +1,9 @@
 import assert from 'node:assert/strict';
 import { after, before, test } from 'node:test';
-import { countDuckDbTablesOnce, type VacpDuckDbClient } from '../src/index';
+import { countDuckDbTablesOnce, type VacpDuckDbQueryClient } from '../src/index';
 import { wasmDuckDb } from './wasm';
 
-let client: VacpDuckDbClient;
+let client: VacpDuckDbQueryClient;
 let close: () => void;
 
 before(async () => {
@@ -15,7 +15,7 @@ after(() => close());
 test('each table is counted the first time a handle reads it and stated from then on', async () => {
   await client.exec('CREATE TABLE trips AS SELECT range AS id FROM range(12)');
   let queries = 0;
-  const counted: VacpDuckDbClient = {
+  const counted: VacpDuckDbQueryClient = {
     ...client,
     queryJson: (sql) => {
       queries++;

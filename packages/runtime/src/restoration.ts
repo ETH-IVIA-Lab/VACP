@@ -1,10 +1,10 @@
-import { VACP_APPLY_STATE_ACTION } from '@vacp/protocol';
+import { VACP_APPLY_STATE_ACTION, vacpHumanActor } from '@vacp/protocol';
 import type {
   VacpActionExecutionOptions,
   VacpActionResult,
   VacpRef,
   VacpSourceId,
-  VacpRuntimeBridge,
+  VacpPageBridge,
 } from '@vacp/protocol';
 import { makeEntryId } from './runtime/helpers';
 
@@ -14,13 +14,16 @@ export type VacpRestorationResult = VacpActionResult<
   { sources: VacpRestorationOutcome[] }
 >;
 
-type RestorationClient = Pick<VacpRuntimeBridge, 'inspect' | 'execute'> & { readonly signal: AbortSignal };
+type RestorationClient = Pick<VacpPageBridge, 'inspect' | 'execute'> & { readonly signal: AbortSignal };
 
 /** Explicit host-owned restoration. Only requests made through this controller are serialized. */
 export function createVacpRestorer(client: RestorationClient) {
   let tail: Promise<unknown> = Promise.resolve();
   return {
-    restore(state: Record<VacpRef, unknown>, options: VacpActionExecutionOptions = {}): Promise<VacpRestorationResult> {
+    restore: (
+      state: Record<VacpRef, unknown>,
+      options: VacpActionExecutionOptions = {},
+    ): Promise<VacpRestorationResult> => {
       const captured = structuredClone(state);
       const signal = AbortSignal.any([client.signal, ...(options.signal ? [options.signal] : [])]);
       const callId = makeEntryId();
@@ -58,7 +61,7 @@ export function createVacpRestorer(client: RestorationClient) {
               client.execute(call, {
                 ...options,
                 signal,
-                actor: options.actor ?? { id: 'human', kind: 'human' },
+                actor: options.actor ?? vacpHumanActor,
                 restoration: options.restoration ?? { id: callId },
               }),
             ),

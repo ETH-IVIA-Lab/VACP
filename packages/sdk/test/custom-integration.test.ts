@@ -15,18 +15,18 @@ test('documented integration shares a control between semantic actions and human
   const integration = connectThreshold(input);
 
   try {
-    const capabilities = await integration.bridge.getCapabilities();
+    const capabilities = await integration.runtime.getCapabilities();
     assert.equal(capabilities.graph.actions[0]?.name, 'threshold.set');
     assert.equal(
-      (await integration.bridge.execute({ callId: 'set', name: 'threshold.set', params: { value: 42 } })).ok,
+      (await integration.runtime.execute({ callId: 'set', name: 'threshold.set', params: { value: 42 } })).ok,
       true,
     );
     assert.equal(input.value, '42');
     input.value = '75';
     input.dispatchEvent(new Event('input'));
-    assert.deepEqual((await integration.bridge.getState()).state['vacp://example/threshold'], { value: 75 });
+    assert.deepEqual((await integration.runtime.observe()).state['vacp://example/threshold'], { value: 75 });
     assert.equal(
-      (await integration.bridge.execute({ callId: 'bad', name: 'threshold.set', params: { value: 101 } })).ok,
+      (await integration.runtime.execute({ callId: 'bad', name: 'threshold.set', params: { value: 101 } })).ok,
       false,
     );
     assert.equal(input.value, '75');

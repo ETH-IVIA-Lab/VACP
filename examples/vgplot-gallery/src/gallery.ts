@@ -1,37 +1,15 @@
 import type { Spec } from '@uwdata/mosaic-spec';
 import { parse } from 'yaml';
 
-type GalleryMeta = { title: string; description?: string };
-
-export type GalleryEntry = { id: string; meta: GalleryMeta; yaml: string; spec: Spec };
-
-function fileIdFromPath(path: string): string {
-  const name = path.split('/').pop() ?? path;
-
-  return name.replace(/\.ya?ml$/i, '');
-}
+export type GalleryEntry = { id: string; title: string; description?: string; spec: Spec };
 
 export function loadGallery(): GalleryEntry[] {
-  const files = import.meta.glob('./specs/*.yaml', {
-    eager: true,
-    query: '?raw',
-    import: 'default',
-  }) as Record<string, string>;
-
+  const files = import.meta.glob<string>('./specs/*.yaml', { eager: true, query: '?raw', import: 'default' });
   return Object.entries(files)
     .map(([path, yaml]) => {
-      const parsed = parse(yaml) as Spec & { meta?: GalleryMeta };
-      const metaRaw = parsed.meta;
-
-      const meta: GalleryMeta = {
-        title: typeof metaRaw?.title === 'string' ? metaRaw.title : fileIdFromPath(path),
-        description: typeof metaRaw?.description === 'string' ? metaRaw.description : undefined,
-      };
-
-      const specObj = { ...parsed };
-      delete specObj.meta;
-
-      return { id: fileIdFromPath(path), meta, yaml, spec: specObj };
+      const id = path.slice(path.lastIndexOf('/') + 1, -'.yaml'.length);
+      const { meta, ...spec }: Spec = parse(yaml);
+      return { id, title: meta?.title ?? id, description: meta?.description, spec };
     })
-    .sort((a, b) => a.meta.title.localeCompare(b.meta.title));
+    .sort((a, b) => a.title.localeCompare(b.title));
 }

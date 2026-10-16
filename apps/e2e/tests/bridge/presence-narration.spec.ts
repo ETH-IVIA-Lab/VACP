@@ -1,12 +1,12 @@
 import { expect, type Page } from '@playwright/test';
-import { test } from '../helpers/test';
+import { test, useWebMcp } from '../helpers/test';
 import { appReady, appServer } from '../helpers/servers';
 import { tool } from '../helpers/presence';
 
 test.use({
   viewport: { width: 1440, height: 900 },
-  launchOptions: { args: ['--enable-experimental-web-platform-features', '--enable-features=WebMCPTesting'] },
 });
+useWebMcp();
 
 async function open(page: Page) {
   const errors: string[] = [];
@@ -83,7 +83,7 @@ const steps = [
   },
   {
     contract: 'vgplot.set_interval_1d',
-    params: { plotId: 'age', interactorId: '0', min: 18, max: 25 },
+    params: { ref: 'vacp://vacp-examples/athletes/age/interactor/0', min: 18, max: 25 },
     narration: 'Narrowing to ages 18 to 25, where most of their medals are won.',
   },
 ];
@@ -149,7 +149,7 @@ test('a step executed without narration names its change instead of repeating an
       const name = graph.actions.find((action) => action.name.endsWith(contract))!.name;
       return window.__vacp!.execute(
         { callId: contract, name, params },
-        { actor: { id: 'webmcp', kind: 'agent', label: 'Agent' } },
+        { actor: { id: 'agent', kind: 'agent', label: 'Agent' } },
       );
     }, step);
     expect(result.ok).toBe(true);

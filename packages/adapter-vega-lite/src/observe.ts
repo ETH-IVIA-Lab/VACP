@@ -1,4 +1,4 @@
-import { createSharedSubscription } from '@vacp/runtime';
+import { createSharedSubscription, createProviderSubscription } from '@vacp/runtime';
 import type { VacpFreshness } from '@vacp/protocol';
 import type { VegaLiteBindings } from './bindings';
 import type { createVegaLiteTooltipBinding } from './tooltip';
@@ -12,7 +12,7 @@ const subscribeRun = createSharedSubscription<VegaViewLike>((view, invalidate) =
   let pending = 0;
   outputs.delete(view);
   const run = view.runAsync;
-  const wrapped: VegaViewLike['runAsync'] = (...values) => {
+  const wrapped = (...values: Parameters<VegaViewLike['runAsync']>): Promise<VegaViewLike> => {
     const inputRevision = String(++revision);
     pending++;
     outputs.set(view, { status: 'running', inputRevision });
@@ -28,7 +28,7 @@ const subscribeRun = createSharedSubscription<VegaViewLike>((view, invalidate) =
       invalidate();
     };
     try {
-      const result = run.apply(view, values);
+      const result: Promise<VegaViewLike> = run.apply(view, values);
       void result.then(() => {
         pending--;
         if (active && pending === 0)
@@ -54,79 +54,34 @@ export function createVegaLiteObservationBinding(args: {
   helpers: VegaLiteBindings;
   tooltip: ReturnType<typeof createVegaLiteTooltipBinding>;
 }) {
-  const listeners = new Set<() => void>();
-  let release: (() => void) | undefined;
-  let disposed = false;
-  const bind = () => {
-    const cleanup: Array<() => void> = [];
-    let active = true;
-    let timer: ReturnType<typeof setTimeout> | undefined;
-    const notify = () => {
-      if (!active || timer !== undefined) return;
-      timer = setTimeout(() => {
-        timer = undefined;
-        for (const listener of [...listeners]) {
+  const subscription = createProviderSubscription(
+    (notify) => {
+      const cleanup: Array<() => void> = [];
+      const detach = () => {
+        for (const restore of cleanup.reverse()) {
           try {
-            listener();
+            restore();
           } catch {
-            /* A consumer must not interrupt source observation. */
+            /* Release every owned hook. */
           }
         }
-      }, 120);
-    };
-    const signals = new Set<string>();
-    for (const binding of args.helpers.paramByRef.values()) for (const name of binding.signals) signals.add(name);
-    const detach = () => {
-      active = false;
-      clearTimeout(timer);
-      for (const restore of cleanup.reverse()) {
-        try {
-          restore();
-        } catch {
-          /* Continue releasing the remaining bindings. */
-        }
-      }
-    };
-    try {
-      cleanup.push(subscribeRun(args.view, notify));
-      if (args.view.addSignalListener && args.view.removeSignalListener) {
-        for (const name of signals) {
-          cleanup.push(() => args.view.removeSignalListener?.(name, notify));
-          args.view.addSignalListener(name, notify);
-        }
-      }
-      cleanup.push(args.tooltip.subscribe(notify));
-      return detach;
-    } catch (error) {
-      detach();
-      throw error;
-    }
-  };
-  return {
-    freshness: () => outputs.get(args.view),
-    subscribe(listener: () => void) {
-      if (disposed) throw new Error('Vega-Lite provider is disposed');
-      const notify = () => listener();
-      listeners.add(notify);
+      };
       try {
-        release ??= bind();
+        cleanup.push(subscribeRun(args.view, notify));
+        const signals = new Set<string>();
+        for (const binding of args.helpers.paramByRef.values()) for (const name of binding.signals) signals.add(name);
+        for (const name of signals) {
+          args.view.addSignalListener(name, notify);
+          cleanup.push(() => args.view.removeSignalListener(name, notify));
+        }
+        cleanup.push(args.tooltip.subscribe(notify));
+        return detach;
       } catch (error) {
-        listeners.delete(notify);
+        detach();
         throw error;
       }
-      return () => {
-        listeners.delete(notify);
-        if (listeners.size === 0) {
-          release?.();
-          release = undefined;
-        }
-      };
     },
-    dispose() {
-      disposed = true;
-      release?.();
-      release = undefined;
-      listeners.clear();
-    },
-  };
+    { quietMs: 120 },
+  );
+  return { freshness: () => outputs.get(args.view), ...subscription };
 }

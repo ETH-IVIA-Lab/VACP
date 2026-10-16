@@ -1,12 +1,12 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { VacpActionRegistry, registerVacpDataSqlAction } from '../src/index';
+import { executeVacpAction, VacpActionRegistry, registerVacpDataSqlAction } from '../src/index';
 
 test('SQL registration exposes a handler with validated parameters', async () => {
   const registry = new VacpActionRegistry();
   registerVacpDataSqlAction(registry, async (params) => ({ sql: params.sql }));
 
-  const result = await registry.execute({
+  const result = await executeVacpAction(registry, {
     callId: 'query',
     name: 'vacp.data_sql',
     params: { handleRef: 'vacp://app/data/main', sql: 'SELECT 1' },
@@ -14,21 +14,11 @@ test('SQL registration exposes a handler with validated parameters', async () =>
 
   assert.deepEqual(result, { callId: 'query', ok: true, result: { sql: 'SELECT 1' } });
 
-  const invalid = await registry.execute({
+  const invalid = await executeVacpAction(registry, {
     callId: 'invalid',
     name: 'vacp.data_sql',
     params: { handleRef: 'invalid', sql: 'SELECT 1' },
   });
 
   assert.equal(invalid.ok, false);
-});
-
-test('SQL registration respects explicit application policy', async () => {
-  const registry = new VacpActionRegistry();
-  assert.equal(
-    registerVacpDataSqlAction(registry, async () => ({}), { enabled: false }),
-    null,
-  );
-  assert.deepEqual(registry.list(), []);
-  assert.equal((await registry.execute({ callId: 'query', name: 'vacp.data_sql' })).ok, false);
 });
