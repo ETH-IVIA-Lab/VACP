@@ -1,0 +1,84 @@
+docs/api/agent-tools.md
+  s_7845e1732af377::t_8d5b96d57f1548 3,13,21
+docs/api/data-duckdb.md
+  s_7845e1732af377::t_5647cee1ec2fd3 22,33,35
+docs/presence/index.md
+  s_7845e1732af377::t_f438fc819e8cca 55
+packages/agent-ai-sdk/README.md
+  s_7845e1732af377::t_6837bc4c7debb4 47
+docs/vega-lite/index.md
+  s_7845e1732af377::t_3d59a840430506 70
+docs/api/analytics.md
+  s_7845e1732af377::t_8d5b96d57f1548 16
+docs/api/provenance.md
+  s_7845e1732af377::t_5647cee1ec2fd3 41
+docs/get-started/index.md
+  s_7845e1732af377::t_8d5b96d57f1548 31
+docs/availability/index.md
+  s_7845e1732af377::t_f438fc819e8cca 77,81
+docs/integrate/index.md
+  s_7845e1732af377::t_f438fc819e8cca 68
+packages/transport-webmcp/README.md
+  s_7845e1732af377::t_6837bc4c7debb4 11,13,15
+docs/composition/index.md
+  s_7845e1732af377::t_f438fc819e8cca 36
+docs/agents/webmcp.md
+  s_7845e1732af377::t_8d5b96d57f1548 28
+docs/api/runtime.md
+  s_7845e1732af377::t_bc17ef465cc28b 51,132
+docs/what-is-vacp/index.md
+  s_7845e1732af377::t_3d59a840430506 19
+docs/api/agent-ai-sdk.md
+  s_7845e1732af377::t_8d5b96d57f1548 35,43
+docs/api/index.md
+  s_7845e1732af377::t_8d5b96d57f1548 8
+packages/data-duckdb/README.md
+  s_7845e1732af377::t_6837bc4c7debb4 20
+  s_7845e1732af377::t_3d59a840430506 30
+docs/agents/index.md
+  s_7845e1732af377::t_8d5b96d57f1548 3,11,40,65
+docs/api/protocol.md
+  s_7845e1732af377::t_5647cee1ec2fd3 241-242,246-259,261-267,280
+docs/concepts/index.md
+  s_7845e1732af377::t_f438fc819e8cca 58
+  s_7845e1732af377::t_e62e79ae9d180f 123
+development_docs/testing.md
+  s_7845e1732af377::t_8d5b96d57f1548 13
+packages/transport-bridge/README.md
+  s_7845e1732af377::t_6837bc4c7debb4 17
+docs/api/webmcp.md
+  s_7845e1732af377::t_bc17ef465cc28b 27
+docs/api/python.md
+  s_7845e1732af377::t_6837bc4c7debb4 22-23,25-40
+  s_7845e1732af377::t_bc17ef465cc28b 20,24,66
+development_docs/performance.md
+  s_7845e1732af377::t_8d5b96d57f1548 3
+docs/provenance/index.md
+  s_7845e1732af377::t_f438fc819e8cca 72,74
+docs/api/presence-core.md
+  s_7845e1732af377::t_5647cee1ec2fd3 57,83
+docs/vgplot/index.md
+  s_7845e1732af377::t_3d59a840430506 28
+docs/api/vgplot.md
+  s_7845e1732af377::t_6837bc4c7debb4 37-59,61
+  s_7845e1732af377::t_89af7633288b66 60
+  s_7845e1732af377::t_bc17ef465cc28b 31,35,63
+development_docs/architecture.md
+  s_7845e1732af377::t_8d5b96d57f1548 41,64,72,74,80
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "0cb708afb362c5ff369dc74745531a381dd03a0c",
+  "prompts": {},
+  "sessions": {
+    "s_7845e1732af377": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "b3e7a65c-9a19-4f28-9a82-986b3af71622",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Péter Ferenc Gyarmati <peterferenc.gyarmati@inf.ethz.ch>"
+    }
+  }
+}
