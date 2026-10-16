@@ -1,0 +1,60 @@
+cff-version: 1.2.0
+message: If you use VACP in your research, please cite the paper.
+title: 'VACP: Visual Analytics Context Protocol'
+type: software
+authors:
+  - family-names: Stähle
+    given-names: Tobias
+    orcid: https://orcid.org/0009-0001-5983-8807
+  - family-names: Gyarmati
+    given-names: Péter Ferenc
+    orcid: https://orcid.org/0009-0006-6122-2709
+  - family-names: Spinner
+    given-names: Thilo
+    orcid: https://orcid.org/0000-0002-1168-1804
+  - family-names: Sevastjanova
+    given-names: Rita
+    orcid: https://orcid.org/0000-0002-2629-9579
+  - family-names: Moritz
+    given-names: Dominik
+    orcid: https://orcid.org/0000-0002-3110-1053
+  - family-names: El-Assady
+    given-names: Mennatallah
+    orcid: https://orcid.org/0000-0001-8526-2613
+version: 0.1.0
+repository-code: https://github.com/ETH-IVIA-Lab/VACP
+url: https://docs.vacp.dev/
+preferred-citation:
+  type: article
+  title: 'VACP: Visual Analytics Context Protocol'
+  authors:
+    - family-names: Stähle
+      given-names: Tobias
+      orcid: https://orcid.org/0009-0001-5983-8807
+    - family-names: Gyarmati
+      given-names: Péter Ferenc
+      orcid: https://orcid.org/0009-0006-6122-2709
+    - family-names: Spinner
+      given-names: Thilo
+      orcid: https://orcid.org/0000-0002-1168-1804
+    - family-names: Sevastjanova
+      given-names: Rita
+      orcid: https://orcid.org/0000-0002-2629-9579
+    - family-names: Moritz
+      given-names: Dominik
+      orcid: https://orcid.org/0000-0002-3110-1053
+    - family-names: El-Assady
+      given-names: Mennatallah
+      orcid: https://orcid.org/0000-0001-8526-2613
+  journal: IEEE Transactions on Visualization and Computer Graphics
+  year: 2026
+  notes: Presented at IEEE VIS 2026
+  conference:
+    name: IEEE VIS 2026
+    city: Boston
+    region: Massachusetts
+    country: US
+    date-start: 2026-11-09
+    date-end: 2026-11-13
+  doi: 10.48550/arXiv.2603.29322
+  url: https://arxiv.org/abs/2603.29322

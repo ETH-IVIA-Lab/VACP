@@ -36,10 +36,12 @@ Run `make check` for every static gate and unit suite, and `make browser-install
 ## Citation
 
 ```bibtex
-@misc{staehle2026vacp,
+@article{staehle2026vacp,
   title = {{VACP}: {Visual Analytics Context Protocol}},
-  author = {{St{\"a}hle}, Tobias and {Gyarmati}, Péter Ferenc and {Spinner}, Thilo and {Sevastjanova}, Rita and {Moritz}, Dominik and {El-Assady}, Mennatallah},
+  author = {{St{\"a}hle}, Tobias and {Gyarmati}, P{\'e}ter Ferenc and {Spinner}, Thilo and {Sevastjanova}, Rita and {Moritz}, Dominik and {El-Assady}, Mennatallah},
+  journal = {IEEE Transactions on Visualization and Computer Graphics},
   year = {2026},
+  note = {Presented at IEEE VIS 2026},
   eprint = {2603.29322},
   archivePrefix = {arXiv},
   doi = {10.48550/arXiv.2603.29322}
