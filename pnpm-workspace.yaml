@@ -1,8 +1,14 @@
 packages:
   - apps/*
-  - docs
   - examples/*
   - packages/*
+# The Markdown pages in docs/ sit outside apps/docs, so the Vue modules VitePress compiles them into
+# resolve from the repository root.
+publicHoistPattern:
+  - vue
+  - '@vue/*'
+  - '@vueuse/*'
+  - vitepress
 catalogMode: prefer
 catalog:
   webmcp-types: 0.1.10

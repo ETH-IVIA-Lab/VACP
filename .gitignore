@@ -7,8 +7,8 @@ dist/
 
 # Vite builds in examples
 apps/*/dist/
-docs/.vitepress/cache/
-docs/.vitepress/dist/
+apps/docs/.vitepress/cache/
+apps/docs/.vitepress/dist/
 
 # TypeScript build artifacts
 *.tsbuildinfo

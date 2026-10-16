@@ -90,7 +90,7 @@ jobs:
           path: |
             packages/*/dist/
             examples/gallery/dist/
-            docs/.vitepress/dist/
+            apps/docs/.vitepress/dist/
           include-hidden-files: true
           if-no-files-found: error
           retention-days: 1

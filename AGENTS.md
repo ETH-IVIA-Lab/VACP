@@ -25,7 +25,8 @@ VACP composes analytical sources, state, freshness, and semantic operations thro
 - `examples/cars-parallel-coords`, `examples/react-dashboard`, `examples/vega-lite-gallery`, `examples/vgplot-gallery`: runnable examples.
 - `apps/e2e`: Playwright tests through the browser and public bridge.
 - `apps/evals`: agent evals that run conditions (agent loops, including AI SDK harnesses) and models on the examples through VACP and grade page state, replies, tokens, and latency. Eval runs call models, so `make check` runs only its unit tests.
-- `docs/`: the VitePress documentation site: guides, API reference, and `docs/.vitepress` configuration and theme.
+- `apps/docs`: the VitePress app: `.vitepress` configuration and theme, and static assets in `public/`.
+- `docs/`: the Markdown pages of the documentation site: guides and API reference.
 - `development_docs/`: architecture, contributing, and testing guides.
 
 Use capability families for package names: `adapter-*` for visualization adapters, `analytics-*` for analytics providers, `data-*` for data backends, and `agent-*` for agent implementations. Keep `packages/` flat.

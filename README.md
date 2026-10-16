@@ -2,7 +2,7 @@
 
 [![arXiv:2603.29322](https://img.shields.io/badge/arXiv-2603.29322-red)](https://arxiv.org/abs/2603.29322)
 
-![AI agents use VACP to read visual analytics state, discover available interactions, and execute named operations that update the charts.](docs/public/images/VACP_Teaser.svg)
+![AI agents use VACP to read visual analytics state, discover available interactions, and execute named operations that update the charts.](apps/docs/public/images/VACP_Teaser.svg)
 
 VACP lets AI agents read and change visual analyses through named operations, while the person using them watches each step. Providers describe [Vega-Lite](https://vega.github.io/vega-lite/) charts, [Mosaic vgplot](https://idl.uw.edu/mosaic/vgplot/) dashboards, and custom applications as one graph of views, selections, parameters, and data handles. Agents connect through the [Model Context Protocol](https://modelcontextprotocol.io) (MCP), [AI SDK](https://ai-sdk.dev) tools, or [WebMCP](https://webmachinelearning.github.io/webmcp/). Presence shows the agent's cursor and one sentence per step, and replay restores the charts to each checkpoint.
 
@@ -27,7 +27,8 @@ make dev
 | `examples/`         | The gallery and its five applications                                                                              |
 | `apps/e2e`          | Playwright tests through the browser and the public bridge                                                         |
 | `apps/evals`        | Agent evaluations on the examples                                                                                  |
-| `docs/`             | The documentation site                                                                                             |
+| `apps/docs`         | The VitePress app that builds the documentation site                                                               |
+| `docs/`             | The Markdown pages of the documentation site                                                                       |
 | `development_docs/` | [Development guides](development_docs/index.md) for architecture, contributing, testing, examples, and performance |
 
 Run `make check` for every static gate and unit suite, and `make browser-install e2e` for the browser suite.
