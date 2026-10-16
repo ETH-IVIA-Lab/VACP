@@ -13,7 +13,7 @@ SOURCE_PATHS := .github apps development_docs docs examples packages tools $(wil
 # Extra Playwright arguments for browser-test, such as --shard=1/4.
 PLAYWRIGHT_ARGS ?=
 
-.PHONY: bench help setup setup-web setup-python dev dev-all dev-status format lint typecheck
+.PHONY: bench help setup setup-web setup-python dev dev-all dev-status format format-check lint typecheck
 .PHONY: python-format python-lint python-typecheck python-test python-check
 .PHONY: build build-libs build-apps docs docs-serve test test-tools test-package-imports knip check package browser-install browser-test e2e ci
 
@@ -39,6 +39,9 @@ dev-status: ## Show registered local development URLs.
 
 format: python-format ## Apply lint fixes and format owned source.
 	$(VP) check --fix $(SOURCE_PATHS)
+
+format-check: ## Check the formatting of owned source, documentation included.
+	$(VP) fmt --check $(SOURCE_PATHS)
 
 lint: build-libs python-lint ## Check formatting, lint rules, and TypeScript types, and lint Python.
 	$(VP) check $(SOURCE_PATHS)

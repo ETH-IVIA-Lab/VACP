@@ -1,0 +1,19 @@
+# Pull request paths that select CI jobs. Pushes to main run every job.
+
+documentation:
+  - '**/*.md'
+  - 'CITATION.cff'
+
+# Lint, types, unit tests, builds, and the browser suite read every other path.
+code:
+  - '**'
+  - '!**/*.md'
+  - '!CITATION.cff'
+
+# The browser suite serves the documentation site that docs/ builds.
+site:
+  - 'docs/**'
+
+# The Python distributions embed this README as their package description.
+package:
+  - 'packages/python/README.md'
