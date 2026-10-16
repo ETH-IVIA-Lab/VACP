@@ -77,7 +77,9 @@ test-tools: ## Validate the vendored anti-slop rules and their CLI integration.
 	$(PNPM) exec tsx --test tools/stylex/*.test.ts
 	$(PNPM) exec tsc -p tools/oxlint/anti-slop/tsconfig.json --noEmit
 
+# The generated gallery routes are what reference examples/gallery/src/route-entry.ts.
 knip: ## Check unused files, exports, and dependencies.
+	node examples/gallery/scripts/sync-generated.mjs
 	$(PNPM) exec knip --treat-config-hints-as-errors
 
 test-package-imports: build-libs ## Verify public package exports in native Node and TypeScript.
