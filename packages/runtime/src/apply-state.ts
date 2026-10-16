@@ -5,6 +5,7 @@ import type { VacpActionDescriptor, VacpRef } from '@vacp/protocol';
 import { VACP_APPLY_STATE_ACTION } from '@vacp/protocol';
 
 import type { VacpActionRegistrar } from './action-registry';
+import { parseVacpParams } from './params';
 
 export type VacpApplyStatePreparation<Result = unknown> = (
   state: Record<VacpRef, unknown>,
@@ -12,7 +13,7 @@ export type VacpApplyStatePreparation<Result = unknown> = (
   | ((options: VacpActionExecutionOptions) => Result | Promise<Result>)
   | Promise<(options: VacpActionExecutionOptions) => Result | Promise<Result>>;
 
-const paramsSchema = z.object({ state: z.record(vacpRefSchema, z.unknown()) });
+const parseParams = parseVacpParams(VACP_APPLY_STATE_ACTION, z.object({ state: z.record(vacpRefSchema, z.unknown()) }));
 
 /**
  * Register `vacp.apply_state`. `prepare` validates a desired state keyed by refs and returns the
@@ -53,7 +54,7 @@ export function registerVacpApplyStateAction<Result>(
       params.execute(executionOptions),
     {
       parse: async (value) => {
-        const { state } = paramsSchema.parse(value);
+        const { state } = await parseParams(value);
         const execute = await prepare(structuredClone(state));
         return { execute, refs: Object.keys(state) as VacpRef[] };
       },

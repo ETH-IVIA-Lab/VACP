@@ -1,5 +1,4 @@
-import { toJSONSchema, safeParseAsync, type $ZodIssue, type $ZodType, type output } from 'zod/v4/core';
-import { VacpActionError } from '@vacp/protocol';
+import { toJSONSchema, type $ZodType, type output } from 'zod/v4/core';
 import type {
   VacpActionDescriptor,
   VacpOperationKind,
@@ -8,7 +7,7 @@ import type {
   VacpFocus,
   VacpSourceId,
 } from '@vacp/protocol';
-import { VacpActionRegistry, type VacpActionHandler } from '@vacp/runtime';
+import { parseVacpParams, VacpActionRegistry, type VacpActionHandler } from '@vacp/runtime';
 
 export type VacpActions = {
   /** Register standard actions here with `registerVacp*Action` from `@vacp/runtime`. */
@@ -34,29 +33,6 @@ type VacpActionMetadata<Next> = {
   affects(ref: VacpRef): Next;
   produces(result: VacpOperationResultDescriptor): Next;
 };
-
-type ParameterIssue = {
-  path: (string | number)[];
-  code: $ZodIssue['code'];
-  message: string;
-  errors?: ParameterIssue[][];
-  issues?: ParameterIssue[];
-};
-
-function parameterIssue(issue: $ZodIssue): ParameterIssue {
-  const diagnostic = {
-    path: issue.path.map((segment) => (typeof segment === 'symbol' ? String(segment) : segment)),
-    code: issue.code,
-    message: issue.message,
-  };
-  if (issue.code === 'invalid_union') {
-    return { ...diagnostic, errors: issue.errors.map((branch) => branch.map(parameterIssue)) };
-  }
-  if (issue.code === 'invalid_key' || issue.code === 'invalid_element') {
-    return { ...diagnostic, issues: issue.issues.map(parameterIssue) };
-  }
-  return diagnostic;
-}
 
 /** Parsed parameters stay fixed once execution or presentation behavior is bound. */
 export interface VacpActionDefinition<Params = unknown> extends VacpActionMetadata<VacpActionDefinition<Params>> {
@@ -134,16 +110,7 @@ class ActionDefinition<Params = unknown> {
     }
     const descriptor = { ...structuredClone(this.descriptor), parameters };
 
-    return new ActionDefinition(this.registry, descriptor, async (value) => {
-      const parsed = await safeParseAsync(schema, value);
-      if (!parsed.success) {
-        throw new VacpActionError(`Invalid parameters for action "${descriptor.name}"`, {
-          code: 'invalid-params',
-          issues: parsed.error.issues.map(parameterIssue),
-        });
-      }
-      return parsed.data;
-    });
+    return new ActionDefinition(this.registry, descriptor, parseVacpParams(descriptor.name, schema));
   }
 
   focus<Detail>(resolve: (params: Params) => VacpFocus<Detail> | undefined): this {

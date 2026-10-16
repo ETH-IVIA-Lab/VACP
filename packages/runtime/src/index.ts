@@ -15,6 +15,8 @@ export * from './data-sql';
 
 export * from './widget-options';
 
+export { parseVacpParams, type VacpParameterIssue } from './params';
+
 export type { VacpLiveSnapshots, VacpRuntime } from './runtime/types';
 
 export * from './runtime/create-runtime';

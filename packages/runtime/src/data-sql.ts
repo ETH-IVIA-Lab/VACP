@@ -5,6 +5,7 @@ import type { VacpActionDescriptor, VacpDataSqlParams, VacpRef } from '@vacp/pro
 import { VACP_DATA_SQL_ACTION, VACP_TOOL_RESULT_LIMITS } from '@vacp/protocol';
 
 import type { VacpActionRegistrar } from './action-registry';
+import { parseVacpParams } from './params';
 
 export type VacpDataSqlHandler = (params: VacpDataSqlParams, options: VacpActionExecutionOptions) => unknown;
 
@@ -63,5 +64,5 @@ export function registerVacpDataSqlAction(
     },
   };
 
-  return registry.register(descriptor, handler, { parse: (value) => paramsSchema.parse(value) });
+  return registry.register(descriptor, handler, { parse: parseVacpParams(VACP_DATA_SQL_ACTION, paramsSchema) });
 }

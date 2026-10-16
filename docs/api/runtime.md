@@ -112,7 +112,15 @@ registerVacpDataSchemaAction(registry, handler, options?: { availability?; input
 registerVacpWidgetOptionsAction(registry, handler, options?: { availability?; inputRefs?; description? })
 ```
 
-Each registers its [standard contract](./protocol#standard-contracts) with parameter validation and returns the descriptor. `prepare` for `vacp.apply_state` receives the desired state and returns the function that applies it. Throw from `prepare` to reject a state before anything changes. `@vacp/data-duckdb` provides the SQL and schema handlers.
+Each registers its [standard contract](./protocol#standard-contracts) with parameter validation and returns the descriptor. Invalid parameters fail with the same `invalid-params` details as `@vacp/sdk` operations. `prepare` for `vacp.apply_state` receives the desired state and returns the function that applies it. Throw from `prepare` to reject a state before anything changes. `@vacp/data-duckdb` provides the SQL and schema handlers.
+
+### parseVacpParams
+
+```ts
+parseVacpParams<Schema extends ZodType>(action: string, schema: Schema): (value: unknown) => Promise<output<Schema>>
+```
+
+Returns a parser for a `VacpActionRegistry` registration's `parse` option. It resolves to the schema's output, or rejects with a `VacpActionError` whose `details` are `{ code: 'invalid-params', issues }`. Each `VacpParameterIssue` is `{ path, code, message }`, with `errors` per branch for a union failure and nested `issues` for a key or element failure. Submitted values never appear in the issues.
 
 ## createVacpRestorer
 

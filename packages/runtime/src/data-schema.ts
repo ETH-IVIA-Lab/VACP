@@ -5,6 +5,7 @@ import type { VacpActionDescriptor, VacpDataSchemaParams, VacpDataSchemaResult, 
 import { VACP_DATA_SCHEMA_ACTION } from '@vacp/protocol';
 
 import type { VacpActionRegistrar } from './action-registry';
+import { parseVacpParams } from './params';
 
 export type VacpDataSchemaHandler = (
   params: VacpDataSchemaParams,
@@ -52,5 +53,5 @@ export function registerVacpDataSchemaAction(
     },
   };
 
-  return registry.register(descriptor, handler, { parse: (value) => paramsSchema.parse(value) });
+  return registry.register(descriptor, handler, { parse: parseVacpParams(VACP_DATA_SCHEMA_ACTION, paramsSchema) });
 }

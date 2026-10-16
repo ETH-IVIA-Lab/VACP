@@ -17,8 +17,18 @@ test('SQL registration exposes a handler with validated parameters', async () =>
   const invalid = await executeVacpAction(registry, {
     callId: 'invalid',
     name: 'vacp.data_sql',
-    params: { handleRef: 'invalid', sql: 'SELECT 1' },
+    params: { handleRef: 'vacp://app/data/main', sql: 'SELECT 1', maxRows: 501 },
   });
 
-  assert.equal(invalid.ok, false);
+  assert.deepEqual(invalid, {
+    callId: 'invalid',
+    ok: false,
+    error: {
+      message: 'Invalid parameters for action "vacp.data_sql"',
+      details: {
+        code: 'invalid-params',
+        issues: [{ path: ['maxRows'], code: 'too_big', message: 'Too big: expected number to be <=500' }],
+      },
+    },
+  });
 });

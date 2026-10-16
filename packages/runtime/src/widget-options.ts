@@ -5,6 +5,7 @@ import type { VacpActionDescriptor, VacpRef, VacpWidgetOptionsParams, VacpWidget
 import { VACP_WIDGET_OPTIONS_ACTION } from '@vacp/protocol';
 
 import type { VacpActionRegistrar } from './action-registry';
+import { parseVacpParams } from './params';
 
 export type VacpWidgetOptionsHandler = (
   params: VacpWidgetOptionsParams,
@@ -53,5 +54,5 @@ export function registerVacpWidgetOptionsAction(
     },
   };
 
-  return registry.register(descriptor, handler, { parse: (value) => paramsSchema.parse(value) });
+  return registry.register(descriptor, handler, { parse: parseVacpParams(VACP_WIDGET_OPTIONS_ACTION, paramsSchema) });
 }
