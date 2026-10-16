@@ -9,7 +9,7 @@ from collections.abc import Awaitable, Callable, Mapping, Sequence
 from contextlib import ExitStack
 from copy import deepcopy
 from dataclasses import asdict, dataclass
-from typing import Literal, Protocol, cast
+from typing import Literal, Protocol, TypeVar, cast
 from uuid import uuid4
 
 from vacp.availability import Availability, AvailabilityError, ResolvedObservation, require_action, resolve_observation
@@ -18,6 +18,7 @@ VACP_SCHEMA_VERSION = '0.1.0'
 MAX_COHERENCE_RETRIES = 8
 logger = logging.getLogger(__name__)
 _OMITTED = object()
+Value = TypeVar('Value')
 
 
 @dataclass(frozen=True)
@@ -191,7 +192,7 @@ def _revision(parts: object) -> str:
     return f'obs_{hashlib.sha256(_stable_json(parts).encode()).hexdigest()[:16]}'
 
 
-async def _resolve[Value](value: Value | Awaitable[Value]) -> Value:
+async def _resolve(value: Value | Awaitable[Value]) -> Value:
     if inspect.isawaitable(value):
         return cast(Value, await value)
     return value

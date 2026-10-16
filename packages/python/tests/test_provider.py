@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import asyncio
 from collections.abc import Awaitable, Callable, Mapping
-from datetime import UTC, datetime
-from typing import cast
+from datetime import datetime, timezone
+from typing import TypeAlias, cast
 
 import pytest
 from vacp import (
@@ -25,7 +25,7 @@ from vacp import (
     as_dict,
 )
 
-type Prepare = Callable[[ActionCall, ActionContext], PreparedAction]
+Prepare: TypeAlias = Callable[[ActionCall, ActionContext], PreparedAction]
 
 
 def preparing(run: Callable[[ActionCall], ActionResult | Awaitable[ActionResult]]) -> Prepare:
@@ -44,7 +44,7 @@ def source(source_id: str, ref: str, operation: str, *, edge: Edge | None = None
     def project() -> ProviderObservation:
         return ProviderObservation(
             revision='1',
-            observed_at=datetime.now(UTC).isoformat(),
+            observed_at=datetime.now(timezone.utc).isoformat(),
             graph=GraphFragment(
                 nodes=(Node(ref, 'TestOutput', 'AnalysisLayer'),),
                 edges=(edge,) if edge else (),

@@ -5,8 +5,9 @@ SHELL := /bin/bash
 
 PNPM ?= pnpm
 UV ?= uv
+PYTHON ?= 3.12
 VP := $(PNPM) exec vp
-UV_RUN := $(UV) run --all-packages --all-groups --locked
+UV_RUN := $(UV) run --all-packages --all-groups --locked --python $(PYTHON)
 WORKSPACE_FILTERS := --filter './packages/*' --filter './apps/*' --filter './examples/*'
 # Oxfmt and Oxlint read the repository .gitignore only, so name the source roots they check.
 SOURCE_PATHS := .github apps development_docs docs examples packages tools $(wildcard *.ts *.json *.jsonc *.yaml *.md)
@@ -14,7 +15,7 @@ SOURCE_PATHS := .github apps development_docs docs examples packages tools $(wil
 PLAYWRIGHT_ARGS ?=
 
 .PHONY: bench help setup setup-web setup-python dev dev-all dev-status format format-check lint typecheck
-.PHONY: python-format python-lint python-typecheck python-test python-check
+.PHONY: python-format python-lint python-typecheck python-test python-check python-test-package
 .PHONY: build build-libs build-apps docs docs-serve test test-tools test-package-imports knip check package browser-install browser-test e2e ci
 
 help: ## Show development commands.
@@ -26,7 +27,7 @@ setup-web:
 	$(PNPM) install --frozen-lockfile
 
 setup-python:
-	$(UV) sync --all-packages --all-groups --locked
+	$(UV) sync --all-packages --all-groups --locked --python $(PYTHON)
 
 dev: ## Serve the gallery at examples.vacp.localhost.
 	$(VP) run @vacp/examples#dev
@@ -99,8 +100,20 @@ docs: ## Build the documentation site.
 docs-serve: ## Serve the user documentation.
 	$(VP) run @vacp/docs#dev
 
-package: ## Build Python wheels and source distributions.
-	$(UV) build --all-packages --out-dir dist/python
+package: ## Build Python distributions and validate their PyPI metadata.
+	$(UV) build --package vacp --no-sources --python $(PYTHON) --out-dir dist/python
+	set -eu; version=$$($(UV) version --package vacp --short); \
+		$(UV_RUN) twine check --strict dist/python/vacp-$$version-py3-none-any.whl dist/python/vacp-$$version.tar.gz
+
+python-test-package: package ## Test installed Python distributions. Override PYTHON for compatibility checks.
+	set -eu; version=$$($(UV) version --package vacp --short); \
+		for distribution in dist/python/vacp-$$version-py3-none-any.whl dist/python/vacp-$$version.tar.gz; do \
+			$(UV) run --isolated --no-project --python $(PYTHON) --with "$$distribution" \
+				python -I tools/check-python-package.py; \
+			$(UV) run --isolated --no-project --python $(PYTHON) --with "$$distribution[server,http]" \
+				--with 'pytest>=9' --with 'pytest-asyncio>=0.24.0' \
+				python -I -m pytest; \
+		done
 
 browser-install: ## Install Chromium and its required system libraries.
 	$(PNPM) --filter @vacp/e2e exec playwright install --with-deps chromium

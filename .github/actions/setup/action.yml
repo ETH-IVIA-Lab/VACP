@@ -21,7 +21,7 @@ runs:
       shell: bash
       run: make setup-web
 
-    # uv reads its minimum release from pyproject.toml and Python from .python-version.
+    # uv reads its minimum release from pyproject.toml. Makefile selects the development Python.
     - name: Set up uv
       if: inputs.python == 'true'
       uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0

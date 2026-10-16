@@ -8,14 +8,6 @@ from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from importlib.metadata import version
 
-from fastmcp import FastMCP
-from starlette.requests import Request
-from starlette.responses import JSONResponse
-
-from vacp.bridge import PlaywrightVacpBridgeClient
-from vacp.browser import BrowserConfig, BrowserManager
-from vacp.server import create_mcp, wait_for_vacp_bridge
-
 
 def log(msg: str) -> None:
     print(msg, file=sys.stderr)
@@ -161,6 +153,14 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
 
 def main() -> None:
     args = parse_args()
+    from fastmcp import FastMCP
+    from starlette.requests import Request
+    from starlette.responses import JSONResponse
+
+    from vacp.bridge import PlaywrightVacpBridgeClient
+    from vacp.browser import BrowserConfig, BrowserManager
+    from vacp.server import create_mcp, wait_for_vacp_bridge
+
     ports = tuple(int(p) for p in str(args.auto_attach_cdp_ports).split(',') if p.strip().isdigit())
     browser = BrowserManager(
         BrowserConfig(
@@ -180,7 +180,7 @@ def main() -> None:
     client = PlaywrightVacpBridgeClient(lambda: browser.page, global_key=args.global_key)
 
     @asynccontextmanager
-    async def lifespan(_server: FastMCP[None]) -> AsyncGenerator[None]:
+    async def lifespan(_server: FastMCP[None]) -> AsyncGenerator[None, None]:
         async with browser.session() as page:
             if args.startup_wait_for_bridge:
                 await wait_for_vacp_bridge(client, args.startup_ready_timeout_ms)

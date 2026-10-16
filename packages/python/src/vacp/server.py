@@ -7,7 +7,7 @@ import time
 from collections.abc import Callable
 from contextlib import AbstractAsyncContextManager
 from pathlib import Path
-from typing import Annotated, Any, Literal, Protocol
+from typing import Annotated, Any, Literal, Protocol, TypeAlias
 from uuid import uuid4
 
 from fastmcp import FastMCP
@@ -18,8 +18,8 @@ from vacp.bridge import VacpBridgeClient
 from vacp.narration import NARRATION_GUIDANCE, NARRATION_MAX_LENGTH, PROGRESS_FIELDS, parse_narration
 from vacp.provider import ActionCall
 
-type BrowserWaitUntil = Literal['commit', 'domcontentloaded', 'load', 'networkidle']
-type BrowserSelectorState = Literal['attached', 'detached', 'hidden', 'visible']
+BrowserWaitUntil: TypeAlias = Literal['commit', 'domcontentloaded', 'load', 'networkidle']
+BrowserSelectorState: TypeAlias = Literal['attached', 'detached', 'hidden', 'visible']
 
 
 class BrowserPage(Protocol):
@@ -72,10 +72,10 @@ async def wait_for_vacp_bridge(client: VacpBridgeClient, timeout_ms: int) -> Non
         await asyncio.sleep(0.1)
 
 
-type Ref = Annotated[str, StringConstraints(pattern=r'^vacp://')]
-type Name = Annotated[str, StringConstraints(min_length=1, pattern=r'.*\S.*')]
-type Sentence = Annotated[str, StringConstraints(min_length=1, max_length=NARRATION_MAX_LENGTH)]
-type Milliseconds = Annotated[int, Field(ge=0, le=120_000)]
+Ref: TypeAlias = Annotated[str, StringConstraints(pattern=r'^vacp://')]
+Name: TypeAlias = Annotated[str, StringConstraints(min_length=1, pattern=r'.*\S.*')]
+Sentence: TypeAlias = Annotated[str, StringConstraints(min_length=1, max_length=NARRATION_MAX_LENGTH)]
+Milliseconds: TypeAlias = Annotated[int, Field(ge=0, le=120_000)]
 
 
 def create_mcp(

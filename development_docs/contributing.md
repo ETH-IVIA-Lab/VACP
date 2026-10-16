@@ -86,9 +86,29 @@ make python-format      # format Python source
 make python-lint        # lint and format check
 make python-typecheck   # ty, basedpyright, and pyrefly
 make python-test        # the combined test suite
+make python-test-package PYTHON=3.10 # installed wheel and source distribution
 ```
 
-The checks cover Python source and tests under `packages`, `apps`, `examples`, and `tools`, with Python 3.12 and the root virtual environment.
+The checks cover Python source and tests under `packages`, `apps`, `examples`, and `tools`. Ruff and the type checkers target Python 3.10. Make targets use Python 3.12 and the root virtual environment by default. Pass `PYTHON=3.10`, `3.11`, `3.12`, `3.13`, or `3.14` to select another supported interpreter.
+
+`make package` builds a source distribution and a wheel from that source distribution, then validates their metadata and README rendering with [Twine](https://twine.readthedocs.io/), the Python package upload and validation tool. `make python-test-package` installs each distribution in isolated environments, verifies the base API and CLI, and runs the full test suite with the `server` and `http` extras. CI runs this check on all five supported Python versions.
+
+### Python publication
+
+The Python package metadata, version, and Apache-2.0 license live in `packages/python`. Build and check the release from the repository root:
+
+```bash
+make package
+make python-test-package
+```
+
+Upload the two versioned files from `dist/python` with [`uv publish`](https://docs.astral.sh/uv/guides/publish/#publishing-your-package), which sends Python distributions to the Python Package Index (PyPI):
+
+```bash
+uv publish dist/python/vacp-0.1.1-py3-none-any.whl dist/python/vacp-0.1.1.tar.gz
+```
+
+Use the version declared in `packages/python/pyproject.toml`. Publishing requires a PyPI account with permission to release `vacp` and credentials configured for uv.
 
 ## Dependency updates
 
@@ -111,14 +131,15 @@ Commit `pnpm-lock.yaml` and `uv.lock` with the manifest changes.
 
 `.github/workflows/ci.yml` runs on every pull request and every push to `main`. Each job calls Makefile targets:
 
-| Job            | Runs                                                                                      |
-| -------------- | ----------------------------------------------------------------------------------------- |
-| Lint and types | `make lint python-typecheck knip test-tools`                                              |
-| Unit tests     | `make test`                                                                               |
-| Build          | `make build package`, then uploads the library, gallery, and docs builds                  |
-| Browser suite  | `make browser-test PLAYWRIGHT_ARGS=--shard=N/4` in four shards against those builds       |
-| Browser report | Merges the shards' blob reports into one HTML `playwright-report` artifact                |
-| CI gate        | Fails unless every job above succeeded, so branch protection can require this check alone |
+| Job                  | Runs                                                                                      |
+| -------------------- | ----------------------------------------------------------------------------------------- |
+| Lint and types       | `make lint python-typecheck knip test-tools`                                              |
+| Unit tests           | `make test`                                                                               |
+| Python distributions | `make python-test-package` on Python 3.10 through 3.14                                    |
+| Build                | `make build package`, then uploads the library, gallery, and docs builds                  |
+| Browser suite        | `make browser-test PLAYWRIGHT_ARGS=--shard=N/4` in four shards against those builds       |
+| Browser report       | Merges the shards' blob reports into one HTML `playwright-report` artifact                |
+| CI gate              | Fails unless every job above succeeded, so branch protection can require this check alone |
 
 `.github/actions/setup` installs pnpm and Node.js from `devEngines` through [`pnpm/setup`](https://github.com/pnpm/setup), and, for jobs that need Python, uv from `required-version` through [`setup-uv`](https://github.com/astral-sh/setup-uv). A failed shard uploads its traces and screenshots as `test-results-N`. To reproduce one shard locally, run `make build browser-test PLAYWRIGHT_ARGS=--shard=2/4`.
 
