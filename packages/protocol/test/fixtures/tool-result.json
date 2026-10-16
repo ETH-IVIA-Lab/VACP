@@ -1,0 +1,99 @@
+{
+  "limits": {
+    "depth": 32,
+    "items": 500,
+    "keys": 160,
+    "characters": 12000
+  },
+  "caseLimits": {
+    "depth": 2,
+    "items": 3,
+    "keys": 3,
+    "characters": 30
+  },
+  "cases": [
+    {
+      "name": "values within every limit pass unchanged",
+      "input": {
+        "a": [2.5, true, null],
+        "b": "short"
+      },
+      "expected": {
+        "a": [2.5, true, null],
+        "b": "short"
+      }
+    },
+    {
+      "name": "a long string keeps its first characters, and the marker counts the rest within the limit",
+      "input": "abcdefghijabcdefghijabcdefghijabcdefghij",
+      "expected": "abcdef... [34 more characters]"
+    },
+    {
+      "name": "characters are code points",
+      "input": "😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀",
+      "expected": "😀😀😀😀😀😀... [34 more characters]"
+    },
+    {
+      "name": "a string within the limit in code points passes unchanged, however many UTF-16 units it takes",
+      "input": "😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀",
+      "expected": "😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀"
+    },
+    {
+      "name": "a long array keeps its first items, and a marker item counts the rest",
+      "input": [1, 2, 3, 4, 5],
+      "expected": [1, 2, "[3 more items]"]
+    },
+    {
+      "name": "an object keeps its first keys, and a marker key counts the rest",
+      "input": {
+        "a": 1,
+        "b": 2,
+        "c": 3,
+        "d": 4
+      },
+      "expected": {
+        "a": 1,
+        "b": 2,
+        "__truncated": "2 more keys"
+      }
+    },
+    {
+      "name": "containers below the depth limit are summarized",
+      "input": {
+        "a": {
+          "b": {
+            "c": [1, 2],
+            "d": {
+              "e": 1
+            }
+          },
+          "f": "kept"
+        }
+      },
+      "expected": {
+        "a": {
+          "b": {
+            "c": "[Array(2)]",
+            "d": "[Object]"
+          },
+          "f": "kept"
+        }
+      }
+    },
+    {
+      "name": "limits apply at every level",
+      "input": [
+        ["abcdefghijabcdefghijabcdefghijabcdefghij"],
+        {
+          "k": [1, 2, 3, 4]
+        }
+      ],
+      "expected": [
+        ["abcdef... [34 more characters]"],
+        {
+          "k": [1, 2, "[2 more items]"]
+        }
+      ]
+    }
+  ]
+}

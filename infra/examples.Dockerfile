@@ -1,31 +1,17 @@
 # syntax=docker/dockerfile:1.7
-
-FROM node:24-slim AS build
-
-ENV PNPM_HOME=/pnpm
-ENV PATH=$PNPM_HOME:$PATH
-
+FROM ghcr.io/pnpm/pnpm:12 AS build
 WORKDIR /app
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml tsconfig.json tsconfig.base.json vite.config.ts vite.shared.ts ./
+COPY patches patches
+COPY apps apps
+COPY examples examples
+COPY packages packages
+COPY tools tools
+RUN --mount=type=cache,id=pnpm-store,target=/var/cache/pnpm \
+    pnpm install --frozen-lockfile --store-dir /var/cache/pnpm
+RUN pnpm --filter '@vacp/examples...' build
 
-RUN corepack enable
-
-COPY package.json pnpm-lock.yaml pnpm-workspace.yaml tsconfig.json tsconfig.base.json ./
-COPY packages/examples packages/examples
-COPY packages/lib packages/lib
-
-RUN --mount=type=cache,id=pnpm-store,target=/pnpm/store \
-    pnpm install --filter 'vacp-example-index...' --frozen-lockfile
-
-RUN pnpm --filter 'vacp-example-index...' build
-
-FROM oven/bun:1-alpine AS runtime
-
-WORKDIR /srv
-
-RUN bunx -y serve --version >/dev/null
-
-COPY --from=build /app/packages/examples/index/dist/ /srv/
-
+FROM nginx:stable-alpine AS runtime
+COPY --from=build /app/examples/gallery/dist/ /usr/share/nginx/html/
+COPY infra/nginx.conf /etc/nginx/conf.d/default.conf
 EXPOSE 3000
-
-CMD ["bunx", "-y", "serve", "-l", "tcp://0.0.0.0:3000", "/srv"]

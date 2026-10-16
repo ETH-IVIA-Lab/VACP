@@ -1,0 +1,127 @@
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: #fff;
+}
+
+.example-shell {
+  max-width: 1360px;
+  margin: 0 auto;
+  padding: clamp(24px, 3vw, 48px) clamp(20px, 3vw, 40px) 48px;
+  font-family: 'Geist', 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, 'Helvetica Neue', Arial, sans-serif;
+}
+
+.example-shell__panel {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 0;
+}
+
+.example-shell__header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 24px;
+  padding-right: 96px;
+}
+
+.example-shell__title {
+  margin: 0;
+  font-size: clamp(22px, 2vw, 28px);
+  line-height: 1.15;
+  font-weight: 550;
+  letter-spacing: -0.03em;
+  color: #171717;
+}
+
+.example-shell__title:empty::before {
+  content: '\200b';
+}
+
+.example-shell__picker {
+  display: grid;
+  gap: 4px;
+  flex: none;
+  min-width: 240px;
+  color: #666;
+  font-size: 12px;
+}
+
+.example-shell__select {
+  display: block;
+  width: 100%;
+  border-radius: 6px;
+  border: 1px solid #ddd;
+  padding: 7px 10px;
+  font-size: 13px;
+  color: #171717;
+  background: #fff;
+}
+
+.example-shell__meta {
+  min-height: 0;
+  margin: 0;
+  max-width: 96ch;
+  color: #666;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.example-shell__meta:empty {
+  display: none;
+}
+
+.example-shell__meta > :first-child {
+  margin-top: 0;
+}
+
+.example-shell__meta > :last-child {
+  margin-bottom: 0;
+}
+
+.example-shell__meta p {
+  margin: 0 0 6px;
+}
+
+.example-shell__meta a {
+  color: #0f4c81;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.example-shell__meta code {
+  background: #edf2f7;
+  border-radius: 6px;
+  padding: 0 4px;
+  font-size: 12px;
+}
+
+.example-shell__stage {
+  min-height: 340px;
+  margin-top: 0;
+  padding-top: 12px;
+}
+
+@media (max-width: 840px) {
+  .example-shell__header {
+    flex-direction: column;
+    align-items: stretch;
+    padding-right: 0;
+  }
+
+  .example-shell__picker {
+    min-width: 0;
+  }
+
+  .example-shell__stage {
+    min-height: 300px;
+    padding-top: 8px;
+    overflow-x: auto;
+  }
+}

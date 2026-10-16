@@ -1,38 +1,17 @@
 # Examples
 
-Runnable example apps live under `packages/examples/*`. They serve two purposes.
+The [examples gallery](https://examples.vacp.dev/) hosts five analytical applications. Each composes its sources into one runtime, publishes `window.__vacp`, registers WebMCP tools when the browser supports them, and shows agent presence with replay.
 
-They are reference integrations for providers and host shells. They are also smoke test targets for evaluation.
+| Example                                                                | Sources                                         | Try                                                                   |
+| ---------------------------------------------------------------------- | ----------------------------------------------- | --------------------------------------------------------------------- |
+| [Olympic athletes](https://examples.vacp.dev/athletes/)                | Vega-Lite, Mosaic vgplot, and a cohort model    | Brush age, then ask an agent which sports have the tallest athletes   |
+| [vgplot gallery](https://examples.vacp.dev/vgplot/)                    | Mosaic vgplot, 50 specifications                | Pick `nyc-taxi-rides` and brush the pickup hours                      |
+| [Vega-Lite gallery](https://examples.vacp.dev/vega-lite/)              | Vega-Lite, 3 specifications                     | Pick Seattle weather and brush a date range                           |
+| [React dashboard](https://examples.vacp.dev/react-dashboard/)          | Recharts and TanStack Table through `@vacp/sdk` | Pick a dataset and an encoding, then brush the scatter plot           |
+| [Cars parallel coordinates](https://examples.vacp.dev/cars-parcoords/) | D3 through `@vacp/sdk`                          | Reorder the axes, then brush ranges across seven measures of 392 cars |
 
-Current example packages:
+The Olympic athletes example composes three sources in one runtime, as [Compose sources](../composition/) shows.
 
-- `packages/examples/index` is the static gallery host.
-- `packages/examples/vgplot-gallery` is the [VGPlot](https://idl.uw.edu/mosaic/vgplot/) integration.
-- `packages/examples/vega-lite-gallery` is the [Vega-Lite](https://vega.github.io/vega-lite/) integration.
-- `packages/examples/cars-parallel-coords` is a custom direct integration.
-- `packages/examples/react-dashboard` is a React dashboard integration.
+Three vgplot specifications, `gaia`, `nyc-taxi-rides`, and `observable-latency`, stream their datasets from a remote bucket and need network access.
 
-## Gallery
-
-Run all examples from one base URL:
-
-```bash
-pnpm dev
-```
-
-## Develop an example on its own
-
-Each example can be started directly:
-
-```bash
-pnpm -C packages/examples/vgplot-gallery dev
-pnpm -C packages/examples/vega-lite-gallery dev
-pnpm -C packages/examples/cars-parallel-coords dev
-pnpm -C packages/examples/react-dashboard dev
-```
-
-## Add a new example
-
-The gallery is declarative. Add an entry to `packages/examples/index/examples.manifest.json`.
-
-Then export `mount(target)` from the example and point the manifest entry at it.
+To read an example from the console, run the gallery locally, or connect an agent, follow [Get started](../get-started/).

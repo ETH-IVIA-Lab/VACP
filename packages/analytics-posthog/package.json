@@ -1,0 +1,23 @@
+{
+  "name": "@vacp/analytics-posthog",
+  "version": "0.1.0",
+  "private": true,
+  "files": [
+    "dist"
+  ],
+  "type": "module",
+  "exports": {
+    ".": {
+      "vacp-source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "vp pack"
+  },
+  "dependencies": {
+    "@vacp/analytics": "workspace:*",
+    "posthog-js": "^1.438.10"
+  }
+}

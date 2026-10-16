@@ -1,0 +1,608 @@
+import assert from 'node:assert/strict';
+import test from 'node:test';
+import { type VacpActionDescriptor, type VacpProvider, type VacpProviderObservation } from '@vacp/protocol';
+import { createVacpProvider, createVacpRuntime, VacpActionRegistry } from '../src/index';
+
+const source = { id: 'vacp-source://runtime-test' as const, type: 'test', title: 'Runtime test' };
+
+function provider(title: string, actions = new VacpActionRegistry()): VacpProvider {
+  return createVacpProvider({
+    subscribe: () => () => {},
+    source,
+    actions,
+    project: () => ({
+      graph: {
+        nodes: [{ ref: 'vacp://view', title, kind: 'View', layer: 'ViewLayer' }],
+        edges: [],
+        actions: actions.list(),
+      },
+      state: {},
+    }),
+  });
+}
+
+function descriptor(name: string): VacpActionDescriptor {
+  return { name, description: `${name} value`, operation: { kind: 'mutation', affects: ['vacp://view'] } };
+}
+
+test('capability observers follow live replacements, and disposal cancels reads', async () => {
+  const runtime = createVacpRuntime({ providers: [provider('live')] });
+  const titles: string[] = [];
+  runtime.subscribeCapabilities((value) => titles.push(value.graph.nodes[0]?.title ?? ''));
+  try {
+    await runtime.getCapabilities();
+    assert.deepEqual(titles, ['live']);
+    runtime.update({ providers: [provider('replacement')] });
+    await runtime.getCapabilities();
+    assert.deepEqual(titles, ['live', 'replacement']);
+  } finally {
+    runtime.dispose();
+  }
+  assert.equal(runtime.signal.aborted, true);
+  await assert.rejects(async () => runtime.getCapabilities(), /abort/i);
+});
+
+test('a late observation from a replaced provider cannot overwrite current capabilities', async () => {
+  let complete!: (value: VacpProviderObservation) => void;
+  const old: VacpProvider = {
+    subscribe: () => () => {},
+    source,
+    observe: () => new Promise((resolve) => (complete = resolve)),
+    prepare: async (call) => ({ intent: { affects: [] }, execute: async () => ({ callId: call.callId, ok: true }) }),
+  };
+  const runtime = createVacpRuntime({ providers: [old] });
+  try {
+    const pending = runtime.getCapabilities();
+    await Promise.resolve();
+    runtime.update({ providers: [provider('new')] });
+    complete(await provider('old').observe());
+    assert.equal((await pending).graph.nodes[0]?.title, 'new');
+  } finally {
+    runtime.dispose();
+  }
+});
+
+test('execution honours cancellation before calling a handler', async () => {
+  let executions = 0;
+  const actions = new VacpActionRegistry();
+  actions.register(descriptor('set'), () => {
+    executions++;
+  });
+  const runtime = createVacpRuntime({ providers: [provider('live', actions)] });
+  try {
+    await runtime.execute({ callId: 'first', name: 'set' });
+    assert.equal(executions, 1);
+    const controller = new AbortController();
+    controller.abort();
+    await assert.rejects(
+      runtime.execute({ callId: 'cancelled', name: 'set' }, { signal: controller.signal }),
+      /abort/i,
+    );
+    assert.equal(executions, 1);
+  } finally {
+    runtime.dispose();
+  }
+});
+
+test('a queued action cannot execute against a replacement provider', async () => {
+  let complete!: (value: VacpProviderObservation) => void;
+  let called = 0;
+  const actions = new VacpActionRegistry();
+  actions.register(descriptor('set'), () => called++);
+  const old: VacpProvider = {
+    subscribe: () => () => {},
+    source,
+    observe: () => new Promise((resolve) => (complete = resolve)),
+    prepare: (call, options) => actions.prepare(call, options),
+  };
+  const runtime = createVacpRuntime({ providers: [old] });
+  try {
+    const execution = runtime.execute({ callId: 'old', name: 'set' });
+    const rejected = assert.rejects(execution, /abort/i);
+    await Promise.resolve();
+    runtime.update({ providers: [provider('new', actions)] });
+    complete(await provider('old', actions).observe());
+    await rejected;
+    assert.equal(called, 0);
+  } finally {
+    runtime.dispose();
+  }
+});
+
+test('a late post-action observation cannot attach an old call to a new session history', async () => {
+  let finishRead!: () => void;
+  let afterStarted!: () => void;
+  const after = new Promise<void>((resolve) => (afterStarted = resolve));
+  const actions = new VacpActionRegistry();
+  actions.register(descriptor('set'), () => 'old result');
+  let reads = 0;
+  const base = provider('old', actions);
+  const old: VacpProvider = {
+    subscribe: () => () => {},
+    source,
+    prepare: (call, options) => actions.prepare(call, options),
+    observe: async () => {
+      if (++reads === 3) {
+        afterStarted();
+        await new Promise<void>((resolve) => (finishRead = resolve));
+      }
+      return base.observe();
+    },
+  };
+  const runtime = createVacpRuntime({ providers: [old], sessionKey: 'old' });
+  try {
+    const execution = runtime.execute({ callId: 'old-call', name: 'set' });
+    await after;
+    runtime.update({ providers: [provider('new', actions)], sessionKey: 'new' });
+    finishRead();
+    assert.deepEqual(await execution, { callId: 'old-call', ok: true, result: 'old result' });
+    assert.equal(
+      runtime.getProvenance().records.some((entry) => entry.kind === 'action' && entry.call.callId === 'old-call'),
+      false,
+    );
+  } finally {
+    runtime.dispose();
+  }
+});
+
+test('subscribed snapshots detect in-place graph and summary edits without timestamp churn', async () => {
+  const graph = {
+    nodes: [{ ref: 'vacp://view' as const, title: 'before subscription', kind: 'View', layer: 'ViewLayer' }],
+    edges: [],
+    actions: [],
+  };
+  const summary: Record<'vacp://view', string> = { 'vacp://view': 'first' };
+  const description = { ...source };
+  const sourceProvider = createVacpProvider({
+    subscribe: () => () => {},
+    source: description,
+    actions: new VacpActionRegistry(),
+    project: () => ({ graph, state: {}, summary }),
+  });
+  const runtime = createVacpRuntime({ providers: [sourceProvider] });
+  const titles: string[] = [];
+  const summaries: string[] = [];
+  const sourceTitles: string[] = [];
+  try {
+    await runtime.getCapabilities();
+    runtime.subscribeCapabilities((value) => {
+      titles.push(value.graph.nodes[0]!.title!);
+      sourceTitles.push(value.graph.sources[0]!.title);
+    });
+    runtime.subscribeSnapshots((value) => summaries.push(String(value.state.summary?.['vacp://view'])));
+    await runtime.getCapabilities();
+    await runtime.getCapabilities();
+    assert.deepEqual(titles, ['before subscription']);
+    assert.deepEqual(summaries, ['first']);
+    graph.nodes[0]!.title = 'edited in place';
+    summary['vacp://view'] = 'second';
+    await runtime.getCapabilities();
+    summary['vacp://view'] = 'summary only';
+    await runtime.getCapabilities();
+    assert.deepEqual(titles, ['before subscription', 'edited in place']);
+    assert.deepEqual(summaries, ['first', 'second', 'summary only']);
+    description.title = 'Renamed source';
+    await runtime.getCapabilities();
+    assert.equal(sourceTitles.at(-1), 'Renamed source');
+  } finally {
+    runtime.dispose();
+  }
+});
+
+test('freshness changes publish observations and history retains the observed revision', async () => {
+  let status: 'current' | 'stale' = 'current';
+  const runtime = createVacpRuntime({
+    providers: [
+      createVacpProvider({
+        subscribe: () => () => {},
+        source,
+        actions: new VacpActionRegistry(),
+        project: () => ({
+          graph: {
+            nodes: [{ ref: 'vacp://view', kind: 'Visualization', layer: 'VisualizationLayer' }],
+            edges: [],
+            actions: [],
+          },
+          state: {},
+          freshness: { 'vacp://view': { status } },
+        }),
+      }),
+    ],
+  });
+  const published: string[] = [];
+  const stop = runtime.subscribeSnapshots(({ observation }) =>
+    published.push(observation.freshness!['vacp://view'].status),
+  );
+  try {
+    await runtime.refresh();
+    const first = await runtime.observe();
+    status = 'stale';
+    await runtime.refresh();
+    assert.deepEqual(published, ['current', 'stale']);
+    const inspected = runtime.getProvenance();
+    const checkpoint = inspected.records[0]!;
+    assert.ok(checkpoint.kind === 'observation');
+    assert.equal(checkpoint.observation.revision, first.revision);
+    assert.equal(checkpoint.observation.freshness!['vacp://view'].status, 'current');
+    assert.equal((await runtime.inspect()).freshness!['vacp://view'].status, 'stale');
+  } finally {
+    stop();
+    runtime.dispose();
+  }
+});
+
+test('replacing an unrelated source preserves an in-flight action', async () => {
+  let started!: () => void;
+  let finish!: () => void;
+  const began = new Promise<void>((resolve) => {
+    started = resolve;
+  });
+  const pending = new Promise<void>((resolve) => {
+    finish = resolve;
+  });
+  const actions = new VacpActionRegistry();
+  actions.register(descriptor('wait'), async (_params, { signal }) => {
+    started();
+    await pending;
+    signal?.throwIfAborted();
+    return 'done';
+  });
+  const runtime = createVacpRuntime({ providers: [provider('running', actions)] });
+  try {
+    const call = runtime.execute({ callId: 'wait', name: 'wait' });
+    await began;
+    runtime.attachProviders([
+      createVacpProvider({
+        subscribe: () => () => {},
+        source: { id: 'vacp-source://unrelated', type: 'test', title: 'Unrelated' },
+        actions: new VacpActionRegistry(),
+        project: () => ({ graph: { nodes: [], edges: [], actions: [] }, state: {} }),
+      }),
+    ]);
+    finish();
+    assert.deepEqual(await call, { callId: 'wait', ok: true, result: 'done' });
+  } finally {
+    finish();
+    runtime.dispose();
+  }
+});
+
+test('recorded observations are isolated from providers, read results, and other subscribers', async () => {
+  const graph = {
+    nodes: [{ ref: 'vacp://view' as const, title: 'first', kind: 'View', layer: 'ViewLayer' }],
+    edges: [],
+    actions: [],
+  };
+  const state = { 'vacp://view': { value: 1 } };
+  const runtime = createVacpRuntime({
+    providers: [
+      createVacpProvider({
+        subscribe: () => () => {},
+        source,
+        actions: new VacpActionRegistry(),
+        project: () => ({ graph, state }),
+      }),
+    ],
+  });
+  const titles: string[] = [];
+  runtime.subscribeSnapshots(({ observation }) => {
+    observation.graph.nodes[0]!.title = 'subscriber mutation';
+  });
+  runtime.subscribeSnapshots(({ observation }) => titles.push(observation.graph.nodes[0]!.title!));
+  try {
+    await runtime.refresh();
+    const first = runtime.getProvenance();
+    assert.throws(() => {
+      first.records.filter((record) => record.kind === 'observation')[0]!.observation.graph.nodes[0]!.title =
+        'consumer mutation';
+    }, TypeError);
+    (await runtime.inspect()).state['vacp://view'] = { value: 99 };
+    graph.nodes[0]!.title = 'second';
+    state['vacp://view'].value = 2;
+    await runtime.refresh();
+    const next = runtime.getProvenance().records.filter((record) => record.kind === 'observation');
+    assert.deepEqual(titles, ['first', 'second']);
+    assert.equal(next[0]!.observation.graph.nodes[0]!.title, 'first');
+    assert.deepEqual(next[0]!.observation.state['vacp://view'], { value: 1 });
+    assert.deepEqual(next.at(-1)!.observation.state['vacp://view'], { value: 2 });
+  } finally {
+    runtime.dispose();
+  }
+});
+
+test('concurrent reads coalesce and explicit refresh supersedes an older pending observation', async () => {
+  const original = provider('original');
+  let release!: (value: VacpProviderObservation) => void;
+  let began!: () => void;
+  const started = new Promise<void>((resolve) => {
+    began = resolve;
+  });
+  let reads = 0;
+  const runtime = createVacpRuntime({
+    providers: [
+      {
+        ...original,
+        observe: () => {
+          reads++;
+          if (reads > 1) return provider('current').observe();
+          began();
+          return new Promise((resolve) => {
+            release = resolve;
+          });
+        },
+      },
+    ],
+  });
+  try {
+    const first = runtime.observe();
+    const second = runtime.getCapabilities();
+    await started;
+    assert.equal(reads, 1);
+    await runtime.refresh();
+    release(await original.observe());
+    assert.equal((await first).graph.nodes[0]!.title, 'current');
+    assert.equal((await second).graph.nodes[0]!.title, 'current');
+    assert.equal(
+      runtime.getProvenance().records.filter((record) => record.kind === 'observation')[0]!.observation.graph.nodes[0]!
+        .title,
+      'current',
+    );
+  } finally {
+    runtime.dispose();
+  }
+});
+
+test('a failed provider replacement preserves the live owner and its subscriptions', async () => {
+  let disposed = 0;
+  let subscriptions = 0;
+  const original: VacpProvider = {
+    ...provider('original'),
+    subscribe: () => {
+      subscriptions++;
+      return () => {
+        subscriptions--;
+      };
+    },
+    dispose: () => {
+      disposed++;
+    },
+  };
+  const replacement: VacpProvider = {
+    ...provider('replacement'),
+    subscribe: () => {
+      throw new Error('Cannot attach');
+    },
+  };
+  const runtime = createVacpRuntime({ providers: [original] });
+  try {
+    assert.throws(() => runtime.attachProviders([replacement]), /Cannot attach/);
+    assert.throws(() => runtime.update({ providers: [replacement] }), /Cannot attach/);
+    assert.equal((await runtime.observe()).graph.nodes[0]!.title, 'original');
+    assert.equal(subscriptions, 1);
+    assert.equal(disposed, 0);
+  } finally {
+    runtime.dispose();
+  }
+  assert.equal(subscriptions, 0);
+  assert.equal(disposed, 1);
+});
+
+test('unattributed invalidations and semantic actions keep distinct history attribution', async () => {
+  let value = 1;
+  let invalidate = () => {};
+  const actions = new VacpActionRegistry();
+  actions.register(descriptor('set'), () => {
+    value = 3;
+    invalidate();
+  });
+  const runtime = createVacpRuntime({
+    providers: [
+      createVacpProvider({
+        source,
+        actions,
+        project: () => ({
+          graph: {
+            nodes: [{ ref: 'vacp://view', kind: 'View', layer: 'ViewLayer' }],
+            edges: [],
+            actions: actions.list(),
+          },
+          state: { 'vacp://view': value },
+        }),
+        subscribe: (listener) => {
+          invalidate = listener;
+          return () => {};
+        },
+      }),
+    ],
+  });
+  try {
+    runtime.subscribeProvenance(() => {});
+    await runtime.refresh();
+    const changed = () =>
+      new Promise<void>((resolve) => {
+        const unsubscribe = runtime.subscribeProvenance(({ record: entry }) => {
+          if (!entry || entry.kind === 'action' || entry.actor.kind !== 'system') return;
+          unsubscribe();
+          resolve();
+        });
+      });
+    const firstHuman = changed();
+    value = 2;
+    invalidate();
+    await firstHuman;
+    assert.equal(
+      runtime
+        .getProvenance()
+        .records.filter((record) => record.kind === 'observation')
+        .at(-1)!.observation.state['vacp://view'],
+      2,
+    );
+    await runtime.execute({ callId: 'set', name: 'set' });
+    assert.deepEqual(
+      runtime
+        .getProvenance()
+        .records.map((entry) => [entry.kind, entry.kind === 'action' ? entry.execution.actor.kind : entry.actor.kind]),
+      [
+        ['observation', 'system'],
+        ['observation', 'system'],
+        ['action', 'agent'],
+      ],
+    );
+    const nextHuman = changed();
+    value = 4;
+    invalidate();
+    await nextHuman;
+    const history = runtime.getProvenance().records.filter((record) => record.kind === 'observation');
+    assert.equal(history.at(-1)!.actor.kind, 'system');
+    assert.equal(history.at(-1)!.observation!.state['vacp://view'], 4);
+  } finally {
+    runtime.dispose();
+  }
+});
+
+test('an unsettled provider reports a bounded coherence failure', { timeout: 2000 }, async () => {
+  let invalidate = () => {};
+  const unstable = provider('unstable');
+  const runtime = createVacpRuntime({
+    providers: [
+      {
+        ...unstable,
+        subscribe: (listener) => {
+          invalidate = listener;
+          return () => {};
+        },
+        observe: () => {
+          invalidate();
+          return unstable.observe();
+        },
+      },
+    ],
+  });
+  try {
+    await assert.rejects(async () => runtime.observe(), /did not settle/);
+  } finally {
+    runtime.dispose();
+  }
+});
+
+test('host revisions cover the complete projected action catalog', async () => {
+  let revision = 0;
+  const actions = new VacpActionRegistry();
+  actions.register(descriptor('first'), () => {});
+  const runtime = createVacpRuntime({
+    providers: [
+      createVacpProvider({
+        subscribe: () => () => {},
+        source,
+        actions,
+        project: () => ({
+          revision: String(revision),
+          graph: {
+            nodes: [{ ref: 'vacp://view', kind: 'View', layer: 'ViewLayer' }],
+            edges: [],
+            actions: actions.list(),
+          },
+          state: {},
+        }),
+      }),
+    ],
+  });
+  const catalogs: string[][] = [];
+  runtime.subscribeCapabilities((capabilities) =>
+    catalogs.push(capabilities.graph.actions.map((action) => action.name)),
+  );
+  try {
+    await runtime.getCapabilities();
+    actions.register(descriptor('second'), () => {});
+    revision++;
+    await runtime.getCapabilities();
+    actions.unregister('first');
+    revision++;
+    await runtime.getCapabilities();
+    assert.deepEqual(catalogs, [['first'], ['first', 'second'], ['second']]);
+  } finally {
+    runtime.dispose();
+  }
+});
+
+test('session reset retires old operations and causal scopes before publishing the new epoch', async (t) => {
+  let begin!: () => void;
+  let finish!: () => void;
+  const began = new Promise<void>((resolve) => {
+    begin = resolve;
+  });
+  const blocked = new Promise<void>((resolve) => {
+    finish = resolve;
+  });
+  const oldActions = new VacpActionRegistry();
+  oldActions.register(descriptor('old'), async () => {
+    begin();
+    await blocked;
+  });
+  let value = 0;
+  const nextActions = new VacpActionRegistry();
+  nextActions.register(descriptor('next'), () => {
+    value++;
+  });
+  let invalidate = () => {};
+  const replacement = createVacpProvider({
+    subscribe: (listener) => {
+      invalidate = listener;
+      return () => {};
+    },
+    source,
+    actions: nextActions,
+    project: () => ({
+      graph: {
+        nodes: [{ ref: 'vacp://view', kind: 'View', layer: 'ViewLayer' }],
+        edges: [],
+        actions: nextActions.list(),
+      },
+      state: { 'vacp://view': value },
+    }),
+  });
+  const runtime = createVacpRuntime({ providers: [provider('old', oldActions)], sessionKey: 'old' });
+  t.after(() => {
+    finish();
+    runtime.dispose();
+  });
+  const terminal: string[] = [];
+  runtime.subscribeExecutions((execution) => {
+    if (execution.phase === 'cancelled') terminal.push(execution.callId);
+  });
+  const old = runtime.execute({ callId: 'old', name: 'old' });
+  const rejected = assert.rejects(old, /abort/i);
+  await began;
+  let newAction: Promise<unknown> | undefined;
+  let observed = () => {};
+  runtime.subscribeProvenance((event) => {
+    if (!event.record) newAction = runtime.execute({ callId: 'new-on-reset', name: 'next' });
+    else if (event.record.kind === 'observation') observed();
+  });
+  runtime.update({ providers: [replacement], sessionKey: 'new' });
+  assert.equal(
+    runtime.getActiveExecutions().some((execution) => execution.callId === 'old'),
+    false,
+  );
+  await newAction;
+  assert.deepEqual(terminal, ['old']);
+  const recorded = new Promise<void>((resolve) => {
+    observed = resolve;
+  });
+  value = 10;
+  invalidate();
+  await recorded;
+  const observations = runtime.getProvenance().records.filter((record) => record.kind === 'observation');
+  const changed = observations.at(-1)!;
+  assert.equal(changed.observation.state['vacp://view'], 10);
+  assert.deepEqual(changed.cause, { kind: 'external' });
+  finish();
+  await rejected;
+  assert.deepEqual(terminal, ['old']);
+  assert.deepEqual(runtime.getActiveExecutions(), []);
+  const actions = runtime.getProvenance().records.filter((record) => record.kind === 'action');
+  assert.deepEqual(
+    actions.map((record) => record.call.callId),
+    ['new-on-reset'],
+  );
+});

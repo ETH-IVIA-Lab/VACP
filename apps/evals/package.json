@@ -1,0 +1,42 @@
+{
+  "name": "@vacp/evals",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "eval": "tsx src/cli.ts",
+    "test": "tsx --test --test-timeout=20000 test/*.test.ts"
+  },
+  "dependencies": {
+    "@ai-sdk/anthropic": "4.0.80",
+    "@ai-sdk/harness": "1.0.152",
+    "@ai-sdk/harness-claude-code": "1.0.156",
+    "@ai-sdk/harness-codex": "1.0.154",
+    "@ai-sdk/harness-opencode": "1.0.154",
+    "@ai-sdk/harness-pi": "1.0.154",
+    "@ai-sdk/openai": "4.0.94",
+    "@ai-sdk/openai-compatible": "catalog:",
+    "@ai-sdk/otel": "1.0.141",
+    "@duckdb/node-api": "catalog:",
+    "@opentelemetry/api": "1.9.1",
+    "@opentelemetry/core": "2.11.0",
+    "@opentelemetry/exporter-trace-otlp-http": "0.222.0",
+    "@opentelemetry/resources": "2.11.0",
+    "@opentelemetry/sdk-trace-node": "2.11.0",
+    "@vacp/agent-ai-sdk": "workspace:*",
+    "@vacp/protocol": "workspace:*",
+    "@vacp/transport-bridge": "workspace:*",
+    "@vacp/transport-webmcp": "workspace:*",
+    "ai": "catalog:",
+    "playwright": "catalog:",
+    "ws": "8.22.0",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:",
+    "@vacp/example-shared": "workspace:*",
+    "tsx": "catalog:",
+    "typescript": "catalog:",
+    "webmcp-types": "catalog:"
+  }
+}

@@ -4,27 +4,37 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "pnpm --filter vacp-example-index dev:full",
-    "build": "pnpm -r --if-present build",
-    "format": "git ls-files -z | xargs -0 oxfmt --config .oxfmtrc.json && pnpm -r --if-present format",
-    "lint": "pnpm -r --if-present lint",
-    "typecheck": "pnpm -r --if-present typecheck",
-    "test": "pnpm -r --if-present test"
+    "dev": "make dev"
   },
   "devDependencies": {
-    "@types/node": "^24.11.0",
-    "concurrently": "^9.2.1",
-    "oxfmt": "^0.24.0",
-    "oxlint": "^1.51.0",
-    "tsup": "^8.5.1",
-    "typescript": "^5.9.3"
+    "@babel/core": "catalog:",
+    "@babel/plugin-syntax-jsx": "catalog:",
+    "@babel/plugin-syntax-typescript": "catalog:",
+    "@oxlint/plugins": "1.88.0",
+    "@stylexjs/babel-plugin": "catalog:",
+    "@types/babel__core": "catalog:",
+    "@types/node": "catalog:",
+    "@vacp/runtime": "workspace:*",
+    "@vacp/runtime-browser": "workspace:*",
+    "@vacp/sdk": "workspace:*",
+    "knip": "^6.41.0",
+    "oxlint": "1.88.0",
+    "tsx": "catalog:",
+    "typescript": "catalog:",
+    "vite": "catalog:",
+    "vite-plus": "catalog:",
+    "zod": "catalog:"
   },
   "devEngines": {
+    "packageManager": {
+      "name": "pnpm",
+      "version": "12.11.2",
+      "onFail": "download"
+    },
     "runtime": {
       "name": "node",
-      "version": "24.16.0",
+      "version": "24.22.0",
       "onFail": "download"
     }
-  },
-  "packageManager": "pnpm@11.5.2+sha512.71c631e382066efc25625d5cf029075de07b61b37f6e27350fbd84b1bda5864c8c1967adc280776b45c30a715c0359a3be08fef42d5bb09e2b99029979692916"
+  }
 }

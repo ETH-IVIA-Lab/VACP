@@ -1,20 +1,89 @@
 packages:
+  - apps/*
   - docs
-  - packages/lib/*/*
-  - packages/examples/*
-  - packages/testing/*
-
+  - examples/*
+  - packages/*
+catalogMode: prefer
+catalog:
+  webmcp-types: 0.1.10
+  portless: ^0.15.8
+  zod: ^4.6.7
+  yaml: ^2.9.1
+  vite-plus: 1.2.0
+  vite: npm:@voidzero-dev/vite-plus-core@1.2.0
+  '@radix-ui/react-slot': ^1.5.0
+  '@tailwindcss/vite': ^4.3.3
+  '@tanstack/react-table': ^8.21.3
+  '@types/node': ^24.19.2
+  '@types/react': ^19.3.0
+  '@types/react-dom': ^19.3.0
+  '@vitejs/plugin-react': ^6.1.2
+  class-variance-authority: ^0.7.1
+  clsx: ^2.1.1
+  lucide-react: ^0.562.0
+  react: ^19.3.1
+  react-dom: ^19.3.1
+  tailwind-merge: ^3.7.0
+  tailwindcss: ^4.3.3
+  tsx: ^4.23.15
+  typescript: ^6.0.3
+  zustand: ^5.0.15
+  '@types/emscripten': ^1.41.6
+  '@babel/core': ^7.29.7
+  '@babel/plugin-syntax-jsx': ^7.29.7
+  '@babel/plugin-syntax-typescript': ^7.29.7
+  '@stylexjs/babel-plugin': 0.19.1
+  '@types/babel__core': ^7.20.5
+  '@stylexjs/stylex': 0.19.1
+  # The Vega-Lite adapter reads Vega views and scenegraphs, so it and the application share one Vega.
+  vega: ^6.4.0
+  vega-embed: ^7.3.0
+  vega-lite: ^6.5.0
+  # One Mosaic release for the workspace. The vgplot adapter recognizes interactors, legends, and inputs
+  # by class identity, so the application and the adapter must share each Mosaic package.
+  '@uwdata/mosaic-core': 0.33.0
+  '@uwdata/mosaic-inputs': 0.33.0
+  '@uwdata/mosaic-plot': 0.33.0
+  '@uwdata/mosaic-spec': 0.33.0
+  '@uwdata/mosaic-sql': 0.33.0
+  '@uwdata/vgplot': 0.33.0
+  # One DuckDB-Wasm for the workspace, Mosaic's included, so apps ship and load a single engine build.
+  # Mosaic 0.33 declares 1.33.1-dev57.0, whose remote extension downloads stalled in browser runs.
+  '@duckdb/duckdb-wasm': 1.32.0
+  # Arrow tables cross between DuckDB-Wasm and the data client, so both read one Arrow release.
+  apache-arrow: 17.0.0
+  # Tests and gold derivations run the same native DuckDB release.
+  '@duckdb/node-api': 1.5.6-r.1
+  # The evals launch the Chromium that `@playwright/test` installs, so both stay on one release.
+  playwright: 1.64.1
+  '@playwright/test': 1.64.1
+  # One AI SDK for the workspace, shared by the product agent and the evals.
+  ai: ^7.0.141
+  '@ai-sdk/openai-compatible': ^3.0.69
+  ajv: 8.20.0
+overrides:
+  '@duckdb/duckdb-wasm': 'catalog:'
+  yaml: 'catalog:'
+  vite: 'catalog:'
+  vitepress>vite: ^8.2.0
+  # OpenCode pins an older ws patch than the other harness adapters, which splits @ai-sdk/harness into two module instances.
+  '@ai-sdk/harness-opencode>ws': 8.22.0
+peerDependencyRules:
+  allowedVersions:
+    vite: '*'
+    # Pi's Mistral client accepts the evals' OTLP exporter, one minor ahead of its declared range.
+    '@mistralai/mistralai>@opentelemetry/exporter-trace-otlp-http': 0.222.0
 allowBuilds:
+  '@google/genai': false
   '@parcel/watcher': true
   core-js: true
   esbuild: true
   protobufjs: true
-
-minimumReleaseAgeExclude:
-  - '@opencode-ai/sdk@1.17.3'
-
-onlyBuiltDependencies:
-  - '@parcel/watcher'
-  - core-js
-  - esbuild
-  - protobufjs
+# Install package releases once they are at least 18 hours old.
+minimumReleaseAge: 1080
+verifyDepsBeforeRun: error
+# OpenCode's harness adapter reports input tokens net of cache hits as the total. The patch reports
+# total = uncached + cache reads + cache writes, as AI SDK usage defines it, so eval token rows and
+# GenAI spans compare across conditions.
+patchedDependencies:
+  '@ai-sdk/harness-opencode@1.0.154': patches/@ai-sdk__harness-opencode@1.0.154.patch

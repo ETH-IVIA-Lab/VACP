@@ -1,0 +1,46 @@
+{
+  "name": "@vacp/example-react-dashboard",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/mfe.tsx"
+  },
+  "scripts": {
+    "dev": "portless run vp dev",
+    "build": "vp build",
+    "preview": "vp preview --host 127.0.0.1 --strictPort",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@radix-ui/react-select": "^2.4.1",
+    "@radix-ui/react-slot": "catalog:",
+    "@tanstack/react-table": "catalog:",
+    "@vacp/data-duckdb": "workspace:*",
+    "@vacp/example-shared": "workspace:*",
+    "@vacp/presence-core": "workspace:*",
+    "@vacp/protocol": "workspace:*",
+    "@vacp/runtime": "workspace:*",
+    "@vacp/sdk": "workspace:*",
+    "class-variance-authority": "catalog:",
+    "clsx": "catalog:",
+    "lucide-react": "catalog:",
+    "react": "catalog:",
+    "react-dom": "catalog:",
+    "recharts": "^2.15.4",
+    "tailwind-merge": "catalog:",
+    "tailwindcss-animate": "^1.0.7",
+    "zod": "catalog:",
+    "zustand": "catalog:"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "catalog:",
+    "@types/react": "catalog:",
+    "@types/react-dom": "catalog:",
+    "@vitejs/plugin-react": "catalog:",
+    "portless": "catalog:",
+    "tailwindcss": "catalog:",
+    "vite-plus": "catalog:"
+  },
+  "portless": "react-dashboard.examples.vacp"
+}

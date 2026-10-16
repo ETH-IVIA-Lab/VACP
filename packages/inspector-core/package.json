@@ -1,0 +1,39 @@
+{
+  "name": "@vacp/inspector-core",
+  "version": "0.1.0",
+  "private": true,
+  "files": [
+    "dist"
+  ],
+  "type": "module",
+  "exports": {
+    ".": {
+      "vacp-source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./runtime": {
+      "vacp-source": "./src/runtime.ts",
+      "types": "./dist/runtime.d.ts",
+      "default": "./dist/runtime.js"
+    },
+    "./http": {
+      "vacp-source": "./src/http.ts",
+      "types": "./dist/http.d.ts",
+      "default": "./dist/http.js"
+    }
+  },
+  "scripts": {
+    "build": "vp pack",
+    "test": "pnpm exec tsx --test --test-timeout=10000 test/*.test.ts",
+    "bench": "tsx bench/inspection.ts"
+  },
+  "dependencies": {
+    "@vacp/protocol": "workspace:*",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@vacp/runtime": "workspace:*",
+    "tsx": "catalog:"
+  }
+}

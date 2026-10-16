@@ -1,0 +1,25 @@
+{
+  "name": "@vacp/runtime",
+  "version": "0.1.0",
+  "private": true,
+  "files": [
+    "dist"
+  ],
+  "type": "module",
+  "exports": {
+    ".": {
+      "vacp-source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "vp pack",
+    "test": "pnpm exec tsx --test --test-timeout=10000 test/*.test.ts",
+    "bench": "tsx bench/runtime.ts && node --expose-gc --import tsx bench/lifetime.ts && tsx bench/discovery.ts"
+  },
+  "dependencies": {
+    "@vacp/protocol": "workspace:*",
+    "zod": "catalog:"
+  }
+}

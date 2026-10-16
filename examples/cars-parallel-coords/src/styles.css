@@ -1,0 +1,169 @@
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: #fff;
+}
+
+.cars-shell {
+  max-width: 1360px;
+  margin: 0 auto;
+  padding: clamp(24px, 3vw, 48px) clamp(20px, 3vw, 40px) 48px;
+  font-family: 'Geist', 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, 'Helvetica Neue', Arial, sans-serif;
+}
+
+.cars-header {
+  margin: 0 0 18px;
+  max-width: 70ch;
+}
+
+.cars-header h1 {
+  margin: 0 0 6px;
+  font-size: clamp(22px, 2vw, 28px);
+  line-height: 1.15;
+  font-weight: 550;
+  letter-spacing: -0.03em;
+  color: #171717;
+}
+
+.cars-header p {
+  margin: 0;
+  color: #666;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.controls {
+  margin-bottom: 12px;
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.cars-shell button {
+  appearance: none;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  padding: 8px 12px;
+  background: rgba(255, 255, 255, 0.94);
+  color: #333;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  transition:
+    background-color 120ms ease,
+    border-color 120ms ease;
+}
+
+.cars-shell button:hover {
+  background: #fafafa;
+  border-color: #aaa;
+}
+
+.cars-shell button:active {
+  background: #f5f5f5;
+}
+
+#chart {
+  overflow-x: auto;
+  background: rgba(255, 255, 255, 0.62);
+  width: 100%;
+  padding: 10px 0 6px;
+}
+
+.axis {
+  cursor: move;
+}
+
+.axis line {
+  stroke: #1f2937;
+  stroke-width: 1px;
+}
+
+.axis path {
+  fill: none;
+  stroke: #1f2937;
+  stroke-width: 1.5px;
+}
+
+.axis text {
+  font-size: 11px;
+  fill: #171717;
+  font-weight: 500;
+}
+
+.brush .selection {
+  fill: #0f172a;
+  fill-opacity: 0.15;
+  stroke: #0f172a;
+  stroke-width: 1.5px;
+  stroke-dasharray: 4 3;
+}
+
+.brush .handle {
+  fill: #0f172a;
+  stroke: #ffffff;
+  stroke-width: 1.5px;
+  cursor: ns-resize;
+}
+
+.brush .overlay {
+  fill: none;
+  pointer-events: all;
+}
+
+.line {
+  fill: none;
+  stroke: #84b8d2;
+  stroke-width: 1px;
+  opacity: 0.58;
+  transition: opacity 0.2s ease;
+}
+
+.line.selected {
+  stroke: #171717;
+  stroke-width: 2px;
+  opacity: 0.95;
+}
+
+.dimension-label {
+  font-weight: 600;
+  cursor: move;
+  fill: #1f2937;
+  font-size: 13px;
+  transition: fill 0.15s ease;
+}
+
+.dimension-label:hover {
+  fill: #1d4ed8;
+}
+
+.axis-group {
+  transition: opacity 0.2s ease;
+}
+
+#tooltip {
+  display: none;
+  position: absolute;
+  background: rgba(15, 23, 42, 0.94);
+  color: white;
+  padding: 10px;
+  border-radius: 6px;
+  pointer-events: none;
+  font-size: 12px;
+  z-index: 1000;
+  line-height: 1.5;
+  max-width: 250px;
+}
+
+#tooltip strong {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 13px;
+  color: #fff;
+}

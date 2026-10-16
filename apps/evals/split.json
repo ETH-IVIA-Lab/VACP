@@ -1,0 +1,39 @@
+{
+  "seed": 20260929,
+  "train": [
+    "aeromagnetic/nearest-blur",
+    "aeromagnetic/undo-inputs",
+    "airports/clear-origin",
+    "airports/denver-top-destination",
+    "airports/point-at-busiest",
+    "athletes/age-narrowing",
+    "athletes/female-tall-young",
+    "athletes/filter-then-reset",
+    "athletes/kenya-medalists",
+    "athletes/male-top-medal-share",
+    "athletes/point-at-simone-biles",
+    "cars/axis-order",
+    "cars/best-japanese-mpg",
+    "cars/late-eight-cylinders",
+    "dashboard/iris-setosa",
+    "development/year-out-of-range",
+    "flights/long-haul-share",
+    "flights/remove-one-filter",
+    "weather/rainiest-month",
+    "weather/snow-days",
+    "weather/summer-2014"
+  ],
+  "test": [
+    "airports/seattle-routes",
+    "athletes/brazil-filter",
+    "athletes/compare-median-ages",
+    "athletes/heavy-median-age",
+    "cars/filter-then-restore",
+    "cars/highlight-1976-pinto",
+    "dashboard/clear-selection-keep-chart",
+    "dashboard/mtcars-heavy",
+    "development/lowest-2005",
+    "development/year-1980",
+    "flights/late-evening"
+  ]
+}

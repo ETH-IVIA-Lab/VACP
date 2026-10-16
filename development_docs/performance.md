@@ -1,0 +1,19 @@
+# Performance
+
+`make bench` builds the libraries and runs each package's `bench` script one package at a time, then the Python availability benchmark. Each timing workload warms up, reports the median of five rounds, and checks that every operation it times succeeded. The lifetime workload reports the heap three disposed runtimes retain. CI runs no benchmarks.
+
+| Package             | Workloads                                                                                                                                                                                                                                                     |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `runtime`           | `runtime.ts`: reads over 1,000 nodes, 1,000 operations, and 1,000 state refs, unchanged and changing. `lifetime.ts`: retained heap after disposal, run with `--expose-gc`. `discovery.ts`: availability over open, partly hidden, and deeply chained catalogs |
+| `runtime-browser`   | `snapshot.ts`: DOM snapshot writes for 400 refs with one ref changing per write                                                                                                                                                                               |
+| `sdk`               | `actions.ts`: parameter parsing and execution, with and without a signal, and validation failures                                                                                                                                                             |
+| `transport-webmcp`  | `registration.ts`: 50 graph revisions of 1,000 changed operations each                                                                                                                                                                                        |
+| `adapter-vega-lite` | `observation.ts`: parameter observation on a native view. `data.ts`: SQL reads over 20,000 rows before and after a filter changes the shown rows                                                                                                              |
+| `inspector-core`    | `inspection.ts`: session reads and index construction                                                                                                                                                                                                         |
+| `presence-core`     | `presence.ts`: coalesced target resolution across bursts                                                                                                                                                                                                      |
+| `provenance-core`   | `replay.ts`: checkpoint projection and replay over a long journal                                                                                                                                                                                             |
+| `python`            | `bench/availability.py`: the availability shapes of `runtime/bench/discovery.ts`                                                                                                                                                                              |
+
+The workloads isolate VACP's own overhead. They do not measure rendering, provider work in a real chart, agent latency, or the network. The memory benchmark reports retained heap as a diagnostic and has no threshold.
+
+To claim a speedup, run the affected workload before and after the change on the same machine, with no builds or browser tests running, and put both medians in the pull request.

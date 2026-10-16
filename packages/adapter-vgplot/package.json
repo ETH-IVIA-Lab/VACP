@@ -1,0 +1,43 @@
+{
+  "name": "@vacp/adapter-vgplot",
+  "version": "0.1.0",
+  "private": true,
+  "files": [
+    "dist"
+  ],
+  "type": "module",
+  "exports": {
+    ".": {
+      "vacp-source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./presentation": {
+      "vacp-source": "./src/presentation.ts",
+      "types": "./dist/presentation.d.ts",
+      "default": "./dist/presentation.js"
+    }
+  },
+  "scripts": {
+    "build": "vp pack",
+    "test": "tsx --test --test-timeout=10000 test/*.test.ts"
+  },
+  "dependencies": {
+    "@uwdata/mosaic-core": "catalog:",
+    "@vacp/data-duckdb": "workspace:*",
+    "@vacp/presence-core": "workspace:*",
+    "@vacp/protocol": "workspace:*",
+    "@vacp/runtime": "workspace:*"
+  },
+  "devDependencies": {
+    "@duckdb/node-api": "catalog:",
+    "@uwdata/mosaic-inputs": "catalog:",
+    "@uwdata/mosaic-plot": "catalog:",
+    "@uwdata/mosaic-sql": "catalog:"
+  },
+  "peerDependencies": {
+    "@uwdata/mosaic-inputs": "^0.33.0",
+    "@uwdata/mosaic-plot": "^0.33.0",
+    "@uwdata/mosaic-sql": "^0.33.0"
+  }
+}

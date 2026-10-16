@@ -1,0 +1,30 @@
+{
+  "read": {
+    "version": "0.1.0",
+    "revision": "r1",
+    "observedAt": "2026-09-29T12:00:00.000Z",
+    "graph": {
+      "sources": [{ "id": "chart", "kind": "vega-lite" }],
+      "ownership": {
+        "nodes": { "vacp://chart/view": "chart" },
+        "actions": { "chart.set_selection": "chart" }
+      },
+      "nodes": [{ "ref": "vacp://chart/view", "kind": "View", "layer": "view" }],
+      "edges": [],
+      "actions": [{ "name": "chart.set_selection", "description": "Select marks." }]
+    },
+    "state": { "vacp://chart/view": { "selected": 0 } }
+  },
+  "expected": {
+    "version": "0.1.0",
+    "revision": "r1",
+    "observedAt": "2026-09-29T12:00:00.000Z",
+    "graph": {
+      "sources": [{ "id": "chart", "kind": "vega-lite" }],
+      "nodes": [{ "ref": "vacp://chart/view", "kind": "View", "layer": "view" }],
+      "edges": [],
+      "actions": [{ "name": "chart.set_selection", "description": "Select marks." }]
+    },
+    "state": { "vacp://chart/view": { "selected": 0 } }
+  }
+}

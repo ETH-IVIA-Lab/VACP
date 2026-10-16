@@ -1,0 +1,7 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "noEmit": true
+  },
+  "include": ["evals.config.ts", "src/**/*.ts", "scenarios/**/*.ts", "test/**/*.ts"]
+}

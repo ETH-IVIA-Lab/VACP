@@ -1,0 +1,28 @@
+{
+  "name": "@vacp/protocol",
+  "version": "0.1.0",
+  "private": true,
+  "files": [
+    "dist"
+  ],
+  "type": "module",
+  "exports": {
+    ".": {
+      "vacp-source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./validation": {
+      "vacp-source": "./src/validation.ts",
+      "types": "./dist/validation.d.ts",
+      "default": "./dist/validation.js"
+    }
+  },
+  "scripts": {
+    "build": "vp pack",
+    "test": "TZ=America/Los_Angeles tsx --test --test-timeout=10000 test/*.test.ts"
+  },
+  "dependencies": {
+    "zod": "catalog:"
+  }
+}

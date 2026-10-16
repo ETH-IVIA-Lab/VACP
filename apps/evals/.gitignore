@@ -1,0 +1,3 @@
+# Runs are local evidence. Commit results deliberately.
+/results/
+.env

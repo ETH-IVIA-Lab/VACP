@@ -1,12 +1,12 @@
 node_modules/
 dist/
-.turbo/
+.vite-plus/
 .vite/
 .env
 .env.*
 
 # Vite builds in examples
-packages/examples/*/dist/
+apps/*/dist/
 docs/.vitepress/cache/
 docs/.vitepress/dist/
 
@@ -25,9 +25,11 @@ __pycache__/
 .artifacts/
 test-results/
 
-# agent-arena runs
-.agent-arena/
-
 # OS / editor
 .DS_Store
 .vscode/
+
+playwright-report/
+blob-report/
+examples/gallery/.generated-public/
+examples/gallery/*/.vacp-gallery-generated

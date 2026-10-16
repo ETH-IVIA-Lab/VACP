@@ -4,14 +4,15 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "vitepress dev .",
+    "dev": "portless run vitepress dev .",
     "build": "vitepress build .",
     "preview": "vitepress preview .",
-    "lint": "oxlint .vitepress",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "devDependencies": {
-    "vitepress": "2.0.0-alpha.16",
-    "vitepress-plugin-diagrams": "1.1.2"
-  }
+    "oxc-minify": "^0.154.0",
+    "portless": "catalog:",
+    "vitepress": "2.0.0-alpha.20"
+  },
+  "portless": "docs.vacp"
 }

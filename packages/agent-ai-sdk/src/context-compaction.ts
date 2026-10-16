@@ -1,0 +1,269 @@
+import { vacpToolResult } from '@vacp/protocol';
+import type { UIMessage, ChatTransport } from 'ai';
+
+import type { VacpContextCompactionOptions, VacpContextCompactionPolicy } from './types';
+
+export const defaultVacpContextCompactionPolicy: Required<VacpContextCompactionPolicy> = {
+  enabled: true,
+  maxTurns: 8,
+  preserveFullToolPayloadTurns: 2,
+  preserveReasoningTurns: 1,
+  maxTextCharsPerPart: 1600,
+  maxToolJsonCharsPerPart: 1200,
+};
+
+type ResolvedPolicy = Required<VacpContextCompactionPolicy>;
+
+type UiPart = UIMessage['parts'][number];
+
+function resolvePolicy(policy: VacpContextCompactionPolicy | undefined): ResolvedPolicy {
+  if (!policy) return { ...defaultVacpContextCompactionPolicy };
+
+  return { ...defaultVacpContextCompactionPolicy, ...policy };
+}
+
+function truncateText(value: string, maxChars: number): string {
+  if (value.length <= maxChars) return value;
+
+  return `${value.slice(0, Math.max(0, maxChars - 3))}...`;
+}
+
+function toJsonPreview(value: unknown, maxChars: number): string {
+  try {
+    const raw = JSON.stringify(value);
+
+    if (!raw) return 'null';
+
+    return truncateText(raw, maxChars);
+  } catch {
+    return '[unserializable]';
+  }
+}
+
+function partToolName(part: UiPart): string {
+  if (part.type === 'dynamic-tool' && typeof part.toolName === 'string') return part.toolName;
+
+  if (part.type.startsWith('tool-')) return part.type.slice(5);
+
+  return part.type;
+}
+
+function isToolPart(part: UiPart): boolean {
+  return part.type === 'dynamic-tool' || part.type.startsWith('tool-');
+}
+
+function summarizeToolPart(part: UiPart, policy: ResolvedPolicy): string {
+  const name = partToolName(part);
+  const state = 'state' in part ? String(part.state ?? '') : 'unknown';
+  const callId = 'toolCallId' in part ? String(part.toolCallId ?? '') : '';
+  const input = 'input' in part ? toJsonPreview(part.input, policy.maxToolJsonCharsPerPart) : '';
+  const output = 'output' in part ? toJsonPreview(part.output, policy.maxToolJsonCharsPerPart) : '';
+  const error = 'errorText' in part && part.errorText ? String(part.errorText) : '';
+
+  const segments = [
+    `Tool ${name}`,
+    `state=${state}`,
+    callId ? `callId=${callId}` : '',
+    input ? `input=${input}` : '',
+    output ? `output=${output}` : '',
+    error ? `error=${truncateText(error, Math.floor(policy.maxTextCharsPerPart / 2))}` : '',
+  ].filter(Boolean);
+
+  return segments.join(' | ');
+}
+
+function availableToolSet(options: VacpContextCompactionOptions | undefined): Set<string> | null {
+  const values = options?.availableToolNames?.filter(
+    (name): name is string => typeof name === 'string' && name.length > 0,
+  );
+
+  if (!values || values.length === 0) return null;
+
+  return new Set(values);
+}
+
+function canReplayToolPart(part: UiPart, tools: Set<string> | null): boolean {
+  if (!tools) return true;
+
+  return tools.has(partToolName(part));
+}
+
+/** Payloads a message part replays, bounded as tool results are. A field the part leaves unset stays unset. */
+function boundUiPart(part: UiPart): UiPart {
+  const next = { ...part } as Record<string, unknown>;
+  for (const field of ['input', 'output', 'rawInput', 'data'] as const)
+    if (next[field] !== undefined) next[field] = vacpToolResult(next[field]);
+  const approval = next.approval as { descriptor?: unknown } | undefined;
+  if (approval?.descriptor !== undefined)
+    next.approval = { ...approval, descriptor: vacpToolResult(approval.descriptor) };
+  return next as UiPart;
+}
+
+function boundUiMessages<Message extends UIMessage>(messages: Message[]): Message[] {
+  return messages.map((message) => ({
+    ...message,
+    parts: message.parts.map((part) => boundUiPart(part)),
+  }));
+}
+
+function messageSummaryForError(message: UIMessage | undefined): string {
+  if (!message) return 'missing-message';
+
+  const parts = message.parts
+    .map((part) => {
+      if (part.type === 'dynamic-tool' && typeof part.toolName === 'string') return `dynamic-tool:${part.toolName}`;
+
+      return part.type;
+    })
+    .join(',');
+
+  return `${message.role}:${message.id}:${parts}`;
+}
+
+function compactAssistantParts(
+  message: UIMessage,
+  msgIndex: number,
+  policy: ResolvedPolicy,
+  fullToolPayloadMessageIndices: Set<number>,
+  reasoningMessageIndices: Set<number>,
+  isOldTurn: boolean,
+  tools: Set<string> | null,
+): UiPart[] {
+  const compacted: UiPart[] = [];
+
+  for (const part of message.parts) {
+    if (part.type === 'step-start') continue;
+
+    if (part.type === 'reasoning') {
+      if (!reasoningMessageIndices.has(msgIndex) || isOldTurn) continue;
+      compacted.push({ ...part, text: truncateText(part.text, policy.maxTextCharsPerPart) });
+      continue;
+    }
+
+    if (part.type === 'text') {
+      compacted.push({ ...part, text: truncateText(part.text, policy.maxTextCharsPerPart) });
+      continue;
+    }
+
+    if (isToolPart(part)) {
+      if (!isOldTurn && fullToolPayloadMessageIndices.has(msgIndex) && canReplayToolPart(part, tools)) {
+        compacted.push(part);
+      } else {
+        compacted.push({ type: 'text', text: summarizeToolPart(part, policy) });
+      }
+
+      continue;
+    }
+
+    if (!isOldTurn) compacted.push(part);
+  }
+
+  if (compacted.length > 0) return compacted;
+
+  return [{ type: 'text', text: '[older context omitted for efficiency]' }];
+}
+
+function firstIndexToPreserve(messages: UIMessage[], maxTurns: number): number {
+  const userIndices = messages.reduce<number[]>((acc, message, idx) => {
+    if (message.role === 'user') acc.push(idx);
+
+    return acc;
+  }, []);
+
+  if (userIndices.length <= maxTurns) return 0;
+
+  return userIndices[userIndices.length - maxTurns] ?? 0;
+}
+
+function compactMessagesForModelWithOptions<Message extends UIMessage>(
+  messages: Message[],
+  policy: ResolvedPolicy,
+  options: VacpContextCompactionOptions | undefined,
+): Message[] {
+  if (!policy.enabled) return messages;
+
+  if (messages.length === 0) return messages;
+  const tools = availableToolSet(options);
+
+  const preserveFromIndex = firstIndexToPreserve(messages, policy.maxTurns);
+
+  const assistantIndices = messages.reduce<number[]>((acc, message, idx) => {
+    if (message.role === 'assistant') acc.push(idx);
+
+    return acc;
+  }, []);
+
+  const fullToolPayloadMessageIndices = new Set(
+    assistantIndices.slice(Math.max(0, assistantIndices.length - policy.preserveFullToolPayloadTurns)),
+  );
+
+  const reasoningMessageIndices = new Set(
+    assistantIndices.slice(Math.max(0, assistantIndices.length - policy.preserveReasoningTurns)),
+  );
+
+  return messages.map((message, idx) => {
+    const isOldTurn = idx < preserveFromIndex;
+
+    if (message.role !== 'assistant') {
+      return {
+        ...message,
+        parts: message.parts.map((part) =>
+          part.type === 'text' ? { ...part, text: truncateText(part.text, policy.maxTextCharsPerPart) } : part,
+        ),
+      };
+    }
+
+    return {
+      ...message,
+      parts: compactAssistantParts(
+        message,
+        idx,
+        policy,
+        fullToolPayloadMessageIndices,
+        reasoningMessageIndices,
+        isOldTurn,
+        tools,
+      ),
+    };
+  });
+}
+
+export function wrapTransportWithVacpContextCompaction<Message extends UIMessage>(
+  transport: ChatTransport<Message>,
+  policy: VacpContextCompactionPolicy | undefined,
+  compactionOptions?: VacpContextCompactionOptions,
+): ChatTransport<Message> {
+  const resolved = resolvePolicy(policy);
+
+  const base = transport;
+
+  if (!resolved.enabled) return transport;
+
+  return {
+    reconnectToStream: (options) => base.reconnectToStream(options),
+    sendMessages: async (options) => {
+      const rawMessages = options.messages;
+
+      const compacted = compactMessagesForModelWithOptions(rawMessages, resolved, compactionOptions);
+      const bounded = boundUiMessages(compacted);
+      const nextOptions = { ...options, messages: bounded };
+
+      try {
+        return await base.sendMessages(nextOptions);
+      } catch (error) {
+        if (error instanceof Error && /ModelMessage\[\] schema|Invalid prompt/.test(error.message)) {
+          const recent = bounded
+            .slice(-3)
+            .map((message) => messageSummaryForError(message))
+            .join(' | ');
+
+          throw new Error(`Chat prompt validation failed after compaction. Recent messages: ${recent}`, {
+            cause: error,
+          });
+        }
+
+        throw error;
+      }
+    },
+  };
+}

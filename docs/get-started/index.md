@@ -1,78 +1,55 @@
 # Get started
 
-This repo includes runnable examples and a debug overlay. You should be able to run the gallery, inspect the semantic graph, and execute actions.
+Run an example, read its observation, and let an agent change the charts through MCP.
 
-## Install
+## Read an example from the console
+
+Open the [Olympic athletes example](https://examples.vacp.dev/athletes/). Brush the age histogram, then run this in the browser console:
+
+```js
+const { graph, state } = await window.__vacp.observe();
+graph.nodes.filter((node) => node.layer === 'InteractionFeedbackLayer').map((node) => [node.title, state[node.ref]]);
+```
+
+Each pair names an interaction and holds its current state. The age brush reads `{ kind: 'Interval1D', selectionValue: [22, 28], ... }` for a brush from 22 to 28 years. Brush again and rerun the read to see the new range.
+
+## Clone and build the repository
+
+The MCP server and the local gallery run from a checkout. You need [pnpm](https://pnpm.io/installation) 11 or newer and [uv](https://docs.astral.sh/uv/getting-started/installation/), the Python package manager. pnpm switches to the release the repository pins and downloads the Node.js version it declares.
 
 ```bash
-pnpm install
-pnpm build
-uv sync
-pnpm --filter @vacp/e2e exec playwright install chromium
-uv run playwright install chromium
+git clone https://github.com/ETH-IVIA-Lab/VACP.git
+cd VACP
+make setup build
+make dev
 ```
 
-## Run the examples gallery
+`make dev` serves the gallery at `https://examples.vacp.localhost` through [Portless](https://github.com/vercel-labs/portless), a local proxy that gives each app a stable HTTPS name. The first run asks to trust its local certificate.
+
+## Connect an agent through MCP
+
+The `vacp` Python package runs an [MCP](https://modelcontextprotocol.io) server. MCP is the protocol agent clients such as Claude Code, Codex, and Cursor use to call external tools. The server opens the page in a Chromium window and serves the page's runtime to the agent as the five VACP tools, plus tools to open a URL and read the page's URL and title.
+
+Install Chromium for the server once:
 
 ```bash
-pnpm dev
+uv run --package vacp playwright install chromium
 ```
 
-Open `http://127.0.0.1:5173/`.
-
-## Open the debug overlay
-
-Click the floating **VACP** control. The debug overlay is enabled by default in the example gallery.
-
-Disable it with `?vacp-debug=0` or `VACP_DEBUG_UI=0`. The Settings tab shows the active VACP flags, their source, and browser-level overrides.
-
-Interact with a chart and watch the state snapshot change. Then dispatch an action and confirm the interface updates.
-
-## Drive the page via MCP
-
-In another terminal, start the MCP server and point it at the running gallery:
+Register the server with your MCP client. For Claude Code, run this from the repository root:
 
 ```bash
-uv run vacp-mcp-server --url http://127.0.0.1:5173/
+claude mcp add vacp -- uv run --directory "$PWD" --package vacp vacp \
+  --transport stdio --url https://examples.vacp.dev/athletes/
 ```
 
-The MCP transport implementation lives in `packages/lib/transports/mcp-server`. It uses [Model Context Protocol](https://modelcontextprotocol.io/) and [Playwright](https://playwright.dev/).
+Other clients take the same command in their MCP server settings. To serve over HTTP instead, run `uv run --package vacp vacp --url <page>`, and point the client at `http://localhost:8000/mcp`.
 
-## Run checks
+Ask the agent a question about the data, for example "Compare rowers and canoeists aged 22 to 28." The Chromium window shows the agent's cursor moving to each control it changes, with a bubble beside it that shows the agent's sentence for each step. When the agent finishes, hover the bubble to step back through its checkpoints.
 
-```bash
-pnpm test
-```
+## Next steps
 
-## Develop an example on its own
-
-Use this when you want faster iteration on one app or one provider integration.
-
-```bash
-pnpm -C packages/examples/vgplot-gallery dev
-pnpm -C packages/examples/vega-lite-gallery dev
-pnpm -C packages/examples/cars-parallel-coords dev
-pnpm -C packages/examples/react-dashboard dev
-```
-
-## Repo layout
-
-The workspace is organized by responsibility.
-
-```text
-packages/
-  lib/
-    protocol/   # contract types and runtime gateway
-    providers/  # runtime-specific semantic mappings
-    transports/ # MCP server and in-page transport client
-    tooling/    # debug overlay and analytics
-    evaluation/ # scenario runner and analysis tooling
-  testing/
-    e2e/        # Playwright end-to-end suite
-  examples/
-    index/                # static gallery host
-    vgplot-gallery/
-    vega-lite-gallery/
-    cars-parallel-coords/
-    react-dashboard/
-```
+- Read the [core concepts](../concepts/) behind observations and operations.
+- [Connect your own application](../integrate/) with `@vacp/sdk`.
+- Add VACP to a [Vega-Lite](../vega-lite/) or [Mosaic vgplot](../vgplot/) view.
+- Run an agent [inside the page](../agents/) or through [WebMCP](../agents/webmcp).

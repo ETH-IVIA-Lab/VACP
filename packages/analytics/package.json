@@ -1,0 +1,26 @@
+{
+  "name": "@vacp/analytics",
+  "version": "0.1.0",
+  "private": true,
+  "files": [
+    "dist"
+  ],
+  "type": "module",
+  "exports": {
+    ".": {
+      "vacp-source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "vp pack",
+    "test": "tsx --test --test-timeout=10000 test/*.test.ts"
+  },
+  "dependencies": {
+    "@vacp/protocol": "workspace:*"
+  },
+  "devDependencies": {
+    "@vacp/runtime": "workspace:*"
+  }
+}

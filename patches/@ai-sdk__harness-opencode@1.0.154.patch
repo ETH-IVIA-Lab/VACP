@@ -1,0 +1,15 @@
+diff --git a/dist/bridge/index.mjs b/dist/bridge/index.mjs
+index bb10ff32f38d159da9ff10396d8c453d19154019..12f38d8fde6470d680015d2347c791bbbc482252 100644
+--- a/dist/bridge/index.mjs
++++ b/dist/bridge/index.mjs
+@@ -877,8 +877,8 @@ function mapUsage(tokens) {
+ 	const cacheRead = value.cache.read;
+ 	return {
+ 		inputTokens: {
+-			total: value.input,
+-			noCache: Math.max(0, value.input - cacheRead),
++			total: value.input + cacheRead + value.cache.write,
++			noCache: value.input,
+ 			cacheRead,
+ 			cacheWrite: value.cache.write
+ 		},

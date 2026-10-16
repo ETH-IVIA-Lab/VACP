@@ -1,0 +1,26 @@
+Default arrow geometry and activation appearance adapted from agent-browser.
+Copyright 2025 Vercel Inc.
+Licensed under the Apache License, Version 2.0. See licenses/agent-browser.txt.
+
+Source: https://github.com/vercel-labs/agent-browser/blob/44583ac8385d814ab98cbf40feec97620376b50e/cli/src/native/recording-cursor.js
+
+VACP modifications: semantic execution activation, configurable appearance,
+reduced-motion feedback, independent rendering and cancellation lifecycle.
+
+Hand cursor silhouettes adapted from Tabler Icons (hand-stop, hand-grab, hand-finger).
+Copyright (c) 2020-2026 Paweł Kuna.
+Licensed under the MIT License. See licenses/tabler-icons.txt.
+Source: https://github.com/tabler/tabler-icons/tree/87e7c390fb4ec332ccad0bde25160b233241eb8f/icons/outline
+VACP modifications: closed filled silhouettes, retained finger creases, and cursor hotspots.
+
+Default agent mark: Lucide `sparkles`.
+Copyright (c) 2026 Lucide Icons and Contributors.
+Licensed under the ISC License. See licenses/lucide.txt.
+Source: https://github.com/lucide-icons/lucide/blob/7e938845f076fc8cfbd367a4a2ee17dc299bdff3/icons/sparkles.svg
+VACP modifications: the circle is expressed as arcs so one stroked path draws the mark.
+
+Waiting histogram adapted from loading.dev (Wave, bottom origin).
+Copyright (c) 2026 Jakub Krehel.
+Licensed under the MIT License. See licenses/loading-dev.txt.
+Source: https://github.com/jakubkrehel/loading/blob/63784627c357d0b56e9745df035c79062d3fdcbb/src/wave.tsx
+VACP modifications: framework-free DOM, varied chart bars, compositor-only scaling, and host-controlled reduced motion.

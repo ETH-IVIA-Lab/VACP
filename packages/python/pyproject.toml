@@ -1,0 +1,19 @@
+[project]
+name = "vacp"
+version = "0.1.0"
+description = "Python providers and integrations for the Visual Analytics Context Protocol"
+readme = "README.md"
+authors = [{ name = "Péter Ferenc Gyarmati", email = "dev.petergy@gmail.com" }]
+requires-python = ">=3.12"
+dependencies = []
+
+[project.optional-dependencies]
+http = ["starlette>=0.40", "uvicorn>=0.30"]
+server = ["fastmcp>=4.1.0", "httpx>=0.27.0", "playwright>=1.49.0", "pydantic>=2.12.0", "starlette>=0.40"]
+
+[project.scripts]
+vacp = "vacp.main:main"
+
+[build-system]
+requires = ["uv_build>=0.13,<0.14"]
+build-backend = "uv_build"
