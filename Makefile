@@ -7,7 +7,7 @@ PNPM ?= pnpm
 UV ?= uv
 VP := $(PNPM) exec vp
 UV_RUN := $(UV) run --all-packages --all-groups --locked
-WORKSPACE_FILTERS := --filter './packages/*' --filter './apps/*' --filter './examples/*' --filter './docs'
+WORKSPACE_FILTERS := --filter './packages/*' --filter './apps/*' --filter './examples/*'
 # Oxfmt and Oxlint read the repository .gitignore only, so name the source roots they check.
 SOURCE_PATHS := .github apps development_docs docs examples packages tools $(wildcard *.ts *.json *.jsonc *.yaml *.md)
 # Extra Playwright arguments for browser-test, such as --shard=1/4.
@@ -32,7 +32,7 @@ dev: ## Serve the gallery at examples.vacp.localhost.
 	$(VP) run @vacp/examples#dev
 
 dev-all: ## Serve docs, gallery, and every standalone example.
-	$(VP) run --parallel --filter './docs' --filter './examples/*' dev
+	$(VP) run --parallel --filter @vacp/docs --filter './examples/*' dev
 
 dev-status: ## Show registered local development URLs.
 	$(PNPM) --filter @vacp/examples exec portless list
@@ -48,7 +48,7 @@ build-libs:
 	$(VP) run --filter './packages/*' build
 
 build-apps: build-libs
-	$(VP) run --filter './examples/*' --filter './docs' build
+	$(VP) run --filter './examples/*' --filter @vacp/docs build
 
 build: build-apps ## Build libraries, examples, and docs.
 

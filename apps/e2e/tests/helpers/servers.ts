@@ -19,7 +19,7 @@ const applications = {
   'vgplot-gallery': { cwd: exampleDir('vgplot-gallery'), command: vp('dev'), dev: true },
   // Served from `make build-apps` output, as people receive them.
   'gallery-build': { cwd: exampleDir('gallery'), command: vp('preview'), dev: false },
-  docs: { cwd: resolve(repoRoot, 'docs'), command: 'node_modules/.bin/vitepress preview .', dev: false },
+  docs: { cwd: resolve(repoRoot, 'apps/docs'), command: 'node_modules/.bin/vitepress preview .', dev: false },
 } as const;
 
 export type AppName = keyof typeof applications;

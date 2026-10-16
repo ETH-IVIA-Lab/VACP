@@ -126,4 +126,4 @@ The image workflow runs after successful CI on `main`, or by manual dispatch on 
 
 ## Documentation
 
-`docs/` is the documentation site: Markdown pages and the [VitePress](https://vitepress.dev) configuration and theme in `docs/.vitepress/`. Run `make docs-serve` to preview it and `make docs` to build it. `development_docs/` holds architecture, contribution, and test guides for people working on this repository.
+`docs/` holds the Markdown pages of the documentation site. `apps/docs` is the [VitePress](https://vitepress.dev) app that builds them, with its configuration and theme in `.vitepress/` and static assets in `public/`. Run `make docs-serve` to preview it and `make docs` to build it. `development_docs/` holds architecture, contribution, and test guides for people working on this repository.

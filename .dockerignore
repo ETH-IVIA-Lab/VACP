@@ -22,7 +22,7 @@ __pycache__
 test-results
 .artifacts
 
-docs/.vitepress/cache
-docs/.vitepress/dist
+apps/docs/.vitepress/cache
+apps/docs/.vitepress/dist
 examples/gallery/.generated-public
 

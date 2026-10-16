@@ -29,7 +29,7 @@
       // @ai-sdk/provider's public declarations import json-schema, whose types it omits from dependencies.
       "ignoreDependencies": ["@types/json-schema"],
     },
-    "docs": {
+    "apps/docs": {
       // VitePress loads this optional minifier dynamically for Rolldown builds.
       "ignoreDependencies": ["oxc-minify"],
     },

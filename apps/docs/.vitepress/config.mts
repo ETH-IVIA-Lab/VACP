@@ -1,5 +1,7 @@
+import { fileURLToPath } from 'node:url';
 import { defineConfig } from 'vitepress';
 
+const repository = 'https://github.com/ETH-IVIA-Lab/VACP';
 const YEAR = new Date().getFullYear();
 
 const guide = [
@@ -90,9 +92,11 @@ export default defineConfig({
   title: 'VACP',
   description:
     'Lets AI agents read and change visual analyses through named operations, alongside the person using them.',
+  srcDir: '../../docs',
   cleanUrls: true,
   lastUpdated: true,
   vite: {
+    publicDir: fileURLToPath(new URL('../public', import.meta.url)),
     cacheDir: process.env.VACP_VITE_CACHE_DIR,
     server: { host: '127.0.0.1', port: process.env.PORT ? Number(process.env.PORT) : undefined, strictPort: true },
   },
@@ -106,7 +110,8 @@ export default defineConfig({
     sidebar: { '/api/': reference, '/': guide },
     outline: [2, 3],
     search: { provider: 'local' },
-    socialLinks: [{ icon: 'github', link: 'https://github.com/ETH-IVIA-Lab/VACP' }],
+    editLink: { pattern: `${repository}/edit/main/docs/:path`, text: 'Edit this page on GitHub' },
+    socialLinks: [{ icon: 'github', link: repository }],
     footer: { copyright: `Copyright ${YEAR} VACP contributors` },
   },
 });
