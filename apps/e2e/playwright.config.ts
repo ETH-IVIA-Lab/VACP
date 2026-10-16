@@ -41,5 +41,6 @@ export default defineConfig({
       VACP_VITE_CACHE_DIR: 'node_modules/.vite-e2e',
     },
   })),
-  reporter: process.env.CI ? [['list'], ['github']] : [['list']],
+  // CI shards each write a blob report, and the workflow merges them into one HTML report.
+  reporter: process.env.CI ? [['list'], ['github'], ['blob']] : [['list']],
 });

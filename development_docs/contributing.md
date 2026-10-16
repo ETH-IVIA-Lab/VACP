@@ -109,7 +109,18 @@ Commit `pnpm-lock.yaml` and `uv.lock` with the manifest changes.
 
 ## CI and deployment
 
-CI runs `make setup ci` and `make setup-web browser-install e2e`. [`pnpm/setup`](https://github.com/pnpm/setup) installs pnpm and Node.js from `devEngines`, and [`setup-uv`](https://github.com/astral-sh/setup-uv) installs uv from `required-version`.
+`.github/workflows/ci.yml` runs on every pull request and every push to `main`. Each job calls Makefile targets:
+
+| Job            | Runs                                                                                      |
+| -------------- | ----------------------------------------------------------------------------------------- |
+| Lint and types | `make lint python-typecheck knip test-tools`                                              |
+| Unit tests     | `make test`                                                                               |
+| Build          | `make build package`, then uploads the library, gallery, and docs builds                  |
+| Browser suite  | `make browser-test PLAYWRIGHT_ARGS=--shard=N/4` in four shards against those builds       |
+| Browser report | Merges the shards' blob reports into one HTML `playwright-report` artifact                |
+| CI gate        | Fails unless every job above succeeded, so branch protection can require this check alone |
+
+`.github/actions/setup` installs pnpm and Node.js from `devEngines` through [`pnpm/setup`](https://github.com/pnpm/setup), and, for jobs that need Python, uv from `required-version` through [`setup-uv`](https://github.com/astral-sh/setup-uv). A failed shard uploads its traces and screenshots as `test-results-N`. To reproduce one shard locally, run `make build browser-test PLAYWRIGHT_ARGS=--shard=2/4`.
 
 The image workflow runs after successful CI on `main`, or by manual dispatch on `main`. It builds the documentation and gallery images from `infra/*.Dockerfile` and pushes them to the configured [Harbor](https://goharbor.io) container registry, tagged with the tested commit SHA and `latest`. The images start from `ghcr.io/pnpm/pnpm`, and `pnpm install` provisions Node.js from `devEngines.runtime`. Registry credentials are GitHub Actions secrets.
 

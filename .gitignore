@@ -30,5 +30,6 @@ test-results/
 .vscode/
 
 playwright-report/
+blob-report/
 examples/gallery/.generated-public/
 examples/gallery/*/.vacp-gallery-generated

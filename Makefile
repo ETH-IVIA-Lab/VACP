@@ -10,10 +10,12 @@ UV_RUN := $(UV) run --all-packages --all-groups --locked
 WORKSPACE_FILTERS := --filter './packages/*' --filter './apps/*' --filter './examples/*' --filter './docs'
 # Oxfmt and Oxlint read the repository .gitignore only, so name the source roots they check.
 SOURCE_PATHS := .github apps development_docs docs examples packages tools $(wildcard *.ts *.json *.jsonc *.yaml *.md)
+# Extra Playwright arguments for browser-test, such as --shard=1/4.
+PLAYWRIGHT_ARGS ?=
 
 .PHONY: bench help setup setup-web setup-python dev dev-all dev-status format lint typecheck
 .PHONY: python-format python-lint python-typecheck python-test python-check
-.PHONY: build build-libs build-apps docs docs-serve test test-tools test-package-imports knip check package browser-install e2e ci
+.PHONY: build build-libs build-apps docs docs-serve test test-tools test-package-imports knip check package browser-install browser-test e2e ci
 
 help: ## Show development commands.
 	@awk 'BEGIN {FS = ":.*## "} /^[a-zA-Z0-9_-]+:.*## / {printf "  %-18s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
@@ -98,8 +100,10 @@ package: ## Build Python wheels and source distributions.
 browser-install: ## Install Chromium and its required system libraries.
 	$(PNPM) --filter @vacp/e2e exec playwright install --with-deps chromium
 
-e2e: build-apps ## Test examples and the published documentation in Chromium.
-	$(PNPM) --filter @vacp/e2e test:e2e
+browser-test: ## Run the browser suite against existing builds, with PLAYWRIGHT_ARGS.
+	$(PNPM) --filter @vacp/e2e test:e2e $(PLAYWRIGHT_ARGS)
+
+e2e: build-apps browser-test ## Test examples and the published documentation in Chromium.
 
 ci: build check package ## Run the source-validation CI pipeline.
 
