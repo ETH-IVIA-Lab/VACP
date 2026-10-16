@@ -1,101 +1,74 @@
-# Build an inspection surface
+# Inspection surfaces
 
-`@vacp/inspector-core` connects custom interfaces to analytical sessions. It supplies coherent observations, operation execution, optional history, and graph lookups. Your application chooses what to display and how people interact with it.
+`@vacp/inspector-core` connects a custom interface, such as a debugging panel or a teaching view, to an analytical session. It reads the complete catalog, executes operations, keeps optional history, and indexes the graph for lookups. Your interface decides what to show and how people navigate it.
 
 ## Connect a runtime
 
-Given an installed VACP `runtime`, create a client and an inspection session:
-
 ```ts
-import { createInspectorSession, createInspectionIndex } from '@vacp/inspector-core';
+import { createInspectionIndex, createInspectorSession } from '@vacp/inspector-core';
 import { createRuntimeInspectorClient } from '@vacp/inspector-core/runtime';
 
-const session = createInspectorSession(createRuntimeInspectorClient({ id: 'analysis', title: 'Analysis', runtime }), {
-  historyLimit: 50,
-});
+const client = createRuntimeInspectorClient({ id: 'analysis', title: 'Analysis', runtime });
+const session = createInspectorSession(client, { historyLimit: 50 });
 
 const unsubscribe = session.subscribe(() => {
-  const state = session.getState();
-  if (!state.observation) return;
-  const index = createInspectionIndex(state.observation);
-  for (const node of state.observation.graph.nodes) {
-    console.log(index.entity(node.ref));
-  }
+  const { observation } = session.getState();
+  if (!observation) return;
+  const index = createInspectionIndex(observation);
+  render(observation.graph.nodes.map((node) => index.entity(node.ref)));
 });
 session.start();
 
-// When this inspection surface closes:
+// When the surface closes:
 unsubscribe();
 session.dispose();
 ```
 
-Construction and subscription perform no I/O. `start()` reads the source and subscribes to invalidations. Repeated starts are idempotent. `refresh()` also works independently for manual observation. Disposal aborts this session's requests and releases its source subscription. The application retains ownership of the analytical runtime.
+Creating a session and subscribing perform no reads. `start()` reads the source and follows its changes, and repeated calls do nothing more. `refresh()` reads once. `dispose()` cancels the session's requests and releases its subscription, and leaves the runtime running.
 
-`getState()` returns a stable reference until a state change. Use it with a framework's external-store binding, a DOM renderer, or another consumer. Register a subscriber before calling `start()`. Subscriber failures are isolated from requests and other subscribers.
+`getState()` returns the same object until something changes, so React's `useSyncExternalStore` can read it directly. It holds `status`, the current `observation`, an `observationError`, the retained `records`, and the current `operation`.
 
-## Read analytical context
+## Read the graph
 
-The runtime connector reads `inspect()`, retaining unavailable catalog entries. Inspection does not bypass execution checks. An observation contains the graph, source ownership, values, summaries, and output freshness from one revision. Create an index for the observation your interface displays:
+The runtime client reads `inspect()`, which keeps unavailable nodes and operations with their reasons. Index the observation your interface shows:
 
-- `entity(ref)` returns the node, source, value, summary, freshness, incoming and outgoing edges, and related actions.
-- `action(name)` returns the descriptor, owning source, availability, and prerequisites.
-- `availableActions` contains only currently executable actions.
-- Entity lookups also include availability, prerequisites, and dependent nodes.
-- `source(id)` returns the source description.
+| Lookup                   | Returns                                                                                                                 |
+| ------------------------ | ----------------------------------------------------------------------------------------------------------------------- |
+| `index.entity(ref)`      | The node, its source, value, summary, freshness, edges, related operations, availability, prerequisites, and dependents |
+| `index.action(name)`     | The descriptor, owning source, availability, and prerequisites                                                          |
+| `index.availableActions` | The operations that run now                                                                                             |
+| `index.source(id)`       | The source description                                                                                                  |
 
-Entity lookup distinguishes a missing state entry through `hasValue`. Related actions include declared inputs, affected entities, and result references. Dynamic reference parameters remain in each action's `operation.refParameters` for the application to resolve with its chosen inputs. Custom node kinds, layers, relationships, metadata, and operation schemas retain their protocol meaning.
+`entity(ref).hasValue` tells a missing state entry from a present `undefined`. Build one index per displayed observation.
 
-Captured observations contain frozen plain records and arrays. Payloads may use JSON values and `undefined`. Dates become ISO strings, or `null` for invalid dates. Convert Maps, Sets, typed arrays, class instances, and circular structures to plain records or arrays in the client. Capture errors identify the incompatible value by path.
-
-Build an index once per displayed observation. Selection, filtering, sorting, and navigation belong to your interface.
+Captured observations are frozen plain records and arrays. Dates become ISO strings, or `null` for invalid dates. A client that returns Maps, Sets, typed arrays, class instances, or cycles fails capture with an error naming the path of the value.
 
 ## Execute operations
 
-Read executable descriptors from `createInspectionIndex(state.observation).availableActions`, collect parameters, and submit the protocol call:
-
 ```ts
-const result = await session.execute({
-  callId: crypto.randomUUID(),
-  name: action.name,
-  params,
-});
+const result = await session.execute({ callId: crypto.randomUUID(), name: action.name, params });
 ```
 
-This snippet assumes `action` and `params` come from your interface. The provider validates the parameters and executes the operation. Custom clients can use `InspectorClient<Params, Result>` to preserve their application types.
+The provider validates `params` and runs the operation. `state.operation` tracks the running call, its result, or a transport error, and each completed operation schedules a fresh read. A session runs one operation at a time. Pass `{ signal }` to `execute`, `restore`, or `reveal` to stop waiting. Cancellation signals the client and cannot undo a change already applied.
 
-`state.operation` tracks the running call, captured result, or transport error. `state.observationError` reports observation failures independently. Each completed operation schedules a fresh observation. Its promise resolves with the result independently of that observation.
+## History and restoration
 
-Execution passes native typed parameters to the client and returns its native result. `InspectionSnapshot<T>` describes the captured value, including date serialization. If a returned result cannot be captured, the operation state reports `capture-error` and the promise still resolves with the original result.
+`historyLimit` sets how many changed observations `state.records` keeps. It defaults to 0. Showing a recorded observation reads nothing from the source.
 
-A session accepts one operation request at a time. Pass `{ signal }` to `execute`, `restore`, or `reveal` for cancellation. Cancellation stops waiting for a result and signals the client. It cannot undo a mutation already performed by the source.
-
-## Retain observations
-
-`historyLimit` bounds the number of changed revisions retained in `state.records`. It defaults to `0`. Records have session-local IDs and immutable observations. `clearHistory()` releases the retained list. An interface may hold a record after it leaves that list.
-
-Displaying a recorded observation is a local UI choice. To restore analytical state, supply an explicit `client.restore` capability and call `session.restore(record.observation)`. A client may also implement `reveal(ref, options)` to locate an entity in its host. Read-only clients implement `observe` and optionally `subscribe`.
-
-## Connect another surface
-
-Implement `InspectorClient` for your host's transport. Its required fields are `id`, `title`, and `observe({ signal })`. Optional methods are `execute`, `subscribe`, `restore`, and `reveal`. The client identifies one analytical session. Create a new inspection session when switching owners.
-
-For HTTP:
+To restore one, give the client a `restore` capability and call `session.restore(record.observation)`. With the runtime client, pass the restorer:
 
 ```ts
-import { createInspectorSession } from '@vacp/inspector-core';
-import { connectHttpInspectorClient } from '@vacp/inspector-core/http';
-
-const client = await connectHttpInspectorClient({
-  url: 'http://127.0.0.1:8796/api/vacp',
-  intervalMs: 1000,
-});
-const session = createInspectorSession(client);
-session.start();
+const restorer = createVacpRestorer(runtime);
+const client = createRuntimeInspectorClient({ id: 'analysis', title: 'Analysis', runtime, restore: restorer.restore });
 ```
 
-The connector obtains the server identity from `/session` and sends it on every observation and operation. A changed server session requires reconnection. Polling runs while the client has subscribers and pauses while observations are in flight. Disable it with `intervalMs: 0`. Inject `fetch` to configure credentials or request headers. Pass `signal` to cancel the initial connection.
+A client may also implement `reveal(ref)` to scroll its host to an entity.
 
-Python applications can expose a composed provider session:
+## Connect another source
+
+Implement `InspectorClient` for any transport: `id`, `title`, and `observe({ signal })` are required, and `execute`, `subscribe`, `restore`, and `reveal` are optional. One client is one analytical session. Create a new inspector session to switch sessions.
+
+For a Python application, serve the composed providers over HTTP and connect from the browser:
 
 ```python
 from vacp.http import create_inspection_app
@@ -103,6 +76,17 @@ from vacp.http import create_inspection_app
 app = create_inspection_app(composer, title='Analysis')
 ```
 
-Install `vacp[http]` and mount the returned ASGI application in your server. The host owns authentication, allowed origins, and provider lifetime. Session identity guards against accidentally retargeting requests after a restart. It is not authentication.
+```ts
+import { connectHttpInspectorClient } from '@vacp/inspector-core/http';
 
-For another wire transport, import `parseObservation` and `parseActionResult` from `@vacp/protocol/validation` to validate incoming payloads.
+const client = await connectHttpInspectorClient({ url: 'http://127.0.0.1:8796/api/vacp', intervalMs: 1000 });
+```
+
+Mount `app` in an [ASGI](https://asgi.readthedocs.io) server such as Uvicorn, with the `vacp[http]` extra installed.
+
+- The client reads the server's session identity from `/session` and sends it with every request, so a restarted server fails requests until the client reconnects.
+- Polling runs while the session has subscribers. Pass `intervalMs: 0` to turn it off.
+- Pass `fetch` to add credentials.
+- The host owns authentication and allowed origins. The session identity identifies the server process and grants no access.
+
+To validate payloads from another transport, use `parseObservation` and `parseActionResult` from `@vacp/protocol/validation`.

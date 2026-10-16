@@ -1,59 +1,45 @@
-# Provenance
+# Provenance and replay
 
-The runtime records actions and observations for every actor. Use `@vacp/provenance-core` to inspect that chronology, derive analytical checkpoints, or restore a checkpoint through an explicit host capability.
+The runtime records every completed operation and every change it observes, for every actor, in a journal of immutable records. `@vacp/provenance-core` derives checkpoints from that journal and restores the charts to a chosen checkpoint. A viewer is one surface that shows the journal, such as presence or an inspection panel. Each viewer keeps its own selection and review state.
 
 ## Read the journal
 
-Given an application runtime, read its recording independently of the live charts:
-
 ```ts
-import { provenanceActor, provenanceMessage } from '@vacp/provenance-core';
+import { provenanceActor } from '@vacp/protocol';
 
-const snapshot = runtime.getProvenance();
-for (const record of snapshot.records) {
-  console.log(record.id, provenanceActor(record), provenanceMessage(record));
-}
+const { records } = runtime.getProvenance();
+for (const record of records) console.log(record.kind, provenanceActor(record).kind, record.message);
 
 const unsubscribe = runtime.subscribeProvenance((event) => {
-  if (event.record) console.log(event.record.kind, event.record.id);
-  else console.log('Recording reset', event.epoch);
+  if (event.record) console.log('recorded', event.record.id);
+  else console.log('new session', event.epoch);
 });
-
-// On unmount:
-unsubscribe();
 ```
 
-`getProvenance()` returns a frozen snapshot with `runtimeId`, optional `sessionKey`, `epoch`, `revision`, the retention `limit`, and immutable `records`. Revisions order recording changes within an epoch. A session reset starts a new epoch, clears retained records, and publishes an event with `record: null`. Consumers must discard selections from the previous epoch.
+`getProvenance()` returns a frozen snapshot: `runtimeId`, `sessionKey`, `epoch`, `revision`, the retention `limit`, and `records`. `subscribeProvenance` publishes each new record. An epoch is one session of the journal. A changed `sessionKey` or a cleared journal starts a new one, published as an event with `record: null`, and a viewer then drops any selection from the previous epoch.
 
-The runtime retains 256 records by default. Set `historyLimit` when creating the runtime to choose a positive integer bound. Viewers read this retained journal. A viewer can hold an observation while reviewing it even after the runtime evicts its original record.
+The runtime keeps the latest 256 records. Pass `historyLimit` to `createVacpRuntime` to change it.
 
-### Record kinds
+| Record        | Captures                                                                                                      |
+| ------------- | ------------------------------------------------------------------------------------------------------------- |
+| `action`      | `call`, `result`, the terminal `execution` with actor and narration, and the `before` and after `observation` |
+| `observation` | A change observed without an operation, with its `actor`, `cause`, and `observation`                          |
+| `turn`        | The end of an agent turn: `activityId`, `outcome`, `opening` sentence, and closing `message`                  |
+| `session`     | A session boundary                                                                                            |
 
-| Kind          | Captured facts                                                                                                                 |
-| ------------- | ------------------------------------------------------------------------------------------------------------------------------ |
-| `action`      | Original `call`, `result`, terminal `execution`, optional public `message`, and available `before` and resulting `observation` |
-| `observation` | Coherent `observation`, `actor`, `cause`, optional public `message`, and optional semantic `focus`                             |
-| `session`     | Session marker with `actor` and optional public `message`                                                                      |
+`provenanceActor(record)`, `provenanceFocus(record)`, and `provenanceTurn(record)` from `@vacp/protocol` read the actor, the focus, and the turn's `activityId` across record kinds.
 
-Each record has an `id` and capture time `at`. Action attribution comes from `execution.actor`. Use `provenanceActor(record)`, `provenanceFocus(record)`, and `provenanceMessage(record)` to consume metadata across record kinds.
+An action record keeps its outcome even when a later read fails. A missing `before` or `observation` means the runtime could not capture it. A result payload that cannot be cloned keeps its success or failure envelope and lists the omitted field in `captureErrors`. The caller still receives the original result.
 
-An action record's `execution.narration` is what its actor told the person about the step, fixed when the step was accepted: the `narration` passed to `execute()`, or the actor's public progress summary if no earlier step of the turn carried it. Replaying the step shows that same text, and a step without narration shows its change. Action capture preserves the terminal outcome even when a later observation fails. Missing `before` or `observation` means that capture was unavailable. If a result payload cannot be structured-cloned, the journal retains its success/failure envelope with a `captureErrors` diagnostic. The result returned to the caller remains intact.
+## Attribution
 
-### Attribution and concurrency
+The host supplies the actor: with each `execute` call, or with `runtime.refresh({ actor, message })` after a change in the application. A change the runtime observes through a provider's invalidation, with no actor, is a `system` observation. An observation's `cause` is `external` when no operation was running, or `concurrent` with the executions that overlapped it. Overlap records timing and claims no causality. A person dragging a brush while an agent's step runs cannot be told apart by timing alone.
 
-The host supplies actor identity through execution options or an explicit `runtime.refresh({ actor, message, focus })` after a native application change. Unattributed observations have a system actor.
-
-An observation’s `cause` distinguishes two cases:
-
-- `external`: the observation was recorded independently of an identified execution.
-- `concurrent`: the observation overlapped the listed executions. This records timing evidence, without assigning exclusive causality.
-
-Before/after observations describe the state that was captured. They do not establish transaction isolation across independent sources. In particular, native input during an agent operation cannot be attributed from timing alone.
-
-## Derive analytical checkpoints
+## Checkpoints
 
 ```ts
-import { provenanceActor, provenanceCheckpoints } from '@vacp/provenance-core';
+import { provenanceActor } from '@vacp/protocol';
+import { provenanceCheckpoints } from '@vacp/provenance-core';
 
 const checkpoints = provenanceCheckpoints(runtime.getProvenance().records);
 const agentSteps = checkpoints.filter(
@@ -61,56 +47,45 @@ const agentSteps = checkpoints.filter(
 );
 ```
 
-A `ProvenanceCheckpoint` contains an `id`, its original `record`, the captured `observation`, and a `position` of `before` or `after`. Metadata stays on the original record. A `before` checkpoint represents the starting state, not the result of the action to which it belongs.
+A checkpoint has an `id`, its original `record`, the captured `observation`, and a `position`: `before` for the state an action started from, `after` for its result. `provenanceCheckpoints` compares analytical state across the whole chronology before any filter by actor, so an agent's return to an earlier state after a person's edit is still a checkpoint. It skips queries, restorations, intermediate concurrent observations, and consecutive identical states. A failed operation that changed the analysis before failing still produces a checkpoint.
 
-Projection compares analytical state across the full chronology before a viewer filters actors. This preserves an agent’s return to an earlier state after a human edit. It excludes queries, restoration records, intermediate concurrent observations, and consecutive identical analytical states. Freshness and capture timestamps do not create a new checkpoint. Failed operations can produce checkpoints when their captured effects changed the analysis.
+## Restore and review
 
-## Restore and review checkpoints
-
-Create a controller for each independently navigable viewer. Supply restoration explicitly:
+A replay controller lets one viewer step through checkpoints. The host supplies restoration:
 
 ```ts
-import { createVacpRestorer } from '@vacp/runtime';
 import { createProvenanceReplay } from '@vacp/provenance-core';
+import { createVacpRestorer } from '@vacp/runtime';
 
 const restorer = createVacpRestorer(runtime);
-const replay = createProvenanceReplay(runtime, {
-  restore: (observation, options) => restorer.restore(observation.state, options),
-});
+const replay = createProvenanceReplay(runtime, { restore: restorer.restore });
 
-const first = replay.getState().steps[0];
+const [first] = replay.getState().steps;
 if (first) {
-  await replay.review(first.id); // Restore the actual analytical sources.
-  await replay.close(); // Restore the state captured when review began.
+  await replay.review(first.id); // restores the charts to this checkpoint
+  await replay.close(); // restores the state from before the review
 }
 
-// On unmount:
 replay.dispose();
 ```
 
-Every restored source must expose an available `vacp.apply_state` operation. The restorer validates source ownership, routes each source its state, and reports per-source results. Effects can partially succeed across engines. Inspect the result when invoking the restorer directly. The replay controller exposes a failed restore through its `error` state.
+The restorer applies each source's recorded state through its `vacp.apply_state` operation and reports one result per source. Sources restore independently, so one can succeed while another fails. Restoration runs as an operation by `vacpHumanActor` that carries a restoration ID, and checkpoint projection leaves it out of the trail.
 
-`getState()` returns `phase`, `steps`, `turns`, `selected`, `latest`, `working`, and optional `error`. `working` is true from the moment another actor's execution is prepared until its action record is in `steps`. The controller publishes when it changes, so the new step and the resumed controls arrive together. `turns` lists the finished agent turns of the session, oldest first. Group steps into requests with `provenanceTurn(record)`, which returns a record's `activityId`. Phases are `live`, `restoring`, `reviewing`, and `error`. `subscribe(listener)` notifies a viewer to read the current state. `review(id)` selects any retained checkpoint. The consuming UI chooses filters, ordering, and navigation controls.
+`replay.getState()` returns the `steps`, the finished agent `turns`, the `selected` checkpoint, the `latest` checkpoint, `working`, and a `phase` of `live`, `restoring`, `reviewing`, or `error`. An `error` phase carries the failure message. `working` is true while another actor's execution has started and its record has not reached `steps`. Review requests wait while it is true.
 
-The controller captures a return observation before its first restore and holds the review trail during navigation. `close()` restores that return observation. A new foreign mutation, changed external observation, or session reset interrupts review. `interrupt()` abandons the return observation and cancels pending work. Disposal also cancels pending work and releases subscriptions. Neither interruption nor disposal restores an earlier state.
-
-Restore requests carry a human actor and restoration correlation through ordinary runtime execution. They remain in the journal and are excluded from checkpoint projection. A controller declines overlapping review requests and review requests made while foreign mutations are active. Read `working` to disable review during that time, and retry after it returns to `false`.
+A new change by another actor, a changed external observation, or a session reset ends the review and keeps the new state. `close()` returns to the state captured when review began. `interrupt()` and `dispose()` end the review without restoring anything.
 
 ### Interrupt for native input
 
-During a pending restoration, native user input needs a host signal before its eventual state change is observed. Call `interrupt()` from the application’s input boundary. For a browser surface, trusted input can provide that signal:
+A person may start editing while a restoration is still running. Call `interrupt()` from the application's input boundary so the pending restoration cancels before it can overwrite the edit:
 
 ```ts
-const inputIntent = (event: Event) => {
+const onInput = (event: Event) => {
   if (event.isTrusted && replay.getState().phase === 'restoring') replay.interrupt();
 };
-const events = ['pointerdown', 'keydown', 'input'] as const;
-for (const event of events) analysisRoot.addEventListener(event, inputIntent, true);
-
-// On unmount:
-for (const event of events) analysisRoot.removeEventListener(event, inputIntent, true);
+for (const type of ['pointerdown', 'keydown', 'input']) analysisRoot.addEventListener(type, onInput, true);
 ```
 
-Bind this to the analytical surface, excluding replay controls. A harmless click during settled review leaves navigation active. Actual state changes still interrupt through provenance. Cancellation must reach the provider before effects to prevent them. Effects already applied remain visible and recorded.
+Bind the listener to the analytical surface and leave the replay controls out. Changes a provider already applied stay applied and recorded.
 
-[Agent presence](../presence/#replay-the-analytical-trail) accepts an independently owned replay controller. Other inspection surfaces can use the same controller and checkpoint types with their own presentation policy.
+[Agent presence](../presence/#replay-the-trail) renders a replay controller as a trail beside the agent's cursor. Other surfaces can drive the same controller with their own controls.

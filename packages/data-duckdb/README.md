@@ -17,7 +17,7 @@ This package standardizes how apps expose semantic data access through actions d
 - Tools and agents discover the `vacp.data_sql` contract for a handle, then execute its action name.
 - The handler executes DuckDB queries and returns results.
 
-`createDuckDbDataSqlHandler({ duckdb, resolveHandle })` answers `vacp.data_sql`, returning at most 500 JSON rows, and `createDuckDbDataSchemaHandler({ duckdb, resolveHandle })` answers `vacp.data_schema` for the tables each handle reads. `describeDuckDbTable({ duckdb, table, detail })` reads one table's columns and row count, with bounded summaries when `detail` is `full`. `countDuckDbTablesOnce(duckdb)` is a provider's `describeDataHandle` hook for a host whose tables stay as they loaded: it counts each table the first time a handle reads it and states that count from then on.
+`createDuckDbDataSqlHandler({ duckdb, resolveHandle })` answers `vacp.data_sql`, returning at most 500 JSON rows, and `createDuckDbDataSchemaHandler({ duckdb, resolveHandle })` answers `vacp.data_schema` for the tables each handle reads. `describeDuckDbTable({ duckdb, table, detail })` reads one table's columns and row count, with bounded summaries when `detail` is `full`. `countDuckDbTablesOnce(duckdb)` is an adapter's `data.describe` hook for a host whose tables stay as they loaded: it counts each table the first time a handle reads it and states that count from then on.
 
 Queries read `vacp_all` and `vacp_handle` as query-local relations. Independent handlers can share a DuckDB client without overwriting each other's bindings. Queries that read an invalid selection reject rather than returning unfiltered data.
 
@@ -25,7 +25,7 @@ Queries read `vacp_all` and `vacp_handle` as query-local relations. Independent 
 
 ## Minimal usage
 
-Install a `vacp.data_sql` handler during integration (often via `@vacp/sdk` or a provider).
+Install a `vacp.data_sql` handler during integration (through `@vacp/runtime` or a provider).
 
 `createDuckDbWasmClient({ bundles })` starts DuckDB-Wasm from `bundles`, the engine builds an application serves itself. Without them it loads DuckDB's published builds from jsDelivr. `instantiateDuckDbWasm({ bundles })` starts the same engine for a consumer that manages its own connection, such as a Mosaic `DuckDBWASMConnector({ duckdb })`.
 
@@ -43,9 +43,11 @@ const client = await createDuckDbWasmClient({
 });
 ```
 
-Call `dispose()` on clients returned by `createDuckDbWasmClient()` when their owner closes. Disposal releases connections and workers created by the client; injected connections and databases remain owned by the caller.
+Call `dispose()` on clients returned by `createDuckDbWasmClient()` when their owner closes. Disposal releases connections and workers created by the client. Injected connections and databases remain owned by the caller.
+
+`VacpDuckDbQueryClient` provides `exec`, `queryJson`, and `queryArrowIpcBase64` for SQL handlers and Mosaic. `VacpDuckDbClient` adds row loading for materializing Vega data. `describeDuckDbColumns({ duckdb, table })` reads column metadata. Row loading releases its registered JSON file and temporary typed table after success or failure.
 
 ## Related docs
 
-- [Core runtime](../../docs/reference/runtime.md)
-- [Tool Contract](../../docs/reference/tool-contract.md)
+- [Runtime reference](../../docs/api/runtime.md)
+- [Agent tools](../../docs/api/agent-tools.md)

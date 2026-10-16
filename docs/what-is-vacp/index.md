@@ -1,30 +1,74 @@
 # What is VACP?
 
-VACP gives people and agents one semantic interface to a composed visual analysis. Providers describe their sources, project analytical entities and state, and bind operations to the systems that own those values.
+VACP (Visual Analytics Context Protocol) lets an AI agent work in a visual analysis the way the person using it does. The agent reads the views, selections, parameters, and data that are on screen, and changes them through named operations such as "brush the age axis from 22 to 28". The person watching sees each step on the charts as it happens. The [VACP paper](https://arxiv.org/abs/2603.29322) describes the design and its evaluation.
 
-A notebook can contribute an analytical output, a widget can contribute its filter, and a database adapter can contribute a data handle. The composed graph records which source owns each node and action while allowing relationships across sources.
+![An agent reads the state of a visual analysis, discovers the interactions available, and executes named operations that update the charts.](/images/VACP_Teaser.svg)
 
-## Observation and control
+VACP runs inside the page. A provider describes each analytical source, the runtime composes the providers into one observation, and the page bridge serves that observation to agents and to interfaces built for people.
 
-| Operation           | Result                                                            |
-| ------------------- | ----------------------------------------------------------------- |
-| `observe()`         | One graph, state, ownership, revision, and freshness observation. |
-| `getCapabilities()` | A scoped graph projection.                                        |
-| `getState()`        | A scoped state projection or incremental update.                  |
-| `execute(call)`     | A semantic action result or structured error.                     |
+<ArchitectureDiagram />
 
-A **ref** identifies an analytical entity across rerenders and source updates. Nodes can represent views, visualizations, selections, parameters, widgets, data handles, or provider-defined domain concepts. Edges describe relationships such as containment, control, derivation, and visualization.
+## Providers describe sources
 
-Actions describe mutations, creations, evaluations, and queries. Their metadata connects input refs, affected entities, dynamic ref parameters, and produced state, data, visualizations, or artifacts.
+A source is a system that owns analytical values: a [Vega-Lite](https://vega.github.io/vega-lite/) chart, a dashboard built with [Mosaic vgplot](https://idl.uw.edu/mosaic/vgplot/), a set of form controls, or a notebook. A provider binds one source to VACP. It does three things:
 
-## Source authority
+- It projects the source as a graph of entities, such as views, marks, selections, parameters, widgets, and data handles, and the relationships between them.
+- It reports the current value of each entity as state.
+- It prepares and executes operations against the source, through the source's own API.
 
-Each provider publishes an atomic source observation. The provider defines when its values have settled. A Python widget can wait for trait validation and observers. A reactive notebook can report whether an output is stale, running, current, or failed for a given input revision.
+`@vacp/adapter-vega-lite` and `@vacp/adapter-vgplot` provide this for Vega-Lite and Mosaic vgplot. `@vacp/sdk` builds a provider for any other application. Each entity has a stable ref such as `vacp://analysis/overview/scatter/param/brush`, so an agent can refer to it across reads and rerenders.
 
-Large datasets stay with their owning system. A provider exposes data handles, queries, and bounded summaries while the application retains storage and execution.
+## The runtime composes one observation
 
-## Integrations and consumers
+The runtime reads every provider and publishes one observation: the graph, the state, which source owns each entity and operation, and whether each output is up to date with its inputs. In the browser, the runtime installs a bridge at `window.__vacp`. Open any [example](https://examples.vacp.dev/) and run this in the console:
 
-Vega-Lite and VGPlot providers map their visualization runtimes into VACP. Custom providers can bind another visualization, widget system, notebook, or analytical service through the same source, projection, observation, and operation ports.
+```js
+const observation = await window.__vacp.observe();
+observation.graph.nodes.length; // entities across every source on the page
+observation.graph.actions.map((action) => action.name); // operations available now
+```
 
-Custom [inspection surfaces](../inspector/) and [agents](../transports/) consume the composed contract. The [runtime](../reference/runtime) records provenance and owns subscriptions and provider lifecycle. [Provenance consumers](../provenance/) derive checkpoints and restore them through an explicit host capability. The [browser adapter](../reference/browser) exposes the runtime at `window.__vacp` and publishes DOM observations.
+The graph lists only the operations that can run in the current state. A chart that has no data yet offers no brushing operation until a dataset loads. The [core concepts](../concepts/) page describes each part of an observation.
+
+## Agents and people share one runtime
+
+An agent changes the analysis by executing an operation by name, with parameters its schema accepts and a sentence for the person watching:
+
+```js
+await window.__vacp.execute(
+  { callId: 'c1', name: 'cohort.set_sex', params: { sex: 'female' } },
+  { narration: 'Keeping only female athletes.' },
+);
+```
+
+The runtime validates the parameters, resolves the native target, and then applies the change through the provider. The same runtime observes changes a person makes with the mouse. Both kinds of change land in one provenance journal, and each record names its actor. Three things follow from that journal:
+
+- Presence shows the agent's cursor travelling to each target with its sentence.
+- Replay steps back through the agent's checkpoints and restores the charts to each one.
+- Inspection surfaces show the graph and its history for debugging and teaching.
+
+Agents reach the runtime through the [Model Context Protocol](https://modelcontextprotocol.io) (MCP), the protocol agent clients such as Claude Code use to call external tools. In-page agents use [AI SDK](https://ai-sdk.dev) tools, and browser agents use [WebMCP](https://webmachinelearning.github.io/webmcp/).
+
+## Packages
+
+| Package                                             | Role                                                                                |
+| --------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| [`@vacp/protocol`](../api/protocol)                 | Records and contracts shared by every package and the Python server                 |
+| [`@vacp/runtime`](../api/runtime)                   | Composes providers, executes operations, and records provenance                     |
+| [`@vacp/runtime-browser`](../api/browser)           | Installs a runtime in a page and publishes `window.__vacp`                          |
+| [`@vacp/sdk`](../api/sdk)                           | Defines operations with [Zod](https://zod.dev) schemas for a custom provider        |
+| [`@vacp/adapter-vega-lite`](../api/vega-lite)       | Provider for Vega-Lite views                                                        |
+| [`@vacp/adapter-vgplot`](../api/vgplot)             | Provider for Mosaic vgplot plots, inputs, legends, and tables                       |
+| [`@vacp/data-duckdb`](../api/data-duckdb)           | SQL access to data handles through [DuckDB](https://duckdb.org)                     |
+| [`@vacp/transport-bridge`](../api/transport-bridge) | The five agent tools over a page bridge                                             |
+| [`@vacp/agent-ai-sdk`](../api/agent-ai-sdk)         | An in-page agent built on the AI SDK                                                |
+| [`@vacp/transport-webmcp`](../api/webmcp)           | Registers operations as browser-native WebMCP tools                                 |
+| [`@vacp/presence-core`](../api/presence-core)       | Headless agent activity, targets, and pacing                                        |
+| [`@vacp/presence-browser`](../api/presence-browser) | Cursor and narration overlay for the browser                                        |
+| [`@vacp/provenance-core`](../api/provenance)        | Checkpoints and replay over the provenance journal                                  |
+| [`@vacp/inspector-core`](../api/inspector)          | Sessions and graph lookups for custom inspection surfaces                           |
+| [`@vacp/analytics`](../api/analytics)               | Forwards runtime events to a telemetry provider                                     |
+| [`@vacp/analytics-posthog`](../api/analytics)       | The telemetry provider for [PostHog](https://posthog.com), a product analytics tool |
+| [`vacp` (Python)](../api/python)                    | MCP server for external agents, and Python providers                                |
+
+Next, [get started](../get-started/) with the examples and connect an agent.

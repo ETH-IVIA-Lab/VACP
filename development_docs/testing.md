@@ -1,66 +1,49 @@
-# @vacp/e2e
+# Testing
 
-Playwright end-to-end suite for VACP examples and runtime surfaces.
+Tests protect behavior at the boundary a consumer uses: package exports for libraries, the page bridge and native rendering for providers, and the rendered page for presence and the docs.
 
-## Structure
+| Suite           | Command                     | Covers                                                                  |
+| --------------- | --------------------------- | ----------------------------------------------------------------------- |
+| Unit            | `make test`                 | Each package's `test/` through its public entry, plus Python            |
+| Package imports | `make test-package-imports` | Every public export in native Node and a strict NodeNext consumer       |
+| Lint rules      | `make test-tools`           | The vendored anti-slop rules and the StyleX sheet compiler              |
+| Browser         | `make e2e`                  | Examples, presence, WebMCP, the built gallery, and the docs             |
+| Benchmarks      | `make bench`                | Hot paths, run one package at a time. See [performance](performance.md) |
 
-```text
-tests/
-  docs/         # published documentation and integration snippets
-  bridge/       # window.__vacp contract + state update semantics
-  providers/
-    vega-lite/  # Vega-Lite provider-specific behavior
-    vgplot/     # VGPlot provider-specific behavior
-  smoke/        # cross-example integration smoke coverage
-  helpers/      # shared test utilities (paths, served applications, presence probes)
-```
+Unit tests run with `node --test` and a 10-second deadline, so a missing asynchronous signal fails instead of hanging. Timing contracts use controlled clocks and observable phases. Benchmarks are never correctness checks.
 
-## Servers
+## Browser suite
 
-Playwright starts every application once per run through `webServer` in `apps/e2e/playwright.config.ts`, on explicit ports from `apps/e2e/tests/helpers/servers.ts`. `VACP_E2E_PORT` moves the whole range. Specs call `appServer(name)` for the development servers and for the built gallery and documentation previews, which `make e2e` builds first. Servers hold no application state between page loads, and every test still receives a fresh page, runtime, and journal. The `warm` setup project visits each development server before the tests, so Vite's first dependency optimization never reloads a page under test. Tests run fully parallel across Playwright's default worker count. Keep each test independent of the others in its file. Import `test` from `helpers/test`. Its `exampleOptions` option runs examples without agent-step pacing, and presence specs restore pacing with `test.use({ exampleOptions: { paceAgentSteps: true } })`. A spec's own init script extends these options. Worker options such as WebMCP launch flags belong in a file-level `test.use` at the top of the spec.
+`apps/e2e/playwright.config.ts` starts every application once per run on explicit ports from `tests/helpers/servers.ts`: the dev servers of the gallery and each example, the built gallery, and the built documentation. `VACP_E2E_PORT` moves the whole range, so two checkouts can run at once. The `warm` project opens each dev server first, so Vite's dependency optimization never reloads a page under test.
 
-## Naming
+| Folder            | Contents                                                    |
+| ----------------- | ----------------------------------------------------------- |
+| `tests/bridge`    | The page bridge, presence, provenance, availability, WebMCP |
+| `tests/providers` | Native Vega-Lite, vgplot, and cars behavior                 |
+| `tests/examples`  | Example applications end to end                             |
+| `tests/smoke`     | Every example and gallery route, Portless routing           |
+| `tests/docs`      | The built documentation site                                |
+| `tests/helpers`   | Servers, the test fixture, WebMCP tool calls                |
 
-- Folder names carry the suite category.
-- File names are concise and scenario-focused.
-- Provider-specific tests live under their provider folder and do not repeat the provider name in the filename.
+Import `test` from `helpers/test`. Its `exampleOptions` option sets `__vacpExampleOptions` before each page loads, with agent pacing off by default. Presence specs turn it on with `test.use({ exampleOptions: { paceAgentSteps: true } })`. Call `useWebMcp()` at the top of a spec that needs Chromium's WebMCP. `gotoApp(page, name, path?)` opens an application and waits for its bridge. `tool(page, suffix, params)` calls a registered WebMCP tool the way a browser agent does.
 
-## Commands
+Every test gets a fresh page, runtime, and journal. Keep tests independent within a file, since they run in parallel.
 
-```bash
-pnpm test:e2e
-pnpm --filter @vacp/e2e typecheck
-pnpm lint
-```
+## Evidence
 
-## Contract evidence
+A successful result envelope proves that the runtime dispatched the call. To prove what the person sees, assert the native outcome alongside the protocol result: table rows and page text, bound controls after a view is replaced, linked legend selections, and brush and cursor geometry against native mark bounds under SVG, Canvas, padding, scaling, and pixel density.
 
-Keep a small set of behavior witnesses at the boundary that can prove them:
+Keep one witness per contract at the boundary that can prove it:
 
-- Provider preparation rejects invalid inputs before any native mutation, retains normalized inputs, and produces a single-use execution.
-- Replacing a provider cancels its old binding. Replacing an unrelated source preserves active work.
-- Observation attachment and detachment preserve native controls, rendering, method results, and promise identity. Two consumers can leave in either order. The last restores owned hooks.
-- Failed setup releases partial subscriptions. A subscriber exception cannot interrupt the source or other consumers.
-- Freshness belongs to an input/output revision. Superseded work cannot publish a newer output as current or failed.
-- Viewers can inspect different recorded observations independently. Explicit restoration alone mutates the source and reports partial failures.
-- Passive viewers require no timing authority. Host-installed pacing can be released while viewers remain attached.
+- Preparation rejects invalid input before any native change, and the prepared operation runs once.
+- Replacing a provider cancels its old binding. Replacing an unrelated source leaves active work alone.
+- Attaching and detaching observation preserves native controls, rendering, return values, and promise identity, in either order. Failed setup releases what it acquired.
+- Freshness belongs to an input and output revision, and superseded work never publishes as current.
+- Viewers inspect recorded observations independently, and only explicit restoration changes the source.
+- Viewers need no timing authority, and released pacing leaves them attached.
 
-Runtime and presence unit tests cover orchestration with controllable promises. Adapter tests cover native resource ownership and pure preparation. Browser tests cover actual native-engine behavior: table row counts and page contents, bound controls after view replacement, linked legend selections, and brush/cursor bounds under SVG, Canvas, padding, scaling, and pixel density.
+Validate a visualization change in a fresh browser session. Record short videos early to inspect motion, keep each recording with its scenario and assertions in ignored artifacts, and keep a recording only after its assertions pass.
 
-## Browser and recording discipline
+## Network
 
-Use a fresh browser session after source changes when validating an integration. Assert the actual visualization state alongside the protocol result. A returned success envelope proves dispatch. It does not prove visible rows, controls, or geometry are correct. Compare physical targets with native mark or brush bounds rather than relying on the adapter's own precision label.
-
-Use short recordings early to inspect motion and lifecycle behavior. Keep scenario input, result assertions, browser version, and recording together in ignored artifacts. Record to temporary filenames and promote the video/result pair only after assertions succeed. Report the tested scenarios and input domain. A sweep of declared defaults is not exhaustive over arbitrary inputs.
-
-Examples remain ordinary applications. Exercise them through public runtime/browser ports from test drivers. Keep diagnostic controls and automation outside example product flows.
-
-## Timing and performance
-
-Node unit-test commands use a 10-second outer deadline so a missing asynchronous signal fails the suite. Timing contracts use controlled clocks and observable phase transitions. Keep benchmark timing separate from correctness assertions.
-
-Run `make bench` for runtime reads, DOM snapshot writes, SDK parameter validation and execution, inspection, WebMCP registration, native Vega parameter observations, and coalesced presence work. The shared measurement helper warms the operation and reports the median of five rounds. Runtime scenarios include both unchanged and changing observations. SDK scenarios cover successful coercion with and without cancellation signals, and structured validation failures. Benchmark operations must verify that their results completed successfully.
-
-The runtime memory benchmark holds disposed handles across garbage collection and reports retained heap. It checks release of private history, delta caches, and provider references. Heap measurements are diagnostic, with no correctness threshold.
-
-Discovery benchmarks cover unrestricted catalogs, partially hidden catalogs, deep prerequisite chains, and large capability/state scopes. Python runs the same availability shapes. Scoped reads index exact refs and slash-delimited ancestors once; they do not cache source observations. Availability may share an immutable ready status, but each coherent read validates its own dependencies and produces its own status maps.
+DuckDB-Wasm downloads the parquet, spatial, and other extensions from `extensions.duckdb.org` on first use. Pages opened through the shared `test` fixture fetch each extension once, with retries, and then read it from `apps/e2e/node_modules/.cache/duckdb-extensions`. The vgplot gallery's `gaia`, `nyc-taxi-rides`, and `observable-latency` specifications still stream remote data, so a slow bucket can stall them. Rerun a single stalled spec before treating it as a failure.

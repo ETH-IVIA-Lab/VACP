@@ -1,16 +1,20 @@
 # @vacp/analytics-posthog
 
-Forward VACP runtime events and session metadata to PostHog through the telemetry provider contract.
+Forward VACP telemetry through a host-initialized [PostHog](https://posthog.com/docs/libraries/js) client.
 
 ```ts
-import { installVacpPosthogAnalytics } from '@vacp/analytics-posthog';
+import { posthog } from 'posthog-js';
+import { installVacpRuntimeAnalytics } from '@vacp/analytics';
+import { createPosthogProvider } from '@vacp/analytics-posthog';
 
-const installation = installVacpPosthogAnalytics({
-  bridge,
-  posthog: { apiKey, apiHost },
+posthog.init(apiKey, { api_host: apiHost });
+const installation = installVacpRuntimeAnalytics({
+  bridge: runtime,
+  provider: createPosthogProvider(posthog),
+  captureSnapshots: false,
 });
 
-installation.cleanup();
+installation.dispose();
 ```
 
-Configure snapshot capture and recording through the `analytics` options. Telemetry is installed by the application and sends data to its configured PostHog endpoint.
+The host owns client initialization and configuration. `createPosthogProvider(client)` maps event capture, session properties, and session recording to that client. Installing runtime analytics starts session recording and binds telemetry delivery to the runtime lifetime. Multiple runtimes can share one client.

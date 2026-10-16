@@ -1,6 +1,6 @@
 # @vacp/adapter-vega-lite
 
-`@vacp/adapter-vega-lite` exposes parameters, selections, encodings, and data handles from a Vega-Lite specification and its rendered Vega view.
+`@vacp/adapter-vega-lite` exposes parameters, selections, encodings, and data handles from a [Vega-Lite](https://vega.github.io/vega-lite/) specification and its rendered [Vega view](https://vega.github.io/vega/docs/api/view/).
 
 Bind an existing rendered visualization, then compose its provider into a runtime:
 
@@ -12,6 +12,7 @@ const provider = createVegaLiteProvider({
   root,
   view,
   spec,
+  vgSpec,
   options: { appId: 'analysis', viewId: 'overview', vizId: 'scatter' },
 });
 const runtime = createVacpRuntime({ providers: [provider] });
@@ -31,8 +32,10 @@ Applications can expose the same provider through `installVacpRuntime({ provider
 
 The IDs define stable references for the view and visualization. Parameter and selection actions operate on the supplied Vega view.
 
-Pass `options.duckdbClient` to reuse a data connection. Otherwise the provider creates a browser DuckDB instance when data is requested. Set `enableDuckDbDataHandle: false` to disable data handles, or `enableSql: false` to omit SQL execution while retaining schema discovery.
+Pass the `view` and `vgSpec` returned by [vega-embed](https://github.com/vega/vega-embed), which renders Vega-Lite specifications into Vega views. The adapter reads the compiled dataflow the host rendered.
 
-`includeSetSignalAction` enables arbitrary named Vega signal writes. It defaults to false. Enable it when signal writes belong to the application's action surface.
+Supply `data: { duckdb: client, sql: true, describe }` to expose data handles, schema discovery, and SQL queries over a host-owned DuckDB connection. `duckdb` also accepts a Promise. `sql` defaults to true. Set `sql: false` to retain schema discovery while disabling query execution. The optional `describe` callback supplies metadata and row counts. Omit `data` for parameter and selection interaction alone.
 
-[Provider guide](../../docs/providers/vega-lite.md) · [Runnable example](../../examples/vega-lite-gallery)
+`vacp_handle` uses the hovered rows when hover is active. Otherwise the current selections narrow it. Selection tuples retain field correlations and native unit resolution. Identity selections and fields absent from the loaded table make the affected data handle unavailable. Its state reports `selectionError`, and its SQL queries reject.
+
+[Provider guide](../../docs/vega-lite/index.md) · [Runnable example](../../examples/vega-lite-gallery)

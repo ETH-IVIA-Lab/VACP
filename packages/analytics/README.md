@@ -1,14 +1,16 @@
 # @vacp/analytics
 
-Subscribe to runtime events and forward them to a `VacpAnalyticsProvider`. The provider supplies `capture` and optional session-property and recording operations.
+Forward a runtime's provenance records to a `VacpAnalyticsProvider`.
 
 ```ts
 import { installVacpRuntimeAnalytics } from '@vacp/analytics';
 
-const installation = installVacpRuntimeAnalytics({ bridge, provider });
-installation.cleanup();
+const installation = installVacpRuntimeAnalytics({ bridge: runtime, provider });
+installation.dispose();
 ```
 
-Subscriptions use public runtime metadata. Reinstallation replaces the subscription for the same provider and event prefix. Cleanup stops pending capture and session updates.
+Each installation owns its subscription and pending delivery. Calling `dispose()` or aborting the runtime's lifetime signal stops both. Event names start with `vacp_`. Session properties retain the latest 50 records and flush at most once per second.
 
-Use `@vacp/analytics-posthog` for PostHog integration.
+Pass `captureSnapshots: true` to include analytical state and observation events. Observation delivery keeps the latest snapshot within each one-second interval. `getBaseProperties` adds application properties to events and session updates.
+
+Use `@vacp/analytics-posthog` to connect a host-initialized [PostHog](https://posthog.com/docs/libraries/js) client, which sends telemetry to the host's configured endpoint.

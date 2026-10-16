@@ -5,7 +5,7 @@ Install and discover composed browser runtimes, resolve browser configuration, a
 ```ts
 import { getVacpBridge, installVacpRuntime } from '@vacp/runtime-browser';
 
-const installation = installVacpRuntime({ providers: [controls, chart] });
+const installation = installVacpRuntime({ providers: [controls, chart], exposeBridge: true, injectDomSnapshot: false });
 const runtime = installation.runtime;
 const observation = await runtime.observe();
 const bridge = getVacpBridge();
@@ -13,4 +13,4 @@ const bridge = getVacpBridge();
 installation.dispose();
 ```
 
-Installation preserves runtime identity and composes providers by source ID. See the [browser reference](../../docs/reference/browser.md) for configuration and lifecycle behavior.
+Applications choose `exposeBridge`, which publishes the runtime at `globalKey`, `__vacp` by default, and `injectDomSnapshot`, which publishes observations in script elements. Installation preserves runtime identity and composes providers by source ID. `getVacpBridge()` returns the published runtime when it carries the complete page bridge. See the [browser reference](../../docs/api/browser.md) for configuration and lifecycle behavior.

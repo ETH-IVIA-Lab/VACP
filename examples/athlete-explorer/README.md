@@ -14,4 +14,4 @@ Open `https://athletes.examples.vacp.localhost`, or choose **Olympic Athlete Exp
 
 The dataset is reused from the vgplot gallery. Age is calculated on 5 August 2016. Missing body measurements remain in the cohort until a body filter excludes them. Medalist share counts athletes with at least one medal, including team medals, rather than medals per event.
 
-`model.ts` owns cohort filtering. `charts.ts` connects native chart selections and shares Mosaic's DuckDB connection. `app.ts` renders the custom D3 controls and summaries. `vacp.ts` adds three providers to one runtime, with one data handle, cross-provider graph edges, WebMCP tools, and optional agent presence. Application linking works independently of VACP.
+`model.ts` owns cohort filtering. `charts.ts` connects native chart selections and shares Mosaic's DuckDB connection. `app.ts` renders the custom D3 controls and summaries. `vacp.ts` builds three providers with one data handle and cross-provider graph edges, then installs them with `installExampleRuntime` from `@vacp/example-shared`, which adds WebMCP tools and agent presence. Application linking works independently of VACP.

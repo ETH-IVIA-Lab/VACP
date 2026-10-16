@@ -24,6 +24,6 @@ session.dispose();
 
 `runtime` is the application's VACP runtime. `InspectorClient` is the connection port. `createInspectorSession` owns requests, immutable JSON-shaped observations, optional bounded history, and separate operation and observation diagnostics. `createInspectionIndex` resolves entity context, source ownership, relationships, freshness, and related operations.
 
-Hosts own selection, navigation, input editing, result presentation, and analytical resource lifetime. Implement a client for a custom transport, use `./runtime` for an in-process runtime, or connect with `connectHttpInspectorClient` from `./http`. Read-only clients need only observation. Restoration and reveal are optional capabilities.
+Hosts own selection, navigation, input editing, result presentation, and analytical resource lifetime. Implement a client for a custom transport, use `./runtime` for an in-process runtime, or connect with `connectHttpInspectorClient` from `./http`. Read-only clients need only observation. Restoration and reveal are optional capabilities. Supply `restore: restorer.restore` when creating the runtime client to grant restoration. The restore port receives the selected observation’s state and execution options, including cancellation.
 
 See [Build an inspection surface](../../docs/inspector/index.md) for lifecycle, cancellation, history, HTTP, and protocol validation contracts.

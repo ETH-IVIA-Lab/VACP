@@ -1,31 +1,32 @@
 # Contributing
 
-Use Node.js 24.16 or newer, Corepack, and uv. The root `packageManager` field pins pnpm. JavaScript dependencies share `pnpm-lock.yaml`, and Python workspace members share `uv.lock`.
+Install [pnpm](https://pnpm.io/installation) 11 or newer and [uv](https://docs.astral.sh/uv/getting-started/installation/), then set up and build the workspace:
 
 ```bash
-corepack enable
 make setup build
 make dev
 ```
 
-Open `https://examples.vacp.localhost/` to use the gallery. Portless assigns backend ports and proxies the named URLs. Its version is pinned through the root pnpm catalog.
+`package.json` pins pnpm and Node.js through `devEngines`. Any pnpm from 11 on switches to the pinned release, and pnpm downloads the declared Node.js for every script, so contributors and CI run the same versions. `pyproject.toml` sets the minimum uv release in `[tool.uv] required-version`.
+
+`make dev` serves the gallery at `https://examples.vacp.localhost`. Run `make help` for every target.
 
 ## Local URLs
+
+[Portless](https://github.com/vercel-labs/portless) is a local proxy that gives each app a stable HTTPS name and assigns its port. Each app declares its name in the `portless` field of its `package.json`.
 
 | Surface              | Command                                                | URL                                               |
 | -------------------- | ------------------------------------------------------ | ------------------------------------------------- |
 | Gallery              | `make dev`                                             | `https://examples.vacp.localhost`                 |
 | Documentation        | `make docs-serve`                                      | `https://docs.vacp.localhost`                     |
 | Vega-Lite            | `pnpm --filter @vacp/example-vega-lite-gallery dev`    | `https://vega-lite.examples.vacp.localhost`       |
-| VGPlot               | `pnpm --filter @vacp/example-vgplot-gallery dev`       | `https://vgplot.examples.vacp.localhost`          |
+| vgplot               | `pnpm --filter @vacp/example-vgplot-gallery dev`       | `https://vgplot.examples.vacp.localhost`          |
 | React dashboard      | `pnpm --filter @vacp/example-react-dashboard dev`      | `https://react-dashboard.examples.vacp.localhost` |
 | Parallel coordinates | `pnpm --filter @vacp/example-cars-parallel-coords dev` | `https://cars-parcoords.examples.vacp.localhost`  |
 
-`make dev-all` (or `pnpm dev:all`) starts all six surfaces. `make dev-status` lists active routes. Each application's `package.json` declares its `portless` name. Ctrl+C releases its development route. Production `preview` commands serve the built output directly at the URL printed by Vite or VitePress.
+`make dev-all` starts the documentation, the gallery, and every standalone example. `make dev-status` lists active routes. The proxy listens on port 443 by default, and its first run asks to trust a local certificate authority. Linked git worktrees get a branch prefix in their names. See the [Portless HTTPS setup](https://github.com/vercel-labs/portless#http2--https) for other ports and certificates.
 
-Portless reuses your existing proxy configuration. Its default is HTTPS on port 443; first use may prompt to trust its local CA and bind that port. A custom proxy port appears in the printed URL. Linked git worktrees receive a branch prefix automatically. See [Portless setup](https://github.com/vercel-labs/portless#http2--https) for proxy and certificate settings.
-
-For a direct server, use `PORTLESS=0 pnpm --filter <package> dev --port <port>`. Playwright does this automatically with isolated ports. CI also tests the named routes through a separate unprivileged HTTP proxy, without modifying the machine's hosts file or certificate trust.
+To serve one app on a fixed port without the proxy, run `PORTLESS=0 pnpm --filter <package> dev --port <port>`. Playwright starts its servers this way.
 
 ## Checks
 
@@ -34,81 +35,84 @@ make format check
 make browser-install e2e
 ```
 
-`make check` runs formatting, Oxlint with the local anti-slop preset, Ruff, TypeScript, ty, basedpyright, pyrefly, Knip, vendored-rule tests, and workspace unit tests. `make e2e` builds the browser targets and runs Playwright. Tests start and stop their own servers; diagnostics go under `.artifacts/` and `apps/e2e/test-results/`.
+`make check` runs these gates:
 
-Use `make help` for the command list. The root pnpm scripts delegate to these targets. CI calls `make setup ci` and `make setup-web browser-install e2e`.
+- [Oxfmt](https://oxc.rs/docs/guide/usage/formatter) formatting and [Oxlint](https://oxc.rs/docs/guide/usage/linter) linting through `vp check`, with the anti-slop preset, over the source roots in `SOURCE_PATHS`.
+- [Ruff](https://docs.astral.sh/ruff/) linting and formatting, and the [ty](https://docs.astral.sh/ty/), [basedpyright](https://docs.basedpyright.com), and [pyrefly](https://pyrefly.org) type checkers over the Python workspace.
+- TypeScript over every package, app, and example.
+- [Knip](https://knip.dev), which finds unused files, exports, and dependencies.
+- The vendored lint rule tests and every unit test suite.
 
-### Agent evals
+`make e2e` builds the examples and the documentation and runs Playwright against them. See [testing](testing.md) for the suite layout.
 
-`apps/evals` measures how agents use VACP on the examples: it grades page state, rendered text, and replies, and records tokens, latency, and reads per run. `make check` runs its unit tests. Eval runs call models, so they run on request: build the libraries with `make build-libs`, then follow [apps/evals/README.md](../apps/evals/README.md). A round that changes VACP reruns a flow as the next variant and compares it with the baseline on the test split.
-
-### Source imports and library output
-
-Use extensionless relative source imports and re-exports:
-
-```ts
-import type { InspectionObservation } from './types';
-export { createInspectorSession } from './session';
-```
-
-Use package names for workspace boundaries, for example `@vacp/protocol`. Every library's `vp pack` command inherits the `pack` configuration from the root `vite.config.ts`. Its [unbundled mode](https://tsdown.dev/options/unbundle) preserves the source module structure and produces JavaScript and declaration imports that work in native Node. Vite+ manages this through its [library packaging command](https://viteplus.dev/guide/pack).
-
-`tsconfig.base.json` configures TypeScript for no-emit checking with bundler resolution. Package type-check commands use `tsc -p`, independently of packaging, and cannot overwrite built declarations. Vite+ schedules library builds using workspace dependencies. Oxlint enforces extensionless imports for owned TypeScript modules. Asset filenames retain their extensions.
-
-`make test-package-imports` builds libraries, imports every public JavaScript entry through its package manifest in native Node, and checks the same entries in a strict NodeNext consumer. The Node consumer runs emitted JavaScript with type stripping disabled. The type consumer verifies that declarations resolve independently of workspace source files and require no source-import compiler options. Keep ambient types referenced by public declarations in package dependencies.
-
-### Lint policy
-
-Anti-slop rules are vendored unchanged under `tools/oxlint/anti-slop`. The local `preset.ts` disables blanket bans on boundary `unknown`, runtime narrowing, open dictionaries, ordinary assertions, conditional property spreads, and naming or spacing conventions. These restrictions otherwise force duplicated validators and obscure the public API. The remaining rules reject chained assertions, widening followed by assertion, reflection shortcuts, module mocking, repeated array passes, and accumulator copying. Strict TypeScript checks stay enabled for library code.
-
-For focused work:
+For one package or suite:
 
 ```bash
 pnpm --filter @vacp/runtime test
-pnpm --filter @vacp/e2e test:e2e tests/smoke
+pnpm --filter @vacp/e2e exec playwright test tests/smoke
 uv run --all-packages --all-groups --locked pytest packages/python/tests
-pnpm --filter @vacp/docs dev
 ```
+
+### Agent evals
+
+`apps/evals` runs agents against the examples and grades the resulting page state, rendered text, and replies, with tokens, latency, and reads per run. `make check` runs its unit tests only, because eval runs call models. Build the libraries with `make build-libs`, then follow [apps/evals/README.md](../apps/evals/README.md).
+
+## Source imports and library output
+
+Use extensionless relative imports and re-exports in TypeScript source, and package names across workspace boundaries:
+
+```ts
+import type { InspectionObservation } from './types';
+import { parseVacpNarration } from '@vacp/protocol';
+```
+
+Each library builds with `vp pack`, which inherits the `pack` block in the root `vite.config.ts`. [Vite+ Pack](https://viteplus.dev/guide/pack) keeps the source module structure in its unbundled mode and emits ESM and declarations that load in native Node. `tsconfig.base.json` configures TypeScript for type checking only, with bundler resolution.
+
+`make test-package-imports` imports every public entry of every built package in native Node with type stripping disabled, and type-checks the same entries from a strict NodeNext consumer. Declare every type a public declaration references in that package's `dependencies`.
+
+### Lint policy
+
+The anti-slop rules are vendored unchanged under `tools/oxlint/anti-slop`. `tools/oxlint/anti-slop/preset.ts` selects which rules apply. It turns off bans on `unknown` at boundaries, runtime narrowing, open dictionaries, ordinary assertions, conditional spreads, and naming and spacing conventions. It keeps the rules against chained assertions, widening followed by assertion, reflection shortcuts, module mocking, repeated array passes, and accumulator copying. Change the preset rather than adding per-line exceptions.
+
+The dependency table in `vite.config.ts` lets each package import only the workspace packages that sit inward of it. Add a workspace dependency there and in the package manifest together.
 
 ## Python QA
 
-The root `pyproject.toml` declares the development tools once and configures Python QA across the workspace. `pytest-asyncio` is shared there too. Member manifests contain package metadata and runtime dependencies.
+The root `pyproject.toml` holds the shared development tools and the configuration for pytest, Ruff, ty, basedpyright, and pyrefly. Member manifests hold package metadata and runtime dependencies.
 
 ```bash
-make python-check       # Ruff, ty, basedpyright, pyrefly, and pytest
-make python-format      # Format Python source
-make python-lint        # Lint and format check
-make python-typecheck   # All three type checkers
-make python-test        # Combined test suite
+make python-check       # every Python gate
+make python-format      # format Python source
+make python-lint        # lint and format check
+make python-typecheck   # ty, basedpyright, and pyrefly
+make python-test        # the combined test suite
 ```
 
-Checks cover Python source and tests under `packages`, `apps`, `examples`, and `tools`. The type checkers use Python 3.12 and the root virtual environment. `make check` and `make ci` run the same gates without per-package duplicates. Each Python command installs the locked workspace packages and dev tools as needed.
-
-For one suite, pass its path to pytest from the root. The shared pytest configuration also handles duplicate test module names across packages.
-
-## Structure
-
-Applications in `apps/*` and `examples/*` compose the reusable libraries in `packages/*`. The protocol is the innermost dependency. Providers and transports implement its contracts, and applications install optional inspection UI. See [AGENTS.md](../AGENTS.md) for package ownership and [development_docs/architecture.md](architecture.md) for the runtime model.
-
-Vite+ configuration lives in `vite.config.ts`. Shared application configuration lives in `vite.shared.ts`. Keep application configuration declarative and declare workspace dependencies explicitly.
+The checks cover Python source and tests under `packages`, `apps`, `examples`, and `tools`, with Python 3.12 and the root virtual environment.
 
 ## Dependency updates
 
 ```bash
-corepack use pnpm@latest
+pnpm self-update
 pnpm -r update
 uv lock --upgrade
-uv sync --all-packages --all-groups --locked
+make setup check e2e
 ```
 
-Validate builds, checks, unit tests, and browser tests after upgrades. Commit both lockfiles with the manifest changes.
+pnpm installs releases at least 18 hours old (`minimumReleaseAge` in `pnpm-workspace.yaml`), and uv applies the same window through `exclude-newer` in `pyproject.toml`. An update that names a newer release fails until the release is old enough.
+
+Shared versions live in the `catalog` of `pnpm-workspace.yaml`. Mosaic and Vega packages sit there because the vgplot adapter identifies Mosaic classes by identity and the Vega-Lite adapter reads Vega views, so an application and the adapters must load one copy. `patchedDependencies` pins a patch to one exact version. When you update a patched package, rebase its patch with `pnpm patch <name>@<version>` and `pnpm patch-commit`.
+
+GitHub Actions are pinned to commit SHAs with their release tag in a comment. Update the SHA and the tag together.
+
+Commit `pnpm-lock.yaml` and `uv.lock` with the manifest changes.
 
 ## CI and deployment
 
-CI builds the workspace, checks formatting, lint and types, runs unit and browser tests, and builds Python distributions. The image publishing workflow runs after successful main-branch CI or a manual main-branch dispatch. It publishes documentation and gallery images to the configured Harbor registry, tagged with the tested commit SHA and `latest`. Registry credentials are GitHub Actions secrets.
+CI runs `make setup ci` and `make setup-web browser-install e2e`. [`pnpm/setup`](https://github.com/pnpm/setup) installs pnpm and Node.js from `devEngines`, and [`setup-uv`](https://github.com/astral-sh/setup-uv) installs uv from `required-version`.
+
+The image workflow runs after successful CI on `main`, or by manual dispatch on `main`. It builds the documentation and gallery images from `infra/*.Dockerfile` and pushes them to the configured [Harbor](https://goharbor.io) container registry, tagged with the tested commit SHA and `latest`. The images start from `ghcr.io/pnpm/pnpm`, and `pnpm install` provisions Node.js from `devEngines.runtime`. Registry credentials are GitHub Actions secrets.
 
 ## Documentation
 
-Write user guides and API references in `docs/`. VitePress configuration, theme, and public assets live in `apps/docs/`. Keep architecture, development, and operational material in `development_docs/`.
-
-Run `pnpm --filter @vacp/docs dev` to preview documentation and `pnpm --filter @vacp/docs build` to check the published site. The custom integration snippet is exercised by the SDK's public-boundary test.
+`docs/` is the documentation site: Markdown pages and the [VitePress](https://vitepress.dev) configuration and theme in `docs/.vitepress/`. Run `make docs-serve` to preview it and `make docs` to build it. `development_docs/` holds architecture, contribution, and test guides for people working on this repository.

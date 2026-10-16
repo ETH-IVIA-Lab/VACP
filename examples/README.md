@@ -3,6 +3,7 @@
 Runnable VACP integrations live here. They depend on reusable packages through workspace imports.
 
 - `gallery`: serves the examples from one application, including generated route entry points and copied public assets.
+- `shared`: the composition every example uses. `installExampleRuntime` installs the runtime, presence with replay, WebMCP tools, and analytics until an abort signal fires. `mountSpecGallery` renders the spec picker of the two galleries, and `@vacp/example-shared/config` holds the example options.
 - `vgplot-gallery`: VGPlot plots, tables, and linked interactions.
 - `vega-lite-gallery`: Vega-Lite parameters and selections.
 - `cars-parallel-coords`: custom D3 integration.

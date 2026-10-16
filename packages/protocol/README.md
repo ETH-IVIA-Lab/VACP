@@ -4,7 +4,7 @@
 
 Protocol types for VACP.
 
-This package is intentionally dependency-free. It defines the stable JSON shapes that apps produce and tools/transports consume.
+It defines the stable JSON shapes that apps produce and tools and transports consume. The root entry has no dependencies. `@vacp/protocol/validation` parses observations, action results, and capabilities and state requests with Zod.
 
 ## When to use
 
@@ -17,7 +17,7 @@ This package is intentionally dependency-free. It defines the stable JSON shapes
 - **State**: current values keyed by stable semantic refs.
 - **Actions**: named operations with validated parameters.
 
-The in-page bridge is typically installed as `window.__vacp`.
+`VacpWindowBridge` holds the model-facing reads and execution. `VacpPageBridge` adds inspection, refresh, provenance, agent activity, and the execution stream, and is the runtime a page publishes, typically as `window.__vacp`.
 
 ## Minimal usage
 
@@ -26,6 +26,6 @@ The in-page bridge is typically installed as `window.__vacp`.
 ## Related docs
 
 - [What is VACP?](../../docs/what-is-vacp/index.md)
-- [Core runtime](../../docs/reference/runtime.md)
-- [Tool Contract](../../docs/reference/tool-contract.md)
-- [Glossary](../../docs/reference/glossary.md)
+- [Runtime reference](../../docs/api/runtime.md)
+- [Agent tools](../../docs/api/agent-tools.md)
+- [Core concepts](../../docs/concepts/index.md)
