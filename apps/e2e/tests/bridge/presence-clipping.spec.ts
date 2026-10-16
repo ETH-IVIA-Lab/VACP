@@ -49,9 +49,15 @@ test('presence clips shadow content in scaled scroll containers and shares that 
       const chart = await mountPresenceChart(root, renderer);
       try {
         await chart.filter();
-        await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
-        const overlay = [...document.querySelectorAll('[data-vacp-presence]')].at(-1)!;
-        const cue = overlay.shadowRoot!.querySelector<SVGPathElement>('path[data-precision]')!;
+        // The overlay renders the cue after target resolution, a frame or more after the step.
+        const deadline = performance.now() + 10_000;
+        let cue: SVGPathElement | null | undefined;
+        while (cue?.dataset.precision !== 'region' && performance.now() < deadline) {
+          await new Promise((resolve) => requestAnimationFrame(resolve));
+          const overlay = [...document.querySelectorAll('[data-vacp-presence]')].at(-1);
+          cue = overlay?.shadowRoot?.querySelector<SVGPathElement>('path[data-precision]');
+        }
+        if (!cue) throw new Error(`The ${renderer} presence cue did not render`);
         const brush = root.querySelector('.brush_brush_bg path');
         return { cue: rect(cue), precision: cue.dataset.precision, brush: brush ? rect(brush) : null };
       } finally {
