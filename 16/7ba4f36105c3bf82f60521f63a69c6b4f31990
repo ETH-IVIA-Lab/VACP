@@ -1,0 +1,19 @@
+apps/e2e/tests/bridge/presence-clipping.spec.ts
+  s_7845e1732af377::t_005f07faa51bb8 52-60
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "167ba4f36105c3bf82f60521f63a69c6b4f31990",
+  "prompts": {},
+  "sessions": {
+    "s_7845e1732af377": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "b3e7a65c-9a19-4f28-9a82-986b3af71622",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Péter Ferenc Gyarmati <peterferenc.gyarmati@inf.ethz.ch>"
+    }
+  }
+}
