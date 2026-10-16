@@ -2,6 +2,8 @@ import { fileURLToPath } from 'node:url';
 import { defineConfig } from 'vitepress';
 
 const repository = 'https://github.com/ETH-IVIA-Lab/VACP';
+// GitHub Pages serves the site under the repository path, which `actions/configure-pages` reports.
+const basePath = process.env.BASE_PATH?.replace(/\/+$/, '') ?? '';
 const YEAR = new Date().getFullYear();
 
 const guide = [
@@ -92,6 +94,7 @@ export default defineConfig({
   title: 'VACP',
   description:
     'Lets AI agents read and change visual analyses through named operations, alongside the person using them.',
+  base: `${basePath}/`,
   srcDir: '../../docs',
   cleanUrls: true,
   lastUpdated: true,
