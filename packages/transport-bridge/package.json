@@ -1,5 +1,5 @@
 {
-  "name": "@ethivia/vacp-transport-bridge",
+  "name": "@ethivia/vacp-bridge",
   "version": "0.1.0",
   "private": true,
   "files": [

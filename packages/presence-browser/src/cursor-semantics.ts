@@ -1,4 +1,4 @@
-import type { PresenceActivity } from '@ethivia/vacp-presence-core';
+import type { PresenceActivity } from '@ethivia/vacp-presence';
 import type { CursorShape } from './cursor-assets';
 
 export type CursorPresentation = {

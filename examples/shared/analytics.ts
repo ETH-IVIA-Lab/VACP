@@ -1,6 +1,6 @@
 import { posthog } from 'posthog-js';
 import { installVacpRuntimeAnalytics } from '@ethivia/vacp-analytics';
-import { createPosthogProvider } from '@ethivia/vacp-analytics-posthog';
+import { createPosthogProvider } from '@ethivia/vacp-posthog';
 import type { VacpRuntime } from '@ethivia/vacp-runtime';
 
 const apiKey: unknown = import.meta.env.VACP_POSTHOG_API_KEY;

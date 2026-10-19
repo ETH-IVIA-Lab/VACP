@@ -1,13 +1,13 @@
 # Vega-Lite
 
-`@ethivia/vacp-adapter-vega-lite` exposes the parameters, selections, encodings, and data of a rendered [Vega-Lite](https://vega.github.io/vega-lite/) chart. Agents set parameters and selections through the chart's own Vega view, so linked marks update as they do for a mouse interaction.
+`@ethivia/vacp-vega-lite` exposes the parameters, selections, encodings, and data of a rendered [Vega-Lite](https://vega.github.io/vega-lite/) chart. Agents set parameters and selections through the chart's own Vega view, so linked marks update as they do for a mouse interaction.
 
 Render the chart with [vega-embed](https://github.com/vega/vega-embed), then create the provider from the embed result:
 
 ```ts
 import embed from 'vega-embed';
-import { createVegaLiteProvider } from '@ethivia/vacp-adapter-vega-lite';
-import { installVacpRuntime } from '@ethivia/vacp-runtime-browser';
+import { createVegaLiteProvider } from '@ethivia/vacp-vega-lite';
+import { installVacpRuntime } from '@ethivia/vacp-browser';
 
 const { view, spec, vgSpec } = await embed(root, chartSpec);
 const provider = createVegaLiteProvider({
@@ -58,7 +58,7 @@ Selection state holds a readable `value` and, when the native store is available
 Supply `data` to give each of the chart's datasets a data handle, backed by a DuckDB connection your application owns:
 
 ```ts
-import { createDuckDbWasmClient } from '@ethivia/vacp-data-duckdb';
+import { createDuckDbWasmClient } from '@ethivia/vacp-duckdb';
 
 const duckdb = await createDuckDbWasmClient();
 const provider = createVegaLiteProvider({ root, view, spec, vgSpec, data: { duckdb }, options });

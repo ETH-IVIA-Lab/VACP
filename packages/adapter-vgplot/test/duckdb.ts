@@ -1,5 +1,5 @@
 import { DuckDBInstance } from '@duckdb/node-api';
-import type { VacpDuckDbQueryClient } from '@ethivia/vacp-data-duckdb';
+import type { VacpDuckDbQueryClient } from '@ethivia/vacp-duckdb';
 
 /** A DuckDB engine in this process behind the client port, counting the queries it answers. */
 export async function nodeDuckDb() {

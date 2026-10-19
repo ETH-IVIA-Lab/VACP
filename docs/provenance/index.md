@@ -1,6 +1,6 @@
 # Provenance and replay
 
-The runtime records every completed operation and every change it observes, for every actor, in a journal of immutable records. `@ethivia/vacp-provenance-core` derives checkpoints from that journal and restores the charts to a chosen checkpoint. A viewer is one surface that shows the journal, such as presence or an inspection panel. Each viewer keeps its own selection and review state.
+The runtime records every completed operation and every change it observes, for every actor, in a journal of immutable records. `@ethivia/vacp-provenance` derives checkpoints from that journal and restores the charts to a chosen checkpoint. A viewer is one surface that shows the journal, such as presence or an inspection panel. Each viewer keeps its own selection and review state.
 
 ## Read the journal
 
@@ -39,7 +39,7 @@ The host supplies the actor: with each `execute` call, or with `runtime.refresh(
 
 ```ts
 import { provenanceActor } from '@ethivia/vacp-protocol';
-import { provenanceCheckpoints } from '@ethivia/vacp-provenance-core';
+import { provenanceCheckpoints } from '@ethivia/vacp-provenance';
 
 const checkpoints = provenanceCheckpoints(runtime.getProvenance().records);
 const agentSteps = checkpoints.filter(
@@ -54,7 +54,7 @@ A checkpoint has an `id`, its original `record`, the captured `observation`, and
 A replay controller lets one viewer step through checkpoints. The host supplies restoration:
 
 ```ts
-import { createProvenanceReplay } from '@ethivia/vacp-provenance-core';
+import { createProvenanceReplay } from '@ethivia/vacp-provenance';
 import { createVacpRestorer } from '@ethivia/vacp-runtime';
 
 const restorer = createVacpRestorer(runtime);

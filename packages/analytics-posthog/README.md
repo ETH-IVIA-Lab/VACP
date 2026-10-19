@@ -1,11 +1,11 @@
-# @ethivia/vacp-analytics-posthog
+# @ethivia/vacp-posthog
 
 Forward VACP telemetry through a host-initialized [PostHog](https://posthog.com/docs/libraries/js) client.
 
 ```ts
 import { posthog } from 'posthog-js';
 import { installVacpRuntimeAnalytics } from '@ethivia/vacp-analytics';
-import { createPosthogProvider } from '@ethivia/vacp-analytics-posthog';
+import { createPosthogProvider } from '@ethivia/vacp-posthog';
 
 posthog.init(apiKey, { api_host: apiHost });
 const installation = installVacpRuntimeAnalytics({

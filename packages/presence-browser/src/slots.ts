@@ -1,4 +1,4 @@
-import type { PresenceActivity, PresenceNavigation, PresencePoint } from '@ethivia/vacp-presence-core';
+import type { PresenceActivity, PresenceNavigation, PresencePoint } from '@ethivia/vacp-presence';
 import type { CursorShape } from './cursor-assets';
 import type { CursorPresentation } from './cursor-semantics';
 import { actorLabel, headingOf } from './describe';

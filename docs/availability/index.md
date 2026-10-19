@@ -84,6 +84,6 @@ A rejected call carries `error.details`:
 
 ## Explain a blocked operation
 
-`createInspectionIndex` from `@ethivia/vacp-inspector-core` reads the complete catalog. `entity(ref).availability`, `entity(ref).prerequisites`, `entity(ref).dependents`, and `action(name).availability` explain why a node or an operation is blocked, and `availableActions` lists what runs now. See [Inspection surfaces](../inspector/).
+`createInspectionIndex` from `@ethivia/vacp-inspector` reads the complete catalog. `entity(ref).availability`, `entity(ref).prerequisites`, `entity(ref).dependents`, and `action(name).availability` explain why a node or an operation is blocked, and `availableActions` lists what runs now. See [Inspection surfaces](../inspector/).
 
 Python providers declare `Availability(requires=(ref,), unavailable=reason)` on nodes and operations, with the same rules, checked against fixtures shared with the TypeScript protocol.

@@ -1,6 +1,6 @@
 # @ethivia/vacp-runtime
 
-The runtime composes providers, executes operations, records provenance, and publishes agent activity. It runs in any JavaScript environment. [`@ethivia/vacp-runtime-browser`](./browser) installs one in a page.
+The runtime composes providers, executes operations, records provenance, and publishes agent activity. It runs in any JavaScript environment. [`@ethivia/vacp-browser`](./browser) installs one in a page.
 
 ## createVacpRuntime
 
@@ -112,7 +112,7 @@ registerVacpDataSchemaAction(registry, handler, options?: { availability?; input
 registerVacpWidgetOptionsAction(registry, handler, options?: { availability?; inputRefs?; description? })
 ```
 
-Each registers its [standard contract](./protocol#standard-contracts) with parameter validation and returns the descriptor. Invalid parameters fail with the same `invalid-params` details as `@ethivia/vacp-sdk` operations. `prepare` for `vacp.apply_state` receives the desired state and returns the function that applies it. Throw from `prepare` to reject a state before anything changes. `@ethivia/vacp-data-duckdb` provides the SQL and schema handlers.
+Each registers its [standard contract](./protocol#standard-contracts) with parameter validation and returns the descriptor. Invalid parameters fail with the same `invalid-params` details as `@ethivia/vacp-sdk` operations. `prepare` for `vacp.apply_state` receives the desired state and returns the function that applies it. Throw from `prepare` to reject a state before anything changes. `@ethivia/vacp-duckdb` provides the SQL and schema handlers.
 
 ### parseVacpParams
 

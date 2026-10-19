@@ -9,7 +9,7 @@ import {
   type VacpProvider,
 } from '@ethivia/vacp-protocol';
 import { createVacpRuntime } from '@ethivia/vacp-runtime';
-import { createVacpTransport, type VacpTransport } from '@ethivia/vacp-transport-bridge';
+import { createVacpTransport, type VacpTransport } from '@ethivia/vacp-bridge';
 import { asSchema, simulateReadableStream } from 'ai';
 import { MockLanguageModelV4 } from 'ai/test';
 

@@ -4,7 +4,7 @@ Author semantic actions with Zod schemas and stable refs with `createVacpActions
 
 ```ts
 import { createVacpProvider } from '@ethivia/vacp-runtime';
-import { installVacpRuntime } from '@ethivia/vacp-runtime-browser';
+import { installVacpRuntime } from '@ethivia/vacp-browser';
 import { createVacpActions } from '@ethivia/vacp-sdk';
 import { z } from 'zod';
 

@@ -13,8 +13,8 @@ test('documentation serves the integration guide with its executable example and
   await expect(page.locator('.vp-doc')).toContainText('connectThreshold');
   await expect(page.locator('.vp-doc')).toContainText("from '@ethivia/vacp-sdk'");
   await page.getByRole('link', { name: 'API reference', exact: true }).first().click();
-  await page.getByRole('link', { name: '@ethivia/vacp-runtime-browser', exact: true }).first().click();
-  await expect(page.locator('.vp-doc h1')).toHaveText('@ethivia/vacp-runtime-browser');
+  await page.getByRole('link', { name: '@ethivia/vacp-browser', exact: true }).first().click();
+  await expect(page.locator('.vp-doc h1')).toHaveText('@ethivia/vacp-browser');
   await expect(page.locator('.vp-doc')).toContainText('installVacpRuntime');
   await page.screenshot({ path: testInfo.outputPath('runtime-browser-reference.png'), fullPage: true });
   expect(errors).toEqual([]);

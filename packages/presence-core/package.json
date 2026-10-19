@@ -1,5 +1,5 @@
 {
-  "name": "@ethivia/vacp-presence-core",
+  "name": "@ethivia/vacp-presence",
   "version": "0.1.0",
   "private": true,
   "files": [
@@ -25,7 +25,7 @@
   },
   "dependencies": {
     "@ethivia/vacp-protocol": "workspace:*",
-    "@ethivia/vacp-provenance-core": "workspace:*"
+    "@ethivia/vacp-provenance": "workspace:*"
   },
   "devDependencies": {
     "@ethivia/vacp-runtime": "workspace:*",

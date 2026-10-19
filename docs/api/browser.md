@@ -1,4 +1,4 @@
-# @ethivia/vacp-runtime-browser
+# @ethivia/vacp-browser
 
 Installs a runtime in a page, publishes it as the page bridge, and writes each observation into the DOM.
 

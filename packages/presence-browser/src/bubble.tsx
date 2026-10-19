@@ -1,6 +1,6 @@
 import * as stylex from '@stylexjs/stylex';
 import { memo } from 'react';
-import type { PresenceNavigation } from '@ethivia/vacp-presence-core';
+import type { PresenceNavigation } from '@ethivia/vacp-presence';
 import type { BubbleMotion } from './bubble-motion';
 import { useMotion, usePresence } from './context';
 import type { Slot } from './slots';

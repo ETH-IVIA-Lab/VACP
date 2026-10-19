@@ -1,5 +1,5 @@
 {
-  "name": "@ethivia/vacp-transport-webmcp",
+  "name": "@ethivia/vacp-webmcp",
   "version": "0.1.0",
   "private": true,
   "files": [

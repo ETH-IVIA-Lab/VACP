@@ -1,4 +1,4 @@
-import { type ProvenanceCheckpoint, type ProvenanceReplayState } from '@ethivia/vacp-provenance-core';
+import { type ProvenanceCheckpoint, type ProvenanceReplayState } from '@ethivia/vacp-provenance';
 import {
   provenanceActor,
   provenanceFocus,

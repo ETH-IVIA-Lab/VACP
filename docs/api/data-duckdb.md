@@ -1,4 +1,4 @@
-# @ethivia/vacp-data-duckdb
+# @ethivia/vacp-duckdb
 
 DuckDB clients and the handlers behind `vacp.data_sql` and `vacp.data_schema`. The visualization adapters use them for their data handles, and a custom provider registers them with [`registerVacpDataSqlAction` and `registerVacpDataSchemaAction`](./runtime#standard-operations).
 

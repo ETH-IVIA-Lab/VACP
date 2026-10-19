@@ -1,4 +1,4 @@
-# @ethivia/vacp-provenance-core
+# @ethivia/vacp-provenance
 
 Checkpoints and replay over the runtime's provenance journal. The [Provenance and replay guide](../provenance/) explains attribution, projection, and review.
 

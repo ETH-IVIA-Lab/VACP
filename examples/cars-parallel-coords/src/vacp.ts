@@ -15,10 +15,10 @@ import {
   describeDuckDbTable,
   makeVacpDuckDbTableName,
   sqlIdentifier,
-} from '@ethivia/vacp-data-duckdb';
+} from '@ethivia/vacp-duckdb';
 import { exampleDuckDbBundles, installExampleRuntime } from '@ethivia/vacp-example-shared';
 import { exampleOptions } from '@ethivia/vacp-example-shared/config';
-import { elementPresenceTarget, observePresenceLayout, svgPresenceTarget } from '@ethivia/vacp-presence-core/dom';
+import { elementPresenceTarget, observePresenceLayout, svgPresenceTarget } from '@ethivia/vacp-presence/dom';
 import type { BrushRange, CarDatum, ParallelCoordsChart } from './chart';
 
 function numberExtent(data: CarDatum[], dim: string): BrushRange {

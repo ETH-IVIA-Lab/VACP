@@ -1,4 +1,4 @@
-# @ethivia/vacp-data-duckdb
+# @ethivia/vacp-duckdb
 
 ## Purpose
 

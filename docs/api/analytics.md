@@ -1,6 +1,6 @@
 # @ethivia/vacp-analytics
 
-Forwards a runtime's provenance to a telemetry provider. `@ethivia/vacp-analytics-posthog` provides the [PostHog](https://posthog.com) provider.
+Forwards a runtime's provenance to a telemetry provider. `@ethivia/vacp-posthog` provides the [PostHog](https://posthog.com) provider.
 
 ## installVacpRuntimeAnalytics
 
@@ -30,7 +30,7 @@ type VacpAnalyticsProvider = {
 ```ts
 import posthog from 'posthog-js';
 import { installVacpRuntimeAnalytics } from '@ethivia/vacp-analytics';
-import { createPosthogProvider } from '@ethivia/vacp-analytics-posthog';
+import { createPosthogProvider } from '@ethivia/vacp-posthog';
 
 posthog.init(apiKey, { api_host: 'https://us.i.posthog.com', person_profiles: 'identified_only' });
 const analytics = installVacpRuntimeAnalytics({ bridge: runtime, provider: createPosthogProvider(posthog) });

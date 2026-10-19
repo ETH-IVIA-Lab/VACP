@@ -1,6 +1,6 @@
 import * as stylex from '@stylexjs/stylex';
 import { Fragment } from 'react';
-import type { PresenceNavigation } from '@ethivia/vacp-presence-core';
+import type { PresenceNavigation } from '@ethivia/vacp-presence';
 import { frameNames } from './describe';
 import { color, ease, labelMarker, reducedMarker } from './tokens.stylex';
 

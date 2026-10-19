@@ -1,7 +1,7 @@
 import embed from 'vega-embed';
-import { createVegaLiteProvider } from '@ethivia/vacp-adapter-vega-lite';
-import { createVegaLitePresentation } from '@ethivia/vacp-adapter-vega-lite/presentation';
-import type { VacpDuckDbClient } from '@ethivia/vacp-data-duckdb';
+import { createVegaLiteProvider } from '@ethivia/vacp-vega-lite';
+import { createVegaLitePresentation } from '@ethivia/vacp-vega-lite/presentation';
+import type { VacpDuckDbClient } from '@ethivia/vacp-duckdb';
 import { installExampleRuntime } from '@ethivia/vacp-example-shared';
 import { exampleOptions } from '@ethivia/vacp-example-shared/config';
 import type { GalleryEntry } from './gallery';

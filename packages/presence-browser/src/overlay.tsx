@@ -1,6 +1,6 @@
 import * as stylex from '@stylexjs/stylex';
 import { useEffect, useState } from 'react';
-import type { PresenceNavigation } from '@ethivia/vacp-presence-core';
+import type { PresenceNavigation } from '@ethivia/vacp-presence';
 import { useMotion, usePresence } from './context';
 import { Pointer } from './pointer';
 import type { PointerMotion } from './pointer-motion';

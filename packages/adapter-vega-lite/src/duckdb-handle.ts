@@ -6,7 +6,7 @@ import {
   makeVacpDuckDbTableName,
   type VacpDuckDbClient,
   type VacpDuckDbLoadType,
-} from '@ethivia/vacp-data-duckdb';
+} from '@ethivia/vacp-duckdb';
 import {
   registerVacpDataSchemaAction,
   registerVacpDataSqlAction,

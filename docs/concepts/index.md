@@ -161,6 +161,6 @@ A turn is one agent request. It opens with the agent's first sentence or its fir
 
 ## Provenance
 
-The runtime records every completed operation and every observed change in a journal of immutable records: operations with their actor and narration, changes a person made in the page, turn endings, and session boundaries. `@ethivia/vacp-provenance-core` derives checkpoints from these records, and a viewer restores a checkpoint through each source's `vacp.apply_state` operation. [Provenance and replay](../provenance/) covers the journal and restoration.
+The runtime records every completed operation and every observed change in a journal of immutable records: operations with their actor and narration, changes a person made in the page, turn endings, and session boundaries. `@ethivia/vacp-provenance` derives checkpoints from these records, and a viewer restores a checkpoint through each source's `vacp.apply_state` operation. [Provenance and replay](../provenance/) covers the journal and restoration.
 
 Next, [connect an application](../integrate/), or add VACP to a [Vega-Lite](../vega-lite/) or [Mosaic vgplot](../vgplot/) view.

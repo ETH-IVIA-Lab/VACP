@@ -13,9 +13,9 @@
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
-    "@ethivia/vacp-data-duckdb": "workspace:*",
+    "@ethivia/vacp-duckdb": "workspace:*",
     "@ethivia/vacp-example-shared": "workspace:*",
-    "@ethivia/vacp-presence-core": "workspace:*",
+    "@ethivia/vacp-presence": "workspace:*",
     "@ethivia/vacp-protocol": "workspace:*",
     "@ethivia/vacp-runtime": "workspace:*",
     "@ethivia/vacp-sdk": "workspace:*",

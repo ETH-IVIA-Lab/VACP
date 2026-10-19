@@ -1,9 +1,9 @@
 # WebMCP
 
-[WebMCP](https://webmachinelearning.github.io/webmcp/) is a proposed browser API through which a page registers tools for agents that run in the browser. `@ethivia/vacp-transport-webmcp` registers every available VACP operation as a tool on `document.modelContext`. Calls run through the VACP runtime, so presence, provenance, and availability checks apply as they do for any other agent.
+[WebMCP](https://webmachinelearning.github.io/webmcp/) is a proposed browser API through which a page registers tools for agents that run in the browser. `@ethivia/vacp-webmcp` registers every available VACP operation as a tool on `document.modelContext`. Calls run through the VACP runtime, so presence, provenance, and availability checks apply as they do for any other agent.
 
 ```ts
-import { installVacpWebMcp } from '@ethivia/vacp-transport-webmcp';
+import { installVacpWebMcp } from '@ethivia/vacp-webmcp';
 
 const webmcp = await installVacpWebMcp(runtime, {
   onError: (cause) => console.error('WebMCP registration failed', cause),

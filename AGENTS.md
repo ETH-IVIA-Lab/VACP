@@ -29,7 +29,7 @@ VACP composes analytical sources, state, freshness, and semantic operations thro
 - `docs/`: the Markdown pages of the documentation site: guides and API reference.
 - `development_docs/`: architecture, contributing, and testing guides.
 
-Use capability families for package names: `adapter-*` for visualization adapters, `analytics-*` for analytics providers, `data-*` for data backends, and `agent-*` for agent implementations. Keep `packages/` flat.
+Use capability families for package directories: `adapter-*` for visualization adapters, `analytics-*` for analytics providers, `data-*` for data backends, and `agent-*` for agent implementations. Keep `packages/` flat. npm package names use `@ethivia/vacp-` with the capability, such as `@ethivia/vacp-vega-lite`, `@ethivia/vacp-posthog`, `@ethivia/vacp-duckdb`, and `@ethivia/vacp-ai-sdk`.
 
 ## Dependency rules
 

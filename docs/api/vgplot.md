@@ -1,4 +1,4 @@
-# @ethivia/vacp-adapter-vgplot
+# @ethivia/vacp-vgplot
 
 Provider for [Mosaic](https://idl.uw.edu/mosaic/) vgplot plots, interactors, legends, inputs, and tables. The [Mosaic vgplot guide](../vgplot/) explains crossfilters, restoration, and data handles.
 
@@ -78,7 +78,7 @@ State values are complete JSON, and restoration reads them back unchanged. A val
 ## createVgplotPresentation
 
 ```ts
-import { createVgplotPresentation } from '@ethivia/vacp-adapter-vgplot/presentation';
+import { createVgplotPresentation } from '@ethivia/vacp-vgplot/presentation';
 
 createVgplotPresentation({ provider, root }): PresencePresentation
 ```

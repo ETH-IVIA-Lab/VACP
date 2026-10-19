@@ -8,7 +8,7 @@ The integration has three parts:
 
 - `createVacpActions()` from `@ethivia/vacp-sdk` defines operations with [Zod](https://zod.dev) schemas, a TypeScript schema library. `.params(schema)` publishes the schema to agents as JSON Schema and parses every call before the handler runs.
 - `createVacpProvider()` from `@ethivia/vacp-runtime` binds the source. `project()` returns the graph and state for one read, and `subscribe()` tells the runtime when a later read may differ.
-- `installVacpRuntime()` from `@ethivia/vacp-runtime-browser` composes the provider into a runtime and publishes it at `window.__vacp`.
+- `installVacpRuntime()` from `@ethivia/vacp-browser` composes the provider into a runtime and publishes it at `window.__vacp`.
 
 After `connectThreshold(input)` runs, an agent or the browser console can set the threshold:
 
@@ -104,14 +104,14 @@ Preparation runs before anything changes. A state that fails to parse fails the 
 
 ## Expose data
 
-Keep datasets in the system that owns them. Load the rows into DuckDB, register `vacp.data_sql` and `vacp.data_schema` with handlers from `@ethivia/vacp-data-duckdb`, and project a `DataHandle` node for the table. Agents then query the rows with SQL, and the graph carries only the handle:
+Keep datasets in the system that owns them. Load the rows into DuckDB, register `vacp.data_sql` and `vacp.data_schema` with handlers from `@ethivia/vacp-duckdb`, and project a `DataHandle` node for the table. Agents then query the rows with SQL, and the graph carries only the handle:
 
 ```ts
 import {
   createDuckDbDataSchemaHandler,
   createDuckDbDataSqlHandler,
   createDuckDbWasmClient,
-} from '@ethivia/vacp-data-duckdb';
+} from '@ethivia/vacp-duckdb';
 import { registerVacpDataSchemaAction, registerVacpDataSqlAction } from '@ethivia/vacp-runtime';
 
 const handleRef = 'vacp://example/scores';

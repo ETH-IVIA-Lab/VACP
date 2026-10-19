@@ -1,6 +1,6 @@
 import type { InferUITools, LanguageModel, TelemetryOptions, ToolLoopAgentSettings, UIMessage } from 'ai';
 import type { VacpActor, VacpAgentActivityControl } from '@ethivia/vacp-protocol';
-import type { VacpTransport } from '@ethivia/vacp-transport-bridge';
+import type { VacpTransport } from '@ethivia/vacp-bridge';
 import type { VacpAgentTools } from './vacp-tools';
 
 export type VacpTokenUsage = {

@@ -1,5 +1,5 @@
 {
-  "name": "@ethivia/vacp-adapter-vgplot",
+  "name": "@ethivia/vacp-vgplot",
   "version": "0.1.0",
   "private": true,
   "files": [
@@ -23,8 +23,8 @@
     "test": "tsx --test --test-timeout=10000 test/*.test.ts"
   },
   "dependencies": {
-    "@ethivia/vacp-data-duckdb": "workspace:*",
-    "@ethivia/vacp-presence-core": "workspace:*",
+    "@ethivia/vacp-duckdb": "workspace:*",
+    "@ethivia/vacp-presence": "workspace:*",
     "@ethivia/vacp-protocol": "workspace:*",
     "@ethivia/vacp-runtime": "workspace:*",
     "@uwdata/mosaic-core": "catalog:"

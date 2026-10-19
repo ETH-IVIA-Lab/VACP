@@ -1,10 +1,10 @@
 # Mosaic vgplot
 
-`@ethivia/vacp-adapter-vgplot` exposes the plots, interactors, legends, inputs, and tables of a [Mosaic](https://idl.uw.edu/mosaic/) vgplot dashboard. Mosaic links views through shared selections that filter queries in a database, and the adapter changes those selections the way Mosaic's own interactors do, so linked views update through Mosaic's dataflow.
+`@ethivia/vacp-vgplot` exposes the plots, interactors, legends, inputs, and tables of a [Mosaic](https://idl.uw.edu/mosaic/) vgplot dashboard. Mosaic links views through shared selections that filter queries in a database, and the adapter changes those selections the way Mosaic's own interactors do, so linked views update through Mosaic's dataflow.
 
 ```ts
-import { createVgplotProvider } from '@ethivia/vacp-adapter-vgplot';
-import { installVacpRuntime } from '@ethivia/vacp-runtime-browser';
+import { createVgplotProvider } from '@ethivia/vacp-vgplot';
+import { installVacpRuntime } from '@ethivia/vacp-browser';
 
 const provider = createVgplotProvider({
   root: dashboard,
@@ -74,7 +74,7 @@ Supply `data` to give each table the marks read a data handle:
 
 ```ts
 import { Coordinator, DuckDBWASMConnector } from '@uwdata/mosaic-core';
-import { createDuckDbWasmClient, instantiateDuckDbWasm } from '@ethivia/vacp-data-duckdb';
+import { createDuckDbWasmClient, instantiateDuckDbWasm } from '@ethivia/vacp-duckdb';
 
 const connector = new DuckDBWASMConnector({ duckdb: await instantiateDuckDbWasm({ bundles }) });
 const coordinator = new Coordinator(connector);
@@ -92,7 +92,7 @@ A handle's `vacp_handle` holds the table's rows narrowed by each selection that 
 Mosaic reports no revision for its tables, so a handle's `rowCount` is `null` unless the host states it. A host whose tables stay as they loaded can count each table once:
 
 ```ts
-import { countDuckDbTablesOnce } from '@ethivia/vacp-data-duckdb';
+import { countDuckDbTablesOnce } from '@ethivia/vacp-duckdb';
 
 createVgplotProvider({ root, plots, data: { duckdb, describe: countDuckDbTablesOnce(duckdb) }, options });
 ```

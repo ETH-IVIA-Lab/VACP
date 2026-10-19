@@ -1,5 +1,5 @@
 import { readSelectionTuples } from './selection-state';
-import { sqlIdentifier, sqlStringLiteral, sqlTimestampLiteral } from '@ethivia/vacp-data-duckdb';
+import { sqlIdentifier, sqlStringLiteral, sqlTimestampLiteral } from '@ethivia/vacp-duckdb';
 import type { VacpClock } from '@ethivia/vacp-protocol';
 
 import { collectVegaLiteParams } from './params';

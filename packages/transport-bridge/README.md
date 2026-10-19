@@ -1,9 +1,9 @@
-# @ethivia/vacp-transport-bridge
+# @ethivia/vacp-bridge
 
 Map a VACP bridge to the five agent tools of the [tool contract](../../docs/api/agent-tools.md): `vacp_observe`, `vacp_capabilities`, `vacp_state`, `vacp_execute`, and `vacp_progress`.
 
 ```ts
-import { createVacpTransport } from '@ethivia/vacp-transport-bridge';
+import { createVacpTransport } from '@ethivia/vacp-bridge';
 
 const transport = createVacpTransport(runtime, { actor: { id: 'agent', kind: 'agent', label: 'Agent' } });
 const read = await transport.vacp_capabilities({ refs: ['vacp://'] });

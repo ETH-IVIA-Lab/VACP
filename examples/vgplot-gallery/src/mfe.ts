@@ -1,5 +1,5 @@
 import { coordinator as globalCoordinator, DuckDBWASMConnector } from '@uwdata/mosaic-core';
-import { createDuckDbWasmClient, instantiateDuckDbWasm } from '@ethivia/vacp-data-duckdb';
+import { createDuckDbWasmClient, instantiateDuckDbWasm } from '@ethivia/vacp-duckdb';
 import { exampleDuckDbBundles, mountSpecGallery } from '@ethivia/vacp-example-shared';
 import { marked } from 'marked';
 import { loadGallery } from './gallery';

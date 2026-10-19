@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { createVacpProvider, createVacpRuntime } from '@ethivia/vacp-runtime';
 import { createVacpActions } from '@ethivia/vacp-sdk';
-import { installVacpWebMcp } from '@ethivia/vacp-transport-webmcp';
+import { installVacpWebMcp } from '@ethivia/vacp-webmcp';
 
 export async function exerciseWebMcpSchemas() {
   const context = document.modelContext;

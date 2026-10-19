@@ -3,7 +3,7 @@
 One runtime can compose any number of providers. The [Olympic athletes example](https://examples.vacp.dev/athletes/) composes three: a custom provider for its cohort controls, a Vega-Lite provider for the height and weight chart, and a vgplot provider for the age histogram.
 
 ```ts
-import { installVacpRuntime } from '@ethivia/vacp-runtime-browser';
+import { installVacpRuntime } from '@ethivia/vacp-browser';
 
 const { runtime, dispose } = installVacpRuntime({
   providers: [cohort, physique, age],

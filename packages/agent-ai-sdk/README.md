@@ -1,11 +1,11 @@
-# @ethivia/vacp-agent-ai-sdk
+# @ethivia/vacp-ai-sdk
 
 Give an [AI SDK](https://ai-sdk.dev) agent the five VACP tools, with context compaction and public progress for the person watching.
 
 ```ts
 import { createOpenAICompatible } from '@ai-sdk/openai-compatible';
-import { createVacpToolLoopAgent } from '@ethivia/vacp-agent-ai-sdk';
-import { createVacpTransport } from '@ethivia/vacp-transport-bridge';
+import { createVacpToolLoopAgent } from '@ethivia/vacp-ai-sdk';
+import { createVacpTransport } from '@ethivia/vacp-bridge';
 
 const provider = createOpenAICompatible({ name: 'gateway', baseURL, apiKey });
 const agent = createVacpToolLoopAgent({

@@ -14,10 +14,10 @@
       <text class="heading" x="10" y="20">Sources</text>
       <rect class="box" x="10" y="34" width="200" height="52" rx="6" />
       <text class="label" x="24" y="56">Vega-Lite view</text>
-      <text class="note" x="24" y="73">@ethivia/vacp-adapter-vega-lite</text>
+      <text class="note" x="24" y="73">@ethivia/vacp-vega-lite</text>
       <rect class="box" x="10" y="98" width="200" height="52" rx="6" />
       <text class="label" x="24" y="120">Mosaic vgplot</text>
-      <text class="note" x="24" y="137">@ethivia/vacp-adapter-vgplot</text>
+      <text class="note" x="24" y="137">@ethivia/vacp-vgplot</text>
       <rect class="box" x="10" y="162" width="200" height="52" rx="6" />
       <text class="label" x="24" y="184">Your application</text>
       <text class="note" x="24" y="201">@ethivia/vacp-sdk</text>
@@ -45,17 +45,17 @@
       <text class="note" x="552" y="74">External agents · vacp (Python)</text>
       <rect class="box" x="538" y="92" width="242" height="46" rx="6" />
       <text class="label" x="552" y="112">In-page agent</text>
-      <text class="note" x="552" y="128">@ethivia/vacp-agent-ai-sdk</text>
+      <text class="note" x="552" y="128">@ethivia/vacp-ai-sdk</text>
       <rect class="box" x="538" y="146" width="242" height="46" rx="6" />
       <text class="label" x="552" y="166">Browser agent</text>
-      <text class="note" x="552" y="182">@ethivia/vacp-transport-webmcp</text>
+      <text class="note" x="552" y="182">@ethivia/vacp-webmcp</text>
       <text class="heading" x="538" y="222">People</text>
       <rect class="box" x="538" y="230" width="242" height="44" rx="6" />
       <text class="label" x="552" y="249">Presence and replay</text>
       <text class="note" x="552" y="265">Cursor, narration, checkpoints</text>
       <rect class="box" x="538" y="280" width="242" height="44" rx="6" />
       <text class="label" x="552" y="299">Inspection surfaces</text>
-      <text class="note" x="552" y="315">@ethivia/vacp-inspector-core</text>
+      <text class="note" x="552" y="315">@ethivia/vacp-inspector</text>
     </svg>
   </figure>
 </template>

@@ -1,11 +1,11 @@
-# @ethivia/vacp-adapter-vgplot
+# @ethivia/vacp-vgplot
 
-`@ethivia/vacp-adapter-vgplot` exposes [Mosaic vgplot](https://idl.uw.edu/mosaic/vgplot/) marks, selections, interactors, input widgets, and tables.
+`@ethivia/vacp-vgplot` exposes [Mosaic vgplot](https://idl.uw.edu/mosaic/vgplot/) marks, selections, interactors, input widgets, and tables.
 
 Bind an existing rendered visualization, then compose its provider into a runtime:
 
 ```ts
-import { createVgplotProvider } from '@ethivia/vacp-adapter-vgplot';
+import { createVgplotProvider } from '@ethivia/vacp-vgplot';
 import { createVacpRuntime } from '@ethivia/vacp-runtime';
 
 const provider = createVgplotProvider({
@@ -26,7 +26,7 @@ The runtime owns the attached provider's lifetime. Provider subscriptions observ
 
 Action names are qualified by source identity. Discover an action through its `operation.contract` (for example, `vgplot.set_interval_1d`), then execute the advertised `name`. Graph ownership identifies the source when several providers offer the same contract.
 
-Applications can expose the same provider through `installVacpRuntime({ providers: [provider], exposeBridge, injectDomSnapshot })` from `@ethivia/vacp-runtime-browser`. Exposure policy belongs to the application.
+Applications can expose the same provider through `installVacpRuntime({ providers: [provider], exposeBridge, injectDomSnapshot })` from `@ethivia/vacp-browser`. Exposure policy belongs to the application.
 
 For dashboards, supply several `plots` and optional `tables`. Each plot supplies a `plotId` and the vgplot plot object. Each table supplies a `tableId` and the table object.
 

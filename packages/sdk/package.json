@@ -24,6 +24,6 @@
     "zod": "catalog:"
   },
   "devDependencies": {
-    "@ethivia/vacp-runtime-browser": "workspace:*"
+    "@ethivia/vacp-browser": "workspace:*"
   }
 }

@@ -10,26 +10,26 @@ Each package page lists its entry points, signatures, options with defaults, ret
 ## Runtime
 
 - [`@ethivia/vacp-runtime`](./runtime): `createVacpRuntime`, `createVacpProvider`, standard operations, restoration, and execution activity.
-- [`@ethivia/vacp-runtime-browser`](./browser): `installVacpRuntime`, `getVacpBridge`, and the DOM snapshot format.
+- [`@ethivia/vacp-browser`](./browser): `installVacpRuntime`, `getVacpBridge`, and the DOM snapshot format.
 - [`@ethivia/vacp-sdk`](./sdk): `createVacpActions` and `createVacpRefBuilder` for custom providers.
 
 ## Providers
 
-- [`@ethivia/vacp-adapter-vega-lite`](./vega-lite): `createVegaLiteProvider` and its operations.
-- [`@ethivia/vacp-adapter-vgplot`](./vgplot): `createVgplotProvider` and its operations.
-- [`@ethivia/vacp-data-duckdb`](./data-duckdb): DuckDB clients and the `vacp.data_sql` and `vacp.data_schema` handlers.
+- [`@ethivia/vacp-vega-lite`](./vega-lite): `createVegaLiteProvider` and its operations.
+- [`@ethivia/vacp-vgplot`](./vgplot): `createVgplotProvider` and its operations.
+- [`@ethivia/vacp-duckdb`](./data-duckdb): DuckDB clients and the `vacp.data_sql` and `vacp.data_schema` handlers.
 
 ## Agents
 
-- [`@ethivia/vacp-transport-bridge`](./transport-bridge): `createVacpTransport` over a page bridge.
-- [`@ethivia/vacp-agent-ai-sdk`](./agent-ai-sdk): AI SDK tools, an agent, and a chat runtime.
-- [`@ethivia/vacp-transport-webmcp`](./webmcp): `installVacpWebMcp` and the tools it registers.
+- [`@ethivia/vacp-bridge`](./transport-bridge): `createVacpTransport` over a page bridge.
+- [`@ethivia/vacp-ai-sdk`](./agent-ai-sdk): AI SDK tools, an agent, and a chat runtime.
+- [`@ethivia/vacp-webmcp`](./webmcp): `installVacpWebMcp` and the tools it registers.
 - [`vacp` (Python)](./python): the MCP server CLI, Python providers, and the inspection endpoint.
 
 ## Presence and history
 
-- [`@ethivia/vacp-presence-core`](./presence-core): headless presence, targets, and pacing.
-- [`@ethivia/vacp-presence-browser`](./presence-browser): the browser overlay and its appearance options.
-- [`@ethivia/vacp-provenance-core`](./provenance): checkpoints and replay.
-- [`@ethivia/vacp-inspector-core`](./inspector): inspection sessions, graph indexes, and clients.
-- [`@ethivia/vacp-analytics`](./analytics): runtime telemetry, and `createPosthogProvider` from `@ethivia/vacp-analytics-posthog`.
+- [`@ethivia/vacp-presence`](./presence-core): headless presence, targets, and pacing.
+- [`@ethivia/vacp-presence-react`](./presence-browser): the browser overlay and its appearance options.
+- [`@ethivia/vacp-provenance`](./provenance): checkpoints and replay.
+- [`@ethivia/vacp-inspector`](./inspector): inspection sessions, graph indexes, and clients.
+- [`@ethivia/vacp-analytics`](./analytics): runtime telemetry, and `createPosthogProvider` from `@ethivia/vacp-posthog`.

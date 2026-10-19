@@ -1,4 +1,4 @@
-import type { PresenceActivity } from '@ethivia/vacp-presence-core';
+import type { PresenceActivity } from '@ethivia/vacp-presence';
 
 /**
  * Authoritative content and presentation identity. A new revision restarts the reveal, and whether it

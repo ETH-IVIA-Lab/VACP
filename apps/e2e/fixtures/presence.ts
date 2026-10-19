@@ -1,12 +1,12 @@
 import embed from 'vega-embed';
-import { createVegaLiteProvider } from '@ethivia/vacp-adapter-vega-lite';
-import { createVegaLitePresentation } from '@ethivia/vacp-adapter-vega-lite/presentation';
+import { createVegaLiteProvider } from '@ethivia/vacp-vega-lite';
+import { createVegaLitePresentation } from '@ethivia/vacp-vega-lite/presentation';
 import { createVacpRuntime } from '@ethivia/vacp-runtime';
 import {
   createBrowserPresence,
   createBrowserPresenceRenderer,
   type BrowserPresenceOptions,
-} from '@ethivia/vacp-presence-browser';
+} from '@ethivia/vacp-presence-react';
 
 /** Exercise real Vega rendering with explicit padding and CSS scaling. */
 export async function mountPresenceChart(
@@ -330,7 +330,7 @@ export async function measureBubblePlacement() {
 export function measureGrowingTrailFocus() {
   const renderer = createBrowserPresenceRenderer({ motion: 'reduced', hover: false });
   const shadow = [...document.querySelectorAll('[data-vacp-presence]')].at(-1)!.shadowRoot!;
-  const render = (frames: import('@ethivia/vacp-presence-core').PresenceTrailFrame[]) =>
+  const render = (frames: import('@ethivia/vacp-presence').PresenceTrailFrame[]) =>
     renderer.render({
       reason: 'activity',
       activities: [

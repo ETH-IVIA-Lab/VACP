@@ -1,9 +1,9 @@
-# @ethivia/vacp-runtime-browser
+# @ethivia/vacp-browser
 
 Install and discover composed browser runtimes, resolve browser configuration, and publish DOM observations.
 
 ```ts
-import { getVacpBridge, installVacpRuntime } from '@ethivia/vacp-runtime-browser';
+import { getVacpBridge, installVacpRuntime } from '@ethivia/vacp-browser';
 
 const installation = installVacpRuntime({ providers: [controls, chart], exposeBridge: true, injectDomSnapshot: false });
 const runtime = installation.runtime;

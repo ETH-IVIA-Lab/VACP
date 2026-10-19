@@ -2,11 +2,7 @@ import { createVacpProvider, VacpActionRegistry } from '@ethivia/vacp-runtime';
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { setImmediate } from 'node:timers/promises';
-import type {
-  ProvenanceCheckpoint,
-  ProvenanceReplayController,
-  ProvenanceReplayState,
-} from '@ethivia/vacp-provenance-core';
+import type { ProvenanceCheckpoint, ProvenanceReplayController, ProvenanceReplayState } from '@ethivia/vacp-provenance';
 import {
   VACP_SCHEMA_VERSION,
   type VacpActor,

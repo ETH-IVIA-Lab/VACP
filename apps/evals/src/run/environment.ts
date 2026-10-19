@@ -48,9 +48,15 @@ export function assertFreshBuilds(root: string) {
   const manifest = JSON.parse(readFileSync(join(root, 'apps/evals/package.json'), 'utf8')) as {
     dependencies: Record<string, string>;
   };
-  const stale = Object.keys(manifest.dependencies)
-    .filter((name) => name.startsWith('@ethivia/vacp-'))
-    .map((name) => join(root, 'packages', name.slice('@ethivia/vacp-'.length)))
+  const stale = readdirSync(join(root, 'packages'), { withFileTypes: true })
+    .filter((entry) => entry.isDirectory())
+    .map((entry) => join(root, 'packages', entry.name))
+    .filter((dir) => {
+      const path = join(dir, 'package.json');
+      if (!existsSync(path)) return false;
+      const dependency = JSON.parse(readFileSync(path, 'utf8')) as { name: string };
+      return Object.hasOwn(manifest.dependencies, dependency.name);
+    })
     .filter((dir) => newest(join(dir, 'src')) > newest(join(dir, 'dist')));
   if (stale.length)
     throw new EvalGateError(

@@ -12,11 +12,18 @@ test('eval startup requires current builds for workspace dependencies', () => {
     const app = join(root, 'apps/evals');
     const source = join(root, 'packages/agent-ai-sdk/src');
     const output = join(root, 'packages/agent-ai-sdk/dist');
-    for (const dir of [app, source, output]) mkdirSync(dir, { recursive: true });
+    const unrelated = join(root, 'packages/data-duckdb');
+    const python = join(root, 'packages/python');
+    for (const dir of [app, source, output, join(unrelated, 'src'), join(python, 'src')])
+      mkdirSync(dir, { recursive: true });
     writeFileSync(
       join(app, 'package.json'),
-      JSON.stringify({ dependencies: { '@ethivia/vacp-agent-ai-sdk': 'workspace:*', ai: 'catalog:' } }),
+      JSON.stringify({ dependencies: { '@ethivia/vacp-ai-sdk': 'workspace:*', ai: 'catalog:' } }),
     );
+    writeFileSync(join(root, 'packages/agent-ai-sdk/package.json'), JSON.stringify({ name: '@ethivia/vacp-ai-sdk' }));
+    writeFileSync(join(unrelated, 'package.json'), JSON.stringify({ name: '@ethivia/vacp-duckdb' }));
+    writeFileSync(join(unrelated, 'src/index.ts'), 'export {};');
+    writeFileSync(join(python, 'src/__init__.py'), '');
     const input = join(source, 'index.ts');
     const built = join(output, 'index.js');
     writeFileSync(input, 'export {};');

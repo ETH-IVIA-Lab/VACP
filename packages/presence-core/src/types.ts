@@ -1,4 +1,4 @@
-import type { ProvenanceReplayController } from '@ethivia/vacp-provenance-core';
+import type { ProvenanceReplayController } from '@ethivia/vacp-provenance';
 import type {
   VacpExecution,
   VacpExecutionSource,

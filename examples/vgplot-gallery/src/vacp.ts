@@ -1,9 +1,9 @@
 import type { Coordinator } from '@uwdata/mosaic-core';
 import { astToDOM, parseSpec } from '@uwdata/mosaic-spec';
 import { createAPIContext } from '@uwdata/vgplot';
-import { createVgplotProvider, type VgplotPlotLike, type VgplotTableLike } from '@ethivia/vacp-adapter-vgplot';
-import { createVgplotPresentation } from '@ethivia/vacp-adapter-vgplot/presentation';
-import { countDuckDbTablesOnce, type VacpDuckDbClient } from '@ethivia/vacp-data-duckdb';
+import { createVgplotProvider, type VgplotPlotLike, type VgplotTableLike } from '@ethivia/vacp-vgplot';
+import { createVgplotPresentation } from '@ethivia/vacp-vgplot/presentation';
+import { countDuckDbTablesOnce, type VacpDuckDbClient } from '@ethivia/vacp-duckdb';
 import { installExampleRuntime } from '@ethivia/vacp-example-shared';
 import { exampleOptions } from '@ethivia/vacp-example-shared/config';
 import { abortable } from '@ethivia/vacp-protocol';

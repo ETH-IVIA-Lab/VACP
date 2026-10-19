@@ -36,16 +36,16 @@ The runner fails a run whose response names a different model than the one reque
 
 `--condition` picks a condition by its key in `evals.config.ts`, which also names its results partition:
 
-| Condition     | Agent loop                                                  | Tools the model sees                                       |
-| ------------- | ----------------------------------------------------------- | ---------------------------------------------------------- |
-| `webmcp`      | AI SDK `generateText`, one model call at a time             | The page's WebMCP catalog, read again before every call    |
-| `vacp-agent`  | `createVacpToolLoopAgent` from `@ethivia/vacp-agent-ai-sdk` | The VACP bridge tools                                      |
-| `claude-code` | Claude Code through AI SDK `HarnessAgent`                   | The VACP bridge tools. Built-in tools are filtered out     |
-| `codex`       | Codex through AI SDK `HarnessAgent`                         | The VACP bridge tools beside Codex's shell and patch tools |
-| `opencode`    | OpenCode through AI SDK `HarnessAgent`                      | The VACP bridge tools. Built-in tools are filtered out     |
-| `pi`          | Pi through AI SDK `HarnessAgent`                            | The VACP bridge tools. Built-in tools are filtered out     |
-| `oracle`      | Each turn's reference solution                              | Scenario actions through the bridge                        |
-| `none`        | No agent, the control                                       | None                                                       |
+| Condition     | Agent loop                                            | Tools the model sees                                       |
+| ------------- | ----------------------------------------------------- | ---------------------------------------------------------- |
+| `webmcp`      | AI SDK `generateText`, one model call at a time       | The page's WebMCP catalog, read again before every call    |
+| `vacp-agent`  | `createVacpToolLoopAgent` from `@ethivia/vacp-ai-sdk` | The VACP bridge tools                                      |
+| `claude-code` | Claude Code through AI SDK `HarnessAgent`             | The VACP bridge tools. Built-in tools are filtered out     |
+| `codex`       | Codex through AI SDK `HarnessAgent`                   | The VACP bridge tools beside Codex's shell and patch tools |
+| `opencode`    | OpenCode through AI SDK `HarnessAgent`                | The VACP bridge tools. Built-in tools are filtered out     |
+| `pi`          | Pi through AI SDK `HarnessAgent`                      | The VACP bridge tools. Built-in tools are filtered out     |
+| `oracle`      | Each turn's reference solution                        | Scenario actions through the bridge                        |
+| `none`        | No agent, the control                                 | None                                                       |
 
 The VACP bridge tools are `vacp_observe`, `vacp_capabilities`, `vacp_state`, `vacp_execute`, and `vacp_progress` from the [tool contract](../../docs/api/agent-tools.md), the same tools the Python MCP server gives an external agent. `vacp-agent` uses the product agent's own instructions and temperature, with the suite's `run.maxSteps` model calls per turn. Every other agent condition uses the instructions of a browser host's assistant.
 

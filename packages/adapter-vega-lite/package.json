@@ -1,5 +1,5 @@
 {
-  "name": "@ethivia/vacp-adapter-vega-lite",
+  "name": "@ethivia/vacp-vega-lite",
   "version": "0.1.0",
   "private": true,
   "files": [
@@ -24,8 +24,8 @@
     "bench": "tsx bench/observation.ts && tsx bench/data.ts"
   },
   "dependencies": {
-    "@ethivia/vacp-data-duckdb": "workspace:*",
-    "@ethivia/vacp-presence-core": "workspace:*",
+    "@ethivia/vacp-duckdb": "workspace:*",
+    "@ethivia/vacp-presence": "workspace:*",
     "@ethivia/vacp-protocol": "workspace:*",
     "@ethivia/vacp-runtime": "workspace:*"
   },

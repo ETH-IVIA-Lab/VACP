@@ -1,5 +1,5 @@
 {
-  "name": "@ethivia/vacp-provenance-core",
+  "name": "@ethivia/vacp-provenance",
   "version": "0.1.0",
   "private": true,
   "files": [

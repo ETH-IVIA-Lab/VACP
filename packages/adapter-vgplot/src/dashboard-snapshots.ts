@@ -9,7 +9,7 @@ import {
   type VacpRef,
 } from '@ethivia/vacp-protocol';
 import type { VacpAnalyticalProjection } from '@ethivia/vacp-runtime';
-import { describeDuckDbColumns } from '@ethivia/vacp-data-duckdb';
+import { describeDuckDbColumns } from '@ethivia/vacp-duckdb';
 
 import { readInputValue } from './inputs';
 import type { VgplotDataHandle } from './data-handles';
@@ -36,8 +36,8 @@ export function createVgplotDashboardSnapshots(args: {
   data:
     | {
         duckdb:
-          | import('@ethivia/vacp-data-duckdb').VacpDuckDbQueryClient
-          | Promise<import('@ethivia/vacp-data-duckdb').VacpDuckDbQueryClient>;
+          | import('@ethivia/vacp-duckdb').VacpDuckDbQueryClient
+          | Promise<import('@ethivia/vacp-duckdb').VacpDuckDbQueryClient>;
         describe?: import('@ethivia/vacp-protocol').VacpDataHandleDescriber;
       }
     | undefined;

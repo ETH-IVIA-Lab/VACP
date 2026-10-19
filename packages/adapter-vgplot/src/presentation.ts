@@ -1,5 +1,5 @@
-import type { PresencePresentation, PresenceResolver } from '@ethivia/vacp-presence-core';
-import { elementPresenceTarget, observePresenceLayout, svgPresenceTarget } from '@ethivia/vacp-presence-core/dom';
+import type { PresencePresentation, PresenceResolver } from '@ethivia/vacp-presence';
+import { elementPresenceTarget, observePresenceLayout, svgPresenceTarget } from '@ethivia/vacp-presence/dom';
 import { providerBindings } from './provider-bindings';
 import type { VacpProvider } from '@ethivia/vacp-protocol';
 import { intervalDomainValue } from './interactors/interval';

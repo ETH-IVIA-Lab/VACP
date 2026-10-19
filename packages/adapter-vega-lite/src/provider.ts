@@ -46,9 +46,7 @@ export function createVegaLiteProvider(args: {
   spec: VegaLiteSpecLike;
   vgSpec: import('vega').Spec;
   data?: {
-    duckdb:
-      | import('@ethivia/vacp-data-duckdb').VacpDuckDbClient
-      | Promise<import('@ethivia/vacp-data-duckdb').VacpDuckDbClient>;
+    duckdb: import('@ethivia/vacp-duckdb').VacpDuckDbClient | Promise<import('@ethivia/vacp-duckdb').VacpDuckDbClient>;
     sql?: boolean;
     describe?: import('@ethivia/vacp-protocol').VacpDataHandleDescriber;
   };

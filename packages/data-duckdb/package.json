@@ -1,5 +1,5 @@
 {
-  "name": "@ethivia/vacp-data-duckdb",
+  "name": "@ethivia/vacp-duckdb",
   "version": "0.1.0",
   "private": true,
   "files": [

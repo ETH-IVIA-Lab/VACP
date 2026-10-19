@@ -4,7 +4,7 @@ import {
   type VacpAgentActivityHandle,
   type VacpGraph,
 } from '@ethivia/vacp-protocol';
-import { compileVacpWebMcpTools } from '@ethivia/vacp-transport-webmcp';
+import { compileVacpWebMcpTools } from '@ethivia/vacp-webmcp';
 import type { BrowserContext, Page } from 'playwright';
 import type { ExampleOptions } from '@ethivia/vacp-example-shared/config';
 

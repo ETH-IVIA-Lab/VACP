@@ -1,5 +1,5 @@
 {
-  "name": "@ethivia/vacp-analytics-posthog",
+  "name": "@ethivia/vacp-posthog",
   "version": "0.1.0",
   "private": true,
   "files": [

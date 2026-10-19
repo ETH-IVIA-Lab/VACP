@@ -1,7 +1,7 @@
 import { jsonValue } from './json';
 import { providerBindings } from './provider-bindings';
 import type { VacpRef, VacpProvider, VacpSourceId, VacpWidgetOptionsResult } from '@ethivia/vacp-protocol';
-import { createDuckDbDataSchemaHandler, createDuckDbDataSqlHandler } from '@ethivia/vacp-data-duckdb';
+import { createDuckDbDataSchemaHandler, createDuckDbDataSqlHandler } from '@ethivia/vacp-duckdb';
 import {
   registerVacpApplyStateAction,
   registerVacpDataSchemaAction,
@@ -30,8 +30,8 @@ export function createVgplotProvider(args: {
   tables?: Array<{ tableId: string; table: VgplotTableLike }>;
   data?: {
     duckdb:
-      | import('@ethivia/vacp-data-duckdb').VacpDuckDbQueryClient
-      | Promise<import('@ethivia/vacp-data-duckdb').VacpDuckDbQueryClient>;
+      | import('@ethivia/vacp-duckdb').VacpDuckDbQueryClient
+      | Promise<import('@ethivia/vacp-duckdb').VacpDuckDbQueryClient>;
     sql?: boolean;
     describe?: import('@ethivia/vacp-protocol').VacpDataHandleDescriber;
   };

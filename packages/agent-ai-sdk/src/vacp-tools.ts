@@ -11,7 +11,7 @@ import {
   type VacpStateRequest,
   type VacpToolResult,
 } from '@ethivia/vacp-protocol';
-import type { VacpExecuteInput, VacpProgressInput, VacpTransport } from '@ethivia/vacp-transport-bridge';
+import type { VacpExecuteInput, VacpProgressInput, VacpTransport } from '@ethivia/vacp-bridge';
 
 const refs = z.array(z.templateLiteral(['vacp://', z.string()])).optional();
 /** Text a model must fill with more than whitespace, as every transport checks it. */

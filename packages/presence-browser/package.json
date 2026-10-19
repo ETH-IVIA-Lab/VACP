@@ -1,5 +1,5 @@
 {
-  "name": "@ethivia/vacp-presence-browser",
+  "name": "@ethivia/vacp-presence-react",
   "version": "0.1.0",
   "private": true,
   "files": [
@@ -25,7 +25,7 @@
     "test": "tsx --test --test-timeout=10000 test/*.test.ts"
   },
   "dependencies": {
-    "@ethivia/vacp-presence-core": "workspace:*",
+    "@ethivia/vacp-presence": "workspace:*",
     "@stylexjs/stylex": "catalog:",
     "react": "catalog:",
     "react-dom": "catalog:",

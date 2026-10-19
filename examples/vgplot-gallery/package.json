@@ -13,10 +13,10 @@
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
-    "@ethivia/vacp-adapter-vgplot": "workspace:*",
-    "@ethivia/vacp-data-duckdb": "workspace:*",
+    "@ethivia/vacp-duckdb": "workspace:*",
     "@ethivia/vacp-example-shared": "workspace:*",
     "@ethivia/vacp-protocol": "workspace:*",
+    "@ethivia/vacp-vgplot": "workspace:*",
     "@uwdata/mosaic-core": "catalog:",
     "@uwdata/mosaic-inputs": "catalog:",
     "@uwdata/mosaic-plot": "catalog:",

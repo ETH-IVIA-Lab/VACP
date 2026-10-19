@@ -8,7 +8,7 @@ import {
   describeDuckDbTable,
   makeVacpDuckDbTableName,
   sqlStringLiteral,
-} from '@ethivia/vacp-data-duckdb';
+} from '@ethivia/vacp-duckdb';
 import type { VacpDataHandleData, VacpDataSchemaColumn } from '@ethivia/vacp-protocol';
 import type { DatasetId } from '../datasets/registry';
 import type { DashboardSnapshot, ReactDashboardModel } from './model';

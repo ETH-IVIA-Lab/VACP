@@ -14,14 +14,14 @@
   "dependencies": {
     "@duckdb/duckdb-wasm": "catalog:",
     "@ethivia/vacp-analytics": "workspace:*",
-    "@ethivia/vacp-analytics-posthog": "workspace:*",
-    "@ethivia/vacp-presence-browser": "workspace:*",
-    "@ethivia/vacp-presence-core": "workspace:*",
+    "@ethivia/vacp-browser": "workspace:*",
+    "@ethivia/vacp-posthog": "workspace:*",
+    "@ethivia/vacp-presence": "workspace:*",
+    "@ethivia/vacp-presence-react": "workspace:*",
     "@ethivia/vacp-protocol": "workspace:*",
-    "@ethivia/vacp-provenance-core": "workspace:*",
+    "@ethivia/vacp-provenance": "workspace:*",
     "@ethivia/vacp-runtime": "workspace:*",
-    "@ethivia/vacp-runtime-browser": "workspace:*",
-    "@ethivia/vacp-transport-webmcp": "workspace:*",
+    "@ethivia/vacp-webmcp": "workspace:*",
     "posthog-js": "^1.438.10"
   }
 }
