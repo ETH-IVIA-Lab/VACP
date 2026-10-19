@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { setImmediate } from 'node:timers/promises';
-import type { VacpExecution, VacpFreshness, VacpInteraction, VacpSourceId } from '@vacp/protocol';
-import { createVacpProvider, createVacpRuntime, VacpActionRegistry } from '@vacp/runtime';
+import type { VacpExecution, VacpFreshness, VacpInteraction, VacpSourceId } from '@ethivia/vacp-protocol';
+import { createVacpProvider, createVacpRuntime, VacpActionRegistry } from '@ethivia/vacp-runtime';
 import {
   createAgentPresence,
   paceAgentPresence,

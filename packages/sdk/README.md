@@ -1,11 +1,11 @@
-# @vacp/sdk
+# @ethivia/vacp-sdk
 
 Author semantic actions with Zod schemas and stable refs with `createVacpActions` and `createVacpRefBuilder`.
 
 ```ts
-import { createVacpProvider } from '@vacp/runtime';
-import { installVacpRuntime } from '@vacp/runtime-browser';
-import { createVacpActions } from '@vacp/sdk';
+import { createVacpProvider } from '@ethivia/vacp-runtime';
+import { installVacpRuntime } from '@ethivia/vacp-runtime-browser';
+import { createVacpActions } from '@ethivia/vacp-sdk';
 import { z } from 'zod';
 
 const actions = createVacpActions('vacp-source://example/threshold');
@@ -22,7 +22,7 @@ const { runtime, dispose } = installVacpRuntime({
 });
 ```
 
-`createVacpActions(sourceId)` gives registered actions unique execution names for that source. Use `.contract(id)` to declare shared semantics, and execute the descriptor returned by `.handle()` using its `name`. Register standard actions on `actions.registry` with the `registerVacp*Action` functions of `@vacp/runtime`.
+`createVacpActions(sourceId)` gives registered actions unique execution names for that source. Use `.contract(id)` to declare shared semantics, and execute the descriptor returned by `.handle()` using its `name`. Register standard actions on `actions.registry` with the `registerVacp*Action` functions of `@ethivia/vacp-runtime`.
 
 `params(zodSchema)` derives the agent-facing input JSON Schema and validates parameters during preparation. Define parameters once, before `.focus()` or `.handle()`. Those callbacks receive the inferred Zod output type, including transforms and defaults. Async validation and Zod Mini are supported. Handlers also receive cancellation context.
 

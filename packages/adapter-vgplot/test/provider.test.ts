@@ -5,8 +5,8 @@ import { createVgplotPresentation } from '../src/presentation';
 import { nodeDuckDb } from './duckdb';
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import type { VacpDataHandleState } from '@vacp/protocol';
-import { createVacpRuntime } from '@vacp/runtime';
+import type { VacpDataHandleState } from '@ethivia/vacp-protocol';
+import { createVacpRuntime } from '@ethivia/vacp-runtime';
 import { createVgplotProvider, type VgplotPlotLike } from '../src/index';
 
 /** An instance of a Mosaic class with only the fields a test needs; its constructor needs a rendered mark. */

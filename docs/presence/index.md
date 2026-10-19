@@ -7,10 +7,10 @@ Presence shows the person what an agent is doing. A cursor travels to the contro
 Create a browser presence for the runtime, then attach each provider with its presentation, which tells presence where the provider's entities are on screen:
 
 ```ts
-import { createVegaLiteProvider } from '@vacp/adapter-vega-lite';
-import { createVegaLitePresentation } from '@vacp/adapter-vega-lite/presentation';
-import { createBrowserPresence } from '@vacp/presence-browser';
-import { installVacpRuntime } from '@vacp/runtime-browser';
+import { createVegaLiteProvider } from '@ethivia/vacp-adapter-vega-lite';
+import { createVegaLitePresentation } from '@ethivia/vacp-adapter-vega-lite/presentation';
+import { createBrowserPresence } from '@ethivia/vacp-presence-browser';
+import { installVacpRuntime } from '@ethivia/vacp-runtime-browser';
 
 const provider = createVegaLiteProvider({ root, view, spec, vgSpec, options });
 const { runtime, dispose } = installVacpRuntime({ providers: [provider], exposeBridge: true, injectDomSnapshot: true });
@@ -22,7 +22,7 @@ presence.dispose();
 dispose();
 ```
 
-For vgplot, use `createVgplotPresentation({ provider, root })` from `@vacp/adapter-vgplot/presentation`. Replacing or detaching a provider releases its targets.
+For vgplot, use `createVgplotPresentation({ provider, root })` from `@ethivia/vacp-adapter-vgplot/presentation`. Replacing or detaching a provider releases its targets.
 
 The overlay renders in its own [shadow root](https://developer.mozilla.org/en-US/docs/Web/API/Web_components/Using_shadow_DOM) and leaves pointer events, keyboard focus, and scrolling to the person. It shows agent actors. Human and system changes stay in [provenance](../provenance/) without a cursor. Pass `includeActor(actor)` to choose which actors appear.
 
@@ -59,8 +59,8 @@ Sentences are public text for the person: at most 280 characters for a step or a
 Pass a replay controller when you create presence, and the person can step through an agent's request after it finishes. The trail is the sequence of frames for one turn, shown beside the agent's cursor:
 
 ```ts
-import { createProvenanceReplay } from '@vacp/provenance-core';
-import { createVacpRestorer } from '@vacp/runtime';
+import { createProvenanceReplay } from '@ethivia/vacp-provenance-core';
+import { createVacpRestorer } from '@ethivia/vacp-runtime';
 
 const restorer = createVacpRestorer(runtime);
 const replay = createProvenanceReplay(runtime, { restore: restorer.restore });
@@ -88,7 +88,7 @@ Presence borrows the replay controller and never disposes it. See [Provenance an
 By default an agent's steps run as fast as it calls them. Pacing makes each step readable: the cursor arrives, the change happens, and the result holds before the next step:
 
 ```ts
-import { paceAgentPresence } from '@vacp/presence-core';
+import { paceAgentPresence } from '@ethivia/vacp-presence-core';
 
 const stopPacing = paceAgentPresence(runtime, presence, {
   arrivalTimeoutMs: 900,
@@ -104,7 +104,7 @@ Only executions this viewer shows wait, so a person's own interactions never slo
 A custom operation names what it focuses on, and the presentation maps refs to elements:
 
 ```ts
-import { createElementPresenceResolver, observePresenceLayout } from '@vacp/presence-core/dom';
+import { createElementPresenceResolver, observePresenceLayout } from '@ethivia/vacp-presence-core/dom';
 
 actions
   .operation('mutation', 'threshold.set', 'Set the threshold')
@@ -134,14 +134,14 @@ const presence = createBrowserPresence(runtime, {
 });
 ```
 
-`motion: 'system'` follows the reduced-motion preference. The [presence-browser reference](../api/presence-browser) lists every appearance option with its default, the cursor assets, and the streamed Markdown text renderer in `@vacp/presence-browser/streamdown`.
+`motion: 'system'` follows the reduced-motion preference. The [presence-browser reference](../api/presence-browser) lists every appearance option with its default, the cursor assets, and the streamed Markdown text renderer in `@ethivia/vacp-presence-browser/streamdown`.
 
 ## Build another surface
 
-`@vacp/presence-core` runs without the browser. Give it a renderer, and it calls `render(frame)` with the activities to show and the replay navigation:
+`@ethivia/vacp-presence-core` runs without the browser. Give it a renderer, and it calls `render(frame)` with the activities to show and the replay navigation:
 
 ```ts
-import { createAgentPresence } from '@vacp/presence-core';
+import { createAgentPresence } from '@ethivia/vacp-presence-core';
 
 const presence = createAgentPresence(runtime, {
   renderer: { render: (frame) => renderActivityFeed(frame.activities, frame.navigation) },

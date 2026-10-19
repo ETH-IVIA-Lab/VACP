@@ -1,4 +1,4 @@
-import { renderExampleError } from '@vacp/example-shared';
+import { renderExampleError } from '@ethivia/vacp-example-shared';
 import { mount } from './mfe';
 
 const root = document.getElementById('vacp-example-root');

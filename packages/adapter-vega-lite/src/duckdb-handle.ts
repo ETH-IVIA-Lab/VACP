@@ -1,4 +1,4 @@
-import type { VacpClock, VacpDataSchemaColumn, VacpRef } from '@vacp/protocol';
+import type { VacpClock, VacpDataSchemaColumn, VacpRef } from '@ethivia/vacp-protocol';
 import {
   createDuckDbDataSchemaHandler,
   createDuckDbDataSqlHandler,
@@ -6,8 +6,12 @@ import {
   makeVacpDuckDbTableName,
   type VacpDuckDbClient,
   type VacpDuckDbLoadType,
-} from '@vacp/data-duckdb';
-import { registerVacpDataSchemaAction, registerVacpDataSqlAction, type VacpActionRegistry } from '@vacp/runtime';
+} from '@ethivia/vacp-data-duckdb';
+import {
+  registerVacpDataSchemaAction,
+  registerVacpDataSqlAction,
+  type VacpActionRegistry,
+} from '@ethivia/vacp-runtime';
 
 import type { VegaLiteBindings } from './bindings';
 import { tableRows, type TableRows } from './data-rows';

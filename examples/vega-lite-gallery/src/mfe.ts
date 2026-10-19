@@ -1,5 +1,5 @@
-import { createDuckDbWasmClient } from '@vacp/data-duckdb';
-import { exampleDuckDbBundles, mountSpecGallery } from '@vacp/example-shared';
+import { createDuckDbWasmClient } from '@ethivia/vacp-data-duckdb';
+import { exampleDuckDbBundles, mountSpecGallery } from '@ethivia/vacp-example-shared';
 import { loadGallery } from './gallery';
 import { renderSpec } from './vacp';
 

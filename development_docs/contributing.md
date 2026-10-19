@@ -15,14 +15,14 @@ make dev
 
 [Portless](https://github.com/vercel-labs/portless) is a local proxy that gives each app a stable HTTPS name and assigns its port. Each app declares its name in the `portless` field of its `package.json`.
 
-| Surface              | Command                                                | URL                                               |
-| -------------------- | ------------------------------------------------------ | ------------------------------------------------- |
-| Gallery              | `make dev`                                             | `https://examples.vacp.localhost`                 |
-| Documentation        | `make docs-serve`                                      | `https://docs.vacp.localhost`                     |
-| Vega-Lite            | `pnpm --filter @vacp/example-vega-lite-gallery dev`    | `https://vega-lite.examples.vacp.localhost`       |
-| vgplot               | `pnpm --filter @vacp/example-vgplot-gallery dev`       | `https://vgplot.examples.vacp.localhost`          |
-| React dashboard      | `pnpm --filter @vacp/example-react-dashboard dev`      | `https://react-dashboard.examples.vacp.localhost` |
-| Parallel coordinates | `pnpm --filter @vacp/example-cars-parallel-coords dev` | `https://cars-parcoords.examples.vacp.localhost`  |
+| Surface              | Command                                                        | URL                                               |
+| -------------------- | -------------------------------------------------------------- | ------------------------------------------------- |
+| Gallery              | `make dev`                                                     | `https://examples.vacp.localhost`                 |
+| Documentation        | `make docs-serve`                                              | `https://docs.vacp.localhost`                     |
+| Vega-Lite            | `pnpm --filter @ethivia/vacp-example-vega-lite-gallery dev`    | `https://vega-lite.examples.vacp.localhost`       |
+| vgplot               | `pnpm --filter @ethivia/vacp-example-vgplot-gallery dev`       | `https://vgplot.examples.vacp.localhost`          |
+| React dashboard      | `pnpm --filter @ethivia/vacp-example-react-dashboard dev`      | `https://react-dashboard.examples.vacp.localhost` |
+| Parallel coordinates | `pnpm --filter @ethivia/vacp-example-cars-parallel-coords dev` | `https://cars-parcoords.examples.vacp.localhost`  |
 
 `make dev-all` starts the documentation, the gallery, and every standalone example. `make dev-status` lists active routes. The proxy listens on port 443 by default, and its first run asks to trust a local certificate authority. Linked git worktrees get a branch prefix in their names. See the [Portless HTTPS setup](https://github.com/vercel-labs/portless#http2--https) for other ports and certificates.
 
@@ -48,8 +48,8 @@ make browser-install e2e
 For one package or suite:
 
 ```bash
-pnpm --filter @vacp/runtime test
-pnpm --filter @vacp/e2e exec playwright test tests/smoke
+pnpm --filter @ethivia/vacp-runtime test
+pnpm --filter @ethivia/vacp-e2e exec playwright test tests/smoke
 uv run --all-packages --all-groups --locked pytest packages/python/tests
 ```
 
@@ -63,7 +63,7 @@ Use extensionless relative imports and re-exports in TypeScript source, and pack
 
 ```ts
 import type { InspectionObservation } from './types';
-import { parseVacpNarration } from '@vacp/protocol';
+import { parseVacpNarration } from '@ethivia/vacp-protocol';
 ```
 
 Each library builds with `vp pack`, which inherits the `pack` block in the root `vite.config.ts`. [Vite+ Pack](https://viteplus.dev/guide/pack) keeps the source module structure in its unbundled mode and emits ESM and declarations that load in native Node. `tsconfig.base.json` configures TypeScript for type checking only, with bundler resolution.

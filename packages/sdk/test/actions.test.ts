@@ -2,9 +2,9 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { z } from 'zod';
 import * as mini from 'zod/mini';
-import { VacpActionError, type VacpActionCall, type VacpActionResult } from '@vacp/protocol';
-import { createVacpProvider, executeVacpAction } from '@vacp/runtime';
-import { createVacpActions } from '@vacp/sdk';
+import { VacpActionError, type VacpActionCall, type VacpActionResult } from '@ethivia/vacp-protocol';
+import { createVacpProvider, executeVacpAction } from '@ethivia/vacp-runtime';
+import { createVacpActions } from '@ethivia/vacp-sdk';
 
 interface Selection {
   group: string;

@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { VACP_SCHEMA_VERSION } from '@vacp/protocol';
-import { createVacpProvider, VacpActionRegistry } from '@vacp/runtime';
+import { VACP_SCHEMA_VERSION } from '@ethivia/vacp-protocol';
+import { createVacpProvider, VacpActionRegistry } from '@ethivia/vacp-runtime';
 import { getVacpBridge, installVacpRuntime, uninstallVacpRuntime } from '../src/index';
 
 const key = '__vacp_installation_test';

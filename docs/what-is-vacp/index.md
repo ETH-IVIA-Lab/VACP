@@ -16,7 +16,7 @@ A source is a system that owns analytical values: a [Vega-Lite](https://vega.git
 - It reports the current value of each entity as state.
 - It prepares and executes operations against the source, through the source's own API.
 
-`@vacp/adapter-vega-lite` and `@vacp/adapter-vgplot` provide this for Vega-Lite and Mosaic vgplot. Any other application defines its operations with `@vacp/sdk` and its provider with `createVacpProvider` from `@vacp/runtime`. Each entity has a stable ref such as `vacp://analysis/overview/scatter/param/brush`, so an agent can refer to it across reads and rerenders.
+`@ethivia/vacp-adapter-vega-lite` and `@ethivia/vacp-adapter-vgplot` provide this for Vega-Lite and Mosaic vgplot. Any other application defines its operations with `@ethivia/vacp-sdk` and its provider with `createVacpProvider` from `@ethivia/vacp-runtime`. Each entity has a stable ref such as `vacp://analysis/overview/scatter/param/brush`, so an agent can refer to it across reads and rerenders.
 
 ## The runtime composes one observation
 
@@ -51,24 +51,24 @@ Agents reach the runtime through the [Model Context Protocol](https://modelconte
 
 ## Packages
 
-| Package                                             | Role                                                                                |
-| --------------------------------------------------- | ----------------------------------------------------------------------------------- |
-| [`@vacp/protocol`](../api/protocol)                 | Records and contracts shared by every package and the Python server                 |
-| [`@vacp/runtime`](../api/runtime)                   | Composes providers, executes operations, and records provenance                     |
-| [`@vacp/runtime-browser`](../api/browser)           | Installs a runtime in a page and publishes `window.__vacp`                          |
-| [`@vacp/sdk`](../api/sdk)                           | Defines operations with [Zod](https://zod.dev) schemas for a custom provider        |
-| [`@vacp/adapter-vega-lite`](../api/vega-lite)       | Provider for Vega-Lite views                                                        |
-| [`@vacp/adapter-vgplot`](../api/vgplot)             | Provider for Mosaic vgplot plots, inputs, legends, and tables                       |
-| [`@vacp/data-duckdb`](../api/data-duckdb)           | SQL access to data handles through [DuckDB](https://duckdb.org)                     |
-| [`@vacp/transport-bridge`](../api/transport-bridge) | The five agent tools over a page bridge                                             |
-| [`@vacp/agent-ai-sdk`](../api/agent-ai-sdk)         | An in-page agent built on the AI SDK                                                |
-| [`@vacp/transport-webmcp`](../api/webmcp)           | Registers operations as browser-native WebMCP tools                                 |
-| [`@vacp/presence-core`](../api/presence-core)       | Headless agent activity, targets, and pacing                                        |
-| [`@vacp/presence-browser`](../api/presence-browser) | Cursor and narration overlay for the browser                                        |
-| [`@vacp/provenance-core`](../api/provenance)        | Checkpoints and replay over the provenance journal                                  |
-| [`@vacp/inspector-core`](../api/inspector)          | Sessions and graph lookups for custom inspection surfaces                           |
-| [`@vacp/analytics`](../api/analytics)               | Forwards runtime events to a telemetry provider                                     |
-| [`@vacp/analytics-posthog`](../api/analytics)       | The telemetry provider for [PostHog](https://posthog.com), a product analytics tool |
-| [`vacp` (Python)](../api/python)                    | MCP server for external agents, and Python providers                                |
+| Package                                                     | Role                                                                                |
+| ----------------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| [`@ethivia/vacp-protocol`](../api/protocol)                 | Records and contracts shared by every package and the Python server                 |
+| [`@ethivia/vacp-runtime`](../api/runtime)                   | Composes providers, executes operations, and records provenance                     |
+| [`@ethivia/vacp-runtime-browser`](../api/browser)           | Installs a runtime in a page and publishes `window.__vacp`                          |
+| [`@ethivia/vacp-sdk`](../api/sdk)                           | Defines operations with [Zod](https://zod.dev) schemas for a custom provider        |
+| [`@ethivia/vacp-adapter-vega-lite`](../api/vega-lite)       | Provider for Vega-Lite views                                                        |
+| [`@ethivia/vacp-adapter-vgplot`](../api/vgplot)             | Provider for Mosaic vgplot plots, inputs, legends, and tables                       |
+| [`@ethivia/vacp-data-duckdb`](../api/data-duckdb)           | SQL access to data handles through [DuckDB](https://duckdb.org)                     |
+| [`@ethivia/vacp-transport-bridge`](../api/transport-bridge) | The five agent tools over a page bridge                                             |
+| [`@ethivia/vacp-agent-ai-sdk`](../api/agent-ai-sdk)         | An in-page agent built on the AI SDK                                                |
+| [`@ethivia/vacp-transport-webmcp`](../api/webmcp)           | Registers operations as browser-native WebMCP tools                                 |
+| [`@ethivia/vacp-presence-core`](../api/presence-core)       | Headless agent activity, targets, and pacing                                        |
+| [`@ethivia/vacp-presence-browser`](../api/presence-browser) | Cursor and narration overlay for the browser                                        |
+| [`@ethivia/vacp-provenance-core`](../api/provenance)        | Checkpoints and replay over the provenance journal                                  |
+| [`@ethivia/vacp-inspector-core`](../api/inspector)          | Sessions and graph lookups for custom inspection surfaces                           |
+| [`@ethivia/vacp-analytics`](../api/analytics)               | Forwards runtime events to a telemetry provider                                     |
+| [`@ethivia/vacp-analytics-posthog`](../api/analytics)       | The telemetry provider for [PostHog](https://posthog.com), a product analytics tool |
+| [`vacp` (Python)](../api/python)                            | MCP server for external agents, and Python providers                                |
 
 Next, [get started](../get-started/) with the examples and connect an agent.

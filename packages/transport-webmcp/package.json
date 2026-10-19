@@ -1,5 +1,5 @@
 {
-  "name": "@vacp/transport-webmcp",
+  "name": "@ethivia/vacp-transport-webmcp",
   "version": "0.1.0",
   "private": true,
   "files": [
@@ -19,11 +19,11 @@
     "bench": "tsx bench/registration.ts"
   },
   "dependencies": {
-    "@vacp/protocol": "workspace:*",
+    "@ethivia/vacp-protocol": "workspace:*",
     "webmcp-types": "catalog:"
   },
   "devDependencies": {
-    "@vacp/runtime": "workspace:*",
+    "@ethivia/vacp-runtime": "workspace:*",
     "ajv": "catalog:"
   }
 }

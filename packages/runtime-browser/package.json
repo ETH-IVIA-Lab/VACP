@@ -1,5 +1,5 @@
 {
-  "name": "@vacp/runtime-browser",
+  "name": "@ethivia/vacp-runtime-browser",
   "version": "0.1.0",
   "private": true,
   "files": [
@@ -19,7 +19,7 @@
     "bench": "tsx bench/snapshot.ts"
   },
   "dependencies": {
-    "@vacp/protocol": "workspace:*",
-    "@vacp/runtime": "workspace:*"
+    "@ethivia/vacp-protocol": "workspace:*",
+    "@ethivia/vacp-runtime": "workspace:*"
   }
 }

@@ -1,4 +1,4 @@
-import { createVacpRefBuilder } from '@vacp/sdk';
+import { createVacpRefBuilder } from '@ethivia/vacp-sdk';
 
 const appId = 'vacp-examples';
 const viewId = 'react/dashboard';

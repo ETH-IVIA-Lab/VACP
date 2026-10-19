@@ -139,9 +139,9 @@ export default defineConfig({
                     ...sourceImportRestrictions,
                     {
                       group: [
-                        '@vacp/*',
-                        '@vacp/*/**',
-                        ...dependencies.flatMap((name) => [`!@vacp/${name}`, `!@vacp/${name}/**`]),
+                        '@ethivia/vacp-*',
+                        '@ethivia/vacp-*/**',
+                        ...dependencies.flatMap((name) => [`!@ethivia/vacp-${name}`, `!@ethivia/vacp-${name}/**`]),
                       ],
                       message: 'Keep dependencies inward. Compose adapters in applications.',
                     },

@@ -1,5 +1,5 @@
 {
-  "name": "@vacp/provenance-core",
+  "name": "@ethivia/vacp-provenance-core",
   "version": "0.1.0",
   "private": true,
   "files": [
@@ -19,10 +19,10 @@
     "bench": "tsx bench/replay.ts"
   },
   "dependencies": {
-    "@vacp/protocol": "workspace:*"
+    "@ethivia/vacp-protocol": "workspace:*"
   },
   "devDependencies": {
-    "@vacp/runtime": "workspace:*",
+    "@ethivia/vacp-runtime": "workspace:*",
     "tsx": "catalog:"
   }
 }

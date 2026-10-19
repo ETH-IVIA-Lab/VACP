@@ -1,4 +1,9 @@
-import { VACP_TOOL_RESULT_LIMITS, type VacpDataSqlParams, type VacpDataSqlResult, type VacpRef } from '@vacp/protocol';
+import {
+  VACP_TOOL_RESULT_LIMITS,
+  type VacpDataSqlParams,
+  type VacpDataSqlResult,
+  type VacpRef,
+} from '@ethivia/vacp-protocol';
 
 import type { VacpDuckDbQueryClient } from './client';
 import { normalizeSingleStatementSql } from './sql';

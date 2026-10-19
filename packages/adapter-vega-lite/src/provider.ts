@@ -8,8 +8,8 @@ import {
   type VacpProvider,
   type VacpSourceId,
   type VacpRef,
-} from '@vacp/protocol';
-import { createVacpProvider, registerVacpApplyStateAction, VacpActionRegistry } from '@vacp/runtime';
+} from '@ethivia/vacp-protocol';
+import { createVacpProvider, registerVacpApplyStateAction, VacpActionRegistry } from '@ethivia/vacp-runtime';
 
 import { actionsForSpec } from './actions';
 import { buildGraph } from './graph';
@@ -46,9 +46,11 @@ export function createVegaLiteProvider(args: {
   spec: VegaLiteSpecLike;
   vgSpec: import('vega').Spec;
   data?: {
-    duckdb: import('@vacp/data-duckdb').VacpDuckDbClient | Promise<import('@vacp/data-duckdb').VacpDuckDbClient>;
+    duckdb:
+      | import('@ethivia/vacp-data-duckdb').VacpDuckDbClient
+      | Promise<import('@ethivia/vacp-data-duckdb').VacpDuckDbClient>;
     sql?: boolean;
-    describe?: import('@vacp/protocol').VacpDataHandleDescriber;
+    describe?: import('@ethivia/vacp-protocol').VacpDataHandleDescriber;
   };
   options: VegaLiteProviderOptions;
 }): VacpProvider {

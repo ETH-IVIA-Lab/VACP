@@ -1,5 +1,5 @@
 import { measure } from '../../../tools/benchmark';
-import { VACP_SCHEMA_VERSION, type VacpObservation } from '@vacp/protocol';
+import { VACP_SCHEMA_VERSION, type VacpObservation } from '@ethivia/vacp-protocol';
 import { createInspectorSession, createInspectionIndex } from '../src/index';
 
 const size = 1_000;

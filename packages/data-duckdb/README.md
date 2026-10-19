@@ -1,4 +1,4 @@
-# @vacp/data-duckdb
+# @ethivia/vacp-data-duckdb
 
 ## Purpose
 
@@ -25,7 +25,7 @@ Queries read `vacp_all` and `vacp_handle` as query-local relations. Independent 
 
 ## Minimal usage
 
-Install a `vacp.data_sql` handler during integration (through `@vacp/runtime` or a provider).
+Install a `vacp.data_sql` handler during integration (through `@ethivia/vacp-runtime` or a provider).
 
 `createDuckDbWasmClient({ bundles })` starts DuckDB-Wasm from `bundles` on first use, the engine builds an application serves itself. Without them it loads DuckDB's published builds from jsDelivr. `instantiateDuckDbWasm({ bundles })` starts the same engine at once, for a consumer that manages its own connection, such as a Mosaic `DuckDBWASMConnector({ duckdb })`.
 

@@ -1,5 +1,5 @@
 import { setImmediate } from 'node:timers/promises';
-import type { VacpProvider } from '@vacp/protocol';
+import type { VacpProvider } from '@ethivia/vacp-protocol';
 import { createVacpRuntime, type VacpRuntime } from '../src/index';
 
 const collect = globalThis.gc;

@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createVacpRuntime } from '../src/index';
-import type { VacpAgentActivity } from '@vacp/protocol';
+import type { VacpAgentActivity } from '@ethivia/vacp-protocol';
 
 test('host activity is isolated, ephemeral, cancellable, and immune to stale turn updates', () => {
   const runtime = createVacpRuntime({ providers: [] });

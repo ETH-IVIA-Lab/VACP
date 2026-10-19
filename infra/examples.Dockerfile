@@ -9,7 +9,7 @@ COPY packages packages
 COPY tools tools
 RUN --mount=type=cache,id=pnpm-store,target=/var/cache/pnpm \
     pnpm install --frozen-lockfile --store-dir /var/cache/pnpm
-RUN pnpm --filter '@vacp/examples...' build
+RUN pnpm --filter '@ethivia/vacp-examples...' build
 
 FROM nginx:stable-alpine AS runtime
 COPY --from=build /app/examples/gallery/dist/ /usr/share/nginx/html/

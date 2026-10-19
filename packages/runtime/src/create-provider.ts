@@ -6,7 +6,7 @@ import {
   type VacpProvider,
   type VacpRef,
   type VacpSourceDescription,
-} from '@vacp/protocol';
+} from '@ethivia/vacp-protocol';
 import type { VacpActionExecutor } from './action-registry';
 import { nowIso } from './runtime/helpers';
 

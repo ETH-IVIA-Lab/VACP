@@ -5,7 +5,7 @@ import type {
   VacpDataSchemaNumericSummary,
   VacpDataSchemaTable,
   VacpDataSchemaTemporalSummary,
-} from '@vacp/protocol';
+} from '@ethivia/vacp-protocol';
 
 import type { VacpDuckDbQueryClient } from './client';
 

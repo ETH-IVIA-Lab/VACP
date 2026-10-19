@@ -1,4 +1,4 @@
-import { parseVacpInstant } from '@vacp/protocol';
+import { parseVacpInstant } from '@ethivia/vacp-protocol';
 
 import { interactorType } from '../native-classes';
 import type { VgplotInteractorLike, VgplotScaleLike } from '../types';

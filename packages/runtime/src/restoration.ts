@@ -1,11 +1,11 @@
-import { VACP_APPLY_STATE_ACTION, vacpHumanActor } from '@vacp/protocol';
+import { VACP_APPLY_STATE_ACTION, vacpHumanActor } from '@ethivia/vacp-protocol';
 import type {
   VacpActionExecutionOptions,
   VacpActionResult,
   VacpRef,
   VacpSourceId,
   VacpPageBridge,
-} from '@vacp/protocol';
+} from '@ethivia/vacp-protocol';
 import { makeEntryId } from './runtime/helpers';
 
 export type VacpRestorationOutcome = { sourceId: VacpSourceId; action: string; result: VacpActionResult };

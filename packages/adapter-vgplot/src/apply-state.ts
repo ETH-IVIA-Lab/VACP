@@ -1,5 +1,5 @@
 import { clauseNone } from '@uwdata/mosaic-core';
-import type { VacpRef, VacpActionExecutionOptions } from '@vacp/protocol';
+import type { VacpRef, VacpActionExecutionOptions } from '@ethivia/vacp-protocol';
 import type { VgplotBindings } from './bindings';
 import type { createVgplotOperations, VgplotOperation } from './operations';
 

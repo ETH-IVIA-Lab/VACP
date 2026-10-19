@@ -7,7 +7,7 @@ import {
   type LanguageModelUsage,
   type StreamTextTransform,
 } from 'ai';
-import { vacpAgentActor } from '@vacp/protocol';
+import { vacpAgentActor } from '@ethivia/vacp-protocol';
 
 import { createActivityRequests, withAgentActivity } from './activity-transport';
 import { wrapTransportWithVacpContextCompaction } from './context-compaction';

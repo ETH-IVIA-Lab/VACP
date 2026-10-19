@@ -1,4 +1,4 @@
-import type { VacpExecution, VacpGraph, VacpNode, VacpRef } from '@vacp/protocol';
+import type { VacpExecution, VacpGraph, VacpNode, VacpRef } from '@ethivia/vacp-protocol';
 
 type Index = { nodes: Map<VacpRef, VacpNode>; parents: Map<VacpRef, VacpRef> };
 // Observed graphs are frozen and shared, so one index per graph serves every step and viewer.

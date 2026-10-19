@@ -1,7 +1,7 @@
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
 import fs from 'node:fs';
-import { escapeHtml } from '@vacp/example-shared/html';
+import { escapeHtml } from '@ethivia/vacp-example-shared/html';
 import { examples } from '../examples.manifest.ts';
 
 const scriptDir = dirname(fileURLToPath(import.meta.url));

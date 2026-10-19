@@ -6,7 +6,7 @@ import {
   vacpToolResult,
   vacpToolStateRequest,
   type VacpActor,
-} from '@vacp/protocol';
+} from '@ethivia/vacp-protocol';
 import type { VacpTransport, VacpTransportBridge } from './types';
 
 /**

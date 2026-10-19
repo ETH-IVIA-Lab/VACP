@@ -6,7 +6,7 @@ import type {
   VacpStateSnapshot,
   VacpExecutionControl,
   VacpAgentActivitySource,
-} from '@vacp/protocol';
+} from '@ethivia/vacp-protocol';
 
 export interface VacpRuntime extends VacpPageBridge, VacpExecutionControl, VacpAgentActivitySource {
   /** Aborted when this runtime is disposed. */

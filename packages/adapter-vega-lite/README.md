@@ -1,12 +1,12 @@
-# @vacp/adapter-vega-lite
+# @ethivia/vacp-adapter-vega-lite
 
-`@vacp/adapter-vega-lite` exposes parameters, selections, encodings, and data handles from a [Vega-Lite](https://vega.github.io/vega-lite/) specification and its rendered [Vega view](https://vega.github.io/vega/docs/api/view/).
+`@ethivia/vacp-adapter-vega-lite` exposes parameters, selections, encodings, and data handles from a [Vega-Lite](https://vega.github.io/vega-lite/) specification and its rendered [Vega view](https://vega.github.io/vega/docs/api/view/).
 
 Bind an existing rendered visualization, then compose its provider into a runtime:
 
 ```ts
-import { createVegaLiteProvider } from '@vacp/adapter-vega-lite';
-import { createVacpRuntime } from '@vacp/runtime';
+import { createVegaLiteProvider } from '@ethivia/vacp-adapter-vega-lite';
+import { createVacpRuntime } from '@ethivia/vacp-runtime';
 
 const provider = createVegaLiteProvider({
   root,
@@ -28,7 +28,7 @@ The runtime owns the attached provider's lifetime. Provider subscriptions observ
 
 Action names are qualified by source identity. Discover an action through its `operation.contract` (for example, `vega_lite.set_param`), then execute the advertised `name`. Graph ownership identifies the source when several providers offer the same contract.
 
-Applications can expose the same provider through `installVacpRuntime({ providers: [provider], exposeBridge, injectDomSnapshot })` from `@vacp/runtime-browser`. Exposure policy belongs to the application.
+Applications can expose the same provider through `installVacpRuntime({ providers: [provider], exposeBridge, injectDomSnapshot })` from `@ethivia/vacp-runtime-browser`. Exposure policy belongs to the application.
 
 The IDs define stable references for the view and visualization. Parameter and selection actions operate on the supplied Vega view.
 

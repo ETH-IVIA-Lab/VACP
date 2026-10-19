@@ -4,7 +4,7 @@ import type {
   VacpStateRequest,
   VacpToolResult,
   VacpWindowBridge,
-} from '@vacp/protocol';
+} from '@ethivia/vacp-protocol';
 
 /** The bridge a transport reads, executes, and narrates through. */
 export type VacpTransportBridge = VacpWindowBridge & Pick<VacpAgentActivityControl, 'narrate'>;

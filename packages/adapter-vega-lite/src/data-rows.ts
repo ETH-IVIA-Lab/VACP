@@ -1,4 +1,4 @@
-import { formatVacpWallClock, type VacpClock } from '@vacp/protocol';
+import { formatVacpWallClock, type VacpClock } from '@ethivia/vacp-protocol';
 
 import type { VegaLiteFieldTypes } from './dataflow';
 import { vegaInstant } from './temporal';

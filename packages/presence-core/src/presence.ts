@@ -8,7 +8,7 @@ import {
   type VacpGraph,
   type VacpObservation,
   type VacpAgentActivity,
-} from '@vacp/protocol';
+} from '@ethivia/vacp-protocol';
 import { stepSubject } from './subject';
 import { createPresenceTargets, stepPlaces, type PresenceFocus } from './targets';
 import { createTargetTracker } from './tracker';

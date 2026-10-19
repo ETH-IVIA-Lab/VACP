@@ -1,4 +1,4 @@
-import type { VacpClock } from '@vacp/protocol';
+import type { VacpClock } from '@ethivia/vacp-protocol';
 import { splitAccessPath } from 'vega';
 import type { Spec } from 'vega';
 

@@ -1,6 +1,6 @@
 import * as stylex from '@stylexjs/stylex';
 import { memo } from 'react';
-import type { PresenceNavigation } from '@vacp/presence-core';
+import type { PresenceNavigation } from '@ethivia/vacp-presence-core';
 import { Bubble } from './bubble';
 import { usePresence } from './context';
 import { Cursor, Ripple } from './cursor';

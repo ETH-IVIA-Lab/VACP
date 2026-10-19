@@ -1,7 +1,7 @@
-import { vacpAgentActor } from '@vacp/protocol';
-import { parseCapabilitiesRequest, parseStateRequest } from '@vacp/protocol/validation';
-import type { VacpProvider, VacpStateSnapshot } from '@vacp/protocol';
-import { VACP_SCHEMA_VERSION } from '@vacp/protocol';
+import { vacpAgentActor } from '@ethivia/vacp-protocol';
+import { parseCapabilitiesRequest, parseStateRequest } from '@ethivia/vacp-protocol/validation';
+import type { VacpProvider, VacpStateSnapshot } from '@ethivia/vacp-protocol';
+import { VACP_SCHEMA_VERSION } from '@ethivia/vacp-protocol';
 import { createDispatcher } from './dispatch';
 import { createAgentActivityChannel } from './activities';
 import { createExecutionChannel } from './executions';

@@ -1,4 +1,4 @@
-import { createAgentPresence, type PresenceOptions, type PresenceSource } from '@vacp/presence-core';
+import { createAgentPresence, type PresenceOptions, type PresenceSource } from '@ethivia/vacp-presence-core';
 import type { BrowserPresenceOptions } from './options';
 import { createBrowserPresenceRenderer } from './renderer';
 

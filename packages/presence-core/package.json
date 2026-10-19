@@ -1,5 +1,5 @@
 {
-  "name": "@vacp/presence-core",
+  "name": "@ethivia/vacp-presence-core",
   "version": "0.1.0",
   "private": true,
   "files": [
@@ -24,11 +24,11 @@
     "bench": "tsx bench/presence.ts"
   },
   "dependencies": {
-    "@vacp/protocol": "workspace:*",
-    "@vacp/provenance-core": "workspace:*"
+    "@ethivia/vacp-protocol": "workspace:*",
+    "@ethivia/vacp-provenance-core": "workspace:*"
   },
   "devDependencies": {
-    "@vacp/runtime": "workspace:*",
+    "@ethivia/vacp-runtime": "workspace:*",
     "tsx": "catalog:"
   }
 }

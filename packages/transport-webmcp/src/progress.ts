@@ -6,7 +6,7 @@ import {
   VACP_NARRATION_MAX_LENGTH,
   type VacpActor,
   type VacpAgentActivityControl,
-} from '@vacp/protocol';
+} from '@ethivia/vacp-protocol';
 
 const progressInputSchema: Record<string, unknown> = {
   type: 'object',

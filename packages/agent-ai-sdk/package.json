@@ -1,5 +1,5 @@
 {
-  "name": "@vacp/agent-ai-sdk",
+  "name": "@ethivia/vacp-agent-ai-sdk",
   "version": "0.1.0",
   "private": true,
   "files": [
@@ -18,13 +18,13 @@
     "test": "pnpm exec tsx --test --test-timeout=10000 test/*.test.ts"
   },
   "dependencies": {
+    "@ethivia/vacp-protocol": "workspace:*",
+    "@ethivia/vacp-transport-bridge": "workspace:*",
     "@types/json-schema": "7.0.15",
-    "@vacp/protocol": "workspace:*",
-    "@vacp/transport-bridge": "workspace:*",
     "ai": "catalog:",
     "zod": "catalog:"
   },
   "devDependencies": {
-    "@vacp/runtime": "workspace:*"
+    "@ethivia/vacp-runtime": "workspace:*"
   }
 }

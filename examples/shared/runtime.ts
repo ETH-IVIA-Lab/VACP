@@ -1,11 +1,11 @@
-import { createBrowserPresence } from '@vacp/presence-browser';
-import { streamdownText } from '@vacp/presence-browser/streamdown';
-import { paceAgentPresence, type PresencePresentation } from '@vacp/presence-core';
-import type { VacpProvider } from '@vacp/protocol';
-import { createProvenanceReplay } from '@vacp/provenance-core';
-import { createVacpRestorer, type VacpRuntime } from '@vacp/runtime';
-import { installVacpRuntime } from '@vacp/runtime-browser';
-import { installVacpWebMcp } from '@vacp/transport-webmcp';
+import { createBrowserPresence } from '@ethivia/vacp-presence-browser';
+import { streamdownText } from '@ethivia/vacp-presence-browser/streamdown';
+import { paceAgentPresence, type PresencePresentation } from '@ethivia/vacp-presence-core';
+import type { VacpProvider } from '@ethivia/vacp-protocol';
+import { createProvenanceReplay } from '@ethivia/vacp-provenance-core';
+import { createVacpRestorer, type VacpRuntime } from '@ethivia/vacp-runtime';
+import { installVacpRuntime } from '@ethivia/vacp-runtime-browser';
+import { installVacpWebMcp } from '@ethivia/vacp-transport-webmcp';
 import { installExampleAnalytics } from './analytics';
 import { exampleOptions } from './config';
 

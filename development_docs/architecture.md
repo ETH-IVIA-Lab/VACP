@@ -85,7 +85,7 @@ The journal owns record identity, retention, epochs, and revisions. Each record 
 
 Viewers are passive. `VacpExecutionSource` and the activity source grant no execution authority. `paceAgentPresence` separately grants one viewer bounded gates, and only executions that viewer shows wait. Gates are bounded, disposable, and cannot change a known result.
 
-`presence.attach(provider, presentation)` takes the binding identity from `runtime.getProviderBinding(provider)`, so stale target lookups for a replaced provider are rejected. Presentations resolve focus to viewport geometry through `@vacp/presence-core/dom` helpers. `presence-browser` commits each frame into a React root inside a shadow root. Each pointer's motion controller is the only writer of its geometry and writes transforms on animation frames, outside React renders. The StyleX plugin in `tools/stylex/shadow-sheet.ts` compiles presence styles into a sheet the renderer adopts.
+`presence.attach(provider, presentation)` takes the binding identity from `runtime.getProviderBinding(provider)`, so stale target lookups for a replaced provider are rejected. Presentations resolve focus to viewport geometry through `@ethivia/vacp-presence-core/dom` helpers. `presence-browser` commits each frame into a React root inside a shadow root. Each pointer's motion controller is the only writer of its geometry and writes transforms on animation frames, outside React renders. The StyleX plugin in `tools/stylex/shadow-sheet.ts` compiles presence styles into a sheet the renderer adopts.
 
 ## Inspection
 

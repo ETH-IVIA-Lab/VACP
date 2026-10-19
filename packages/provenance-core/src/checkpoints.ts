@@ -1,4 +1,9 @@
-import { sameVacpValue, type VacpObservation, type VacpProvenanceRecord, type VacpTurnRecord } from '@vacp/protocol';
+import {
+  sameVacpValue,
+  type VacpObservation,
+  type VacpProvenanceRecord,
+  type VacpTurnRecord,
+} from '@ethivia/vacp-protocol';
 
 /** A captured view of a record. Metadata has one owner: the record itself. */
 export type ProvenanceCheckpoint = {

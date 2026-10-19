@@ -1,4 +1,4 @@
-import type { VacpFocus, VacpInteraction, VacpActionExecutionOptions, VacpRef } from '@vacp/protocol';
+import type { VacpFocus, VacpInteraction, VacpActionExecutionOptions, VacpRef } from '@ethivia/vacp-protocol';
 import type { VgplotBinding, VgplotBindings } from './bindings';
 import { prepareInputAction } from './inputs';
 import { plotLegends } from './legends';

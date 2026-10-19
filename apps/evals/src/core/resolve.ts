@@ -1,4 +1,4 @@
-import type { VacpGraph } from '@vacp/protocol';
+import type { VacpGraph } from '@ethivia/vacp-protocol';
 
 import type { Act } from './scenario';
 

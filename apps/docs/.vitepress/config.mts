@@ -56,36 +56,36 @@ const reference = [
   {
     text: 'Runtime',
     items: [
-      { text: '@vacp/runtime', link: '/api/runtime' },
-      { text: '@vacp/runtime-browser', link: '/api/browser' },
-      { text: '@vacp/sdk', link: '/api/sdk' },
+      { text: '@ethivia/vacp-runtime', link: '/api/runtime' },
+      { text: '@ethivia/vacp-runtime-browser', link: '/api/browser' },
+      { text: '@ethivia/vacp-sdk', link: '/api/sdk' },
     ],
   },
   {
     text: 'Providers',
     items: [
-      { text: '@vacp/adapter-vega-lite', link: '/api/vega-lite' },
-      { text: '@vacp/adapter-vgplot', link: '/api/vgplot' },
-      { text: '@vacp/data-duckdb', link: '/api/data-duckdb' },
+      { text: '@ethivia/vacp-adapter-vega-lite', link: '/api/vega-lite' },
+      { text: '@ethivia/vacp-adapter-vgplot', link: '/api/vgplot' },
+      { text: '@ethivia/vacp-data-duckdb', link: '/api/data-duckdb' },
     ],
   },
   {
     text: 'Agents',
     items: [
-      { text: '@vacp/transport-bridge', link: '/api/transport-bridge' },
-      { text: '@vacp/agent-ai-sdk', link: '/api/agent-ai-sdk' },
-      { text: '@vacp/transport-webmcp', link: '/api/webmcp' },
+      { text: '@ethivia/vacp-transport-bridge', link: '/api/transport-bridge' },
+      { text: '@ethivia/vacp-agent-ai-sdk', link: '/api/agent-ai-sdk' },
+      { text: '@ethivia/vacp-transport-webmcp', link: '/api/webmcp' },
       { text: 'vacp (Python)', link: '/api/python' },
     ],
   },
   {
     text: 'Presence and history',
     items: [
-      { text: '@vacp/presence-core', link: '/api/presence-core' },
-      { text: '@vacp/presence-browser', link: '/api/presence-browser' },
-      { text: '@vacp/provenance-core', link: '/api/provenance' },
-      { text: '@vacp/inspector-core', link: '/api/inspector' },
-      { text: '@vacp/analytics', link: '/api/analytics' },
+      { text: '@ethivia/vacp-presence-core', link: '/api/presence-core' },
+      { text: '@ethivia/vacp-presence-browser', link: '/api/presence-browser' },
+      { text: '@ethivia/vacp-provenance-core', link: '/api/provenance' },
+      { text: '@ethivia/vacp-inspector-core', link: '/api/inspector' },
+      { text: '@ethivia/vacp-analytics', link: '/api/analytics' },
     ],
   },
 ];

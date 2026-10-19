@@ -1,5 +1,5 @@
 import { measure } from '../../../tools/benchmark';
-import { resolveVacpObservation, VACP_SCHEMA_VERSION, type VacpObservation } from '@vacp/protocol';
+import { resolveVacpObservation, VACP_SCHEMA_VERSION, type VacpObservation } from '@ethivia/vacp-protocol';
 import { scopeCapabilitiesSnapshot } from '../src/runtime/capabilities-scope';
 import { scopeStateSnapshot } from '../src/runtime/state-update';
 

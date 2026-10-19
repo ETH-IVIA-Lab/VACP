@@ -1,14 +1,14 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { setImmediate } from 'node:timers/promises';
-import { provenanceActor, captureVacpValue } from '@vacp/protocol';
+import { provenanceActor, captureVacpValue } from '@ethivia/vacp-protocol';
 import type {
   VacpActor,
   VacpExecution,
   VacpObservation,
   VacpProvenanceEvent,
   VacpProvenanceRecord,
-} from '@vacp/protocol';
+} from '@ethivia/vacp-protocol';
 import {
   createProvenanceReplay,
   provenanceCheckpoints,

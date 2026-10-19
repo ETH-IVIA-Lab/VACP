@@ -1,4 +1,4 @@
-import { formatVacpWallClock, type VacpClock } from '@vacp/protocol';
+import { formatVacpWallClock, type VacpClock } from '@ethivia/vacp-protocol';
 
 function stripTrailingSemicolons(sql: string): string {
   let out = sql.trim();

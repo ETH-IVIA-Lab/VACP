@@ -1,6 +1,6 @@
-import type { VacpProvenanceEvent, VacpProvenanceRecord, VacpProvenanceSnapshot } from '@vacp/protocol';
+import type { VacpProvenanceEvent, VacpProvenanceRecord, VacpProvenanceSnapshot } from '@ethivia/vacp-protocol';
 
-import { captureVacpValue } from '@vacp/protocol';
+import { captureVacpValue } from '@ethivia/vacp-protocol';
 
 function captureRecord(record: VacpProvenanceRecord): () => VacpProvenanceRecord {
   try {

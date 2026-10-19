@@ -1,7 +1,7 @@
-import type * as VacpRuntime from '@vacp/runtime';
-import type * as VacpRuntimeBrowser from '@vacp/runtime-browser';
-import type * as VacpSdk from '@vacp/sdk';
-import type * as VacpWebMcp from '@vacp/transport-webmcp';
+import type * as VacpRuntime from '@ethivia/vacp-runtime';
+import type * as VacpRuntimeBrowser from '@ethivia/vacp-runtime-browser';
+import type * as VacpSdk from '@ethivia/vacp-sdk';
+import type * as VacpWebMcp from '@ethivia/vacp-transport-webmcp';
 import { expect } from '@playwright/test';
 import { test, useWebMcp } from '../helpers/test';
 import { repoRoot } from '../helpers/paths';

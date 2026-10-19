@@ -1,5 +1,5 @@
-import type { VacpCapabilitiesSnapshot, VacpObservation, VacpRef, VacpStateSnapshot } from '@vacp/protocol';
-import { isVacpRef, fnv1a64Hex, sameVacpValue, stableStringify } from '@vacp/protocol';
+import type { VacpCapabilitiesSnapshot, VacpObservation, VacpRef, VacpStateSnapshot } from '@ethivia/vacp-protocol';
+import { isVacpRef, fnv1a64Hex, sameVacpValue, stableStringify } from '@ethivia/vacp-protocol';
 
 /** What a ref script holds besides its timestamp, kept to compare the next snapshot against. */
 type WrittenRef = { value: unknown; summary?: unknown };

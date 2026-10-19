@@ -41,7 +41,7 @@ function newest(dir: string): number {
 }
 
 /**
- * The eval imports its `@vacp/*` dependencies from their built `dist`, while the gallery serves their
+ * The eval imports its `@ethivia/vacp-*` dependencies from their built `dist`, while the gallery serves their
  * source. A package whose source changed after its build would measure old code, so the run stops.
  */
 export function assertFreshBuilds(root: string) {
@@ -49,8 +49,8 @@ export function assertFreshBuilds(root: string) {
     dependencies: Record<string, string>;
   };
   const stale = Object.keys(manifest.dependencies)
-    .filter((name) => name.startsWith('@vacp/'))
-    .map((name) => join(root, 'packages', name.slice('@vacp/'.length)))
+    .filter((name) => name.startsWith('@ethivia/vacp-'))
+    .map((name) => join(root, 'packages', name.slice('@ethivia/vacp-'.length)))
     .filter((dir) => newest(join(dir, 'src')) > newest(join(dir, 'dist')));
   if (stale.length)
     throw new EvalGateError(

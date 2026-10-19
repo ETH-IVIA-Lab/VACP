@@ -9,7 +9,7 @@ import {
   type VacpProvenanceRecord,
   type VacpProvider,
   type VacpTerminalExecution,
-} from '@vacp/protocol';
+} from '@ethivia/vacp-protocol';
 import { actionFailure } from '../action-registry';
 import type { createAgentActivityChannel } from './activities';
 import type { createExecutionChannel } from './executions';

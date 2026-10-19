@@ -1,4 +1,4 @@
-import { VACP_SCHEMA_VERSION, type VacpGraph, type VacpObservation, type VacpRef } from '@vacp/protocol';
+import { VACP_SCHEMA_VERSION, type VacpGraph, type VacpObservation, type VacpRef } from '@ethivia/vacp-protocol';
 import { writeVacpDomSnapshotScript } from '../src/dom-snapshot';
 import { measure } from '../../../tools/benchmark';
 

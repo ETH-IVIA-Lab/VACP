@@ -5,8 +5,8 @@ import type {
   VacpGraphFragment,
   VacpNode,
   VacpRef,
-} from '@vacp/protocol';
-import { stableStringify, fnv1a64Hex } from '@vacp/protocol';
+} from '@ethivia/vacp-protocol';
+import { stableStringify, fnv1a64Hex } from '@ethivia/vacp-protocol';
 import { isNode } from '@uwdata/mosaic-sql';
 
 import { makePlotRef, makeViewRef } from './refs';

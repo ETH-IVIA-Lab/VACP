@@ -1,8 +1,8 @@
-import type { VacpActionExecutionOptions, VacpAvailability } from '@vacp/protocol';
+import type { VacpActionExecutionOptions, VacpAvailability } from '@ethivia/vacp-protocol';
 import { z } from 'zod';
-import { vacpRefSchema } from '@vacp/protocol/validation';
-import type { VacpActionDescriptor, VacpDataSqlParams, VacpRef } from '@vacp/protocol';
-import { VACP_DATA_SQL_ACTION, VACP_TOOL_RESULT_LIMITS } from '@vacp/protocol';
+import { vacpRefSchema } from '@ethivia/vacp-protocol/validation';
+import type { VacpActionDescriptor, VacpDataSqlParams, VacpRef } from '@ethivia/vacp-protocol';
+import { VACP_DATA_SQL_ACTION, VACP_TOOL_RESULT_LIMITS } from '@ethivia/vacp-protocol';
 
 import type { VacpActionRegistrar } from './action-registry';
 import { parseVacpParams } from './params';

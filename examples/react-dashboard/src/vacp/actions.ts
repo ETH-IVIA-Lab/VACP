@@ -1,6 +1,6 @@
 import { z } from 'zod';
-import { registerVacpApplyStateAction } from '@vacp/runtime';
-import type { VacpActions } from '@vacp/sdk';
+import { registerVacpApplyStateAction } from '@ethivia/vacp-runtime';
+import type { VacpActions } from '@ethivia/vacp-sdk';
 import { listDatasets } from '../datasets/registry';
 import { numericValues, quantile, assertDashboardEncoding, assertDashboardSelection } from '../lib/dashboard';
 import type { ReactDashboardModel } from './model';

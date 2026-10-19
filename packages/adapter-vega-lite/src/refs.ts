@@ -1,4 +1,4 @@
-import type { VacpRef } from '@vacp/protocol';
+import type { VacpRef } from '@ethivia/vacp-protocol';
 
 export function makeRef({
   appId,

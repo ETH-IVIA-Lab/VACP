@@ -3,7 +3,7 @@
 A provider publishes its complete catalog of nodes and operations. Each one can state when it is usable, and VACP discloses only what is usable now. An agent reading the React dashboard before a dataset loads sees the dataset picker and no brushing operation.
 
 ```ts
-import type { VacpNode } from '@vacp/protocol';
+import type { VacpNode } from '@ethivia/vacp-protocol';
 
 const dataset = {
   ref: 'vacp://dashboard/dataset',
@@ -30,7 +30,7 @@ const chart = {
 
 State prerequisites as facts about the current entities, so a person selecting a dataset and an agent selecting it enable the same operations. For a condition that is not a node, evaluate it in the host and publish `unavailable` with a reason.
 
-Operations declare prerequisites through `.requires(ref)` in `@vacp/sdk`:
+Operations declare prerequisites through `.requires(ref)` in `@ethivia/vacp-sdk`:
 
 ```ts
 actions
@@ -84,6 +84,6 @@ A rejected call carries `error.details`:
 
 ## Explain a blocked operation
 
-`createInspectionIndex` from `@vacp/inspector-core` reads the complete catalog. `entity(ref).availability`, `entity(ref).prerequisites`, `entity(ref).dependents`, and `action(name).availability` explain why a node or an operation is blocked, and `availableActions` lists what runs now. See [Inspection surfaces](../inspector/).
+`createInspectionIndex` from `@ethivia/vacp-inspector-core` reads the complete catalog. `entity(ref).availability`, `entity(ref).prerequisites`, `entity(ref).dependents`, and `action(name).availability` explain why a node or an operation is blocked, and `availableActions` lists what runs now. See [Inspection surfaces](../inspector/).
 
 Python providers declare `Availability(requires=(ref,), unavailable=reason)` on nodes and operations, with the same rules, checked against fixtures shared with the TypeScript protocol.

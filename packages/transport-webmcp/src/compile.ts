@@ -12,8 +12,8 @@ import {
   VACP_NARRATION_MAX_LENGTH,
   type VacpActionDescriptor,
   type VacpGraph,
-} from '@vacp/protocol';
-import { parseCapabilitiesRequest, parseStateRequest } from '@vacp/protocol/validation';
+} from '@ethivia/vacp-protocol';
+import { parseCapabilitiesRequest, parseStateRequest } from '@ethivia/vacp-protocol/validation';
 import type { VacpWebMcpClient, VacpWebMcpOptions } from './types';
 
 function copySchema(schema: Record<string, unknown>): Record<string, unknown> {

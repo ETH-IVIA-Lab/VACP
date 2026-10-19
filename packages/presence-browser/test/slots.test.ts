@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import type { PresenceActivity } from '@vacp/presence-core';
+import type { PresenceActivity } from '@ethivia/vacp-presence-core';
 import { defaultCursorPresentation } from '../src/cursor-semantics';
 import { describePresence } from '../src/describe';
 import { createSlots } from '../src/slots';

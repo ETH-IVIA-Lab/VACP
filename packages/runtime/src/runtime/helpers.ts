@@ -1,4 +1,4 @@
-import { captureVacpValue, type VacpActor } from '@vacp/protocol';
+import { captureVacpValue, type VacpActor } from '@ethivia/vacp-protocol';
 
 export function makeEntryId(): string {
   const id = globalThis.crypto?.randomUUID?.();

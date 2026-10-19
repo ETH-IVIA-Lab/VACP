@@ -1,4 +1,4 @@
-import type { VacpExecutionControl } from '@vacp/protocol';
+import type { VacpExecutionControl } from '@ethivia/vacp-protocol';
 import type { PresencePacing, PresenceArrival } from './types';
 
 /** Abort releases presentation time, never the application's execution signal. */

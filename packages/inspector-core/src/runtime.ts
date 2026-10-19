@@ -1,4 +1,9 @@
-import type { VacpObservation, VacpActionCall, VacpActionExecutionOptions, VacpActionResult } from '@vacp/protocol';
+import type {
+  VacpObservation,
+  VacpActionCall,
+  VacpActionExecutionOptions,
+  VacpActionResult,
+} from '@ethivia/vacp-protocol';
 import type { InspectorClient } from './types';
 
 export type InspectorRuntime = {

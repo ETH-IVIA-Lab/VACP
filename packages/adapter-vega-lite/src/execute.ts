@@ -1,6 +1,6 @@
 import { selectionTuple, selectionValues, type SelectionTuple } from './selection-state';
 import { intervalVisualSignals } from './selection-signals';
-import type { VacpActionCall, VacpClock, VacpFocus, VacpInteraction, VacpRef } from '@vacp/protocol';
+import type { VacpActionCall, VacpClock, VacpFocus, VacpInteraction, VacpRef } from '@ethivia/vacp-protocol';
 import { changeset, type View } from 'vega';
 
 import { findSignalContext, readStateSignal, runtimeUnit, type VegaLiteBindings } from './bindings';

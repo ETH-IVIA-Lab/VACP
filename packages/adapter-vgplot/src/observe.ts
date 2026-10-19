@@ -1,4 +1,4 @@
-import { createProviderSubscription } from '@vacp/runtime';
+import { createProviderSubscription } from '@ethivia/vacp-runtime';
 import { observeNativeUpdate, observeNativePlot, observeNativeInteractor, plotFreshness } from './native-observation';
 import type { VgplotBindings } from './bindings';
 

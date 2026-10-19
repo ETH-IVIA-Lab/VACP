@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { connectHttpInspectorClient } from '../src/http';
-import { parseObservation } from '@vacp/protocol/validation';
+import { parseObservation } from '@ethivia/vacp-protocol/validation';
 import { observation } from './fixtures';
 
 test('HTTP connects by server identity and carries cancellation, custom fetch, and typed payloads', async () => {

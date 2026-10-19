@@ -1,5 +1,5 @@
 {
-  "name": "@vacp/analytics",
+  "name": "@ethivia/vacp-analytics",
   "version": "0.1.0",
   "private": true,
   "files": [
@@ -18,9 +18,9 @@
     "test": "tsx --test --test-timeout=10000 test/*.test.ts"
   },
   "dependencies": {
-    "@vacp/protocol": "workspace:*"
+    "@ethivia/vacp-protocol": "workspace:*"
   },
   "devDependencies": {
-    "@vacp/runtime": "workspace:*"
+    "@ethivia/vacp-runtime": "workspace:*"
   }
 }

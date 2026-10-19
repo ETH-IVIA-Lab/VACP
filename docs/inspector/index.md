@@ -1,12 +1,12 @@
 # Inspection surfaces
 
-`@vacp/inspector-core` connects a custom interface, such as a debugging panel or a teaching view, to an analytical session. It reads the complete catalog, executes operations, keeps optional history, and indexes the graph for lookups. Your interface decides what to show and how people navigate it.
+`@ethivia/vacp-inspector-core` connects a custom interface, such as a debugging panel or a teaching view, to an analytical session. It reads the complete catalog, executes operations, keeps optional history, and indexes the graph for lookups. Your interface decides what to show and how people navigate it.
 
 ## Connect a runtime
 
 ```ts
-import { createInspectionIndex, createInspectorSession } from '@vacp/inspector-core';
-import { createRuntimeInspectorClient } from '@vacp/inspector-core/runtime';
+import { createInspectionIndex, createInspectorSession } from '@ethivia/vacp-inspector-core';
+import { createRuntimeInspectorClient } from '@ethivia/vacp-inspector-core/runtime';
 
 const client = createRuntimeInspectorClient({ id: 'analysis', title: 'Analysis', runtime });
 const session = createInspectorSession(client, { historyLimit: 50 });
@@ -77,7 +77,7 @@ app = create_inspection_app(composer, title='Analysis')
 ```
 
 ```ts
-import { connectHttpInspectorClient } from '@vacp/inspector-core/http';
+import { connectHttpInspectorClient } from '@ethivia/vacp-inspector-core/http';
 
 const client = await connectHttpInspectorClient({ url: 'http://127.0.0.1:8796/api/vacp', intervalMs: 1000 });
 ```
@@ -89,4 +89,4 @@ Mount `app` in an [ASGI](https://asgi.readthedocs.io) server such as Uvicorn, wi
 - Pass `fetch` to add credentials.
 - The host owns authentication and allowed origins. The session identity identifies the server process and grants no access.
 
-To validate payloads from another transport, use `parseObservation` and `parseActionResult` from `@vacp/protocol/validation`.
+To validate payloads from another transport, use `parseObservation` and `parseActionResult` from `@ethivia/vacp-protocol/validation`.

@@ -1,6 +1,6 @@
-import { createVacpToolLoopAgent, defaultVacpAgentInstructions, vacpAgentDefaults } from '@vacp/agent-ai-sdk';
-import { vacpAgentActor, vacpAgentTools } from '@vacp/protocol';
-import { createVacpTransport } from '@vacp/transport-bridge';
+import { createVacpToolLoopAgent, defaultVacpAgentInstructions, vacpAgentDefaults } from '@ethivia/vacp-agent-ai-sdk';
+import { vacpAgentActor, vacpAgentTools } from '@ethivia/vacp-protocol';
+import { createVacpTransport } from '@ethivia/vacp-transport-bridge';
 import type { ModelMessage } from 'ai';
 
 import type { Condition } from '../ports';
@@ -23,7 +23,7 @@ export function vacpAgentCondition(options: VacpAgentConditionOptions = {}): Con
     async start({ model }) {
       return {
         description: {
-          loop: '@vacp/agent-ai-sdk createVacpToolLoopAgent',
+          loop: '@ethivia/vacp-agent-ai-sdk createVacpToolLoopAgent',
           instructions,
           tools: Object.keys(vacpAgentTools).join(', '),
           settings: { temperature },

@@ -4,7 +4,7 @@ import { Selection, clauseInterval, clauseList, clausePoints } from '@uwdata/mos
 import { Menu, Search, Slider } from '@uwdata/mosaic-inputs';
 import { Interval1D, Toggle } from '@uwdata/mosaic-plot';
 import { sql } from '@uwdata/mosaic-sql';
-import { executeVacpAction } from '@vacp/runtime';
+import { executeVacpAction } from '@ethivia/vacp-runtime';
 import { createVgplotProvider } from '../src/index';
 import { nodeDuckDb } from './duckdb';
 

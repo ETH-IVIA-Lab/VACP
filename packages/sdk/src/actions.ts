@@ -6,11 +6,11 @@ import type {
   VacpRef,
   VacpFocus,
   VacpSourceId,
-} from '@vacp/protocol';
-import { parseVacpParams, VacpActionRegistry, type VacpActionHandler } from '@vacp/runtime';
+} from '@ethivia/vacp-protocol';
+import { parseVacpParams, VacpActionRegistry, type VacpActionHandler } from '@ethivia/vacp-runtime';
 
 export type VacpActions = {
-  /** Register standard actions here with `registerVacp*Action` from `@vacp/runtime`. */
+  /** Register standard actions here with `registerVacp*Action` from `@ethivia/vacp-runtime`. */
   registry: VacpActionRegistry;
   operation: (kind: VacpOperationKind, name: string, description: string) => VacpActionBuilder;
 };

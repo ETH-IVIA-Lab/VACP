@@ -1,8 +1,13 @@
-import type { VacpActionExecutionOptions, VacpAvailability } from '@vacp/protocol';
+import type { VacpActionExecutionOptions, VacpAvailability } from '@ethivia/vacp-protocol';
 import { z } from 'zod';
-import { vacpRefSchema } from '@vacp/protocol/validation';
-import type { VacpActionDescriptor, VacpRef, VacpWidgetOptionsParams, VacpWidgetOptionsResult } from '@vacp/protocol';
-import { VACP_WIDGET_OPTIONS_ACTION } from '@vacp/protocol';
+import { vacpRefSchema } from '@ethivia/vacp-protocol/validation';
+import type {
+  VacpActionDescriptor,
+  VacpRef,
+  VacpWidgetOptionsParams,
+  VacpWidgetOptionsResult,
+} from '@ethivia/vacp-protocol';
+import { VACP_WIDGET_OPTIONS_ACTION } from '@ethivia/vacp-protocol';
 
 import type { VacpActionRegistrar } from './action-registry';
 import { parseVacpParams } from './params';

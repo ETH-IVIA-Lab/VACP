@@ -1,5 +1,5 @@
 {
-  "name": "@vacp/example-vega-lite-gallery",
+  "name": "@ethivia/vacp-example-vega-lite-gallery",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -13,9 +13,9 @@
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
-    "@vacp/adapter-vega-lite": "workspace:*",
-    "@vacp/data-duckdb": "workspace:*",
-    "@vacp/example-shared": "workspace:*",
+    "@ethivia/vacp-adapter-vega-lite": "workspace:*",
+    "@ethivia/vacp-data-duckdb": "workspace:*",
+    "@ethivia/vacp-example-shared": "workspace:*",
     "vega": "catalog:",
     "vega-embed": "catalog:",
     "vega-lite": "catalog:"

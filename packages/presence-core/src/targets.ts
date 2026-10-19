@@ -1,4 +1,4 @@
-import type { VacpFocus, VacpRef, VacpSourceId } from '@vacp/protocol';
+import type { VacpFocus, VacpRef, VacpSourceId } from '@ethivia/vacp-protocol';
 import { validPresenceTarget } from './geometry';
 import type { PresenceBinding } from './types';
 

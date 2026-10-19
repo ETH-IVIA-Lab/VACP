@@ -4,7 +4,7 @@ import type {
   VacpRestore,
   VacpProvenanceSource,
   VacpTurnRecord,
-} from '@vacp/protocol';
+} from '@ethivia/vacp-protocol';
 import type { ProvenanceCheckpoint } from './checkpoints';
 
 /**

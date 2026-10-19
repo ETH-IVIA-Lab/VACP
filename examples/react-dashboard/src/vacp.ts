@@ -1,10 +1,10 @@
 import { z } from 'zod';
-import { createVacpProvider, type VacpRuntime } from '@vacp/runtime';
-import { createVacpActions } from '@vacp/sdk';
-import { installExampleRuntime } from '@vacp/example-shared';
-import { exampleOptions } from '@vacp/example-shared/config';
-import { elementPresenceTarget, observePresenceLayout } from '@vacp/presence-core/dom';
-import type { PresenceTarget } from '@vacp/presence-core';
+import { createVacpProvider, type VacpRuntime } from '@ethivia/vacp-runtime';
+import { createVacpActions } from '@ethivia/vacp-sdk';
+import { installExampleRuntime } from '@ethivia/vacp-example-shared';
+import { exampleOptions } from '@ethivia/vacp-example-shared/config';
+import { elementPresenceTarget, observePresenceLayout } from '@ethivia/vacp-presence-core/dom';
+import type { PresenceTarget } from '@ethivia/vacp-presence-core';
 import { registerDashboardActions } from './vacp/actions';
 import { createDashboardData } from './vacp/data';
 import { projectDashboard } from './vacp/projection';

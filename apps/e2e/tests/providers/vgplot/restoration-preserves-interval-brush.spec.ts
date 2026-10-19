@@ -61,7 +61,7 @@ test('explicit apply_state restores a recorded interval brush and later human br
     const host = [...document.querySelectorAll('#app *')].find((element) => {
       const value = (element as Element & { value?: { interactors?: unknown[] } }).value;
       return Array.isArray(value?.interactors);
-    }) as Element & { value: import('@vacp/adapter-vgplot').VgplotPlotLike };
+    }) as Element & { value: import('@ethivia/vacp-adapter-vgplot').VgplotPlotLike };
     const interactor = host.value.interactors[0]!;
     return { brush: interactor.value, clause: interactor.selection!.valueFor!(interactor) };
   });

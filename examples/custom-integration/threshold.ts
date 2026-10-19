@@ -1,6 +1,6 @@
-import { createVacpProvider } from '@vacp/runtime';
-import { installVacpRuntime } from '@vacp/runtime-browser';
-import { createVacpActions } from '@vacp/sdk';
+import { createVacpProvider } from '@ethivia/vacp-runtime';
+import { installVacpRuntime } from '@ethivia/vacp-runtime-browser';
+import { createVacpActions } from '@ethivia/vacp-sdk';
 import { z } from 'zod';
 
 const thresholdParams = z.object({ value: z.number().finite().min(0).max(100) });

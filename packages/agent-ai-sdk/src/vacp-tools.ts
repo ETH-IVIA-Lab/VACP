@@ -10,8 +10,8 @@ import {
   type VacpCapabilitiesRequest,
   type VacpStateRequest,
   type VacpToolResult,
-} from '@vacp/protocol';
-import type { VacpExecuteInput, VacpProgressInput, VacpTransport } from '@vacp/transport-bridge';
+} from '@ethivia/vacp-protocol';
+import type { VacpExecuteInput, VacpProgressInput, VacpTransport } from '@ethivia/vacp-transport-bridge';
 
 const refs = z.array(z.templateLiteral(['vacp://', z.string()])).optional();
 /** Text a model must fill with more than whitespace, as every transport checks it. */

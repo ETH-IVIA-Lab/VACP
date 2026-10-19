@@ -1,4 +1,4 @@
-import type { PresenceGeometry, PresencePoint } from '@vacp/presence-core';
+import type { PresenceGeometry, PresencePoint } from '@ethivia/vacp-presence-core';
 
 type Rect = PresencePoint & { width: number; height: number };
 type Side = 'right' | 'left' | 'above' | 'below';

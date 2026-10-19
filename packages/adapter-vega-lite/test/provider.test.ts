@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { View, parse } from 'vega';
 import { compile, type TopLevelSpec } from 'vega-lite';
-import { createVacpRuntime, executeVacpAction } from '@vacp/runtime';
+import { createVacpRuntime, executeVacpAction } from '@ethivia/vacp-runtime';
 import { createVegaLiteProvider } from '../src/index';
 import type { VegaViewLike } from '../src/types';
 

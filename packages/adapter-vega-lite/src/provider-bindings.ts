@@ -1,4 +1,4 @@
-import type { VacpProvider, VacpRef } from '@vacp/protocol';
+import type { VacpProvider, VacpRef } from '@ethivia/vacp-protocol';
 import type { VegaLiteBindings } from './bindings';
 import type { VegaViewLike } from './types';
 

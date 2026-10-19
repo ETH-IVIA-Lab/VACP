@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import type { PresenceActivity } from '@vacp/presence-core';
+import type { PresenceActivity } from '@ethivia/vacp-presence-core';
 import { createNarration } from '../src/narration';
 
 const actor = { id: 'agent', kind: 'agent' as const };

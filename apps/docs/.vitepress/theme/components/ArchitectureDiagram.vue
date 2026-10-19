@@ -12,23 +12,23 @@
         </marker>
       </defs>
       <text class="heading" x="10" y="20">Sources</text>
-      <rect class="box" x="10" y="34" width="170" height="52" rx="6" />
+      <rect class="box" x="10" y="34" width="200" height="52" rx="6" />
       <text class="label" x="24" y="56">Vega-Lite view</text>
-      <text class="note" x="24" y="73">@vacp/adapter-vega-lite</text>
-      <rect class="box" x="10" y="98" width="170" height="52" rx="6" />
+      <text class="note" x="24" y="73">@ethivia/vacp-adapter-vega-lite</text>
+      <rect class="box" x="10" y="98" width="200" height="52" rx="6" />
       <text class="label" x="24" y="120">Mosaic vgplot</text>
-      <text class="note" x="24" y="137">@vacp/adapter-vgplot</text>
-      <rect class="box" x="10" y="162" width="170" height="52" rx="6" />
+      <text class="note" x="24" y="137">@ethivia/vacp-adapter-vgplot</text>
+      <rect class="box" x="10" y="162" width="200" height="52" rx="6" />
       <text class="label" x="24" y="184">Your application</text>
-      <text class="note" x="24" y="201">@vacp/sdk</text>
+      <text class="note" x="24" y="201">@ethivia/vacp-sdk</text>
       <text class="note" x="10" y="238">Each provider owns its nodes,</text>
       <text class="note" x="10" y="253">state, and actions.</text>
-      <path class="edge" d="M180 60 C 210 60 210 110 238 118" />
-      <path class="edge" d="M180 124 L238 124" />
-      <path class="edge" d="M180 188 C 210 188 210 138 238 130" />
+      <path class="edge" d="M210 60 C 224 60 224 110 238 118" />
+      <path class="edge" d="M210 124 L238 124" />
+      <path class="edge" d="M210 188 C 224 188 224 138 238 130" />
       <text class="heading" x="244" y="20">Runtime</text>
       <rect class="runtime" x="244" y="34" width="232" height="180" rx="8" />
-      <text class="title" x="262" y="62">@vacp/runtime</text>
+      <text class="title" x="262" y="62">@ethivia/vacp-runtime</text>
       <text class="label" x="262" y="92">Composes sources by ownership</text>
       <text class="label" x="262" y="118">Observes graph, state, freshness</text>
       <text class="label" x="262" y="144">Prepares and executes actions</text>
@@ -45,17 +45,17 @@
       <text class="note" x="552" y="74">External agents · vacp (Python)</text>
       <rect class="box" x="538" y="92" width="242" height="46" rx="6" />
       <text class="label" x="552" y="112">In-page agent</text>
-      <text class="note" x="552" y="128">AI SDK tools · @vacp/agent-ai-sdk</text>
+      <text class="note" x="552" y="128">@ethivia/vacp-agent-ai-sdk</text>
       <rect class="box" x="538" y="146" width="242" height="46" rx="6" />
       <text class="label" x="552" y="166">Browser agent</text>
-      <text class="note" x="552" y="182">WebMCP · @vacp/transport-webmcp</text>
+      <text class="note" x="552" y="182">@ethivia/vacp-transport-webmcp</text>
       <text class="heading" x="538" y="222">People</text>
       <rect class="box" x="538" y="230" width="242" height="44" rx="6" />
       <text class="label" x="552" y="249">Presence and replay</text>
       <text class="note" x="552" y="265">Cursor, narration, checkpoints</text>
       <rect class="box" x="538" y="280" width="242" height="44" rx="6" />
       <text class="label" x="552" y="299">Inspection surfaces</text>
-      <text class="note" x="552" y="315">@vacp/inspector-core</text>
+      <text class="note" x="552" y="315">@ethivia/vacp-inspector-core</text>
     </svg>
   </figure>
 </template>

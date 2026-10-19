@@ -1,4 +1,4 @@
-import type { PresenceGeometry, PresencePoint } from '@vacp/presence-core';
+import type { PresenceGeometry, PresencePoint } from '@ethivia/vacp-presence-core';
 import { placeBubble, targetBounds, type BubblePlacement } from './bubble-layout';
 
 type Viewport = { width: number; height: number };

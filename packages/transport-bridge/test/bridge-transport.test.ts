@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { VACP_SCHEMA_VERSION } from '@vacp/protocol';
+import { VACP_SCHEMA_VERSION } from '@ethivia/vacp-protocol';
 import { createVacpTransport, type VacpTransportBridge } from '../src/index';
 
 const graph = { sources: [], nodes: [], edges: [], actions: [] };

@@ -2,8 +2,8 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import Ajv from 'ajv/dist/2020.js';
 import type { WebMCP } from 'webmcp-types';
-import { vacpNarrationGuidance, type VacpGraphFragment } from '@vacp/protocol';
-import { createVacpProvider, createVacpRuntime, VacpActionRegistry } from '@vacp/runtime';
+import { vacpNarrationGuidance, type VacpGraphFragment } from '@ethivia/vacp-protocol';
+import { createVacpProvider, createVacpRuntime, VacpActionRegistry } from '@ethivia/vacp-runtime';
 import { compileVacpWebMcpTools, installVacpWebMcp, type VacpWebMcpRegistry } from '../src/index';
 
 class Registry implements VacpWebMcpRegistry {

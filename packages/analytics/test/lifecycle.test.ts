@@ -1,4 +1,4 @@
-import { createVacpProvider, createVacpRuntime, VacpActionRegistry } from '@vacp/runtime';
+import { createVacpProvider, createVacpRuntime, VacpActionRegistry } from '@ethivia/vacp-runtime';
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { installVacpRuntimeAnalytics } from '../src/index';

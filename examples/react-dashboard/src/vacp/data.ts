@@ -1,6 +1,6 @@
-import { exampleDuckDbBundles } from '@vacp/example-shared';
-import { registerVacpDataSchemaAction, registerVacpDataSqlAction } from '@vacp/runtime';
-import type { VacpActions } from '@vacp/sdk';
+import { exampleDuckDbBundles } from '@ethivia/vacp-example-shared';
+import { registerVacpDataSchemaAction, registerVacpDataSqlAction } from '@ethivia/vacp-runtime';
+import type { VacpActions } from '@ethivia/vacp-sdk';
 import {
   createDuckDbDataSchemaHandler,
   createDuckDbDataSqlHandler,
@@ -8,8 +8,8 @@ import {
   describeDuckDbTable,
   makeVacpDuckDbTableName,
   sqlStringLiteral,
-} from '@vacp/data-duckdb';
-import type { VacpDataHandleData, VacpDataSchemaColumn } from '@vacp/protocol';
+} from '@ethivia/vacp-data-duckdb';
+import type { VacpDataHandleData, VacpDataSchemaColumn } from '@ethivia/vacp-protocol';
 import type { DatasetId } from '../datasets/registry';
 import type { DashboardSnapshot, ReactDashboardModel } from './model';
 import { dashboardRefs } from './refs';

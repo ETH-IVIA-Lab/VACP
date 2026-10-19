@@ -1,4 +1,4 @@
-import type { VacpRef } from '@vacp/protocol';
+import type { VacpRef } from '@ethivia/vacp-protocol';
 
 export function makePlotRef(args: { appId: string; viewId: string; plotId: string; suffix: string }): VacpRef {
   return `vacp://${args.appId}/${args.viewId}/${args.plotId}${args.suffix}`;

@@ -1,4 +1,4 @@
-import type { VacpAgentActivityHandle, VacpPageBridge } from '@vacp/protocol';
+import type { VacpAgentActivityHandle, VacpPageBridge } from '@ethivia/vacp-protocol';
 
 declare global {
   interface Window {

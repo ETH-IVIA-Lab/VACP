@@ -1,5 +1,5 @@
 import type { InspectorClient, InspectorSession, InspectorState } from '../src/index';
-import { VACP_SCHEMA_VERSION, type VacpObservation } from '@vacp/protocol';
+import { VACP_SCHEMA_VERSION, type VacpObservation } from '@ethivia/vacp-protocol';
 
 export function observation(value = 0): VacpObservation {
   return {

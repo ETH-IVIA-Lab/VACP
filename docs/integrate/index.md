@@ -6,9 +6,9 @@ A custom provider exposes your application's controls, views, and data to VACP. 
 
 The integration has three parts:
 
-- `createVacpActions()` from `@vacp/sdk` defines operations with [Zod](https://zod.dev) schemas, a TypeScript schema library. `.params(schema)` publishes the schema to agents as JSON Schema and parses every call before the handler runs.
-- `createVacpProvider()` from `@vacp/runtime` binds the source. `project()` returns the graph and state for one read, and `subscribe()` tells the runtime when a later read may differ.
-- `installVacpRuntime()` from `@vacp/runtime-browser` composes the provider into a runtime and publishes it at `window.__vacp`.
+- `createVacpActions()` from `@ethivia/vacp-sdk` defines operations with [Zod](https://zod.dev) schemas, a TypeScript schema library. `.params(schema)` publishes the schema to agents as JSON Schema and parses every call before the handler runs.
+- `createVacpProvider()` from `@ethivia/vacp-runtime` binds the source. `project()` returns the graph and state for one read, and `subscribe()` tells the runtime when a later read may differ.
+- `installVacpRuntime()` from `@ethivia/vacp-runtime-browser` composes the provider into a runtime and publishes it at `window.__vacp`.
 
 After `connectThreshold(input)` runs, an agent or the browser console can set the threshold:
 
@@ -65,7 +65,7 @@ A call whose parameters fail the schema changes nothing. Its result carries the 
 }
 ```
 
-Each issue has a `path` of field names and array indices, so an agent can correct the field without parsing the message. A union failure lists each branch's issues in `errors`. To report a domain failure from a handler, throw `new VacpActionError(message, details)` from `@vacp/protocol`. Its `details` reach the result unchanged. An `Error` of another kind reaches the result as its message alone.
+Each issue has a `path` of field names and array indices, so an agent can correct the field without parsing the message. A union failure lists each branch's issues in `errors`. To report a domain failure from a handler, throw `new VacpActionError(message, details)` from `@ethivia/vacp-protocol`. Its `details` reach the result unchanged. An `Error` of another kind reaches the result as its message alone.
 
 ## Report human changes
 
@@ -85,7 +85,7 @@ The journal then records one observation with the human as its actor, and [repla
 Replay and inspection surfaces restore recorded state through the `vacp.apply_state` contract. Inside `connectThreshold`, before creating the provider, register it with a preparation function that validates the recorded state and returns the change to apply:
 
 ```ts
-import { registerVacpApplyStateAction } from '@vacp/runtime';
+import { registerVacpApplyStateAction } from '@ethivia/vacp-runtime';
 
 registerVacpApplyStateAction(
   actions.registry,
@@ -104,11 +104,15 @@ Preparation runs before anything changes. A state that fails to parse fails the 
 
 ## Expose data
 
-Keep datasets in the system that owns them. Load the rows into DuckDB, register `vacp.data_sql` and `vacp.data_schema` with handlers from `@vacp/data-duckdb`, and project a `DataHandle` node for the table. Agents then query the rows with SQL, and the graph carries only the handle:
+Keep datasets in the system that owns them. Load the rows into DuckDB, register `vacp.data_sql` and `vacp.data_schema` with handlers from `@ethivia/vacp-data-duckdb`, and project a `DataHandle` node for the table. Agents then query the rows with SQL, and the graph carries only the handle:
 
 ```ts
-import { createDuckDbDataSchemaHandler, createDuckDbDataSqlHandler, createDuckDbWasmClient } from '@vacp/data-duckdb';
-import { registerVacpDataSchemaAction, registerVacpDataSqlAction } from '@vacp/runtime';
+import {
+  createDuckDbDataSchemaHandler,
+  createDuckDbDataSqlHandler,
+  createDuckDbWasmClient,
+} from '@ethivia/vacp-data-duckdb';
+import { registerVacpDataSchemaAction, registerVacpDataSqlAction } from '@ethivia/vacp-runtime';
 
 const handleRef = 'vacp://example/scores';
 const duckdb = createDuckDbWasmClient();

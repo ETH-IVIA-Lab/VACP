@@ -1,6 +1,6 @@
 import { expect, type Page } from '@playwright/test';
 import { test, useWebMcp } from '../helpers/test';
-import type { VacpExecutionControl, VacpExecutionSource } from '@vacp/protocol';
+import type { VacpExecutionControl, VacpExecutionSource } from '@ethivia/vacp-protocol';
 import { gotoApp } from '../helpers/servers';
 import { tool } from '../helpers/presence';
 

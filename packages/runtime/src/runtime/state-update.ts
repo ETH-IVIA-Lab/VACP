@@ -5,8 +5,8 @@ import type {
   VacpStateRequest,
   VacpStateSnapshot,
   VacpStateUpdate,
-} from '@vacp/protocol';
-import { VACP_SCHEMA_VERSION, fnv1a64Hex, stableStringify } from '@vacp/protocol';
+} from '@ethivia/vacp-protocol';
+import { VACP_SCHEMA_VERSION, fnv1a64Hex, stableStringify } from '@ethivia/vacp-protocol';
 
 function scopeValues(values: Record<VacpRef, unknown>, scope: ReadonlySet<string>): Record<VacpRef, unknown> {
   const scoped: Record<VacpRef, unknown> = {};

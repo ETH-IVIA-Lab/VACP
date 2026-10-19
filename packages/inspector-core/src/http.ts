@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import type { InspectorClient, InspectorRequest } from './types';
-import { parseObservation, parseActionResult } from '@vacp/protocol/validation';
+import { parseObservation, parseActionResult } from '@ethivia/vacp-protocol/validation';
 import { notify } from './notify';
 
 export type HttpInspectorOptions = {

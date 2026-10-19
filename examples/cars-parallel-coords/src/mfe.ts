@@ -1,7 +1,7 @@
 import './styles.css';
 import { createParallelCoordsChart } from './chart';
 import { loadCarsDataset } from './data';
-import { vacpHumanActor } from '@vacp/protocol';
+import { vacpHumanActor } from '@ethivia/vacp-protocol';
 import { connectVacp } from './vacp';
 
 const template = `

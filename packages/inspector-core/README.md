@@ -1,10 +1,10 @@
-# @vacp/inspector-core
+# @ethivia/vacp-inspector-core
 
 Build custom inspection surfaces from VACP observations and operations.
 
 ```ts
-import { createInspectorSession, createInspectionIndex } from '@vacp/inspector-core';
-import { createRuntimeInspectorClient } from '@vacp/inspector-core/runtime';
+import { createInspectorSession, createInspectionIndex } from '@ethivia/vacp-inspector-core';
+import { createRuntimeInspectorClient } from '@ethivia/vacp-inspector-core/runtime';
 
 const client = createRuntimeInspectorClient({ id: 'analysis', title: 'Analysis', runtime });
 const session = createInspectorSession(client, { historyLimit: 50 });

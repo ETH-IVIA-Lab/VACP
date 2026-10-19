@@ -1,4 +1,4 @@
-import type { VacpRef } from '@vacp/protocol';
+import type { VacpRef } from '@ethivia/vacp-protocol';
 import { plotLegends } from './legends';
 import { makePlotRef, makeViewRef } from './refs';
 import type { CollectedInput } from './inputs';

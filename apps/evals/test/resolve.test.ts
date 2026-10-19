@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import type { VacpGraph } from '@vacp/protocol';
+import type { VacpGraph } from '@ethivia/vacp-protocol';
 import { resolveAction } from '../src/core/resolve';
 
 const selection = (name: string) => ({

@@ -1,5 +1,5 @@
 {
-  "name": "@vacp/analytics-posthog",
+  "name": "@ethivia/vacp-analytics-posthog",
   "version": "0.1.0",
   "private": true,
   "files": [
@@ -17,7 +17,7 @@
     "build": "vp pack"
   },
   "dependencies": {
-    "@vacp/analytics": "workspace:*",
+    "@ethivia/vacp-analytics": "workspace:*",
     "posthog-js": "^1.438.10"
   }
 }

@@ -1,6 +1,6 @@
-import { createVacpProvider, VacpActionRegistry } from '@vacp/runtime';
+import { createVacpProvider, VacpActionRegistry } from '@ethivia/vacp-runtime';
 import { setImmediate } from 'node:timers/promises';
-import type { VacpExecution, VacpSourceId } from '@vacp/protocol';
+import type { VacpExecution, VacpSourceId } from '@ethivia/vacp-protocol';
 import { createAgentPresence, type PresenceSource } from '../src/index';
 import { measure } from '../../../tools/benchmark';
 
@@ -68,7 +68,7 @@ await measure('Presence burst', burst, 20);
 console.log(`Resolver invocations per burst: ${resolutions}`);
 
 // Streaming text with a retained spatial intent should not recopy its large geometry each token.
-let progress!: (event: import('@vacp/protocol').VacpAgentActivity) => void;
+let progress!: (event: import('@ethivia/vacp-protocol').VacpAgentActivity) => void;
 let execution!: (event: VacpExecution) => void;
 const streamingSource: PresenceSource = {
   signal: new AbortController().signal,

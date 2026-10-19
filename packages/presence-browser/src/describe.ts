@@ -1,4 +1,4 @@
-import type { PresenceActivity, PresenceNavigation, PresenceTrailFrame } from '@vacp/presence-core';
+import type { PresenceActivity, PresenceNavigation, PresenceTrailFrame } from '@ethivia/vacp-presence-core';
 
 export function actorLabel(actor: PresenceActivity['actor']): string {
   return actor.label ?? (actor.kind === 'human' ? 'You' : actor.kind === 'agent' ? 'Agent' : 'System');

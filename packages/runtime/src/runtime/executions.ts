@@ -1,4 +1,4 @@
-import { isVacpExecutionSettled, type VacpExecution, type VacpExecutionGate } from '@vacp/protocol';
+import { isVacpExecutionSettled, type VacpExecution, type VacpExecutionGate } from '@ethivia/vacp-protocol';
 import { notify, nowIso } from './helpers';
 
 /** Optional presentation work never owns action success or cancellation. */

@@ -1,6 +1,6 @@
-# @vacp/sdk
+# @ethivia/vacp-sdk
 
-Defines operations for a custom provider with [Zod](https://zod.dev) schemas. Pair it with `createVacpProvider` from [`@vacp/runtime`](./runtime#createvacpprovider). [Connect an application](../integrate/) walks through a complete provider.
+Defines operations for a custom provider with [Zod](https://zod.dev) schemas. Pair it with `createVacpProvider` from [`@ethivia/vacp-runtime`](./runtime#createvacpprovider). [Connect an application](../integrate/) walks through a complete provider.
 
 ## createVacpActions
 
@@ -11,7 +11,7 @@ createVacpActions(sourceId?: VacpSourceId): {
 }
 ```
 
-Returns a registry and a builder for its operations. Pass `registry` as the provider's `actions` and list its descriptors in the projection with `registry.list()`. With a `sourceId`, operation names are qualified by the source. Register standard operations on the same registry with `registerVacpApplyStateAction` and its siblings from `@vacp/runtime`.
+Returns a registry and a builder for its operations. Pass `registry` as the provider's `actions` and list its descriptors in the projection with `registry.list()`. With a `sourceId`, operation names are qualified by the source. Register standard operations on the same registry with `registerVacpApplyStateAction` and its siblings from `@ethivia/vacp-runtime`.
 
 ### Builder
 

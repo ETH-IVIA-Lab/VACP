@@ -1,5 +1,5 @@
 {
-  "name": "@vacp/sdk",
+  "name": "@ethivia/vacp-sdk",
   "version": "0.1.0",
   "private": true,
   "files": [
@@ -19,11 +19,11 @@
     "bench": "tsx bench/actions.ts"
   },
   "dependencies": {
-    "@vacp/protocol": "workspace:*",
-    "@vacp/runtime": "workspace:*",
+    "@ethivia/vacp-protocol": "workspace:*",
+    "@ethivia/vacp-runtime": "workspace:*",
     "zod": "catalog:"
   },
   "devDependencies": {
-    "@vacp/runtime-browser": "workspace:*"
+    "@ethivia/vacp-runtime-browser": "workspace:*"
   }
 }

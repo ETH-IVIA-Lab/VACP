@@ -1,7 +1,12 @@
-import type { PresenceGeometry, PresencePresentation, PresenceResolver, PresenceTarget } from '@vacp/presence-core';
-import { viewportPresenceTarget, elementPresenceTarget, observePresenceLayout } from '@vacp/presence-core/dom';
+import type {
+  PresenceGeometry,
+  PresencePresentation,
+  PresenceResolver,
+  PresenceTarget,
+} from '@ethivia/vacp-presence-core';
+import { viewportPresenceTarget, elementPresenceTarget, observePresenceLayout } from '@ethivia/vacp-presence-core/dom';
 import { providerBindings } from './provider-bindings';
-import type { VacpProvider } from '@vacp/protocol';
+import type { VacpProvider } from '@ethivia/vacp-protocol';
 import { matchingSceneItems, sceneOffset, scenePointToViewport } from './scene';
 import type { VegaViewLike } from './types';
 

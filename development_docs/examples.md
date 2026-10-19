@@ -10,13 +10,13 @@ export async function mount(target: HTMLElement): Promise<() => void | Promise<v
 
 ## Shared composition
 
-`@vacp/example-shared` holds what every example composes the same way:
+`@ethivia/vacp-example-shared` holds what every example composes the same way:
 
 | Export                                                                    | Owns                                                                                                                |
 | ------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
 | `installExampleRuntime({ sources, root, sessionKey, analytics, signal })` | The runtime and bridge, presence with replay, pacing, WebMCP, and analytics. Aborting `signal` releases all of them |
 | `mountSpecGallery(target, { entries, render, describe? })`                | The spec picker, hash sync, and per-entry lifetime of the Vega-Lite and vgplot galleries                            |
-| `exampleOptions` (`@vacp/example-shared/config`)                          | Exposure, SQL, WebMCP, and pacing settings                                                                          |
+| `exampleOptions` (`@ethivia/vacp-example-shared/config`)                  | Exposure, SQL, WebMCP, and pacing settings                                                                          |
 | `exampleDuckDbBundles`                                                    | The DuckDB-Wasm engine files the examples serve                                                                     |
 | `renderExampleError`, `escapeHtml`                                        | Error display and HTML escaping                                                                                     |
 
@@ -64,7 +64,7 @@ Every library export has a `vacp-source` condition first, pointing at its source
 
 ## Add an example
 
-1. Create `examples/<name>` with a `package.json` named `@vacp/example-<name>`, its `portless` name, and a `vite.config.ts` that calls `defineExampleConfig`.
+1. Create `examples/<name>` with a `package.json` named `@ethivia/vacp-example-<name>`, its `portless` name, and a `vite.config.ts` that calls `defineExampleConfig`.
 2. Export `mount(target)` from the package entry, and compose the runtime through `installExampleRuntime`.
 3. Add the route to `examples/gallery/examples.manifest.ts` and the package to the gallery's dependencies.
 4. Add a smoke case and behavior specs under `apps/e2e/tests`.

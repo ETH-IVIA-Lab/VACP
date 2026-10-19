@@ -345,6 +345,15 @@ importers:
       '@babel/plugin-syntax-typescript':
         specifier: 'catalog:'
         version: 7.29.7(@babel/core@7.29.7(supports-color@7.2.0))
+      '@ethivia/vacp-runtime':
+        specifier: workspace:*
+        version: link:packages/runtime
+      '@ethivia/vacp-runtime-browser':
+        specifier: workspace:*
+        version: link:packages/runtime-browser
+      '@ethivia/vacp-sdk':
+        specifier: workspace:*
+        version: link:packages/sdk
       '@oxlint/plugins':
         specifier: 1.88.0
         version: 1.88.0
@@ -357,15 +366,6 @@ importers:
       '@types/node':
         specifier: 'catalog:'
         version: 24.19.2
-      '@vacp/runtime':
-        specifier: workspace:*
-        version: link:packages/runtime
-      '@vacp/runtime-browser':
-        specifier: workspace:*
-        version: link:packages/runtime-browser
-      '@vacp/sdk':
-        specifier: workspace:*
-        version: link:packages/sdk
       knip:
         specifier: ^6.41.0
         version: 6.41.0
@@ -405,45 +405,45 @@ importers:
 
   apps/e2e:
     devDependencies:
+      '@ethivia/vacp-adapter-vega-lite':
+        specifier: workspace:*
+        version: link:../../packages/adapter-vega-lite
+      '@ethivia/vacp-adapter-vgplot':
+        specifier: workspace:*
+        version: link:../../packages/adapter-vgplot
+      '@ethivia/vacp-example-shared':
+        specifier: workspace:*
+        version: link:../../examples/shared
+      '@ethivia/vacp-inspector-core':
+        specifier: workspace:*
+        version: link:../../packages/inspector-core
+      '@ethivia/vacp-presence-browser':
+        specifier: workspace:*
+        version: link:../../packages/presence-browser
+      '@ethivia/vacp-presence-core':
+        specifier: workspace:*
+        version: link:../../packages/presence-core
+      '@ethivia/vacp-protocol':
+        specifier: workspace:*
+        version: link:../../packages/protocol
+      '@ethivia/vacp-runtime':
+        specifier: workspace:*
+        version: link:../../packages/runtime
+      '@ethivia/vacp-runtime-browser':
+        specifier: workspace:*
+        version: link:../../packages/runtime-browser
+      '@ethivia/vacp-sdk':
+        specifier: workspace:*
+        version: link:../../packages/sdk
+      '@ethivia/vacp-transport-webmcp':
+        specifier: workspace:*
+        version: link:../../packages/transport-webmcp
       '@playwright/test':
         specifier: 'catalog:'
         version: 1.64.1
       '@types/node':
         specifier: 'catalog:'
         version: 24.19.2
-      '@vacp/adapter-vega-lite':
-        specifier: workspace:*
-        version: link:../../packages/adapter-vega-lite
-      '@vacp/adapter-vgplot':
-        specifier: workspace:*
-        version: link:../../packages/adapter-vgplot
-      '@vacp/example-shared':
-        specifier: workspace:*
-        version: link:../../examples/shared
-      '@vacp/inspector-core':
-        specifier: workspace:*
-        version: link:../../packages/inspector-core
-      '@vacp/presence-browser':
-        specifier: workspace:*
-        version: link:../../packages/presence-browser
-      '@vacp/presence-core':
-        specifier: workspace:*
-        version: link:../../packages/presence-core
-      '@vacp/protocol':
-        specifier: workspace:*
-        version: link:../../packages/protocol
-      '@vacp/runtime':
-        specifier: workspace:*
-        version: link:../../packages/runtime
-      '@vacp/runtime-browser':
-        specifier: workspace:*
-        version: link:../../packages/runtime-browser
-      '@vacp/sdk':
-        specifier: workspace:*
-        version: link:../../packages/sdk
-      '@vacp/transport-webmcp':
-        specifier: workspace:*
-        version: link:../../packages/transport-webmcp
       portless:
         specifier: 'catalog:'
         version: 0.15.8
@@ -492,6 +492,18 @@ importers:
       '@duckdb/node-api':
         specifier: 'catalog:'
         version: 1.5.6-r.1
+      '@ethivia/vacp-agent-ai-sdk':
+        specifier: workspace:*
+        version: link:../../packages/agent-ai-sdk
+      '@ethivia/vacp-protocol':
+        specifier: workspace:*
+        version: link:../../packages/protocol
+      '@ethivia/vacp-transport-bridge':
+        specifier: workspace:*
+        version: link:../../packages/transport-bridge
+      '@ethivia/vacp-transport-webmcp':
+        specifier: workspace:*
+        version: link:../../packages/transport-webmcp
       '@opentelemetry/api':
         specifier: 1.9.1
         version: 1.9.1
@@ -507,18 +519,6 @@ importers:
       '@opentelemetry/sdk-trace-node':
         specifier: 2.11.0
         version: 2.11.0(@opentelemetry/api@1.9.1)
-      '@vacp/agent-ai-sdk':
-        specifier: workspace:*
-        version: link:../../packages/agent-ai-sdk
-      '@vacp/protocol':
-        specifier: workspace:*
-        version: link:../../packages/protocol
-      '@vacp/transport-bridge':
-        specifier: workspace:*
-        version: link:../../packages/transport-bridge
-      '@vacp/transport-webmcp':
-        specifier: workspace:*
-        version: link:../../packages/transport-webmcp
       ai:
         specifier: 'catalog:'
         version: 7.0.141(zod@4.6.7)
@@ -532,12 +532,12 @@ importers:
         specifier: 'catalog:'
         version: 4.6.7
     devDependencies:
+      '@ethivia/vacp-example-shared':
+        specifier: workspace:*
+        version: link:../../examples/shared
       '@types/node':
         specifier: 'catalog:'
         version: 24.19.2
-      '@vacp/example-shared':
-        specifier: workspace:*
-        version: link:../../examples/shared
       tsx:
         specifier: 'catalog:'
         version: 4.23.15
@@ -550,6 +550,30 @@ importers:
 
   examples/athlete-explorer:
     dependencies:
+      '@ethivia/vacp-adapter-vega-lite':
+        specifier: workspace:*
+        version: link:../../packages/adapter-vega-lite
+      '@ethivia/vacp-adapter-vgplot':
+        specifier: workspace:*
+        version: link:../../packages/adapter-vgplot
+      '@ethivia/vacp-data-duckdb':
+        specifier: workspace:*
+        version: link:../../packages/data-duckdb
+      '@ethivia/vacp-example-shared':
+        specifier: workspace:*
+        version: link:../shared
+      '@ethivia/vacp-presence-core':
+        specifier: workspace:*
+        version: link:../../packages/presence-core
+      '@ethivia/vacp-protocol':
+        specifier: workspace:*
+        version: link:../../packages/protocol
+      '@ethivia/vacp-runtime':
+        specifier: workspace:*
+        version: link:../../packages/runtime
+      '@ethivia/vacp-sdk':
+        specifier: workspace:*
+        version: link:../../packages/sdk
       '@uwdata/mosaic-core':
         specifier: 'catalog:'
         version: 0.33.0
@@ -565,30 +589,6 @@ importers:
       '@uwdata/vgplot':
         specifier: 'catalog:'
         version: 0.33.0
-      '@vacp/adapter-vega-lite':
-        specifier: workspace:*
-        version: link:../../packages/adapter-vega-lite
-      '@vacp/adapter-vgplot':
-        specifier: workspace:*
-        version: link:../../packages/adapter-vgplot
-      '@vacp/data-duckdb':
-        specifier: workspace:*
-        version: link:../../packages/data-duckdb
-      '@vacp/example-shared':
-        specifier: workspace:*
-        version: link:../shared
-      '@vacp/presence-core':
-        specifier: workspace:*
-        version: link:../../packages/presence-core
-      '@vacp/protocol':
-        specifier: workspace:*
-        version: link:../../packages/protocol
-      '@vacp/runtime':
-        specifier: workspace:*
-        version: link:../../packages/runtime
-      '@vacp/sdk':
-        specifier: workspace:*
-        version: link:../../packages/sdk
       d3:
         specifier: ^7.9.0
         version: 7.9.0
@@ -617,22 +617,22 @@ importers:
 
   examples/cars-parallel-coords:
     dependencies:
-      '@vacp/data-duckdb':
+      '@ethivia/vacp-data-duckdb':
         specifier: workspace:*
         version: link:../../packages/data-duckdb
-      '@vacp/example-shared':
+      '@ethivia/vacp-example-shared':
         specifier: workspace:*
         version: link:../shared
-      '@vacp/presence-core':
+      '@ethivia/vacp-presence-core':
         specifier: workspace:*
         version: link:../../packages/presence-core
-      '@vacp/protocol':
+      '@ethivia/vacp-protocol':
         specifier: workspace:*
         version: link:../../packages/protocol
-      '@vacp/runtime':
+      '@ethivia/vacp-runtime':
         specifier: workspace:*
         version: link:../../packages/runtime
-      '@vacp/sdk':
+      '@ethivia/vacp-sdk':
         specifier: workspace:*
         version: link:../../packages/sdk
       d3:
@@ -654,22 +654,22 @@ importers:
 
   examples/gallery:
     dependencies:
-      '@vacp/example-athlete-explorer':
+      '@ethivia/vacp-example-athlete-explorer':
         specifier: workspace:*
         version: link:../athlete-explorer
-      '@vacp/example-cars-parallel-coords':
+      '@ethivia/vacp-example-cars-parallel-coords':
         specifier: workspace:*
         version: link:../cars-parallel-coords
-      '@vacp/example-react-dashboard':
+      '@ethivia/vacp-example-react-dashboard':
         specifier: workspace:*
         version: link:../react-dashboard
-      '@vacp/example-shared':
+      '@ethivia/vacp-example-shared':
         specifier: workspace:*
         version: link:../shared
-      '@vacp/example-vega-lite-gallery':
+      '@ethivia/vacp-example-vega-lite-gallery':
         specifier: workspace:*
         version: link:../vega-lite-gallery
-      '@vacp/example-vgplot-gallery':
+      '@ethivia/vacp-example-vgplot-gallery':
         specifier: workspace:*
         version: link:../vgplot-gallery
     devDependencies:
@@ -694,6 +694,24 @@ importers:
 
   examples/react-dashboard:
     dependencies:
+      '@ethivia/vacp-data-duckdb':
+        specifier: workspace:*
+        version: link:../../packages/data-duckdb
+      '@ethivia/vacp-example-shared':
+        specifier: workspace:*
+        version: link:../shared
+      '@ethivia/vacp-presence-core':
+        specifier: workspace:*
+        version: link:../../packages/presence-core
+      '@ethivia/vacp-protocol':
+        specifier: workspace:*
+        version: link:../../packages/protocol
+      '@ethivia/vacp-runtime':
+        specifier: workspace:*
+        version: link:../../packages/runtime
+      '@ethivia/vacp-sdk':
+        specifier: workspace:*
+        version: link:../../packages/sdk
       '@radix-ui/react-select':
         specifier: ^2.4.1
         version: 2.4.1(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
@@ -703,24 +721,6 @@ importers:
       '@tanstack/react-table':
         specifier: 'catalog:'
         version: 8.21.3(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
-      '@vacp/data-duckdb':
-        specifier: workspace:*
-        version: link:../../packages/data-duckdb
-      '@vacp/example-shared':
-        specifier: workspace:*
-        version: link:../shared
-      '@vacp/presence-core':
-        specifier: workspace:*
-        version: link:../../packages/presence-core
-      '@vacp/protocol':
-        specifier: workspace:*
-        version: link:../../packages/protocol
-      '@vacp/runtime':
-        specifier: workspace:*
-        version: link:../../packages/runtime
-      '@vacp/sdk':
-        specifier: workspace:*
-        version: link:../../packages/sdk
       class-variance-authority:
         specifier: 'catalog:'
         version: 0.7.1
@@ -779,31 +779,31 @@ importers:
       '@duckdb/duckdb-wasm':
         specifier: 1.32.0
         version: 1.32.0
-      '@vacp/analytics':
+      '@ethivia/vacp-analytics':
         specifier: workspace:*
         version: link:../../packages/analytics
-      '@vacp/analytics-posthog':
+      '@ethivia/vacp-analytics-posthog':
         specifier: workspace:*
         version: link:../../packages/analytics-posthog
-      '@vacp/presence-browser':
+      '@ethivia/vacp-presence-browser':
         specifier: workspace:*
         version: link:../../packages/presence-browser
-      '@vacp/presence-core':
+      '@ethivia/vacp-presence-core':
         specifier: workspace:*
         version: link:../../packages/presence-core
-      '@vacp/protocol':
+      '@ethivia/vacp-protocol':
         specifier: workspace:*
         version: link:../../packages/protocol
-      '@vacp/provenance-core':
+      '@ethivia/vacp-provenance-core':
         specifier: workspace:*
         version: link:../../packages/provenance-core
-      '@vacp/runtime':
+      '@ethivia/vacp-runtime':
         specifier: workspace:*
         version: link:../../packages/runtime
-      '@vacp/runtime-browser':
+      '@ethivia/vacp-runtime-browser':
         specifier: workspace:*
         version: link:../../packages/runtime-browser
-      '@vacp/transport-webmcp':
+      '@ethivia/vacp-transport-webmcp':
         specifier: workspace:*
         version: link:../../packages/transport-webmcp
       posthog-js:
@@ -812,13 +812,13 @@ importers:
 
   examples/vega-lite-gallery:
     dependencies:
-      '@vacp/adapter-vega-lite':
+      '@ethivia/vacp-adapter-vega-lite':
         specifier: workspace:*
         version: link:../../packages/adapter-vega-lite
-      '@vacp/data-duckdb':
+      '@ethivia/vacp-data-duckdb':
         specifier: workspace:*
         version: link:../../packages/data-duckdb
-      '@vacp/example-shared':
+      '@ethivia/vacp-example-shared':
         specifier: workspace:*
         version: link:../shared
       vega:
@@ -840,6 +840,18 @@ importers:
 
   examples/vgplot-gallery:
     dependencies:
+      '@ethivia/vacp-adapter-vgplot':
+        specifier: workspace:*
+        version: link:../../packages/adapter-vgplot
+      '@ethivia/vacp-data-duckdb':
+        specifier: workspace:*
+        version: link:../../packages/data-duckdb
+      '@ethivia/vacp-example-shared':
+        specifier: workspace:*
+        version: link:../shared
+      '@ethivia/vacp-protocol':
+        specifier: workspace:*
+        version: link:../../packages/protocol
       '@uwdata/mosaic-core':
         specifier: 'catalog:'
         version: 0.33.0
@@ -855,18 +867,6 @@ importers:
       '@uwdata/vgplot':
         specifier: 'catalog:'
         version: 0.33.0
-      '@vacp/adapter-vgplot':
-        specifier: workspace:*
-        version: link:../../packages/adapter-vgplot
-      '@vacp/data-duckdb':
-        specifier: workspace:*
-        version: link:../../packages/data-duckdb
-      '@vacp/example-shared':
-        specifier: workspace:*
-        version: link:../shared
-      '@vacp/protocol':
-        specifier: workspace:*
-        version: link:../../packages/protocol
       marked:
         specifier: ^17.0.6
         version: 17.0.6
@@ -883,16 +883,16 @@ importers:
 
   packages/adapter-vega-lite:
     dependencies:
-      '@vacp/data-duckdb':
+      '@ethivia/vacp-data-duckdb':
         specifier: workspace:*
         version: link:../data-duckdb
-      '@vacp/presence-core':
+      '@ethivia/vacp-presence-core':
         specifier: workspace:*
         version: link:../presence-core
-      '@vacp/protocol':
+      '@ethivia/vacp-protocol':
         specifier: workspace:*
         version: link:../protocol
-      '@vacp/runtime':
+      '@ethivia/vacp-runtime':
         specifier: workspace:*
         version: link:../runtime
     devDependencies:
@@ -908,21 +908,21 @@ importers:
 
   packages/adapter-vgplot:
     dependencies:
+      '@ethivia/vacp-data-duckdb':
+        specifier: workspace:*
+        version: link:../data-duckdb
+      '@ethivia/vacp-presence-core':
+        specifier: workspace:*
+        version: link:../presence-core
+      '@ethivia/vacp-protocol':
+        specifier: workspace:*
+        version: link:../protocol
+      '@ethivia/vacp-runtime':
+        specifier: workspace:*
+        version: link:../runtime
       '@uwdata/mosaic-core':
         specifier: 'catalog:'
         version: 0.33.0
-      '@vacp/data-duckdb':
-        specifier: workspace:*
-        version: link:../data-duckdb
-      '@vacp/presence-core':
-        specifier: workspace:*
-        version: link:../presence-core
-      '@vacp/protocol':
-        specifier: workspace:*
-        version: link:../protocol
-      '@vacp/runtime':
-        specifier: workspace:*
-        version: link:../runtime
     devDependencies:
       '@duckdb/node-api':
         specifier: 'catalog:'
@@ -939,15 +939,15 @@ importers:
 
   packages/agent-ai-sdk:
     dependencies:
+      '@ethivia/vacp-protocol':
+        specifier: workspace:*
+        version: link:../protocol
+      '@ethivia/vacp-transport-bridge':
+        specifier: workspace:*
+        version: link:../transport-bridge
       '@types/json-schema':
         specifier: 7.0.15
         version: 7.0.15
-      '@vacp/protocol':
-        specifier: workspace:*
-        version: link:../protocol
-      '@vacp/transport-bridge':
-        specifier: workspace:*
-        version: link:../transport-bridge
       ai:
         specifier: 'catalog:'
         version: 7.0.141(zod@4.6.7)
@@ -955,23 +955,23 @@ importers:
         specifier: 'catalog:'
         version: 4.6.7
     devDependencies:
-      '@vacp/runtime':
+      '@ethivia/vacp-runtime':
         specifier: workspace:*
         version: link:../runtime
 
   packages/analytics:
     dependencies:
-      '@vacp/protocol':
+      '@ethivia/vacp-protocol':
         specifier: workspace:*
         version: link:../protocol
     devDependencies:
-      '@vacp/runtime':
+      '@ethivia/vacp-runtime':
         specifier: workspace:*
         version: link:../runtime
 
   packages/analytics-posthog:
     dependencies:
-      '@vacp/analytics':
+      '@ethivia/vacp-analytics':
         specifier: workspace:*
         version: link:../analytics
       posthog-js:
@@ -983,26 +983,26 @@ importers:
       '@duckdb/duckdb-wasm':
         specifier: 1.32.0
         version: 1.32.0
+      '@ethivia/vacp-protocol':
+        specifier: workspace:*
+        version: link:../protocol
       '@types/emscripten':
         specifier: 'catalog:'
         version: 1.41.6
-      '@vacp/protocol':
-        specifier: workspace:*
-        version: link:../protocol
       apache-arrow:
         specifier: 'catalog:'
         version: 17.0.0
 
   packages/inspector-core:
     dependencies:
-      '@vacp/protocol':
+      '@ethivia/vacp-protocol':
         specifier: workspace:*
         version: link:../protocol
       zod:
         specifier: 'catalog:'
         version: 4.6.7
     devDependencies:
-      '@vacp/runtime':
+      '@ethivia/vacp-runtime':
         specifier: workspace:*
         version: link:../runtime
       tsx:
@@ -1011,12 +1011,12 @@ importers:
 
   packages/presence-browser:
     dependencies:
+      '@ethivia/vacp-presence-core':
+        specifier: workspace:*
+        version: link:../presence-core
       '@stylexjs/stylex':
         specifier: 'catalog:'
         version: 0.19.1
-      '@vacp/presence-core':
-        specifier: workspace:*
-        version: link:../presence-core
       react:
         specifier: 'catalog:'
         version: 19.3.1
@@ -1039,14 +1039,14 @@ importers:
 
   packages/presence-core:
     dependencies:
-      '@vacp/protocol':
+      '@ethivia/vacp-protocol':
         specifier: workspace:*
         version: link:../protocol
-      '@vacp/provenance-core':
+      '@ethivia/vacp-provenance-core':
         specifier: workspace:*
         version: link:../provenance-core
     devDependencies:
-      '@vacp/runtime':
+      '@ethivia/vacp-runtime':
         specifier: workspace:*
         version: link:../runtime
       tsx:
@@ -1061,11 +1061,11 @@ importers:
 
   packages/provenance-core:
     dependencies:
-      '@vacp/protocol':
+      '@ethivia/vacp-protocol':
         specifier: workspace:*
         version: link:../protocol
     devDependencies:
-      '@vacp/runtime':
+      '@ethivia/vacp-runtime':
         specifier: workspace:*
         version: link:../runtime
       tsx:
@@ -1074,7 +1074,7 @@ importers:
 
   packages/runtime:
     dependencies:
-      '@vacp/protocol':
+      '@ethivia/vacp-protocol':
         specifier: workspace:*
         version: link:../protocol
       zod:
@@ -1083,45 +1083,45 @@ importers:
 
   packages/runtime-browser:
     dependencies:
-      '@vacp/protocol':
+      '@ethivia/vacp-protocol':
         specifier: workspace:*
         version: link:../protocol
-      '@vacp/runtime':
+      '@ethivia/vacp-runtime':
         specifier: workspace:*
         version: link:../runtime
 
   packages/sdk:
     dependencies:
-      '@vacp/protocol':
+      '@ethivia/vacp-protocol':
         specifier: workspace:*
         version: link:../protocol
-      '@vacp/runtime':
+      '@ethivia/vacp-runtime':
         specifier: workspace:*
         version: link:../runtime
       zod:
         specifier: 'catalog:'
         version: 4.6.7
     devDependencies:
-      '@vacp/runtime-browser':
+      '@ethivia/vacp-runtime-browser':
         specifier: workspace:*
         version: link:../runtime-browser
 
   packages/transport-bridge:
     dependencies:
-      '@vacp/protocol':
+      '@ethivia/vacp-protocol':
         specifier: workspace:*
         version: link:../protocol
 
   packages/transport-webmcp:
     dependencies:
-      '@vacp/protocol':
+      '@ethivia/vacp-protocol':
         specifier: workspace:*
         version: link:../protocol
       webmcp-types:
         specifier: 'catalog:'
         version: 0.1.10
     devDependencies:
-      '@vacp/runtime':
+      '@ethivia/vacp-runtime':
         specifier: workspace:*
         version: link:../runtime
       ajv:

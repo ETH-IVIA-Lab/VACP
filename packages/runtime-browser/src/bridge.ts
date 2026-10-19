@@ -1,4 +1,4 @@
-import { VACP_SCHEMA_VERSION, type VacpPageBridge } from '@vacp/protocol';
+import { VACP_SCHEMA_VERSION, type VacpPageBridge } from '@ethivia/vacp-protocol';
 import { VACP_GLOBAL_KEY } from './window-globals';
 
 const methods = [

@@ -7,8 +7,8 @@ import type {
   VacpPreparedAction,
   VacpFocus,
   VacpRef,
-} from '@vacp/protocol';
-import { fnv1a64Hex, VacpActionError } from '@vacp/protocol';
+} from '@ethivia/vacp-protocol';
+import { fnv1a64Hex, VacpActionError } from '@ethivia/vacp-protocol';
 
 export interface VacpActionExecutor {
   list(): VacpActionDescriptor[];

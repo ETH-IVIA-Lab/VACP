@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import type { ChatTransport, UIMessage, UIMessageChunk } from 'ai';
-import type { VacpAgentActivityControl } from '@vacp/protocol';
+import type { VacpAgentActivityControl } from '@ethivia/vacp-protocol';
 
 import { withAgentActivity } from '../src/activity-transport';
 

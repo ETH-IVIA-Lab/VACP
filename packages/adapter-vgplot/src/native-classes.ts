@@ -23,7 +23,7 @@ function classify<Type extends string>(
   const name = (value as { constructor?: { name?: unknown } }).constructor?.name;
   if (typeof name === 'string' && Object.hasOwn(classes, name))
     throw new Error(
-      `VGPlot ${name} comes from a different copy of ${owner}. Install one version shared by @uwdata/vgplot and @vacp/adapter-vgplot.`,
+      `VGPlot ${name} comes from a different copy of ${owner}. Install one version shared by @uwdata/vgplot and @ethivia/vacp-adapter-vgplot.`,
     );
   return undefined;
 }

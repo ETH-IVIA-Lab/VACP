@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { measure } from '../../../tools/benchmark';
-import { executeVacpAction } from '@vacp/runtime';
+import { executeVacpAction } from '@ethivia/vacp-runtime';
 import { createVacpActions } from '../src/actions';
 
 const actions = createVacpActions();

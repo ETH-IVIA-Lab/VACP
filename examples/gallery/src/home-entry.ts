@@ -1,5 +1,5 @@
 import './gallery.css';
-import { escapeHtml } from '@vacp/example-shared';
+import { escapeHtml } from '@ethivia/vacp-example-shared';
 import { examples as entries } from '../examples.manifest';
 
 function renderHome(root: HTMLElement): void {
