@@ -1,5 +1,5 @@
-import type { VacpDuckDbClient } from '@vacp/data-duckdb';
-import { executeVacpAction } from '@vacp/runtime';
+import type { VacpDuckDbClient } from '@ethivia/vacp-duckdb';
+import { executeVacpAction } from '@ethivia/vacp-runtime';
 import { View, loader, parse } from 'vega';
 import { compile, type TopLevelSpec } from 'vega-lite';
 import { createVegaLiteProvider } from '../src/index';

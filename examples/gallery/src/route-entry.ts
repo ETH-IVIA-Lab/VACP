@@ -1,5 +1,5 @@
 import './gallery.css';
-import { renderExampleError } from '@vacp/example-shared';
+import { renderExampleError } from '@ethivia/vacp-example-shared';
 import { examples } from '../examples.manifest';
 
 /** A shared frame only: each example owns its own heading and describes its own data. */

@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { setImmediate } from 'node:timers/promises';
-import type { VacpObservation } from '@vacp/protocol';
+import type { VacpObservation } from '@ethivia/vacp-protocol';
 import { createInspectorSession, type InspectorClient } from '../src/index';
 import { client, deferred, observation, whenState } from './fixtures';
 

@@ -1,6 +1,6 @@
 import { clauseNone } from '@uwdata/mosaic-core';
 import { jsonValue } from './json';
-import { stableStringify, type VacpRef } from '@vacp/protocol';
+import { stableStringify, type VacpRef } from '@ethivia/vacp-protocol';
 
 import { inputType } from './native-classes';
 import { makeViewRef } from './refs';

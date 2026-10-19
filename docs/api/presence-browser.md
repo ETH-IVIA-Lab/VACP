@@ -1,4 +1,4 @@
-# @vacp/presence-browser
+# @ethivia/vacp-presence-react
 
 The browser overlay for [agent presence](../presence/): a cursor per agent, a bubble with its sentences, and the replay trail. It renders with React into its own shadow root, styled by compiled [StyleX](https://stylexjs.com) rules it adopts into that root, so the application adds no stylesheet.
 
@@ -52,7 +52,7 @@ const presence = createBrowserPresence(runtime, {
 ## Streamed text
 
 ```ts
-import { streamdownText } from '@vacp/presence-browser/streamdown';
+import { streamdownText } from '@ethivia/vacp-presence-react/streamdown';
 
 createBrowserPresence(runtime, { appearance: { text: streamdownText } });
 ```

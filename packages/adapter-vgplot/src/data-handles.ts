@@ -1,4 +1,4 @@
-import type { VacpRef } from '@vacp/protocol';
+import type { VacpRef } from '@ethivia/vacp-protocol';
 
 import { makePlotRef, makeViewRef } from './refs';
 import type { VgplotMarkLike, VgplotProviderOptions, VgplotPlotLike, VgplotTableLike } from './types';

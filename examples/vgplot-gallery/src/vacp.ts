@@ -1,12 +1,12 @@
 import type { Coordinator } from '@uwdata/mosaic-core';
 import { astToDOM, parseSpec } from '@uwdata/mosaic-spec';
 import { createAPIContext } from '@uwdata/vgplot';
-import { createVgplotProvider, type VgplotPlotLike, type VgplotTableLike } from '@vacp/adapter-vgplot';
-import { createVgplotPresentation } from '@vacp/adapter-vgplot/presentation';
-import { countDuckDbTablesOnce, type VacpDuckDbClient } from '@vacp/data-duckdb';
-import { installExampleRuntime } from '@vacp/example-shared';
-import { exampleOptions } from '@vacp/example-shared/config';
-import { abortable } from '@vacp/protocol';
+import { createVgplotProvider, type VgplotPlotLike, type VgplotTableLike } from '@ethivia/vacp-vgplot';
+import { createVgplotPresentation } from '@ethivia/vacp-vgplot/presentation';
+import { countDuckDbTablesOnce, type VacpDuckDbClient } from '@ethivia/vacp-duckdb';
+import { installExampleRuntime } from '@ethivia/vacp-example-shared';
+import { exampleOptions } from '@ethivia/vacp-example-shared/config';
+import { abortable } from '@ethivia/vacp-protocol';
 import type { GalleryEntry } from './gallery';
 
 function isPlotLike(value: unknown): value is VgplotPlotLike {

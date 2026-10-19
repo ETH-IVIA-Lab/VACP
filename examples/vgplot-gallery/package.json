@@ -1,5 +1,5 @@
 {
-  "name": "@vacp/example-vgplot-gallery",
+  "name": "@ethivia/vacp-example-vgplot-gallery",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -13,15 +13,15 @@
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
+    "@ethivia/vacp-duckdb": "workspace:*",
+    "@ethivia/vacp-example-shared": "workspace:*",
+    "@ethivia/vacp-protocol": "workspace:*",
+    "@ethivia/vacp-vgplot": "workspace:*",
     "@uwdata/mosaic-core": "catalog:",
     "@uwdata/mosaic-inputs": "catalog:",
     "@uwdata/mosaic-plot": "catalog:",
     "@uwdata/mosaic-spec": "catalog:",
     "@uwdata/vgplot": "catalog:",
-    "@vacp/adapter-vgplot": "workspace:*",
-    "@vacp/data-duckdb": "workspace:*",
-    "@vacp/example-shared": "workspace:*",
-    "@vacp/protocol": "workspace:*",
     "marked": "^17.0.6",
     "yaml": "catalog:"
   },

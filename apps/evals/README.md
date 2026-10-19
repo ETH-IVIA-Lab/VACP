@@ -1,14 +1,14 @@
-# @vacp/evals
+# @ethivia/vacp-evals
 
 Agent evals for VACP. Each run puts an agent on an example page, sends it an analyst's request, and grades what it left behind: the VACP state of the page, its rendered text, and its reply. Every run also records tokens, cost, latency, tool calls, and how much of the graph the agent read.
 
 A **condition** is one arm of the experiment: the agent loop, the tools it reaches the page with, and its instructions. A **flow** is one condition on one model. Both stay fixed within a flow, so a change to VACP shows up as a change in its numbers.
 
 ```bash
-make build-libs browser-install       # built @vacp packages and Playwright's Chromium
-pnpm --filter @vacp/evals eval audit  # reference solutions pass, a silent agent fails
-pnpm --filter @vacp/evals eval run --approve-eval
-pnpm --filter @vacp/evals eval summary
+make build-libs browser-install       # built @ethivia/vacp-* packages and Playwright's Chromium
+pnpm --filter @ethivia/vacp-evals eval audit  # reference solutions pass, a silent agent fails
+pnpm --filter @ethivia/vacp-evals eval run --approve-eval
+pnpm --filter @ethivia/vacp-evals eval summary
 ```
 
 `run` serves the gallery from source on `127.0.0.1:4480`, runs the 32 scenarios three times each in the `webmcp` condition on `gpt-6-luna`, and prints the flow's status table. Rows land in `results/condition=webmcp/model=gpt-6-luna/variant=baseline/` as each run finishes, so an interrupted run resumes where it stopped.
@@ -36,16 +36,16 @@ The runner fails a run whose response names a different model than the one reque
 
 `--condition` picks a condition by its key in `evals.config.ts`, which also names its results partition:
 
-| Condition     | Agent loop                                          | Tools the model sees                                       |
-| ------------- | --------------------------------------------------- | ---------------------------------------------------------- |
-| `webmcp`      | AI SDK `generateText`, one model call at a time     | The page's WebMCP catalog, read again before every call    |
-| `vacp-agent`  | `createVacpToolLoopAgent` from `@vacp/agent-ai-sdk` | The VACP bridge tools                                      |
-| `claude-code` | Claude Code through AI SDK `HarnessAgent`           | The VACP bridge tools. Built-in tools are filtered out     |
-| `codex`       | Codex through AI SDK `HarnessAgent`                 | The VACP bridge tools beside Codex's shell and patch tools |
-| `opencode`    | OpenCode through AI SDK `HarnessAgent`              | The VACP bridge tools. Built-in tools are filtered out     |
-| `pi`          | Pi through AI SDK `HarnessAgent`                    | The VACP bridge tools. Built-in tools are filtered out     |
-| `oracle`      | Each turn's reference solution                      | Scenario actions through the bridge                        |
-| `none`        | No agent, the control                               | None                                                       |
+| Condition     | Agent loop                                            | Tools the model sees                                       |
+| ------------- | ----------------------------------------------------- | ---------------------------------------------------------- |
+| `webmcp`      | AI SDK `generateText`, one model call at a time       | The page's WebMCP catalog, read again before every call    |
+| `vacp-agent`  | `createVacpToolLoopAgent` from `@ethivia/vacp-ai-sdk` | The VACP bridge tools                                      |
+| `claude-code` | Claude Code through AI SDK `HarnessAgent`             | The VACP bridge tools. Built-in tools are filtered out     |
+| `codex`       | Codex through AI SDK `HarnessAgent`                   | The VACP bridge tools beside Codex's shell and patch tools |
+| `opencode`    | OpenCode through AI SDK `HarnessAgent`                | The VACP bridge tools. Built-in tools are filtered out     |
+| `pi`          | Pi through AI SDK `HarnessAgent`                      | The VACP bridge tools. Built-in tools are filtered out     |
+| `oracle`      | Each turn's reference solution                        | Scenario actions through the bridge                        |
+| `none`        | No agent, the control                                 | None                                                       |
 
 The VACP bridge tools are `vacp_observe`, `vacp_capabilities`, `vacp_state`, `vacp_execute`, and `vacp_progress` from the [tool contract](../../docs/api/agent-tools.md), the same tools the Python MCP server gives an external agent. `vacp-agent` uses the product agent's own instructions and temperature, with the suite's `run.maxSteps` model calls per turn. Every other agent condition uses the instructions of a browser host's assistant.
 
@@ -104,7 +104,7 @@ defineScenario({
 - `setup` applies actions as a system actor before the first turn. Each turn's checks run after its reply, so a conversation checks every step.
 - `gold` rows are derived from the page's raw data files by DuckDB, never from a model's output.
 
-`pnpm --filter @vacp/evals eval inspect '/vega-lite/#airports'` lists a page's live actions and state refs while you write checks. `eval inputs` prints every scenario as markdown for review.
+`pnpm --filter @ethivia/vacp-evals eval inspect '/vega-lite/#airports'` lists a page's live actions and state refs while you write checks. `eval inputs` prints every scenario as markdown for review.
 
 ## What a run records
 
@@ -183,7 +183,7 @@ group by all order by all;
 - **Audit before paying.** `eval audit` runs every oracle and control condition over every scenario. Each scenario must pass under every oracle and fail under every control. `eval audit --gold` re-derives every gold row from the data. An oracle with steps proves the page can reach the checked state. An answer-only oracle proves the checks accept a correct reply, and the gold row proves the answer against the raw data file, so a page that exposes less than that file fails every condition on the question.
 - **A fixed split.** `split.json` holds 21 train and 11 test scenarios, drawn once at random within each capability. A flow refuses a different split. Read train transcripts when choosing a change, and judge it on test.
 - **A fixed eval.** The first run of a flow records a digest of the eval's `src`, `scenarios`, `evals.config.ts`, and `package.json`, and of the repository's `patches` and `pnpm-workspace.yaml`, and needs `--approve-eval`. A later run exits with code 2 when any of them changed, until the change is reviewed and approved.
-- **Fresh packages.** The eval imports its `@vacp/*` dependencies from their built `dist`, while the gallery serves their source. A run exits with code 2 when a package's source is newer than its build. Run `make build-libs` first.
+- **Fresh packages.** The eval imports its `@ethivia/vacp-*` dependencies from their built `dist`, while the gallery serves their source. A run exits with code 2 when a package's source is newer than its build. Run `make build-libs` first.
 - **Isolated runs.** Every run gets a fresh browser context and a hard wall-clock ceiling of 420 seconds. Agent steps are not paced, so latency measures VACP and the model.
 - **Grader fixes re-grade in place.** When a check proves wrong, fix it and run `eval regrade --approve-eval`. Every recorded run is graded again from its `grading` inputs, with no model calls, and each variant reports how many rows changed and its pass rate before and after. Rewording a scenario's task or turns asks another question, so the next `run` drops the runs recorded for the old words and runs them again, and `regrade` leaves them as they were.
 - **Failures classified.** A run that fails goes to `errors.jsonl` with the usage it billed, classed `setup`, `agent`, `provider`, `timeout`, `served-model-mismatch`, or `interrupted`. It never scores as zero, and a later run retries it. A failure while grading or recording a run is a bug in the eval, so the flow stops and the command exits with code 3.
@@ -193,8 +193,8 @@ group by all order by all;
 A round changes VACP code in `packages/` or `examples/`, reruns the flow as the next variant, and compares:
 
 ```bash
-pnpm --filter @vacp/evals eval run --condition webmcp --variant v1
-pnpm --filter @vacp/evals eval summary --condition webmcp
+pnpm --filter @ethivia/vacp-evals eval run --condition webmcp --variant v1
+pnpm --filter @ethivia/vacp-evals eval summary --condition webmcp
 ```
 
 The status table puts each variant's test pass rate beside a paired delta against baseline. The delta takes each test case's mean over its reps, so differences between cases cancel. A delta marked `within noise` does not justify keeping the change. With 32 scenarios and three reps a pass rate carries about ±10 points of noise. Token counts vary far less between runs, so cost per run and `read_chars` resolve smaller changes, as long as the pass rate holds.

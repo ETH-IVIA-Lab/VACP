@@ -1,10 +1,10 @@
-# @vacp/protocol
+# @ethivia/vacp-protocol
 
 ## Purpose
 
 Protocol types for VACP.
 
-It defines the stable JSON shapes that apps produce and tools and transports consume. The root entry has no dependencies. `@vacp/protocol/validation` parses observations, action results, and capabilities and state requests with Zod.
+It defines the stable JSON shapes that apps produce and tools and transports consume. The root entry has no dependencies. `@ethivia/vacp-protocol/validation` parses observations, action results, and capabilities and state requests with Zod.
 
 ## When to use
 
@@ -21,7 +21,7 @@ It defines the stable JSON shapes that apps produce and tools and transports con
 
 ## Minimal usage
 
-`@vacp/protocol` does not install a bridge by itself. Most apps use `@vacp/runtime` (directly or through a provider) to install the runtime bridge.
+`@ethivia/vacp-protocol` does not install a bridge by itself. Most apps use `@ethivia/vacp-runtime` (directly or through a provider) to install the runtime bridge.
 
 ## Related docs
 

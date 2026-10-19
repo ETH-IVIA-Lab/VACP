@@ -2,9 +2,14 @@ import { jsonValue } from './json';
 import { readScaleDomain } from './interactors/interval';
 import { readInteractorSelection, type VgplotBindings } from './bindings';
 import { legendValue } from './legends';
-import { vacpDataHandle, type VacpDataSchemaColumn, type VacpGraphFragment, type VacpRef } from '@vacp/protocol';
-import type { VacpAnalyticalProjection } from '@vacp/runtime';
-import { describeDuckDbColumns } from '@vacp/data-duckdb';
+import {
+  vacpDataHandle,
+  type VacpDataSchemaColumn,
+  type VacpGraphFragment,
+  type VacpRef,
+} from '@ethivia/vacp-protocol';
+import type { VacpAnalyticalProjection } from '@ethivia/vacp-runtime';
+import { describeDuckDbColumns } from '@ethivia/vacp-duckdb';
 
 import { readInputValue } from './inputs';
 import type { VgplotDataHandle } from './data-handles';
@@ -31,9 +36,9 @@ export function createVgplotDashboardSnapshots(args: {
   data:
     | {
         duckdb:
-          | import('@vacp/data-duckdb').VacpDuckDbQueryClient
-          | Promise<import('@vacp/data-duckdb').VacpDuckDbQueryClient>;
-        describe?: import('@vacp/protocol').VacpDataHandleDescriber;
+          | import('@ethivia/vacp-duckdb').VacpDuckDbQueryClient
+          | Promise<import('@ethivia/vacp-duckdb').VacpDuckDbQueryClient>;
+        describe?: import('@ethivia/vacp-protocol').VacpDataHandleDescriber;
       }
     | undefined;
   bindings: VgplotBindings;

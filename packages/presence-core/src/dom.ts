@@ -1,5 +1,5 @@
 import type { PresenceGeometry, PresenceResolver, PresenceTarget } from './types';
-import type { VacpFocus } from '@vacp/protocol';
+import type { VacpFocus } from '@ethivia/vacp-protocol';
 
 const browserPresenceSurface = 'viewport';
 

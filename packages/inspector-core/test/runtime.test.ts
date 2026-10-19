@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { createVacpProvider, createVacpRuntime, VacpActionRegistry } from '@vacp/runtime';
+import { createVacpProvider, createVacpRuntime, VacpActionRegistry } from '@ethivia/vacp-runtime';
 import { createInspectorSession } from '../src/index';
 import { createRuntimeInspectorClient } from '../src/runtime';
 import { whenState } from './fixtures';

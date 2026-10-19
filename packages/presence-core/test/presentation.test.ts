@@ -1,15 +1,15 @@
-import { createVacpProvider, VacpActionRegistry } from '@vacp/runtime';
+import { createVacpProvider, VacpActionRegistry } from '@ethivia/vacp-runtime';
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { setImmediate } from 'node:timers/promises';
-import type { ProvenanceCheckpoint, ProvenanceReplayController, ProvenanceReplayState } from '@vacp/provenance-core';
+import type { ProvenanceCheckpoint, ProvenanceReplayController, ProvenanceReplayState } from '@ethivia/vacp-provenance';
 import {
   VACP_SCHEMA_VERSION,
   type VacpActor,
   type VacpObservation,
   type VacpAgentActivity,
   type VacpTurnRecord,
-} from '@vacp/protocol';
+} from '@ethivia/vacp-protocol';
 import { createAgentPresence, type PresenceFrame } from '../src/index';
 
 const observation: VacpObservation = {

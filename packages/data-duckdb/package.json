@@ -1,5 +1,5 @@
 {
-  "name": "@vacp/data-duckdb",
+  "name": "@ethivia/vacp-duckdb",
   "version": "0.1.0",
   "private": true,
   "files": [
@@ -19,8 +19,8 @@
   },
   "dependencies": {
     "@duckdb/duckdb-wasm": "catalog:",
+    "@ethivia/vacp-protocol": "workspace:*",
     "@types/emscripten": "catalog:",
-    "@vacp/protocol": "workspace:*",
     "apache-arrow": "catalog:"
   }
 }

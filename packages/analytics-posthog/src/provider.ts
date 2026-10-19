@@ -1,5 +1,5 @@
 import type { PostHog } from 'posthog-js';
-import type { VacpAnalyticsProvider } from '@vacp/analytics';
+import type { VacpAnalyticsProvider } from '@ethivia/vacp-analytics';
 
 export function createPosthogProvider(
   client: Pick<PostHog, 'capture' | 'register_for_session' | 'startSessionRecording'>,

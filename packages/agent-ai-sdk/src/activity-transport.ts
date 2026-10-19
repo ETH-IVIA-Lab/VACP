@@ -1,5 +1,5 @@
 import type { ChatTransport, UIMessage } from 'ai';
-import type { VacpActor, VacpAgentActivityControl } from '@vacp/protocol';
+import type { VacpActor, VacpAgentActivityControl } from '@ethivia/vacp-protocol';
 
 type Outcome = 'completed' | 'failed' | 'cancelled';
 

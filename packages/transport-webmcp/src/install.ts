@@ -1,5 +1,5 @@
 import type { WebMCP } from 'webmcp-types';
-import { abortable, stableStringify, vacpAgentActor, type VacpGraph } from '@vacp/protocol';
+import { abortable, stableStringify, vacpAgentActor, type VacpGraph } from '@ethivia/vacp-protocol';
 import { compileVacpWebMcpTools } from './compile';
 import { createVacpWebMcpProgressTool } from './progress';
 import type { VacpWebMcpOptions, VacpWebMcpSource } from './types';

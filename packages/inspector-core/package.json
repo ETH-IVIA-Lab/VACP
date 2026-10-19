@@ -1,5 +1,5 @@
 {
-  "name": "@vacp/inspector-core",
+  "name": "@ethivia/vacp-inspector",
   "version": "0.1.0",
   "private": true,
   "files": [
@@ -29,11 +29,11 @@
     "bench": "tsx bench/inspection.ts"
   },
   "dependencies": {
-    "@vacp/protocol": "workspace:*",
+    "@ethivia/vacp-protocol": "workspace:*",
     "zod": "catalog:"
   },
   "devDependencies": {
-    "@vacp/runtime": "workspace:*",
+    "@ethivia/vacp-runtime": "workspace:*",
     "tsx": "catalog:"
   }
 }

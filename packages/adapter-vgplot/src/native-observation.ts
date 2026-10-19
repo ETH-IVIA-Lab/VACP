@@ -1,5 +1,5 @@
-import { createSharedSubscription } from '@vacp/runtime';
-import type { VacpFreshness } from '@vacp/protocol';
+import { createSharedSubscription } from '@ethivia/vacp-runtime';
+import type { VacpFreshness } from '@ethivia/vacp-protocol';
 import type { VgplotInteractorLike, VgplotPlotLike } from './types';
 
 const outputs = new WeakMap<VgplotPlotLike, VacpFreshness>();

@@ -1,6 +1,6 @@
 import { readSelectionTuples } from './selection-state';
-import { sqlIdentifier, sqlStringLiteral, sqlTimestampLiteral } from '@vacp/data-duckdb';
-import type { VacpClock } from '@vacp/protocol';
+import { sqlIdentifier, sqlStringLiteral, sqlTimestampLiteral } from '@ethivia/vacp-duckdb';
+import type { VacpClock } from '@ethivia/vacp-protocol';
 
 import { collectVegaLiteParams } from './params';
 import { vegaInstant } from './temporal';

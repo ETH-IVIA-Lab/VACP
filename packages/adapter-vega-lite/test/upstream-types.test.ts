@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import type { View } from 'vega';
-import { createVegaLiteProvider } from '@vacp/adapter-vega-lite';
+import { createVegaLiteProvider } from '@ethivia/vacp-vega-lite';
 
 type RequiresHandler = [] extends Parameters<View['tooltip']> ? false : true;
 

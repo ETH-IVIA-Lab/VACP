@@ -1,9 +1,9 @@
-# @vacp/analytics
+# @ethivia/vacp-analytics
 
 Forward a runtime's provenance records to a `VacpAnalyticsProvider`.
 
 ```ts
-import { installVacpRuntimeAnalytics } from '@vacp/analytics';
+import { installVacpRuntimeAnalytics } from '@ethivia/vacp-analytics';
 
 const installation = installVacpRuntimeAnalytics({ bridge: runtime, provider });
 installation.dispose();
@@ -13,4 +13,4 @@ Each installation owns its subscription and pending delivery. Calling `dispose()
 
 Pass `captureSnapshots: true` to include analytical state and observation events. Observation delivery keeps the latest snapshot within each one-second interval. `getBaseProperties` adds application properties to events and session updates.
 
-Use `@vacp/analytics-posthog` to connect a host-initialized [PostHog](https://posthog.com/docs/libraries/js) client, which sends telemetry to the host's configured endpoint.
+Use `@ethivia/vacp-posthog` to connect a host-initialized [PostHog](https://posthog.com/docs/libraries/js) client, which sends telemetry to the host's configured endpoint.

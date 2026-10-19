@@ -1,5 +1,5 @@
 import { performance } from 'node:perf_hooks';
-import { VACP_SCHEMA_VERSION, type VacpGraph, type VacpCapabilitiesSnapshot } from '@vacp/protocol';
+import { VACP_SCHEMA_VERSION, type VacpGraph, type VacpCapabilitiesSnapshot } from '@ethivia/vacp-protocol';
 import { installVacpWebMcp, type VacpWebMcpSource } from '../src/index';
 
 const revisions: VacpGraph[] = Array.from({ length: 51 }, (_, revision) => ({

@@ -6,7 +6,7 @@ import type {
   VacpGraphFragment,
   VacpNode,
   VacpRef,
-} from '@vacp/protocol';
+} from '@ethivia/vacp-protocol';
 
 import type { VegaLiteBindings } from './bindings';
 import { makeRef } from './refs';

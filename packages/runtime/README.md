@@ -1,9 +1,9 @@
-# @vacp/runtime
+# @ethivia/vacp-runtime
 
 Compose analytical providers with explicit ownership, coherent observations, history, and replay.
 
 ```ts
-import { createVacpRuntime } from '@vacp/runtime';
+import { createVacpRuntime } from '@ethivia/vacp-runtime';
 
 const runtime = createVacpRuntime({ providers: [controls, chart, data] });
 const observation = await runtime.observe();

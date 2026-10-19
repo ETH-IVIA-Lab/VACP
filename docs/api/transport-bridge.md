@@ -1,4 +1,4 @@
-# @vacp/transport-bridge
+# @ethivia/vacp-bridge
 
 Maps the five [agent tools](./agent-tools) onto a page bridge, independent of any model library.
 
@@ -26,8 +26,8 @@ Each function takes the tool's input as the model sent it and returns the bounde
 `vacp_execute` generates a call ID when `call_id` is absent, and throws a `TypeError` for an empty `name` or an unusable `narration`. Aborting `signal` cancels the step. `vacp_progress` speaks through `bridge.narrate` and returns `{ ok: true }`. It throws a `TypeError` for an unusable `message`.
 
 ```ts
-import { getVacpBridge } from '@vacp/runtime-browser';
-import { createVacpTransport } from '@vacp/transport-bridge';
+import { getVacpBridge } from '@ethivia/vacp-browser';
+import { createVacpTransport } from '@ethivia/vacp-bridge';
 
 const transport = createVacpTransport(getVacpBridge()!);
 const { token } = (await transport.vacp_state()) as { token: string };

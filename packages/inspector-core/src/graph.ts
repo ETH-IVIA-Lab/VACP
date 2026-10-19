@@ -1,4 +1,4 @@
-import { resolveVacpAvailability, type VacpRef, type VacpSourceId } from '@vacp/protocol';
+import { resolveVacpAvailability, type VacpRef, type VacpSourceId } from '@ethivia/vacp-protocol';
 import type { InspectionObservation } from './types';
 
 type Graph = InspectionObservation['graph'];

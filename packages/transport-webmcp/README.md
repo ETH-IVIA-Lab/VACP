@@ -1,9 +1,9 @@
-# @vacp/transport-webmcp
+# @ethivia/vacp-webmcp
 
 Expose a live VACP graph as browser-native WebMCP tools.
 
 ```ts
-import { installVacpWebMcp } from '@vacp/transport-webmcp';
+import { installVacpWebMcp } from '@ethivia/vacp-webmcp';
 
 const exposure = await installVacpWebMcp(runtime, { onError: (cause) => console.error(cause) });
 ```

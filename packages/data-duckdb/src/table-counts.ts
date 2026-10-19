@@ -1,4 +1,4 @@
-import type { VacpDataHandleDescriber } from '@vacp/protocol';
+import type { VacpDataHandleDescriber } from '@ethivia/vacp-protocol';
 
 import type { VacpDuckDbQueryClient } from './client';
 import { describeDuckDbTable } from './metadata';

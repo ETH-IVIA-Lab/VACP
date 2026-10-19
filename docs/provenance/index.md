@@ -1,11 +1,11 @@
 # Provenance and replay
 
-The runtime records every completed operation and every change it observes, for every actor, in a journal of immutable records. `@vacp/provenance-core` derives checkpoints from that journal and restores the charts to a chosen checkpoint. A viewer is one surface that shows the journal, such as presence or an inspection panel. Each viewer keeps its own selection and review state.
+The runtime records every completed operation and every change it observes, for every actor, in a journal of immutable records. `@ethivia/vacp-provenance` derives checkpoints from that journal and restores the charts to a chosen checkpoint. A viewer is one surface that shows the journal, such as presence or an inspection panel. Each viewer keeps its own selection and review state.
 
 ## Read the journal
 
 ```ts
-import { provenanceActor } from '@vacp/protocol';
+import { provenanceActor } from '@ethivia/vacp-protocol';
 
 const { records } = runtime.getProvenance();
 for (const record of records) console.log(record.kind, provenanceActor(record).kind, record.message);
@@ -27,7 +27,7 @@ The runtime keeps the latest 256 records. Pass `historyLimit` to `createVacpRunt
 | `turn`        | The end of an agent turn: `activityId`, `outcome`, `opening` sentence, and closing `message`                  |
 | `session`     | A session boundary                                                                                            |
 
-`provenanceActor(record)`, `provenanceFocus(record)`, and `provenanceTurn(record)` from `@vacp/protocol` read the actor, the focus, and the turn's `activityId` across record kinds.
+`provenanceActor(record)`, `provenanceFocus(record)`, and `provenanceTurn(record)` from `@ethivia/vacp-protocol` read the actor, the focus, and the turn's `activityId` across record kinds.
 
 An action record keeps its outcome even when a later read fails. A missing `before` or `observation` means the runtime could not capture it. A result payload that cannot be cloned keeps its success or failure envelope and lists the omitted field in `captureErrors`. The caller still receives the original result.
 
@@ -38,8 +38,8 @@ The host supplies the actor: with each `execute` call, or with `runtime.refresh(
 ## Checkpoints
 
 ```ts
-import { provenanceActor } from '@vacp/protocol';
-import { provenanceCheckpoints } from '@vacp/provenance-core';
+import { provenanceActor } from '@ethivia/vacp-protocol';
+import { provenanceCheckpoints } from '@ethivia/vacp-provenance';
 
 const checkpoints = provenanceCheckpoints(runtime.getProvenance().records);
 const agentSteps = checkpoints.filter(
@@ -54,8 +54,8 @@ A checkpoint has an `id`, its original `record`, the captured `observation`, and
 A replay controller lets one viewer step through checkpoints. The host supplies restoration:
 
 ```ts
-import { createProvenanceReplay } from '@vacp/provenance-core';
-import { createVacpRestorer } from '@vacp/runtime';
+import { createProvenanceReplay } from '@ethivia/vacp-provenance';
+import { createVacpRestorer } from '@ethivia/vacp-runtime';
 
 const restorer = createVacpRestorer(runtime);
 const replay = createProvenanceReplay(runtime, { restore: restorer.restore });

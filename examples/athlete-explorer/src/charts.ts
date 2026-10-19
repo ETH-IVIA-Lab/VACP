@@ -4,8 +4,8 @@ import type { TopLevelSpec } from 'vega-lite';
 import { Coordinator, DuckDBWASMConnector, Selection } from '@uwdata/mosaic-core';
 import { and, column, eq, isBetween, literal, or } from '@uwdata/mosaic-sql';
 import { createAPIContext } from '@uwdata/vgplot';
-import { createDuckDbWasmClient, instantiateDuckDbWasm } from '@vacp/data-duckdb';
-import { exampleDuckDbBundles } from '@vacp/example-shared';
+import { createDuckDbWasmClient, instantiateDuckDbWasm } from '@ethivia/vacp-duckdb';
+import { exampleDuckDbBundles } from '@ethivia/vacp-example-shared';
 import { z } from 'zod';
 import type { Cohort } from './model';
 

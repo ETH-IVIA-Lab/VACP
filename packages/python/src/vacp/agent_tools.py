@@ -3,7 +3,7 @@ The tools a model uses to reach a page through its bridge.
 
 `packages/protocol/test/fixtures/agent-tools.json`, `tool-read.json`, and `tool-result.json` hold the
 same names, input fields, descriptions, guidance, requests, reads, and result bounds for TypeScript,
-so an MCP client gets the tools `@vacp/agent-ai-sdk` gives an in-page agent.
+so an MCP client gets the tools `@ethivia/vacp-ai-sdk` gives an in-page agent.
 """
 
 from __future__ import annotations

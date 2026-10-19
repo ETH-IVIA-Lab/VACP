@@ -1,4 +1,4 @@
-import type { VacpActionDescriptor } from '@vacp/protocol';
+import type { VacpActionDescriptor } from '@ethivia/vacp-protocol';
 import type { VgplotBindings } from './bindings';
 import { hasIndexedOptions } from './inputs';
 import { isSelectionBackedNearest } from './interactors/nearest';

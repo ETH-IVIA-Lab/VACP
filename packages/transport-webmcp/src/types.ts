@@ -1,5 +1,10 @@
 import type { WebMCP } from 'webmcp-types';
-import type { VacpAgentActivityControl, VacpCapabilitiesSnapshot, VacpWindowBridge, VacpActor } from '@vacp/protocol';
+import type {
+  VacpAgentActivityControl,
+  VacpCapabilitiesSnapshot,
+  VacpWindowBridge,
+  VacpActor,
+} from '@ethivia/vacp-protocol';
 
 /** The executable protocol surface needed by the compiler; no browser globals. */
 export type VacpWebMcpClient = Pick<VacpWindowBridge, 'observe' | 'getCapabilities' | 'getState' | 'execute'>;

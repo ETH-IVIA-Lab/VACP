@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import type { VacpExecution } from '@vacp/protocol';
+import type { VacpExecution } from '@ethivia/vacp-protocol';
 import { createVacpProvider, createVacpRuntime, VacpActionRegistry } from '../src/index';
 
 function fixture() {

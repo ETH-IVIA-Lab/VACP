@@ -1,4 +1,4 @@
-import { formatVacpWallClock, parseVacpInstant, type VacpClock } from '@vacp/protocol';
+import { formatVacpWallClock, parseVacpInstant, type VacpClock } from '@ethivia/vacp-protocol';
 
 /**
  * The instant a value Vega holds names: a Date, epoch milliseconds, or date text as Vega's own

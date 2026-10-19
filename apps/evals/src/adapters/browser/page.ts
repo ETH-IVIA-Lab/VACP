@@ -1,7 +1,12 @@
-import { VACP_SCHEMA_VERSION, type VacpActor, type VacpAgentActivityHandle, type VacpGraph } from '@vacp/protocol';
-import { compileVacpWebMcpTools } from '@vacp/transport-webmcp';
+import {
+  VACP_SCHEMA_VERSION,
+  type VacpActor,
+  type VacpAgentActivityHandle,
+  type VacpGraph,
+} from '@ethivia/vacp-protocol';
+import { compileVacpWebMcpTools } from '@ethivia/vacp-webmcp';
 import type { BrowserContext, Page } from 'playwright';
-import type { ExampleOptions } from '@vacp/example-shared/config';
+import type { ExampleOptions } from '@ethivia/vacp-example-shared/config';
 
 import { resolveAction } from '../../core/resolve';
 import type { Act, ExecutionRecord } from '../../core/scenario';

@@ -1,5 +1,5 @@
-import { sameVacpValue, type VacpGraph } from '@vacp/protocol';
-import type { VacpCapabilitiesSnapshot, VacpResolvedObservation, VacpStateSnapshot } from '@vacp/protocol';
+import { sameVacpValue, type VacpGraph } from '@ethivia/vacp-protocol';
+import type { VacpCapabilitiesSnapshot, VacpResolvedObservation, VacpStateSnapshot } from '@ethivia/vacp-protocol';
 import type { VacpLiveSnapshots } from './types';
 import { notify } from './helpers';
 

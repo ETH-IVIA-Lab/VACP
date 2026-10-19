@@ -1,5 +1,5 @@
-import { createSharedSubscription, createProviderSubscription } from '@vacp/runtime';
-import type { VacpFreshness } from '@vacp/protocol';
+import { createSharedSubscription, createProviderSubscription } from '@ethivia/vacp-runtime';
+import type { VacpFreshness } from '@ethivia/vacp-protocol';
 import type { VegaLiteBindings } from './bindings';
 import type { createVegaLiteTooltipBinding } from './tooltip';
 import type { VegaViewLike } from './types';

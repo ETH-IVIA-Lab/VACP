@@ -1,5 +1,5 @@
 import { SpanStatusCode } from '@opentelemetry/api';
-import type { VacpActor } from '@vacp/protocol';
+import type { VacpActor } from '@ethivia/vacp-protocol';
 import { APICallError, RetryError } from 'ai';
 import { relative } from 'node:path';
 

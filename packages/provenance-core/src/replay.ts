@@ -1,11 +1,11 @@
-import { abortable, vacpHumanActor } from '@vacp/protocol';
+import { abortable, vacpHumanActor } from '@ethivia/vacp-protocol';
 import type {
   VacpExecution,
   VacpObservation,
   VacpProvenanceEvent,
   VacpProvenanceRecord,
   VacpTurnRecord,
-} from '@vacp/protocol';
+} from '@ethivia/vacp-protocol';
 import {
   isRestorationRecord,
   createCheckpointProjection,

@@ -1,4 +1,4 @@
-import type { VacpActionCall, VacpActionResult, VacpObservation, VacpRef, VacpRestore } from '@vacp/protocol';
+import type { VacpActionCall, VacpActionResult, VacpObservation, VacpRef, VacpRestore } from '@ethivia/vacp-protocol';
 
 export type InspectorRequest = { signal: AbortSignal };
 

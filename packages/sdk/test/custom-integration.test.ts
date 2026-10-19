@@ -1,4 +1,4 @@
-import { getVacpBridge } from '@vacp/runtime-browser';
+import { getVacpBridge } from '@ethivia/vacp-browser';
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { connectThreshold } from '../../../examples/custom-integration/threshold';

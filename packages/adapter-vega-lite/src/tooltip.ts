@@ -1,7 +1,7 @@
 import { specUnits } from './params';
 import { matchingSceneItems, sceneMarks, sceneOffset, scenePointToViewport } from './scene';
-import type { VacpActionDescriptor, VacpClock, VacpRef } from '@vacp/protocol';
-import type { VacpActionRegistry } from '@vacp/runtime';
+import type { VacpActionDescriptor, VacpClock, VacpRef } from '@ethivia/vacp-protocol';
+import type { VacpActionRegistry } from '@ethivia/vacp-runtime';
 import { inputInstant } from './temporal';
 import type { VegaLiteSpecLike, VegaViewLike } from './types';
 import type { VegaSceneItem } from './scene';

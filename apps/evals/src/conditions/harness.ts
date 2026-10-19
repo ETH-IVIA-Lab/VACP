@@ -3,9 +3,9 @@ import { createClaudeCode, type ClaudeCodeHarnessSettings } from '@ai-sdk/harnes
 import { createCodex, type CodexHarnessSettings } from '@ai-sdk/harness-codex';
 import { createOpenCode, type OpenCodeHarnessSettings } from '@ai-sdk/harness-opencode';
 import { createPi, type PiHarnessSettings } from '@ai-sdk/harness-pi';
-import { createVacpAgentTools } from '@vacp/agent-ai-sdk';
-import { vacpAgentActor, vacpAgentTools } from '@vacp/protocol';
-import { createVacpTransport } from '@vacp/transport-bridge';
+import { createVacpAgentTools } from '@ethivia/vacp-ai-sdk';
+import { vacpAgentActor, vacpAgentTools } from '@ethivia/vacp-protocol';
+import { createVacpTransport } from '@ethivia/vacp-bridge';
 import { isStepCount, type TelemetryOptions, type ToolSet } from 'ai';
 import { join } from 'node:path';
 

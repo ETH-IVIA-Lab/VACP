@@ -7,7 +7,7 @@ import type {
   VacpNode,
   VacpNodeKind,
   VacpRef,
-} from '@vacp/protocol';
+} from '@ethivia/vacp-protocol';
 
 type NormalizedScope = {
   refs?: Set<string>;

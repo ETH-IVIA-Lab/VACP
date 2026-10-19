@@ -1,5 +1,10 @@
-import type { VacpProvenanceRecord, VacpObservation, VacpObservationCause, VacpExecution } from '@vacp/protocol';
-import { stableStringify } from '@vacp/protocol';
+import type {
+  VacpProvenanceRecord,
+  VacpObservation,
+  VacpObservationCause,
+  VacpExecution,
+} from '@ethivia/vacp-protocol';
+import { stableStringify } from '@ethivia/vacp-protocol';
 import { makeEntryId, nowIso, systemActor } from './helpers';
 
 /**

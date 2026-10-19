@@ -1,4 +1,4 @@
-import type { VacpActionDescriptor } from '@vacp/protocol';
+import type { VacpActionDescriptor } from '@ethivia/vacp-protocol';
 
 import { collectVegaLiteParams } from './params';
 import { makeRef } from './refs';

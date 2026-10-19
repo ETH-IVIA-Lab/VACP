@@ -4,7 +4,7 @@ import {
   type PresenceFrame,
   type PresenceGeometry,
   type PresencePoint,
-} from '@vacp/presence-core';
+} from '@ethivia/vacp-presence';
 import { immutableGeometry, targetBounds } from './bubble-layout';
 import { createBubbleMotion } from './bubble-motion';
 import type { PresenceEngine } from './engine';

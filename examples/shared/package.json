@@ -1,5 +1,5 @@
 {
-  "name": "@vacp/example-shared",
+  "name": "@ethivia/vacp-example-shared",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -13,15 +13,15 @@
   },
   "dependencies": {
     "@duckdb/duckdb-wasm": "catalog:",
-    "@vacp/analytics": "workspace:*",
-    "@vacp/analytics-posthog": "workspace:*",
-    "@vacp/presence-browser": "workspace:*",
-    "@vacp/presence-core": "workspace:*",
-    "@vacp/protocol": "workspace:*",
-    "@vacp/provenance-core": "workspace:*",
-    "@vacp/runtime": "workspace:*",
-    "@vacp/runtime-browser": "workspace:*",
-    "@vacp/transport-webmcp": "workspace:*",
+    "@ethivia/vacp-analytics": "workspace:*",
+    "@ethivia/vacp-browser": "workspace:*",
+    "@ethivia/vacp-posthog": "workspace:*",
+    "@ethivia/vacp-presence": "workspace:*",
+    "@ethivia/vacp-presence-react": "workspace:*",
+    "@ethivia/vacp-protocol": "workspace:*",
+    "@ethivia/vacp-provenance": "workspace:*",
+    "@ethivia/vacp-runtime": "workspace:*",
+    "@ethivia/vacp-webmcp": "workspace:*",
     "posthog-js": "^1.438.10"
   }
 }

@@ -1,5 +1,5 @@
-import type { VacpProvider } from '@vacp/protocol';
-import { createVacpRuntime, type VacpRuntime } from '@vacp/runtime';
+import type { VacpProvider } from '@ethivia/vacp-protocol';
+import { createVacpRuntime, type VacpRuntime } from '@ethivia/vacp-runtime';
 import {
   defaultVacpDomSnapshotScriptId,
   removeVacpDomSnapshotScript,

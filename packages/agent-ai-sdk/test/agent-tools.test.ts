@@ -2,9 +2,14 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { readFileSync } from 'node:fs';
 
-import { vacpAgentToolGuidance, vacpAgentTools, VACP_NARRATION_MAX_LENGTH, type VacpProvider } from '@vacp/protocol';
-import { createVacpRuntime } from '@vacp/runtime';
-import { createVacpTransport, type VacpTransport } from '@vacp/transport-bridge';
+import {
+  vacpAgentToolGuidance,
+  vacpAgentTools,
+  VACP_NARRATION_MAX_LENGTH,
+  type VacpProvider,
+} from '@ethivia/vacp-protocol';
+import { createVacpRuntime } from '@ethivia/vacp-runtime';
+import { createVacpTransport, type VacpTransport } from '@ethivia/vacp-bridge';
 import { asSchema, simulateReadableStream } from 'ai';
 import { MockLanguageModelV4 } from 'ai/test';
 

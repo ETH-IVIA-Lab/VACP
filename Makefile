@@ -30,13 +30,13 @@ setup-python:
 	$(UV) sync --all-packages --all-groups --locked --python $(PYTHON)
 
 dev: ## Serve the gallery at examples.vacp.localhost.
-	$(VP) run @vacp/examples#dev
+	$(VP) run @ethivia/vacp-examples#dev
 
 dev-all: ## Serve docs, gallery, and every standalone example.
-	$(VP) run --parallel --filter @vacp/docs --filter './examples/*' dev
+	$(VP) run --parallel --filter @ethivia/vacp-docs --filter './examples/*' dev
 
 dev-status: ## Show registered local development URLs.
-	$(PNPM) --filter @vacp/examples exec portless list
+	$(PNPM) --filter @ethivia/vacp-examples exec portless list
 
 format: python-format ## Apply lint fixes and format owned source.
 	$(VP) check --fix $(SOURCE_PATHS)
@@ -52,7 +52,7 @@ build-libs:
 	$(VP) run --filter './packages/*' build
 
 build-apps: build-libs
-	$(VP) run --filter './examples/*' --filter @vacp/docs build
+	$(VP) run --filter './examples/*' --filter @ethivia/vacp-docs build
 
 build: build-apps ## Build libraries, examples, and docs.
 
@@ -95,10 +95,10 @@ test: build-libs test-package-imports python-test ## Run JavaScript and Python u
 check: lint python-typecheck test-tools knip test ## Run the complete local static and unit-test gates.
 
 docs: ## Build the documentation site.
-	$(VP) run @vacp/docs#build
+	$(VP) run @ethivia/vacp-docs#build
 
 docs-serve: ## Serve the user documentation.
-	$(VP) run @vacp/docs#dev
+	$(VP) run @ethivia/vacp-docs#dev
 
 package: ## Build Python distributions and validate their PyPI metadata.
 	$(UV) build --package vacp --no-sources --python $(PYTHON) --out-dir dist/python
@@ -116,10 +116,10 @@ python-test-package: package ## Test installed Python distributions. Override PY
 		done
 
 browser-install: ## Install Chromium and its required system libraries.
-	$(PNPM) --filter @vacp/e2e exec playwright install --with-deps chromium
+	$(PNPM) --filter @ethivia/vacp-e2e exec playwright install --with-deps chromium
 
 browser-test: ## Run the browser suite against existing builds, with PLAYWRIGHT_ARGS.
-	$(PNPM) --filter @vacp/e2e test:e2e $(PLAYWRIGHT_ARGS)
+	$(PNPM) --filter @ethivia/vacp-e2e test:e2e $(PLAYWRIGHT_ARGS)
 
 e2e: build-apps browser-test ## Test examples and the published documentation in Chromium.
 

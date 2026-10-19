@@ -1,4 +1,4 @@
-import type { VacpActor, VacpPageBridge } from '@vacp/protocol';
+import type { VacpActor, VacpPageBridge } from '@ethivia/vacp-protocol';
 import type { JSONSchema7, LanguageModel, TelemetryOptions, ToolLoopAgentSettings } from 'ai';
 
 import type { Act, Scenario } from './core/scenario';

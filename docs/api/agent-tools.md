@@ -1,6 +1,6 @@
 # Agent tools
 
-VACP defines five agent tools with fixed names, input fields, and descriptions, once in `@vacp/protocol` as `vacpAgentTools`. The bridge transport, the AI SDK tools, and the Python MCP server offer them. The MCP server adds `vacp_open_url` and `vacp_page_info` for page navigation. [WebMCP](./webmcp) registers the three reads and the progress tool as `vacp.observe`, `vacp.capabilities`, `vacp.state`, and `vacp.progress`, and one tool per operation in place of `vacp_execute`.
+VACP defines five agent tools with fixed names, input fields, and descriptions, once in `@ethivia/vacp-protocol` as `vacpAgentTools`. The bridge transport, the AI SDK tools, and the Python MCP server offer them. The MCP server adds `vacp_open_url` and `vacp_page_info` for page navigation. [WebMCP](./webmcp) registers the three reads and the progress tool as `vacp.observe`, `vacp.capabilities`, `vacp.state`, and `vacp.progress`, and one tool per operation in place of `vacp_execute`.
 
 ```text
 vacp_observe()

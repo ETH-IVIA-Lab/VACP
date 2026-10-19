@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { resolveVacpAvailability, type VacpProvider } from '@vacp/protocol';
+import { resolveVacpAvailability, type VacpProvider } from '@ethivia/vacp-protocol';
 import { createVacpRuntime } from '../src/index';
 
 test('scoped capabilities retain prerequisite context without expanding the requested action space', async () => {

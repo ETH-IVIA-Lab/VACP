@@ -117,16 +117,16 @@ export default defineConfig({
         'data-duckdb': ['protocol'],
         analytics: ['protocol'],
         'analytics-posthog': ['analytics'],
-        'agent-ai-sdk': ['protocol', 'transport-bridge'],
-        sdk: ['protocol', 'runtime', 'runtime-browser'],
-        'adapter-vega-lite': ['protocol', 'runtime', 'data-duckdb'],
-        'adapter-vgplot': ['protocol', 'runtime', 'data-duckdb'],
+        'agent-ai-sdk': ['protocol', 'bridge'],
+        sdk: ['protocol', 'runtime', 'browser'],
+        'adapter-vega-lite': ['protocol', 'runtime', 'duckdb'],
+        'adapter-vgplot': ['protocol', 'runtime', 'duckdb'],
         'inspector-core': ['protocol'],
         'provenance-core': ['protocol'],
-        'presence-core': ['protocol', 'provenance-core'],
-        'presence-browser': ['protocol', 'presence-core'],
-        'adapter-vega-lite/src/presentation.ts': ['protocol', 'presence-core', 'presence-core/dom'],
-        'adapter-vgplot/src/presentation.ts': ['protocol', 'presence-core', 'presence-core/dom'],
+        'presence-core': ['protocol', 'provenance'],
+        'presence-browser': ['protocol', 'presence'],
+        'adapter-vega-lite/src/presentation.ts': ['protocol', 'presence', 'presence/dom'],
+        'adapter-vgplot/src/presentation.ts': ['protocol', 'presence', 'presence/dom'],
       }).map(
         ([owner, dependencies]) =>
           ({
@@ -139,9 +139,9 @@ export default defineConfig({
                     ...sourceImportRestrictions,
                     {
                       group: [
-                        '@vacp/*',
-                        '@vacp/*/**',
-                        ...dependencies.flatMap((name) => [`!@vacp/${name}`, `!@vacp/${name}/**`]),
+                        '@ethivia/vacp-*',
+                        '@ethivia/vacp-*/**',
+                        ...dependencies.flatMap((name) => [`!@ethivia/vacp-${name}`, `!@ethivia/vacp-${name}/**`]),
                       ],
                       message: 'Keep dependencies inward. Compose adapters in applications.',
                     },

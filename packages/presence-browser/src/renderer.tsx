@@ -1,6 +1,6 @@
 import { flushSync } from 'react-dom';
 import { createRoot } from 'react-dom/client';
-import type { PresenceNavigation, PresenceRenderer } from '@vacp/presence-core';
+import type { PresenceNavigation, PresenceRenderer } from '@ethivia/vacp-presence';
 import { PresenceContext } from './context';
 import { createPresenceEngine } from './engine';
 import { resolvePresenceOptions, type BrowserPresenceOptions } from './options';

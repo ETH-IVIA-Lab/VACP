@@ -1,4 +1,4 @@
-import { formatVacpWallClock, type JsonObject, type JsonScalar, type JsonValue } from '@vacp/protocol';
+import { formatVacpWallClock, type JsonObject, type JsonScalar, type JsonValue } from '@ethivia/vacp-protocol';
 import { Type } from 'apache-arrow';
 
 type SqlRecord = { [key: string]: SqlValue };

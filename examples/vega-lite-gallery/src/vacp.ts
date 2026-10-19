@@ -1,9 +1,9 @@
 import embed from 'vega-embed';
-import { createVegaLiteProvider } from '@vacp/adapter-vega-lite';
-import { createVegaLitePresentation } from '@vacp/adapter-vega-lite/presentation';
-import type { VacpDuckDbClient } from '@vacp/data-duckdb';
-import { installExampleRuntime } from '@vacp/example-shared';
-import { exampleOptions } from '@vacp/example-shared/config';
+import { createVegaLiteProvider } from '@ethivia/vacp-vega-lite';
+import { createVegaLitePresentation } from '@ethivia/vacp-vega-lite/presentation';
+import type { VacpDuckDbClient } from '@ethivia/vacp-duckdb';
+import { installExampleRuntime } from '@ethivia/vacp-example-shared';
+import { exampleOptions } from '@ethivia/vacp-example-shared/config';
 import type { GalleryEntry } from './gallery';
 
 /** Embed one spec with Vega-Lite, then expose its parameters, selections, and data through VACP. */

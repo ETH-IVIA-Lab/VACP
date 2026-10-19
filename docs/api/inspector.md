@@ -1,4 +1,4 @@
-# @vacp/inspector-core
+# @ethivia/vacp-inspector
 
 Sessions, graph indexes, and clients for custom inspection surfaces. The [Inspection surfaces guide](../inspector/) shows a complete surface.
 
@@ -43,7 +43,7 @@ interface InspectorClient {
 ### createRuntimeInspectorClient
 
 ```ts
-import { createRuntimeInspectorClient } from '@vacp/inspector-core/runtime';
+import { createRuntimeInspectorClient } from '@ethivia/vacp-inspector/runtime';
 
 createRuntimeInspectorClient({ id, title, runtime, restore?, reveal? }): InspectorClient
 ```
@@ -53,7 +53,7 @@ Reads `runtime.inspect()`, executes through `runtime.execute`, and invalidates o
 ### connectHttpInspectorClient
 
 ```ts
-import { connectHttpInspectorClient } from '@vacp/inspector-core/http';
+import { connectHttpInspectorClient } from '@ethivia/vacp-inspector/http';
 
 connectHttpInspectorClient({ url, intervalMs?, fetch?, signal? }): Promise<InspectorClient>
 ```

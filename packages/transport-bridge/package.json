@@ -1,5 +1,5 @@
 {
-  "name": "@vacp/transport-bridge",
+  "name": "@ethivia/vacp-bridge",
   "version": "0.1.0",
   "private": true,
   "files": [
@@ -18,6 +18,6 @@
     "test": "tsx --test --test-timeout=10000 test/*.test.ts"
   },
   "dependencies": {
-    "@vacp/protocol": "workspace:*"
+    "@ethivia/vacp-protocol": "workspace:*"
   }
 }

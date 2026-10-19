@@ -1,4 +1,4 @@
-import type { PresencePoint } from '@vacp/presence-core';
+import type { PresencePoint } from '@ethivia/vacp-presence';
 
 /** Inline SVG geometry in a 24-unit square. The hotspot stays on the analytical target. */
 export type CursorAsset = {

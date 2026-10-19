@@ -1,4 +1,4 @@
-import { abortable, type VacpActionResult } from '@vacp/protocol';
+import { abortable, type VacpActionResult } from '@ethivia/vacp-protocol';
 import type {
   InspectorClient,
   InspectorOperation,

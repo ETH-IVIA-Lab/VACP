@@ -1,4 +1,4 @@
-import type { ProvenanceReplayController } from '@vacp/provenance-core';
+import type { ProvenanceReplayController } from '@ethivia/vacp-provenance';
 import type {
   VacpExecution,
   VacpExecutionSource,
@@ -8,7 +8,7 @@ import type {
   VacpActor,
   VacpAgentActivitySource,
   VacpProvider,
-} from '@vacp/protocol';
+} from '@ethivia/vacp-protocol';
 
 export type PresencePoint = { x: number; y: number };
 export type PresenceGeometry =

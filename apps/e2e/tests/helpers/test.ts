@@ -1,7 +1,7 @@
 import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { test as base, type BrowserContext, type Route } from '@playwright/test';
-import type { ExampleOptions } from '@vacp/example-shared/config';
+import type { ExampleOptions } from '@ethivia/vacp-example-shared/config';
 import { repoRoot } from './paths';
 
 const extensionCache = resolve(repoRoot, 'apps', 'e2e', 'node_modules', '.cache', 'duckdb-extensions');

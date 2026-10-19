@@ -1,4 +1,4 @@
-# @vacp/adapter-vega-lite
+# @ethivia/vacp-vega-lite
 
 Provider for [Vega-Lite](https://vega.github.io/vega-lite/) charts rendered as Vega views. The [Vega-Lite guide](../vega-lite/) explains selections, temporal axes, and data handles.
 
@@ -53,7 +53,7 @@ A `Selection` entry holds `{ kind: 'Selection', name, select, value, tuples }`. 
 ## createVegaLitePresentation
 
 ```ts
-import { createVegaLitePresentation } from '@vacp/adapter-vega-lite/presentation';
+import { createVegaLitePresentation } from '@ethivia/vacp-vega-lite/presentation';
 
 createVegaLitePresentation({ provider, root }): PresencePresentation
 ```

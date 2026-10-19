@@ -1,4 +1,4 @@
-import type { VacpRef } from '@vacp/protocol';
+import type { VacpRef } from '@ethivia/vacp-protocol';
 
 export type VacpRefBuilder = {
   /** Root reference (`vacp://app/view` or `vacp://app/view/viz`). */

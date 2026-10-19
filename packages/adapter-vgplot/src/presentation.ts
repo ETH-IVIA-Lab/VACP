@@ -1,7 +1,7 @@
-import type { PresencePresentation, PresenceResolver } from '@vacp/presence-core';
-import { elementPresenceTarget, observePresenceLayout, svgPresenceTarget } from '@vacp/presence-core/dom';
+import type { PresencePresentation, PresenceResolver } from '@ethivia/vacp-presence';
+import { elementPresenceTarget, observePresenceLayout, svgPresenceTarget } from '@ethivia/vacp-presence/dom';
 import { providerBindings } from './provider-bindings';
-import type { VacpProvider } from '@vacp/protocol';
+import type { VacpProvider } from '@ethivia/vacp-protocol';
 import { intervalDomainValue } from './interactors/interval';
 
 /** Project semantic interaction refs through the live interactor's scales and facet groups. */

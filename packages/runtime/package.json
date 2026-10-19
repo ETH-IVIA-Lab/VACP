@@ -1,5 +1,5 @@
 {
-  "name": "@vacp/runtime",
+  "name": "@ethivia/vacp-runtime",
   "version": "0.1.0",
   "private": true,
   "files": [
@@ -19,7 +19,7 @@
     "bench": "tsx bench/runtime.ts && node --expose-gc --import tsx bench/lifetime.ts && tsx bench/discovery.ts"
   },
   "dependencies": {
-    "@vacp/protocol": "workspace:*",
+    "@ethivia/vacp-protocol": "workspace:*",
     "zod": "catalog:"
   }
 }

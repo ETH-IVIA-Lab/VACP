@@ -1,4 +1,4 @@
-import type { VacpDataSchemaParams, VacpDataSchemaResult, VacpRef } from '@vacp/protocol';
+import type { VacpDataSchemaParams, VacpDataSchemaResult, VacpRef } from '@ethivia/vacp-protocol';
 
 import type { VacpDuckDbQueryClient } from './client';
 import { describeDuckDbTable } from './metadata';

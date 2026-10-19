@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { createVacpProvider, createVacpRuntime, VacpActionRegistry } from '@vacp/runtime';
+import { createVacpProvider, createVacpRuntime, VacpActionRegistry } from '@ethivia/vacp-runtime';
 import { compileVacpWebMcpTools, installVacpWebMcp } from '../src/index.ts';
 
 // JavaScript hosts can omit context even when third-party TypeScript declarations require it.

@@ -1,5 +1,5 @@
 {
-  "name": "@vacp/example-cars-parallel-coords",
+  "name": "@ethivia/vacp-example-cars-parallel-coords",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -13,12 +13,12 @@
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
-    "@vacp/data-duckdb": "workspace:*",
-    "@vacp/example-shared": "workspace:*",
-    "@vacp/presence-core": "workspace:*",
-    "@vacp/protocol": "workspace:*",
-    "@vacp/runtime": "workspace:*",
-    "@vacp/sdk": "workspace:*",
+    "@ethivia/vacp-duckdb": "workspace:*",
+    "@ethivia/vacp-example-shared": "workspace:*",
+    "@ethivia/vacp-presence": "workspace:*",
+    "@ethivia/vacp-protocol": "workspace:*",
+    "@ethivia/vacp-runtime": "workspace:*",
+    "@ethivia/vacp-sdk": "workspace:*",
     "d3": "^7.9.0",
     "zod": "catalog:"
   },

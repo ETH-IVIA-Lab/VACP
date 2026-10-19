@@ -21,7 +21,7 @@ export const examples: readonly ExampleEntry[] = [
     description: 'Rio 2016 athletes: height and weight, age, and medal share by sport.',
     folder: 'athlete-explorer',
     layout: 'document',
-    load: () => import('@vacp/example-athlete-explorer'),
+    load: () => import('@ethivia/vacp-example-athlete-explorer'),
   },
   {
     id: 'vgplot',
@@ -29,7 +29,7 @@ export const examples: readonly ExampleEntry[] = [
     title: 'VGPlot Gallery',
     description: 'Flights, taxi rides, weather, earthquakes, and more in linked vgplot views.',
     folder: 'vgplot-gallery',
-    load: () => import('@vacp/example-vgplot-gallery'),
+    load: () => import('@ethivia/vacp-example-vgplot-gallery'),
   },
   {
     id: 'vega-lite',
@@ -37,7 +37,7 @@ export const examples: readonly ExampleEntry[] = [
     title: 'Vega-Lite Gallery',
     description: 'U.S. airports, global development, and Seattle weather with live selections.',
     folder: 'vega-lite-gallery',
-    load: () => import('@vacp/example-vega-lite-gallery'),
+    load: () => import('@ethivia/vacp-example-vega-lite-gallery'),
   },
   {
     id: 'react-dashboard',
@@ -45,7 +45,7 @@ export const examples: readonly ExampleEntry[] = [
     title: 'React Dashboard',
     description: 'Scatter, distributions, and rows for the Iris and Motor Trend datasets.',
     folder: 'react-dashboard',
-    load: () => import('@vacp/example-react-dashboard'),
+    load: () => import('@ethivia/vacp-example-react-dashboard'),
   },
   {
     id: 'cars-parcoords',
@@ -53,6 +53,6 @@ export const examples: readonly ExampleEntry[] = [
     title: 'Cars Parallel Coordinates',
     description: '392 cars from 1970 to 1982 across seven performance dimensions.',
     folder: 'cars-parallel-coords',
-    load: () => import('@vacp/example-cars-parallel-coords'),
+    load: () => import('@ethivia/vacp-example-cars-parallel-coords'),
   },
 ];

@@ -1,4 +1,4 @@
-import { provenanceActor, type VacpProvenanceRecord } from '@vacp/protocol';
+import { provenanceActor, type VacpProvenanceRecord } from '@ethivia/vacp-protocol';
 import type { InstallVacpRuntimeAnalyticsArgs, VacpRuntimeAnalyticsInstallation } from './types';
 
 function entryToPayload(entry: VacpProvenanceRecord, captureSnapshots: boolean): Record<string, unknown> {

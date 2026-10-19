@@ -1,7 +1,12 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import type { VacpDataHandleData, VacpDataHandleState, VacpDataSchemaResult, VacpProvider } from '@vacp/protocol';
-import { executeVacpAction } from '@vacp/runtime';
+import type {
+  VacpDataHandleData,
+  VacpDataHandleState,
+  VacpDataSchemaResult,
+  VacpProvider,
+} from '@ethivia/vacp-protocol';
+import { executeVacpAction } from '@ethivia/vacp-runtime';
 import { View, changeset, loader, parse } from 'vega';
 import { compile, type TopLevelSpec } from 'vega-lite';
 import { createVegaLiteProvider } from '../src/index';

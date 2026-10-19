@@ -1,4 +1,4 @@
-import { vacpAgentToolGuidance } from '@vacp/protocol';
+import { vacpAgentToolGuidance } from '@ethivia/vacp-protocol';
 
 /** What an agent is told when its host gives no instructions of its own. */
 export const defaultVacpAgentInstructions = [

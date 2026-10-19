@@ -3,7 +3,7 @@
 One runtime can compose any number of providers. The [Olympic athletes example](https://examples.vacp.dev/athletes/) composes three: a custom provider for its cohort controls, a Vega-Lite provider for the height and weight chart, and a vgplot provider for the age histogram.
 
 ```ts
-import { installVacpRuntime } from '@vacp/runtime-browser';
+import { installVacpRuntime } from '@ethivia/vacp-browser';
 
 const { runtime, dispose } = installVacpRuntime({
   providers: [cohort, physique, age],
@@ -53,4 +53,4 @@ Each provider's part of a read describes one moment in that provider. A change t
 
 `installVacpRuntime` with providers whose source IDs are new adds them to the runtime at the global key. A provider with an existing source ID replaces that source and cancels calls still pending on the old binding. A changed `sessionKey` replaces the whole source set and starts a new provenance history. Each installation's `dispose()` releases only the providers it attached.
 
-For a runtime outside the browser, `createVacpRuntime({ providers })` from `@vacp/runtime` composes the same way, and `runtime.attachProviders(providers)` returns a function that detaches them.
+For a runtime outside the browser, `createVacpRuntime({ providers })` from `@ethivia/vacp-runtime` composes the same way, and `runtime.attachProviders(providers)` returns a function that detaches them.

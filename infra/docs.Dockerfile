@@ -15,7 +15,7 @@ RUN --mount=type=cache,id=pnpm-store,target=/var/cache/pnpm \
     pnpm install --frozen-lockfile --store-dir /var/cache/pnpm
 # VitePress reads each page's last commit for its "Last updated" stamp.
 RUN --mount=type=bind,source=.git,target=.git \
-    pnpm --filter '@vacp/docs...' build
+    pnpm --filter '@ethivia/vacp-docs...' build
 
 FROM nginx:stable-alpine AS runtime
 COPY --from=build /app/apps/docs/.vitepress/dist/ /usr/share/nginx/html/

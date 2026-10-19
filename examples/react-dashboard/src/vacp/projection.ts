@@ -3,7 +3,7 @@ import {
   type VacpDataHandleData,
   type VacpDataHandleState,
   type VacpGraphFragment,
-} from '@vacp/protocol';
+} from '@ethivia/vacp-protocol';
 import { listDatasets, type Dataset } from '../datasets/registry';
 import { numericValues, quantile } from '../lib/dashboard';
 import { selectionWhere } from './data';

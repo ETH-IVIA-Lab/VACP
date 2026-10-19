@@ -1,5 +1,5 @@
 import { measure } from '../../../tools/benchmark';
-import { fnv1a64Hex, stableStringify, type VacpGraphFragment, type VacpProvider } from '@vacp/protocol';
+import { fnv1a64Hex, stableStringify, type VacpGraphFragment, type VacpProvider } from '@ethivia/vacp-protocol';
 import { composeVacpProviders, createVacpRuntime } from '../src/index';
 
 const size = 1_000;

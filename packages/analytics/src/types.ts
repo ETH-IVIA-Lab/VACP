@@ -1,4 +1,4 @@
-import type { VacpProvenanceSource } from '@vacp/protocol';
+import type { VacpProvenanceSource } from '@ethivia/vacp-protocol';
 
 export type VacpAnalyticsProvider = Readonly<{
   capture: (event: string, properties?: Record<string, unknown>) => void;

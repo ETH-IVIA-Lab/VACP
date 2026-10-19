@@ -1,13 +1,13 @@
 import { z } from 'zod';
-import type { VacpDataHandleState, VacpDataSchemaColumn, VacpGraphFragment, VacpRef } from '@vacp/protocol';
+import type { VacpDataHandleState, VacpDataSchemaColumn, VacpGraphFragment, VacpRef } from '@ethivia/vacp-protocol';
 import {
   createVacpProvider,
   registerVacpApplyStateAction,
   registerVacpDataSchemaAction,
   registerVacpDataSqlAction,
   type VacpRuntime,
-} from '@vacp/runtime';
-import { createVacpActions, createVacpRefBuilder } from '@vacp/sdk';
+} from '@ethivia/vacp-runtime';
+import { createVacpActions, createVacpRefBuilder } from '@ethivia/vacp-sdk';
 import {
   createDuckDbDataSchemaHandler,
   createDuckDbDataSqlHandler,
@@ -15,10 +15,10 @@ import {
   describeDuckDbTable,
   makeVacpDuckDbTableName,
   sqlIdentifier,
-} from '@vacp/data-duckdb';
-import { exampleDuckDbBundles, installExampleRuntime } from '@vacp/example-shared';
-import { exampleOptions } from '@vacp/example-shared/config';
-import { elementPresenceTarget, observePresenceLayout, svgPresenceTarget } from '@vacp/presence-core/dom';
+} from '@ethivia/vacp-duckdb';
+import { exampleDuckDbBundles, installExampleRuntime } from '@ethivia/vacp-example-shared';
+import { exampleOptions } from '@ethivia/vacp-example-shared/config';
+import { elementPresenceTarget, observePresenceLayout, svgPresenceTarget } from '@ethivia/vacp-presence/dom';
 import type { BrushRange, CarDatum, ParallelCoordsChart } from './chart';
 
 function numberExtent(data: CarDatum[], dim: string): BrushRange {

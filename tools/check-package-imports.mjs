@@ -9,7 +9,7 @@ import ts from 'typescript';
 const packagesRoot = new URL('../packages/', import.meta.url);
 const consumer = await mkdtemp(join(tmpdir(), 'vacp-package-imports-'));
 try {
-  const modules = join(consumer, 'node_modules', '@vacp');
+  const modules = join(consumer, 'node_modules', '@ethivia');
   await mkdir(modules, { recursive: true });
   const imports = [];
   for (const directory of await readdir(packagesRoot, { withFileTypes: true })) {
@@ -23,7 +23,7 @@ try {
       if (error.code === 'ENOENT') continue; // Python workspace members have no JavaScript exports.
       throw error;
     }
-    await symlink(fileURLToPath(root), join(modules, manifest.name.slice('@vacp/'.length)), 'dir');
+    await symlink(fileURLToPath(root), join(modules, manifest.name.slice('@ethivia/'.length)), 'dir');
     for (const [entry, conditions] of Object.entries(manifest.exports ?? {})) {
       if (typeof conditions.default !== 'string' || !/\.[cm]?js$/.test(conditions.default)) continue;
       const name = `${manifest.name}${entry === '.' ? '' : entry.slice(1)}`;

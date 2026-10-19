@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import type { VacpActionExecutionOptions, VacpRef } from '@vacp/protocol';
+import type { VacpActionExecutionOptions, VacpRef } from '@ethivia/vacp-protocol';
 import { listDatasets, loadDataset, type Encoding } from '../datasets/registry';
 import { assertDashboardEncoding, assertDashboardSelection } from '../lib/dashboard';
 import type { ReactDashboardModel } from './model';

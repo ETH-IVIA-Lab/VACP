@@ -1,5 +1,5 @@
 import { DuckDBInstance } from '@duckdb/node-api';
-import { sqlIdentifier, sqlStringLiteral, type VacpDuckDbClient } from '@vacp/data-duckdb';
+import { sqlIdentifier, sqlStringLiteral, type VacpDuckDbClient } from '@ethivia/vacp-duckdb';
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';

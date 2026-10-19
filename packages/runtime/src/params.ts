@@ -1,5 +1,5 @@
 import { safeParseAsync, type $ZodIssue, type $ZodType, type output } from 'zod/v4/core';
-import { VacpActionError } from '@vacp/protocol';
+import { VacpActionError } from '@ethivia/vacp-protocol';
 
 /** One parameter failure. Union failures list each branch's issues, and key or element failures nest theirs. */
 export type VacpParameterIssue = {

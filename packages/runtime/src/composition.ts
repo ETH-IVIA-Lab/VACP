@@ -11,7 +11,7 @@ import {
   type VacpProviderObservation,
   type VacpRef,
   type VacpSourceId,
-} from '@vacp/protocol';
+} from '@ethivia/vacp-protocol';
 
 const MAX_COHERENCE_RETRIES = 8;
 

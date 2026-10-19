@@ -1,5 +1,5 @@
 {
-  "name": "@vacp/examples",
+  "name": "@ethivia/vacp-examples",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -10,12 +10,12 @@
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
-    "@vacp/example-athlete-explorer": "workspace:*",
-    "@vacp/example-cars-parallel-coords": "workspace:*",
-    "@vacp/example-react-dashboard": "workspace:*",
-    "@vacp/example-shared": "workspace:*",
-    "@vacp/example-vega-lite-gallery": "workspace:*",
-    "@vacp/example-vgplot-gallery": "workspace:*"
+    "@ethivia/vacp-example-athlete-explorer": "workspace:*",
+    "@ethivia/vacp-example-cars-parallel-coords": "workspace:*",
+    "@ethivia/vacp-example-react-dashboard": "workspace:*",
+    "@ethivia/vacp-example-shared": "workspace:*",
+    "@ethivia/vacp-example-vega-lite-gallery": "workspace:*",
+    "@ethivia/vacp-example-vgplot-gallery": "workspace:*"
   },
   "devDependencies": {
     "@tailwindcss/vite": "catalog:",

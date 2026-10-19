@@ -1,7 +1,7 @@
 import { jsonValue } from './json';
 import { providerBindings } from './provider-bindings';
-import type { VacpRef, VacpProvider, VacpSourceId, VacpWidgetOptionsResult } from '@vacp/protocol';
-import { createDuckDbDataSchemaHandler, createDuckDbDataSqlHandler } from '@vacp/data-duckdb';
+import type { VacpRef, VacpProvider, VacpSourceId, VacpWidgetOptionsResult } from '@ethivia/vacp-protocol';
+import { createDuckDbDataSchemaHandler, createDuckDbDataSqlHandler } from '@ethivia/vacp-duckdb';
 import {
   registerVacpApplyStateAction,
   registerVacpDataSchemaAction,
@@ -9,7 +9,7 @@ import {
   registerVacpWidgetOptionsAction,
   createVacpProvider,
   VacpActionRegistry,
-} from '@vacp/runtime';
+} from '@ethivia/vacp-runtime';
 
 import { actionDescriptorsForDashboard } from './actions';
 import { prepareVgplotRestoration } from './apply-state';
@@ -30,10 +30,10 @@ export function createVgplotProvider(args: {
   tables?: Array<{ tableId: string; table: VgplotTableLike }>;
   data?: {
     duckdb:
-      | import('@vacp/data-duckdb').VacpDuckDbQueryClient
-      | Promise<import('@vacp/data-duckdb').VacpDuckDbQueryClient>;
+      | import('@ethivia/vacp-duckdb').VacpDuckDbQueryClient
+      | Promise<import('@ethivia/vacp-duckdb').VacpDuckDbQueryClient>;
     sql?: boolean;
-    describe?: import('@vacp/protocol').VacpDataHandleDescriber;
+    describe?: import('@ethivia/vacp-protocol').VacpDataHandleDescriber;
   };
   options: VgplotProviderOptions;
 }): VacpProvider {

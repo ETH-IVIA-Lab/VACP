@@ -1,6 +1,6 @@
 # Protocol records
 
-`@vacp/protocol` defines the records every VACP package and the Python server exchange. It runs in any JavaScript environment. `@vacp/protocol/validation` adds Zod parsers for payloads that arrive over a wire.
+`@ethivia/vacp-protocol` defines the records every VACP package and the Python server exchange. It runs in any JavaScript environment. `@ethivia/vacp-protocol/validation` adds Zod parsers for payloads that arrive over a wire.
 
 ## Identity
 
@@ -300,4 +300,4 @@ See [Agent tools](./agent-tools) for the bounds.
 
 ## Validation
 
-`@vacp/protocol/validation` exports Zod parsers for untrusted payloads: `parseObservation`, `parseActionResult`, `parseCapabilitiesRequest`, `parseStateRequest`, and `vacpRefSchema`. Each returns the typed record or throws a Zod error.
+`@ethivia/vacp-protocol/validation` exports Zod parsers for untrusted payloads: `parseObservation`, `parseActionResult`, `parseCapabilitiesRequest`, `parseStateRequest`, and `vacpRefSchema`. Each returns the typed record or throws a Zod error.

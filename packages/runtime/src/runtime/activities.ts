@@ -5,7 +5,7 @@ import {
   type VacpAgentActivityControl,
   type VacpAgentActivityHandle,
   type VacpActor,
-} from '@vacp/protocol';
+} from '@ethivia/vacp-protocol';
 import { makeEntryId, notify, nowIso } from './helpers';
 
 type Outcome = 'completed' | 'failed' | 'cancelled';

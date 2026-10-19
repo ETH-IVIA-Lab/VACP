@@ -2,13 +2,13 @@
 
 An agent reaches a page's runtime through five shared tools. Pick the transport by where the agent runs:
 
-| Agent                                                                         | Transport                    | Package                  |
-| ----------------------------------------------------------------------------- | ---------------------------- | ------------------------ |
-| An [MCP](https://modelcontextprotocol.io) client such as Claude Code or Codex | MCP server driving a browser | `vacp` (Python)          |
-| An agent you run inside the page                                              | AI SDK tools over the bridge | `@vacp/agent-ai-sdk`     |
-| A browser agent that reads the page's tools                                   | WebMCP                       | `@vacp/transport-webmcp` |
+| Agent                                                                         | Transport                    | Package                |
+| ----------------------------------------------------------------------------- | ---------------------------- | ---------------------- |
+| An [MCP](https://modelcontextprotocol.io) client such as Claude Code or Codex | MCP server driving a browser | `vacp` (Python)        |
+| An agent you run inside the page                                              | AI SDK tools over the bridge | `@ethivia/vacp-ai-sdk` |
+| A browser agent that reads the page's tools                                   | WebMCP                       | `@ethivia/vacp-webmcp` |
 
-The MCP server and the AI SDK tools offer these tools with the same descriptions, defined once in `@vacp/protocol`. The MCP server adds `vacp_open_url` and `vacp_page_info`, and [WebMCP](./webmcp) registers one tool per operation in place of `vacp_execute`:
+The MCP server and the AI SDK tools offer these tools with the same descriptions, defined once in `@ethivia/vacp-protocol`. The MCP server adds `vacp_open_url` and `vacp_page_info`, and [WebMCP](./webmcp) registers one tool per operation in place of `vacp_execute`:
 
 ```text
 vacp_observe()
@@ -33,13 +33,13 @@ The server listens at `http://localhost:8000/mcp`. Pass `--transport stdio` for 
 
 ## Agents inside the page
 
-`@vacp/transport-bridge` maps the tools onto a page bridge. `@vacp/agent-ai-sdk` turns them into [AI SDK](https://ai-sdk.dev) tools and an agent:
+`@ethivia/vacp-bridge` maps the tools onto a page bridge. `@ethivia/vacp-ai-sdk` turns them into [AI SDK](https://ai-sdk.dev) tools and an agent:
 
 ```ts
 import { createOpenAICompatible } from '@ai-sdk/openai-compatible';
-import { createVacpChatRuntime, createVacpToolLoopAgent } from '@vacp/agent-ai-sdk';
-import { getVacpBridge } from '@vacp/runtime-browser';
-import { createVacpTransport } from '@vacp/transport-bridge';
+import { createVacpChatRuntime, createVacpToolLoopAgent } from '@ethivia/vacp-ai-sdk';
+import { getVacpBridge } from '@ethivia/vacp-browser';
+import { createVacpTransport } from '@ethivia/vacp-bridge';
 
 const bridge = getVacpBridge();
 if (!bridge) throw new Error('VACP is not installed on this page');
@@ -70,4 +70,4 @@ const { transport } = createVacpChatRuntime({
 
 ## Attribution
 
-Every transport attributes its calls to one actor, `vacpAgentActor` from `@vacp/protocol`, unless the host passes another: `createVacpTransport(bridge, { actor })` or `installVacpWebMcp(runtime, { actor })`. Presence groups steps and sentences by actor ID. The host sets the actor. Model output never does.
+Every transport attributes its calls to one actor, `vacpAgentActor` from `@ethivia/vacp-protocol`, unless the host passes another: `createVacpTransport(bridge, { actor })` or `installVacpWebMcp(runtime, { actor })`. Presence groups steps and sentences by actor ID. The host sets the actor. Model output never does.

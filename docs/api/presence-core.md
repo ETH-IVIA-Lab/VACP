@@ -1,6 +1,6 @@
-# @vacp/presence-core
+# @ethivia/vacp-presence
 
-Headless agent presence: which actors are active, what each step targets, where its target is on screen, and how replay frames are navigated. [`@vacp/presence-browser`](./presence-browser) renders it in the browser. The [Agent presence guide](../presence/) shows the common setups.
+Headless agent presence: which actors are active, what each step targets, where its target is on screen, and how replay frames are navigated. [`@ethivia/vacp-presence-react`](./presence-browser) renders it in the browser. The [Agent presence guide](../presence/) shows the common setups.
 
 ## createAgentPresence
 
@@ -73,7 +73,7 @@ type PresenceGeometry =
 
 A resolver returns `null` when it cannot place the focus. Presence calls `subscribe` only while a pointer or a recorded frame rests on the provider, and releases it when none does. `presenceAnchor(geometry)` returns the point a cursor rests on.
 
-## @vacp/presence-core/dom
+## @ethivia/vacp-presence/dom
 
 Browser geometry for resolvers, in CSS viewport pixels on the `viewport` surface, clipped to visible scroll containers.
 

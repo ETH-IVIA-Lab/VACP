@@ -1,4 +1,4 @@
-import type { VacpInteraction } from '@vacp/protocol';
+import type { VacpInteraction } from '@ethivia/vacp-protocol';
 import { readScaleDomain } from './interval';
 import { interactorType } from '../native-classes';
 import type { VgplotInteractorLike } from '../types';

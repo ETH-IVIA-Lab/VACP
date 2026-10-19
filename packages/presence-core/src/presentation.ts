@@ -1,5 +1,11 @@
-import { type ProvenanceCheckpoint, type ProvenanceReplayState } from '@vacp/provenance-core';
-import { provenanceActor, provenanceFocus, provenanceTurn, type VacpActor, type VacpTurnRecord } from '@vacp/protocol';
+import { type ProvenanceCheckpoint, type ProvenanceReplayState } from '@ethivia/vacp-provenance';
+import {
+  provenanceActor,
+  provenanceFocus,
+  provenanceTurn,
+  type VacpActor,
+  type VacpTurnRecord,
+} from '@ethivia/vacp-protocol';
 import type { PresenceActivity, PresenceFrame, PresenceNavigation, PresenceOptions } from './types';
 import { isAgentActor, samePresenceActivity } from './types';
 import { stepPlaces, type PresenceFocus } from './targets';

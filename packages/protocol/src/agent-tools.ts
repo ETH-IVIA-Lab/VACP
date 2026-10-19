@@ -3,7 +3,7 @@ import type { VacpCapabilitiesRequest, VacpRef, VacpStateRequest } from './schem
 
 /**
  * The tools a model uses to reach a page through its bridge, in every transport that offers them:
- * `@vacp/agent-ai-sdk` in the page's process and the Python MCP server. Names, input fields,
+ * `@ethivia/vacp-ai-sdk` in the page's process and the Python MCP server. Names, input fields,
  * descriptions, and guidance live here once. `test/fixtures/agent-tools.json` holds the same values
  * for the Python server.
  */

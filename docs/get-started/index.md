@@ -50,6 +50,6 @@ Ask the agent a question about the data, for example "Compare rowers and canoeis
 ## Next steps
 
 - Read the [core concepts](../concepts/) behind observations and operations.
-- [Connect your own application](../integrate/) with `@vacp/sdk`.
+- [Connect your own application](../integrate/) with `@ethivia/vacp-sdk`.
 - Add VACP to a [Vega-Lite](../vega-lite/) or [Mosaic vgplot](../vgplot/) view.
 - Run an agent [inside the page](../agents/) or through [WebMCP](../agents/webmcp).

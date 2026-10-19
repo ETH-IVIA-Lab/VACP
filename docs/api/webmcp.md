@@ -1,4 +1,4 @@
-# @vacp/transport-webmcp
+# @ethivia/vacp-webmcp
 
 Registers VACP operations as [WebMCP](https://webmachinelearning.github.io/webmcp/) tools. The [WebMCP guide](../agents/webmcp) explains the tools agents see.
 

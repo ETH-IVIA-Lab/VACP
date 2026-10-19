@@ -1,4 +1,4 @@
-import type { PresenceActivity, PresencePoint } from '@vacp/presence-core';
+import type { PresenceActivity, PresencePoint } from '@ethivia/vacp-presence';
 import { defaultCursorAssets, type CursorAsset } from './cursor-assets';
 import { defaultCursorPresentation, type CursorPresentation } from './cursor-semantics';
 import { describePresence } from './describe';

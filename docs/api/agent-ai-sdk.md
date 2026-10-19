@@ -1,4 +1,4 @@
-# @vacp/agent-ai-sdk
+# @ethivia/vacp-ai-sdk
 
 An agent built on the [AI SDK](https://ai-sdk.dev) that works through the VACP agent tools. [Connect an agent](../agents/#agents-inside-the-page) shows a complete setup.
 

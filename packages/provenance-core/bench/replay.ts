@@ -1,5 +1,5 @@
-import type { VacpGraphFragment, VacpProvider } from '@vacp/protocol';
-import { createVacpRuntime } from '@vacp/runtime';
+import type { VacpGraphFragment, VacpProvider } from '@ethivia/vacp-protocol';
+import { createVacpRuntime } from '@ethivia/vacp-runtime';
 import { measure } from '../../../tools/benchmark';
 import { createProvenanceReplay } from '../src/index';
 

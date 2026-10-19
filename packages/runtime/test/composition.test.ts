@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import type { VacpProvider } from '@vacp/protocol';
+import type { VacpProvider } from '@ethivia/vacp-protocol';
 import { composeVacpProviders, createVacpRuntime } from '../src/index';
 
 function provider(args: {

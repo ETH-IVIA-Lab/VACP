@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { type VacpActionDescriptor, type VacpProvider, type VacpProviderObservation } from '@vacp/protocol';
+import { type VacpActionDescriptor, type VacpProvider, type VacpProviderObservation } from '@ethivia/vacp-protocol';
 import { createVacpProvider, createVacpRuntime, VacpActionRegistry } from '../src/index';
 
 const source = { id: 'vacp-source://runtime-test' as const, type: 'test', title: 'Runtime test' };

@@ -1,4 +1,4 @@
-import { vacpToolResult } from '@vacp/protocol';
+import { vacpToolResult } from '@ethivia/vacp-protocol';
 import type { UIMessage, ChatTransport } from 'ai';
 
 import type { VacpContextCompactionOptions, VacpContextCompactionPolicy } from './types';

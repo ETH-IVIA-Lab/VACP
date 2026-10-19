@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import type { VacpProvider } from '@vacp/protocol';
+import type { VacpProvider } from '@ethivia/vacp-protocol';
 import { createVacpRuntime, createVacpProvider, composeVacpProviders, VacpActionRegistry } from '../src/index';
 
 test('cross-source readiness governs discovery, subscriptions, stale calls and post-pacing execution', async () => {
