@@ -1,0 +1,16 @@
+{
+  "name": "@ethivia/vacp-scripts",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "check-package-imports": "tsx check-package-imports.ts",
+    "check-python-package": "tsx check-python-package.ts",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:",
+    "tsx": "catalog:",
+    "typescript": "catalog:",
+    "zod": "catalog:"
+  }
+}

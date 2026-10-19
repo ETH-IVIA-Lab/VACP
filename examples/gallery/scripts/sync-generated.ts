@@ -2,7 +2,9 @@ import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
 import fs from 'node:fs';
 import { escapeHtml } from '@ethivia/vacp-example-shared/html';
-import { examples } from '../examples.manifest.ts';
+import { examples } from '../examples.manifest';
+
+type ExampleEntry = (typeof examples)[number];
 
 const scriptDir = dirname(fileURLToPath(import.meta.url));
 
@@ -10,16 +12,16 @@ const galleryDir = resolve(scriptDir, '..');
 
 const generatedMarker = '.vacp-gallery-generated';
 
-await main();
+main();
 
-async function main() {
+function main() {
   const entries = examples;
   validateEntries(entries);
   syncRoutePages(entries);
   syncPublicAssets(entries);
 }
 
-function validateEntries(entries) {
+function validateEntries(entries: readonly ExampleEntry[]) {
   const seenRoutes = new Set();
   const seenIds = new Set();
 
@@ -34,10 +36,9 @@ function validateEntries(entries) {
   }
 }
 
-function syncRoutePages(entries) {
+function syncRoutePages(entries: readonly ExampleEntry[]) {
   const activeRoutes = new Set(entries.map((entry) => entry.route));
 
-  // Remove stale generated route directories.
   for (const name of fs.readdirSync(galleryDir, { withFileTypes: true })) {
     if (!name.isDirectory()) continue;
     const routeDir = resolve(galleryDir, name.name);
@@ -58,15 +59,15 @@ function syncRoutePages(entries) {
 }
 
 /** Running dev servers reload on every write, so unchanged output is left untouched. */
-function writeIfChanged(path, content) {
+function writeIfChanged(path: string, content: string | Buffer) {
   const next = Buffer.isBuffer(content) ? content : Buffer.from(content, 'utf8');
   if (fs.existsSync(path) && fs.readFileSync(path).equals(next)) return;
   fs.writeFileSync(path, next);
 }
 
-function syncPublicAssets(entries) {
+function syncPublicAssets(entries: readonly ExampleEntry[]) {
   const outDir = resolve(galleryDir, '.generated-public');
-  const sources = new Map();
+  const sources = new Map<string, string>();
   for (const entry of entries) {
     const srcDir = resolve(galleryDir, '..', entry.folder, 'public');
     if (fs.existsSync(srcDir)) sources.set(entry.route, srcDir);
@@ -75,7 +76,7 @@ function syncPublicAssets(entries) {
 }
 
 /** Make `dst` hold exactly the named sources, copying only files whose bytes differ. */
-function mirrorDir(dst, sources) {
+function mirrorDir(dst: string, sources: ReadonlyMap<string, string>) {
   fs.mkdirSync(dst, { recursive: true });
   for (const item of fs.readdirSync(dst, { withFileTypes: true }))
     if (!sources.has(item.name)) fs.rmSync(resolve(dst, item.name), { recursive: true, force: true });
@@ -93,7 +94,7 @@ function mirrorDir(dst, sources) {
   }
 }
 
-function renderRouteHtml(args) {
+function renderRouteHtml(args: Pick<ExampleEntry, 'title' | 'route'>) {
   const escapedTitle = escapeHtml(args.title);
   const escapedRoute = escapeHtml(args.route);
 

@@ -12,7 +12,7 @@ import { exampleDir, repoRoot } from './paths';
 const vp = (command: 'dev' | 'preview') => `node_modules/.bin/vp ${command}`;
 const applications = {
   'athlete-explorer': { cwd: exampleDir('athlete-explorer'), command: vp('dev'), dev: true },
-  gallery: { cwd: exampleDir('gallery'), command: `node scripts/sync-generated.mjs && ${vp('dev')}`, dev: true },
+  gallery: { cwd: exampleDir('gallery'), command: `pnpm generate && ${vp('dev')}`, dev: true },
   'cars-parallel-coords': { cwd: exampleDir('cars-parallel-coords'), command: vp('dev'), dev: true },
   'react-dashboard': { cwd: exampleDir('react-dashboard'), command: vp('dev'), dev: true },
   'vega-lite-gallery': { cwd: exampleDir('vega-lite-gallery'), command: vp('dev'), dev: true },

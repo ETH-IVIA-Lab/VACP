@@ -6,7 +6,7 @@ import { examples } from './examples.manifest';
 
 const page = (path: string) => fileURLToPath(new URL(path, import.meta.url));
 
-// `dev` and `build` run scripts/sync-generated.mjs first, which writes each route's index.html.
+// `dev` and `build` run scripts/sync-generated.ts first, which writes each route's index.html.
 function buildInput(): Record<string, string> {
   return Object.fromEntries([
     ['index', page('index.html')],

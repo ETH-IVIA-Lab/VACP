@@ -10,6 +10,7 @@ COPY apps apps
 COPY docs docs
 COPY examples examples
 COPY packages packages
+COPY scripts scripts
 COPY tools tools
 RUN --mount=type=cache,id=pnpm-store,target=/var/cache/pnpm \
     pnpm install --frozen-lockfile --store-dir /var/cache/pnpm

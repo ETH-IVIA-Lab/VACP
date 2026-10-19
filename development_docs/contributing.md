@@ -72,6 +72,8 @@ Each library builds with `vp pack`, which inherits the `pack` block in the root 
 
 ### Lint policy
 
+Repository commands live in the private `scripts` workspace. Run them with `pnpm --filter @ethivia/vacp-scripts <command>`. Its `tsconfig.json` covers every script. Gallery generation belongs to `examples/gallery/scripts` and runs through that app's `generate` command. `make lint` checks these scripts with the shared formatting, standard lint, anti-slop, and TypeScript rules.
+
 The anti-slop rules are vendored unchanged under `tools/oxlint/anti-slop`. `tools/oxlint/anti-slop/preset.ts` selects which rules apply. It turns off bans on `unknown` at boundaries, runtime narrowing, open dictionaries, ordinary assertions, conditional spreads, and naming and spacing conventions. It keeps the rules against chained assertions, widening followed by assertion, reflection shortcuts, module mocking, repeated array passes, and accumulator copying. Change the preset rather than adding per-line exceptions.
 
 The dependency table in `vite.config.ts` lets each package import only the workspace packages that sit inward of it. Add a workspace dependency there and in the package manifest together.
