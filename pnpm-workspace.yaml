@@ -2,6 +2,7 @@ packages:
   - apps/*
   - examples/*
   - packages/*
+  - scripts
 # The Markdown pages in docs/ sit outside apps/docs, so the Vue modules VitePress compiles them into
 # resolve from the repository root.
 publicHoistPattern:

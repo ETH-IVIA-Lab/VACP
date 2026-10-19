@@ -4,10 +4,11 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "node scripts/sync-generated.mjs && portless run vp dev",
-    "build": "node scripts/sync-generated.mjs && vp build",
+    "dev": "pnpm generate && portless run vp dev",
+    "build": "pnpm generate && vp build",
     "preview": "vp preview --host 127.0.0.1 --strictPort",
-    "typecheck": "tsc -p tsconfig.json --noEmit"
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "generate": "tsx scripts/sync-generated.ts"
   },
   "dependencies": {
     "@ethivia/vacp-example-athlete-explorer": "workspace:*",
@@ -19,10 +20,13 @@
   },
   "devDependencies": {
     "@tailwindcss/vite": "catalog:",
+    "@types/node": "catalog:",
     "@vitejs/plugin-react": "catalog:",
     "portless": "catalog:",
     "react": "catalog:",
     "react-dom": "catalog:",
+    "tsx": "catalog:",
+    "typescript": "catalog:",
     "vite-plus": "catalog:"
   },
   "portless": "examples.vacp"

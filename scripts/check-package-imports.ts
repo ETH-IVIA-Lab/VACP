@@ -4,6 +4,12 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import ts from 'typescript';
+import { z } from 'zod';
+
+const packageManifest = z.object({
+  name: z.string(),
+  exports: z.record(z.string(), z.object({ default: z.string().optional() })).optional(),
+});
 
 // Exercise public exports as a consumer, with no loader, path aliases, or source-import options.
 const packagesRoot = new URL('../packages/', import.meta.url);
@@ -11,16 +17,16 @@ const consumer = await mkdtemp(join(tmpdir(), 'vacp-package-imports-'));
 try {
   const modules = join(consumer, 'node_modules', '@ethivia');
   await mkdir(modules, { recursive: true });
-  const imports = [];
+  const imports: string[] = [];
   for (const directory of await readdir(packagesRoot, { withFileTypes: true })) {
     if (!directory.isDirectory()) continue;
     const root = new URL(`${directory.name}/`, packagesRoot);
     const manifestPath = new URL('package.json', root);
     let manifest;
     try {
-      manifest = JSON.parse(await readFile(manifestPath, 'utf8'));
+      manifest = packageManifest.parse(JSON.parse(await readFile(manifestPath, 'utf8')));
     } catch (error) {
-      if (error.code === 'ENOENT') continue; // Python workspace members have no JavaScript exports.
+      if (error instanceof Error && 'code' in error && error.code === 'ENOENT') continue; // Python workspace members have no JavaScript exports.
       throw error;
     }
     await symlink(fileURLToPath(root), join(modules, manifest.name.slice('@ethivia/'.length)), 'dir');
@@ -46,7 +52,7 @@ try {
     skipLibCheck: false,
     allowImportingTsExtensions: false,
     types: ['node'],
-    typeRoots: [fileURLToPath(new URL('../node_modules/@types/', import.meta.url))],
+    typeRoots: [fileURLToPath(new URL('./node_modules/@types/', import.meta.url))],
   });
   const diagnostics = ts.getPreEmitDiagnostics(program);
   if (diagnostics.length) {

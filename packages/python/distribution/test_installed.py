@@ -1,5 +1,3 @@
-"""Verify a base distribution through its installed provider API and CLI."""
-
 from __future__ import annotations
 
 import asyncio
@@ -15,7 +13,7 @@ import vacp
 from vacp import ProviderComposer, as_dict
 
 
-def main() -> None:
+def test_installed_base_distribution() -> None:
     package = distribution('vacp')
     metadata = package.metadata
     assert {specifier.strip() for specifier in metadata['Requires-Python'].split(',')} == {'>=3.10', '<3.15'}
@@ -26,7 +24,7 @@ def main() -> None:
         assert package.read_text(f'licenses/{license_file}')
     assert files('vacp').joinpath('py.typed').is_file()
     assert vacp.__file__ is not None
-    assert not Path(vacp.__file__).resolve().is_relative_to(Path(__file__).resolve().parents[1])
+    assert not Path(vacp.__file__).resolve().is_relative_to(Path(__file__).resolve().parents[3])
     for dependency in ('fastmcp', 'playwright', 'starlette'):
         assert find_spec(dependency) is None
 
@@ -51,7 +49,3 @@ def main() -> None:
         version_result = subprocess.run([*command, '--version'], capture_output=True, text=True, check=True)
         assert version_result.stdout.strip() == f'vacp {package.version}'
     print(f'Installed vacp {package.version}: base API, CLI, typing marker, and license verified on {sys.version}')
-
-
-if __name__ == '__main__':
-    main()

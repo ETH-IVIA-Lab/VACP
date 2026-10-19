@@ -95,6 +95,6 @@ Read the package's implementation and consumers before changing a contract. Upda
 
 Test observable behavior through exported APIs and browser interactions. For visualization changes, run the affected Playwright cases and inspect browser output in a fresh session. Assert native rows, controls, marks, and geometry against independent renderer evidence; successful action envelopes and self-reported precision are insufficient. Keep recordings paired with the exact scenario results and promote artifacts only after their assertions succeed. For packaging changes, build from the workspace root and check the packaged output. Keep external model calls out of default tests.
 
-Edit gallery route generation in `examples/gallery/scripts/sync-generated.mjs`, not its generated HTML or copied assets. Keep generated output, browser reports, and local credentials out of version control. Do not run dependency upgrades, publish artifacts, or contact external model endpoints unless the task requests it.
+Edit gallery route generation in `examples/gallery/scripts/sync-generated.ts`, not its generated HTML or copied assets. Keep generated output, browser reports, and local credentials out of version control. Do not run dependency upgrades, publish artifacts, or contact external model endpoints unless the task requests it.
 
 CI runs the same checks and tests. Docker publishing is restricted to the main branch or manual dispatch. See `development_docs/contributing.md` for local commands and `development_docs/architecture.md` for runtime contracts.

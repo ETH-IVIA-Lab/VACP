@@ -8,9 +8,9 @@ UV ?= uv
 PYTHON ?= 3.12
 VP := $(PNPM) exec vp
 UV_RUN := $(UV) run --all-packages --all-groups --locked --python $(PYTHON)
-WORKSPACE_FILTERS := --filter './packages/*' --filter './apps/*' --filter './examples/*'
+WORKSPACE_FILTERS := --filter './packages/*' --filter './apps/*' --filter './examples/*' --filter @ethivia/vacp-scripts
 # Oxfmt and Oxlint read the repository .gitignore only, so name the source roots they check.
-SOURCE_PATHS := .github apps development_docs docs examples packages tools $(wildcard *.ts *.json *.jsonc *.yaml *.md)
+SOURCE_PATHS := .github apps development_docs docs examples packages scripts tools $(wildcard *.ts *.json *.jsonc *.yaml *.md)
 # Extra Playwright arguments for browser-test, such as --shard=1/4.
 PLAYWRIGHT_ARGS ?=
 
@@ -83,11 +83,11 @@ test-tools: ## Validate the vendored anti-slop rules and their CLI integration.
 
 # The generated gallery routes are what reference examples/gallery/src/route-entry.ts.
 knip: ## Check unused files, exports, and dependencies.
-	node examples/gallery/scripts/sync-generated.mjs
+	$(PNPM) --filter @ethivia/vacp-examples generate
 	$(PNPM) exec knip --treat-config-hints-as-errors
 
 test-package-imports: build-libs ## Verify public package exports in native Node and TypeScript.
-	$(PNPM) exec node tools/check-package-imports.mjs
+	$(PNPM) --filter @ethivia/vacp-scripts check-package-imports
 
 test: build-libs test-package-imports python-test ## Run JavaScript and Python unit tests.
 	$(VP) run $(WORKSPACE_FILTERS) test
@@ -106,14 +106,7 @@ package: ## Build Python distributions and validate their PyPI metadata.
 		$(UV_RUN) twine check --strict dist/python/vacp-$$version-py3-none-any.whl dist/python/vacp-$$version.tar.gz
 
 python-test-package: package ## Test installed Python distributions. Override PYTHON for compatibility checks.
-	set -eu; version=$$($(UV) version --package vacp --short); \
-		for distribution in dist/python/vacp-$$version-py3-none-any.whl dist/python/vacp-$$version.tar.gz; do \
-			$(UV) run --isolated --no-project --python $(PYTHON) --with "$$distribution" \
-				python -I tools/check-python-package.py; \
-			$(UV) run --isolated --no-project --python $(PYTHON) --with "$$distribution[server,http]" \
-				--with 'pytest>=9' --with 'pytest-asyncio>=0.24.0' \
-				python -I -m pytest; \
-		done
+	$(PNPM) --filter @ethivia/vacp-scripts check-python-package --python $(PYTHON) --uv $(UV)
 
 browser-install: ## Install Chromium and its required system libraries.
 	$(PNPM) --filter @ethivia/vacp-e2e exec playwright install --with-deps chromium

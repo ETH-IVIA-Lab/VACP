@@ -15,6 +15,7 @@
     "examples/custom-integration/**/*.ts",
     "examples/*/vite.config.ts",
     "packages/*/bench/**/*.ts",
-    "tools/stylex/**/*.ts"
+    "tools/stylex/**/*.ts",
+    "tools/benchmark.ts"
   ]
 }

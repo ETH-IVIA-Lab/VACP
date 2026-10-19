@@ -23,7 +23,7 @@ export async function serveGallery(repoRoot: string, mode: ServeMode, port: numb
   const vp = join(cwd, 'node_modules/.bin/vp');
   const command =
     mode === 'dev'
-      ? `node scripts/sync-generated.mjs && ${vp} dev --host 127.0.0.1 --port ${port} --strictPort`
+      ? `pnpm generate && ${vp} dev --host 127.0.0.1 --port ${port} --strictPort`
       : `${vp} preview --host 127.0.0.1 --port ${port} --strictPort`;
   const child = spawn('/bin/sh', ['-c', command], {
     cwd,

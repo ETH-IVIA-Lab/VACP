@@ -15,7 +15,7 @@
   },
   "scripts": {
     "build": "vp pack",
-    "test": "tsx --test --test-timeout=10000 test/*.test.ts test/*.test.js",
+    "test": "tsx --test --test-timeout=10000 test/*.test.ts",
     "bench": "tsx bench/registration.ts"
   },
   "dependencies": {
