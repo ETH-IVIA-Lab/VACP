@@ -1,6 +1,7 @@
 # VACP: Visual Analytics Context Protocol
 
 [![arXiv:2603.29322](https://img.shields.io/badge/arXiv-2603.29322-red)](https://arxiv.org/abs/2603.29322)
+[![Website](https://img.shields.io/badge/project-vacp.dev-green?logo=data:image/svg%2bxml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA5NjggOTY4Ij48ZyBmaWxsPSIjZmZmIj48cmVjdCB4PSI0MCIgeT0iNzMiIHdpZHRoPSI4ODgiIGhlaWdodD0iNTA4IiByeD0iOTQiLz48cGF0aCBkPSJNMCA2NjdRMCA2MDcgNjAgNjA3SDkwOFE5NjggNjA3IDk2OCA2NjdWODAwUTk2OCA4NjAgOTAwIDg5MFE3MDAgOTY4IDQ4NCA5NjhRMjY4IDk2OCA2OCA4OTBRMCA4NjAgMCA4MDBaIi8+PGNpcmNsZSBjeD0iNDg0IiBjeT0iODAiIHI9IjgwIi8+PC9nPjxnIGZpbGw9IiM1NTUiPjxjaXJjbGUgY3g9IjMwMiIgY3k9IjMwNyIgcj0iNzQiLz48Y2lyY2xlIGN4PSI2NTIiIGN5PSIzMDciIHI9Ijc0Ii8+PC9nPjwvc3ZnPgo=)](https://vacp.dev)
 
 ![AI agents use VACP to read visual analytics state, discover available interactions, and execute named operations that update the charts.](apps/docs/public/images/VACP_Teaser.svg)
 
