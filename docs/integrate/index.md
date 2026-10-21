@@ -82,7 +82,7 @@ The journal then records one observation with the human as its actor, and [repla
 
 ## Support restoration
 
-Replay and inspection surfaces restore recorded state through the `vacp.apply_state` contract. Inside `connectThreshold`, before creating the provider, register it with a preparation function that validates the recorded state and returns the change to apply:
+Replay and inspection surfaces restore recorded state through the `vacp.apply_state` contract. Inside `connectThreshold`, before creating the provider, register it with a `prepare` function that validates the state and returns the change to apply:
 
 ```ts
 import { registerVacpApplyStateAction } from '@ethivia/vacp-runtime';
@@ -90,7 +90,7 @@ import { registerVacpApplyStateAction } from '@ethivia/vacp-runtime';
 registerVacpApplyStateAction(
   actions.registry,
   (state) => {
-    const next = z.object({ value: z.number().min(0).max(100) }).parse(state[ref]);
+    const next = thresholdParams.parse(state[ref]);
     return () => {
       input.value = String(next.value);
       return { applied: 1 };
@@ -100,7 +100,9 @@ registerVacpApplyStateAction(
 );
 ```
 
-Preparation runs before anything changes. A state that fails to parse fails the restoration for this source, and other sources still restore.
+Agents can call `vacp.apply_state` like any other operation, so `prepare` must reject every state your operations refuse, including well-formed values that break a domain rule. `connectThreshold` parses with `thresholdParams`, the schema `threshold.set` uses, so a restored threshold stays between 0 and 100.
+
+Throwing from `prepare` rejects the state before anything changes. A rejected state fails the restoration for this source, and other sources still restore.
 
 ## Expose data
 

@@ -112,7 +112,7 @@ registerVacpDataSchemaAction(registry, handler, options?: { availability?; input
 registerVacpWidgetOptionsAction(registry, handler, options?: { availability?; inputRefs?; description? })
 ```
 
-Each registers its [standard contract](./protocol#standard-contracts) with parameter validation and returns the descriptor. Invalid parameters fail with the same `invalid-params` details as `@ethivia/vacp-sdk` operations. `prepare` for `vacp.apply_state` receives the desired state and returns the function that applies it. Throw from `prepare` to reject a state before anything changes. `@ethivia/vacp-duckdb` provides the SQL and schema handlers.
+Each registers its [standard contract](./protocol#standard-contracts) with parameter validation and returns the descriptor. Invalid parameters fail with the same `invalid-params` details as `@ethivia/vacp-sdk` operations. `prepare` for `vacp.apply_state` receives the desired state and returns the function that applies it. Throw from `prepare` to reject a state before anything changes. Agents can call `vacp.apply_state` too, so reject every state the source's operations refuse. `@ethivia/vacp-duckdb` provides the SQL and schema handlers.
 
 ### parseVacpParams
 
