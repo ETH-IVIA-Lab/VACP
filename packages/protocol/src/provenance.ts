@@ -57,8 +57,15 @@ export type VacpProvenanceSnapshot = {
   runtimeId: string;
   sessionKey?: string;
   epoch: number;
+  /**
+   * Records captured in this epoch, including dropped ones. `revision > records.length` means the
+   * oldest `revision - records.length` records are no longer retained.
+   */
   revision: number;
-  /** The most recent records retained. A consumer mirroring events applies the same bound. */
+  /**
+   * The most recent records retained. Past it, the oldest record is dropped. A consumer mirroring
+   * events applies the same bound.
+   */
   limit: number;
   records: readonly VacpProvenanceRecord[];
 };
