@@ -530,7 +530,7 @@ test('examples: the DOM snapshot advances by observation revision and rewrites o
         const script = record.target as Element;
         const text = record.addedNodes[0]?.textContent;
         if (script.id === indexId && text) writes.indexes.push(JSON.parse(text));
-        const ref = script.getAttribute('data-vacp-ref');
+        const ref = script.getAttribute('data-vacp-snapshot-ref');
         if (ref && text) writes.rewritten.push(ref);
       }
     }).observe(document.head, { childList: true, subtree: true });
@@ -562,6 +562,7 @@ test('examples: the DOM snapshot advances by observation revision and rewrites o
   }
   expect(revision).toBe(latest);
   for (const ref of changed) expect(listed).toContain(ref);
+  for (const ref of changed) expect(writes.rewritten).toContain(ref);
   for (const ref of writes.rewritten) expect(listed).toContain(ref);
   expect(listed.size).toBeLessThan(Object.keys(after.state).length);
 });

@@ -48,13 +48,15 @@ Disposes the runtime at `globalKey` regardless of how many installations attache
 
 The base script (`__vacp_snapshot` by default) holds a `vacp.dom_snapshot` manifest that links the other scripts by ID:
 
-| Script        | Contents                                                                                       |
-| ------------- | ---------------------------------------------------------------------------------------------- |
-| Manifest      | `observation.revision`, sources, freshness, and the IDs of the graph, state index, and catalog |
-| Graph         | Nodes, edges, and actions, with a `token` that changes when the graph changes                  |
-| State catalog | One entry per ref with its `scriptId`, kind, layer, and title, and a `token` for the catalog   |
-| State index   | `revision`, `baseRevision`, `changedRefs`, `removedRefs`, and whether the catalog changed      |
-| Ref           | One ref's `value` and optional `summary`                                                       |
+| Script        | `data-vacp`              | Contents                                                                                       |
+| ------------- | ------------------------ | ---------------------------------------------------------------------------------------------- |
+| Manifest      | `snapshot`               | `observation.revision`, sources, freshness, and the IDs of the graph, state index, and catalog |
+| Graph         | `snapshot-graph`         | Nodes, edges, and actions, with a `token` that changes when the graph changes                  |
+| State catalog | `snapshot-state-catalog` | One entry per ref with its `scriptId`, kind, layer, and title, and a `token` for the catalog   |
+| State index   | `snapshot-state-index`   | `revision`, `baseRevision`, `changedRefs`, `removedRefs`, and whether the catalog changed      |
+| Ref           | `snapshot-ref`           | One ref's `value` and optional `summary`                                                       |
+
+Every script carries `data-vacp-root` with the base script ID, and each ref script carries `data-vacp-snapshot-ref` with its ref.
 
 The runtime writes a snapshot when the observation revision or the graph changes. Each ref is compared with the value last written, so unchanged refs keep their script text, and the graph and catalog scripts are rewritten only when they change.
 

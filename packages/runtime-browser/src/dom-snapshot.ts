@@ -70,7 +70,7 @@ function ensureSnapshotScript(args: {
   script.setAttribute('data-vacp-id', args.id);
   script.setAttribute('data-vacp-root', args.rootId);
 
-  if (args.ref) script.setAttribute('data-vacp-ref', args.ref);
+  if (args.ref) script.setAttribute('data-vacp-snapshot-ref', args.ref);
   (document.head ?? document.body ?? document.documentElement).appendChild(script);
 
   return script;
