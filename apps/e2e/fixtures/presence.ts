@@ -1,6 +1,7 @@
 import embed from 'vega-embed';
 import { createVegaLiteProvider } from '@ethivia/vacp-vega-lite';
 import { createVegaLitePresentation } from '@ethivia/vacp-vega-lite/presentation';
+import { vacpAgentActor } from '@ethivia/vacp-protocol';
 import { createVacpRuntime } from '@ethivia/vacp-runtime';
 import {
   createBrowserPresence,
@@ -371,4 +372,40 @@ export function measureGrowingTrailFocus() {
   } finally {
     renderer.dispose?.();
   }
+}
+
+/** A recorded step of a two-step request by `vacpAgentActor`, drawn with the host's labels and left on screen. */
+export function showRecordedStep(
+  labels: BrowserPresenceOptions['labels'],
+  { reviewing, working }: { reviewing: boolean; working: boolean },
+) {
+  const renderer = createBrowserPresenceRenderer({ motion: 'reduced', hover: false, labels });
+  renderer.render({
+    reason: 'activity',
+    activities: [
+      {
+        actor: vacpAgentActor,
+        phase: reviewing ? 'reviewing' : 'completed',
+        recordId: 'step',
+        frame: 'step',
+        summary: 'Die Laborwerte sind gefiltert.',
+        target: null,
+        freshness: 'current',
+      },
+    ],
+    navigation: {
+      frames: ['start', 'step', 'step', 'conclusion'],
+      index: 1,
+      canBack: true,
+      canForward: true,
+      reviewing,
+      restoring: false,
+      working,
+      diverged: true,
+      go() {},
+      back() {},
+      forward() {},
+      close() {},
+    },
+  });
 }

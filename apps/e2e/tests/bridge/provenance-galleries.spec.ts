@@ -114,8 +114,8 @@ async function verifyReplay(page: Page, engine: 'vega-lite' | 'vgplot', first: s
   const bubble = page.locator('[data-vacp-bubble]');
   await expect(bubble.locator('strong')).toHaveText('comparison');
   const label = bubble.locator('[data-vacp-heading]');
-  const back = page.getByRole('button', { name: 'Previous analytical step' });
-  const next = page.getByRole('button', { name: 'Next analytical step' });
+  const back = page.getByRole('button', { name: 'Previous step' });
+  const next = page.getByRole('button', { name: 'Next step' });
   await expect(label).toHaveText('Conclusion');
   await bubble.hover();
   await back.click();
@@ -133,5 +133,5 @@ async function verifyReplay(page: Page, engine: 'vega-lite' | 'vgplot', first: s
   await next.click();
   await expect(label).toHaveText('Conclusion');
   await expect.poll(() => rendered(page, engine)).toEqual(last);
-  await expect(page.getByRole('button', { name: 'Return to live analysis' })).toBeHidden();
+  await expect(page.getByRole('button', { name: 'Return to the live view' })).toBeHidden();
 }

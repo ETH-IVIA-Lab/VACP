@@ -195,7 +195,7 @@ type VacpInteraction = {
 };
 ```
 
-`vacpAgentActor` is `{ id: 'agent', kind: 'agent', label: 'Agent' }`, the actor every agent transport uses when the host names none. `vacpHumanActor` is `{ id: 'human', kind: 'human', label: 'You' }`, the actor of restorations.
+`vacpAgentActor` is `{ id: 'agent', kind: 'agent' }`, the actor every agent transport uses when the host names none. `vacpHumanActor` is `{ id: 'human', kind: 'human' }`, the actor of restorations. An actor's `label` replaces the name a viewer gives its `kind`, such as the presence overlay's [`labels`](./presence-browser#labels).
 
 A `VacpExecution` describes one call's lifecycle: `id`, monotonic `sequence`, `callId`, `name`, `actor`, `activityId`, `narration`, `sourceId`, `intent`, and `phase`, one of `accepted`, `prepared`, `running`, `succeeded`, `failed`, or `cancelled`. `isVacpExecutionSettled(execution)` is true for the last three. `VacpExecutionSource` publishes executions through `getActiveExecutions()` and `subscribeExecutions(listener)`. `VacpExecutionControl.addExecutionGate(gate, { timeoutMs, stage })` adds a bounded wait before or after execution.
 

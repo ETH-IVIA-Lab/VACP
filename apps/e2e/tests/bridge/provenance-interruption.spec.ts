@@ -38,8 +38,8 @@ test('native input abandons a pending restoration without rollback or late effec
     true,
   );
   const bubble = page.locator('[data-vacp-bubble]');
-  const back = page.getByRole('button', { name: 'Previous analytical step' });
-  const close = page.getByRole('button', { name: 'Return to live analysis' });
+  const back = page.getByRole('button', { name: 'Previous step' });
+  const close = page.getByRole('button', { name: 'Return to the live view' });
   await expect(bubble.locator('[data-vacp-heading]')).toHaveText('Conclusion');
   await bubble.hover();
   // From the conclusion, the step before the age brush is two frames back.
@@ -56,7 +56,7 @@ test('native input abandons a pending restoration without rollback or late effec
   await close.click();
   await expect(page.locator('.athlete-summary strong').first()).toHaveText('506');
   const original = await ageBrush(page);
-  // Returning to live analysis dismissed the trail; a new agent turn offers it again.
+  // Returning to the live view dismissed the trail; a new agent turn offers it again.
   await expect(bubble).toHaveCount(0);
   await page.evaluate(() => window.__vacp!.beginAgentActivity({ actor: { id: 'agent', kind: 'agent' } }).end());
   await expect(back).toBeEnabled();

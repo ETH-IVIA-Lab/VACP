@@ -2,6 +2,7 @@ import type { PresenceActivity, PresenceNavigation, PresencePoint } from '@ethiv
 import type { CursorShape } from './cursor-assets';
 import type { CursorPresentation } from './cursor-semantics';
 import { actorLabel, headingOf } from './describe';
+import type { PresenceLabels } from './labels';
 import { createNarration } from './narration';
 
 export type SlotKey = string | symbol;
@@ -55,6 +56,7 @@ function same(a: Slot, b: Slot): boolean {
 export function createSlots(options: {
   describe: (activity: PresenceActivity) => string;
   cursor: (activity: PresenceActivity) => CursorPresentation;
+  labels: PresenceLabels;
 }) {
   const entries = new Map<SlotKey, Entry>();
   /** Where departed actors last rested, so a returning one continues from there. */
@@ -106,10 +108,10 @@ export function createSlots(options: {
             stack: entry?.slot.stack ?? entries.size,
             exiting: false,
             phase: activity.phase,
-            speaker: actorLabel(activity.actor),
+            speaker: actorLabel(activity.actor, options.labels),
             agent: activity.actor.kind === 'agent',
             busy,
-            heading: headingOf(activity, navigation),
+            heading: headingOf(activity, navigation, options.labels),
             words,
             waiting,
             message: Object.freeze({ ...message }),

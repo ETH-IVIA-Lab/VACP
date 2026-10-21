@@ -111,7 +111,7 @@ test('an agent brush in the built athletes route lands on the native Mosaic brus
   await expect(bubble.locator('[data-vacp-heading]')).toHaveText('Conclusion');
   // The request's recorded step outlines the native brush it left behind.
   await bubble.hover();
-  await page.getByRole('button', { name: 'Previous analytical step' }).click();
+  await page.getByRole('button', { name: 'Previous step' }).click();
   await expect(bubble.locator('[data-vacp-heading]')).toHaveText('Step 1 of 1');
   const box = (selector: string, shadow: boolean) =>
     page.evaluate(

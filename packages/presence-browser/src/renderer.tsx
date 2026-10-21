@@ -29,7 +29,7 @@ export function createBrowserPresenceRenderer(options: BrowserPresenceOptions = 
   doc.documentElement.append(host);
   const root = createRoot(shadow);
   const context = { engine, config };
-  const slots = createSlots({ describe: config.describe, cursor: config.cursor.resolve });
+  const slots = createSlots({ describe: config.describe, cursor: config.cursor.resolve, labels: config.labels });
   const pointers = new Map<number, PointerMotion>();
   /** The slot each pointer last drew, so a pointer measures its label only when its content changed. */
   const drawn = new Map<number, Slot>();

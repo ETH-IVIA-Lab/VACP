@@ -39,8 +39,8 @@ test('the step bubble follows the agent cursor through replay, and dismissal rem
   await page.evaluate(() => window.__vacpStream!.end({ summary: 'The comparison is ready.' }));
 
   const bubble = page.locator('[data-vacp-bubble]');
-  const back = page.getByRole('button', { name: 'Previous analytical step' });
-  const next = page.getByRole('button', { name: 'Next analytical step' });
+  const back = page.getByRole('button', { name: 'Previous step' });
+  const next = page.getByRole('button', { name: 'Next step' });
   await expect(bubble).toHaveCount(1);
   await bubble.hover();
 
@@ -87,7 +87,7 @@ test('the step bubble follows the agent cursor through replay, and dismissal rem
   expect(steps[3]!.bubble).toEqual(steps[1]!.bubble);
 
   // Leaving review dismisses the trail completely: no bubble, cursor, outline, or reappearance on layout or human input.
-  await page.getByRole('button', { name: 'Return to live analysis' }).click();
+  await page.getByRole('button', { name: 'Return to the live view' }).click();
   const shadow = page.locator('[data-vacp-presence]');
   const gone = async () =>
     shadow.evaluate((host) => {

@@ -104,7 +104,6 @@
   ],
   "actor": {
     "id": "agent",
-    "kind": "agent",
-    "label": "Agent"
+    "kind": "agent"
   }
 }

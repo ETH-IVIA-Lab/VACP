@@ -103,7 +103,7 @@ test('VGPlot presence matches the native interval brush', async ({ page }) => {
   // The recorded step outlines the brush the request left behind.
   const bubble = page.locator('[data-vacp-bubble]');
   await bubble.hover();
-  await page.getByRole('button', { name: 'Previous analytical step' }).click();
+  await page.getByRole('button', { name: 'Previous step' }).click();
   await expect(bubble.locator('[data-vacp-heading]')).toHaveText('Step 1 of 1');
   await expect(page.locator('[data-vacp-presence] [data-vacp-cursor]')).toHaveAttribute(
     'data-vacp-cursor-shape',
