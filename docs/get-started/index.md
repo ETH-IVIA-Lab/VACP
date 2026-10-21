@@ -53,3 +53,4 @@ Ask the agent a question about the data, for example "Compare rowers and canoeis
 - [Connect your own application](../integrate/) with `@ethivia/vacp-sdk`.
 - Add VACP to a [Vega-Lite](../vega-lite/) or [Mosaic vgplot](../vgplot/) view.
 - Run an agent [inside the page](../agents/) or through [WebMCP](../agents/webmcp).
+- Point the coding agent that builds your integration at [`llms.txt`](https://docs.vacp.dev/llms.txt), which links a Markdown copy of each guide and reference page, or at [`llms-full.txt`](https://docs.vacp.dev/llms-full.txt) for all of them in one file.

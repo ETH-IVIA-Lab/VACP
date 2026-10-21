@@ -147,8 +147,12 @@ Commit `pnpm-lock.yaml` and `uv.lock` with the manifest changes.
 
 The image workflow runs after successful CI on `main`, or by manual dispatch on `main`. It builds the documentation and gallery images from `infra/*.Dockerfile` and pushes them to the configured [Harbor](https://goharbor.io) container registry, tagged with the tested commit SHA and `latest`. The images start from `ghcr.io/pnpm/pnpm`, and `pnpm install` provisions Node.js from `devEngines.runtime`. Registry credentials are GitHub Actions secrets.
 
-`.github/workflows/pages.yml` builds the documentation site on pull requests that change it and deploys every `main` commit to [GitHub Pages](https://docs.github.com/en/pages). `actions/configure-pages` reports the Pages base path, which the VitePress config reads from `BASE_PATH`. The deploy job skips a commit that is no longer the tip of `main`.
+`.github/workflows/pages.yml` builds the documentation site on pull requests that change it and deploys every `main` commit to [GitHub Pages](https://docs.github.com/en/pages). The workflow passes the site base to the VitePress config as `BASE_PATH`: the Pages base path from `actions/configure-pages` on `main`, and the repository path, `/VACP`, on pull requests. The deploy job skips a commit that is no longer the tip of `main`.
 
 ## Documentation
 
 `docs/` holds the Markdown pages of the documentation site. `apps/docs` is the [VitePress](https://vitepress.dev) app that builds them, with its configuration and theme in `.vitepress/` and static assets in `public/`. Run `make docs-serve` to preview it and `make docs` to build it. `development_docs/` holds architecture, contribution, and test guides for people working on this repository.
+
+`make docs` also writes `llms.txt`, `llms-full.txt`, and a Markdown view of each guide and reference page to `apps/docs/.vitepress/dist` with [`vitepress-plugin-llms`](https://github.com/okineadev/vitepress-plugin-llms). The build then points each relative and root-relative link in them at the Markdown view, page, or file it names under the site base, and fails on a link that names none of them. Put images in `apps/docs/public` and link them from the site root, such as `/images/VACP_Teaser.svg`.
+
+The views drop HTML and Vue components. Describe what a component such as `<ArchitectureDiagram />` shows in the page's prose, or in `<llm-only>` tags separated from the text by blank lines.

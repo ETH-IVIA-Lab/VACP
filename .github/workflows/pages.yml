@@ -42,9 +42,11 @@ jobs:
         id: pages
         uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6.0.0
 
+      # Pull requests build under the repository path that Pages serves, so the build checks links against
+      # the base before merge.
       - name: Build documentation
         env:
-          BASE_PATH: ${{ steps.pages.outputs.base_path }}
+          BASE_PATH: ${{ github.event_name == 'pull_request' && format('/{0}', github.event.repository.name) || steps.pages.outputs.base_path }}
         run: make docs
 
       - name: Confirm this commit is still the tip of main

@@ -7,7 +7,7 @@
 
 VACP lets AI agents read and change visual analyses through named operations, while the person using them watches each step. Providers describe [Vega-Lite](https://vega.github.io/vega-lite/) charts, [Mosaic vgplot](https://idl.uw.edu/mosaic/vgplot/) dashboards, and custom applications as one graph of views, selections, parameters, and data handles. Agents connect through the [Model Context Protocol](https://modelcontextprotocol.io) (MCP), [AI SDK](https://ai-sdk.dev) tools, or [WebMCP](https://webmachinelearning.github.io/webmcp/). Presence shows the agent's cursor and one sentence per step, and replay restores the charts to each checkpoint.
 
-Try the [examples gallery](https://examples.vacp.dev/), then read the [documentation](https://docs.vacp.dev/).
+Try the [examples gallery](https://examples.vacp.dev/), then read the [documentation](https://docs.vacp.dev/). Coding agents can read it as Markdown from [`llms.txt`](https://docs.vacp.dev/llms.txt).
 
 ## Run it locally
 
