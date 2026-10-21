@@ -17,7 +17,7 @@
       "input": ["name", "params", "narration", "call_id"]
     },
     "vacp_progress": {
-      "description": "Tell the person watching what you are about to do, in one short plain sentence they can read on screen. Call it once before your first action. Set done to true with a brief closing sentence that states what the view now shows. Every action also carries its own narration, so each step shows its own reason.",
+      "description": "Tell the person watching what you are about to do, in one short plain sentence in the language they read on screen. Call it once before your first action. Set done to true with a brief closing sentence in the same language that states the result. Every action also carries its own narration, so each step shows its own reason.",
       "input": ["message", "done"]
     }
   },
