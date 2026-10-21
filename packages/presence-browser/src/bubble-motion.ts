@@ -17,10 +17,11 @@ export function createBubbleMotion(width: number) {
   const parts: Partial<Record<BubblePart, HTMLElement>> = {};
   let observer: ResizeObserver | undefined;
   let placement: BubblePlacement | undefined;
-  /** Painted frame by frame under a travelling cursor, away from the last settled placement. */
-  let riding = false;
+  /** Where the label is painted frame by frame under a travelling cursor, away from the last settled placement. */
+  let riding: PresencePoint | undefined;
   let movement: Animation | undefined;
   let resizing: Animation[] = [];
+  /** The label's last laid-out height. A label in a hidden overlay, as in print, reads 0 and keeps it. */
   let height = 0;
   let measuredWidth = 0;
   let dirty = true;
@@ -28,8 +29,9 @@ export function createBubbleMotion(width: number) {
   let planned: { key: string; placement: BubblePlacement } | undefined;
   const measure = (viewport: Viewport) => {
     const w = Math.min(width, Math.max(0, viewport.width - 24));
-    if (parts.root && (dirty || measuredWidth !== w)) {
-      height = parts.root.offsetHeight;
+    const measured = parts.root && (dirty || measuredWidth !== w) ? parts.root.offsetHeight : 0;
+    if (measured) {
+      height = measured;
       measuredWidth = w;
       dirty = false;
     }
@@ -53,7 +55,7 @@ export function createBubbleMotion(width: number) {
             // The observed border box is the committed height; reading it again would force layout.
             const size = entry?.borderBoxSize[0]?.blockSize;
             if (size === undefined) dirty = true;
-            else if (Math.round(size) === height) return;
+            else if (!size || Math.round(size) === height) return;
             else height = Math.round(size);
             if (last) api.place(last.point, last.viewport, last.beside, last.reduced);
           });
@@ -101,9 +103,13 @@ export function createBubbleMotion(width: number) {
     },
     /** The painted surface, including any running movement or resize. */
     painted(): PresencePoint & { height: number } {
-      if (!parts.surface) return { x: placement?.x ?? 0, y: placement?.y ?? 0, height };
-      const { x, y, height: painted } = parts.surface.getBoundingClientRect();
-      return { x, y, height: painted };
+      const rect = parts.surface?.getBoundingClientRect();
+      // Inside a hidden overlay, as in print, the surface has no box and reads 0 wide.
+      if (!rect?.width) {
+        const at = riding ?? placement;
+        return { x: at?.x ?? 0, y: at?.y ?? 0, height };
+      }
+      return { x: rect.x, y: rect.y, height: rect.height };
     },
     /** Settle the label, moving it continuously from wherever it is painted now. */
     place(point: PresencePoint, viewport: Viewport, beside: PresenceGeometry | undefined, reduced: boolean) {
@@ -112,12 +118,12 @@ export function createBubbleMotion(width: number) {
       last = { point, viewport, beside, reduced };
       const next = api.plan(point, viewport, beside);
       const moving =
-        riding || movement?.playState === 'running' || resizing.some((motion) => motion.playState === 'running');
+        !!riding || movement?.playState === 'running' || resizing.some((motion) => motion.playState === 'running');
       // A followed, moving, or resizing label starts from where it is painted; otherwise the last placement is exact.
       const from = moving ? api.painted() : placement;
       const sizeChanged = !!from && Math.abs(from.height - height) > 0.5;
       const moved = !from || Math.abs(from.x - next.x) > 0.5 || Math.abs(from.y - next.y) > 0.5;
-      riding = false;
+      riding = undefined;
       placement = next;
       if (!moved && !sizeChanged) return;
       stop();
@@ -143,8 +149,8 @@ export function createBubbleMotion(width: number) {
         // Height changes mid-flight only reposition once the cursor settles.
         last = undefined;
         stop();
-        riding = true;
       }
+      riding = { x, y };
       parts.root.style.transform = `translate(${x}px,${y}px)`;
     },
     root: () => parts.root,

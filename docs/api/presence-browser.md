@@ -1,6 +1,6 @@
 # @ethivia/vacp-presence-react
 
-The browser overlay for [agent presence](../presence/): a cursor per agent, a bubble with its sentences, and the replay trail. It renders with React into its own shadow root, styled by compiled [StyleX](https://stylexjs.com) rules it adopts into that root, so the application adds no stylesheet.
+The browser overlay for [agent presence](../presence/): a cursor per agent, a bubble with its sentences, and the replay trail. It renders with React into its own shadow root, styled by compiled [StyleX](https://stylexjs.com) rules it adopts into that root, so the application adds no stylesheet. The overlay hides when the page prints, whatever print styles the application sets.
 
 ## createBrowserPresence
 

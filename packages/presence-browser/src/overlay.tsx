@@ -8,7 +8,8 @@ import type { Slot } from './slots';
 import { reducedMarker } from './tokens.stylex';
 
 const styles = stylex.create({
-  root: { position: 'absolute', inset: 0, pointerEvents: 'none' },
+  // The host's inline style cannot hold a media query, so the root leaves print with every cursor and bubble.
+  root: { position: 'absolute', inset: 0, pointerEvents: 'none', display: { default: null, '@media print': 'none' } },
   status: { position: 'absolute', width: 1, height: 1, overflow: 'hidden', clipPath: 'inset(50%)' },
 });
 
