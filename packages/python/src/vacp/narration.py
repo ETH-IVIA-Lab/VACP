@@ -10,9 +10,9 @@ from __future__ import annotations
 NARRATION_MAX_LENGTH = 280
 
 PROGRESS_GUIDANCE = (
-    'Tell the person watching what you are about to do, in one short plain sentence they can read on screen. '
-    'Call it once before your first action. Set done to true with a brief closing sentence that states what the '
-    'view now shows. Every action also carries its own narration, so each step shows its own reason.'
+    'Tell the person watching what you are about to do, in one short plain sentence in the language they read on '
+    'screen. Call it once before your first action. Set done to true with a brief closing sentence in the same '
+    'language that states the result. Every action also carries its own narration, so each step shows its own reason.'
 )
 
 PROGRESS_FIELDS = {
@@ -21,8 +21,8 @@ PROGRESS_FIELDS = {
 }
 
 NARRATION_GUIDANCE = (
-    'One short present-tense sentence for the person watching: what this step does to the data and the view, '
-    'and why, for example "Keeping rowing and canoe to compare the two paddle sports". '
+    'One short present-tense sentence for the person watching, in the language they read on screen: what this step '
+    'changes and why, for example "Keeping the two chosen options so they can be compared". '
     'Write a new sentence for every step. Leave out tool names, references, ids, and remarks about yourself.'
 )
 
