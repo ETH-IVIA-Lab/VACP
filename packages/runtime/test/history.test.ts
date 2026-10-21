@@ -57,6 +57,41 @@ test('bounded provenance preserves the host actor, public summary, and isolated 
   );
 });
 
+test('provenance revision counts dropped records within an epoch', async (t) => {
+  const actions = new VacpActionRegistry();
+  actions.register({ name: 'set', description: 'Set', operation: { kind: 'mutation' } }, () => {});
+  const runtime = createVacpRuntime({
+    historyLimit: 3,
+    sessionKey: 'first',
+    providers: [
+      createVacpProvider({
+        subscribe: () => () => {},
+        source: { id: 'vacp-source://retention', title: 'Retention', type: 'test' },
+        actions,
+        project: () => ({ graph: { nodes: [], edges: [], actions: actions.list() }, state: {} }),
+      }),
+    ],
+  });
+  t.after(() => runtime.dispose());
+  for (const callId of ['a', 'b', 'c', 'd', 'e']) await runtime.execute({ callId, name: 'set' });
+  const full = runtime.getProvenance();
+  assert.deepEqual(
+    full.records.map((entry) => entry.kind === 'action' && entry.call.callId),
+    ['c', 'd', 'e'],
+  );
+  assert.equal(full.revision, 5);
+  assert.equal(full.revision - full.records.length, 2);
+
+  runtime.update({ providers: [], sessionKey: 'second' });
+  const next = runtime.getProvenance();
+  assert.equal(next.epoch, full.epoch + 1);
+  assert.deepEqual(
+    next.records.map((entry) => entry.kind),
+    ['session'],
+  );
+  assert.equal(next.revision, 1);
+});
+
 test('provenance reads are passive and session epochs reset retention with isolated events', async (t) => {
   const runtime = createVacpRuntime({ providers: [], sessionKey: 'first' });
   t.after(() => runtime.dispose());

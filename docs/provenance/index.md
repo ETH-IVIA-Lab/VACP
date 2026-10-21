@@ -18,7 +18,7 @@ const unsubscribe = runtime.subscribeProvenance((event) => {
 
 `getProvenance()` returns a frozen snapshot: `runtimeId`, `sessionKey`, `epoch`, `revision`, the retention `limit`, and `records`. `subscribeProvenance` publishes each new record. An epoch is one session of the journal. A changed `sessionKey` or a cleared journal starts a new one, published as an event with `record: null`, and a viewer then drops any selection from the previous epoch.
 
-The runtime keeps the latest 256 records. Pass `historyLimit` to `createVacpRuntime` to change it.
+The runtime keeps the latest 256 records. Pass `historyLimit` to `createVacpRuntime` to change it. `revision` counts every record captured in the epoch, so a snapshot with `revision > records.length` has dropped its oldest `revision - records.length` records. A host that keeps a durable record of a session checks this before treating `records` as complete, and sets `historyLimit` to cover the session.
 
 | Record        | Captures                                                                                                      |
 | ------------- | ------------------------------------------------------------------------------------------------------------- |
