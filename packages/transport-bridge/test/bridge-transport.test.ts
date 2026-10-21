@@ -112,7 +112,7 @@ test('progress speaks through the bridge narrator as the default agent', async (
   assert.deepEqual(await transport.vacp_progress({ message: ' Looking at the age spread. ' }), { ok: true });
   assert.deepEqual(await transport.vacp_progress({ message: 'Most are 22 to 28.', done: true }), { ok: true });
   await assert.rejects(transport.vacp_progress({ message: '' }), /requires a sentence/);
-  const actor = { id: 'agent', kind: 'agent', label: 'Agent' };
+  const actor = { id: 'agent', kind: 'agent' };
   assert.deepEqual(calls, [
     ['narrate', { actor, message: 'Looking at the age spread.', done: false, signal: undefined }],
     ['narrate', { actor, message: 'Most are 22 to 28.', done: true, signal: undefined }],

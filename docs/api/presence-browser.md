@@ -27,7 +27,49 @@ Creates a [`createAgentPresence`](./presence-core#createagentpresence) viewer wi
 | `text`         | Plain text                                           | A `PresenceText` that renders the bubble's words                                                                               |
 | `idlePosition` |                                                      | `(viewport) => point`: where a cursor starts before it has a target                                                            |
 | `describe`     | Built-in wording                                     | `(activity) => string`: the bubble's status line                                                                               |
+| `labels`       | English wording                                      | The overlay's frame names, speaker names, controls, and notes. See [Labels](#labels)                                           |
 | `document`     | `document`                                           | The document to render into, such as an iframe's                                                                               |
+
+## Labels
+
+`labels` takes a partial `PresenceLabels` object with the words the overlay draws and announces around the agent's sentences. Each supplied label replaces its default:
+
+```ts
+const presence = createBrowserPresence(runtime, {
+  replay,
+  appearance: {
+    labels: {
+      start: 'Anfang',
+      step: (position, count) => `Schritt ${position} von ${count}`,
+      conclusion: 'Ergebnis',
+      agent: 'Assistenz',
+      back: 'Vorheriger Schritt',
+      forward: 'Nächster Schritt',
+      live: 'Zurück zur aktuellen Ansicht',
+    },
+  },
+});
+```
+
+| Label                      | Default                                                   | Where it appears                                                                                             |
+| -------------------------- | --------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| `start`                    | `'Start'`                                                 | The first frame's name, as the bubble heading and on its trail mark                                          |
+| `step`                     | `` (position, count) => `Step ${position} of ${count}` `` | A step frame's name. `position` counts from 1, and `count` is the number of steps                            |
+| `conclusion`               | `'Conclusion'`                                            | The last frame's name                                                                                        |
+| `human`, `agent`, `system` | `'You'`, `'Agent'`, `'System'`                            | The name of each kind of actor, in screen reader announcements and in the heading of a human or system actor |
+| `trail`                    | `'Request trail'`                                         | The accessible name of the group of frame marks                                                              |
+| `stepper`                  | `'Trail controls'`                                        | The accessible name of the navigation around the step and close controls                                     |
+| `back`, `forward`          | `'Previous step'`, `'Next step'`                          | The step controls                                                                                            |
+| `live`                     | `'Return to the live view'`                               | The close control during a review                                                                            |
+| `dismiss`                  | `'Dismiss'`                                               | The close control of a retained step                                                                         |
+| `working`                  | `'Stepping resumes when the agent finishes'`              | The tooltip of the step controls and the other frame marks while the agent works                             |
+| `diverged`                 | `'The view may differ slightly from the recording.'`      | The note under a frame that was only partly restored                                                         |
+
+`step` takes a function, and every other label takes nonblank text. A label set to `undefined` keeps its default. `createBrowserPresence` and `createBrowserPresenceRenderer` throw on any other value.
+
+An actor's own `label` takes precedence over `human`, `agent`, and `system`.
+
+`describe` sets the bubble's words for every activity. The built-in wording shows the agent's sentence, or an English description of the step when the agent wrote none.
 
 ## Cursors
 

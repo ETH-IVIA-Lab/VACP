@@ -1,7 +1,8 @@
 import type { PresenceActivity, PresenceNavigation, PresenceTrailFrame } from '@ethivia/vacp-presence';
+import type { PresenceLabels } from './labels';
 
-export function actorLabel(actor: PresenceActivity['actor']): string {
-  return actor.label ?? (actor.kind === 'human' ? 'You' : actor.kind === 'agent' ? 'Agent' : 'System');
+export function actorLabel(actor: PresenceActivity['actor'], labels: PresenceLabels): string {
+  return actor.label ?? (actor.kind === 'human' ? labels.human : actor.kind === 'agent' ? labels.agent : labels.system);
 }
 
 /**
@@ -12,7 +13,7 @@ export function describePresence(activity: PresenceActivity): string {
   if (activity.summary) return activity.summary;
   if (activity.frame === 'start') return "The view before the agent's first change.";
   if (activity.frame === 'conclusion') return "The view after the agent's last change.";
-  if (activity.frame === 'step') return 'Updated the analysis';
+  if (activity.frame === 'step') return 'Updated the view';
   const view = activity.subject ?? 'the view';
   const change = activity.execution?.title;
   if (activity.phase === 'thinking' || activity.phase === 'failed') return `Looking at ${view}`;
@@ -23,18 +24,22 @@ export function describePresence(activity: PresenceActivity): string {
   return change ? `${change} in ${view}` : `Updating ${view}`;
 }
 
-/** The name of every frame of a request, as the heading and the rail say it: "Start", "Step 2 of 5", "Conclusion". */
-export function frameNames(frames: readonly PresenceTrailFrame[]): string[] {
+/** The name of every frame of a request, as the heading and the rail say it, such as "Step 2 of 5". */
+export function frameNames(frames: readonly PresenceTrailFrame[], labels: PresenceLabels): string[] {
   const steps = frames.filter((frame) => frame === 'step').length;
   let step = 0;
   return frames.map((frame) =>
-    frame === 'start' ? 'Start' : frame === 'conclusion' ? 'Conclusion' : `Step ${++step} of ${steps}`,
+    frame === 'start' ? labels.start : frame === 'conclusion' ? labels.conclusion : labels.step(++step, steps),
   );
 }
 
 /** A recorded frame is named by its place in the request. Live work is named by its view. */
-export function headingOf(activity: PresenceActivity, navigation: PresenceNavigation | undefined): string {
+export function headingOf(
+  activity: PresenceActivity,
+  navigation: PresenceNavigation | undefined,
+  labels: PresenceLabels,
+): string {
   const frame = activity.recordId && navigation ? navigation.frames[navigation.index] : undefined;
-  if (frame && navigation) return frameNames(navigation.frames)[navigation.index]!;
-  return activity.subject ?? (activity.actor.kind === 'agent' ? '' : actorLabel(activity.actor));
+  if (frame && navigation) return frameNames(navigation.frames, labels)[navigation.index]!;
+  return activity.subject ?? (activity.actor.kind === 'agent' ? '' : actorLabel(activity.actor, labels));
 }

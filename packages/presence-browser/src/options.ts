@@ -2,6 +2,7 @@ import type { PresenceActivity, PresencePoint } from '@ethivia/vacp-presence';
 import { defaultCursorAssets, type CursorAsset } from './cursor-assets';
 import { defaultCursorPresentation, type CursorPresentation } from './cursor-semantics';
 import { describePresence } from './describe';
+import { defaultLabels, type PresenceLabels } from './labels';
 import { travelStyle, type CursorTravel } from './motion';
 import type { PresenceText } from './text';
 
@@ -25,6 +26,8 @@ export type BrowserPresenceOptions = {
   /** Initial position for an actor without a known target. */
   idlePosition?: (viewport: { width: number; height: number }) => PresencePoint;
   describe?: (activity: PresenceActivity) => string;
+  /** The overlay's frame names, speaker names, controls, and notes. Each supplied label replaces its default. */
+  labels?: Partial<PresenceLabels>;
   bloom?: false | { color?: string; radius?: number };
   cursor?: {
     size?: number;
@@ -77,12 +80,20 @@ export function resolvePresenceOptions(options: BrowserPresenceOptions) {
     if (!asset.path || !Number.isFinite(asset.hotspot.x) || !Number.isFinite(asset.hotspot.y))
       throw new Error('Cursor assets require a path and a finite hotspot');
   }
+  const labels = { ...defaultLabels };
+  for (const [name, value] of Object.entries(options.labels ?? {})) {
+    if (value === undefined || !Object.hasOwn(defaultLabels, name)) continue;
+    if (name === 'step' ? typeof value !== 'function' : typeof value !== 'string' || !value.trim())
+      throw new Error(`Presence label ${name} requires ${name === 'step' ? 'a function' : 'text'}`);
+    Object.assign(labels, { [name]: value });
+  }
   return {
     ...numbers,
     travel: travelStyle(options.travel),
     motion: options.motion ?? 'system',
     surface: 'viewport',
     describe: options.describe ?? describePresence,
+    labels,
     idlePosition: options.idlePosition,
     zIndex: 2147483646,
     text: options.text,

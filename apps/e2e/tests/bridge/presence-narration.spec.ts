@@ -53,7 +53,7 @@ async function replayed(page: Page) {
   await bubble.hover();
   await expect(label).toHaveText('Conclusion');
   const frames = new Map<string, string>([await read()]);
-  const back = page.getByRole('button', { name: 'Previous analytical step' });
+  const back = page.getByRole('button', { name: 'Previous step' });
   while (await back.isEnabled()) {
     const before = await label.innerText();
     await back.click();
@@ -61,7 +61,7 @@ async function replayed(page: Page) {
     frames.set(...(await read()));
   }
   // Stepping forward again shows each frame with the same words.
-  const next = page.getByRole('button', { name: 'Next analytical step' });
+  const next = page.getByRole('button', { name: 'Next step' });
   while (await next.isEnabled()) {
     const before = await label.innerText();
     await next.click();
@@ -147,10 +147,7 @@ test('a step executed without narration names its change instead of repeating an
     const result = await page.evaluate(async ({ contract, params }) => {
       const { graph } = await window.__vacp!.getCapabilities();
       const name = graph.actions.find((action) => action.name.endsWith(contract))!.name;
-      return window.__vacp!.execute(
-        { callId: contract, name, params },
-        { actor: { id: 'agent', kind: 'agent', label: 'Agent' } },
-      );
+      return window.__vacp!.execute({ callId: contract, name, params }, { actor: { id: 'agent', kind: 'agent' } });
     }, step);
     expect(result.ok).toBe(true);
   }
@@ -179,7 +176,7 @@ test('an answer given without a step stays on screen until the person dismisses 
   await expect(bubble).toHaveCount(1);
   await expect(bubble.locator('[data-vacp-summary]')).toHaveText('This cohort has 873 medalists.');
   await bubble.hover();
-  await expect(page.getByRole('button', { name: 'Previous analytical step' })).toBeHidden();
+  await expect(page.getByRole('button', { name: 'Previous step' })).toBeHidden();
   await page.getByRole('button', { name: 'Dismiss' }).click();
   await expect(bubble).toHaveCount(0);
   expect(errors).toEqual([]);

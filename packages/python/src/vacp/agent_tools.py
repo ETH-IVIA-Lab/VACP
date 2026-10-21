@@ -76,10 +76,9 @@ class CapabilitiesRequest(TypedDict, total=False):
 class Actor(TypedDict):
     id: str
     kind: str
-    label: str
 
 
-AGENT_ACTOR: Actor = {'id': 'agent', 'kind': 'agent', 'label': 'Agent'}
+AGENT_ACTOR: Actor = {'id': 'agent', 'kind': 'agent'}
 """The actor steps and narration are attributed to, as every agent transport attributes them."""
 
 

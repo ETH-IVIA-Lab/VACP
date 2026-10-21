@@ -1,6 +1,7 @@
 import * as stylex from '@stylexjs/stylex';
 import { Fragment } from 'react';
 import type { PresenceNavigation } from '@ethivia/vacp-presence';
+import { usePresence } from './context';
 import { frameNames } from './describe';
 import { color, ease, labelMarker, reducedMarker } from './tokens.stylex';
 
@@ -95,14 +96,12 @@ function unavailable(value: boolean) {
 
 const shapes = { start: styles.start, step: styles.step, conclusion: styles.conclusion } as const;
 
-/** Why stepping is unavailable while live work runs. */
-const waiting = 'Stepping resumes when the agent finishes';
-
 /** Every frame of the request, clickable, below the words it frames. */
 export function Trail({ navigation }: { navigation: PresenceNavigation }) {
-  const names = frameNames(navigation.frames);
+  const { labels } = usePresence().config;
+  const names = frameNames(navigation.frames, labels);
   return (
-    <div role="group" aria-label="Request trail" data-vacp-trail="" {...stylex.props(styles.rail)}>
+    <div role="group" aria-label={labels.trail} data-vacp-trail="" {...stylex.props(styles.rail)}>
       {navigation.frames.map((frame, index) => {
         const current = index === navigation.index;
         const past = index < navigation.index;
@@ -113,7 +112,7 @@ export function Trail({ navigation }: { navigation: PresenceNavigation }) {
             <button
               type="button"
               aria-label={names[index]}
-              title={navigation.working && !current ? waiting : names[index]}
+              title={navigation.working && !current ? labels.working : names[index]}
               aria-current={current ? 'step' : undefined}
               {...unavailable(navigation.restoring || navigation.working || current)}
               onClick={() => navigation.go(index)}
@@ -160,21 +159,22 @@ function Chevron({ path }: { path: string }) {
 
 /**
  * Step through the request, or leave it. With nowhere to step, such as a single recorded step or a closing
- * answer, only dismissal remains. Reviewing returns to the live analysis. Otherwise the same control
+ * answer, only dismissal remains. Reviewing returns to the live view. Otherwise the same control
  * dismisses the retained step.
  */
 export function Stepper({ navigation }: { navigation: PresenceNavigation }) {
+  const { labels } = usePresence().config;
   // Arrows belong to a request with somewhere to step, even while live work keeps them waiting.
   const stepping = navigation.reviewing || navigation.frames.length > 1;
-  const close = navigation.reviewing ? 'Return to live analysis' : 'Dismiss';
+  const close = navigation.reviewing ? labels.live : labels.dismiss;
   return (
-    <nav aria-label="Analytical trail" {...stylex.props(styles.stepper)}>
+    <nav aria-label={labels.stepper} {...stylex.props(styles.stepper)}>
       {stepping ? (
         <>
           <button
             type="button"
-            title={navigation.working ? waiting : 'Previous analytical step'}
-            aria-label="Previous analytical step"
+            title={navigation.working ? labels.working : labels.back}
+            aria-label={labels.back}
             {...unavailable(!navigation.canBack)}
             onClick={() => navigation.back()}
             {...stylex.props(styles.control, !navigation.canBack && styles.controlUnavailable)}
@@ -183,8 +183,8 @@ export function Stepper({ navigation }: { navigation: PresenceNavigation }) {
           </button>
           <button
             type="button"
-            title={navigation.working ? waiting : 'Next analytical step'}
-            aria-label="Next analytical step"
+            title={navigation.working ? labels.working : labels.forward}
+            aria-label={labels.forward}
             {...unavailable(!navigation.canForward)}
             onClick={() => navigation.forward()}
             {...stylex.props(styles.control, !navigation.canForward && styles.controlUnavailable)}

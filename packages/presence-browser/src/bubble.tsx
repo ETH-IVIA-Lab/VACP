@@ -241,7 +241,7 @@ export const Bubble = memo(function Bubble({
         )}
         {navigation?.diverged && slot.trail ? (
           <div data-vacp-note="" {...stylex.props(styles.note)}>
-            The view may differ slightly from the recording.
+            {config.labels.diverged}
           </div>
         ) : null}
         {slot.trail && navigation ? <Trail navigation={navigation} /> : null}

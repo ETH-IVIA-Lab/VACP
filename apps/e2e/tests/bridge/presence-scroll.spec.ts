@@ -68,7 +68,7 @@ test('human provenance stays invisible while retained agent presence follows doc
   const bubble = page.locator('[data-vacp-bubble]');
   await expect(bubble.locator('[data-vacp-heading]')).toHaveText('Conclusion');
   await bubble.hover();
-  await page.getByRole('button', { name: 'Previous analytical step' }).click();
+  await page.getByRole('button', { name: 'Previous step' }).click();
   await expect(bubble.locator('[data-vacp-heading]')).toHaveText('Step 2 of 2');
   await expect(bubble).toHaveAttribute('aria-busy', 'false');
   for (const y of [60, 140, 0]) {
@@ -97,7 +97,7 @@ test('human provenance stays invisible while retained agent presence follows doc
   await page.evaluate(() => {
     document.querySelector('#athletes-root')!.scrollTop = 0;
   });
-  await page.getByRole('button', { name: 'Previous analytical step' }).click();
+  await page.getByRole('button', { name: 'Previous step' }).click();
   await expect(bubble).toHaveAttribute('aria-busy', 'false');
   await expect.poll(() => aligned(page, 'select[aria-label="Sex"]', 'center')).toBeLessThan(2);
   await page.evaluate(() => {
@@ -108,7 +108,7 @@ test('human provenance stays invisible while retained agent presence follows doc
   expect(await aligned(page, 'select[aria-label="Sex"]', 'center')).toBeLessThan(2);
   await expect(bubble).toContainText(/Step \d+ of \d+/);
   await expect(bubble.locator('[data-vacp-mark] svg')).toBeVisible();
-  await page.getByRole('button', { name: 'Return to live analysis' }).click();
+  await page.getByRole('button', { name: 'Return to the live view' }).click();
   await page.getByRole('combobox', { name: 'Sex' }).selectOption('female');
   await expect(bubble).toHaveCount(0);
   expect(

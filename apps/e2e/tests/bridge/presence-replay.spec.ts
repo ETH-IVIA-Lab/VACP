@@ -78,21 +78,21 @@ test('hover-only replay restores all three athlete sources and yields to new hum
     age: [22, 28],
   });
   await page.evaluate(() => window.__vacpStream!.end({ summary: 'The comparison is ready.' }));
-  const back = page.getByRole('button', { name: 'Previous analytical step' });
-  const next = page.getByRole('button', { name: 'Next analytical step' });
-  const close = page.getByRole('button', { name: 'Return to live analysis' });
+  const back = page.getByRole('button', { name: 'Previous step' });
+  const next = page.getByRole('button', { name: 'Next step' });
+  const close = page.getByRole('button', { name: 'Return to the live view' });
   const bubble = page.locator('[data-vacp-bubble]');
   await expect(bubble).toHaveCount(1);
   await page.mouse.move(0, 0);
   await expect
     .poll(() =>
-      page.getByRole('navigation', { name: 'Analytical trail' }).evaluate((nav) => getComputedStyle(nav).opacity),
+      page.getByRole('navigation', { name: 'Trail controls' }).evaluate((nav) => getComputedStyle(nav).opacity),
     )
     .toBe('0');
   await bubble.hover();
   await expect
     .poll(() =>
-      page.getByRole('navigation', { name: 'Analytical trail' }).evaluate((nav) => getComputedStyle(nav).opacity),
+      page.getByRole('navigation', { name: 'Trail controls' }).evaluate((nav) => getComputedStyle(nav).opacity),
     )
     .toBe('1');
   const label = bubble.locator('[data-vacp-heading]');
@@ -126,7 +126,7 @@ test('hover-only replay restores all three athlete sources and yields to new hum
   await close.click();
   await expect(page.locator('.athlete-summary strong').first()).toHaveText('117');
   await expect.poll(() => filters(page)).toEqual({ age: [22, 28], body: true });
-  // Returning to live analysis dismisses the whole trail until the agent starts new work.
+  // Returning to the live view dismisses the whole trail until the agent starts new work.
   await expect(bubble).toHaveCount(0);
   await sex.selectOption('male');
   await expect(sex).toHaveValue('male');
@@ -157,7 +157,7 @@ test('stepping waits while the agent works and resumes when its turn ends', asyn
   expect((await tool(page, 'cohort.set_sports', { sports: ['canoe', 'rowing'] })).ok).toBe(true);
   const count = page.locator('.athlete-summary strong').first();
   const sports = await count.textContent();
-  const back = page.getByRole('button', { name: 'Previous analytical step' });
+  const back = page.getByRole('button', { name: 'Previous step' });
   const waiting = 'Stepping resumes when the agent finishes';
   await expect(back).toBeDisabled();
   await expect(back).toHaveAttribute('title', waiting);
@@ -180,7 +180,7 @@ test('stepping waits while the agent works and resumes when its turn ends', asyn
 
   await page.evaluate(() => window.__vacpStream!.end({ summary: 'The comparison is ready.' }));
   await expect(back).toBeEnabled();
-  await expect(back).toHaveAttribute('title', 'Previous analytical step');
+  await expect(back).toHaveAttribute('title', 'Previous step');
   await expect(back).toBeFocused();
   await back.click();
   await expect(page.locator('[data-vacp-bubble] [data-vacp-heading]')).toHaveText('Step 2 of 2');
@@ -230,8 +230,8 @@ test('react-dashboard replay returns to the empty dashboard and forward through 
   };
   await settle('Conclusion');
   await bubble.hover();
-  const back = page.getByRole('button', { name: 'Previous analytical step' });
-  const next = page.getByRole('button', { name: 'Next analytical step' });
+  const back = page.getByRole('button', { name: 'Previous step' });
+  const next = page.getByRole('button', { name: 'Next step' });
   for (const name of ['Step 3 of 3', 'Step 2 of 3', 'Step 1 of 3', 'Start']) {
     await back.click();
     await settle(name);

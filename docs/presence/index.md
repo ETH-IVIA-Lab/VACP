@@ -130,11 +130,12 @@ const presence = createBrowserPresence(runtime, {
     bubble: { width: 290 },
     cursor: { size: 24 },
     ripple: { color: '#16a34a' },
+    labels: { dismiss: 'Schließen' },
   },
 });
 ```
 
-`motion: 'system'` follows the reduced-motion preference. The [presence-browser reference](../api/presence-browser) lists every appearance option with its default, the cursor assets, and the streamed Markdown text renderer in `@ethivia/vacp-presence-react/streamdown`.
+`motion: 'system'` follows the reduced-motion preference. `labels` translates or renames the overlay's frame names and controls. The [presence-browser reference](../api/presence-browser) lists every appearance option with its default, the cursor assets, and the streamed Markdown text renderer in `@ethivia/vacp-presence-react/streamdown`.
 
 ## Build another surface
 

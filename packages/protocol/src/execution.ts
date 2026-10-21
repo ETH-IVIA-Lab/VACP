@@ -15,10 +15,10 @@ export class VacpActionError<Details = unknown> extends Error {
 export type VacpActor = { id: string; label?: string; kind: 'agent' | 'human' | 'system' };
 
 /** The actor every agent transport attributes calls to when the host names none. `test/fixtures/agent-tools.json` pins it for the Python server. */
-export const vacpAgentActor: VacpActor = Object.freeze({ id: 'agent', kind: 'agent', label: 'Agent' });
+export const vacpAgentActor: VacpActor = Object.freeze({ id: 'agent', kind: 'agent' });
 
 /** The actor restoration and replay attribute to when the host names none. */
-export const vacpHumanActor: VacpActor = Object.freeze({ id: 'human', kind: 'human', label: 'You' });
+export const vacpHumanActor: VacpActor = Object.freeze({ id: 'human', kind: 'human' });
 
 /** In-process execution controls; these are not part of the serialized call. */
 export type VacpActionExecutionOptions = {

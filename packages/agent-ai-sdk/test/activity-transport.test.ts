@@ -5,7 +5,7 @@ import type { VacpAgentActivityControl } from '@ethivia/vacp-protocol';
 
 import { withAgentActivity } from '../src/activity-transport';
 
-const actor = { id: 'agent', kind: 'agent' as const, label: 'Agent' };
+const actor = { id: 'agent', kind: 'agent' as const };
 
 /** Records what a presence viewer would see: each published summary and the first outcome per turn. */
 function recordingControl(options: { failBegin?: boolean } = {}) {

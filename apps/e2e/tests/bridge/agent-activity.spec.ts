@@ -64,9 +64,9 @@ test('thinking appears before execution, follows real athlete actions, and respe
   await expect(label).toHaveText('Conclusion', { timeout: 3000 });
   await expect(bubble).toHaveCount(1);
   await bubble.hover();
-  await page.getByRole('button', { name: 'Previous analytical step' }).click();
+  await page.getByRole('button', { name: 'Previous step' }).click();
   await expect(label).toHaveText('Step 1 of 1');
   await expect(bubble.locator('[data-vacp-summary]')).toContainText('Comparing rowers and canoeists');
-  await page.getByRole('button', { name: 'Return to live analysis' }).click();
+  await page.getByRole('button', { name: 'Return to the live view' }).click();
   await expect(bubble).toHaveCount(0);
 });

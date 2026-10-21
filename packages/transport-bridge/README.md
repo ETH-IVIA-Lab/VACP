@@ -5,7 +5,7 @@ Map a VACP bridge to the five agent tools of the [tool contract](../../docs/api/
 ```ts
 import { createVacpTransport } from '@ethivia/vacp-bridge';
 
-const transport = createVacpTransport(runtime, { actor: { id: 'agent', kind: 'agent', label: 'Agent' } });
+const transport = createVacpTransport(runtime);
 const read = await transport.vacp_capabilities({ refs: ['vacp://'] });
 await transport.vacp_execute(
   { name: 'threshold.set', params: { value: 42 }, narration: 'Raising the threshold.' },
