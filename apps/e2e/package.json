@@ -21,6 +21,7 @@
     "@ethivia/vacp-webmcp": "workspace:*",
     "@playwright/test": "catalog:",
     "@types/node": "catalog:",
+    "micromark": "catalog:",
     "portless": "catalog:",
     "typescript": "catalog:",
     "vega-embed": "catalog:",

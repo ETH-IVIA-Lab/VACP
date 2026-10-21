@@ -6,5 +6,5 @@
     "noEmit": true,
     "types": ["node"]
   },
-  "include": [".vitepress/**/*.ts"]
+  "include": [".vitepress/**/*.ts", "test/**/*.ts"]
 }
