@@ -56,7 +56,7 @@ test('custom actions infer transformed parameters and accept domain interface re
   assert.deepEqual(selected.ids, ['one', 'two']);
   assert.equal(actions.registry.list()[0]?.parameters?.['x-app-kind'], 'selection');
 
-  const provider = createVacpProvider({
+  const provider = createVacpProvider<Selection>({
     subscribe: () => () => {},
     source: { id: 'vacp-source://custom/selection', type: 'test', title: 'Selection test' },
     actions: actions.registry,

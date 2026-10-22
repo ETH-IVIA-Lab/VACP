@@ -87,7 +87,7 @@ createVacpProvider(options: {
 }): VacpProvider
 ```
 
-Builds a provider from a projection. `project()` returns `{ graph: VacpGraphFragment, state, summary?, freshness?, revision? }` for one read. When `revision` is absent, the provider derives it from the projected content. Call `invalidate` whenever a later projection may differ.
+Builds a provider from a projection. `project()` returns `{ graph: VacpGraphFragment, state, summary?, freshness?, revision? }` for one read. When `revision` is absent, the provider derives it from the projected content. Call `invalidate` whenever a later projection may differ. Node data defaults to `Record<string, unknown>`, so nodes may carry differently shaped `data`. Pass a type argument, as in `createVacpProvider<Selection>(...)`, to give every node one data type.
 
 ## VacpActionRegistry
 
