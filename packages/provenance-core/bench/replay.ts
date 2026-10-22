@@ -42,7 +42,7 @@ let steps = 0;
 replay.subscribe(() => {
   steps = replay.getState().steps.length;
 });
-const execute = () => runtime.execute({ callId: `call-${value}`, name: 'set', params: {} });
+const execute = () => runtime.execute({ name: 'set', params: {} });
 try {
   for (let index = 0; index < 256; index++) await execute();
   await measure('recorded action with a replay viewer', execute, 50);

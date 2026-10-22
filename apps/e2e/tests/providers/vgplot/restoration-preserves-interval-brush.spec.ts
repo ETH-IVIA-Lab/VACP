@@ -49,7 +49,7 @@ test('explicit apply_state restores a recorded interval brush and later human br
     if (entry?.kind !== 'observation') throw new Error('Missing recorded observation');
     const action = current.graph.actions.find((action: any) => action.operation.contract === 'vacp.apply_state');
     if (!action) throw new Error('Missing restoration action');
-    return b.execute({ callId: 'restore', name: action.name, params: { state: entry.observation.state } });
+    return b.execute({ name: action.name, params: { state: entry.observation.state } });
   });
   expect(outcome.ok).toBe(true);
   await expect.poll(near).toBe(true);

@@ -25,7 +25,7 @@ export function createVacpTransport(
     vacp_execute: async ({ name, params, narration, call_id }, signal) => {
       const action = name.trim();
       if (!action) throw new TypeError('Expected a non-empty action name');
-      const call = { callId: call_id?.trim() || crypto.randomUUID(), name: action, params };
+      const call = { callId: call_id, name: action, params };
       return vacpToolResult(await bridge.execute(call, { actor, narration: parseVacpNarration(narration), signal }));
     },
     vacp_progress: async ({ message, done = false }, signal) => {

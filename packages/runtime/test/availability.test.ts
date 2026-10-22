@@ -86,12 +86,12 @@ test('cross-source readiness governs discovery, subscriptions, stale calls and p
       complete.graph.actions.map((action) => action.name),
       ['click'],
     );
-    assert.equal((await runtime.execute({ callId: 'blocked', name: 'click' })).ok, false);
+    assert.equal((await runtime.execute({ name: 'click' })).ok, false);
     assert.equal(prepared, 0);
     ready = true;
     assert.equal((await runtime.observe()).graph.actions.length, 1);
     const baseline = await runtime.getState();
-    assert.equal((await runtime.execute({ callId: 'ready', name: 'click' })).ok, true);
+    assert.equal((await runtime.execute({ name: 'click' })).ok, true);
     assert.equal(mutations, 1);
     runtime.addExecutionGate(
       () => {
@@ -99,7 +99,7 @@ test('cross-source readiness governs discovery, subscriptions, stale calls and p
       },
       { timeoutMs: 1000 },
     );
-    assert.equal((await runtime.execute({ callId: 'changed-during-pacing', name: 'click' })).ok, false);
+    assert.equal((await runtime.execute({ name: 'click' })).ok, false);
     assert.equal(mutations, 1);
     const delta = await runtime.getState({ since: baseline.token });
     assert.equal(delta.mode, 'delta');
@@ -220,7 +220,7 @@ test('the runtime rechecks cancellation after its final observation', async () =
   };
   const runtime = createVacpRuntime({ providers: [provider] });
   try {
-    await assert.rejects(runtime.execute({ callId: 'cancelled', name: 'run' }, { signal: abort.signal }), {
+    await assert.rejects(runtime.execute({ name: 'run' }, { signal: abort.signal }), {
       name: 'AbortError',
     });
     assert.equal(mutations, 0);

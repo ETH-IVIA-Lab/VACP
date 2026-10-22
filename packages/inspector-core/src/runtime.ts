@@ -1,6 +1,6 @@
 import type {
   VacpObservation,
-  VacpActionCall,
+  VacpActionRequest,
   VacpActionExecutionOptions,
   VacpActionResult,
 } from '@ethivia/vacp-protocol';
@@ -8,7 +8,7 @@ import type { InspectorClient } from './types';
 
 export type InspectorRuntime = {
   inspect(): Promise<VacpObservation>;
-  execute(call: VacpActionCall, options?: VacpActionExecutionOptions): Promise<VacpActionResult>;
+  execute(call: VacpActionRequest, options?: VacpActionExecutionOptions): Promise<VacpActionResult>;
   subscribeSnapshots(listener: () => void): () => void;
 };
 

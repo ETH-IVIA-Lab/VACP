@@ -37,7 +37,7 @@ A token the runtime no longer knows returns a full read. `refs` limits the read.
 
 ## vacp_execute
 
-Runs one operation by its `name` from the graph. `params` is any JSON value the operation's schema accepts. Leaving `params` out keeps the operation's defaults, and `null` passes an explicit null. `narration` is the step's sentence for the person watching, at most 280 characters. The result is the operation's envelope, `{ callId, ok, result }` or `{ callId, ok: false, error }`.
+Runs one operation by its `name` from the graph. `params` is any JSON value the operation's schema accepts. Leaving `params` out keeps the operation's defaults, and `null` passes an explicit null. `narration` is the step's sentence for the person watching, at most 280 characters. The result is the operation's envelope, `{ callId, ok, result }` or `{ callId, ok: false, error }`. Its `callId` is the call's `call_id` as written, or one the runtime assigns when `call_id` is absent, null, or blank.
 
 ## vacp_progress
 
@@ -75,13 +75,12 @@ await vacp_execute({
   name: action.name,
   params: { handleRef, detail: 'columns' },
   narration: 'Listing the columns of the cars table.',
-  call_id: 'call-1',
 });
 ```
 
 ```json
 {
-  "callId": "call-1",
+  "callId": "7c9e6679-7425-40de-944b-e07fc1f90ae7",
   "ok": true,
   "result": {
     "handleRef": "vacp://vacp-examples/data/main",

@@ -147,7 +147,7 @@ test('a step executed without narration names its change instead of repeating an
     const result = await page.evaluate(async ({ contract, params }) => {
       const { graph } = await window.__vacp!.getCapabilities();
       const name = graph.actions.find((action) => action.name.endsWith(contract))!.name;
-      return window.__vacp!.execute({ callId: contract, name, params }, { actor: { id: 'agent', kind: 'agent' } });
+      return window.__vacp!.execute({ name, params }, { actor: { id: 'agent', kind: 'agent' } });
     }, step);
     expect(result.ok).toBe(true);
   }

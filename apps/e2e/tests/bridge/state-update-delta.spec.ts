@@ -31,7 +31,6 @@ test('window.__vacp.getState returns a full read with a token, deltas since a to
     [swapped[0], swapped[1]] = [swapped[1], swapped[0]];
 
     await b.execute({
-      callId: crypto.randomUUID(),
       name: 'parallel_coords.set_dimension_order',
       params: { order: swapped },
     });

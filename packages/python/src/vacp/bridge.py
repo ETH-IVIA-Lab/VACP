@@ -9,7 +9,7 @@ from typing import Any, Protocol
 from playwright.async_api import Page
 
 from vacp.agent_tools import AGENT_ACTOR, CapabilitiesRequest, StateRequest
-from vacp.provider import VACP_SCHEMA_VERSION, ActionCall, ActionResult
+from vacp.provider import VACP_SCHEMA_VERSION, ActionRequest, ActionResult
 
 # The members the five agent tools call. A page whose bridge lacks one cannot serve them.
 _BRIDGE_CHECK = """
@@ -30,7 +30,7 @@ class VacpBridgeClient(Protocol):
 
     async def get_state(self, request: StateRequest) -> dict[str, object]: ...
 
-    async def execute(self, call: ActionCall, *, narration: str) -> ActionResult: ...
+    async def execute(self, call: ActionRequest, *, narration: str) -> ActionResult: ...
 
     async def progress(self, message: str, *, done: bool = False) -> None: ...
 
@@ -72,9 +72,11 @@ class PlaywrightVacpBridgeClient(VacpBridgeClient):
             '({ key, request }) => globalThis[key].getState(request)', {'key': self._global_key, 'request': request}
         )
 
-    async def execute(self, call: ActionCall, *, narration: str) -> ActionResult:
+    async def execute(self, call: ActionRequest, *, narration: str) -> ActionResult:
         """Execute one action. `narration` is the step's own sentence, which the execution carries."""
-        payload: dict[str, object] = {'callId': call.call_id, 'name': call.name}
+        payload: dict[str, object] = {'name': call.name}
+        if call.call_id is not None:
+            payload['callId'] = call.call_id
         if call.has_params:
             payload['params'] = call.params
         raw = await self._read(
@@ -88,7 +90,7 @@ class PlaywrightVacpBridgeClient(VacpBridgeClient):
                 result=raw.get('result'),
                 error=raw.get('error') if isinstance(raw.get('error'), dict) else None,
             )
-        return ActionResult(call_id=call.call_id, ok=False, error={'message': 'Invalid execute() response', 'raw': raw})
+        raise RuntimeError('Invalid execute() response')
 
     async def progress(self, message: str, *, done: bool = False) -> None:
         """

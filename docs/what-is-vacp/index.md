@@ -36,7 +36,7 @@ An agent changes the analysis by executing an operation by name, with parameters
 
 ```js
 await window.__vacp.execute(
-  { callId: 'c1', name: 'cohort.set_sex', params: { sex: 'female' } },
+  { name: 'cohort.set_sex', params: { sex: 'female' } },
   { narration: 'Keeping only female athletes.' },
 );
 ```

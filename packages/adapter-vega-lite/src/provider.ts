@@ -65,7 +65,7 @@ export function createVegaLiteProvider(args: {
       { ...desc, operation: { ...desc.operation, contract: desc.name } },
       async (prepared: ReturnType<typeof prepareVegaLiteAction>) => (await executeVegaLiteActions(view, [prepared]))[0],
       {
-        parse: (params) => prepareVegaLiteAction(view, { callId: '', name: desc.name, params }, helpers),
+        parse: (params) => prepareVegaLiteAction(view, { name: desc.name, params }, helpers),
         focus: (prepared) => prepared.focus,
       },
     );
@@ -96,7 +96,7 @@ export function createVegaLiteProvider(args: {
               ? 'vega_lite.clear_selection'
               : 'vega_lite.set_selection';
         plans.push(
-          prepareVegaLiteAction(view, { callId: '', name, params: { ref, value: desired } }, helpers, {
+          prepareVegaLiteAction(view, { name, params: { ref, value: desired } }, helpers, {
             restore: true,
           }),
         );

@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import asyncio
+import json
 from collections.abc import Awaitable, Callable, Mapping
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import TypeAlias, cast
 
 import pytest
@@ -10,6 +12,7 @@ from vacp import (
     ActionCall,
     ActionContext,
     ActionDescriptor,
+    ActionRequest,
     ActionResult,
     Edge,
     Freshness,
@@ -26,6 +29,8 @@ from vacp import (
 )
 
 Prepare: TypeAlias = Callable[[ActionCall, ActionContext], PreparedAction]
+
+CALL_IDS = json.loads((Path(__file__).parents[2] / 'protocol/test/fixtures/call-id.json').read_text())
 
 
 def preparing(run: Callable[[ActionCall], ActionResult | Awaitable[ActionResult]]) -> Prepare:
@@ -107,7 +112,7 @@ async def test_composition_preserves_ownership_relations_freshness_and_routing()
             'role': 'visualization',
             'ref': chart_ref,
         }
-        assert await composer.execute(ActionCall('run', 'notebook.evaluate')) == ActionResult(
+        assert await composer.execute(ActionRequest('notebook.evaluate', call_id='run')) == ActionResult(
             'run', True, result='vacp-source://notebook'
         )
     finally:
@@ -139,9 +144,9 @@ async def test_composer_routes_a_changed_catalog_and_disposes_once() -> None:
     composer = ProviderComposer([current])
     await composer.observe()
     current.observe = source('vacp-source://dynamic', 'vacp://dynamic', 'second').observe
-    result = await composer.execute(ActionCall('new', 'second'))
+    result = await composer.execute(ActionRequest('second'))
     assert result.ok
-    assert not (await composer.execute(ActionCall('old', 'first'))).ok
+    assert not (await composer.execute(ActionRequest('first'))).ok
     composer.dispose()
     composer.dispose()
     assert close_count == 1
@@ -170,7 +175,7 @@ async def test_disposal_rejects_pending_observations_before_operation_dispatch()
 
     current.observe, current.prepare = observe, preparing(invoke)
     composer = ProviderComposer([current])
-    pending = asyncio.create_task(composer.execute(ActionCall('call', 'run')))
+    pending = asyncio.create_task(composer.execute(ActionRequest('run')))
     await entered.wait()
     composer.dispose()
     release.set()
@@ -197,7 +202,7 @@ async def test_disposal_during_preparation_prevents_execution() -> None:
 
     current.prepare = prepare
     composer = ProviderComposer([current])
-    pending = asyncio.create_task(composer.execute(ActionCall('call', 'run')))
+    pending = asyncio.create_task(composer.execute(ActionRequest('run')))
     await entered.wait()
     composer.dispose()
     release.set()
@@ -218,11 +223,72 @@ async def test_a_completed_result_stands_when_the_composer_is_disposed_during_ex
 
     current.prepare = preparing(run)
     composer = ProviderComposer([current])
-    pending = asyncio.create_task(composer.execute(ActionCall('call', 'run')))
+    pending = asyncio.create_task(composer.execute(ActionRequest('run', call_id='call')))
     await entered.wait()
     composer.dispose()
     release.set()
     assert await pending == ActionResult('call', True, result='applied')
+
+
+@pytest.mark.asyncio
+async def test_composer_assigns_a_missing_or_blank_call_id_and_keeps_any_other_as_written() -> None:
+    current = source('source', 'node', 'run')
+    prepared: list[str] = []
+
+    def invoke(call: ActionCall) -> ActionResult:
+        prepared.append(call.call_id)
+        return ActionResult(call.call_id, True)
+
+    current.prepare = preparing(invoke)
+    composer = ProviderComposer([current])
+    try:
+        ids: list[str] = []
+        for supplied in CALL_IDS['assigned']:
+            request = ActionRequest('run', call_id=supplied.get('callId'))
+            first = await composer.execute(request)
+            second = await composer.execute(request)
+            assert first.call_id != second.call_id
+            assert supplied.get('callId') not in (first.call_id, second.call_id)
+            ids += [first.call_id, second.call_id]
+        for supplied in CALL_IDS['kept']:
+            result = await composer.execute(ActionRequest('run', call_id=supplied['callId']))
+            assert result.call_id == supplied['callId']
+            ids.append(result.call_id)
+        assert prepared == ids
+    finally:
+        composer.dispose()
+
+
+@pytest.mark.asyncio
+async def test_a_result_carries_the_call_id_even_when_the_provider_answers_under_another() -> None:
+    current = source('source', 'node', 'run')
+    current.prepare = preparing(lambda call: ActionResult('provider-chosen', True))
+    composer = ProviderComposer([current])
+    try:
+        assert (await composer.execute(ActionRequest('run', call_id='mine'))).call_id == 'mine'
+        assert (await composer.execute(ActionRequest('run'))).call_id != 'provider-chosen'
+    finally:
+        composer.dispose()
+
+
+@pytest.mark.asyncio
+async def test_composer_rejects_a_call_id_that_is_not_a_string() -> None:
+    current = source('source', 'node', 'run')
+    prepared: list[str] = []
+
+    def invoke(call: ActionCall) -> ActionResult:
+        prepared.append(call.call_id)
+        return ActionResult(call.call_id, True)
+
+    current.prepare = preparing(invoke)
+    composer = ProviderComposer([current])
+    try:
+        for supplied in CALL_IDS['rejected']:
+            with pytest.raises(TypeError, match='call_id must be a string'):
+                await composer.execute(ActionRequest('run', call_id=supplied['callId']))
+        assert prepared == []
+    finally:
+        composer.dispose()
 
 
 @pytest.mark.asyncio
@@ -245,7 +311,7 @@ async def test_a_failed_preparation_is_a_failure_result_before_any_effect() -> N
     current.prepare = prepare
     composer = ProviderComposer([current])
     try:
-        assert await composer.execute(ActionCall('call', 'run')) == ActionResult(
+        assert await composer.execute(ActionRequest('run', call_id='call')) == ActionResult(
             'call', False, error={'message': 'Expected a value'}
         )
     finally:
@@ -340,7 +406,7 @@ async def test_subscriber_failure_does_not_change_operation_result_or_skip_other
     composer.subscribe(fail)
     composer.subscribe(lambda: notified.append('changed'))
     try:
-        assert (await composer.execute(ActionCall('call', 'run'))).ok
+        assert (await composer.execute(ActionRequest('run'))).ok
         assert notified == ['changed']
         assert 'Broken viewer' in caplog.text
     finally:
@@ -362,8 +428,8 @@ async def test_composer_preserves_parameter_presence(supplied: bool) -> None:
     provider.prepare = prepare
     composer = ProviderComposer([provider])
     try:
-        call = ActionCall('reset', 'reset', None) if supplied else ActionCall('reset', 'reset')
-        result = await composer.execute(call)
+        request = ActionRequest('reset', None) if supplied else ActionRequest('reset')
+        result = await composer.execute(request)
         assert result.ok, result.error
         assert seen == [supplied]
     finally:

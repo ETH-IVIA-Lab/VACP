@@ -9,6 +9,7 @@ from vacp import (
     ActionCall,
     ActionContext,
     ActionDescriptor,
+    ActionRequest,
     ActionResult,
     Availability,
     GraphFragment,
@@ -140,13 +141,13 @@ async def test_discovery_and_inspection_share_one_execution_guard() -> None:
         assert (await composer.observe()).graph.actions == ()
         assert (await composer.observe()).state == {}
         assert len((await composer.inspect()).graph.actions) == 1
-        assert not (await composer.execute(ActionCall('blocked', 'click'))).ok
+        assert not (await composer.execute(ActionRequest('click'))).ok
         assert mutations == 0
         ready = True
         assert len((await composer.observe()).graph.actions) == 1
-        assert (await composer.execute(ActionCall('ready', 'click'))).ok
+        assert (await composer.execute(ActionRequest('click'))).ok
         ready = False
-        assert not (await composer.execute(ActionCall('stale', 'click'))).ok
+        assert not (await composer.execute(ActionRequest('click'))).ok
         assert mutations == 1
     finally:
         composer.dispose()
@@ -178,7 +179,7 @@ async def test_composer_owns_invocation_across_observation() -> None:
     )
     try:
         params = {'value': 'original'}
-        executing = asyncio.create_task(composer.execute(ActionCall('owned', 'run', params)))
+        executing = asyncio.create_task(composer.execute(ActionRequest('run', params)))
         await entered.wait()
         params['value'] = 'changed'
         release.set()

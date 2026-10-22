@@ -8,11 +8,12 @@ import logging
 from collections.abc import Awaitable, Callable, Mapping, Sequence
 from contextlib import ExitStack
 from copy import deepcopy
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, field, replace
 from typing import Literal, Protocol, TypeVar, cast
 from uuid import uuid4
 
 from vacp.availability import Availability, AvailabilityError, ResolvedObservation, require_action, resolve_observation
+from vacp.narration import WHITESPACE
 
 VACP_SCHEMA_VERSION = '0.1.0'
 MAX_COHERENCE_RETRIES = 8
@@ -123,7 +124,23 @@ class Observation:
 
 
 @dataclass(frozen=True)
+class ActionRequest:
+    """An action a caller asks to run. The composer, or the page's runtime, assigns `call_id` when None or blank."""
+
+    name: str
+    params: object = _OMITTED
+    call_id: str | None = field(default=None, kw_only=True)
+
+    @property
+    def has_params(self) -> bool:
+        """Whether the caller supplied parameters, including an explicit None."""
+        return self.params is not _OMITTED
+
+
+@dataclass(frozen=True)
 class ActionCall:
+    """A request as the composer runs it, with the caller's `call_id` or the one it assigned."""
+
     call_id: str
     name: str
     params: object = _OMITTED
@@ -272,12 +289,15 @@ class ProviderComposer:
             return resolve_observation(_compose(self._providers, deepcopy(observations)))
         raise RuntimeError('VACP sources did not settle into one coherent observation')
 
-    async def execute(self, call: ActionCall) -> ActionResult:
-        """Prepare `call` with its owner, recheck lifetime and eligibility, then run it once."""
+    async def execute(self, request: ActionRequest) -> ActionResult:
+        """Prepare the call with its owner, recheck lifetime and eligibility, then run it once."""
+        if request.call_id is not None and not isinstance(request.call_id, str):
+            raise TypeError('call_id must be a string')
+        call_id = request.call_id if request.call_id and request.call_id.strip(WHITESPACE) else str(uuid4())
         call = (
-            ActionCall(call.call_id, call.name, deepcopy(call.params))
-            if call.has_params
-            else ActionCall(call.call_id, call.name)
+            ActionCall(call_id, request.name, deepcopy(request.params))
+            if request.has_params
+            else ActionCall(call_id, request.name)
         )
         resolved = await self._read()
         try:
@@ -294,7 +314,8 @@ class ProviderComposer:
             require_action(current, call)
         except AvailabilityError as error:
             return ActionResult(call.call_id, False, error={'message': str(error), 'details': error.details})
-        return await prepared.execute()
+        # The composer owns the call ID, so a provider cannot answer under another one.
+        return replace(await prepared.execute(), call_id=call.call_id)
 
     def dispose(self) -> None:
         if self._disposed:

@@ -46,7 +46,7 @@ const executeInput = z.object({
   name: text,
   params: z.unknown().optional(),
   narration: sentence('narration', vacpNarrationGuidance),
-  call_id: z.string().optional(),
+  call_id: z.string().nullish(),
 });
 
 const progressInput = z.object({

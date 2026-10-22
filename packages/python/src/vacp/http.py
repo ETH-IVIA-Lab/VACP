@@ -12,7 +12,7 @@ from starlette.requests import Request
 from starlette.responses import JSONResponse
 from starlette.routing import Route
 
-from vacp.provider import ActionCall, ActionResult, Observation, as_dict
+from vacp.provider import ActionRequest, ActionResult, Observation, as_dict
 
 
 class InspectionSession(Protocol):
@@ -20,7 +20,7 @@ class InspectionSession(Protocol):
     def session_id(self) -> str: ...
 
     async def inspect(self) -> Observation: ...
-    async def execute(self, call: ActionCall) -> ActionResult: ...
+    async def execute(self, request: ActionRequest) -> ActionResult: ...
 
 
 def create_inspection_app(
@@ -57,13 +57,14 @@ def create_inspection_app(
             return JSONResponse({'error': 'Expected JSON input'}, status_code=400)
         if not isinstance(body, dict) or not isinstance(body.get('name'), str) or not body['name'].strip():
             return JSONResponse({'error': 'Expected a non-empty action name'}, status_code=400)
-        if not isinstance(body.get('callId'), str) or not body['callId']:
-            return JSONResponse({'error': 'Expected a callId'}, status_code=400)
+        call_id = body.get('callId')
+        if call_id is not None and not isinstance(call_id, str):
+            return JSONResponse({'error': 'Expected callId to be a string'}, status_code=400)
         async with gate:
             call = (
-                ActionCall(body['callId'], body['name'], body['params'])
+                ActionRequest(body['name'], body['params'], call_id=call_id)
                 if 'params' in body
-                else ActionCall(body['callId'], body['name'])
+                else ActionRequest(body['name'], call_id=call_id)
             )
             result = await session.execute(call)
         payload: dict[str, object] = {'callId': result.call_id, 'ok': result.ok}

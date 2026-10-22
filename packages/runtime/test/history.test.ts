@@ -32,7 +32,7 @@ test('bounded provenance preserves the host actor, public summary, and isolated 
   t.after(() => runtime.dispose());
   const actor = { id: 'researcher', label: 'Research assistant', kind: 'agent' as const };
   const work = runtime.beginAgentActivity({ actor, summary: 'Checking a narrower threshold' });
-  await runtime.execute({ callId: 'first', name: 'set', params: 1 }, { actor });
+  await runtime.execute({ name: 'set', params: 1 }, { actor });
   const recorded = runtime.getProvenance().records[0]!;
   assert.ok(recorded.kind === 'action');
   assert.deepEqual(recorded.execution.actor, actor);
@@ -41,9 +41,9 @@ test('bounded provenance preserves the host actor, public summary, and isolated 
   assert.deepEqual(recorded.before?.state['vacp://value'], { threshold: 0 });
   assert.deepEqual(recorded.observation?.state['vacp://value'], { threshold: 1 });
   work.end();
-  await runtime.execute({ callId: 'second', name: 'set', params: 2 }, { actor: { id: 'person', kind: 'human' } });
-  await runtime.execute({ callId: 'third', name: 'set', params: 3 });
-  await runtime.execute({ callId: 'fourth', name: 'set', params: 4 });
+  await runtime.execute({ name: 'set', params: 2 }, { actor: { id: 'person', kind: 'human' } });
+  await runtime.execute({ name: 'set', params: 3 });
+  await runtime.execute({ name: 'set', params: 4 });
   const entries = runtime.getProvenance().records.filter((entry) => entry.kind === 'action');
   assert.equal(entries.length, 3);
   assert.equal(entries[0]!.execution.actor.kind, 'human');
@@ -187,7 +187,7 @@ test('concurrent observations retain unknown causality while explicit human chan
     });
   await runtime.refresh();
   const recordedStep = nextObservation();
-  const pending = runtime.execute({ callId: 'slow', name: 'slow' }, { restoration: { id: 'review', entryId: 'step' } });
+  const pending = runtime.execute({ name: 'slow' }, { restoration: { id: 'review', entryId: 'step' } });
   await began;
   const active = runtime.getActiveExecutions();
   assert.equal(active.length, 1);

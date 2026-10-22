@@ -30,12 +30,12 @@ test('telemetry installations detach independently', async (t) => {
     provider: { capture: (event) => nextEvents.push(event) },
   });
   t.after(() => next.dispose());
-  await runtime.execute({ callId: 'change', name: 'change' });
+  await runtime.execute({ name: 'change' });
   assert.deepEqual(firstEvents, ['vacp_runtime_init', 'vacp_action']);
   first.dispose();
   assert.deepEqual(nextEvents, ['vacp_runtime_init', 'vacp_action']);
   next.dispose();
-  await runtime.execute({ callId: 'next', name: 'change' });
+  await runtime.execute({ name: 'change' });
   assert.equal(nextEvents.length, 2);
 });
 

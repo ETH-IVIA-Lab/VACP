@@ -1,4 +1,10 @@
-import type { VacpActionCall, VacpActionResult, VacpObservation, VacpRef, VacpRestore } from '@ethivia/vacp-protocol';
+import type {
+  VacpActionRequest,
+  VacpActionResult,
+  VacpObservation,
+  VacpRef,
+  VacpRestore,
+} from '@ethivia/vacp-protocol';
 
 export type InspectorRequest = { signal: AbortSignal };
 
@@ -8,7 +14,7 @@ export interface InspectorClient {
   readonly title: string;
   /** Complete catalog, including unavailable entities and operations. */
   observe(options: InspectorRequest): Promise<VacpObservation>;
-  execute?(call: VacpActionCall, options: InspectorRequest): Promise<VacpActionResult>;
+  execute?(call: VacpActionRequest, options: InspectorRequest): Promise<VacpActionResult>;
   subscribe?(invalidate: () => void): () => void;
   restore?: VacpRestore;
   reveal?(ref: VacpRef, options: InspectorRequest): void | Promise<void>;
@@ -23,7 +29,7 @@ export type InspectionObservation = InspectionSnapshot<VacpObservation>;
 export type InspectionRecord = { readonly id: number; readonly observation: InspectionObservation };
 
 export type InspectorOperation =
-  | { readonly kind: 'execute'; readonly call: InspectionSnapshot<VacpActionCall> }
+  | { readonly kind: 'execute'; readonly call: InspectionSnapshot<VacpActionRequest> }
   | { readonly kind: 'restore'; readonly observation: InspectionObservation };
 
 export type InspectorOperationState =
@@ -58,7 +64,7 @@ export interface InspectorSession {
   /** Start observation and source invalidation. Repeated starts are idempotent. */
   start(): void;
   refresh(): Promise<void>;
-  execute(call: VacpActionCall, options?: { signal?: AbortSignal }): Promise<VacpActionResult>;
+  execute(call: VacpActionRequest, options?: { signal?: AbortSignal }): Promise<VacpActionResult>;
   restore(observation: InspectionObservation, options?: { signal?: AbortSignal }): Promise<VacpActionResult>;
   reveal(ref: VacpRef, options?: { signal?: AbortSignal }): Promise<void>;
   clearHistory(): void;

@@ -87,7 +87,6 @@ test('VGPlot presence matches the native interval brush', async ({ page }) => {
       (action) => action.operation.contract === 'vgplot.set_interval_1d',
     )!;
     return bridge.execute({
-      callId: 'presence',
       name: action.name,
       params: {
         ref: 'vacp://vacp-examples/vgplot/weather/plot-0/interactor/0',

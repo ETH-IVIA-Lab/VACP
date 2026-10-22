@@ -46,7 +46,7 @@ Captured observations are frozen plain records and arrays. Dates become ISO stri
 ## Execute operations
 
 ```ts
-const result = await session.execute({ callId: crypto.randomUUID(), name: action.name, params });
+const result = await session.execute({ name: action.name, params });
 ```
 
 The provider validates `params` and runs the operation. `state.operation` tracks the running call, its result, or a transport error, and each completed operation schedules a fresh read. A session runs one operation at a time. Pass `{ signal }` to `execute`, `restore`, or `reveal` to stop waiting. Cancellation signals the client and cannot undo a change already applied.
@@ -66,7 +66,7 @@ A client may also implement `reveal(ref)` to scroll its host to an entity.
 
 ## Connect another source
 
-Implement `InspectorClient` for any transport: `id`, `title`, and `observe({ signal })` are required, and `execute`, `subscribe`, `restore`, and `reveal` are optional. One client is one analytical session. Create a new inspector session to switch sessions.
+Implement `InspectorClient` for any transport: `id`, `title`, and `observe({ signal })` are required, and `execute`, `subscribe`, `restore`, and `reveal` are optional. `execute` resolves with a result whose `callId` is the request's, or one the host assigned when the request's is absent, null, or blank. One client is one analytical session. Create a new inspector session to switch sessions.
 
 For a Python application, serve the composed providers over HTTP and connect from the browser:
 

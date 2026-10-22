@@ -17,7 +17,7 @@ export async function operationNames(page: Page, contracts: readonly string[]): 
 
 export async function executeOperation(page: Page, contract: string, params: Record<string, unknown>) {
   const names = await operationNames(page, [contract]);
-  return page.evaluate(({ name, params }) => globalThis.__vacp.execute({ callId: crypto.randomUUID(), name, params }), {
+  return page.evaluate(({ name, params }) => globalThis.__vacp.execute({ name, params }), {
     name: names[contract]!,
     params,
   });

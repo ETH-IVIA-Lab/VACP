@@ -66,7 +66,6 @@ test('two charts compose with distinct operation ownership and independent nativ
       (action) => observation.graph.ownership.actions[action.name] === second.provider.source.id,
     )!;
     const result = await runtime.execute({
-      callId: 'second',
       name: operation.name,
       params: { ref: second.ref, value: 42 },
     });

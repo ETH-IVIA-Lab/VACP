@@ -1,6 +1,6 @@
 import { selectionTuple, selectionValues, type SelectionTuple } from './selection-state';
 import { intervalVisualSignals } from './selection-signals';
-import type { VacpActionCall, VacpClock, VacpFocus, VacpInteraction, VacpRef } from '@ethivia/vacp-protocol';
+import type { VacpActionRequest, VacpClock, VacpFocus, VacpInteraction, VacpRef } from '@ethivia/vacp-protocol';
 import { changeset, type View } from 'vega';
 
 import { findSignalContext, readStateSignal, runtimeUnit, type VegaLiteBindings } from './bindings';
@@ -284,7 +284,7 @@ function prepareSelectionStore(
 }
 
 function interactionForParameter(
-  call: VacpActionCall,
+  call: VacpActionRequest,
   param: { select?: unknown; bind?: unknown },
   fields?: unknown[],
 ): VacpInteraction {
@@ -314,7 +314,7 @@ function interactionForParameter(
 /** `restore` applies a captured selection as it was, wherever its ranges lie on today's axes. */
 export function prepareVegaLiteAction(
   view: VegaViewLike,
-  call: VacpActionCall,
+  call: VacpActionRequest,
   helpers: VegaLiteBindings,
   options: { restore?: boolean } = {},
 ): PreparedVegaMutation {

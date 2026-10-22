@@ -70,14 +70,11 @@ test('execution honours cancellation before calling a handler', async () => {
   });
   const runtime = createVacpRuntime({ providers: [provider('live', actions)] });
   try {
-    await runtime.execute({ callId: 'first', name: 'set' });
+    await runtime.execute({ name: 'set' });
     assert.equal(executions, 1);
     const controller = new AbortController();
     controller.abort();
-    await assert.rejects(
-      runtime.execute({ callId: 'cancelled', name: 'set' }, { signal: controller.signal }),
-      /abort/i,
-    );
+    await assert.rejects(runtime.execute({ name: 'set' }, { signal: controller.signal }), /abort/i);
     assert.equal(executions, 1);
   } finally {
     runtime.dispose();
@@ -97,7 +94,7 @@ test('a queued action cannot execute against a replacement provider', async () =
   };
   const runtime = createVacpRuntime({ providers: [old] });
   try {
-    const execution = runtime.execute({ callId: 'old', name: 'set' });
+    const execution = runtime.execute({ name: 'set' });
     const rejected = assert.rejects(execution, /abort/i);
     await Promise.resolve();
     runtime.update({ providers: [provider('new', actions)] });
@@ -437,7 +434,7 @@ test('unattributed invalidations and semantic actions keep distinct history attr
         .at(-1)!.observation.state['vacp://view'],
       2,
     );
-    await runtime.execute({ callId: 'set', name: 'set' });
+    await runtime.execute({ name: 'set' });
     assert.deepEqual(
       runtime
         .getProvenance()
