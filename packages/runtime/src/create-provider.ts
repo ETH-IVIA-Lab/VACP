@@ -23,7 +23,7 @@ export type VacpAnalyticalProjection<NodeData = Record<string, unknown>> = {
 export function createVacpProvider<NodeData = Record<string, unknown>>(args: {
   source: VacpSourceDescription;
   actions: Pick<VacpActionExecutor, 'prepare'>;
-  project: () => VacpAnalyticalProjection<NodeData> | Promise<VacpAnalyticalProjection<NodeData>>;
+  project: NoInfer<() => VacpAnalyticalProjection<NodeData> | Promise<VacpAnalyticalProjection<NodeData>>>;
   subscribe: (invalidate: () => void) => () => void;
   dispose?: () => void;
 }): VacpProvider<NodeData> {
