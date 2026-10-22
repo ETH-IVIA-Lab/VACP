@@ -135,7 +135,7 @@ const presence = createBrowserPresence(runtime, {
 });
 ```
 
-`motion: 'system'` follows the reduced-motion preference. `labels` translates or renames the overlay's frame names and controls. The [presence-browser reference](../api/presence-browser) lists every appearance option with its default, the cursor assets, and the streamed Markdown text renderer in `@ethivia/vacp-presence-react/streamdown`.
+`motion: 'system'` follows the reduced-motion preference. `labels` translates or renames the overlay's frame names, controls, and the bubble's sentences for steps the agent did not narrate. The [presence-browser reference](../api/presence-browser) lists every appearance option with its default, the cursor assets, and the streamed Markdown text renderer in `@ethivia/vacp-presence-react/streamdown`.
 
 ## Build another surface
 

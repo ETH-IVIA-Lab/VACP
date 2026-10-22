@@ -9,19 +9,19 @@ export function actorLabel(actor: PresenceActivity['actor'], labels: PresenceLab
  * Wording when the agent has said nothing: what is happening to which view, never a phase name. A step
  * the view did not take stays the agent's to handle, so its wording claims no change and shows no error.
  */
-export function describePresence(activity: PresenceActivity): string {
+export function describePresence(activity: PresenceActivity, labels: PresenceLabels): string {
   if (activity.summary) return activity.summary;
-  if (activity.frame === 'start') return "The view before the agent's first change.";
-  if (activity.frame === 'conclusion') return "The view after the agent's last change.";
-  if (activity.frame === 'step') return 'Updated the view';
-  const view = activity.subject ?? 'the view';
+  if (activity.frame === 'start') return labels.before;
+  if (activity.frame === 'conclusion') return labels.after;
+  if (activity.frame === 'step') return labels.updated();
+  const { subject } = activity;
   const change = activity.execution?.title;
-  if (activity.phase === 'thinking' || activity.phase === 'failed') return `Looking at ${view}`;
-  if (activity.phase === 'cancelled') return `Leaving ${view} as it was`;
-  if (activity.freshness === 'updating') return `${view} is still updating`;
+  if (activity.phase === 'thinking' || activity.phase === 'failed') return labels.looking(subject);
+  if (activity.phase === 'cancelled') return labels.leaving(subject);
+  if (activity.freshness === 'updating') return labels.refreshing(subject);
   if (activity.phase === 'completed' || activity.phase === 'reviewing')
-    return change ? `${change} applied to ${view}` : `Updated ${view}`;
-  return change ? `${change} in ${view}` : `Updating ${view}`;
+    return change ? labels.applied(change, subject) : labels.updated(subject);
+  return change ? labels.applying(change, subject) : labels.updating(subject);
 }
 
 /** The name of every frame of a request, as the heading and the rail say it, such as "Step 2 of 5". */

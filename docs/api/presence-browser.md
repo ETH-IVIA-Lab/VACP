@@ -26,13 +26,13 @@ Creates a [`createAgentPresence`](./presence-core#createagentpresence) viewer wi
 | `hover`        | `{ distance: 2.5, periodMs: 2600 }`                  | The quiet drift while an agent thinks. `false` holds still                                                                     |
 | `text`         | Plain text                                           | A `PresenceText` that renders the bubble's words                                                                               |
 | `idlePosition` |                                                      | `(viewport) => point`: where a cursor starts before it has a target                                                            |
-| `describe`     | Built-in wording                                     | `(activity) => string`: the bubble's status line                                                                               |
-| `labels`       | English wording                                      | The overlay's frame names, speaker names, controls, and notes. See [Labels](#labels)                                           |
+| `describe`     | Built-in wording                                     | `(activity, wording) => string`: the bubble's status line. See [Labels](#labels)                                               |
+| `labels`       | English wording                                      | The overlay's frame names, speaker names, controls, notes, and fallback sentences. See [Labels](#labels)                       |
 | `document`     | `document`                                           | The document to render into, such as an iframe's                                                                               |
 
 ## Labels
 
-`labels` takes a partial `PresenceLabels` object with the words the overlay draws and announces around the agent's sentences. Each supplied label replaces its default:
+`labels` takes a partial `PresenceLabels` object with the words the overlay draws and announces around the agent's sentences. These include the fallback sentence the bubble shows when a step carries no sentence from the agent. Each supplied label replaces its default:
 
 ```ts
 const presence = createBrowserPresence(runtime, {
@@ -46,30 +46,41 @@ const presence = createBrowserPresence(runtime, {
       back: 'Vorheriger Schritt',
       forward: 'Nächster Schritt',
       live: 'Zurück zur aktuellen Ansicht',
+      looking: (subject = 'die Ansicht') => `Betrachte ${subject}`,
     },
   },
 });
 ```
 
-| Label                      | Default                                                   | Where it appears                                                                                             |
-| -------------------------- | --------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
-| `start`                    | `'Start'`                                                 | The first frame's name, as the bubble heading and on its trail mark                                          |
-| `step`                     | `` (position, count) => `Step ${position} of ${count}` `` | A step frame's name. `position` counts from 1, and `count` is the number of steps                            |
-| `conclusion`               | `'Conclusion'`                                            | The last frame's name                                                                                        |
-| `human`, `agent`, `system` | `'You'`, `'Agent'`, `'System'`                            | The name of each kind of actor, in screen reader announcements and in the heading of a human or system actor |
-| `trail`                    | `'Request trail'`                                         | The accessible name of the group of frame marks                                                              |
-| `stepper`                  | `'Trail controls'`                                        | The accessible name of the navigation around the step and close controls                                     |
-| `back`, `forward`          | `'Previous step'`, `'Next step'`                          | The step controls                                                                                            |
-| `live`                     | `'Return to the live view'`                               | The close control during a review                                                                            |
-| `dismiss`                  | `'Dismiss'`                                               | The close control of a retained step                                                                         |
-| `working`                  | `'Stepping resumes when the agent finishes'`              | The tooltip of the step controls and the other frame marks while the agent works                             |
-| `diverged`                 | `'The view may differ slightly from the recording.'`      | The note under a frame that was only partly restored                                                         |
+| Label                      | Default                                                                                    | Where it appears                                                                                             |
+| -------------------------- | ------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------ |
+| `start`                    | `'Start'`                                                                                  | The first frame's name, as the bubble heading and on its trail mark                                          |
+| `step`                     | `` (position, count) => `Step ${position} of ${count}` ``                                  | A step frame's name. `position` counts from 1, and `count` is the number of steps                            |
+| `conclusion`               | `'Conclusion'`                                                                             | The last frame's name                                                                                        |
+| `human`, `agent`, `system` | `'You'`, `'Agent'`, `'System'`                                                             | The name of each kind of actor, in screen reader announcements and in the heading of a human or system actor |
+| `trail`                    | `'Request trail'`                                                                          | The accessible name of the group of frame marks                                                              |
+| `stepper`                  | `'Trail controls'`                                                                         | The accessible name of the navigation around the step and close controls                                     |
+| `back`, `forward`          | `'Previous step'`, `'Next step'`                                                           | The step controls                                                                                            |
+| `live`                     | `'Return to the live view'`                                                                | The close control during a review                                                                            |
+| `dismiss`                  | `'Dismiss'`                                                                                | The close control of a retained step                                                                         |
+| `working`                  | `'Stepping resumes when the agent finishes'`                                               | The tooltip of the step controls and the other frame marks while the agent works                             |
+| `diverged`                 | `'The view may differ slightly from the recording.'`                                       | The note under a frame that was only partly restored                                                         |
+| `before`, `after`          | `"The view before the agent's first change."`, `"The view after the agent's last change."` | The fallback sentence on the first and last frame                                                            |
+| `looking`                  | `` (subject = 'the view') => `Looking at ${subject}` ``                                    | The fallback sentence while the agent thinks, and after a step the view did not take                         |
+| `leaving`                  | `` (subject = 'the view') => `Leaving ${subject} as it was` ``                             | The fallback sentence after a cancelled step                                                                 |
+| `refreshing`               | `` (subject = 'The view') => `${subject} is still updating` ``                             | The fallback sentence while the view's outputs are still updating                                            |
+| `applying`                 | `` (change, subject = 'the view') => `${change} in ${subject}` ``                          | The fallback sentence while a step with a title runs                                                         |
+| `applied`                  | `` (change, subject = 'the view') => `${change} applied to ${subject}` ``                  | The fallback sentence after a step with a title                                                              |
+| `updating`                 | `` (subject = 'the view') => `Updating ${subject}` ``                                      | The fallback sentence while a step without a title runs                                                      |
+| `updated`                  | `` (subject = 'the view') => `Updated ${subject}` ``                                       | The fallback sentence after a step without a title, and as `updated()` on a recorded step                    |
 
-`step` takes a function, and every other label takes nonblank text. A label set to `undefined` keeps its default. `createBrowserPresence` and `createBrowserPresenceRenderer` throw on any other value.
+A sentence function receives `subject`, the name of the view the step works on, or `undefined` when the step names none. `change` is the title of the step's action.
+
+A label whose default is a function takes a function, and every other label takes nonblank text. A label set to `undefined` keeps its default. `createBrowserPresence` and `createBrowserPresenceRenderer` throw on any other value.
 
 An actor's own `label` takes precedence over `human`, `agent`, and `system`.
 
-`describe` sets the bubble's words for every activity. The built-in wording shows the agent's sentence, or an English description of the step when the agent wrote none.
+`describe(activity, wording)` sets the bubble's words for every activity. `wording(activity)` returns the built-in wording, which is the agent's sentence or the fallback sentence in the resolved labels. Call it for the activities your `describe` leaves alone.
 
 ## Cursors
 
