@@ -2,8 +2,11 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { View, parse, changeset } from 'vega';
 import { compile, type TopLevelSpec } from 'vega-lite';
+import { vacpAgentActor } from '@ethivia/vacp-protocol';
 import { createVegaLiteProvider } from '../src/index';
 import type { VegaViewLike } from '../src/types';
+
+const context = { actor: vacpAgentActor };
 
 const rows = [
   { weather: 'rain', temp: 10 },
@@ -54,7 +57,7 @@ async function fixture(resolve: 'global' | 'intersect' = 'global') {
     const descriptor = (await provider.observe()).graph.actions.find((action) => action.operation.contract === name);
     assert.ok(descriptor);
     const prepared = await provider.prepare({ callId: name, name: descriptor.name, params });
-    const result = await prepared.execute();
+    const result = await prepared.execute(context);
     assert.equal(result.ok, true);
   };
   return {
@@ -170,7 +173,7 @@ test('a failed native evaluation reports failure after one mutation attempt', as
       before?.(this);
       throw new Error('native render failed');
     };
-    const result = await prepared.execute();
+    const result = await prepared.execute(context);
     assert.equal(result.ok, false);
     assert.equal(evaluations, 1);
   } finally {

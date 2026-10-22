@@ -2,9 +2,11 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { z } from 'zod';
 import * as mini from 'zod/mini';
-import { VacpActionError, type VacpActionCall, type VacpActionResult } from '@ethivia/vacp-protocol';
+import { VacpActionError, vacpAgentActor, type VacpActionCall, type VacpActionResult } from '@ethivia/vacp-protocol';
 import { createVacpProvider, executeVacpAction } from '@ethivia/vacp-runtime';
 import { createVacpActions } from '@ethivia/vacp-sdk';
+
+const context = { actor: vacpAgentActor };
 
 interface Selection {
   group: string;
@@ -46,8 +48,11 @@ test('custom actions infer transformed parameters and accept domain interface re
     ok: true,
     result: { selection: { group: 'a', ids: ['one', 'two'] }, count: 2 },
   };
-  assert.deepEqual(await executeVacpAction(actions.registry, call), expected);
-  assert.equal((await executeVacpAction(actions.registry, { ...call, params: { group: 'a', ids: [] } })).ok, false);
+  assert.deepEqual(await executeVacpAction(actions.registry, call, context), expected);
+  assert.equal(
+    (await executeVacpAction(actions.registry, { ...call, params: { group: 'a', ids: [] } }, context)).ok,
+    false,
+  );
   assert.deepEqual(selected.ids, ['one', 'two']);
   assert.equal(actions.registry.list()[0]?.parameters?.['x-app-kind'], 'selection');
 
@@ -89,13 +94,16 @@ test('async Zod validation and transforms feed normalized parameters to the hand
     .handle(({ message }) => message.toUpperCase());
 
   assert.equal(descriptor.parameters?.type, 'string');
-  assert.deepEqual(await executeVacpAction(actions.registry, { callId: 'ok', name: 'custom.echo', params: 'hello' }), {
-    callId: 'ok',
-    ok: true,
-    result: 'HELLO',
-  });
+  assert.deepEqual(
+    await executeVacpAction(actions.registry, { callId: 'ok', name: 'custom.echo', params: 'hello' }, context),
+    {
+      callId: 'ok',
+      ok: true,
+      result: 'HELLO',
+    },
+  );
   assert.equal(
-    (await executeVacpAction(actions.registry, { callId: 'bad', name: 'custom.echo', params: '' })).ok,
+    (await executeVacpAction(actions.registry, { callId: 'bad', name: 'custom.echo', params: '' }, context)).ok,
     false,
   );
 });
@@ -105,7 +113,7 @@ test('application failure details preserve scalar values and explicit domain dia
   actions.operation('mutation', 'custom.fail', 'Report a domain error').handle(() => {
     throw 42;
   });
-  assert.deepEqual(await executeVacpAction(actions.registry, { callId: 'failure', name: 'custom.fail' }), {
+  assert.deepEqual(await executeVacpAction(actions.registry, { callId: 'failure', name: 'custom.fail' }, context), {
     callId: 'failure',
     ok: false,
     error: { message: '42', details: 42 },
@@ -113,7 +121,7 @@ test('application failure details preserve scalar values and explicit domain dia
   actions.operation('query', 'custom.rows', 'Read available rows').handle(() => {
     throw new VacpActionError('Dataset is still loading', { code: 'loading', dataset: 'cars' });
   });
-  assert.deepEqual(await executeVacpAction(actions.registry, { callId: 'rows', name: 'custom.rows' }), {
+  assert.deepEqual(await executeVacpAction(actions.registry, { callId: 'rows', name: 'custom.rows' }, context), {
     callId: 'rows',
     ok: false,
     error: { message: 'Dataset is still loading', details: { code: 'loading', dataset: 'cars' } },
@@ -121,7 +129,7 @@ test('application failure details preserve scalar values and explicit domain dia
   actions.operation('query', 'custom.crash', 'Fail unexpectedly').handle(() => {
     throw new Error('Connection lost', { cause: new Error('socket closed') });
   });
-  assert.deepEqual(await executeVacpAction(actions.registry, { callId: 'crash', name: 'custom.crash' }), {
+  assert.deepEqual(await executeVacpAction(actions.registry, { callId: 'crash', name: 'custom.crash' }, context), {
     callId: 'crash',
     ok: false,
     error: { message: 'Connection lost' },
@@ -137,7 +145,11 @@ test('invalid parameters report structured field diagnostics before invoking the
       throw new Error('Validation must run before the handler');
     });
   assert.deepEqual(
-    await executeVacpAction(actions.registry, { callId: 'invalid', name: 'set', params: { items: [{ count: 0 }] } }),
+    await executeVacpAction(
+      actions.registry,
+      { callId: 'invalid', name: 'set', params: { items: [{ count: 0 }] } },
+      context,
+    ),
     {
       callId: 'invalid',
       ok: false,
@@ -167,7 +179,7 @@ test('union diagnostics retain branch and nested key failures without copying su
     )
     .handle((value) => value);
   assert.deepEqual(
-    await executeVacpAction(actions.registry, { callId: 'union', name: 'select', params: { other: 17 } }),
+    await executeVacpAction(actions.registry, { callId: 'union', name: 'select', params: { other: 17 } }, context),
     {
       callId: 'union',
       ok: false,
@@ -229,12 +241,12 @@ test('scoped action registries retain shared contracts and return their executab
     .handle(() => 'right');
   assert.notEqual(first.name, second.name);
   assert.equal(first.operation.contract, second.operation.contract);
-  assert.deepEqual(await executeVacpAction(left.registry, { callId: 'left', name: first.name }), {
+  assert.deepEqual(await executeVacpAction(left.registry, { callId: 'left', name: first.name }, context), {
     callId: 'left',
     ok: true,
     result: 'left',
   });
-  assert.deepEqual(await executeVacpAction(right.registry, { callId: 'right', name: second.name }), {
+  assert.deepEqual(await executeVacpAction(right.registry, { callId: 'right', name: second.name }, context), {
     callId: 'right',
     ok: true,
     result: 'right',
@@ -261,7 +273,7 @@ test('composed prerequisites and typed focus survive the action definition stage
     detail: { id: 'point-1' },
     interaction: { kind: 'activate' },
   });
-  assert.deepEqual(await prepared.execute(), { callId: 'select', ok: true, result: 'point-1' });
+  assert.deepEqual(await prepared.execute(context), { callId: 'select', ok: true, result: 'point-1' });
 
   const unparsed = actions.operation('query', 'inspect', 'Inspect chart');
   unparsed.focus(() => ({ ref: 'vacp://chart' })).title('Inspect chart') satisfies { focus: unknown; params?: never };
@@ -339,18 +351,22 @@ test('one schema publishes input constraints and prepares coerced values and def
     params: { ranges: { x: ['2', '6'], y: null } },
   });
   assert.deepEqual(prepared.intent.focus?.detail, { ranges: { x: [2, 6], y: null } });
-  assert.deepEqual(await prepared.execute(), {
+  assert.deepEqual(await prepared.execute(context), {
     callId: 'brush',
     ok: true,
     result: { ranges: { x: [2, 6], y: null }, mode: 'replace' },
   });
   assert.equal(
     (
-      await executeVacpAction(actions.registry, {
-        callId: 'invalid',
-        name: descriptor.name,
-        params: { ranges: { x: [1] } },
-      })
+      await executeVacpAction(
+        actions.registry,
+        {
+          callId: 'invalid',
+          name: descriptor.name,
+          params: { ranges: { x: [1] } },
+        },
+        context,
+      )
     ).ok,
     false,
   );
@@ -363,7 +379,7 @@ test('Zod Mini schemas infer handler parameters', async () => {
     .params(mini.object({ value: mini.number() }))
     .handle(({ value }) => value * 2);
   assert.deepEqual(
-    await executeVacpAction(actions.registry, { callId: 'mini', name: minimal.name, params: { value: 3 } }),
+    await executeVacpAction(actions.registry, { callId: 'mini', name: minimal.name, params: { value: 3 } }, context),
     {
       callId: 'mini',
       ok: true,
@@ -386,11 +402,15 @@ test('unrepresentable input fails during definition while JSON inputs may transf
   assert.equal(descriptor.parameters?.type, 'string');
   assert.equal(descriptor.parameters?.format, 'date-time');
   assert.deepEqual(
-    await executeVacpAction(actions.registry, {
-      callId: 'year',
-      name: descriptor.name,
-      params: '2026-09-19T00:00:00Z',
-    }),
+    await executeVacpAction(
+      actions.registry,
+      {
+        callId: 'year',
+        name: descriptor.name,
+        params: '2026-09-19T00:00:00Z',
+      },
+      context,
+    ),
     { callId: 'year', ok: true, result: 2026 },
   );
 });

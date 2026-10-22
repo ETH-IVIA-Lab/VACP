@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import type { VacpActionExecutionOptions, VacpRef } from '@ethivia/vacp-protocol';
+import type { VacpActionExecutionContext, VacpRef } from '@ethivia/vacp-protocol';
 import { listDatasets, loadDataset, type Encoding } from '../datasets/registry';
 import { assertDashboardEncoding, assertDashboardSelection } from '../lib/dashboard';
 import type { ReactDashboardModel } from './model';
@@ -50,7 +50,7 @@ export async function prepareDashboardRestoration(model: ReactDashboardModel, st
     Number(selected !== undefined) +
     Number(brush !== undefined);
 
-  return async ({ signal }: VacpActionExecutionOptions) => {
+  return async ({ signal }: VacpActionExecutionContext) => {
     signal?.throwIfAborted();
     if (model.read().datasetId !== before.datasetId) throw new Error('Dataset changed during restoration preparation');
     if (scatter?.datasetId !== undefined) await model.setDatasetId(scatter.datasetId);

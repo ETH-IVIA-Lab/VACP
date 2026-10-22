@@ -2,7 +2,10 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { View, parse } from 'vega';
 import { compile, type TopLevelSpec } from 'vega-lite';
+import { vacpAgentActor } from '@ethivia/vacp-protocol';
 import { createVegaLiteProvider } from '../src/index';
+
+const context = { actor: vacpAgentActor };
 
 test('a hover that matches no mark lists the named marks and their fields, and their name matches', async () => {
   const spec: TopLevelSpec = {
@@ -28,7 +31,7 @@ test('a hover that matches no mark lists the named marks and their fields, and t
       (action) => action.operation.contract === 'vega_lite.hover_tooltip',
     );
     assert.ok(descriptor);
-    const outcome = await (await provider.prepare({ callId: 'hover', name: descriptor.name, params })).execute();
+    const outcome = await (await provider.prepare({ callId: 'hover', name: descriptor.name, params })).execute(context);
     assert.equal(outcome.ok, true);
     return outcome.result as {
       matches: number;

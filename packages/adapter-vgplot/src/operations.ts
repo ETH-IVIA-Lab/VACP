@@ -1,4 +1,4 @@
-import type { VacpFocus, VacpInteraction, VacpActionExecutionOptions, VacpRef } from '@ethivia/vacp-protocol';
+import type { VacpFocus, VacpInteraction, VacpActionExecutionContext, VacpRef } from '@ethivia/vacp-protocol';
 import type { VgplotBinding, VgplotBindings } from './bindings';
 import { prepareInputAction } from './inputs';
 import { plotLegends } from './legends';
@@ -13,7 +13,7 @@ import { interactorType } from './native-classes';
 type Params = Record<string, unknown>;
 export type VgplotOperation = {
   focus: VacpFocus;
-  execute(options?: VacpActionExecutionOptions): unknown;
+  execute(context: VacpActionExecutionContext): unknown;
 };
 type Prepare = (params: Params) => VgplotOperation;
 
@@ -26,8 +26,8 @@ function bound(
 ): VgplotOperation {
   return {
     focus: { ref: binding.ref, detail, interaction },
-    execute: async (options = {}) => {
-      options.signal?.throwIfAborted();
+    execute: async (context) => {
+      context.signal?.throwIfAborted();
       if (binding.kind === 'interactor' && binding.plot.interactors[binding.index] !== binding.interactor)
         throw new Error('Interactor binding changed; prepare the operation again');
       if (binding.kind === 'legend' && plotLegends(binding.plot)[binding.index] !== binding.legend)
@@ -43,7 +43,7 @@ function bound(
             : undefined;
       const pending = selection?.pending?.('value');
       if (pending) {
-        const signal = options.signal;
+        const signal = context.signal;
         signal?.throwIfAborted();
         let abort = () => {};
         try {
@@ -60,7 +60,7 @@ function bound(
           signal?.removeEventListener('abort', abort);
         }
       }
-      options.signal?.throwIfAborted();
+      context.signal?.throwIfAborted();
       if ('plot' in binding) requestPlotUpdate(binding.plot);
       return result;
     },

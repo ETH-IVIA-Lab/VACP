@@ -2,7 +2,7 @@ import {
   assertVacpActionAvailable,
   parseVacpNarration,
   type VacpActionCall,
-  type VacpActionExecutionOptions,
+  type VacpActionExecutionContext,
   type VacpActionResult,
   type VacpExecution,
   type VacpObservation,
@@ -14,7 +14,7 @@ import { actionFailure } from '../action-registry';
 import type { createAgentActivityChannel } from './activities';
 import type { createExecutionChannel } from './executions';
 import type { createLiveObservations } from './observations';
-import { entryActor, makeEntryId, nowIso } from './helpers';
+import { makeEntryId, nowIso } from './helpers';
 
 /** Execution has one terminal outcome. Recording and presentation cannot replace it. */
 export function createDispatcher(args: {
@@ -31,15 +31,15 @@ export function createDispatcher(args: {
   actionFinished(id: string): void;
 }) {
   let sequence = 0;
-  return async (inputCall: VacpActionCall, options?: VacpActionExecutionOptions): Promise<VacpActionResult> => {
+  return async (inputCall: VacpActionCall, context: VacpActionExecutionContext): Promise<VacpActionResult> => {
     const call = structuredClone(inputCall);
     const requestedProviders = new Map(args.providers);
     const epoch = args.getEpoch();
-    const actor = entryActor(options?.actor);
-    const narration = options?.narration === undefined ? undefined : parseVacpNarration(options.narration);
+    const actor = structuredClone(context.actor);
+    const narration = context.narration === undefined ? undefined : parseVacpNarration(context.narration);
     // Restorations replay recorded state on a person's behalf and belong to no agent turn.
-    const step = options?.restoration ? { narration } : args.agentActivities.beginStep(actor, narration);
-    let signal = AbortSignal.any([args.lifetime, ...(options?.signal ? [options.signal] : [])]);
+    const step = context.restoration ? { narration } : args.agentActivities.beginStep(actor, narration);
+    let signal = AbortSignal.any([args.lifetime, ...(context.signal ? [context.signal] : [])]);
     const execution: VacpExecution = {
       id: makeEntryId(),
       sequence: ++sequence,
@@ -48,7 +48,7 @@ export function createDispatcher(args: {
       actor,
       activityId: step.activityId,
       narration: step.narration,
-      restoration: options?.restoration ? structuredClone(options.restoration) : undefined,
+      restoration: context.restoration ? structuredClone(context.restoration) : undefined,
       phase: 'accepted',
       at: nowIso(),
     };
@@ -82,7 +82,7 @@ export function createDispatcher(args: {
         const descriptor = initial.graph.actions.find((action) => action.name === call.name);
         execution.title = descriptor?.title;
         execution.operationKind = descriptor?.operation.kind;
-        const prepared = await provider.prepare(call, { ...options, signal });
+        const prepared = await provider.prepare(call, { ...context, signal });
         signal.throwIfAborted();
         execution.intent = structuredClone(prepared.intent);
         emit('prepared');
@@ -96,7 +96,7 @@ export function createDispatcher(args: {
         applying = true;
         args.actionStarted(execution);
         emit('running');
-        result = await prepared.execute({ ...options, signal });
+        result = await prepared.execute({ ...context, signal });
         // The provider returned an outcome: later cancellation belongs to presentation only.
         emit(result.ok ? 'succeeded' : 'failed', result.ok ? undefined : result.error.message);
       } catch (error) {

@@ -2,7 +2,10 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { View, parse } from 'vega';
 import { compile, type TopLevelSpec } from 'vega-lite';
+import { vacpAgentActor } from '@ethivia/vacp-protocol';
 import { createVegaLiteProvider } from '../src/index';
+
+const context = { actor: vacpAgentActor };
 
 const athletes = [
   { weight: 60, height: 1.7 },
@@ -58,7 +61,7 @@ async function brushFixture() {
       name: descriptor.name,
       params: { ref: 'vacp://test/physique/body/param/body', value },
     });
-    return prepared.execute();
+    return prepared.execute(context);
   };
   return {
     view,
@@ -177,7 +180,7 @@ async function seasonFixture() {
       name: descriptor.name,
       params: { ref: 'vacp://test/weather/season/param/season', value },
     });
-    return prepared.execute();
+    return prepared.execute(context);
   };
   return {
     select,
@@ -237,7 +240,7 @@ async function selection(spec: TopLevelSpec, param: string) {
       name: descriptor!.name,
       params: { ref: `vacp://test/view/chart/param/${param}`, value },
     });
-    return prepared.execute();
+    return prepared.execute(context);
   };
   return {
     view,

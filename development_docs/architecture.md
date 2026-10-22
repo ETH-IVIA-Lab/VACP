@@ -63,9 +63,9 @@ Unattributed changes are recorded only from provider invalidation. `refresh({ ac
 
 `runtime.execute` resolves the owner, checks availability, prepares, waits for bounded execution gates, checks availability again, and executes once. Preparation validates every input and resolves its native target before any change, and its closure is single-use. Dispatch captures the before-state immediately before effects and records the terminal outcome once. A later cancellation, read failure, or presentation failure cannot replace a known result. Error details carry a `VacpActionError`'s details or a thrown JSON primitive. Any other error contributes its message.
 
-Execution options belong to the host: `actor`, `narration`, `signal`, and `restoration` never come from model parameters. Cancellation combines the caller's signal with the provider generation's lifetime. Replacing a provider aborts calls pending on its old binding.
+Execution options belong to the host: `actor`, `narration`, `signal`, and `restoration` never come from model parameters. `runtime.execute` resolves the actor once, `vacpAgentActor` when the caller names none, and prepared executions and handlers receive it in a `VacpActionExecutionContext`. Cancellation combines the caller's signal with the provider generation's lifetime. Replacing a provider aborts calls pending on its old binding.
 
-`executeVacpAction(provider, call)` is the one lifecycle-free path, for testing a provider.
+`executeVacpAction(provider, call, context)` is the one lifecycle-free path, for testing a provider.
 
 ## Narration and turns
 

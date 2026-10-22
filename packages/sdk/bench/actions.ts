@@ -1,7 +1,10 @@
 import { z } from 'zod';
 import { measure } from '../../../tools/benchmark';
+import { vacpAgentActor } from '@ethivia/vacp-protocol';
 import { executeVacpAction } from '@ethivia/vacp-runtime';
 import { createVacpActions } from '../src/actions';
+
+const context = { actor: vacpAgentActor };
 
 const actions = createVacpActions();
 const action = actions
@@ -16,14 +19,14 @@ console.log(`Node ${process.version}; SDK validation, preparation and execution`
 const noSignal = await measure(
   'coerced brush with no signal',
   async () => {
-    if (!(await executeVacpAction(actions.registry, call)).ok) throw new Error('Expected a valid action');
+    if (!(await executeVacpAction(actions.registry, call, context)).ok) throw new Error('Expected a valid action');
   },
   10_000,
 );
 const callerSignal = await measure(
   'coerced brush with caller signal',
   async () => {
-    if (!(await executeVacpAction(actions.registry, call, { signal: controller.signal })).ok)
+    if (!(await executeVacpAction(actions.registry, call, { ...context, signal: controller.signal })).ok)
       throw new Error('Expected a valid action');
   },
   10_000,
@@ -31,7 +34,7 @@ const callerSignal = await measure(
 const invalid = await measure(
   'invalid brush with structured diagnostics',
   async () => {
-    if ((await executeVacpAction(actions.registry, { ...call, params: { ranges: { x: [1] } } })).ok)
+    if ((await executeVacpAction(actions.registry, { ...call, params: { ranges: { x: [1] } } }, context)).ok)
       throw new Error('Expected validation failure');
   },
   1_000,

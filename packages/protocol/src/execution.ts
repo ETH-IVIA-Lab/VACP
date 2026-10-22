@@ -34,6 +34,9 @@ export type VacpActionExecutionOptions = {
   narration?: string;
 };
 
+/** The options an operation executes with. The runtime has resolved the actor the call is attributed to. */
+export type VacpActionExecutionContext = VacpActionExecutionOptions & { actor: VacpActor };
+
 /** Optional interaction meaning. Renderers choose their own assets and feedback. */
 export type VacpInteraction = {
   kind: 'point' | 'activate' | 'brush' | 'drag' | 'pan' | 'zoom' | 'edit' | 'resize' | (string & {});
@@ -52,7 +55,7 @@ export type VacpActionIntent<Detail = unknown> = {
 /** A validated, single-use operation. Preparation must not mutate the analytical source. */
 export type VacpPreparedAction = {
   intent: VacpActionIntent;
-  execute(options?: VacpActionExecutionOptions): Promise<VacpActionResult>;
+  execute(context: VacpActionExecutionContext): Promise<VacpActionResult>;
 };
 
 /** Execution completion is independent of the freshness of affected outputs. */

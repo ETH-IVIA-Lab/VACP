@@ -5,9 +5,11 @@ import { createVgplotPresentation } from '../src/presentation';
 import { nodeDuckDb } from './duckdb';
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import type { VacpDataHandleState } from '@ethivia/vacp-protocol';
+import { vacpAgentActor, type VacpDataHandleState } from '@ethivia/vacp-protocol';
 import { createVacpRuntime } from '@ethivia/vacp-runtime';
 import { createVgplotProvider, type VgplotPlotLike } from '../src/index';
+
+const context = { actor: vacpAgentActor };
 
 /** An instance of a Mosaic class with only the fields a test needs; its constructor needs a rendered mark. */
 function mosaic<Fields extends object>(
@@ -147,14 +149,14 @@ test('preparation validates complete table and axis mutations before changing na
     const panning = await provider.prepare(call('vgplot.set_pan_zoom', { x0: 10, x1: 30 }));
     assert.deepEqual(panning.intent.focus?.interaction, { kind: 'pan' });
     pan.ysel = { update: (value) => axes.push(value) };
-    assert.equal((await zoom.execute()).ok, false);
+    assert.equal((await zoom.execute(context)).ok, false);
     assert.equal(axes.length, 0);
     const plan = await provider.prepare(call('vgplot.table_set_page', { offset: 20, limit: 5 }));
     assert.equal(table.offset, 0);
-    assert.equal((await plan.execute()).ok, true);
+    assert.equal((await plan.execute(context)).ok, true);
     assert.equal(table.offset, 20);
     assert.equal(table.limit, 5);
-    await assert.rejects(plan.execute(), /already been executed/);
+    await assert.rejects(plan.execute(context), /already been executed/);
   } finally {
     provider.dispose?.();
   }
@@ -258,7 +260,7 @@ test('a prepared operation cannot mutate an interactor replaced within its nativ
       params: { ref: 'vacp://test/replacement/plot/interactor/0', value: 'x' },
     });
     plot.interactors[0] = { ...interactor };
-    const result = await plan.execute();
+    const result = await plan.execute(context);
     assert.equal(result.ok, false);
     assert.equal(writes, 0);
   } finally {
@@ -328,7 +330,7 @@ test('pan and zoom semantics use the rendered domain after prior programmatic ch
         params: { ref: 'vacp://test/live-domain/plot/interactor/0', x0, x1 },
       });
       assert.deepEqual(plan.intent.focus?.interaction, interaction);
-      assert.equal((await plan.execute()).ok, true);
+      assert.equal((await plan.execute(context)).ok, true);
       assert.deepEqual(domain, [x0, x1]);
     }
     assert.deepEqual(cached.domain, [0, 20]);
@@ -363,7 +365,7 @@ test('interval preparation orders domain and inverted-axis brush extents before 
     const plan = await provider.prepare(call);
     assert.deepEqual(writes, []);
     assert.deepEqual(brushes, []);
-    assert.equal((await plan.execute()).ok, true);
+    assert.equal((await plan.execute(context)).ok, true);
     assert.deepEqual(writes, [[20, 60]]);
     assert.deepEqual(brushes, [[40, 80]]);
     interactor.clause = () => {

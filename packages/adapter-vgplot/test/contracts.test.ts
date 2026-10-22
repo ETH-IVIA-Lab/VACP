@@ -4,16 +4,19 @@ import { Selection, clauseInterval, clauseList, clausePoints } from '@uwdata/mos
 import { Menu, Search, Slider } from '@uwdata/mosaic-inputs';
 import { Interval1D, Toggle } from '@uwdata/mosaic-plot';
 import { sql } from '@uwdata/mosaic-sql';
+import { vacpAgentActor } from '@ethivia/vacp-protocol';
 import { executeVacpAction } from '@ethivia/vacp-runtime';
 import { createVgplotProvider } from '../src/index';
 import { nodeDuckDb } from './duckdb';
+
+const context = { actor: vacpAgentActor };
 
 const options = { appId: 'test', viewId: 'contracts' };
 const ref = 'vacp://test/contracts/plot/interactor/0';
 
 async function execute(provider: ReturnType<typeof createVgplotProvider>, contract: string, params: unknown) {
   const action = (await provider.observe()).graph.actions.find((action) => action.operation.contract === contract)!;
-  const result = await executeVacpAction(provider, { callId: contract, name: action.name, params });
+  const result = await executeVacpAction(provider, { callId: contract, name: action.name, params }, context);
   assert.ok(result.ok, JSON.stringify(result));
   return result.result;
 }
@@ -163,11 +166,15 @@ test('a native selection SQL failure disables the handle and rejects its query',
     const handle = observation.graph.nodes.find((node) => node.kind === 'DataHandle')!;
     assert.equal(handle.availability?.unavailable, 'predicate failed');
     const action = observation.graph.actions.find((action) => action.operation.contract === 'vacp.data_sql')!;
-    const result = await executeVacpAction(provider, {
-      callId: 'query',
-      name: action.name,
-      params: { handleRef: handle.ref, sql: 'SELECT * FROM vacp_handle' },
-    });
+    const result = await executeVacpAction(
+      provider,
+      {
+        callId: 'query',
+        name: action.name,
+        params: { handleRef: handle.ref, sql: 'SELECT * FROM vacp_handle' },
+      },
+      context,
+    );
     assert.equal(result.ok, false);
     if (!result.ok) assert.match(result.error.message, /predicate failed/);
   } finally {

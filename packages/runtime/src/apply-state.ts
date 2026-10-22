@@ -1,4 +1,4 @@
-import type { VacpActionExecutionOptions } from '@ethivia/vacp-protocol';
+import type { VacpActionExecutionContext } from '@ethivia/vacp-protocol';
 import { z } from 'zod';
 import { vacpRefSchema } from '@ethivia/vacp-protocol/validation';
 import type { VacpActionDescriptor, VacpRef } from '@ethivia/vacp-protocol';
@@ -10,8 +10,8 @@ import { parseVacpParams } from './params';
 export type VacpApplyStatePreparation<Result = unknown> = (
   state: Record<VacpRef, unknown>,
 ) =>
-  | ((options: VacpActionExecutionOptions) => Result | Promise<Result>)
-  | Promise<(options: VacpActionExecutionOptions) => Result | Promise<Result>>;
+  | ((context: VacpActionExecutionContext) => Result | Promise<Result>)
+  | Promise<(context: VacpActionExecutionContext) => Result | Promise<Result>>;
 
 const parseParams = parseVacpParams(VACP_APPLY_STATE_ACTION, z.object({ state: z.record(vacpRefSchema, z.unknown()) }));
 
@@ -50,8 +50,8 @@ export function registerVacpApplyStateAction<Result>(
 
   return registry.register(
     descriptor,
-    (params: { execute: Awaited<ReturnType<VacpApplyStatePreparation<Result>>>; refs: VacpRef[] }, executionOptions) =>
-      params.execute(executionOptions),
+    (params: { execute: Awaited<ReturnType<VacpApplyStatePreparation<Result>>>; refs: VacpRef[] }, context) =>
+      params.execute(context),
     {
       parse: async (value) => {
         const { state } = await parseParams(value);

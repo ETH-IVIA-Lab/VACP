@@ -2,6 +2,7 @@ import type {
   VacpActionCall,
   VacpActionDescriptor,
   VacpActionResult,
+  VacpActionExecutionContext,
   VacpActionExecutionOptions,
   VacpSourceId,
   VacpPreparedAction,
@@ -32,7 +33,7 @@ export type VacpActionPreparation<Params> = {
 
 export type VacpActionHandler<Params = unknown, Result = unknown> = (
   params: Params,
-  options: VacpActionExecutionOptions,
+  context: VacpActionExecutionContext,
 ) => Result | Promise<Result>;
 
 /** Stable routing identity for an action owned by one analytical source. */
@@ -46,7 +47,7 @@ export class VacpActionRegistry implements VacpActionExecutor, VacpActionRegistr
   private readonly handlers = new Map<
     string,
     (params: unknown) => Promise<{
-      execute: (options: VacpActionExecutionOptions) => unknown;
+      execute: (context: VacpActionExecutionContext) => unknown;
       focus?: VacpFocus;
       affects?: VacpRef[];
     }>
@@ -75,7 +76,7 @@ export class VacpActionRegistry implements VacpActionExecutor, VacpActionRegistr
     this.handlers.set(registered.name, async (raw) => {
       const params = preparation ? await preparation.parse(raw) : (raw as Params);
       return {
-        execute: (options) => handler(params, options),
+        execute: (context) => handler(params, context),
         focus: preparation?.focus?.(params),
         affects: preparation?.affects?.(params),
       };
@@ -105,18 +106,18 @@ export class VacpActionRegistry implements VacpActionExecutor, VacpActionRegistr
         focus: prepared.focus,
         affects: [...new Set([...(descriptor.operation.affects ?? []), ...(prepared.affects ?? [])])],
       },
-      execute: async (executionOptions = {}) => {
+      execute: async (context) => {
         if (used) throw new Error('Prepared action has already been executed');
         used = true;
         const preparedSignal = options.signal;
-        const executionSignal = executionOptions.signal;
+        const executionSignal = context.signal;
         const signal =
           preparedSignal && executionSignal && preparedSignal !== executionSignal
             ? AbortSignal.any([preparedSignal, executionSignal])
             : (preparedSignal ?? executionSignal);
         signal?.throwIfAborted();
         try {
-          const result = await prepared.execute({ ...options, ...executionOptions, signal });
+          const result = await prepared.execute({ ...options, ...context, signal });
           signal?.throwIfAborted();
           return { callId: call.callId, ok: true, result };
         } catch (error) {
@@ -142,14 +143,14 @@ export function actionFailure(call: VacpActionCall, error: unknown): Extract<Vac
 export async function executeVacpAction(
   executor: Pick<VacpActionExecutor, 'prepare'>,
   call: VacpActionCall,
-  options?: VacpActionExecutionOptions,
+  context: VacpActionExecutionContext,
 ): Promise<VacpActionResult> {
-  options?.signal?.throwIfAborted();
+  context.signal?.throwIfAborted();
   try {
-    const prepared = await executor.prepare(call, options);
-    return await prepared.execute(options);
+    const prepared = await executor.prepare(call, context);
+    return await prepared.execute(context);
   } catch (error) {
-    options?.signal?.throwIfAborted();
+    context.signal?.throwIfAborted();
     return actionFailure(call, error);
   }
 }

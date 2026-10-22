@@ -1,9 +1,12 @@
+import { vacpAgentActor } from '@ethivia/vacp-protocol';
 import type { VacpDuckDbClient } from '@ethivia/vacp-duckdb';
 import { executeVacpAction } from '@ethivia/vacp-runtime';
 import { View, loader, parse } from 'vega';
 import { compile, type TopLevelSpec } from 'vega-lite';
 import { createVegaLiteProvider } from '../src/index';
 import { measure } from '../../../tools/benchmark';
+
+const context = { actor: vacpAgentActor };
 
 const size = 20_000;
 const weathers = ['sun', 'fog', 'drizzle', 'rain', 'snow'];
@@ -56,11 +59,15 @@ const sql = graph.actions.find((action) => action.operation.contract === 'vacp.d
 /** A SQL read that must succeed and load the shown rows `expected` times. */
 const query = (expected: number) => async () => {
   const before = loads;
-  const result = await executeVacpAction(provider, {
-    callId: 'q',
-    name: sql,
-    params: { handleRef, sql: 'SELECT count(*) FROM vacp_handle' },
-  });
+  const result = await executeVacpAction(
+    provider,
+    {
+      callId: 'q',
+      name: sql,
+      params: { handleRef, sql: 'SELECT count(*) FROM vacp_handle' },
+    },
+    context,
+  );
   if (!result.ok) throw new Error(`The SQL read failed: ${JSON.stringify(result.error)}`);
   if (loads - before !== expected) throw new Error(`The SQL read loaded ${loads - before} tables, not ${expected}`);
 };

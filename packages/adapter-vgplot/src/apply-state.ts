@@ -1,5 +1,5 @@
 import { clauseNone } from '@uwdata/mosaic-core';
-import type { VacpRef, VacpActionExecutionOptions } from '@ethivia/vacp-protocol';
+import type { VacpRef, VacpActionExecutionContext } from '@ethivia/vacp-protocol';
 import type { VgplotBindings } from './bindings';
 import type { createVgplotOperations, VgplotOperation } from './operations';
 
@@ -48,19 +48,19 @@ export function prepareVgplotRestoration(
   }
   for (const { ref, execute } of clearActive)
     plans.push({ ref, operations: [{ focus: { ref: ref as VacpRef }, execute }] });
-  return async (options: VacpActionExecutionOptions) => {
+  return async (context: VacpActionExecutionContext) => {
     const errors: Array<{ ref: string; message: string }> = [];
     let applied = 0;
     for (const plan of plans) {
-      options.signal?.throwIfAborted();
+      context.signal?.throwIfAborted();
       try {
         for (const operation of plan.operations) {
-          options.signal?.throwIfAborted();
-          await operation.execute(options);
+          context.signal?.throwIfAborted();
+          await operation.execute(context);
         }
         applied++;
       } catch (error) {
-        options.signal?.throwIfAborted();
+        context.signal?.throwIfAborted();
         errors.push({ ref: plan.ref, message: error instanceof Error ? error.message : String(error) });
       }
     }

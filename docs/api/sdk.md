@@ -32,11 +32,11 @@ Then bind behavior:
 | ----------------- | -------------------------------------------------------------------------------------------------------------------------------- |
 | `params(schema)`  | Sets `parameters` to the schema's JSON Schema (input mode) and parses every call with it. Call once, before `focus` and `handle` |
 | `focus(resolve)`  | `resolve(params)` returns the `VacpFocus` presence points at, from the parsed parameters                                         |
-| `handle(handler)` | Registers the operation and returns its descriptor. `handler(params, options)` applies the change                                |
+| `handle(handler)` | Registers the operation and returns its descriptor. `handler(params, context)` applies the change                                |
 
 `params` throws when called twice, after `focus`, or with a schema JSON Schema cannot represent, such as `z.date()` or `z.custom()`. Parsing runs during preparation, before any change, and applies defaults, coercion, transforms, refinements, and asynchronous checks. A failed parse produces a `VacpActionError` with `details: { code: 'invalid-params', issues }`, where each issue is `{ path, code, message }` and union failures carry `errors` per branch. Submitted values never appear in the issues.
 
-`handler` receives the parsed parameters and the execution options, including `signal`, which aborts when the caller cancels or the provider is replaced. Its return value becomes the result's `result`.
+`handler` receives the parsed parameters and a `VacpActionExecutionContext`. `context.actor` is the actor the runtime attributed the call to, `vacpAgentActor` when the caller named none. `context.signal` aborts when the caller cancels or the provider is replaced. The handler's return value becomes the result's `result`.
 
 ```ts
 const actions = createVacpActions();
