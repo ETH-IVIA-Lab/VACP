@@ -2,9 +2,12 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { View, parse } from 'vega';
 import { compile, type TopLevelSpec } from 'vega-lite';
+import { vacpAgentActor } from '@ethivia/vacp-protocol';
 import { createVacpRuntime, executeVacpAction } from '@ethivia/vacp-runtime';
 import { createVegaLiteProvider } from '../src/index';
 import type { VegaViewLike } from '../src/types';
+
+const context = { actor: vacpAgentActor };
 
 async function chart(vizId = 'chart') {
   const spec: TopLevelSpec = {
@@ -91,7 +94,7 @@ test('prepared parameter values are isolated and invalid refs fail before mutati
     const prepared = await f.provider.prepare({ callId: 'valid', name: action.name, params });
     params.value.level = 9;
     assert.equal(f.view.signal('threshold'), 1);
-    assert.equal((await prepared.execute()).ok, true);
+    assert.equal((await prepared.execute(context)).ok, true);
     assert.deepEqual(f.view.signal('threshold'), { level: 2 });
   } finally {
     f.provider.dispose!();
@@ -106,7 +109,13 @@ test('a provider without a data port executes parameter actions', async () => {
     assert.equal(observation.graph.nodes.filter((node) => node.kind === 'DataHandle').length, 0);
     const action = observation.graph.actions.find((action) => action.operation.contract === 'vega_lite.set_param')!;
     assert.equal(
-      (await executeVacpAction(f.provider, { callId: 'set', name: action.name, params: { ref: f.ref, value: 5 } })).ok,
+      (
+        await executeVacpAction(
+          f.provider,
+          { callId: 'set', name: action.name, params: { ref: f.ref, value: 5 } },
+          context,
+        )
+      ).ok,
       true,
     );
     assert.equal(f.view.signal('threshold'), 5);

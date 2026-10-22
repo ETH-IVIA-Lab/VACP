@@ -57,7 +57,7 @@ export function createVgplotProvider(args: {
   for (const descriptor of actionDescriptors) {
     actionRegistry.register(
       { ...descriptor, operation: { ...descriptor.operation, contract: descriptor.name } },
-      (prepared: ReturnType<typeof operations.prepare>, options) => prepared.execute(options),
+      (prepared: ReturnType<typeof operations.prepare>, context) => prepared.execute(context),
       { parse: (raw) => operations.prepare(descriptor.name, raw), focus: (prepared) => prepared.focus },
     );
   }

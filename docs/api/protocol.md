@@ -100,9 +100,10 @@ type VacpActionExecutionOptions = {
   narration?: string;
   restoration?: { id: string; entryId?: string };
 };
+type VacpActionExecutionContext = VacpActionExecutionOptions & { actor: VacpActor };
 ```
 
-Execution options belong to the host and never travel inside a call. `narration` is the step's sentence, parsed by `parseVacpNarration`. `restoration` marks a call that restores recorded state.
+Execution options belong to the host and never travel inside a call. `narration` is the step's sentence, parsed by `parseVacpNarration`. `restoration` marks a call that restores recorded state. A caller may omit `actor`. The runtime resolves it once, and a prepared action's `execute` and every handler receive a `VacpActionExecutionContext` with that `actor`.
 
 `new VacpActionError(message, details)` reports a failure whose `details` reach the result unchanged.
 
@@ -177,7 +178,7 @@ interface VacpProvider {
 }
 type VacpPreparedAction = {
   intent: { focus?: VacpFocus; affects: VacpRef[] };
-  execute(options?): Promise<VacpActionResult>;
+  execute(context: VacpActionExecutionContext): Promise<VacpActionResult>;
 };
 ```
 

@@ -1,16 +1,19 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import type {
-  VacpDataHandleData,
-  VacpDataHandleState,
-  VacpDataSchemaResult,
-  VacpProvider,
+import {
+  vacpAgentActor,
+  type VacpDataHandleData,
+  type VacpDataHandleState,
+  type VacpDataSchemaResult,
+  type VacpProvider,
 } from '@ethivia/vacp-protocol';
 import { executeVacpAction } from '@ethivia/vacp-runtime';
 import { View, changeset, loader, parse } from 'vega';
 import { compile, type TopLevelSpec } from 'vega-lite';
 import { createVegaLiteProvider } from '../src/index';
 import { nodeDuckDb } from './duckdb';
+
+const context = { actor: vacpAgentActor };
 
 const options = { appId: 'app', viewId: 'view', vizId: 'chart' };
 
@@ -28,11 +31,15 @@ async function sql(provider: VacpProvider, text: string, handleIndex = 0) {
   const { graph } = await provider.observe();
   const handle = graph.nodes.filter((node) => node.kind === 'DataHandle')[handleIndex]!;
   const action = graph.actions.find((each) => each.operation.contract === 'vacp.data_sql')!;
-  const result = await executeVacpAction(provider, {
-    callId: text,
-    name: action.name,
-    params: { handleRef: handle.ref, sql: text },
-  });
+  const result = await executeVacpAction(
+    provider,
+    {
+      callId: text,
+      name: action.name,
+      params: { handleRef: handle.ref, sql: text },
+    },
+    context,
+  );
   assert.equal(result.ok, true, JSON.stringify(result));
   assert.ok(result.ok, JSON.stringify(result));
   return (result.result as { rows: Record<string, unknown>[] }).rows;
@@ -67,11 +74,15 @@ async function schema(provider: VacpProvider) {
   const { graph } = await provider.observe();
   const handle = graph.nodes.find((node) => node.kind === 'DataHandle')!;
   const action = graph.actions.find((each) => each.operation.contract === 'vacp.data_schema')!;
-  const result = await executeVacpAction(provider, {
-    callId: 'schema',
-    name: action.name,
-    params: { handleRef: handle.ref },
-  });
+  const result = await executeVacpAction(
+    provider,
+    {
+      callId: 'schema',
+      name: action.name,
+      params: { handleRef: handle.ref },
+    },
+    context,
+  );
   assert.equal(result.ok, true);
   return result.result as VacpDataSchemaResult;
 }
@@ -90,11 +101,15 @@ test('layer sources keep distinct handles, each answering over its own rows', as
     const action = graph.actions.find((each) => each.operation.contract === 'vacp.data_sql')!;
     const categories = await Promise.all(
       handles.map(async (handle) => {
-        const result = await executeVacpAction(provider, {
-          callId: handle.ref,
-          name: action.name,
-          params: { handleRef: handle.ref, sql: 'SELECT category FROM vacp_handle' },
-        });
+        const result = await executeVacpAction(
+          provider,
+          {
+            callId: handle.ref,
+            name: action.name,
+            params: { handleRef: handle.ref, sql: 'SELECT category FROM vacp_handle' },
+          },
+          context,
+        );
         assert.ok(result.ok, JSON.stringify(result));
         return (result.result as { rows: Array<{ category: string }> }).rows.map((row) => row.category);
       }),
@@ -255,7 +270,7 @@ async function weather(tooltip = false) {
   const act = async (contract: string, params: unknown) => {
     const { graph } = await provider.observe();
     const action = graph.actions.find((each) => each.operation.contract === contract)!;
-    return await (await provider.prepare({ callId: contract, name: action.name, params })).execute();
+    return await (await provider.prepare({ callId: contract, name: action.name, params })).execute(context);
   };
   return {
     view,
@@ -535,17 +550,21 @@ test('SQL preserves correlated point tuples and rejects an absent selection fiel
     const action = (await provider.observe()).graph.actions.find(
       (action) => action.operation.contract === 'vega_lite.set_selection',
     )!;
-    const result = await executeVacpAction(provider, {
-      callId: 'correlated',
-      name: action.name,
-      params: {
-        ref: 'vacp://app/view/chart/param/pick',
-        value: [
-          { origin: 'USA', cylinders: 4 },
-          { origin: 'Japan', cylinders: 6 },
-        ],
+    const result = await executeVacpAction(
+      provider,
+      {
+        callId: 'correlated',
+        name: action.name,
+        params: {
+          ref: 'vacp://app/view/chart/param/pick',
+          value: [
+            { origin: 'USA', cylinders: 4 },
+            { origin: 'Japan', cylinders: 6 },
+          ],
+        },
       },
-    });
+      context,
+    );
     assert.equal(result.ok, true);
     assert.deepEqual(await sql(provider, 'SELECT origin, cylinders FROM vacp_handle ORDER BY origin'), [
       { origin: 'Japan', cylinders: 6 },

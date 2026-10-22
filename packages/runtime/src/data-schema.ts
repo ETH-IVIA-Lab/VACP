@@ -1,4 +1,4 @@
-import type { VacpActionExecutionOptions, VacpAvailability } from '@ethivia/vacp-protocol';
+import type { VacpActionExecutionContext, VacpAvailability } from '@ethivia/vacp-protocol';
 import { z } from 'zod';
 import { vacpRefSchema } from '@ethivia/vacp-protocol/validation';
 import type { VacpActionDescriptor, VacpDataSchemaParams, VacpDataSchemaResult, VacpRef } from '@ethivia/vacp-protocol';
@@ -9,7 +9,7 @@ import { parseVacpParams } from './params';
 
 export type VacpDataSchemaHandler = (
   params: VacpDataSchemaParams,
-  options: VacpActionExecutionOptions,
+  context: VacpActionExecutionContext,
 ) => VacpDataSchemaResult | Promise<VacpDataSchemaResult>;
 
 const paramsSchema = z.object({

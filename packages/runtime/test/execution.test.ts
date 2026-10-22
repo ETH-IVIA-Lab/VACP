@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import type { VacpExecution } from '@ethivia/vacp-protocol';
+import { vacpAgentActor, type VacpActor, type VacpExecution } from '@ethivia/vacp-protocol';
 import { createVacpProvider, createVacpRuntime, VacpActionRegistry } from '../src/index';
 
 function fixture() {
@@ -78,11 +78,52 @@ test('preparation normalizes once, focus sees the executed value, and actor iden
   }
 });
 
+test('handlers receive the caller actor, or the agent actor when the caller names none', async () => {
+  const actions = new VacpActionRegistry();
+  const seen: VacpActor[] = [];
+  actions.register(
+    { name: 'save', description: 'Save the settings', operation: { kind: 'mutation' } },
+    (_params, { actor }) => {
+      seen.push(actor);
+      return actor.kind;
+    },
+  );
+  const runtime = createVacpRuntime({
+    providers: [
+      createVacpProvider({
+        subscribe: () => () => {},
+        source: { id: 'vacp-source://settings', type: 'test', title: 'Settings' },
+        actions,
+        project: () => ({ graph: { nodes: [], edges: [], actions: actions.list() }, state: {} }),
+      }),
+    ],
+  });
+  try {
+    const reviewer: VacpActor = { id: 'reviewer', kind: 'human' };
+    assert.deepEqual(await runtime.execute({ callId: 'named', name: 'save' }, { actor: reviewer }), {
+      callId: 'named',
+      ok: true,
+      result: 'human',
+    });
+    assert.deepEqual(await runtime.execute({ callId: 'unnamed', name: 'save' }), {
+      callId: 'unnamed',
+      ok: true,
+      result: 'agent',
+    });
+    assert.deepEqual(seen, [reviewer, vacpAgentActor]);
+  } finally {
+    runtime.dispose();
+  }
+});
+
 test('a prepared operation is single use, including concurrent attempts', async () => {
   const f = fixture();
   try {
     const prepared = await f.provider.prepare({ callId: 'once', name: 'set', params: 3 });
-    const results = await Promise.allSettled([prepared.execute(), prepared.execute()]);
+    const results = await Promise.allSettled([
+      prepared.execute({ actor: vacpAgentActor }),
+      prepared.execute({ actor: vacpAgentActor }),
+    ]);
     assert.equal(results.filter((result) => result.status === 'fulfilled').length, 1);
     assert.equal(f.counts().executed, 1);
   } finally {
@@ -111,7 +152,9 @@ test('prepared execution observes cancellation from either context and preserves
       mode === 'execution' ? {} : { signal: preparation.signal },
     );
     await assert.rejects(
-      prepared.execute(mode === 'preparation' ? {} : { signal: execution.signal }),
+      prepared.execute(
+        mode === 'preparation' ? { actor: vacpAgentActor } : { actor: vacpAgentActor, signal: execution.signal },
+      ),
       (error) => error === reason,
     );
   }
@@ -268,7 +311,7 @@ test('before checkpoint is captured after pacing and includes intervening human 
   const release = f.runtime.addExecutionGate(
     async () => {
       const prepared = await f.provider.prepare({ callId: 'human-edit', name: 'set', params: 9 });
-      await prepared.execute();
+      await prepared.execute({ actor: vacpAgentActor });
       await f.runtime.refresh({ actor: { id: 'person', kind: 'human' } });
     },
     { timeoutMs: 1000 },

@@ -1,4 +1,4 @@
-import type { VacpActionExecutionOptions, VacpAvailability } from '@ethivia/vacp-protocol';
+import type { VacpActionExecutionContext, VacpAvailability } from '@ethivia/vacp-protocol';
 import { z } from 'zod';
 import { vacpRefSchema } from '@ethivia/vacp-protocol/validation';
 import type { VacpActionDescriptor, VacpDataSqlParams, VacpRef } from '@ethivia/vacp-protocol';
@@ -7,7 +7,7 @@ import { VACP_DATA_SQL_ACTION, VACP_TOOL_RESULT_LIMITS } from '@ethivia/vacp-pro
 import type { VacpActionRegistrar } from './action-registry';
 import { parseVacpParams } from './params';
 
-export type VacpDataSqlHandler = (params: VacpDataSqlParams, options: VacpActionExecutionOptions) => unknown;
+export type VacpDataSqlHandler = (params: VacpDataSqlParams, context: VacpActionExecutionContext) => unknown;
 
 const paramsSchema = z.object({
   handleRef: vacpRefSchema,

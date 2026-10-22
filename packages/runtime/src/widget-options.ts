@@ -1,4 +1,4 @@
-import type { VacpActionExecutionOptions, VacpAvailability } from '@ethivia/vacp-protocol';
+import type { VacpActionExecutionContext, VacpAvailability } from '@ethivia/vacp-protocol';
 import { z } from 'zod';
 import { vacpRefSchema } from '@ethivia/vacp-protocol/validation';
 import type {
@@ -14,7 +14,7 @@ import { parseVacpParams } from './params';
 
 export type VacpWidgetOptionsHandler = (
   params: VacpWidgetOptionsParams,
-  options: VacpActionExecutionOptions,
+  context: VacpActionExecutionContext,
 ) => VacpWidgetOptionsResult | Promise<VacpWidgetOptionsResult>;
 
 const MAX_LIMIT = 2000;

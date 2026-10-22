@@ -33,7 +33,7 @@ Composes `providers` and subscribes to their invalidations. `historyLimit` bound
 runtime.execute(call: VacpActionCall, options?: VacpActionExecutionOptions): Promise<VacpActionResult>
 ```
 
-Routes the call to the operation's owner, checks availability, prepares the call, waits for execution gates, checks availability again, and executes once. The actor defaults to `vacpAgentActor`. The result is `{ ok: false }` for an unknown or unavailable operation, invalid parameters, or a handler failure. Cancelling `options.signal` before execution prevents the change. Recording happens once, after the result is known, and a later failure never replaces that result.
+Routes the call to the operation's owner, checks availability, prepares the call, waits for execution gates, checks availability again, and executes once. The actor defaults to `vacpAgentActor`, and the handler receives the resolved actor as `context.actor`. The result is `{ ok: false }` for an unknown or unavailable operation, invalid parameters, or a handler failure. Cancelling `options.signal` before execution prevents the change. Recording happens once, after the result is known, and a later failure never replaces that result.
 
 ```ts
 runtime.refresh(options?: { actor?: VacpActor; message?: string; focus?: VacpFocus }): Promise<VacpStateSnapshot>
@@ -99,9 +99,9 @@ registry.unregister(name: string): void
 registry.prepare(call, options?): Promise<VacpPreparedAction>
 ```
 
-Holds one source's operations. With a `sourceId`, registered names are qualified as `source_<hash>.<name>`, so composed sources never collide. `preparation` is `{ parse, focus?, affects? }`: `parse` validates the raw parameters before anything changes. `register` throws on a duplicate name. `prepare` throws for an unknown operation. `@ethivia/vacp-sdk`'s `createVacpActions` builds on this registry.
+Holds one source's operations. `handler(params, context)` receives the parsed parameters and the `VacpActionExecutionContext`. With a `sourceId`, registered names are qualified as `source_<hash>.<name>`, so composed sources never collide. `preparation` is `{ parse, focus?, affects? }`: `parse` validates the raw parameters before anything changes. `register` throws on a duplicate name. `prepare` throws for an unknown operation. `@ethivia/vacp-sdk`'s `createVacpActions` builds on this registry.
 
-`executeVacpAction(provider, call, options?)` prepares and executes a call on one provider without the runtime's routing, availability checks, or recording. Use it to test a provider.
+`executeVacpAction(provider, call, context)` prepares and executes a call on one provider without the runtime's routing, availability checks, or recording. `context.actor` names the actor the call is attributed to, such as `vacpAgentActor`. Use it to test a provider.
 
 ## Standard operations
 
@@ -112,7 +112,7 @@ registerVacpDataSchemaAction(registry, handler, options?: { availability?; input
 registerVacpWidgetOptionsAction(registry, handler, options?: { availability?; inputRefs?; description? })
 ```
 
-Each registers its [standard contract](./protocol#standard-contracts) with parameter validation and returns the descriptor. Invalid parameters fail with the same `invalid-params` details as `@ethivia/vacp-sdk` operations. `prepare` for `vacp.apply_state` receives the desired state and returns the function that applies it. Throw from `prepare` to reject a state before anything changes. Agents can call `vacp.apply_state` too, so reject every state the source's operations refuse. `@ethivia/vacp-duckdb` provides the SQL and schema handlers.
+Each registers its [standard contract](./protocol#standard-contracts) with parameter validation and returns the descriptor. Invalid parameters fail with the same `invalid-params` details as `@ethivia/vacp-sdk` operations. `prepare` for `vacp.apply_state` receives the desired state and returns the function that applies it, called with the `VacpActionExecutionContext`. Throw from `prepare` to reject a state before anything changes. Agents can call `vacp.apply_state` too, so reject every state the source's operations refuse. `@ethivia/vacp-duckdb` provides the SQL and schema handlers.
 
 ### parseVacpParams
 

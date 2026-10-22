@@ -24,7 +24,7 @@ const { runtime, dispose } = installVacpRuntime({
 
 `createVacpActions(sourceId)` gives registered actions unique execution names for that source. Use `.contract(id)` to declare shared semantics, and execute the descriptor returned by `.handle()` using its `name`. Register standard actions on `actions.registry` with the `registerVacp*Action` functions of `@ethivia/vacp-runtime`.
 
-`params(zodSchema)` derives the agent-facing input JSON Schema and validates parameters during preparation. Define parameters once, before `.focus()` or `.handle()`. Those callbacks receive the inferred Zod output type, including transforms and defaults. Async validation and Zod Mini are supported. Handlers also receive cancellation context.
+`params(zodSchema)` derives the agent-facing input JSON Schema and validates parameters during preparation. Define parameters once, before `.focus()` or `.handle()`. Those callbacks receive the inferred Zod output type, including transforms and defaults. Async validation and Zod Mini are supported. Handlers also receive the execution context: the resolved `actor` and the cancellation `signal`.
 
 Use `.requires(...refs)` to add node prerequisites. Describe current readiness alongside the projected state, as [availability](../../docs/availability/index.md) explains.
 
