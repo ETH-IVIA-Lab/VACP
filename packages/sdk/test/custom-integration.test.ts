@@ -17,18 +17,12 @@ test('documented integration shares a control between semantic actions and human
   try {
     const capabilities = await integration.runtime.getCapabilities();
     assert.equal(capabilities.graph.actions[0]?.name, 'threshold.set');
-    assert.equal(
-      (await integration.runtime.execute({ callId: 'set', name: 'threshold.set', params: { value: 42 } })).ok,
-      true,
-    );
+    assert.equal((await integration.runtime.execute({ name: 'threshold.set', params: { value: 42 } })).ok, true);
     assert.equal(input.value, '42');
     input.value = '75';
     input.dispatchEvent(new Event('input'));
     assert.deepEqual((await integration.runtime.observe()).state['vacp://example/threshold'], { value: 75 });
-    assert.equal(
-      (await integration.runtime.execute({ callId: 'bad', name: 'threshold.set', params: { value: 101 } })).ok,
-      false,
-    );
+    assert.equal((await integration.runtime.execute({ name: 'threshold.set', params: { value: 101 } })).ok, false);
     assert.equal(input.value, '75');
   } finally {
     integration.dispose();

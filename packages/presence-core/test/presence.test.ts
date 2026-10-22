@@ -82,7 +82,7 @@ test('presence is independent of execution and distinguishes completion from fre
     resolve: () => pendingTarget,
   });
   try {
-    await f.runtime.execute({ callId: 'set', name: 'set' });
+    await f.runtime.execute({ name: 'set' });
     assert.equal(f.count(), 1);
     assert.equal(rendered[0]!.target, null);
     assert.equal(rendered[0]!.execution!.phase, 'succeeded');
@@ -94,7 +94,7 @@ test('presence is independent of execution and distinguishes completion from fre
     await f.runtime.refresh();
     assert.equal(rendered[0]!.freshness, 'current');
     presence.dispose();
-    await f.runtime.execute({ callId: 'unobserved', name: 'set' });
+    await f.runtime.execute({ name: 'set' });
     assert.equal(f.count(), 2);
     assert.deepEqual(rendered, []);
   } finally {
@@ -114,7 +114,7 @@ test('a later action keeps actor focus when an earlier target resolves', async (
     resolve: (focus) => (focus.detail === 0 ? slow : target),
   });
   try {
-    await f.runtime.execute({ callId: 'earlier', name: 'set', params: 0 });
+    await f.runtime.execute({ name: 'set', params: 0 });
     await f.runtime.execute({ callId: 'current', name: 'set', params: 1 });
     finish({ ...target, geometry: { kind: 'point', point: { x: 99, y: 99 } } });
     await setImmediate();
@@ -142,7 +142,7 @@ test('missing targets and throwing renderers do not alter results, and viewers a
   });
   const healthy = createAgentPresence(f.runtime);
   try {
-    const result = await f.runtime.execute({ callId: 'invisible', name: 'set' });
+    const result = await f.runtime.execute({ name: 'set' });
     assert.equal(result.ok, true);
     assert.equal(healthy.getSnapshot()[0]!.target, null);
     assert.ok(errors.length > 0);
@@ -166,13 +166,13 @@ test('replacing a source retires pending geometry and its old binding cannot tar
   const lease = f.runtime.getProviderBinding(f.provider);
   presence.attach(f.provider, { resolve: () => pending });
   try {
-    await f.runtime.execute({ callId: 'old', name: 'set' });
+    await f.runtime.execute({ name: 'set' });
     f.runtime.update({ providers: [{ ...f.provider }] });
     assert.equal(lease.signal.aborted, true);
     finish(target);
     await setImmediate();
     assert.deepEqual(shown(presence), []);
-    await f.runtime.execute({ callId: 'replacement', name: 'set' });
+    await f.runtime.execute({ name: 'set' });
     assert.equal(presence.getSnapshot()[0]!.target, null);
   } finally {
     presence.dispose();
@@ -189,7 +189,7 @@ test('configured pacing delays mutation and result delivery independently', asyn
   paceAgentPresence(f.runtime, presence, { arrivalTimeoutMs: 0, beforeExecuteMs: 40, afterExecuteMs: 50 });
   let returned = false;
   try {
-    const execution = f.runtime.execute({ callId: 'paced', name: 'set' }).then((result) => {
+    const execution = f.runtime.execute({ name: 'set' }).then((result) => {
       returned = true;
       return result;
     });
@@ -233,7 +233,7 @@ test('disposal releases an intentional pre-execution pause', async () => {
   });
   paceAgentPresence(f.runtime, presence, { beforeExecuteMs: 30_000 });
   try {
-    const result = f.runtime.execute({ callId: 'released', name: 'set' });
+    const result = f.runtime.execute({ name: 'set' });
     await waiting;
     presence.dispose();
     assert.equal((await result).ok, true);
@@ -255,7 +255,7 @@ test(
       resolve: () => ({ surface: 'canvas', precision: 'exact', geometry: { kind: 'point', point: { x, y: 20 } } }),
     });
     try {
-      await f.runtime.execute({ callId: 'canvas', name: 'set' });
+      await f.runtime.execute({ name: 'set' });
       const updated = new Promise<void>((resolve) => {
         const detach = presence.subscribe((activities) => {
           const geometry = activities[0]?.target?.geometry;
@@ -298,7 +298,7 @@ test('passive viewers need no timing authority and removing host pacing leaves b
     if (event.phase === 'prepared') prepared();
   });
   try {
-    const action = f.runtime.execute({ callId: 'host-paced', name: 'set' });
+    const action = f.runtime.execute({ name: 'set' });
     await ready;
     assert.equal(f.count(), 0);
     remove();
@@ -317,7 +317,7 @@ test('custom interaction meaning reaches headless consumers without granting exe
   const f = fixture({ kind: 'lasso', axis: 'xy' });
   const presence = createAgentPresence(f.runtime);
   try {
-    await f.runtime.execute({ callId: 'custom', name: 'set' });
+    await f.runtime.execute({ name: 'set' });
     const observation = presence.getSnapshot();
     assert.deepEqual(observation[0]!.execution!.intent?.focus?.interaction, { kind: 'lasso', axis: 'xy' });
     assert.throws(() => {
@@ -367,7 +367,7 @@ test('geometry invalidation during renderer arrival waits for the replacement ta
     },
   });
   try {
-    await f.runtime.execute({ callId: 'moving', name: 'set' });
+    await f.runtime.execute({ name: 'set' });
     let finished = false;
     const arrival = presence.arrive(presence.getSnapshot()[0]!.execution!.id, new AbortController().signal).then(() => {
       finished = true;
@@ -408,7 +408,7 @@ test(
       resolve: () => target,
     });
     try {
-      await f.runtime.execute({ callId: 'retired', name: 'set' });
+      await f.runtime.execute({ name: 'set' });
       const arrival = presence.arrive(presence.getSnapshot()[0]!.execution!.id, new AbortController().signal);
       await rendering;
       detach();
@@ -446,7 +446,7 @@ test(
       },
     });
     try {
-      await f.runtime.execute({ callId: 'pending', name: 'set' });
+      await f.runtime.execute({ name: 'set' });
       const id = presence.getSnapshot()[0]!.execution!.id;
       const cancelled = new AbortController();
       const first = presence.arrive(id, cancelled.signal);
@@ -483,7 +483,7 @@ test('host thinking stays visible before and between actions and is replayed to 
   try {
     assert.equal(presence.getSnapshot()[0]?.phase, 'thinking');
     assert.equal(presence.getSnapshot()[0]?.execution, undefined);
-    await f.runtime.execute({ name: 'set', callId: 'set' }, { actor });
+    await f.runtime.execute({ name: 'set' }, { actor });
     assert.equal(presence.getSnapshot()[0]?.phase, 'thinking');
     t.mock.timers.tick(200);
     assert.equal(presence.getSnapshot().length, 1);
@@ -510,7 +510,7 @@ test('words about the next step wait for that step while the cursor rests on the
   try {
     // The first words of a turn have no earlier step to contradict, so they show at once.
     assert.equal(presence.getSnapshot()[0]?.summary, 'Selecting rowing first');
-    await f.runtime.execute({ name: 'set', callId: 'first' }, { actor });
+    await f.runtime.execute({ name: 'set' }, { actor });
     assert.equal(presence.getSnapshot()[0]?.execution?.phase, 'succeeded');
 
     turn.update('Now narrowing the age range');
@@ -518,7 +518,7 @@ test('words about the next step wait for that step while the cursor rests on the
     assert.equal(presence.getSnapshot()[0]?.phase, 'thinking');
     turn.update('Now narrowing the ages to the twenties');
     assert.equal(presence.getSnapshot()[0]?.summary, 'Selecting rowing first');
-    await f.runtime.execute({ name: 'set', callId: 'second' }, { actor });
+    await f.runtime.execute({ name: 'set' }, { actor });
     assert.equal(presence.getSnapshot()[0]?.summary, 'Now narrowing the ages to the twenties');
     assert.equal(presence.getSnapshot()[0]?.execution?.phase, 'succeeded');
     assert.ok(!summaries.includes('Now narrowing the age range'));
@@ -551,7 +551,7 @@ test('a new turn stops claiming the last step is current, while the cursor keeps
   });
   try {
     const first = f.runtime.beginAgentActivity({ actor, summary: 'Selecting a range' });
-    await f.runtime.execute({ name: 'set', callId: 'ranged' }, { actor });
+    await f.runtime.execute({ name: 'set' }, { actor });
     f.settle();
     await f.runtime.refresh();
     assert.equal(presence.getSnapshot()[0]?.freshness, 'current');
@@ -577,7 +577,7 @@ test('held words are dropped with their entry instead of surfacing after disposa
   const presence = createAgentPresence(f.runtime, { narrationHoldMs: 500 });
   let published = 0;
   presence.subscribe(() => published++);
-  await f.runtime.execute({ name: 'set', callId: 'first' }, { actor });
+  await f.runtime.execute({ name: 'set' }, { actor });
   turn.update('Narrowing the ages');
   presence.dispose();
   const after = published;
@@ -597,7 +597,7 @@ test('a new host turn keeps focus when an older execution finishes', async () =>
   f.runtime.addExecutionGate(() => gate, { timeoutMs: 5000 });
   const presence = createAgentPresence(f.runtime);
   try {
-    const old = f.runtime.execute({ name: 'set', callId: 'old' }, { actor });
+    const old = f.runtime.execute({ name: 'set' }, { actor });
     await setImmediate();
     const turn = f.runtime.beginAgentActivity({ actor, summary: 'A new comparison' });
     releaseGate();
@@ -634,10 +634,7 @@ test('a viewer attached during host thinking and a prepared operation follows th
     actor: { id: 'agent', kind: 'agent' },
     summary: 'Selecting a range',
   });
-  const operation = f.runtime.execute(
-    { callId: 'already-prepared', name: 'set' },
-    { actor: { id: 'agent', kind: 'agent' } },
-  );
+  const operation = f.runtime.execute({ name: 'set' }, { actor: { id: 'agent', kind: 'agent' } });
   await prepared;
   const presence = createAgentPresence(f.runtime);
   presence.attach(f.provider, {
@@ -687,7 +684,7 @@ test('published activity protects nested focus and geometry across viewers and l
   });
   try {
     await f.runtime.execute(
-      { callId: 'isolated', name: 'set', params: { date: new Date('2020-01-01T00:00:00Z') } },
+      { name: 'set', params: { date: new Date('2020-01-01T00:00:00Z') } },
       { actor: { id: 'agent', kind: 'agent' } },
     );
     const first = presence.getSnapshot()[0]!;
@@ -715,10 +712,10 @@ test('a sentence is shown for the step it began with, never repeated on the step
   const turn = f.runtime.beginAgentActivity({ actor, summary: 'Filtering for female swimmers and gymnasts.' });
   try {
     // The trace that motivated this: one sentence, then several actions without new words.
-    await f.runtime.execute({ name: 'set', callId: 'sex' }, { actor });
-    await f.runtime.execute({ name: 'set', callId: 'sports' }, { actor });
+    await f.runtime.execute({ name: 'set' }, { actor });
+    await f.runtime.execute({ name: 'set' }, { actor });
     turn.update('Narrowing to ages 18 to 25.');
-    await f.runtime.execute({ name: 'set', callId: 'age' }, { actor });
+    await f.runtime.execute({ name: 'set' }, { actor });
     assert.deepEqual(
       [...new Set(during)],
       ['Filtering for female swimmers and gymnasts.', undefined, 'Narrowing to ages 18 to 25.'],

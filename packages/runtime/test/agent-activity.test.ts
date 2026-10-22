@@ -86,7 +86,7 @@ test('a step carries the words it began with; words that arrive while it runs be
   try {
     const actor = { id: 'analyst', kind: 'agent' as const };
     const turn = runtime.beginAgentActivity({ actor, summary: 'Raising the threshold' });
-    const running = runtime.execute({ callId: 'c1', name: 'set', params: {} }, { actor });
+    const running = runtime.execute({ name: 'set', params: {} }, { actor });
     turn.update('Raising the threshold to 35 so the outliers stand out');
     release();
     assert.equal((await running).ok, true);
@@ -137,11 +137,11 @@ test('each step keeps its own words, and a step without new words never repeats 
   try {
     const turn = runtime.beginAgentActivity({ actor, summary: 'Filtering for female swimmers and gymnasts.' });
     const name = (await runtime.getCapabilities()).graph.actions[0]!.name;
-    await runtime.execute({ callId: 'sex', name }, { actor });
-    await runtime.execute({ callId: 'sports', name }, { actor });
-    await runtime.execute({ callId: 'age', name }, { actor, narration: 'Narrowing to ages 18 to 25.' });
+    await runtime.execute({ name }, { actor });
+    await runtime.execute({ name }, { actor });
+    await runtime.execute({ name }, { actor, narration: 'Narrowing to ages 18 to 25.' });
     turn.update('Keeping the youngest medalists in view.');
-    await runtime.execute({ callId: 'medals', name }, { actor });
+    await runtime.execute({ name }, { actor });
     const messages = runtime
       .getProvenance()
       .records.flatMap((record) => (record.kind === 'action' ? [record.execution.narration] : []));
@@ -190,9 +190,9 @@ test('a finished turn is recorded with its opening and closing words, and its st
   try {
     const name = (await runtime.getCapabilities()).graph.actions[0]!.name;
     const turn = runtime.beginAgentActivity({ actor, summary: 'Filtering for young athletes.' });
-    await runtime.execute({ callId: 'one', name }, { actor, narration: 'Keeping ages under 25.' });
+    await runtime.execute({ name }, { actor, narration: 'Keeping ages under 25.' });
     turn.update('Adding the medal counts.');
-    await runtime.execute({ callId: 'two', name }, { actor });
+    await runtime.execute({ name }, { actor });
     turn.end({ summary: 'Young medalists are in view.' });
     const records = runtime.getProvenance().records;
     const steps = records.filter((record) => record.kind === 'action');
@@ -207,7 +207,7 @@ test('a finished turn is recorded with its opening and closing words, and its st
     );
     // A turn whose first words arrive with its first step has no separate opening.
     const quiet = runtime.beginAgentActivity({ actor, summary: 'Keeping ages over 30.' });
-    await runtime.execute({ callId: 'three', name }, { actor });
+    await runtime.execute({ name }, { actor });
     quiet.end();
     const last = runtime.getProvenance().records.at(-1);
     assert.equal(last?.kind === 'turn' ? last.opening : 'missing', undefined);
@@ -261,7 +261,7 @@ test('narration opens one turn per actor, closes on done, and closes a quiet tur
   assert.throws(() => runtime.narrate({ actor, message: '   ' }), /requires a sentence/);
 
   runtime.narrate({ actor, message: 'Checking the age range.' });
-  const running = runtime.execute({ callId: 'slow', name: 'set' }, { actor, narration: 'Narrowing to ages 20 to 30.' });
+  const running = runtime.execute({ name: 'set' }, { actor, narration: 'Narrowing to ages 20 to 30.' });
   await new Promise((resolve) => setImmediate(resolve));
   t.mock.timers.tick(60_000);
   assert.equal(runtime.getAgentActivities().length, 1, 'a step in flight keeps its turn open');
@@ -307,8 +307,8 @@ test('an agent’s first step opens its turn, and the closing words end that tur
   const runtime = stepRuntime();
   t.after(() => runtime.dispose());
   const actor = { id: 'agent', kind: 'agent' as const };
-  await runtime.execute({ callId: 'sex', name: 'set' }, { actor, narration: 'Keeping female athletes.' });
-  await runtime.execute({ callId: 'sport', name: 'set' }, { actor, narration: 'Keeping aquatics.' });
+  await runtime.execute({ name: 'set' }, { actor, narration: 'Keeping female athletes.' });
+  await runtime.execute({ name: 'set' }, { actor, narration: 'Keeping aquatics.' });
   assert.equal(runtime.getAgentActivities().length, 1, 'the request stays one open turn between its steps');
   runtime.narrate({ actor, message: 'Female swimmers are in view.', done: true });
   const records = runtime.getProvenance().records;
@@ -333,10 +333,10 @@ test('steps keep a turn open, and it closes after a quiet spell once the last st
   const actor = { id: 'agent', kind: 'agent' as const };
   runtime.narrate({ actor, message: 'Comparing swimmers.' });
   t.mock.timers.tick(40_000);
-  await runtime.execute({ callId: 'first', name: 'set' }, { actor, narration: 'Keeping aquatics.' });
+  await runtime.execute({ name: 'set' }, { actor, narration: 'Keeping aquatics.' });
   t.mock.timers.tick(40_000);
   assert.equal(runtime.getAgentActivities().length, 1, 'the step restarted the quiet spell');
-  await runtime.execute({ callId: 'second', name: 'set' }, { actor, narration: 'Keeping ages 20 to 30.' });
+  await runtime.execute({ name: 'set' }, { actor, narration: 'Keeping ages 20 to 30.' });
   t.mock.timers.tick(59_000);
   assert.equal(runtime.getAgentActivities().length, 1, 'a reasoning pause between steps stays in the request');
   t.mock.timers.tick(1_000);
@@ -352,8 +352,8 @@ test('steps keep a turn open, and it closes after a quiet spell once the last st
 test('a person’s or the system’s step opens no agent turn', async (t) => {
   const runtime = stepRuntime();
   t.after(() => runtime.dispose());
-  await runtime.execute({ callId: 'human', name: 'set' }, { actor: { id: 'person', kind: 'human' } });
-  await runtime.execute({ callId: 'system', name: 'set' }, { actor: { id: 'app', kind: 'system' } });
+  await runtime.execute({ name: 'set' }, { actor: { id: 'person', kind: 'human' } });
+  await runtime.execute({ name: 'set' }, { actor: { id: 'app', kind: 'system' } });
   assert.deepEqual(runtime.getAgentActivities(), []);
   for (const step of runtime.getProvenance().records.filter((record) => record.kind === 'action'))
     assert.equal(step.kind === 'action' && step.execution.activityId, undefined);
@@ -363,9 +363,9 @@ test('an agent that acts before it narrates keeps one turn through its later sen
   const runtime = stepRuntime();
   t.after(() => runtime.dispose());
   const actor = { id: 'agent', kind: 'agent' as const };
-  await runtime.execute({ callId: 'sex', name: 'set' }, { actor, narration: 'Keeping female athletes.' });
+  await runtime.execute({ name: 'set' }, { actor, narration: 'Keeping female athletes.' });
   runtime.narrate({ actor, message: 'Next I compare the sports.' });
-  await runtime.execute({ callId: 'sport', name: 'set' }, { actor, narration: 'Keeping aquatics.' });
+  await runtime.execute({ name: 'set' }, { actor, narration: 'Keeping aquatics.' });
   runtime.narrate({ actor, message: 'Female swimmers are in view.', done: true });
   const records = runtime.getProvenance().records;
   const turns = records.filter((record) => record.kind === 'turn');
@@ -385,7 +385,7 @@ test('narration joins a turn its host began, and the host’s later end leaves t
   const actor = { id: 'agent', kind: 'agent' as const };
   const host = runtime.beginAgentActivity({ actor });
   runtime.narrate({ actor, message: 'Looking at the age spread.' });
-  await runtime.execute({ callId: 'age', name: 'set' }, { actor, narration: 'Narrowing to ages 18 to 25.' });
+  await runtime.execute({ name: 'set' }, { actor, narration: 'Narrowing to ages 18 to 25.' });
   runtime.narrate({ actor, message: 'Most medalists are 22 to 28.', done: true });
   host.end({ outcome: 'failed' });
   const turns = runtime.getProvenance().records.filter((record) => record.kind === 'turn');

@@ -35,7 +35,7 @@ Every operation targets an entity by its ref and takes values in data units. Fin
 const { graph } = await runtime.observe();
 const setBrush = graph.actions.find((action) => action.operation.contract === 'vgplot.set_interval_1d')!;
 await runtime.execute(
-  { callId: 'c1', name: setBrush.name, params: { ref: brushRef, min: 6, max: 12 } },
+  { name: setBrush.name, params: { ref: brushRef, min: 6, max: 12 } },
   { narration: 'Keeping rides picked up between 6 and 12 in the morning.' },
 );
 ```

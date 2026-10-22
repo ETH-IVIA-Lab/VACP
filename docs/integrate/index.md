@@ -14,11 +14,13 @@ After `connectThreshold(input)` runs, an agent or the browser console can set th
 
 ```js
 await window.__vacp.execute(
-  { callId: 'c1', name: 'threshold.set', params: { value: 42 } },
+  { name: 'threshold.set', params: { value: 42 } },
   { narration: 'Raising the threshold to 42.' },
 );
-// { callId: 'c1', ok: true, result: { value: 42 } }
+// { callId: '7c9e6679-7425-40de-944b-e07fc1f90ae7', ok: true, result: { value: 42 } }
 ```
+
+The runtime assigns the `callId` that identifies the call in its result, its execution, and the provenance record. Pass your own `callId` to find the call's execution and provenance record before its result arrives.
 
 ## Describe operations
 
@@ -53,7 +55,7 @@ A call whose parameters fail the schema changes nothing. Its result carries the 
 
 ```json
 {
-  "callId": "c2",
+  "callId": "3b241101-e2bb-4255-8caf-4136c566a962",
   "ok": false,
   "error": {
     "message": "Invalid parameters for action \"threshold.set\"",

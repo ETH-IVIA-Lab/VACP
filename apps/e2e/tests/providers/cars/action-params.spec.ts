@@ -19,7 +19,6 @@ test('cars brush parameters describe partial dimensions and normalize ranges bef
       .filter((row) => row.horsepower >= 100 && row.horsepower <= 150)
       .map((row) => row.id);
     const valid = await bridge.execute({
-      callId: 'partial-brush',
       name: action.name,
       params: { ranges: { Horsepower: ['150', '100'] } },
     });
@@ -27,7 +26,6 @@ test('cars brush parameters describe partial dimensions and normalize ranges bef
       .filter((row) => row.visible)
       .map((row) => row.id);
     const invalid = await bridge.execute({
-      callId: 'unknown-dimension',
       name: action.name,
       params: { ranges: { NotADimension: [0, 1] } },
     });
@@ -35,7 +33,6 @@ test('cars brush parameters describe partial dimensions and normalize ranges bef
       .filter((row) => row.visible)
       .map((row) => row.id);
     const cleared = await bridge.execute({
-      callId: 'clear-dimension',
       name: action.name,
       params: { ranges: { Horsepower: null } },
     });
@@ -63,7 +60,7 @@ test('cars restoration applies projected brushes and an explicit null hover, and
   const orderRef = `${base}/param/dimension_order`;
   const hoverRef = `${base}/selection/hover`;
   const execute = (name: string, params: Record<string, unknown>) =>
-    page.evaluate(({ name, params }) => globalThis.__vacp!.execute({ callId: crypto.randomUUID(), name, params }), {
+    page.evaluate(({ name, params }) => globalThis.__vacp!.execute({ name, params }), {
       name,
       params,
     });

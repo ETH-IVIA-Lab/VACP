@@ -37,21 +37,26 @@ test('HTTP connects by server identity and carries cancellation, custom fetch, a
   });
 });
 
-test('HTTP rejects stale sessions and mismatched operation results', async () => {
+test('HTTP rejects stale sessions and posts the call ID as written', async () => {
   let stale = true;
+  const posted: unknown[] = [];
   const client = await connectHttpInspectorClient({
     url: 'https://analysis.example/api/vacp',
-    fetch: async (url) =>
-      (typeof url === 'string' ? url : url instanceof URL ? url.href : url.url).endsWith('/session')
-        ? Response.json({ id: 'owner', title: 'Analysis' })
-        : stale
-          ? new Response('Session changed', { status: 409 })
-          : Response.json({ callId: 'wrong', ok: true }),
+    fetch: async (url, init) => {
+      if ((typeof url === 'string' ? url : url instanceof URL ? url.href : url.url).endsWith('/session'))
+        return Response.json({ id: 'owner', title: 'Analysis' });
+      if (stale) return new Response('Session changed', { status: 409 });
+      assert.ok(typeof init?.body === 'string');
+      posted.push(JSON.parse(init.body));
+      return Response.json({ callId: 'assigned', ok: true });
+    },
   });
   const signal = new AbortController().signal;
   await assert.rejects(client.observe({ signal }), /409/);
   stale = false;
-  await assert.rejects(client.execute!({ callId: 'call', name: 'set' }, { signal }), /callId/);
+  assert.deepEqual(await client.execute!({ name: 'set' }, { signal }), { callId: 'assigned', ok: true });
+  assert.deepEqual(await client.execute!({ callId: ' ', name: 'set' }, { signal }), { callId: 'assigned', ok: true });
+  assert.deepEqual(posted, [{ name: 'set' }, { callId: ' ', name: 'set' }]);
 });
 
 test('wire validation retains custom entity metadata and rejects incomplete observations', () => {

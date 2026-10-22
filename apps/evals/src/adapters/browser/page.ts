@@ -192,7 +192,7 @@ export class EvalPage implements AgentPage {
 
   async act(act: Act, actor: VacpActor): Promise<unknown> {
     const result = await this.bridge.execute(
-      { callId: crypto.randomUUID(), name: resolveAction(await this.graph(), act), params: act.params },
+      { name: resolveAction(await this.graph(), act), params: act.params },
       { actor, narration: act.narration ?? `Running ${act.action}.` },
     );
     if (!result.ok) throw new Error(`${act.action} failed: ${result.error.message}`);

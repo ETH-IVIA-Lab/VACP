@@ -30,10 +30,7 @@ test('table actions resolve their explicit target ref', async () => {
   try {
     const graph = (await runtime.getCapabilities()).graph;
     const action = graph.actions.find((action) => action.operation.contract === 'vgplot.table_clear_sort')!;
-    assert.equal(
-      (await runtime.execute({ callId: 'clear', name: action.name, params: { ref: 'vacp://test/table/table' } })).ok,
-      true,
-    );
+    assert.equal((await runtime.execute({ name: action.name, params: { ref: 'vacp://test/table/table' } })).ok, true);
     assert.equal(table.sortColumn, null);
     assert.equal(table.sortDesc, false);
   } finally {
@@ -434,23 +431,19 @@ test('shared selection provenance restores its active source after all clause va
     });
     selection.update({ source: second, value: [30, 40] });
     const apply = recorded.graph.actions.find((action) => action.operation.contract === 'vacp.apply_state')!;
-    const result = await runtime.execute({ callId: 'restore', name: apply.name, params: { state: recorded.state } });
+    const result = await runtime.execute({ name: apply.name, params: { state: recorded.state } });
     assert.equal(result.ok, true);
     assert.deepEqual(selection.valueFor(first), [10, 20]);
     assert.equal(selection.valueFor(second), null);
     assert.equal(selection.active.source, first);
     const cleared = { ...recorded.state, [group]: { kind: 'Selection', activeSource: null } };
-    assert.equal(
-      (await runtime.execute({ callId: 'inactive', name: apply.name, params: { state: cleared } })).ok,
-      true,
-    );
+    assert.equal((await runtime.execute({ name: apply.name, params: { state: cleared } })).ok, true);
     assert.equal(selection.active.source, null);
     assert.deepEqual(selection.valueFor(first), [10, 20]);
     assert.equal(selection.valueFor(second), null);
     assert.equal(
       (
         await runtime.execute({
-          callId: 'invalid',
           name: apply.name,
           params: { state: { ...cleared, [group]: { activeSource: 'vacp://unknown/source' } } },
         })

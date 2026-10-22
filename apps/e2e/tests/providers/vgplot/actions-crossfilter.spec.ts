@@ -66,13 +66,11 @@ async function selectedAndAllRowCounts(page: Page) {
     if (!handleRef) throw new Error('Missing weather DataHandle');
 
     const selected = await vacp.execute({
-      callId: crypto.randomUUID(),
       name: names['vacp.data_sql'],
       params: { handleRef, sql: 'SELECT COUNT(*)::INTEGER AS n FROM vacp_handle' },
     });
 
     const all = await vacp.execute({
-      callId: crypto.randomUUID(),
       name: names['vacp.data_sql'],
       params: { handleRef, sql: 'SELECT COUNT(*)::INTEGER AS n FROM vacp_all' },
     });

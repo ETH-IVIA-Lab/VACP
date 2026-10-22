@@ -29,7 +29,7 @@ export function client(): InspectorClient & { value: number; calls: number } {
     async execute(call) {
       this.calls++;
       if (typeof call.params === 'number') this.value = call.params;
-      return { callId: call.callId, ok: true, result: this.value };
+      return { callId: call.callId ?? 'assigned', ok: true, result: this.value };
     },
     async restore(snapshot) {
       this.calls++;

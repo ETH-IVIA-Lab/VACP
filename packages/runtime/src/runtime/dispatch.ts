@@ -1,8 +1,9 @@
 import {
   assertVacpActionAvailable,
   parseVacpNarration,
-  type VacpActionCall,
+  trimVacpWhitespace,
   type VacpActionExecutionContext,
+  type VacpActionRequest,
   type VacpActionResult,
   type VacpExecution,
   type VacpObservation,
@@ -31,8 +32,10 @@ export function createDispatcher(args: {
   actionFinished(id: string): void;
 }) {
   let sequence = 0;
-  return async (inputCall: VacpActionCall, context: VacpActionExecutionContext): Promise<VacpActionResult> => {
-    const call = structuredClone(inputCall);
+  return async (request: VacpActionRequest, context: VacpActionExecutionContext): Promise<VacpActionResult> => {
+    const { callId } = request;
+    if (callId != null && typeof callId !== 'string') throw new TypeError('callId must be a string');
+    const call = structuredClone({ ...request, callId: callId && trimVacpWhitespace(callId) ? callId : makeEntryId() });
     const requestedProviders = new Map(args.providers);
     const epoch = args.getEpoch();
     const actor = structuredClone(context.actor);
@@ -96,7 +99,8 @@ export function createDispatcher(args: {
         applying = true;
         args.actionStarted(execution);
         emit('running');
-        result = await prepared.execute({ ...context, signal });
+        // The runtime owns the call ID, so a provider cannot answer under another one.
+        result = { ...(await prepared.execute({ ...context, signal })), callId: call.callId };
         // The provider returned an outcome: later cancellation belongs to presentation only.
         emit(result.ok ? 'succeeded' : 'failed', result.ok ? undefined : result.error.message);
       } catch (error) {

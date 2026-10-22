@@ -98,20 +98,13 @@ async function dataSchema(
 }
 
 async function executeVacp(page: Page, args: { name: string; params?: Record<string, unknown> }): Promise<any> {
-  return page.evaluate(
-    ({ name, params }) => globalThis.__vacp.execute({ callId: crypto.randomUUID(), name, params: params ?? {} }),
-    args,
-  );
+  return page.evaluate(({ name, params }) => globalThis.__vacp.execute({ name, params: params ?? {} }), args);
 }
 
 async function dispatchOperation(page: Page, contract: string, params: Record<string, unknown>): Promise<any> {
   const names = await operationNames(page, [contract]);
   return page.evaluate(
-    ({ name, params }) =>
-      globalThis.__vacp.execute(
-        { callId: crypto.randomUUID(), name, params },
-        { actor: { id: 'inspector', kind: 'human' } },
-      ),
+    ({ name, params }) => globalThis.__vacp.execute({ name, params }, { actor: { id: 'inspector', kind: 'human' } }),
     { name: names[contract]!, params },
   );
 }

@@ -348,10 +348,19 @@ export type VacpStateUpdate =
       delta: VacpStateDeltaPayload;
     };
 
-export type VacpActionCall<Params = unknown, Name extends string = string> = {
-  callId: string;
+/**
+ * What a caller asks the runtime to execute. The runtime assigns `callId` when it is absent, null, or blank and keeps
+ * any other as written.
+ */
+export type VacpActionRequest<Params = unknown, Name extends string = string> = {
+  callId?: string | null;
   name: Name;
   params?: Params;
+};
+
+/** A request as the runtime executes and records it, with the caller's `callId` or the one it assigned. */
+export type VacpActionCall<Params = unknown, Name extends string = string> = VacpActionRequest<Params, Name> & {
+  callId: string;
 };
 
 export type VacpActionResult<Result = unknown, ErrorDetails = unknown> =

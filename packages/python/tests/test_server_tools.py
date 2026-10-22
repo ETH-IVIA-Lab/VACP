@@ -24,8 +24,10 @@ from vacp.agent_tools import (
 )
 from vacp.bridge import PlaywrightVacpBridgeClient, VacpBridgeClient
 from vacp.narration import NARRATION_GUIDANCE, NARRATION_MAX_LENGTH, PROGRESS_FIELDS, PROGRESS_GUIDANCE, parse_narration
-from vacp.provider import ActionCall, ActionResult
+from vacp.provider import ActionRequest, ActionResult
 from vacp.server import create_mcp
+
+PROTOCOL_FIXTURES = Path(__file__).parents[2] / 'protocol/test/fixtures'
 
 
 class _FakeClient(VacpBridgeClient):
@@ -62,10 +64,10 @@ class _FakeClient(VacpBridgeClient):
             'delta': {'changed': {}, 'removed': []},
         }
 
-    async def execute(self, call: ActionCall, *, narration: str) -> ActionResult:
+    async def execute(self, call: ActionRequest, *, narration: str) -> ActionResult:
         self.messages.append(narration)
         return ActionResult(
-            call_id=call.call_id,
+            call_id=call.call_id or 'assigned',
             ok=True,
             result={'name': call.name, 'params': call.params},
             error=None,
@@ -224,12 +226,56 @@ async def test_mcp_execution_preserves_json_values_and_omission_through_the_brow
     tool = await mcp.get_tool('vacp_execute')
     assert isinstance(tool, FunctionTool)
     for supplied in cases:
-        call = ActionCall(call_id='c1', name='custom.input', **supplied)
+        call = ActionRequest('custom.input', call_id='c1', **supplied)
         assert call.has_params is ('params' in supplied)
         arguments = {'name': 'custom.input', 'narration': 'Reading the input.', 'call_id': 'c1', **supplied}
         result = await tool.run(arguments)
         assert result.is_error is False
         assert payloads[-1] == {'callId': 'c1', 'name': 'custom.input', **supplied}
+
+
+CALL_IDS = json.loads((PROTOCOL_FIXTURES / 'call-id.json').read_text())
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize('supplied', [*CALL_IDS['assigned'], *CALL_IDS['kept']])
+async def test_mcp_execution_passes_the_call_id_to_the_page_as_written_and_replies_with_the_runtimes(
+    supplied: dict[str, str | None],
+) -> None:
+    page = AsyncMock(spec=Page)
+    payloads: list[object] = []
+
+    def evaluate(_expression: str, argument: dict[str, object]) -> object:
+        if 'version' in argument:
+            return True
+        payloads.append(argument['payload'])
+        return json.dumps({'callId': 'runtime-1', 'ok': True})
+
+    page.evaluate.side_effect = evaluate
+    tool = await create_mcp(PlaywrightVacpBridgeClient(lambda: page)).get_tool('vacp_execute')
+    assert isinstance(tool, FunctionTool)
+    arguments: dict[str, str | None] = {'name': 'custom.input', 'narration': 'Reading the input.'}
+    if 'callId' in supplied:
+        arguments['call_id'] = supplied['callId']
+    result = await tool.run(arguments)
+    # A null call ID is absent, so the page receives none and its runtime assigns one.
+    sent = {key: value for key, value in supplied.items() if value is not None}
+    assert payloads == [{**sent, 'name': 'custom.input'}]
+    assert result.structured_content == {'callId': 'runtime-1', 'ok': True}
+
+
+@pytest.mark.asyncio
+async def test_mcp_execution_fails_when_the_page_answers_without_a_call_result() -> None:
+    page = AsyncMock(spec=Page)
+
+    def evaluate(_expression: str, argument: dict[str, object]) -> object:
+        return True if 'version' in argument else json.dumps({'ok': True})
+
+    page.evaluate.side_effect = evaluate
+    tool = await create_mcp(PlaywrightVacpBridgeClient(lambda: page)).get_tool('vacp_execute')
+    assert isinstance(tool, FunctionTool)
+    with pytest.raises(RuntimeError, match='Invalid execute'):
+        await tool.run({'name': 'custom.input', 'narration': 'Reading the input.'})
 
 
 @pytest.mark.asyncio
@@ -360,7 +406,6 @@ async def test_every_execute_step_carries_its_own_sentence() -> None:
         await tool.run({'name': 'cohort.set_sex', 'narration': '   '})
 
 
-PROTOCOL_FIXTURES = Path(__file__).parents[2] / 'protocol/test/fixtures'
 AGENT_TOOLS_FIXTURE = json.loads((PROTOCOL_FIXTURES / 'agent-tools.json').read_text())
 
 
@@ -431,8 +476,8 @@ class _LongClient(_FakeClient):
     async def get_state(self, request: StateRequest) -> dict:
         return {'state': {}, 'note': _LONG}
 
-    async def execute(self, call: ActionCall, *, narration: str) -> ActionResult:
-        return ActionResult(call_id=call.call_id, ok=True, result={'note': _LONG})
+    async def execute(self, call: ActionRequest, *, narration: str) -> ActionResult:
+        return ActionResult(call_id=call.call_id or 'assigned', ok=True, result={'note': _LONG})
 
 
 @pytest.mark.asyncio

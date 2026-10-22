@@ -24,8 +24,8 @@ export const vacpProgressFields = {
 } as const;
 
 /**
- * Unicode White_Space characters, the set every transport trims from a sentence. JavaScript `trim()`
- * and Python `strip()` each use a different set, so neither is used.
+ * Unicode White_Space characters, the set VACP trims from a sentence and that makes a call ID blank.
+ * JavaScript `trim()` and Python `strip()` each use a different set, so neither is used.
  */
 const WHITESPACE = '\t\n\v\f\r \u0085\u00a0\u1680\u2000-\u200a\u2028\u2029\u202f\u205f\u3000';
 const EDGES = new RegExp(`^[${WHITESPACE}]+|[${WHITESPACE}]+$`, 'gu');

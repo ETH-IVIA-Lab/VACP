@@ -31,7 +31,7 @@ interface InspectorClient {
   readonly id: string;
   readonly title: string;
   observe(options: { signal: AbortSignal }): Promise<VacpObservation>;
-  execute?(call: VacpActionCall, options: { signal: AbortSignal }): Promise<VacpActionResult>;
+  execute?(call: VacpActionRequest, options: { signal: AbortSignal }): Promise<VacpActionResult>;
   subscribe?(invalidate: () => void): () => void;
   restore?: VacpRestore;
   reveal?(ref: VacpRef, options: { signal: AbortSignal }): void | Promise<void>;

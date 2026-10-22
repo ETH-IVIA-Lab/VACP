@@ -94,7 +94,7 @@ Use `observe()` when values must describe the same moment, as [Compose sources](
 
 ## Operations
 
-An operation is a named change or query that an agent or an interface can execute. The protocol calls its record an action: operations appear in `graph.actions`, each described by a `VacpActionDescriptor`, and `execute()` takes a `VacpActionCall`. The descriptor states what the operation does to the analysis:
+An operation is a named change or query that an agent or an interface can execute. The protocol calls its record an action: operations appear in `graph.actions`, each described by a `VacpActionDescriptor`, and `execute()` takes a `VacpActionRequest`. The descriptor states what the operation does to the analysis:
 
 ```json
 {
@@ -123,8 +123,8 @@ An operation is a named change or query that an agent or an interface can execut
 A call runs in two phases. Preparation validates every parameter and resolves the native target without changing anything. Execution then applies the change once. A call with invalid parameters fails during preparation with `error.details.code: 'invalid-params'` and an issue with the `path` of each failed check, and the analysis stays as it was.
 
 ```js
-await window.__vacp.execute({ callId: 'c1', name: 'threshold.set', params: { value: 42 } });
-// { callId: 'c1', ok: true, result: { value: 42 } }
+await window.__vacp.execute({ name: 'threshold.set', params: { value: 42 } });
+// { callId: '7c9e6679-7425-40de-944b-e07fc1f90ae7', ok: true, result: { value: 42 } }
 ```
 
 Several sources can implement one contract under different names, so an agent [finds an operation by its contract](../composition/#find-an-operation-by-contract) and then executes its `name`.

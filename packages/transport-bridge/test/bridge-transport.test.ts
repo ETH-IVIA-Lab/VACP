@@ -1,15 +1,23 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import test from 'node:test';
 
-import { VACP_SCHEMA_VERSION } from '@ethivia/vacp-protocol';
+import { VACP_SCHEMA_VERSION, type VacpActionRequest } from '@ethivia/vacp-protocol';
 import { createVacpTransport, type VacpTransportBridge } from '../src/index';
 
+const callIds: { assigned: Array<{ callId?: string | null }>; kept: Array<{ callId: string }> } = JSON.parse(
+  readFileSync(new URL('../../protocol/test/fixtures/call-id.json', import.meta.url), 'utf8'),
+);
 const graph = { sources: [], nodes: [], edges: [], actions: [] };
 const ownership = { nodes: {}, actions: {} };
 
-/** A bridge that answers every read with `extra` beside its fields and records what each call received. */
+/**
+ * A bridge that answers every read with `extra` beside its fields and records what each call received. Like
+ * the runtime, it numbers a call that arrives without a call ID.
+ */
 function bridge(extra: Record<string, unknown> = {}) {
   const calls: Array<[string, ...unknown[]]> = [];
+  let assigned = 0;
   const page: VacpTransportBridge = {
     version: VACP_SCHEMA_VERSION,
     observe: async () => {
@@ -44,7 +52,7 @@ function bridge(extra: Record<string, unknown> = {}) {
     },
     execute: async (call, options) => {
       calls.push(['execute', call, options]);
-      return { callId: call.callId, ok: true, result: extra.note ?? call.params };
+      return { callId: call.callId ?? `runtime-${++assigned}`, ok: true, result: extra.note ?? call.params };
     },
     narrate: (input) => {
       calls.push(['narrate', input]);
@@ -104,6 +112,22 @@ test('execution carries the step’s sentence, the transport’s actor, and the 
   await assert.rejects(transport.vacp_execute({ name: 'set', narration: '  ' }), /requires a sentence/);
   await assert.rejects(transport.vacp_execute({ name: ' ', narration: 'Setting.' }), /non-empty action name/);
   assert.equal(calls.length, 1);
+});
+
+test('a step passes its call ID to the runtime as written and answers with the runtime’s', async () => {
+  const { bridge: page, calls } = bridge();
+  const transport = createVacpTransport(page);
+  assert.deepEqual(await transport.vacp_execute({ name: 'set', params: 1, narration: 'Setting it to 1.' }), {
+    callId: 'runtime-1',
+    ok: true,
+    result: 1,
+  });
+  const supplied = [...callIds.assigned, ...callIds.kept].map(({ callId }) => callId);
+  for (const call_id of supplied) await transport.vacp_execute({ name: 'set', narration: 'Setting it.', call_id });
+  assert.deepEqual(
+    calls.map(([, call]) => (call as VacpActionRequest).callId),
+    [undefined, ...supplied],
+  );
 });
 
 test('progress speaks through the bridge narrator as the default agent', async () => {

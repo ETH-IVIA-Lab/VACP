@@ -52,11 +52,11 @@ The browser tools let a client run arbitrary script and input in the page. Enabl
 ## Providers
 
 ```python
-from vacp import ActionCall, ProviderComposer, SimpleProvider
+from vacp import ActionRequest, ProviderComposer, SimpleProvider
 
 composer = ProviderComposer([widget_provider, notebook_provider])
 observation = await composer.observe()
-result = await composer.execute(ActionCall(call_id='c1', name='threshold.set', params={'value': 42}))
+result = await composer.execute(ActionRequest('threshold.set', {'value': 42}))
 ```
 
 A `Provider` has a `source`, `observe()`, `prepare(call, context)`, `subscribe(invalidate)`, and `dispose()`. `prepare` validates the call and returns a `PreparedAction` whose `execute()` runs once. `context.ensure_open()` raises when the composer is disposed, so a provider checks it right before it changes its source. `SimpleProvider(source=..., observe=..., prepare=...)` assembles a provider from functions.
@@ -67,11 +67,13 @@ A `Provider` has a `source`, `observe()`, `prepare(call, context)`, `subscribe(i
 | ----------------------- | ------------------------------------------------------------------------- |
 | `observe()`             | The available graph, state, summaries, and freshness                      |
 | `inspect()`             | The complete catalog with availability                                    |
-| `execute(call)`         | An `ActionResult`, after availability checks before and after preparation |
+| `execute(request)`      | An `ActionResult`, after availability checks before and after preparation |
 | `subscribe(invalidate)` | A function that removes the subscription                                  |
 | `dispose()`             | Releases subscriptions and disposes providers                             |
 
-Records are frozen dataclasses with the protocol's field names in snake case: `Node`, `Edge`, `ActionDescriptor`, `OperationSemantics`, `GraphFragment`, `Observation`, `Freshness`, `Availability`, `ActionCall`, `ActionResult`. `as_dict(observation)` serializes a composed `Observation` to the JSON shape TypeScript reads. `Availability(requires=(ref,), unavailable=reason)` follows the [availability rules](../availability/), checked against fixtures shared with TypeScript.
+`execute` assigns a `call_id` when the `ActionRequest`'s is `None` or blank and keeps any other as written, by the same rule as the TypeScript runtime. The result carries it.
+
+Records are frozen dataclasses with the protocol's field names in snake case: `Node`, `Edge`, `ActionDescriptor`, `OperationSemantics`, `GraphFragment`, `Observation`, `Freshness`, `Availability`, `ActionRequest`, `ActionCall`, `ActionResult`. `as_dict(observation)` serializes a composed `Observation` to the JSON shape TypeScript reads. `Availability(requires=(ref,), unavailable=reason)` follows the [availability rules](../availability/), checked against fixtures shared with TypeScript.
 
 ## Inspection endpoint
 

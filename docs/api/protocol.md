@@ -85,11 +85,14 @@ type VacpActionDescriptor = {
     }>;
   };
 };
-type VacpActionCall = { callId: string; name: string; params?: unknown };
+type VacpActionRequest = { callId?: string | null; name: string; params?: unknown };
+type VacpActionCall = VacpActionRequest & { callId: string };
 type VacpActionResult =
   | { callId: string; ok: true; result?: unknown }
   | { callId: string; ok: false; error: { message: string; details?: unknown } };
 ```
+
+A caller passes a `VacpActionRequest` to `execute`. The runtime assigns `callId` when the request's is absent, null, or blank, and keeps any other `callId` as written. Blank means made only of [Unicode White_Space](https://www.unicode.org/reports/tr44/#White_Space) characters, the set `parseVacpNarration` trims. `execute` throws a `TypeError` for a `callId` that is neither a string nor null. Providers prepare the resulting `VacpActionCall`, and its result, execution, and provenance record carry the same `callId`.
 
 `primaryOperationRef(descriptor)` returns the operation's first `affects` ref, else its first `inputRefs` ref, else its first result ref.
 
@@ -161,7 +164,7 @@ interface VacpWindowBridge {
   observe(): Promise<VacpObservation>;
   getCapabilities(request?: VacpCapabilitiesRequest): Promise<VacpCapabilitiesSnapshot>;
   getState(request?: VacpStateRequest): Promise<VacpStateUpdate>;
-  execute(call: VacpActionCall, options?: VacpActionExecutionOptions): Promise<VacpActionResult>;
+  execute(call: VacpActionRequest, options?: VacpActionExecutionOptions): Promise<VacpActionResult>;
 }
 interface VacpPageBridge extends VacpWindowBridge, VacpProvenanceSource, VacpAgentActivityControl, VacpExecutionSource {
   readonly runtimeId: string;

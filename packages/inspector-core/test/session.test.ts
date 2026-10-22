@@ -162,11 +162,15 @@ test('operation failure and observation failure retain independent diagnostics',
   const source = client();
   const session = createInspectorSession(source);
   await session.refresh();
-  source.execute = async (call) => ({ callId: call.callId, ok: false, error: { message: 'Rejected input' } });
+  source.execute = async (call) => ({
+    callId: call.callId ?? 'assigned',
+    ok: false,
+    error: { message: 'Rejected input' },
+  });
   source.observe = async () => {
     throw new Error('Offline');
   };
-  const result = await session.execute({ callId: 'bad', name: 'set' });
+  const result = await session.execute({ name: 'set' });
   await whenState(session, (state) => state.status === 'error');
   assert.equal(result.ok, false);
   assert.equal(session.getState().observationError?.message, 'Offline');
@@ -180,7 +184,7 @@ test('operation failure and observation failure retain independent diagnostics',
 test('read-only clients expose observations and reject unavailable capabilities', async () => {
   const session = createInspectorSession({ id: 'archive', title: 'Archive', observe: async () => observation() });
   await session.refresh();
-  await assert.rejects(session.execute({ callId: 'set', name: 'set' }), /support execution/);
+  await assert.rejects(session.execute({ name: 'set' }), /support execution/);
   await assert.rejects(session.restore(observation()), /support restoration/);
   await assert.rejects(session.reveal('vacp://value'), /support reveal/);
   session.dispose();
@@ -197,12 +201,12 @@ test('cancelling execution releases the operation slot and ignores its late resu
     return waiting.promise;
   };
   const abort = new AbortController();
-  const pending = session.execute({ callId: 'slow', name: 'set' }, { signal: abort.signal });
+  const pending = session.execute({ name: 'set' }, { signal: abort.signal });
   await entered.promise;
-  await assert.rejects(session.execute({ callId: 'other', name: 'set' }), /already running/);
+  await assert.rejects(session.execute({ name: 'set' }), /already running/);
   abort.abort();
   await assert.rejects(pending, /abort/i);
-  source.execute = async (call) => ({ callId: call.callId, ok: true, result: 42 });
+  source.execute = async (call) => ({ callId: call.callId ?? 'assigned', ok: true, result: 42 });
   await session.execute({ callId: 'next', name: 'set' });
   waiting.resolve({ callId: 'slow', ok: true, result: 0 });
   await setImmediate();
@@ -222,7 +226,7 @@ test('execution settles independently of a pending observation and consumer fail
   });
   let notifications = 0;
   session.subscribe(() => notifications++);
-  const result = await session.execute({ callId: 'update', name: 'set', params: 7 });
+  const result = await session.execute({ name: 'set', params: 7 });
   assert.equal(result.ok, true);
   assert.equal(source.value, 7);
   assert.equal(session.getState().operation.status, 'complete');
@@ -249,7 +253,7 @@ test('captured dates and open JSON payloads retain value semantics and source is
     execute: async (call) => {
       assert.ok(call.params && typeof call.params === 'object' && 'at' in call.params);
       assert.ok(call.params.at instanceof Date);
-      return { callId: call.callId, ok: true, result: call.params.at };
+      return { callId: call.callId ?? 'assigned', ok: true, result: call.params.at };
     },
   };
   const session = createInspectorSession(source, { historyLimit: 1 });
@@ -259,7 +263,7 @@ test('captured dates and open JSON payloads retain value semantics and source is
   assert.equal(Object.getPrototypeOf(captured), Object.prototype);
   assert.ok(Object.hasOwn(captured as object, '__proto__'));
   assert.ok(Object.isFrozen(captured));
-  const result = await session.execute({ callId: 'date', name: 'set', params: { at } });
+  const result = await session.execute({ name: 'set', params: { at } });
   assert.ok(result.ok && result.result instanceof Date);
   const operation = session.getState().operation;
   assert.equal(operation.status, 'complete');
@@ -286,7 +290,7 @@ test('capture failures identify incompatible values without reporting a complete
       observe: async () => value,
       execute: async (call) => {
         calls++;
-        return { callId: call.callId, ok: true, result: payload };
+        return { callId: call.callId ?? 'assigned', ok: true, result: payload };
       },
     };
     const session = createInspectorSession(source);
@@ -295,12 +299,9 @@ test('capture failures identify incompatible values without reporting a complete
     assert.match(session.getState().observationError!.message, /Cannot capture \$.state.vacp:\/\/value/);
     value.state['vacp://value'] = 1;
     await session.refresh();
-    await assert.rejects(
-      session.execute({ callId: 'input', name: 'set', params: payload }),
-      /Cannot capture \$.params/,
-    );
+    await assert.rejects(session.execute({ name: 'set', params: payload }), /Cannot capture \$.params/);
     assert.equal(calls, 0);
-    const result = await session.execute({ callId: 'output', name: 'set' });
+    const result = await session.execute({ name: 'set' });
     assert.ok(result.ok);
     assert.deepEqual(result.result, payload);
     assert.equal(calls, 1);
@@ -320,7 +321,7 @@ test('failed operations still refresh changes committed before the failure', asy
       source.value = 7;
       throw new Error('Partially applied');
     };
-    await assert.rejects(session.execute({ callId: 'partial', name: 'set' }), /Partially applied/);
+    await assert.rejects(session.execute({ name: 'set' }), /Partially applied/);
     await whenState(session, (state) => state.observation?.state['vacp://value'] === 7);
     assert.equal(session.getState().operation.status, 'error');
   } finally {

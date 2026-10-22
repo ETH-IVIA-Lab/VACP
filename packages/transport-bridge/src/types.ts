@@ -14,7 +14,7 @@ export type VacpExecuteInput = {
   params?: unknown;
   /** The step's own sentence for the person watching. */
   narration: string;
-  call_id?: string;
+  call_id?: string | null;
 };
 
 export type VacpProgressInput = { message: string; done?: boolean };

@@ -1,7 +1,14 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import { vacpAgentActor, type VacpActor, type VacpExecution } from '@ethivia/vacp-protocol';
 import { createVacpProvider, createVacpRuntime, VacpActionRegistry } from '../src/index';
+
+const callIds: {
+  assigned: Array<{ callId?: string | null }>;
+  kept: Array<{ callId: string }>;
+  rejected: Array<{ callId: unknown }>;
+} = JSON.parse(readFileSync(new URL('../../protocol/test/fixtures/call-id.json', import.meta.url), 'utf8'));
 
 function fixture() {
   const actions = new VacpActionRegistry();
@@ -116,6 +123,51 @@ test('handlers receive the caller actor, or the agent actor when the caller name
   }
 });
 
+test('the runtime assigns a missing or blank call ID and keeps any other as written', async () => {
+  const f = fixture();
+  try {
+    const ids: string[] = [];
+    for (const supplied of callIds.assigned) {
+      const request = { ...supplied, name: 'set', params: 1 };
+      const first = await f.runtime.execute(request);
+      const second = await f.runtime.execute(request);
+      assert.notEqual(first.callId, second.callId);
+      assert.notEqual(first.callId, supplied.callId);
+      assert.notEqual(second.callId, supplied.callId);
+      assert.deepEqual(request, { ...supplied, name: 'set', params: 1 });
+      ids.push(first.callId, second.callId);
+    }
+    for (const supplied of callIds.kept) {
+      const result = await f.runtime.execute({ ...supplied, name: 'set', params: 3 });
+      assert.equal(result.callId, supplied.callId);
+      ids.push(result.callId);
+    }
+    const records = f.runtime.getProvenance().records.filter((record) => record.kind === 'action');
+    assert.deepEqual(
+      records.map((record) => [record.call.callId, record.execution.callId, record.result.callId]),
+      ids.map((id) => [id, id, id]),
+    );
+    assert.deepEqual([...new Set(f.events.map((execution) => execution.callId))], ids);
+  } finally {
+    f.runtime.dispose();
+  }
+});
+
+test('the runtime rejects a call ID that is not a string before accepting the call', async () => {
+  const f = fixture();
+  try {
+    for (const { callId } of callIds.rejected)
+      await assert.rejects(f.runtime.execute({ callId: callId as never, name: 'set', params: 1 }), {
+        name: 'TypeError',
+        message: 'callId must be a string',
+      });
+    assert.deepEqual(f.events, []);
+    assert.equal(f.counts().executed, 0);
+  } finally {
+    f.runtime.dispose();
+  }
+});
+
 test('a prepared operation is single use, including concurrent attempts', async () => {
   const f = fixture();
   try {
@@ -169,7 +221,7 @@ test('presentation gates fail open, but provider replacement aborts prepared exe
       },
       { timeoutMs: 10 },
     );
-    await f.runtime.execute({ callId: 'visible', name: 'set', params: 1 });
+    await f.runtime.execute({ name: 'set', params: 1 });
     broken();
     let release!: () => void;
     const entered = new Promise<void>((resolve) => {
@@ -183,7 +235,7 @@ test('presentation gates fail open, but provider replacement aborts prepared exe
       { timeoutMs: 1000 },
     );
     const lease = f.runtime.getProviderBinding(f.provider);
-    const pending = f.runtime.execute({ callId: 'replaced', name: 'set', params: 2 });
+    const pending = f.runtime.execute({ name: 'set', params: 2 });
     await entered;
     f.runtime.update({ providers: [] });
     await assert.rejects(pending, /abort/i);
@@ -212,7 +264,7 @@ test('a stalled presentation gate releases execution at its deadline', async (t)
       },
       { timeoutMs: 50 },
     );
-    const result = f.runtime.execute({ callId: 'bounded', name: 'set', params: 1 });
+    const result = f.runtime.execute({ name: 'set', params: 1 });
     await waiting;
     t.mock.timers.tick(50);
     assert.equal((await result).ok, true);
@@ -236,7 +288,7 @@ test('removing a presentation gate releases its active wait without cancelling t
       },
       { timeoutMs: 30_000 },
     );
-    const result = f.runtime.execute({ callId: 'presentation-removed', name: 'set', params: 2 });
+    const result = f.runtime.execute({ name: 'set', params: 2 });
     await waiting;
     remove();
     assert.equal((await result).ok, true);
@@ -262,7 +314,7 @@ test('runtime disposal publishes one terminal cancellation even when a provider 
       return value;
     },
   });
-  const pending = f.runtime.execute({ callId: 'disposed', name: 'slow' });
+  const pending = f.runtime.execute({ name: 'slow' });
   await started;
   f.runtime.dispose();
   release();
@@ -288,7 +340,7 @@ test('cancellation during an after-execution wait preserves the completed result
     { timeoutMs: 30_000, stage: 'after' },
   );
   try {
-    const result = f.runtime.execute({ callId: 'completed', name: 'set', params: 2 }, { signal: abort.signal });
+    const result = f.runtime.execute({ name: 'set', params: 2 }, { signal: abort.signal });
     await waiting;
     abort.abort();
     assert.equal((await result).ok, true);
@@ -316,7 +368,7 @@ test('before checkpoint is captured after pacing and includes intervening human 
     },
     { timeoutMs: 1000 },
   );
-  await f.runtime.execute({ callId: 'agent-edit', name: 'set', params: 2 });
+  await f.runtime.execute({ name: 'set', params: 2 });
   release();
   const records = f.runtime.getProvenance().records;
   const action = records.find((record) => record.kind === 'action');
@@ -333,10 +385,7 @@ test('abort during post-action observation preserves one successful outcome and 
   f.runtime.subscribeExecutions((event) => {
     if (event.phase === 'succeeded') abort.abort(new Error('Stopped viewing'));
   });
-  const result = await f.runtime.execute(
-    { callId: 'completed-before-abort', name: 'set', params: 3 },
-    { signal: abort.signal },
-  );
+  const result = await f.runtime.execute({ name: 'set', params: 3 }, { signal: abort.signal });
   assert.equal(result.ok, true);
   const records = f.runtime.getProvenance().records.filter((record) => record.kind === 'action');
   assert.equal(records.length, 1);
@@ -354,7 +403,7 @@ test('failed post-action observation preserves the successful result without inv
         throw new Error('Cannot read output');
       };
   });
-  const result = await f.runtime.execute({ callId: 'unreadable', name: 'set', params: 3 });
+  const result = await f.runtime.execute({ name: 'set', params: 3 });
   assert.equal(result.ok, true);
   const records = f.runtime.getProvenance().records.filter((record) => record.kind === 'action');
   assert.equal(records.length, 1);
@@ -403,4 +452,39 @@ test('an uncloneable post-action state is unavailable evidence, not a failed com
   assert.equal(record.before?.state['vacp://value'], 0);
   assert.equal(record.observation, undefined);
   assert.deepEqual(phases, ['accepted', 'prepared', 'running', 'succeeded']);
+});
+
+test('a result carries the call ID even when the provider answers under another', async (t) => {
+  const provider = createVacpProvider({
+    subscribe: () => () => {},
+    source: { id: 'vacp-source://other-id', type: 'test', title: 'Other ID' },
+    actions: {
+      prepare: async () => ({
+        intent: { affects: [] },
+        execute: async () => ({ callId: 'provider-chosen', ok: true as const, result: 1 }),
+      }),
+    },
+    project: () => ({
+      graph: {
+        nodes: [],
+        edges: [],
+        actions: [{ name: 'set', description: 'Set', operation: { kind: 'mutation' } }],
+      },
+      state: {},
+    }),
+  });
+  const runtime = createVacpRuntime({ providers: [provider] });
+  t.after(() => runtime.dispose());
+  const supplied = await runtime.execute({ callId: 'mine', name: 'set' });
+  const assigned = await runtime.execute({ name: 'set' });
+  assert.equal(supplied.callId, 'mine');
+  assert.notEqual(assigned.callId, 'provider-chosen');
+  const records = runtime.getProvenance().records.filter((record) => record.kind === 'action');
+  assert.deepEqual(
+    records.map((record) => [record.call.callId, record.result.callId]),
+    [
+      ['mine', 'mine'],
+      [assigned.callId, assigned.callId],
+    ],
+  );
 });

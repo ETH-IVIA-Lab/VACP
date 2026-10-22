@@ -8,7 +8,6 @@ from collections.abc import Callable
 from contextlib import AbstractAsyncContextManager
 from pathlib import Path
 from typing import Annotated, Any, Literal, Protocol, TypeAlias
-from uuid import uuid4
 
 from fastmcp import FastMCP
 from pydantic import MISSING, Field, StringConstraints
@@ -16,7 +15,7 @@ from pydantic import MISSING, Field, StringConstraints
 from vacp.agent_tools import AGENT_TOOLS, TOOL_GUIDANCE, capabilities_request, state_request, tool_read, tool_result
 from vacp.bridge import VacpBridgeClient
 from vacp.narration import NARRATION_GUIDANCE, NARRATION_MAX_LENGTH, PROGRESS_FIELDS, parse_narration
-from vacp.provider import ActionCall
+from vacp.provider import ActionRequest
 
 BrowserWaitUntil: TypeAlias = Literal['commit', 'domcontentloaded', 'load', 'networkidle']
 BrowserSelectorState: TypeAlias = Literal['attached', 'detached', 'hidden', 'visible']
@@ -147,8 +146,11 @@ def create_mcp(
         params: object = MISSING,
         call_id: str | None = None,
     ) -> dict[str, object]:
-        call_id = call_id or uuid4().hex
-        call = ActionCall(call_id, name.strip()) if params is MISSING else ActionCall(call_id, name.strip(), params)
+        call = (
+            ActionRequest(name.strip(), call_id=call_id)
+            if params is MISSING
+            else ActionRequest(name.strip(), params, call_id=call_id)
+        )
         # The execution carries the step's own sentence, live and in replay.
         res = await client.execute(call, narration=parse_narration(narration))
         # Fields the bridge left out stay out, as the other transports return them.

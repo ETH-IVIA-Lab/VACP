@@ -32,7 +32,7 @@ Every step an agent executes carries its own sentence, passed as `narration`:
 
 ```ts
 await runtime.execute(
-  { callId: 'c1', name: 'cohort.set_sports', params: { sports: ['rowing', 'canoe'] } },
+  { name: 'cohort.set_sports', params: { sports: ['rowing', 'canoe'] } },
   { actor, narration: 'Keeping rowing and canoe to compare the two paddle sports.' },
 );
 ```

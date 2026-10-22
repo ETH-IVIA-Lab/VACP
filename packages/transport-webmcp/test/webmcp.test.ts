@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import Ajv from 'ajv/dist/2020.js';
 import type { WebMCP } from 'webmcp-types';
-import { vacpNarrationGuidance, type VacpGraphFragment } from '@ethivia/vacp-protocol';
+import { vacpNarrationGuidance, type VacpActionRequest, type VacpGraphFragment } from '@ethivia/vacp-protocol';
 import { createVacpProvider, createVacpRuntime, VacpActionRegistry } from '@ethivia/vacp-runtime';
 import { compileVacpWebMcpTools, installVacpWebMcp, type VacpWebMcpRegistry } from '../src/index';
 
@@ -80,7 +80,14 @@ test('graph projection preserves schemas and context, and executes through runti
   const { runtime } = fixture();
   try {
     const graph = (await runtime.getCapabilities()).graph;
-    const tools = compileVacpWebMcpTools(graph, runtime);
+    const requests: VacpActionRequest[] = [];
+    const tools = compileVacpWebMcpTools(graph, {
+      ...runtime,
+      execute: (call, options) => {
+        requests.push(call);
+        return runtime.execute(call, options);
+      },
+    });
     const action = tools.find((tool) => tool.name === 'vacp.action.threshold.set');
     assert.ok(action);
     assert.match(action.description, /Threshold.*ConfigLayer/);
@@ -103,6 +110,8 @@ test('graph projection preserves schemas and context, and executes through runti
       .records.filter((entry) => entry.kind === 'action')
       .at(-1);
     assert.equal(record?.call.name, 'threshold.set');
+    assert.deepEqual(requests, [{ name: 'threshold.set', params: { value: 35 } }]);
+    assert.equal((result as { callId: string }).callId, record?.call.callId);
     // The step's sentence is not an action parameter; the execution carries it.
     assert.deepEqual(record?.kind === 'action' ? record.call.params : undefined, { value: 35 });
     assert.equal(record?.kind === 'action' && record.execution.narration, 'Raising the threshold to 35.');
@@ -159,9 +168,10 @@ test('an action call without a usable sentence returns a failure the agent can r
     const tools = compileVacpWebMcpTools((await runtime.getCapabilities()).graph, runtime);
     const action = tools.find((tool) => tool.name === 'vacp.action.threshold.set')!;
     const options = { signal: new AbortController().signal };
-    const missing = (await action.execute({ value: 35 }, options)) as { ok: boolean; error?: { message: string } };
-    assert.equal(missing.ok, false);
-    assert.equal(missing.error?.message, 'narration must be a string');
+    assert.deepEqual(await action.execute({ value: 35 }, options), {
+      ok: false,
+      error: { message: 'narration must be a string' },
+    });
     const blank = (await action.execute({ value: 35, narration: '  ' }, options)) as { error?: { message: string } };
     assert.equal(blank.error?.message, 'narration requires a sentence');
     assert.deepEqual((await runtime.observe()).state['vacp://app/threshold'], { value: 1 });

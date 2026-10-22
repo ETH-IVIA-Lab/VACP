@@ -31,7 +31,6 @@ test('dashboard discovery follows dataset, selection, restoration, and native vi
     const initial = await page.evaluate(async () => {
       const full = await window.__vacp!.inspect();
       const blocked = await window.__vacp!.execute({
-        callId: 'too-early',
         name: 'dashboard.set_encoding',
         params: { x: 'hp', y: 'mpg' },
       });
@@ -82,7 +81,7 @@ test('dashboard discovery follows dataset, selection, restoration, and native vi
       const invalid = await page.evaluate(async (call) => {
         const bridge = window.__vacp!;
         const before = (await bridge.inspect()).state;
-        const result = await bridge.execute({ callId: crypto.randomUUID(), ...call });
+        const result = await bridge.execute(call);
         return { before, after: (await bridge.inspect()).state, result };
       }, call);
       expect(invalid.result.ok).toBe(false);
@@ -94,14 +93,12 @@ test('dashboard discovery follows dataset, selection, restoration, and native vi
       const bridge = window.__vacp!;
       const id = document.querySelector('circle[data-point-id]')!.getAttribute('data-point-id')!;
       const selected = await bridge.execute({
-        callId: 'select-one',
         name: 'dashboard.set_selected_ids',
         params: { ids: [id] },
       });
       if (!selected.ok) throw new Error(selected.error.message);
       const saved = (await bridge.inspect()).state;
       const cleared = await bridge.execute({
-        callId: 'clear-before-restore',
         name: 'dashboard.set_selected_ids',
         params: { ids: [] },
       });
@@ -111,7 +108,6 @@ test('dashboard discovery follows dataset, selection, restoration, and native vi
       const state = (await bridge.inspect()).state;
       const scatter = Object.keys(state).find((ref) => ref.endsWith('/mark/scatter'))!;
       const rejected = await bridge.execute({
-        callId: 'invalid-restoration',
         name: 'vacp.apply_state',
         params: { state: { [scatter]: { x: 'Species', y: 'missing' } } },
       });
@@ -168,7 +164,6 @@ test('dashboard discovery follows dataset, selection, restoration, and native vi
     await expect.poll(tools).toEqual(acquisitionTools);
     const stale = await page.evaluate(() =>
       window.__vacp!.execute({
-        callId: 'stale',
         name: 'dashboard.set_brush_2d',
         params: { x0: 0, x1: 10, y0: 0, y1: 10 },
       }),

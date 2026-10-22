@@ -40,18 +40,15 @@ export async function connectHttpInspectorClient(options: HttpInspectorOptions):
         activeReads--;
       }
     },
-    execute: async (call, { signal }) => {
-      const result = parseActionResult(
+    execute: async (call, { signal }) =>
+      parseActionResult(
         await request('/operations', {
           method: 'POST',
           headers: { ...headers, 'Content-Type': 'application/json' },
           body: JSON.stringify(call),
           signal,
         }),
-      );
-      if (result.callId !== call.callId) throw new Error('Operation result callId does not match the request');
-      return result;
-    },
+      ),
     subscribe(listener) {
       const subscription = () => listener();
       listeners.add(subscription);

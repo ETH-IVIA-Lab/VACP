@@ -54,7 +54,6 @@ export async function mountPresenceChart(
     /** One finished agent request: a brush, then the closing sentence. */
     async filter() {
       const result = await runtime.execute({
-        callId: 'brush',
         name: action.name,
         params: { ref, value: { x: [2, 6] } },
       });

@@ -2,7 +2,7 @@ import type { VacpProvenanceSource } from './provenance';
 import type { VacpAgentActivityControl } from './activity';
 import type { VacpActionExecutionOptions, VacpActor, VacpExecutionSource, VacpFocus } from './execution';
 import type {
-  VacpActionCall,
+  VacpActionRequest,
   VacpActionResult,
   VacpCapabilitiesRequest,
   VacpCapabilitiesSnapshot,
@@ -21,7 +21,7 @@ export interface VacpWindowBridge {
   getCapabilities(request?: VacpCapabilitiesRequest): Promise<VacpCapabilitiesSnapshot>;
   /** A full update with a token when `since` is absent or unknown, otherwise the changes since that token. */
   getState(request?: VacpStateRequest): Promise<VacpStateUpdate>;
-  execute(call: VacpActionCall, options?: VacpActionExecutionOptions): Promise<VacpActionResult>;
+  execute(call: VacpActionRequest, options?: VacpActionExecutionOptions): Promise<VacpActionResult>;
 }
 
 /**

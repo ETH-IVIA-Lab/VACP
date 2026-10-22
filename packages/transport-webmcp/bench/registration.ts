@@ -39,7 +39,9 @@ async function measureBurst() {
     getState: async () => {
       throw new Error('This benchmark only registers tools');
     },
-    execute: async (call) => ({ callId: call.callId, ok: true }),
+    execute: async () => {
+      throw new Error('This benchmark only registers tools');
+    },
     narrate: () => {},
   };
   const installation = await installVacpWebMcp(source, {

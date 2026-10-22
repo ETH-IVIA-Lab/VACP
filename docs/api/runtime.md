@@ -30,10 +30,10 @@ Composes `providers` and subscribes to their invalidations. `historyLimit` bound
 ### Execution
 
 ```ts
-runtime.execute(call: VacpActionCall, options?: VacpActionExecutionOptions): Promise<VacpActionResult>
+runtime.execute(call: VacpActionRequest, options?: VacpActionExecutionOptions): Promise<VacpActionResult>
 ```
 
-Routes the call to the operation's owner, checks availability, prepares the call, waits for execution gates, checks availability again, and executes once. The actor defaults to `vacpAgentActor`, and the handler receives the resolved actor as `context.actor`. The result is `{ ok: false }` for an unknown or unavailable operation, invalid parameters, or a handler failure. Cancelling `options.signal` before execution prevents the change. Recording happens once, after the result is known, and a later failure never replaces that result.
+Routes the call to the operation's owner, checks availability, prepares the call, waits for execution gates, checks availability again, and executes once. The runtime assigns a `callId` when the call's is absent, null, or blank and keeps any other as written. The result, the execution, and the provenance record carry it. The actor defaults to `vacpAgentActor`, and the handler receives the resolved actor as `context.actor`. The result is `{ ok: false }` for an unknown or unavailable operation, invalid parameters, or a handler failure. Cancelling `options.signal` before execution prevents the change. Recording happens once, after the result is known, and a later failure never replaces that result.
 
 ```ts
 runtime.refresh(options?: { actor?: VacpActor; message?: string; focus?: VacpFocus }): Promise<VacpStateSnapshot>
@@ -101,7 +101,7 @@ registry.prepare(call, options?): Promise<VacpPreparedAction>
 
 Holds one source's operations. `handler(params, context)` receives the parsed parameters and the `VacpActionExecutionContext`. With a `sourceId`, registered names are qualified as `source_<hash>.<name>`, so composed sources never collide. `preparation` is `{ parse, focus?, affects? }`: `parse` validates the raw parameters before anything changes. `register` throws on a duplicate name. `prepare` throws for an unknown operation. `@ethivia/vacp-sdk`'s `createVacpActions` builds on this registry.
 
-`executeVacpAction(provider, call, context)` prepares and executes a call on one provider without the runtime's routing, availability checks, or recording. `context.actor` names the actor the call is attributed to, such as `vacpAgentActor`. Use it to test a provider.
+`executeVacpAction(provider, call, context)` prepares and executes a `VacpActionCall` on one provider without the runtime's call ID assignment, routing, availability checks, or recording. `context.actor` names the actor the call is attributed to, such as `vacpAgentActor`. Use it to test a provider.
 
 ## Standard operations
 

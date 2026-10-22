@@ -1,4 +1,6 @@
 import asyncio
+import json
+from pathlib import Path
 
 from starlette.testclient import TestClient
 from vacp import (
@@ -16,6 +18,8 @@ from vacp import (
     SourceDescription,
 )
 from vacp.http import create_inspection_app
+
+CALL_IDS = json.loads((Path(__file__).parents[2] / 'protocol/test/fixtures/call-id.json').read_text())
 
 
 def test_http_client_observes_and_executes_one_host_owned_session() -> None:
@@ -78,8 +82,40 @@ def test_http_client_observes_and_executes_one_host_owned_session() -> None:
         assert client.get('/api/vacp/observation').json()['revision']
         assert client.post('/api/vacp/operations', json={'name': ''}).status_code == 400
         client.headers['X-VACP-Session'] = 'a-different-session'
-        assert client.post('/api/vacp/operations', json={'callId': 'stale', 'name': 'increment'}).status_code == 409
+        assert client.post('/api/vacp/operations', json={'name': 'increment'}).status_code == 409
         assert current == 1
     assert not closed
     session.dispose()
     assert closed
+
+
+def test_http_operations_pass_the_call_id_to_the_composer_as_written() -> None:
+    session = ProviderComposer(
+        [
+            SimpleProvider(
+                SourceDescription('vacp-source://test', 'test', 'Test'),
+                lambda: ProviderObservation(
+                    '0',
+                    '2026-09-18T12:00:00Z',
+                    GraphFragment((), (), (ActionDescriptor('run', 'Run', OperationSemantics('mutation')),)),
+                    {},
+                ),
+                lambda call, _context: PreparedAction(lambda: ActionResult(call.call_id, True)),
+            )
+        ]
+    )
+    with TestClient(create_inspection_app(session)) as client:
+        client.headers['X-VACP-Session'] = client.get('/api/vacp/session').json()['id']
+
+        def call_id(supplied: dict[str, object]) -> object:
+            return client.post('/api/vacp/operations', json={**supplied, 'name': 'run'}).json()['callId']
+
+        for supplied in CALL_IDS['assigned']:
+            first, second = call_id(supplied), call_id(supplied)
+            assert first != second
+            assert supplied.get('callId') not in (first, second)
+        for supplied in CALL_IDS['kept']:
+            assert call_id(supplied) == supplied['callId']
+        for supplied in CALL_IDS['rejected']:
+            assert client.post('/api/vacp/operations', json={**supplied, 'name': 'run'}).status_code == 400
+    session.dispose()

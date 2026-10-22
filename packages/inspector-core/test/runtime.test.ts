@@ -61,7 +61,7 @@ test('runtime connections observe and execute against a host-owned provider', as
     await ready;
     assert.equal(subscription.started, 1);
     assert.equal(session.getState().observation?.state['vacp://value'], 0);
-    await session.execute({ callId: 'increment', name: 'increment' });
+    await session.execute({ name: 'increment' });
     await whenState(session, (state) => state.observation?.state['vacp://value'] === 1);
     assert.equal(session.getState().observation?.state['vacp://value'], 1);
     session.dispose();

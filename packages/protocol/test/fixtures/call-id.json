@@ -1,0 +1,5 @@
+{
+  "assigned": [{}, { "callId": null }, { "callId": "" }, { "callId": " " }, { "callId": "\u0085" }, { "callId": "　" }],
+  "kept": [{ "callId": " c1 " }, { "callId": "\u0085mine\u0085" }, { "callId": "\u001c" }, { "callId": "\ufeff" }],
+  "rejected": [{ "callId": 7 }, { "callId": 0 }, { "callId": false }, { "callId": {} }]
+}

@@ -63,6 +63,16 @@ test('sentences are checked by the narration parser and published with its bound
   }
 });
 
+test('execute accepts an absent or null call ID and rejects one that is not a string', async () => {
+  const schema = asSchema<unknown>(createVacpAgentTools(silentTransport).vacp_execute.inputSchema);
+  const accepts = async (callId: unknown) =>
+    (await schema.validate!({ name: 'set', narration: 'Setting the value.', call_id: callId })).success;
+  assert.equal(await accepts(undefined), true);
+  assert.equal(await accepts(null), true);
+  assert.equal(await accepts(' c1 '), true);
+  assert.equal(await accepts(7), false);
+});
+
 test('every step reaches the transport with its input and the request’s abort signal', async () => {
   const calls: unknown[][] = [];
   const tools = createVacpAgentTools({

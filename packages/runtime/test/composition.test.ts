@@ -164,7 +164,7 @@ test('action identity is independent of JavaScript object property names', async
     ok: true,
     result: 'second',
   });
-  assert.equal((await runtime.execute({ callId: 'missing', name: 'toString' })).ok, false);
+  assert.equal((await runtime.execute({ name: 'toString' })).ok, false);
 });
 
 test('failed composition releases subscriptions it acquired without disposing provider owners', () => {

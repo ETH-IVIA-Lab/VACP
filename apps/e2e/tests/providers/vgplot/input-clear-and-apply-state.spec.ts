@@ -31,7 +31,6 @@ test('vgplot: apply_state reports read-only DataHandle refs', async ({ page }) =
       state[ref] = { ...state[ref], auditProbe: 'json-tab-apply' };
 
       return await vacp.execute({
-        callId: crypto.randomUUID(),
         name: names['vacp.apply_state'],
         params: { state },
       });
@@ -70,7 +69,6 @@ test('vgplot: apply_state restores PanZoom domains', async ({ page }) => {
     const xSpan = x1 - x0 || 1;
     const ySpan = y1 - y0 || 1;
     await vacp.execute({
-      callId: crypto.randomUUID(),
       name: names['vgplot.set_pan_zoom'],
       params: {
         ref,
@@ -83,14 +81,12 @@ test('vgplot: apply_state restores PanZoom domains', async ({ page }) => {
     const afterSet = await vacp.observe();
     const expected = structuredClone(afterSet.state[ref]);
     const clearResult = await vacp.execute({
-      callId: crypto.randomUUID(),
       name: names['vgplot.clear_pan_zoom'],
       params: { ref },
     });
     const cleared = (await vacp.observe()).state[ref];
 
     const applyResult = await vacp.execute({
-      callId: crypto.randomUUID(),
       name: names['vacp.apply_state'],
       params: { state: structuredClone(afterSet.state) },
     });
@@ -240,7 +236,6 @@ test('vgplot: transient hover state stays bounded and read-only during restorati
     const cleared = { ...snap.state, [ref]: { ...value, selectionValue: null } };
     const replay = async (operation: 'clear' | 'set', desired: typeof state) => {
       const applied = await vacp.execute({
-        callId: crypto.randomUUID(),
         name: names['vacp.apply_state'],
         params: { state: desired },
       });

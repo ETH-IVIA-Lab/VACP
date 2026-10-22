@@ -31,7 +31,7 @@ Each available operation is its own tool, so the graph that `vacp.observe` and `
 { "params": "hello", "narration": "Searching for hello." }
 ```
 
-A call whose `narration` is missing, blank, or longer than 280 characters returns `{ callId, ok: false, error: { message } }` and runs nothing. Errors arrive as results so the agent can read the message and retry, since browsers replace a thrown tool error with a generic one.
+A call whose `narration` is missing, blank, or longer than 280 characters returns `{ ok: false, error: { message } }` and runs nothing. Errors arrive as results so the agent can read the message and retry, since browsers replace a thrown tool error with a generic one.
 
 ## Options
 
