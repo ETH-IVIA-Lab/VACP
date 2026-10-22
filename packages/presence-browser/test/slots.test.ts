@@ -7,7 +7,11 @@ import { defaultLabels } from '../src/labels';
 import { createSlots } from '../src/slots';
 
 const slotsOf = () =>
-  createSlots({ describe: describePresence, cursor: defaultCursorPresentation, labels: defaultLabels });
+  createSlots({
+    describe: (activity) => describePresence(activity, defaultLabels),
+    cursor: defaultCursorPresentation,
+    labels: defaultLabels,
+  });
 
 const analyst = { id: 'analyst', kind: 'agent' as const };
 const reviewer = { id: 'reviewer', kind: 'agent' as const };

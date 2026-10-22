@@ -374,7 +374,7 @@ export function measureGrowingTrailFocus() {
   }
 }
 
-/** A recorded step of a two-step request by `vacpAgentActor`, drawn with the host's labels and left on screen. */
+/** An unnarrated recorded step of a two-step request by `vacpAgentActor`, drawn with the host's labels. */
 export function showRecordedStep(
   labels: BrowserPresenceOptions['labels'],
   { reviewing, working }: { reviewing: boolean; working: boolean },
@@ -388,7 +388,6 @@ export function showRecordedStep(
         phase: reviewing ? 'reviewing' : 'completed',
         recordId: 'step',
         frame: 'step',
-        summary: 'Die Laborwerte sind gefiltert.',
         target: null,
         freshness: 'current',
       },

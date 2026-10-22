@@ -1,4 +1,7 @@
-/** Every word the overlay shows or announces beyond the bubble's `describe` wording. */
+/**
+ * Every word the overlay shows or announces around the agent's own sentences. A sentence about a view
+ * receives `subject` when the step names its view, and `change` is the title of the step's action.
+ */
 export type PresenceLabels = {
   /** The first frame's name, as the bubble heading and on its trail mark. */
   start: string;
@@ -28,6 +31,24 @@ export type PresenceLabels = {
   working: string;
   /** The note under a frame that was only partly restored. */
   diverged: string;
+  /** The bubble's sentence on the first frame when the agent wrote none. */
+  before: string;
+  /** The bubble's sentence on the last frame when the agent wrote none. */
+  after: string;
+  /** The bubble's sentence while the agent thinks, and after a step the view did not take. */
+  looking: (subject?: string) => string;
+  /** The bubble's sentence after a cancelled step. */
+  leaving: (subject?: string) => string;
+  /** The bubble's sentence while the view's outputs are still updating. */
+  refreshing: (subject?: string) => string;
+  /** The bubble's sentence while a step with a title runs. */
+  applying: (change: string, subject?: string) => string;
+  /** The bubble's sentence after a step with a title. */
+  applied: (change: string, subject?: string) => string;
+  /** The bubble's sentence while a step without a title runs. */
+  updating: (subject?: string) => string;
+  /** The bubble's sentence after a step without a title, and as `updated()` on a recorded step. */
+  updated: (subject?: string) => string;
 };
 
 export const defaultLabels: PresenceLabels = {
@@ -45,4 +66,13 @@ export const defaultLabels: PresenceLabels = {
   dismiss: 'Dismiss',
   working: 'Stepping resumes when the agent finishes',
   diverged: 'The view may differ slightly from the recording.',
+  before: "The view before the agent's first change.",
+  after: "The view after the agent's last change.",
+  looking: (subject = 'the view') => `Looking at ${subject}`,
+  leaving: (subject = 'the view') => `Leaving ${subject} as it was`,
+  refreshing: (subject = 'The view') => `${subject} is still updating`,
+  applying: (change, subject = 'the view') => `${change} in ${subject}`,
+  applied: (change, subject = 'the view') => `${change} applied to ${subject}`,
+  updating: (subject = 'the view') => `Updating ${subject}`,
+  updated: (subject = 'the view') => `Updated ${subject}`,
 };

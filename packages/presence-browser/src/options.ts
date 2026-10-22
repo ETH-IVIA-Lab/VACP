@@ -25,8 +25,9 @@ export type BrowserPresenceOptions = {
   hover?: false | { distance?: number; periodMs?: number };
   /** Initial position for an actor without a known target. */
   idlePosition?: (viewport: { width: number; height: number }) => PresencePoint;
-  describe?: (activity: PresenceActivity) => string;
-  /** The overlay's frame names, speaker names, controls, and notes. Each supplied label replaces its default. */
+  /** The bubble's words. `wording(activity)` returns the built-in wording in the resolved `labels`. */
+  describe?: (activity: PresenceActivity, wording: (activity: PresenceActivity) => string) => string;
+  /** The overlay's words around the agent's own sentences. Each supplied label replaces its default. */
   labels?: Partial<PresenceLabels>;
   bloom?: false | { color?: string; radius?: number };
   cursor?: {
@@ -83,16 +84,19 @@ export function resolvePresenceOptions(options: BrowserPresenceOptions) {
   const labels = { ...defaultLabels };
   for (const [name, value] of Object.entries(options.labels ?? {})) {
     if (value === undefined || !Object.hasOwn(defaultLabels, name)) continue;
-    if (name === 'step' ? typeof value !== 'function' : typeof value !== 'string' || !value.trim())
-      throw new Error(`Presence label ${name} requires ${name === 'step' ? 'a function' : 'text'}`);
+    const kind = typeof defaultLabels[name as keyof PresenceLabels];
+    if (typeof value !== kind || (typeof value === 'string' && !value.trim()))
+      throw new Error(`Presence label ${name} requires ${kind === 'function' ? 'a function' : 'text'}`);
     Object.assign(labels, { [name]: value });
   }
+  const wording = (activity: PresenceActivity) => describePresence(activity, labels);
+  const { describe } = options;
   return {
     ...numbers,
     travel: travelStyle(options.travel),
     motion: options.motion ?? 'system',
     surface: 'viewport',
-    describe: options.describe ?? describePresence,
+    describe: describe ? (activity: PresenceActivity) => describe(activity, wording) : wording,
     labels,
     idlePosition: options.idlePosition,
     zIndex: 2147483646,

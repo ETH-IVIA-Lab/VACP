@@ -32,6 +32,7 @@ test('the bubble and the trail speak the labels the host supplies', async ({ pag
         forward: 'Nächster Schritt',
         live: 'Zurück zur aktuellen Ansicht',
         diverged: 'Die Ansicht kann leicht von der Aufzeichnung abweichen.',
+        updated: (subject = 'Ansicht') => `${subject} aktualisiert`,
       },
       { reviewing: true, working: false },
     );
@@ -39,6 +40,7 @@ test('the bubble and the trail speak the labels the host supplies', async ({ pag
   const overlay = page.locator('[data-vacp-presence]').last();
   const bubble = overlay.locator('[data-vacp-bubble]');
   await expect(bubble.locator('[data-vacp-heading]')).toHaveText('Schritt 1 von 2');
+  await expect(bubble.locator('[data-vacp-summary]')).toHaveText('Ansicht aktualisiert');
   await expect(bubble.locator('[data-vacp-note]')).toHaveText(
     'Die Ansicht kann leicht von der Aufzeichnung abweichen.',
   );
@@ -53,7 +55,7 @@ test('the bubble and the trail speak the labels the host supplies', async ({ pag
       - button "Nächster Schritt"
       - button "Zurück zur aktuellen Ansicht"
   `);
-  await expect(overlay.getByRole('status')).toHaveText('Assistenz: Die Laborwerte sind gefiltert.');
+  await expect(overlay.getByRole('status')).toHaveText('Assistenz: Ansicht aktualisiert');
 });
 
 test('a partial set of labels replaces only its own words while the agent works', async ({ page }) => {

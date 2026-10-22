@@ -9,7 +9,7 @@ const german: BrowserPresenceOptions['labels'] = {
   step: (position, count) => `Schritt ${position} von ${count}`,
   conclusion: 'Ergebnis',
   human: 'Sie',
-  system: 'Praxissystem',
+  system: 'Hintergrunddienst',
 };
 
 const slotsOf = (options: BrowserPresenceOptions = {}) => {
@@ -57,7 +57,12 @@ const speakers = (options?: BrowserPresenceOptions) => {
       { actor: { id: 'person', kind: 'human' }, phase: 'acting', target: null, freshness: 'unknown' },
       { actor: { id: 'assistant', kind: 'agent' }, phase: 'acting', target: null, freshness: 'unknown' },
       { actor: { id: 'scheduler', kind: 'system' }, phase: 'acting', target: null, freshness: 'unknown' },
-      { actor: { id: 'nurse', kind: 'human', label: 'Pflege' }, phase: 'acting', target: null, freshness: 'unknown' },
+      {
+        actor: { id: 'editor', kind: 'human', label: 'Redaktion' },
+        phase: 'acting',
+        target: null,
+        freshness: 'unknown',
+      },
     ],
     undefined,
     true,
@@ -74,8 +79,8 @@ test('recorded frames are headed by the supplied frame labels', () => {
 });
 
 test('an actor without its own label speaks under the fallback name for its kind', () => {
-  assert.deepEqual(speakers(), ['You', 'Agent', 'System', 'Pflege']);
-  assert.deepEqual(speakers({ labels: german }), ['Sie', 'Agent', 'Praxissystem', 'Pflege']);
+  assert.deepEqual(speakers(), ['You', 'Agent', 'System', 'Redaktion']);
+  assert.deepEqual(speakers({ labels: german }), ['Sie', 'Agent', 'Hintergrunddienst', 'Redaktion']);
 });
 
 test('an empty or non-string label is rejected by name', () => {
@@ -84,6 +89,8 @@ test('an empty or non-string label is rejected by name', () => {
     [{ dismiss: '  ' }, 'Presence label dismiss requires text'],
     [{ live: 3 }, 'Presence label live requires text'],
     [{ step: 'Schritt' }, 'Presence label step requires a function'],
+    [{ before: ' ' }, 'Presence label before requires text'],
+    [{ looking: 'Betrachte' }, 'Presence label looking requires a function'],
   ] as const;
   for (const [labels, message] of cases)
     assert.throws(() => resolvePresenceOptions({ labels: labels as never }), { message });
