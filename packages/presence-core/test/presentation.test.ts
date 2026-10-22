@@ -1,16 +1,22 @@
-import { createVacpProvider, VacpActionRegistry } from '@ethivia/vacp-runtime';
+import { createVacpProvider, createVacpRuntime, VacpActionRegistry } from '@ethivia/vacp-runtime';
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { setImmediate } from 'node:timers/promises';
-import type { ProvenanceCheckpoint, ProvenanceReplayController, ProvenanceReplayState } from '@ethivia/vacp-provenance';
+import {
+  createProvenanceReplay,
+  type ProvenanceCheckpoint,
+  type ProvenanceReplayController,
+  type ProvenanceReplayState,
+} from '@ethivia/vacp-provenance';
 import {
   VACP_SCHEMA_VERSION,
   type VacpActor,
+  type VacpExecution,
   type VacpObservation,
   type VacpAgentActivity,
   type VacpTurnRecord,
 } from '@ethivia/vacp-protocol';
-import { createAgentPresence, type PresenceFrame } from '../src/index';
+import { createAgentPresence, type PresenceFrame, type PresenceOptions } from '../src/index';
 
 const observation: VacpObservation = {
   version: VACP_SCHEMA_VERSION,
@@ -89,7 +95,7 @@ function actionCheckpoint(id: string, activityId: string, message: string, at = 
   };
 }
 
-function fixture() {
+function fixture(options: PresenceOptions = {}) {
   const steps = [
     checkpoint('baseline', 'agent', 'before'),
     checkpoint('one', 'agent'),
@@ -154,6 +160,7 @@ function fixture() {
       },
     },
     {
+      ...options,
       replay,
       renderer: {
         render: (value) => {
@@ -225,6 +232,214 @@ test('retained and replay targets use the attached provider binding and refresh 
   await setImmediate();
   assert.equal(f.frame().activities[0]?.target, null);
   f.presence.dispose();
+});
+
+test('review reports a recorded step its presentation never placed once, as review moves on or ends', async () => {
+  const unplaced: string[] = [];
+  const f = fixture({ onUnplaced: (activity) => unplaced.push(activity.recordId!) });
+  const point = { kind: 'point', point: { x: 2, y: 0 } } as const;
+  // Step two's target shows in its restored view. Step one's never does.
+  f.presence.attach(f.provider, {
+    resolve: () =>
+      f.state().phase === 'reviewing' && f.state().selected?.id === 'two'
+        ? { surface: 'test', precision: 'exact', geometry: point }
+        : null,
+  });
+  await setImmediate();
+  f.frame().navigation!.back();
+  await setImmediate();
+  f.presence.invalidateTargets();
+  await setImmediate();
+  f.presence.invalidateTargets();
+  await setImmediate();
+  assert.deepEqual(unplaced, []);
+  f.frame().navigation!.forward();
+  await setImmediate();
+  f.presence.invalidateTargets();
+  await setImmediate();
+  assert.deepEqual(f.frame().activities[0]?.target?.geometry, point);
+  assert.deepEqual(unplaced, ['one']);
+  f.frame().navigation!.back();
+  await setImmediate();
+  f.presence.invalidateTargets();
+  await setImmediate();
+  assert.deepEqual(unplaced, ['one']);
+  f.frame().navigation!.close();
+  await setImmediate();
+  assert.deepEqual(unplaced, ['one', 'one']);
+  f.presence.dispose();
+});
+
+test('a recorded step whose target renders after its restoration resolves is placed and never reported', async () => {
+  const unplaced: string[] = [];
+  const f = fixture({ onUnplaced: (activity) => unplaced.push(activity.recordId!) });
+  const point = { kind: 'point', point: { x: 1, y: 0 } } as const;
+  let rendered: string | undefined;
+  let layout = () => {};
+  f.presence.attach(f.provider, {
+    resolve: () => (rendered === 'one' ? { surface: 'test', precision: 'exact', geometry: point } : null),
+    subscribe: (invalidate) => {
+      layout = invalidate;
+      return () => {};
+    },
+  });
+  await setImmediate();
+  f.frame().navigation!.back();
+  await setImmediate();
+  assert.equal(f.state().phase, 'reviewing');
+  // The host renders the restored view a task later, and its layout witness reports the change.
+  rendered = 'one';
+  layout();
+  await setImmediate();
+  assert.deepEqual(f.frame().activities[0]?.target?.geometry, point);
+  f.frame().navigation!.forward();
+  await setImmediate();
+  assert.deepEqual(unplaced, []);
+  f.presence.dispose();
+});
+
+test('a recorded step looks again in its restored view, so a lookup measured before restoration never decides it', async () => {
+  const unplaced: string[] = [];
+  const f = fixture({ onUnplaced: (activity) => unplaced.push(activity.recordId!) });
+  const point = { kind: 'point', point: { x: 1, y: 0 } } as const;
+  // The target exists only in the restored view, and nothing reports a layout change.
+  f.presence.attach(f.provider, {
+    resolve: () => (f.state().phase === 'reviewing' ? { surface: 'test', precision: 'exact', geometry: point } : null),
+  });
+  await setImmediate();
+  f.frame().navigation!.back();
+  await setImmediate();
+  assert.equal(f.state().phase, 'reviewing');
+  assert.deepEqual(f.frame().activities[0]?.target?.geometry, point);
+  f.frame().navigation!.forward();
+  await setImmediate();
+  assert.deepEqual(unplaced, []);
+  f.presence.dispose();
+});
+
+test('a recorded step counts only the lookups made in its restored view', async () => {
+  const unplaced: string[] = [];
+  const f = fixture({ onUnplaced: (activity) => unplaced.push(activity.recordId!) });
+  const point = { kind: 'point', point: { x: 1, y: 0 } } as const;
+  // The target shows while the checkpoint restores and is gone from the restored view.
+  f.presence.attach(f.provider, {
+    resolve: () => (f.state().phase === 'restoring' ? { surface: 'test', precision: 'exact', geometry: point } : null),
+  });
+  await setImmediate();
+  const one = f.state().steps.find((step) => step.id === 'one')!;
+  f.change({ ...f.state(), phase: 'restoring', selected: one });
+  await setImmediate();
+  assert.deepEqual(f.frame().activities[0]?.target?.geometry, point);
+  f.change({ ...f.state(), phase: 'reviewing', selected: one });
+  f.presence.invalidateTargets();
+  await setImmediate();
+  f.change({ ...f.state(), phase: 'live', selected: null });
+  assert.deepEqual(unplaced, ['one']);
+  f.presence.dispose();
+});
+
+/** A runtime whose agent took one recorded step for each of `params` in one request, and a replay controller. */
+async function recordedRequest(...params: unknown[]) {
+  const actions = new VacpActionRegistry();
+  let executions = 0;
+  actions.register(
+    { name: 'set', description: 'Set', operation: { kind: 'mutation', affects: ['vacp://plot'] } },
+    () => ++executions,
+    { parse: (value) => value, focus: (value) => ({ ref: 'vacp://plot', detail: value }) },
+  );
+  const provider = createVacpProvider({
+    source: { id: 'vacp-source://test', type: 'test', title: 'Test' },
+    actions,
+    project: () => ({
+      graph: { nodes: [{ ref: 'vacp://plot', kind: 'View', layer: 'ViewLayer' }], edges: [], actions: actions.list() },
+      state: { 'vacp://plot': executions },
+    }),
+    subscribe: () => () => {},
+  });
+  const runtime = createVacpRuntime({ providers: [provider] });
+  const actor = { id: 'agent', kind: 'agent' } as const;
+  const turn = runtime.beginAgentActivity({ actor });
+  for (const value of params) await runtime.execute({ name: 'set', params: value }, { actor });
+  turn.end();
+  const replay = createProvenanceReplay(runtime, { restore: async () => ({ callId: 'restore', ok: true }) });
+  return { provider, runtime, replay };
+}
+
+test('a recorded step whose target arrives in the render that moves review on is not reported', async () => {
+  const { provider, runtime, replay } = await recordedRequest(1, 2);
+  const reported: Array<string | undefined> = [];
+  let frame: PresenceFrame = { activities: [], reason: 'activity' };
+  let first = -1;
+  const presence = createAgentPresence(runtime, {
+    replay,
+    renderer: {
+      render: (value) => {
+        frame = value;
+        // The person steps on from the frame that shows the first step's target.
+        if (value.activities[0]?.target && value.navigation?.index === first) value.navigation.forward();
+      },
+    },
+    onUnplaced: (activity) => reported.push(activity.recordId),
+  });
+  let visible = false;
+  presence.attach(provider, {
+    resolve: () =>
+      visible ? { surface: 'test', precision: 'exact', geometry: { kind: 'point', point: { x: 1, y: 0 } } } : null,
+  });
+  try {
+    first = frame.navigation!.frames.indexOf('step');
+    frame.navigation!.go(first);
+    await setImmediate();
+    assert.equal(replay.getState().phase, 'reviewing');
+    visible = true;
+    presence.invalidateTargets();
+    await setImmediate();
+    assert.equal(frame.navigation?.index, first + 1);
+    assert.deepEqual(reported, []);
+  } finally {
+    presence.dispose();
+    replay.dispose();
+    runtime.dispose();
+  }
+});
+
+test('a reported recorded step is a copy, so changing it leaves the checkpoint and later frames as recorded', async () => {
+  const { provider, runtime, replay } = await recordedRequest({ date: new Date('2020-01-01T00:00:00Z') });
+  const date = (execution: VacpExecution | undefined) => (execution!.intent!.focus!.detail as { date: Date }).date;
+  let frame: PresenceFrame = { activities: [], reason: 'activity' };
+  let reported = 0;
+  const presence = createAgentPresence(runtime, {
+    replay,
+    renderer: {
+      render: (value) => {
+        frame = value;
+      },
+    },
+    onUnplaced: (activity) => {
+      reported++;
+      date(activity.execution).setUTCFullYear(2040);
+    },
+  });
+  presence.attach(provider, { resolve: () => null });
+  const go = async (kind: 'step' | 'conclusion') => {
+    frame.navigation!.go(frame.navigation!.frames.indexOf(kind));
+    await setImmediate();
+  };
+  try {
+    await go('step');
+    assert.equal(replay.getState().phase, 'reviewing');
+    await go('conclusion');
+    assert.equal(replay.getState().phase, 'live');
+    assert.equal(reported, 1);
+    await go('step');
+    const reviewed = replay.getState().selected!.record;
+    assert.equal(reviewed.kind === 'action' && date(reviewed.execution).getUTCFullYear(), 2020);
+    assert.equal(date(frame.activities[0]!.execution).getUTCFullYear(), 2020);
+  } finally {
+    presence.dispose();
+    replay.dispose();
+    runtime.dispose();
+  }
 });
 
 test('a recorded step without a focus points at the first node it changed that a surface can place', async () => {

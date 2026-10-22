@@ -1,8 +1,9 @@
 import embed from 'vega-embed';
 import { createVegaLiteProvider } from '@ethivia/vacp-vega-lite';
 import { createVegaLitePresentation } from '@ethivia/vacp-vega-lite/presentation';
-import { vacpAgentActor } from '@ethivia/vacp-protocol';
-import { createVacpRuntime } from '@ethivia/vacp-runtime';
+import { vacpAgentActor, type VacpRef } from '@ethivia/vacp-protocol';
+import { createVacpProvider, createVacpRuntime, VacpActionRegistry } from '@ethivia/vacp-runtime';
+import { createRefPresenceResolver } from '@ethivia/vacp-presence/dom';
 import {
   createBrowserPresence,
   createBrowserPresenceRenderer,
@@ -406,4 +407,76 @@ export function showRecordedStep(
       close() {},
     },
   });
+}
+
+/**
+ * A settings form that marks its threshold input with `data-vacp-ref`, below the viewport, and marks nothing
+ * for its label. An agent sets both in one turn. `shown` lists the steps reported while the turn ran, and
+ * `unplaced` the steps reported once it ended.
+ */
+export async function presentMarkedSteps() {
+  const threshold: VacpRef = 'vacp://settings/threshold';
+  const label: VacpRef = 'vacp://settings/label';
+  const form = document.createElement('form');
+  form.style.cssText = `position:absolute;left:0;top:${innerHeight + 1000}px`;
+  form.innerHTML = `<input name="threshold" type="number" data-vacp-ref="${threshold}"><input name="label">`;
+  document.body.append(form);
+  const actions = new VacpActionRegistry();
+  for (const ref of [threshold, label])
+    actions.register(
+      {
+        name: `${ref.split('/').at(-1)}.set`,
+        description: 'Set a setting',
+        operation: { kind: 'mutation', affects: [ref] },
+      },
+      () => true,
+      { parse: (value) => value, focus: () => ({ ref }) },
+    );
+  const provider = createVacpProvider({
+    source: { id: 'vacp-source://settings', type: 'form', title: 'Settings' },
+    actions,
+    project: () => ({
+      graph: {
+        nodes: [threshold, label].map((ref) => ({ ref, kind: 'Param', layer: 'ConfigLayer' })),
+        edges: [],
+        actions: actions.list(),
+      },
+      state: {},
+    }),
+    subscribe: () => () => {},
+  });
+  const runtime = createVacpRuntime({ providers: [provider] });
+  const unplaced: string[] = [];
+  const presence = createBrowserPresence(runtime, {
+    appearance: { motion: 'reduced' },
+    lingerMs: 0,
+    onUnplaced: (activity) => unplaced.push(activity.execution!.name),
+  });
+  presence.attach(provider, { resolve: createRefPresenceResolver(form) });
+  const settle = () => new Promise((resolve) => requestAnimationFrame(() => setTimeout(resolve)));
+  const turn = runtime.beginAgentActivity({ actor: vacpAgentActor });
+  try {
+    await runtime.execute({ name: 'threshold.set' }, { actor: vacpAgentActor });
+    await settle();
+    const placed = presence.getSnapshot()[0]?.target;
+    const { x, y, width, height } = form.querySelector('[name="threshold"]')!.getBoundingClientRect();
+    await runtime.execute({ name: 'label.set' }, { actor: vacpAgentActor });
+    await settle();
+    scrollBy(0, 40);
+    await settle();
+    const shown = [...unplaced];
+    turn.end();
+    await settle();
+    return {
+      shown,
+      unplaced,
+      viewportHeight: innerHeight,
+      placed,
+      threshold: { kind: 'region', x, y, width, height },
+    };
+  } finally {
+    presence.dispose();
+    runtime.dispose();
+    form.remove();
+  }
 }

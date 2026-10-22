@@ -10,7 +10,13 @@ import {
   type VacpAgentActivity,
 } from '@ethivia/vacp-protocol';
 import { stepSubject } from './subject';
-import { createPresenceTargets, stepPlaces, type PresenceFocus } from './targets';
+import {
+  createPlacement,
+  createPresenceTargets,
+  stepPlaces,
+  type PresenceFocus,
+  type PresencePlacement,
+} from './targets';
 import { createTargetTracker } from './tracker';
 import { createPresencePresentation } from './presentation';
 import { isAgentActor, samePresenceActivity } from './types';
@@ -28,7 +34,13 @@ import type {
  * The execution an actor shows. Its lifetime ends target lookups and arrival waits made for it.
  * `shared` is false when the execution holds exotic host values, which each delivery copies.
  */
-type Step = { value: VacpExecution; read: () => VacpExecution; lifetime: AbortController; shared: boolean };
+type Step = {
+  value: VacpExecution;
+  read: () => VacpExecution;
+  lifetime: AbortController;
+  shared: boolean;
+  placement?: PresencePlacement;
+};
 
 /** What one actor is doing. Everything published is derived from these fields by `view()`. */
 type Entry = {
@@ -79,6 +91,13 @@ export function createAgentPresence(source: PresenceSource, options: PresenceOpt
   const lifetime = new AbortController();
   const active = new Map<string, Entry>();
   const latest = new Map<string, number>();
+  /**
+   * By actor, the placement of a step that left before it settled, such as when `maxActors` evicted it.
+   * Its execution's next phase resumes it, and any other step of the actor drops it.
+   */
+  const unsettled = new Map<string, { id: string; placement: PresencePlacement }>();
+  /** Steps that left unplaced. The next publish reports them, once the change that moved them on is applied. */
+  const unplaced: PresenceActivity[] = [];
   let graph: VacpGraph | undefined;
   const includes = options.includeActor ?? isAgentActor;
   const listeners = new Set<(activities: readonly PresenceActivity[]) => void>();
@@ -129,6 +148,8 @@ export function createAgentPresence(source: PresenceSource, options: PresenceOpt
   };
   let heard: readonly PresenceActivity[] | undefined;
   const publish = (reason: 'activity' | 'layout' = 'activity', activityEvent = false) => {
+    // A host can dispose presence from a report, and the reports queued behind it are then dropped.
+    for (const activity of unplaced.splice(0)) if (!lifetime.signal.aborted) safe(() => options.onUnplaced?.(activity));
     const activities = snapshot();
     if (options.renderer || options.replay) safe(() => presentation.update(activities, reason, activityEvent));
     if (activities === heard) return;
@@ -161,14 +182,24 @@ export function createAgentPresence(source: PresenceSource, options: PresenceOpt
           publish(reason);
         },
         report,
+        (asked, place) => entry.step?.placement?.note(asked, place),
       ),
     };
     active.set(actor.id, entry);
     return entry;
   };
+  /** The shown step leaves. Once settled, it is reported when a lookup reached its presentation and none placed it. */
+  const leave = (entry: Entry) => {
+    const step = entry.step;
+    if (!step?.placement || lifetime.signal.aborted) return;
+    if (!isVacpExecutionSettled(step.value))
+      unsettled.set(entry.actor.id, { id: step.value.id, placement: step.placement });
+    else if (step.placement.close()) unplaced.push(captureVacpValue({ ...view(entry), target: null })());
+  };
   const releaseActor = (actorId: string) => {
     const entry = active.get(actorId);
     if (!entry) return;
+    leave(entry);
     entry.lifetime.abort();
     entry.step?.lifetime.abort();
     entry.targets.stop();
@@ -183,6 +214,7 @@ export function createAgentPresence(source: PresenceSource, options: PresenceOpt
   };
   /** The shown step is over; the cursor keeps resting where it was. */
   const moveOn = (entry: Entry) => {
+    leave(entry);
     entry.step?.lifetime.abort();
     entry.step = undefined;
     entry.freshness = 'unknown';
@@ -283,14 +315,23 @@ export function createAgentPresence(source: PresenceSource, options: PresenceOpt
       entry.targets.cancel();
       entry.target = undefined;
       entry.heard = entry.progress?.summary;
-      entry.step = { value, read, lifetime: new AbortController(), shared: read() === value };
+      const kept = unsettled.get(actorId);
+      unsettled.delete(actorId);
+      entry.step = {
+        value,
+        read,
+        lifetime: new AbortController(),
+        shared: read() === value,
+        placement: kept?.id === value.id ? kept.placement : undefined,
+      };
     } else entry.step = { ...entry.step, value, read, shared: read() === value };
     if (value.intent && value.sourceId && entry.restFor !== value.id) {
       const at = { sourceId: value.sourceId, bindingId: value.bindingId };
-      const places = stepPlaces(value.intent.focus, value.intent.affects, () => at);
+      const places = entry.step.placement?.places ?? stepPlaces(value.intent.focus, value.intent.affects, () => at);
       if (places.length) {
         entry.restFor = value.id;
         entry.rest = value.intent.focus || !entry.placed ? places : [...places, entry.placed];
+        entry.step.placement ??= createPlacement(places);
       }
     }
     release(entry);
@@ -354,6 +395,7 @@ export function createAgentPresence(source: PresenceSource, options: PresenceOpt
     presentation.dispose();
     listeners.clear();
     latest.clear();
+    unsettled.clear();
     safe(() => options.renderer?.dispose?.());
     source.signal.removeEventListener('abort', dispose);
   };

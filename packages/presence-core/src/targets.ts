@@ -1,6 +1,6 @@
 import type { VacpFocus, VacpRef, VacpSourceId } from '@ethivia/vacp-protocol';
 import { validPresenceTarget } from './geometry';
-import type { PresenceBinding } from './types';
+import type { PresenceBinding, PresenceTarget } from './types';
 
 export type PresenceFocus = { focus: VacpFocus; sourceId: VacpSourceId; bindingId?: string };
 
@@ -19,6 +19,33 @@ export function stepPlaces(
     return at ? [{ focus, ...at }] : [];
   });
 }
+
+/**
+ * Whether one showing of a step was placed. A completed lookup reaches the step when an attached
+ * presentation answered one of its own `places`, and places it when one of them produced the target.
+ * A place an earlier step left the cursor on is never the step's own, and a placed step stays placed
+ * until the showing closes.
+ */
+export function createPlacement(places: readonly PresenceFocus[]) {
+  let reached = false;
+  let placed = false;
+  return {
+    places,
+    note(asked: readonly PresenceFocus[], place: PresenceFocus | undefined) {
+      reached ||= places.some((own) => asked.includes(own));
+      placed ||= !!place && places.includes(place);
+    },
+    /** Ends the showing and starts the next. True when a lookup reached the step and none placed it. */
+    close() {
+      const unplaced = reached && !placed;
+      reached = false;
+      placed = false;
+      return unplaced;
+    },
+  };
+}
+
+export type PresencePlacement = ReturnType<typeof createPlacement>;
 
 /**
  * One binding inventory for live execution, replay and layout invalidation. A binding's layout witness
@@ -58,11 +85,12 @@ export function createPresenceTargets(
     if (stop) stopWitness(stop);
   };
   return {
-    async resolve(target: PresenceFocus, requested: AbortSignal) {
+    /** `undefined` when no presentation is attached for the place, `null` when the attached one cannot place it. */
+    async resolve(target: PresenceFocus, requested: AbortSignal): Promise<PresenceTarget | null | undefined> {
       const binding = target.bindingId
         ? bindings.get(target.bindingId)
         : [...bindings.values()].find((value) => value.sourceId === target.sourceId);
-      if (!binding || binding.sourceId !== target.sourceId || binding.signal.aborted) return null;
+      if (!binding || binding.sourceId !== target.sourceId || binding.signal.aborted) return undefined;
       const lifetime = AbortSignal.any([signal, requested, binding.signal]);
       lifetime.throwIfAborted();
       const result = await binding.resolve(target.focus, { signal: lifetime });
