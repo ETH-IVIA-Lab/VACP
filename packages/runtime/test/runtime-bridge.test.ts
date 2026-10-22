@@ -225,3 +225,42 @@ test('failed restoration waits for all sources before the next explicit restorat
   assert.equal((await next).ok, true);
   assert.deepEqual(f.values, { one: 'next', two: 'next' });
 });
+
+test('shared before reads retain one capture identity through serialized provenance', async (t) => {
+  const f = fixture(['one', 'two'], () => {});
+  t.after(() => f.runtime.dispose());
+  const state = { 'vacp://restore/one': 'saved', 'vacp://restore/two': 'saved' };
+  const restoration = { id: 'viewer', entryId: 'checkpoint' };
+  assert((await f.restorer.restore(state, { restoration })).ok);
+  const journal = f.runtime.getProvenance();
+  const serialized: typeof journal = JSON.parse(JSON.stringify(journal));
+  for (const captured of [journal, serialized]) {
+    const records = captured.records.filter((record) => record.kind === 'action');
+    assert.equal(records.length, 2);
+    assert.equal(typeof records[0]!.beforeCaptureId, 'string');
+    assert.equal(records[0]!.beforeCaptureId, records[1]!.beforeCaptureId);
+    assert.deepEqual(
+      records.map((record) => record.execution.restoration),
+      [restoration, restoration],
+    );
+  }
+});
+
+test('distinct before reads of equal observations retain distinct capture identities', async (t) => {
+  t.mock.timers.enable({ apis: ['Date'], now: Date.UTC(2026, 0, 1) });
+  const f = fixture(['one'], () => {});
+  t.after(() => f.runtime.dispose());
+  const state = { 'vacp://restore/one': 'old' };
+  assert((await f.restorer.restore(state)).ok);
+  assert((await f.restorer.restore(state)).ok);
+  const journal = f.runtime.getProvenance();
+  const serialized: typeof journal = JSON.parse(JSON.stringify(journal));
+  for (const captured of [journal, serialized]) {
+    const records = captured.records.filter((record) => record.kind === 'action');
+    assert.equal(records.length, 2);
+    assert.deepEqual(records[0]!.before, records[1]!.before);
+    assert.equal(typeof records[0]!.beforeCaptureId, 'string');
+    assert.equal(typeof records[1]!.beforeCaptureId, 'string');
+    assert.notEqual(records[0]!.beforeCaptureId, records[1]!.beforeCaptureId);
+  }
+});

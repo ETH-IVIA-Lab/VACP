@@ -32,6 +32,7 @@ export function createDispatcher(args: {
   actionFinished(id: string): void;
 }) {
   let sequence = 0;
+  const beforeCaptures = new WeakMap<VacpObservation, string>();
   return async (request: VacpActionRequest, context: VacpActionExecutionContext): Promise<VacpActionResult> => {
     const { callId } = request;
     if (callId != null && typeof callId !== 'string') throw new TypeError('callId must be a string');
@@ -63,6 +64,7 @@ export function createDispatcher(args: {
       args.executions.emit(execution);
     };
     let before: VacpObservation | undefined;
+    let beforeCaptureId: string | undefined;
     let result: VacpActionResult;
     let cancellation: { reason: unknown } | undefined;
     let applying = false;
@@ -96,6 +98,9 @@ export function createDispatcher(args: {
         assertVacpActionAvailable(current, call);
         // Composition already isolated this observation from every native provider.
         before = current.inspection;
+        // Pending reads share this instance. Equal values from separate reads are separate captures.
+        beforeCaptureId = beforeCaptures.get(before) ?? makeEntryId();
+        beforeCaptures.set(before, beforeCaptureId);
         applying = true;
         args.actionStarted(execution);
         emit('running');
@@ -126,6 +131,7 @@ export function createDispatcher(args: {
           execution: terminal,
           call,
           result,
+          beforeCaptureId,
           before,
           observation: after,
         });

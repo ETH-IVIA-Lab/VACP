@@ -13,7 +13,7 @@ VACP composes analytical sources, state, freshness, and semantic operations thro
 - `packages/sdk`: application integration helpers.
 - `packages/adapter-vega-lite`, `packages/adapter-vgplot`: visualization providers.
 - `packages/agent-ai-sdk`, `packages/python`: model orchestration and MCP transport.
-- `packages/provenance-core`: checkpoint projection and independently owned replay controllers.
+- `packages/provenance-core`: checkpoint projection, value attribution, and independently owned replay controllers.
 - `packages/presence-core`: headless agent activity, semantic target resolution, presentation ports, and DOM geometry (`./dom`).
 - `packages/presence-browser`: optional React cursor overlay styled with StyleX.
 - `packages/inspector-core`: viewer contracts, local history, and client connections.

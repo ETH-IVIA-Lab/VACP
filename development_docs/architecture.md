@@ -16,7 +16,7 @@ VACP keeps one model of an analysis that people and agents share. Providers tran
 | `transport-bridge`  | The five agent tools over a bridge                                                       | `protocol`                                            |
 | `transport-webmcp`  | WebMCP tool compilation and registration                                                 | `protocol`                                            |
 | `agent-ai-sdk`      | AI SDK tools, agent, chat transport, context compaction                                  | `protocol`, `transport-bridge`                        |
-| `provenance-core`   | Checkpoint projection and replay controllers                                             | `protocol`                                            |
+| `provenance-core`   | Checkpoint projection, value attribution, and replay controllers                         | `protocol`                                            |
 | `presence-core`     | Headless presence, target resolution, pacing, DOM geometry (`./dom`)                     | `protocol`, `provenance-core`                         |
 | `presence-browser`  | React overlay in a shadow root, StyleX styles, Streamdown text                           | `presence-core`                                       |
 | `inspector-core`    | Inspection sessions, graph index, runtime and HTTP clients                               | `protocol`                                            |
@@ -79,7 +79,7 @@ One request is one turn. `narrate` opens a turn when none is open, joins one a h
 
 The journal owns record identity, retention, epochs, and revisions. Each record is cloned once at capture, deeply frozen, and shared by every reader. A record holding mutable built-ins such as `Date` or `Map` gives each reader its own copy. Consumers mirror appended records by revision and resynchronize only after an epoch change or a revision gap. Observation records carry an explicit actor and cause, and concurrent observations list overlapping executions without claiming causality.
 
-`provenance-core` projects checkpoints over the whole chronology before any actor filter. A replay controller owns one viewer's selection, review trail, and saved return state, keeps only scalar epoch and revision cursors, and reads retention from the journal. Restoration is a separate capability, `VacpRestore`, supplied by the host. `createVacpRestorer` routes each source its state through `vacp.apply_state`, runs as `vacpHumanActor`, waits for every source, and reports per-source results. It is not a transaction across engines.
+`provenance-core` projects checkpoints over the whole chronology before any actor filter. `provenanceAttribution` walks the same chronology for one ref, including the queries, restorations, and `before` states that checkpoint projection skips, and names the record that set its current value. A restoration gives each value back to the owner the ref had when it last held that value. The [reference](../docs/api/provenance.md#provenanceattribution) lists the rule for every record kind. A replay controller owns one viewer's selection, review trail, and saved return state, keeps only scalar epoch and revision cursors, and reads retention from the journal. Restoration is a separate capability, `VacpRestore`, supplied by the host. `createVacpRestorer` routes each source its state through `vacp.apply_state`, runs as `vacpHumanActor`, waits for every source, and reports per-source results. It is not a transaction across engines.
 
 ## Presence
 

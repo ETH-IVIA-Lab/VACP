@@ -212,7 +212,7 @@ A `VacpExecution` describes one call's lifecycle: `id`, monotonic `sequence`, `c
 
 ## Provenance
 
-`VacpProvenanceRecord` is a union on `kind`: `action`, `observation`, `turn`, and `session`. See [Provenance and replay](../provenance/) for each record's fields. `VacpProvenanceSource` provides `getProvenance()` and `subscribeProvenance(listener)`.
+`VacpProvenanceRecord` is a union on `kind`: `action`, `observation`, `turn`, and `session`. An action record's optional `beforeCaptureId` identifies the runtime read used for its `before`. Equal IDs prove a shared capture across serialized records. Separate reads receive distinct IDs even when their values and revisions match. See [Provenance and replay](../provenance/) for each record's fields. `VacpProvenanceSource` provides `getProvenance()` and `subscribeProvenance(listener)`.
 
 | Function                  | Returns                                                   |
 | ------------------------- | --------------------------------------------------------- |

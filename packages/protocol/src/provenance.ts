@@ -25,6 +25,11 @@ export type VacpProvenanceRecord = ProvenanceIdentity &
         result: VacpActionResult;
         /** Payload fields omitted because they could not be captured as recording data. */
         captureErrors?: readonly { field: 'result'; message: string }[];
+        /**
+         * Opaque identity of the runtime read used for `before`. Equal IDs prove the same capture,
+         * including after serialization. Distinct reads have distinct IDs even when their values match.
+         */
+        beforeCaptureId?: string;
         before?: VacpObservation;
         observation?: VacpObservation;
       }

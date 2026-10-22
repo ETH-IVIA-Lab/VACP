@@ -30,6 +30,6 @@ Each package page lists its entry points, signatures, options with defaults, ret
 
 - [`@ethivia/vacp-presence`](./presence-core): headless presence, targets, and pacing.
 - [`@ethivia/vacp-presence-react`](./presence-browser): the browser overlay and its appearance options.
-- [`@ethivia/vacp-provenance`](./provenance): checkpoints and replay.
+- [`@ethivia/vacp-provenance`](./provenance): checkpoints, value attribution, and replay.
 - [`@ethivia/vacp-inspector`](./inspector): inspection sessions, graph indexes, and clients.
 - [`@ethivia/vacp-analytics`](./analytics): runtime telemetry, and `createPosthogProvider` from `@ethivia/vacp-posthog`.
