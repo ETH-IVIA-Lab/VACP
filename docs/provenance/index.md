@@ -1,6 +1,6 @@
 # Provenance and replay
 
-The runtime records every completed operation and every change it observes, for every actor, in a journal of immutable records. `@ethivia/vacp-provenance` derives checkpoints from that journal and restores the charts to a chosen checkpoint. A viewer is one surface that shows the journal, such as presence or an inspection panel. Each viewer keeps its own selection and review state.
+The runtime records every completed operation and every change it observes, for every actor, in a journal of immutable records. `@ethivia/vacp-provenance` derives checkpoints from that journal, names the record that set each value, and restores the charts to a chosen checkpoint. A viewer is one surface that shows the journal, such as presence or an inspection panel. Each viewer keeps its own selection and review state.
 
 ## Read the journal
 
@@ -34,6 +34,31 @@ An action record keeps its outcome even when a later read fails. A missing `befo
 ## Attribution
 
 The host supplies the actor: with each `execute` call, or with `runtime.refresh({ actor, message })` after a change in the application. A change the runtime observes through a provider's invalidation, with no actor, is a `system` observation. An observation's `cause` is `external` when no operation was running, or `concurrent` with the executions that overlapped it. Overlap records timing and claims no causality. A person dragging a brush while an agent's step runs cannot be told apart by timing alone.
+
+## Who set a value
+
+`provenanceAttribution` returns the record that set one ref's current value, so an interface can show where a value came from:
+
+```ts
+import { provenanceActor, type VacpRef } from '@ethivia/vacp-protocol';
+import { provenanceAttribution } from '@ethivia/vacp-provenance';
+
+function setBy(ref: VacpRef): string {
+  const origin = provenanceAttribution(runtime.getProvenance(), ref);
+  if (origin === 'unchanged') return 'Unchanged in this session';
+  if (origin === 'unknown') return 'Origin unknown';
+  if (origin.kind === 'action' && origin.execution.restoration) return 'Restored';
+  return `Set by ${provenanceActor(origin).kind}`;
+}
+```
+
+An action record holds the actor, the call, the narration, and the time, and an observation holds the actor, the message, and the time. Call `provenanceAttribution` again when `subscribeProvenance` publishes a record. Records arrive as operations finish, so the record of a running action can still change the answer.
+
+An action owns the changes its captured `before` and result show, even when it failed, and a query owns none. A person's change belongs to the observation `refresh` records when the input handler calls `refresh` before it awaits anything, as in [Report human changes](../integrate/#report-human-changes). Otherwise a provider's invalidation can record the change first, as a `system` observation. A change a provider's invalidation reports while an action runs belongs to that action when its captured result shows the change. When a `refresh` lands while an action or a restoration runs, or two actions run at the same time, either record could have set a value both show, so the value stays `unknown` until a record captures a new change. The journal orders records by when they finish, so an action that sets a value again after a change nobody reported reads the same as two actions running at the same time. Report the change with `refresh` and the action owns the value it sets.
+
+A restoration gives each value it restores back to the owner the ref had when it last held that value, so closing a [review](#restore-and-review) returns every value to its owner from before the review. A value captured in a differing `before` has unknown ownership, even when an earlier record held the same value. Restorations capturing the same transition preserve earlier ownership when their `beforeCaptureId` matches. A value no record of the session held names one of the restoration's `vacp.apply_state` records.
+
+`unchanged` means no record of the session set the ref's current value. The first captured state of a session is its baseline, so call `runtime.refresh()` once when the application starts. `unknown` also covers a change in records the journal no longer retains. The [reference](../api/provenance#provenanceattribution) lists the rule for every record kind.
 
 ## Checkpoints
 

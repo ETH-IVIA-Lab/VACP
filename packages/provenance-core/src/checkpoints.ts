@@ -17,6 +17,14 @@ export function isRestorationRecord(record: VacpProvenanceRecord): boolean {
   return record.kind === 'action' && Boolean(record.execution.restoration);
 }
 
+type ActionRecord = Extract<VacpProvenanceRecord, { kind: 'action' }>;
+
+/** The action reached its effects: its state was captured just before them, and it is not a query. */
+export function effectful(record: ActionRecord): record is ActionRecord & { before: VacpObservation } {
+  const kind = record.execution.operationKind;
+  return Boolean(record.before) && Boolean(kind) && kind !== 'query';
+}
+
 /** State comparison deliberately excludes freshness and observation timestamps. */
 export function sameAnalyticalState(a: VacpObservation, b: VacpObservation): boolean {
   return sameVacpValue(a.state, b.state);
@@ -30,11 +38,8 @@ function checkpointObservations(record: VacpProvenanceRecord) {
     (record.kind === 'observation' && record.cause.kind === 'concurrent')
   )
     return undefined;
-  if (record.kind === 'action') {
-    if (!record.before || !record.execution.operationKind || record.execution.operationKind === 'query')
-      return undefined;
-    return { before: record.before, after: record.observation };
-  }
+  if (record.kind === 'action')
+    return effectful(record) ? { before: record.before, after: record.observation } : undefined;
   return { before: undefined, after: record.observation };
 }
 

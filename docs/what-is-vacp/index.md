@@ -65,7 +65,7 @@ Agents reach the runtime through the [Model Context Protocol](https://modelconte
 | [`@ethivia/vacp-webmcp`](../api/webmcp)                   | Registers operations as browser-native WebMCP tools                                 |
 | [`@ethivia/vacp-presence`](../api/presence-core)          | Headless agent activity, targets, and pacing                                        |
 | [`@ethivia/vacp-presence-react`](../api/presence-browser) | Cursor and narration overlay for the browser                                        |
-| [`@ethivia/vacp-provenance`](../api/provenance)           | Checkpoints and replay over the provenance journal                                  |
+| [`@ethivia/vacp-provenance`](../api/provenance)           | Checkpoints, value attribution, and replay over the provenance journal              |
 | [`@ethivia/vacp-inspector`](../api/inspector)             | Sessions and graph lookups for custom inspection surfaces                           |
 | [`@ethivia/vacp-analytics`](../api/analytics)             | Forwards runtime events to a telemetry provider                                     |
 | [`@ethivia/vacp-posthog`](../api/analytics)               | The telemetry provider for [PostHog](https://posthog.com), a product analytics tool |
