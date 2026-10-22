@@ -1,10 +1,11 @@
 import type { PresenceGeometry, PresencePoint } from '@ethivia/vacp-presence';
-import { placeBubble, targetBounds, type BubblePlacement } from './bubble-layout';
+import { placeBubble, targetBounds, type BubblePlacement, type Departure } from './bubble-layout';
 
 type Viewport = { width: number; height: number };
 type Layout = { point: PresencePoint; viewport: Viewport; beside: PresenceGeometry | undefined; reduced: boolean };
 export type BubblePart = 'root' | 'surface' | 'content';
 
+// Placement judges a settle by the straight line between its keyframes, so the easing never overshoots them.
 const timing = { duration: 220, easing: 'cubic-bezier(.23,1,.32,1)' };
 
 /**
@@ -17,6 +18,8 @@ export function createBubbleMotion(width: number) {
   const parts: Partial<Record<BubblePart, HTMLElement>> = {};
   let observer: ResizeObserver | undefined;
   let placement: BubblePlacement | undefined;
+  /** Where a riding label and its cursor set out from, until the label settles. */
+  let departure: Departure | undefined;
   /** Where the label is painted frame by frame under a travelling cursor, away from the last settled placement. */
   let riding: PresencePoint | undefined;
   let movement: Animation | undefined;
@@ -42,6 +45,36 @@ export function createBubbleMotion(width: number) {
     movement = undefined;
     for (const motion of resizing) motion.cancel();
     resizing = [];
+  };
+  /**
+   * Where the label settles beside `beside` after setting out from `start`, or beside the cursor point
+   * when there is no geometry.
+   */
+  const planFrom = (
+    start: Departure | undefined,
+    point: PresencePoint,
+    viewport: Viewport,
+    beside: PresenceGeometry | undefined,
+  ) => {
+    const w = measure(viewport);
+    const target = beside ? targetBounds(beside) : { x: point.x - 12, y: point.y - 12, width: 24, height: 24 };
+    // A placement holds while its cursor, target, size, and viewport do, wherever the label set out from.
+    // A flight asks every frame, and every later frame of the step places the landed label again.
+    const key = [
+      point.x,
+      point.y,
+      target.x,
+      target.y,
+      target.width,
+      target.height,
+      w,
+      height,
+      viewport.width,
+      viewport.height,
+    ].join();
+    if (planned?.key !== key)
+      planned = { key, placement: placeBubble(target, point, { width: w, height }, viewport, placement, start) };
+    return planned.placement;
   };
   const binders: Partial<Record<BubblePart, (element: HTMLElement | null) => () => void>> = {};
   const api = {
@@ -79,27 +112,13 @@ export function createBubbleMotion(width: number) {
     invalidate() {
       dirty = true;
     },
-    /** Where the label settles beside `beside`, or beside the cursor point when there is no geometry. */
+    /** The cursor sets out with the label riding along from `start`. */
+    depart(start: Required<Departure>) {
+      departure = start;
+    },
+    /** Where the riding label settles beside `beside`, or beside the cursor point when there is no geometry. */
     plan(point: PresencePoint, viewport: Viewport, beside: PresenceGeometry | undefined) {
-      const w = measure(viewport);
-      const target = beside ? targetBounds(beside) : { x: point.x - 12, y: point.y - 12, width: 24, height: 24 };
-      // A flight asks every frame with the same inputs; the answer changes only when they do.
-      const key = [
-        point.x,
-        point.y,
-        target.x,
-        target.y,
-        target.width,
-        target.height,
-        w,
-        height,
-        viewport.width,
-        viewport.height,
-        placement?.side,
-      ].join();
-      if (planned?.key !== key)
-        planned = { key, placement: placeBubble(target, point, { width: w, height }, viewport, placement) };
-      return planned.placement;
+      return planFrom(departure, point, viewport, beside);
     },
     /** The painted surface, including any running movement or resize. */
     painted(): PresencePoint & { height: number } {
@@ -116,15 +135,17 @@ export function createBubbleMotion(width: number) {
       const { root, surface, content } = parts;
       if (!root || !surface || !content) return;
       last = { point, viewport, beside, reduced };
-      const next = api.plan(point, viewport, beside);
       const moving =
         !!riding || movement?.playState === 'running' || resizing.some((motion) => motion.playState === 'running');
       // A followed, moving, or resizing label starts from where it is painted; otherwise the last placement is exact.
       const from = moving ? api.painted() : placement;
+      // A landing label ends its ride, and any other label settles from where it is painted unless it jumps.
+      const next = planFrom(reduced ? undefined : (departure ?? (from && { label: from })), point, viewport, beside);
       const sizeChanged = !!from && Math.abs(from.height - height) > 0.5;
       const moved = !from || Math.abs(from.x - next.x) > 0.5 || Math.abs(from.y - next.y) > 0.5;
       riding = undefined;
       placement = next;
+      departure = undefined;
       if (!moved && !sizeChanged) return;
       stop();
       root.style.transform = `translate(${next.x}px,${next.y}px)`;

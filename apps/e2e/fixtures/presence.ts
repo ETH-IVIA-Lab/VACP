@@ -70,9 +70,9 @@ export async function mountPresenceChart(
 }
 
 /** Real SVG rendering in an isolated document, with deterministic presentation time. */
-function cursorFixture() {
+function cursorFixture({ width, height } = { width: 1000, height: 600 }) {
   const frame = document.createElement('iframe');
-  frame.style.cssText = 'position:fixed;left:0;top:0;width:1000px;height:600px;border:0';
+  frame.style.cssText = `position:fixed;left:0;top:0;width:${width}px;height:${height}px;border:0`;
   document.body.append(frame);
   const doc = frame.contentDocument!;
   const view = frame.contentWindow!;
@@ -325,6 +325,163 @@ export async function measureBubblePlacement() {
     };
   } finally {
     renderer.dispose?.();
+  }
+}
+
+type Region = { x: number; y: number; width: number; height: number };
+type Geometry = import('@ethivia/vacp-presence').PresenceGeometry;
+
+function covered(label: DOMRect, region: Region) {
+  return (
+    Math.max(0, Math.min(label.right, region.x + region.width) - Math.max(label.left, region.x)) *
+    Math.max(0, Math.min(label.bottom, region.y + region.height) - Math.max(label.top, region.y))
+  );
+}
+
+/** How far the label reaches past the edges of a viewport of `size`. */
+function beyond(label: DOMRect, size: { width: number; height: number }) {
+  return Math.max(0, -label.left, -label.top, label.right - size.width, label.bottom - size.height);
+}
+
+/** The rectangle a target geometry spans on screen. */
+function span(geometry: Geometry): Region {
+  if (geometry.kind === 'region') return geometry;
+  const points = geometry.kind === 'path' ? geometry.points : [geometry.point];
+  const x = Math.min(...points.map((point) => point.x));
+  const y = Math.min(...points.map((point) => point.y));
+  return {
+    x,
+    y,
+    width: Math.max(...points.map((point) => point.x)) - x,
+    height: Math.max(...points.map((point) => point.y)) - y,
+  };
+}
+
+/**
+ * The most of `region` the label covers, now and along any movement of its root. Every step shows the
+ * same words, so the label never resizes and its root carries every movement. Animations run on the
+ * document timeline, which the fixture's clock does not drive, so each movement is sought through and
+ * finished.
+ */
+function coverage(label: Element, region: Region) {
+  let most = covered(label.getBoundingClientRect(), region);
+  for (const movement of label.getAnimations()) {
+    const end = Number(movement.effect!.getComputedTiming().endTime);
+    for (let time = 0; time <= end; time += 4) {
+      movement.currentTime = time;
+      most = Math.max(most, covered(label.getBoundingClientRect(), region));
+    }
+    movement.finish();
+  }
+  return most;
+}
+
+/** Show one step of an agent acting on `geometry`, and return the overlay's shadow root. */
+function showStep(doc: Document, renderer: ReturnType<typeof createBrowserPresenceRenderer>, geometry: Geometry) {
+  renderer.render({
+    reason: 'activity',
+    activities: [
+      {
+        actor: { id: 'agent', kind: 'agent' },
+        phase: 'acting',
+        summary: 'Selecting the next row',
+        freshness: 'current',
+        target: { surface: 'viewport', precision: 'exact', geometry },
+      },
+    ],
+  });
+  return [...doc.querySelectorAll('[data-vacp-presence]')].at(-1)!.shadowRoot!;
+}
+
+/**
+ * Step the cursor between targets on the fixture's clock, and measure the most of each destination its
+ * label covers and how far the label reaches past the viewport.
+ */
+export function measureBubbleRides() {
+  const view = { width: 1280, height: 900 };
+  const fixture = cursorFixture(view);
+  const region = (x: number, y: number, width: number, height: number) =>
+    ({ kind: 'region', x, y, width, height }) as const;
+  const row = (y: number) => region(0, y, 1280, 48);
+  // A path from `top` across the page. Its last point puts the cursor near the bottom edge, nearest the side below.
+  const tall = (top: number): Geometry => ({
+    kind: 'path',
+    points: [
+      { x: 12, y: top },
+      { x: 1268, y: 648 },
+      { x: 640, y: 640 },
+    ],
+  });
+  const journeys: Record<string, Geometry[]> = {
+    'between two regions': [region(180, 500, 230, 158), region(470, 580, 220, 88)],
+    'down and up a list': [row(100), row(420), row(700), row(420)],
+    'to a row that moves': [row(100), row(420), row(422)],
+    'to a tall target that stays and then grows': [region(628, 28, 24, 24), tall(172), tall(172), tall(162)],
+  };
+  let now = 0;
+  const rides: Array<{ journey: string; step: number; covered: number; beyond: number }> = [];
+  try {
+    for (const [journey, targets] of Object.entries(journeys)) {
+      const renderer = fixture.create({ motion: 'full', hover: false });
+      for (const [step, geometry] of targets.entries()) {
+        const overlay = showStep(fixture.doc, renderer, geometry);
+        const label = overlay.querySelector('[data-vacp-bubble]')!;
+        let most = 0;
+        let farthest = 0;
+        for (const end = now + 1000; now < end; now += 4) {
+          fixture.tick(now);
+          farthest = Math.max(farthest, beyond(label.getBoundingClientRect(), view));
+          most = Math.max(most, coverage(label, span(geometry)));
+        }
+        if (step) rides.push({ journey, step, covered: most, beyond: farthest });
+      }
+      renderer.dispose?.();
+    }
+    return rides;
+  } finally {
+    fixture.dispose();
+  }
+}
+
+/** Ride the cursor to a wide region near the top edge, deliver the step again, and measure how far the label moves. */
+export function measureBubbleRedelivery() {
+  const fixture = cursorFixture({ width: 1280, height: 900 });
+  const renderer = fixture.create({ motion: 'full', hover: false });
+  const region: Geometry = { kind: 'region', x: 220, y: 40, width: 820, height: 70 };
+  let now = 0;
+  const rest = (label: Element) => {
+    for (const end = now + 1000; now < end; now += 4) fixture.tick(now);
+    for (const movement of label.getAnimations()) movement.finish();
+    return label.getBoundingClientRect();
+  };
+  try {
+    showStep(fixture.doc, renderer, { kind: 'point', point: { x: 400, y: 30 } });
+    const label = showStep(fixture.doc, renderer, region).querySelector('[data-vacp-bubble]')!;
+    const landed = rest(label);
+    showStep(fixture.doc, renderer, region);
+    const again = rest(label);
+    return Math.hypot(again.x - landed.x, again.y - landed.y);
+  } finally {
+    fixture.dispose();
+  }
+}
+
+/** Jump the cursor to a wide region under reduced motion, and measure where its label settles. */
+export function measureBubbleJump() {
+  const fixture = cursorFixture({ width: 1280, height: 900 });
+  const renderer = fixture.create({ motion: 'reduced' });
+  const region = { x: 130, y: 320, width: 650, height: 50 };
+  try {
+    showStep(fixture.doc, renderer, { kind: 'point', point: { x: 980, y: 350 } });
+    const overlay = showStep(fixture.doc, renderer, { kind: 'region', ...region });
+    const label = overlay.querySelector('[data-vacp-bubble]')!.getBoundingClientRect();
+    const { e: x, f: y } = overlay.querySelector<SVGGElement>('g[data-vacp-phase]')!.getScreenCTM()!;
+    return {
+      covered: covered(label, region),
+      distance: Math.hypot(Math.max(label.left - x, 0, x - label.right), Math.max(label.top - y, 0, y - label.bottom)),
+    };
+  } finally {
+    fixture.dispose();
   }
 }
 

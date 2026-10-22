@@ -82,9 +82,10 @@ test('the step bubble follows the agent cursor through replay, and dismissal rem
   await next.click();
   await expect(bubble).toHaveAttribute('aria-busy', 'false');
   await expect(summary).toContainText(narration.age);
-  // The bubble travelled with the cursor: distinct steps put it in distinct places, and returning restores the spot.
+  // The bubble travelled with the cursor: distinct steps put it in distinct places, and returning restores the
+  // cursor's spot. The bubble's side depends on the step the cursor comes from, so its spot can differ.
   expect(new Set(steps.slice(0, 3).map((step) => `${step.bubble.x},${step.bubble.y}`)).size).toBe(3);
-  expect(steps[3]!.bubble).toEqual(steps[1]!.bubble);
+  expect(steps[3]!.cursor).toEqual(steps[1]!.cursor);
 
   // Leaving review dismisses the trail completely: no bubble, cursor, outline, or reappearance on layout or human input.
   await page.getByRole('button', { name: 'Return to the live view' }).click();
