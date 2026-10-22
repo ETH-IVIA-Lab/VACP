@@ -101,22 +101,34 @@ Only executions this viewer shows wait, so a person's own interactions never slo
 
 ## Point at custom targets
 
-A custom operation names what it focuses on, and the presentation maps refs to elements:
+A custom operation names what it focuses on. Mark the element that shows each ref with `data-vacp-ref`:
+
+```html
+<form id="settings">
+  <input type="range" data-vacp-ref="vacp://example/threshold" />
+</form>
+```
+
+Then `createRefPresenceResolver(root)` points presence at the marked element:
 
 ```ts
-import { createElementPresenceResolver, observePresenceLayout } from '@ethivia/vacp-presence/dom';
+import { createRefPresenceResolver, observePresenceLayout } from '@ethivia/vacp-presence/dom';
+
+const settings = document.querySelector('#settings')!;
 
 actions
   .operation('mutation', 'threshold.set', 'Set the threshold')
   .params(z.object({ value: z.number().min(0).max(100) }))
-  .focus(() => ({ ref: thresholdRef, interaction: { kind: 'drag', axis: 'x' } }))
+  .focus(() => ({ ref: 'vacp://example/threshold', interaction: { kind: 'drag', axis: 'x' } }))
   .handle(({ value }) => setThreshold(value));
 
 presence.attach(provider, {
-  resolve: createElementPresenceResolver((focus) => (focus.ref === thresholdRef ? thresholdInput : null)),
-  subscribe: (invalidate) => observePresenceLayout(chartRoot, invalidate),
+  resolve: createRefPresenceResolver(settings),
+  subscribe: (invalidate) => observePresenceLayout(settings, invalidate),
 });
 ```
+
+The resolver takes the first element under `root` that carries the ref and that presence can place, so hidden copies, templates, and scripts with the same ref are passed over. A second argument names another attribute. When a ref reaches its element through your own model, such as a list item picked by the focus `detail`, pass that lookup to `createElementPresenceResolver((focus) => element)`. Pass `onUnplaced(activity)` when you create presence to receive each live or recorded step that an attached presentation could not place while the step was shown, such as a step whose ref no element carries.
 
 `interaction.kind` chooses the cursor: a pointing hand for `point` and `activate`, a crosshair for `brush`, an open hand for `drag` and `pan`, a caret for `edit`, arrows for `resize`, and a magnifier for `zoom`. A step without a focus points at the first entity in its `affects` that the presentation can place. Canvas and WebGL applications implement `PresenceResolver` directly and return a point, a region, or a path in viewport coordinates.
 

@@ -114,6 +114,13 @@ export type PresenceOptions = {
    */
   narrationHoldMs?: number;
   onError?: (error: unknown) => void;
+  /**
+   * A step presence could not place, reported as it leaves: a lookup that completed while the step was shown
+   * reached an attached presentation of its own refs, and none of them was placed. A live step leaves after
+   * its execution settled. A recorded step is shown once review restores its checkpoint, and leaves when
+   * review shows another frame or ends.
+   */
+  onUnplaced?: (activity: PresenceActivity) => void;
 };
 
 export type PresencePacing = {

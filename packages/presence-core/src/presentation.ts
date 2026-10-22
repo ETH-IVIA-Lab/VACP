@@ -1,5 +1,6 @@
 import { type ProvenanceCheckpoint, type ProvenanceReplayState } from '@ethivia/vacp-provenance';
 import {
+  captureVacpValue,
   provenanceActor,
   provenanceFocus,
   provenanceTurn,
@@ -8,7 +9,7 @@ import {
 } from '@ethivia/vacp-protocol';
 import type { PresenceActivity, PresenceFrame, PresenceNavigation, PresenceOptions } from './types';
 import { isAgentActor, samePresenceActivity } from './types';
-import { stepPlaces, type PresenceFocus } from './targets';
+import { createPlacement, stepPlaces, type PresenceFocus, type PresencePlacement } from './targets';
 import { stepSubject } from './subject';
 import { createTargetTracker } from './tracker';
 
@@ -69,7 +70,7 @@ export function createPresencePresentation(
   let live: readonly PresenceActivity[] = [];
   /** Without a replay controller, the closing words of a turn that took no step. Nothing recorded holds them. */
   let answer: PresenceActivity | undefined;
-  let recorded: { id: string; activity: PresenceActivity; places: readonly PresenceFocus[] } | undefined;
+  let recorded: { id: string; activity: PresenceActivity; placement: PresencePlacement } | undefined;
   let rendered: { activities: readonly PresenceActivity[]; navigation: PresenceNavigation | undefined } | undefined;
   let navigation: PresenceNavigation | undefined;
   /**
@@ -214,6 +215,10 @@ export function createPresencePresentation(
       render([recorded.activity], reason);
     },
     report,
+    (asked, place) => {
+      // A recorded step is shown once its checkpoint is restored. Outside review, the retained step is the live one.
+      if (state?.phase === 'reviewing') recorded?.placement.note(asked, place);
+    },
   );
   /** A recorded frame keeps its projection, and its target, while what it shows is unchanged. */
   const showRecorded = (
@@ -227,7 +232,7 @@ export function createPresencePresentation(
     recorded = {
       id: activity.recordId!,
       activity: samePresenceActivity(recorded?.activity, shown) ? recorded!.activity : shown,
-      places,
+      placement: same ? recorded!.placement : createPlacement(places),
     };
     render([recorded.activity], reason);
     if (same) return;
@@ -320,6 +325,8 @@ export function createPresencePresentation(
     const next = replay.getState();
     if (next === state) return;
     const previous = state?.latest?.id;
+    const reviewed = state?.phase === 'reviewing' ? recorded : undefined;
+    const restored = next.phase === 'reviewing' && state?.phase !== 'reviewing';
     state = next;
     if (state.latest && state.latest.id !== previous) {
       // A person's change retires agent feedback; the runtime's own observations leave it in place.
@@ -329,6 +336,17 @@ export function createPresencePresentation(
     }
     refresh();
     present();
+    // A lookup started while the checkpoint restored measured the earlier view, so the restored view looks again.
+    if (restored && recorded?.placement.places.length)
+      recordedTargets.track(recorded.placement.places, 'activity', lifetime.signal);
+    // The reviewed step leaves as review shows another frame or ends, reported once that frame is presented.
+    if (!reviewed || lifetime.signal.aborted || (state.phase === 'reviewing' && recorded?.id === reviewed.id)) return;
+    if (!reviewed.placement.close()) return;
+    try {
+      options.onUnplaced?.(captureVacpValue({ ...reviewed.activity, target: null })());
+    } catch (error) {
+      report(error);
+    }
   });
   refresh();
   // A new viewer shows the retained checkpoint without waiting for unrelated activity.
@@ -349,8 +367,8 @@ export function createPresencePresentation(
     },
     /** Layout moved `sourceId`, or every source: a recorded step on it looks its target up again, and its lookup renders. */
     invalidate(sourceId?: string) {
-      if (recorded?.places.some((place) => !sourceId || place.sourceId === sourceId))
-        recordedTargets.track(recorded.places, 'layout', lifetime.signal);
+      if (recorded?.placement.places.some((place) => !sourceId || place.sourceId === sourceId))
+        recordedTargets.track(recorded.placement.places, 'layout', lifetime.signal);
     },
     dispose() {
       lifetime.abort();

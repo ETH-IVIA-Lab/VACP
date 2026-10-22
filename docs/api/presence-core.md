@@ -16,7 +16,8 @@ createAgentPresence(runtime: PresenceSource, options?: PresenceOptions): AgentPr
 | `maxActors`       | 4           | Actors shown at once                                                                                  |
 | `lingerMs`        | 1600        | How long a finished step stays before its frame retires                                               |
 | `narrationHoldMs` | 2000        | How long a sentence that arrives between steps waits for the next step to begin. `0` shows it at once |
-| `onError`         |             | Receives renderer, resolver, and subscription failures                                                |
+| `onError`         |             | Receives renderer, resolver, subscription, and `onUnplaced` failures                                  |
+| `onUnplaced`      |             | Receives each step presence could not place, as a `PresenceActivity`. See [Targets](#targets)         |
 
 `PresenceSource` is the part of the runtime presence reads: executions, agent activity, snapshots, and `getProviderBinding`. Presence never executes anything.
 
@@ -73,6 +74,8 @@ type PresenceGeometry =
 
 A resolver returns `null` when it cannot place the focus. Presence calls `subscribe` only while a pointer or a recorded frame rests on the provider, and releases it when none does. `presenceAnchor(geometry)` returns the point a cursor rests on.
 
+Presence reports a step to `onUnplaced` as it leaves, when an attached presentation answered for the step's focus, or for the refs it affects, and placed none of them while the step was shown. Every lookup that completes while the step is shown counts. Presence looks again on each snapshot while a live step is shown, once review restores a recorded step's checkpoint, and whenever `subscribe` reports a layout change. The step counts as placed when any of its lookups finds its target before it leaves, such as a target the step's own change reveals or the restored view renders a frame later. A live step leaves after its execution settled, when the actor's next step or turn begins, `lingerMs` ends, `maxActors` makes room for another actor, or its presentation detaches. A step its actor replaces before the step settles, such as one of several parallel calls, is not reported. A recorded step is shown once review restores its checkpoint, and leaves when review shows another frame or ends, so it can be reported once for each review. The reported activity has `target: null`. With the `@ethivia/vacp-presence/dom` target functions, a target outside the viewport counts as placed, and a target hidden by a scroll container or a clip does not. A step whose refs belong to a source without an attached presentation is never reported, and `dispose()` reports nothing.
+
 ## @ethivia/vacp-presence/dom
 
 Browser geometry for resolvers, in CSS viewport pixels on the `viewport` surface, clipped to visible scroll containers.
@@ -83,6 +86,7 @@ Browser geometry for resolvers, in CSS viewport pixels on the `viewport` surface
 | `viewportPresenceTarget(element, geometry, precision?)` | Geometry already in viewport coordinates, clipped to the visible part of `element`'s scroll containers                                                                  |
 | `svgPresenceTarget(element, geometry, precision?)`      | Geometry in an SVG element's coordinates, through its screen transform                                                                                                  |
 | `createElementPresenceResolver(resolve)`                | A resolver that maps a focus to an element                                                                                                                              |
+| `createRefPresenceResolver(root, attribute?)`           | A resolver that points at the first element under `root` whose `attribute`, `data-vacp-ref` by default, holds the focus ref and that `elementPresenceTarget` places     |
 | `observePresenceLayout(root, invalidate)`               | Calls `invalidate` at most once per frame when `root` resizes or its content changes. Paint-only attribute changes are ignored. Returns a function that stops observing |
 
 Each target function returns `null` when the element is hidden.

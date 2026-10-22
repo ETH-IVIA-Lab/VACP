@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { setImmediate } from 'node:timers/promises';
-import type { VacpExecution, VacpFreshness, VacpInteraction, VacpSourceId } from '@ethivia/vacp-protocol';
+import type { VacpExecution, VacpFreshness, VacpInteraction, VacpRef, VacpSourceId } from '@ethivia/vacp-protocol';
 import { createVacpProvider, createVacpRuntime, VacpActionRegistry } from '@ethivia/vacp-runtime';
 import {
   createAgentPresence,
@@ -847,6 +847,386 @@ test('a step without a focus points at the first node it changes that its surfac
   } finally {
     presence.dispose();
     lifetime.abort();
+  }
+});
+
+test('a settled step is reported once, as it leaves, when no attached presentation placed its own refs', async () => {
+  const lifetime = new AbortController();
+  let publish!: (execution: VacpExecution) => void;
+  const unplaced: PresenceActivity[] = [];
+  const presence = createAgentPresence(
+    {
+      signal: lifetime.signal,
+      getProviderBinding: () => ({ id: 'form', signal: lifetime.signal }),
+      getAgentActivities: () => [],
+      subscribeAgentActivities: () => () => {},
+      getActiveExecutions: () => [],
+      subscribeExecutions: (listener) => {
+        publish = listener;
+        return () => {};
+      },
+      subscribeSnapshots: () => () => {},
+    },
+    { onUnplaced: (activity) => unplaced.push(activity) },
+  );
+  const missing: VacpRef = 'vacp://form/missing';
+  const threshold: VacpRef = 'vacp://form/threshold';
+  let thresholdShown = true;
+  const step = (
+    id: string,
+    sequence: number,
+    intent: VacpExecution['intent'],
+    phase: VacpExecution['phase'] = 'prepared',
+    sourceId: VacpSourceId = 'vacp-source://form',
+  ): VacpExecution => ({
+    id,
+    callId: id,
+    sequence,
+    name: id,
+    at: '',
+    phase,
+    actor: { id: 'agent', kind: 'agent' },
+    sourceId,
+    bindingId: sourceId === 'vacp-source://form' ? 'form' : 'chart',
+    intent,
+  });
+  const run = (...args: Parameters<typeof step>) => {
+    publish(step(...args));
+    publish(step(args[0], args[1], args[2], 'succeeded', args[4]));
+  };
+  const reported = () => unplaced.map((activity) => activity.execution?.id);
+  try {
+    publish(step('early', 1, { affects: [missing], focus: { ref: missing } }));
+    await setImmediate();
+    presence.attach(syntheticProvider('vacp-source://form'), {
+      resolve: (focus) => (focus.ref === threshold && thresholdShown ? target : null),
+    });
+    await setImmediate();
+    publish(step('early', 1, { affects: [missing], focus: { ref: missing } }, 'succeeded'));
+    presence.invalidateTargets();
+    await setImmediate();
+    presence.invalidateTargets();
+    await setImmediate();
+    assert.deepEqual(reported(), [], 'a shown step is judged when it leaves');
+    run('placed', 2, { affects: [threshold], focus: { ref: threshold } });
+    await setImmediate();
+    assert.deepEqual(reported(), ['early']);
+    assert.equal(unplaced[0]!.execution?.phase, 'succeeded');
+    // A placed step stays placed when a later layout hides its target.
+    thresholdShown = false;
+    presence.invalidateTargets();
+    await setImmediate();
+    thresholdShown = true;
+    run('apply', 3, { affects: [missing] });
+    await setImmediate();
+    assert.deepEqual(presence.getSnapshot()[0]?.target, target, 'the cursor stays on the threshold');
+    run('unpresented', 4, { affects: ['vacp://chart/plot'] }, 'prepared', 'vacp-source://chart');
+    await setImmediate();
+    assert.deepEqual(reported(), ['early', 'apply'], 'the step placed nothing of its own');
+    assert.equal(unplaced[1]!.target, null, 'the cursor rested on an earlier step, never on this one');
+    run('last', 5, { affects: [missing], focus: { ref: missing } });
+    await setImmediate();
+    presence.dispose();
+    assert.deepEqual(reported(), ['early', 'apply'], 'a source without a presentation, and disposal, report nothing');
+  } finally {
+    presence.dispose();
+    lifetime.abort();
+  }
+});
+
+test('a step that reveals its target while it runs is not reported', async () => {
+  const f = fixture();
+  const unplaced: PresenceActivity[] = [];
+  const presence = createAgentPresence(f.runtime, { lingerMs: 0, onUnplaced: (activity) => unplaced.push(activity) });
+  // The step's own change brings the element its focus names onto the page.
+  presence.attach(f.provider, { resolve: () => (f.count() > 0 ? target : null) });
+  const actor = { id: 'agent', kind: 'agent' as const };
+  try {
+    const turn = f.runtime.beginAgentActivity({ actor });
+    await f.runtime.execute({ name: 'set' }, { actor });
+    turn.end();
+    await new Promise((resolve) => setTimeout(resolve, 5));
+    assert.deepEqual(presence.getSnapshot(), [], 'the step has left');
+    assert.deepEqual(unplaced, []);
+  } finally {
+    presence.dispose();
+    f.runtime.dispose();
+  }
+});
+
+test('with one actor shown at a time, interleaved steps are each reported once', async () => {
+  const lifetime = new AbortController();
+  let publish!: (execution: VacpExecution) => void;
+  const unplaced: Array<string | undefined> = [];
+  const presence = createAgentPresence(
+    {
+      signal: lifetime.signal,
+      getProviderBinding: () => ({ id: 'form', signal: lifetime.signal }),
+      getAgentActivities: () => [],
+      subscribeAgentActivities: () => () => {},
+      getActiveExecutions: () => [],
+      subscribeExecutions: (listener) => {
+        publish = listener;
+        return () => {};
+      },
+      subscribeSnapshots: () => () => {},
+    },
+    { maxActors: 1, lingerMs: 0, onUnplaced: (activity) => unplaced.push(activity.execution?.id) },
+  );
+  presence.attach(syntheticProvider('vacp-source://form'), { resolve: () => null });
+  const step = (actor: string, phase: VacpExecution['phase']): VacpExecution => ({
+    id: actor,
+    callId: actor,
+    sequence: 1,
+    name: 'set',
+    at: '',
+    phase,
+    actor: { id: actor, kind: 'agent' },
+    sourceId: 'vacp-source://form',
+    bindingId: 'form',
+    intent: { affects: ['vacp://form/missing'], focus: { ref: 'vacp://form/missing' } },
+  });
+  try {
+    publish(step('a', 'prepared'));
+    // B evicts A before A's first lookup completes, so the lookups after A shows again judge it.
+    publish(step('b', 'prepared'));
+    await setImmediate();
+    for (const [actor, phase] of [
+      ['a', 'running'],
+      ['a', 'succeeded'],
+      ['b', 'succeeded'],
+    ] as const) {
+      publish(step(actor, phase));
+      await setImmediate();
+    }
+    await new Promise((resolve) => setTimeout(resolve, 5));
+    assert.deepEqual(presence.getSnapshot(), []);
+    assert.deepEqual(unplaced, ['a', 'b']);
+  } finally {
+    presence.dispose();
+    lifetime.abort();
+  }
+});
+
+test('a step is reported as it leaves for the next turn or with its detached presentation', async () => {
+  const f = fixture();
+  const reported: Array<string | undefined> = [];
+  const presence = createAgentPresence(f.runtime, {
+    onUnplaced: (activity) => reported.push(activity.execution?.callId),
+  });
+  const detach = presence.attach(f.provider, { resolve: () => null });
+  const actor = { id: 'agent', kind: 'agent' as const };
+  try {
+    const first = f.runtime.beginAgentActivity({ actor });
+    const one = await f.runtime.execute({ name: 'set' }, { actor });
+    await setImmediate();
+    first.end();
+    assert.deepEqual(reported, [], 'the finished step lingers');
+    const second = f.runtime.beginAgentActivity({ actor });
+    assert.deepEqual(reported, [one.callId]);
+    const two = await f.runtime.execute({ name: 'set' }, { actor });
+    await setImmediate();
+    detach();
+    assert.deepEqual(reported, [one.callId, two.callId]);
+    second.end();
+  } finally {
+    presence.dispose();
+    f.runtime.dispose();
+  }
+});
+
+test('a host that disposes presence from a report leaves nothing shown', async () => {
+  const lifetime = new AbortController();
+  let publish!: (execution: VacpExecution) => void;
+  const reported: Array<string | undefined> = [];
+  const presence = createAgentPresence(
+    {
+      signal: lifetime.signal,
+      getProviderBinding: () => ({ id: 'form', signal: lifetime.signal }),
+      getAgentActivities: () => [],
+      subscribeAgentActivities: () => () => {},
+      getActiveExecutions: () => [],
+      subscribeExecutions: (listener) => {
+        publish = listener;
+        return () => {};
+      },
+      subscribeSnapshots: () => () => {},
+    },
+    {
+      maxActors: 1,
+      onUnplaced: (activity) => {
+        reported.push(activity.execution?.id);
+        presence.dispose();
+      },
+    },
+  );
+  presence.attach(syntheticProvider('vacp-source://form'), { resolve: () => null });
+  const step = (actor: string, phase: VacpExecution['phase']): VacpExecution => ({
+    id: actor,
+    callId: actor,
+    sequence: 1,
+    name: 'set',
+    at: '',
+    phase,
+    actor: { id: actor, kind: 'agent' },
+    sourceId: 'vacp-source://form',
+    bindingId: 'form',
+    intent: { affects: ['vacp://form/missing'], focus: { ref: 'vacp://form/missing' } },
+  });
+  try {
+    publish(step('a', 'prepared'));
+    await setImmediate();
+    publish(step('a', 'succeeded'));
+    // B's step evicts A's, and the report arrives once B's step is in place.
+    publish(step('b', 'prepared'));
+    assert.deepEqual(reported, ['a']);
+    assert.equal(presence.signal.aborted, true);
+    assert.deepEqual(presence.getSnapshot(), []);
+  } finally {
+    presence.dispose();
+    lifetime.abort();
+  }
+});
+
+test('a host that disposes presence from a report receives none of the reports queued behind it', async () => {
+  const f = fixture();
+  const reported: string[] = [];
+  const presence = createAgentPresence(f.runtime, {
+    onUnplaced: (activity) => {
+      reported.push(activity.actor.id);
+      presence.dispose();
+    },
+  });
+  const detach = presence.attach(f.provider, { resolve: () => null });
+  try {
+    for (const id of ['a', 'b']) {
+      const actor = { id, kind: 'agent' as const };
+      f.runtime.beginAgentActivity({ actor });
+      await f.runtime.execute({ name: 'set' }, { actor });
+    }
+    // Both steps leave with their presentation, and their reports share one delivery.
+    detach();
+    assert.deepEqual(reported, ['a']);
+  } finally {
+    presence.dispose();
+    f.runtime.dispose();
+  }
+});
+
+test('a step whose target arrives in the frame that detaches its presentation is not reported', async () => {
+  const f = fixture();
+  const reported: PresenceActivity[] = [];
+  let detach = () => {};
+  const presence = createAgentPresence(f.runtime, {
+    renderer: {
+      render: (frame) => {
+        if (frame.activities[0]?.target) detach();
+      },
+    },
+    onUnplaced: (activity) => reported.push(activity),
+  });
+  let visible = false;
+  detach = presence.attach(f.provider, { resolve: () => (visible ? target : null) });
+  try {
+    await f.runtime.execute({ name: 'set' });
+    await setImmediate();
+    visible = true;
+    presence.invalidateTargets();
+    await setImmediate();
+    assert.deepEqual(shown(presence), [], 'the step left with its presentation');
+    assert.deepEqual(reported, []);
+  } finally {
+    presence.dispose();
+    f.runtime.dispose();
+  }
+});
+
+test("a step whose target arrives as its actor's next step is published is not reported", async () => {
+  const lifetime = new AbortController();
+  let publish!: (execution: VacpExecution) => void;
+  const reported: Array<string | undefined> = [];
+  const presence = createAgentPresence(
+    {
+      signal: lifetime.signal,
+      getProviderBinding: () => ({ id: 'form', signal: lifetime.signal }),
+      getAgentActivities: () => [],
+      subscribeAgentActivities: () => () => {},
+      getActiveExecutions: () => [],
+      subscribeExecutions: (listener) => {
+        publish = listener;
+        return () => {};
+      },
+      subscribeSnapshots: () => () => {},
+    },
+    { onUnplaced: (activity) => reported.push(activity.execution?.id) },
+  );
+  let visible = false;
+  presence.attach(syntheticProvider('vacp-source://form'), { resolve: () => (visible ? target : null) });
+  const step = (id: string, sequence: number, phase: VacpExecution['phase']): VacpExecution => ({
+    id,
+    callId: id,
+    sequence,
+    name: 'set',
+    at: '',
+    phase,
+    actor: { id: 'agent', kind: 'agent' },
+    sourceId: 'vacp-source://form',
+    bindingId: 'form',
+    intent: { affects: ['vacp://form/threshold'], focus: { ref: 'vacp://form/threshold' } },
+  });
+  presence.subscribe(([activity]) => {
+    if (activity?.execution?.id === 'first' && activity.target) publish(step('second', 2, 'prepared'));
+  });
+  try {
+    publish(step('first', 1, 'prepared'));
+    await setImmediate();
+    publish(step('first', 1, 'succeeded'));
+    visible = true;
+    presence.invalidateTargets();
+    await setImmediate();
+    assert.equal(presence.getSnapshot()[0]?.execution?.id, 'second');
+    assert.deepEqual(reported, []);
+  } finally {
+    presence.dispose();
+    lifetime.abort();
+  }
+});
+
+test("a report delivered while another actor's target arrives names only the unplaced step", async () => {
+  const f = fixture();
+  const [a, b] = (['a', 'b'] as const).map((id) => ({ id, kind: 'agent' as const }));
+  const reported: string[] = [];
+  let detach = () => {};
+  const presence = createAgentPresence(f.runtime, {
+    onUnplaced: (activity) => {
+      reported.push(activity.actor.id);
+      // The host takes down the presentation that could not place a step, and B's step leaves with it.
+      detach();
+    },
+  });
+  let visible = false;
+  detach = presence.attach(f.provider, { resolve: (focus) => (visible && focus.detail === 'b' ? target : null) });
+  let moved = false;
+  presence.subscribe((activities) => {
+    // A starts its next turn while B's target is being delivered, so A's step leaves unplaced.
+    if (moved || !activities.some((activity) => activity.actor.id === 'b' && activity.target)) return;
+    moved = true;
+    f.runtime.beginAgentActivity({ actor: a });
+  });
+  try {
+    for (const actor of [a, b]) {
+      f.runtime.beginAgentActivity({ actor });
+      await f.runtime.execute({ name: 'set', params: actor.id }, { actor });
+    }
+    visible = true;
+    presence.invalidateTargets();
+    await setImmediate();
+    assert.equal(moved, true);
+    assert.deepEqual(shown(presence), [], 'both steps left with the presentation');
+    assert.deepEqual(reported, ['a']);
+  } finally {
+    presence.dispose();
+    f.runtime.dispose();
   }
 });
 

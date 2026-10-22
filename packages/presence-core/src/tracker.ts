@@ -23,15 +23,17 @@ function sameTarget(a: PresenceTarget | null, b: PresenceTarget | null): boolean
  * with the place that produced it. A burst of invalidations resolves the newest places once, late
  * results are dropped, and an arrival wait can observe the pending promise and the lookup's own signal.
  * The tracked sources stay watched for layout until `stop`, so a new step on the same surface keeps its
- * witness running.
+ * witness running. After a lookup that reaches an attached presentation, `answered` receives the places
+ * those presentations answered, in order, and the place that produced the target.
  */
 export function createTargetTracker(
   targets: {
-    resolve: (focus: PresenceFocus, signal: AbortSignal) => Promise<PresenceTarget | null>;
+    resolve: (focus: PresenceFocus, signal: AbortSignal) => Promise<PresenceTarget | null | undefined>;
     watch: (sourceId: PresenceFocus['sourceId']) => () => void;
   },
   deliver: (target: PresenceTarget | null, reason: PresenceFrame['reason'], place?: PresenceFocus) => void,
   report: (error: unknown) => void,
+  answered: (asked: readonly PresenceFocus[], place: PresenceFocus | undefined) => void,
 ) {
   const { resolve } = targets;
   const watching = new Map<PresenceFocus['sourceId'], () => void>();
@@ -46,16 +48,18 @@ export function createTargetTracker(
   };
   /** The first place that shows a target. An unplaceable or failing place leaves the next one to try. */
   const first = async (places: readonly PresenceFocus[], signal: AbortSignal) => {
+    const asked: PresenceFocus[] = [];
     for (const place of places) {
       try {
         const target = await resolve(place, signal);
-        if (target) return { target, place };
+        if (target !== undefined) asked.push(place);
+        if (target) return { target, place, asked };
       } catch (error) {
         if (signal.aborted) throw error;
         report(error);
       }
     }
-    return { target: null, place: undefined };
+    return { target: null, place: undefined, asked };
   };
   let current:
     | { controller: AbortController; promise: Promise<void>; reason: PresenceFrame['reason']; settled: boolean }
@@ -120,6 +124,8 @@ export function createTargetTracker(
               (result) => {
                 if (!result || signal.aborted) return;
                 lookup.settled = true;
+                // Delivery runs host code that can end the step, so its placement records the lookup first.
+                if (result.asked.length) answered(result.asked, result.place);
                 offer(result.target, result.reason, result.place);
               },
               (error) => {

@@ -151,6 +151,21 @@ export function createElementPresenceResolver(resolve: (focus: VacpFocus) => Ele
   };
 }
 
+/**
+ * Point at the elements under `root` that carry the focus ref in `attribute`. The first one presence can
+ * place is the target, so hidden duplicates, templates, and scripts with the same ref never win.
+ */
+export function createRefPresenceResolver(root: ParentNode, attribute = 'data-vacp-ref'): PresenceResolver {
+  return (focus, { signal }) => {
+    signal.throwIfAborted();
+    for (const element of root.querySelectorAll(`[${CSS.escape(attribute)}="${CSS.escape(focus.ref)}"]`)) {
+      const target = elementPresenceTarget(element);
+      if (target) return target;
+    }
+    return null;
+  };
+}
+
 /** Paint-only attributes, such as a hover highlight's fill or opacity, leave every target in place. */
 const paintAttributes = new Set([
   'fill',
