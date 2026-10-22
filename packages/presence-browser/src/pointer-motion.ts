@@ -5,7 +5,7 @@ import {
   type PresenceGeometry,
   type PresencePoint,
 } from '@ethivia/vacp-presence';
-import { immutableGeometry, targetBounds } from './bubble-layout';
+import { immutableGeometry, ride, targetBounds, type Departure } from './bubble-layout';
 import { createBubbleMotion } from './bubble-motion';
 import type { PresenceEngine } from './engine';
 import { spring, travelScale } from './motion';
@@ -15,15 +15,9 @@ type Part = 'layer' | 'float' | 'travel' | 'cue';
 /** One acknowledgement of an execution, at the point where the pointer rested. */
 export type Activation = { id: number; point: PresencePoint };
 
-/**
- * Critically damped travel toward the resting point. The label keeps its offset from the cursor as
- * the flight begins and eases it toward its resting offset as the cursor arrives.
- */
-type Flight = {
+/** Critically damped travel toward the resting point, with the label riding along from the departure. */
+type Flight = Required<Departure> & {
   position: PresencePoint;
-  /** Cursor and label where the flight began, fixing the label's starting offset. */
-  from: PresencePoint;
-  label: PresencePoint;
   velocity: PresencePoint;
   started: number;
   previous: number;
@@ -161,19 +155,23 @@ export function createPointerMotion(options: {
     if (reason === 'layout') {
       // The surface moved under the cursor: shift the whole flight, never restart or cut it.
       const shift = (value: PresencePoint) => ({ x: value.x + dx, y: value.y + dy });
-      if (flight)
+      if (flight) {
         Object.assign(flight, {
           position: shift(flight.position),
           from: shift(flight.from),
           label: shift(flight.label),
         });
+        bubble.depart({ from: flight.from, label: flight.label });
+      }
       return;
     }
     if (reduced() || config.duration === 0) return land();
+    const label = bubble.painted();
+    bubble.depart({ from, label });
     flight = {
       position: from,
       from,
-      label: bubble.painted(),
+      label,
       velocity: flight?.velocity ?? { x: 0, y: 0 },
       started: now,
       previous: now,
@@ -218,16 +216,9 @@ export function createPointerMotion(options: {
     cue.style.visibility = shown ? 'visible' : 'hidden';
     bubble.show(visibility !== 'stale');
     if (flight) {
-      const rest = bubble.plan(at, engine.viewport(), beside);
-      const remaining = Math.hypot(at.x - now.x, at.y - now.y);
-      const progress = flight.distance > 0 ? Math.max(0, Math.min(1, 1 - remaining / flight.distance)) : 1;
-      const eased = 1 - (1 - progress) ** 3;
-      const offset = (start: number, cursorStart: number, end: number, target: number) =>
-        start - cursorStart + (end - target - (start - cursorStart)) * eased;
-      bubble.follow(
-        now.x + offset(flight.label.x, flight.from.x, rest.x, at.x),
-        now.y + offset(flight.label.y, flight.from.y, rest.y, at.y),
-      );
+      const viewport = engine.viewport();
+      const label = ride(flight, now, bubble.plan(at, viewport, beside), viewport);
+      bubble.follow(label.x, label.y);
     } else bubble.place(at, engine.viewport(), beside, instant);
     // Thinking, and frames about the whole request such as its start and conclusion, outline no step.
     const path = !config.cue.visible || activity.phase === 'thinking' || !activity.target ? '' : outline(beside);

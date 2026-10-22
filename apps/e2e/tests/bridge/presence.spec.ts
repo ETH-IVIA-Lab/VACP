@@ -320,3 +320,43 @@ test('bubbles avoid target regions throughout transitions and do not replay narr
   expect(result.displayed).toBe('NARROWING the height');
   expect(result.announced).toBe('Analyst: NARROWING the height');
 });
+
+test('a label riding with its cursor or settling beside it stays on screen and off the target the cursor rests on', async ({
+  page,
+}) => {
+  const server = appServer('vega-lite-gallery');
+  await page.goto(server.url);
+  const rides = await page.evaluate(async (root) => {
+    const { measureBubbleRides }: typeof import('../../fixtures/presence') = await import(
+      `/@fs${root}/apps/e2e/fixtures/presence.ts`
+    );
+    return measureBubbleRides();
+  }, repoRoot);
+  expect(rides).toHaveLength(9);
+  expect(rides.filter((ride) => ride.covered > 0 || ride.beyond > 0)).toEqual([]);
+});
+
+test('a landed label keeps its placement when its step is delivered again', async ({ page }) => {
+  const server = appServer('vega-lite-gallery');
+  await page.goto(server.url);
+  const moved = await page.evaluate(async (root) => {
+    const { measureBubbleRedelivery }: typeof import('../../fixtures/presence') = await import(
+      `/@fs${root}/apps/e2e/fixtures/presence.ts`
+    );
+    return measureBubbleRedelivery();
+  }, repoRoot);
+  expect(moved).toBe(0);
+});
+
+test('a label that jumps with its cursor settles beside the cursor, clear of the target', async ({ page }) => {
+  const server = appServer('vega-lite-gallery');
+  await page.goto(server.url);
+  const jump = await page.evaluate(async (root) => {
+    const { measureBubbleJump }: typeof import('../../fixtures/presence') = await import(
+      `/@fs${root}/apps/e2e/fixtures/presence.ts`
+    );
+    return measureBubbleJump();
+  }, repoRoot);
+  expect(jump.covered).toBe(0);
+  expect(jump.distance).toBeLessThanOrEqual(48);
+});
