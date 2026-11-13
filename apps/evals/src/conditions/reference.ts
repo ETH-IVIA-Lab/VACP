@@ -1,4 +1,4 @@
-import type { VacpActor } from '@ethivia/vacp-protocol';
+import type { VacpActor } from '@ethivia/vacp-sdk';
 
 import type { Condition } from '../ports';
 

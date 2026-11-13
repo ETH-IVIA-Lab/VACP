@@ -1,34 +1,30 @@
-# VACP for Python
+# vacp
 
-The `vacp` package defines transport-neutral provider, observation, operation, freshness, and composition records for Python analytical systems.
+`vacp` connects AI agents to a VACP page. Its MCP server opens the page in a browser and lets clients such as Claude Code, Codex, and Cursor read the page's charts and controls and change them through named actions while the person watches. The package also defines providers for Python analytical applications.
 
-Requires Python 3.10 through 3.14. Install the package with [pip](https://pip.pypa.io/en/stable/):
+Requires Python 3.10 through 3.14.
 
-```bash
-pip install vacp
-```
+## Run the MCP server
 
-Compose your application's providers with `ProviderComposer`:
-
-```python
-from vacp import ProviderComposer
-
-runtime = ProviderComposer([widget_provider, notebook_provider])
-observation = await runtime.observe()
-```
-
-Install the server extra to connect an external MCP client to a VACP-enabled browser page:
+[MCP](https://modelcontextprotocol.io) (Model Context Protocol) is the protocol agent clients use to call external tools. Run the server with [uv](https://docs.astral.sh/uv/), the Python package manager. The first command installs the Chromium the server drives. The second registers the server with Claude Code, which starts it and talks to it over stdio:
 
 ```bash
-uv pip install 'vacp[server]'
-python -m playwright install chromium
-vacp --url http://127.0.0.1:5173/vgplot/
+uvx --from 'vacp[server]' playwright install chromium
+claude mcp add vacp -- uvx --from 'vacp[server]' vacp --url http://localhost:5173/
 ```
 
-The default MCP endpoint is `http://localhost:8000/mcp`, with a health check at `/healthz`. Pass `--transport stdio` for standard input and output. The server exposes `vacp_observe`, `vacp_capabilities`, `vacp_state`, `vacp_execute`, and `vacp_progress`. Each `vacp_execute` call takes a `narration` sentence for its step, which the execution carries: the person watching sees it as the step begins, and replay shows it with the step. `vacp_progress` adds an opening and a closing sentence through the page runtime's narrator, which closes a quiet turn once no step is in flight. A page whose bridge cannot narrate fails the call. Steps and sentences are attributed to `AGENT_ACTOR`, `{'id': 'agent', 'kind': 'agent'}`.
+The server opens your page in a Chromium window and waits for its bridge. The page must install its VACP runtime with `exposeBridge: true`. Other MCP clients take the same command. For a client that connects over HTTP, add `--transport http` and connect to `http://localhost:8000/mcp`.
 
-`SimpleProvider(source, observe, prepare, subscribe, dispose)` assembles a provider from its members. `prepare(call, context)` validates an `ActionCall` without mutating the source and returns a single-use `PreparedAction`. `ProviderComposer` validates node and action ownership, permits cross-source edges, and captures one revisioned observation per read, isolated from later provider changes. `ProviderComposer.execute(request)` takes an `ActionRequest`, assigns a `call_id` when the request's is `None` or blank, prepares the call with its owner, rechecks lifetime and eligibility, then runs it once. The result carries the same `call_id`.
+Ask the agent to change something on the page, and the change appears in the Chromium window.
 
-Run `make python-check` from the repository root for Python lint, type checks, and tests.
+## Use it from Python
 
-See the [Python API reference](https://docs.vacp.dev/api/python) for providers, CLI options, and the `http` extra. VACP is licensed under [Apache-2.0](https://www.apache.org/licenses/LICENSE-2.0).
+Add the package to a project with `uv add vacp`. `Runtime` composes Python providers into one observation and runs their actions. With the `http` extra, `vacp.http.create_inspection_app` serves a runtime to a browser inspector.
+
+## Documentation
+
+- [Get started](https://docs.vacp.dev/get-started/) builds a page an agent can drive.
+- [Connect an agent](https://docs.vacp.dev/agents/) covers MCP clients and the server's options.
+- [Python reference](https://docs.vacp.dev/api/python) documents the `vacp` command, providers, and `create_inspection_app`.
+
+VACP is licensed under [Apache-2.0](https://www.apache.org/licenses/LICENSE-2.0).

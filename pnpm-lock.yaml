@@ -238,23 +238,23 @@ catalogs:
       specifier: ^19.3.0
       version: 19.3.0
     '@uwdata/mosaic-core':
-      specifier: 0.33.0
-      version: 0.33.0
+      specifier: 0.35.0
+      version: 0.35.0
     '@uwdata/mosaic-inputs':
-      specifier: 0.33.0
-      version: 0.33.0
+      specifier: 0.35.0
+      version: 0.35.0
     '@uwdata/mosaic-plot':
-      specifier: 0.33.0
-      version: 0.33.0
+      specifier: 0.35.0
+      version: 0.35.0
     '@uwdata/mosaic-spec':
-      specifier: 0.33.0
-      version: 0.33.0
+      specifier: 0.35.0
+      version: 0.35.0
     '@uwdata/mosaic-sql':
-      specifier: 0.33.0
-      version: 0.33.0
+      specifier: 0.35.0
+      version: 0.35.0
     '@uwdata/vgplot':
-      specifier: 0.33.0
-      version: 0.33.0
+      specifier: 0.35.0
+      version: 0.35.0
     '@vitejs/plugin-react':
       specifier: ^6.1.2
       version: 6.1.2
@@ -291,12 +291,18 @@ catalogs:
     portless:
       specifier: ^0.15.8
       version: 0.15.8
+    posthog-js:
+      specifier: ^1.438.10
+      version: 1.438.10
     react:
       specifier: ^19.3.1
       version: 19.3.1
     react-dom:
       specifier: ^19.3.1
       version: 19.3.1
+    streamdown:
+      specifier: 2.7.0
+      version: 2.7.0
     tailwind-merge:
       specifier: ^3.7.0
       version: 3.7.0
@@ -338,6 +344,8 @@ overrides:
   vitepress>vite: ^8.2.0
   '@ai-sdk/harness-opencode>ws': 8.22.0
 
+pnpmfileChecksum: sha256-xPoBYIa8CnSvh+b1uA37W9LZbZdJrGNvzam4uMagl+M=
+
 patchedDependencies:
   '@ai-sdk/harness-opencode@1.0.154': 50d55fccc9505153663036cb26ef200846beca9071caf1b09ae2be8cc9028e47
 
@@ -345,33 +353,9 @@ importers:
 
   .:
     devDependencies:
-      '@babel/core':
-        specifier: 'catalog:'
-        version: 7.29.7(supports-color@7.2.0)
-      '@babel/plugin-syntax-jsx':
-        specifier: 'catalog:'
-        version: 7.29.7(@babel/core@7.29.7(supports-color@7.2.0))
-      '@babel/plugin-syntax-typescript':
-        specifier: 'catalog:'
-        version: 7.29.7(@babel/core@7.29.7(supports-color@7.2.0))
-      '@ethivia/vacp-browser':
-        specifier: workspace:*
-        version: link:packages/runtime-browser
-      '@ethivia/vacp-runtime':
-        specifier: workspace:*
-        version: link:packages/runtime
       '@ethivia/vacp-sdk':
         specifier: workspace:*
         version: link:packages/sdk
-      '@oxlint/plugins':
-        specifier: 1.88.0
-        version: 1.88.0
-      '@stylexjs/babel-plugin':
-        specifier: 'catalog:'
-        version: 0.19.1(supports-color@7.2.0)
-      '@types/babel__core':
-        specifier: 'catalog:'
-        version: 7.20.5
       '@types/node':
         specifier: 'catalog:'
         version: 24.19.2
@@ -429,39 +413,21 @@ importers:
 
   apps/e2e:
     devDependencies:
-      '@ethivia/vacp-browser':
-        specifier: workspace:*
-        version: link:../../packages/runtime-browser
       '@ethivia/vacp-example-shared':
         specifier: workspace:*
         version: link:../../examples/shared
-      '@ethivia/vacp-inspector':
+      '@ethivia/vacp-overlay':
         specifier: workspace:*
-        version: link:../../packages/inspector-core
-      '@ethivia/vacp-presence':
-        specifier: workspace:*
-        version: link:../../packages/presence-core
-      '@ethivia/vacp-presence-react':
-        specifier: workspace:*
-        version: link:../../packages/presence-browser
-      '@ethivia/vacp-protocol':
-        specifier: workspace:*
-        version: link:../../packages/protocol
-      '@ethivia/vacp-runtime':
-        specifier: workspace:*
-        version: link:../../packages/runtime
+        version: link:../../packages/overlay
       '@ethivia/vacp-sdk':
         specifier: workspace:*
         version: link:../../packages/sdk
-      '@ethivia/vacp-vega-lite':
+      '@ethivia/vacp-vega':
         specifier: workspace:*
-        version: link:../../packages/adapter-vega-lite
+        version: link:../../packages/vega
       '@ethivia/vacp-vgplot':
         specifier: workspace:*
-        version: link:../../packages/adapter-vgplot
-      '@ethivia/vacp-webmcp':
-        specifier: workspace:*
-        version: link:../../packages/transport-webmcp
+        version: link:../../packages/vgplot
       '@playwright/test':
         specifier: 'catalog:'
         version: 1.64.1
@@ -519,18 +485,12 @@ importers:
       '@duckdb/node-api':
         specifier: 'catalog:'
         version: 1.5.6-r.1
-      '@ethivia/vacp-ai-sdk':
+      '@ethivia/vacp-ai':
         specifier: workspace:*
-        version: link:../../packages/agent-ai-sdk
-      '@ethivia/vacp-bridge':
+        version: link:../../packages/ai
+      '@ethivia/vacp-sdk':
         specifier: workspace:*
-        version: link:../../packages/transport-bridge
-      '@ethivia/vacp-protocol':
-        specifier: workspace:*
-        version: link:../../packages/protocol
-      '@ethivia/vacp-webmcp':
-        specifier: workspace:*
-        version: link:../../packages/transport-webmcp
+        version: link:../../packages/sdk
       '@opentelemetry/api':
         specifier: 1.9.1
         version: 1.9.1
@@ -579,43 +539,34 @@ importers:
     dependencies:
       '@ethivia/vacp-duckdb':
         specifier: workspace:*
-        version: link:../../packages/data-duckdb
+        version: link:../../packages/duckdb
       '@ethivia/vacp-example-shared':
         specifier: workspace:*
         version: link:../shared
-      '@ethivia/vacp-presence':
-        specifier: workspace:*
-        version: link:../../packages/presence-core
-      '@ethivia/vacp-protocol':
-        specifier: workspace:*
-        version: link:../../packages/protocol
-      '@ethivia/vacp-runtime':
-        specifier: workspace:*
-        version: link:../../packages/runtime
       '@ethivia/vacp-sdk':
         specifier: workspace:*
         version: link:../../packages/sdk
-      '@ethivia/vacp-vega-lite':
+      '@ethivia/vacp-vega':
         specifier: workspace:*
-        version: link:../../packages/adapter-vega-lite
+        version: link:../../packages/vega
       '@ethivia/vacp-vgplot':
         specifier: workspace:*
-        version: link:../../packages/adapter-vgplot
+        version: link:../../packages/vgplot
       '@uwdata/mosaic-core':
         specifier: 'catalog:'
-        version: 0.33.0
+        version: 0.35.0
       '@uwdata/mosaic-inputs':
         specifier: 'catalog:'
-        version: 0.33.0
+        version: 0.35.0
       '@uwdata/mosaic-plot':
         specifier: 'catalog:'
-        version: 0.33.0
+        version: 0.35.0
       '@uwdata/mosaic-sql':
         specifier: 'catalog:'
-        version: 0.33.0
+        version: 0.35.0
       '@uwdata/vgplot':
         specifier: 'catalog:'
-        version: 0.33.0
+        version: 0.35.0
       d3:
         specifier: ^7.9.0
         version: 7.9.0
@@ -646,19 +597,10 @@ importers:
     dependencies:
       '@ethivia/vacp-duckdb':
         specifier: workspace:*
-        version: link:../../packages/data-duckdb
+        version: link:../../packages/duckdb
       '@ethivia/vacp-example-shared':
         specifier: workspace:*
         version: link:../shared
-      '@ethivia/vacp-presence':
-        specifier: workspace:*
-        version: link:../../packages/presence-core
-      '@ethivia/vacp-protocol':
-        specifier: workspace:*
-        version: link:../../packages/protocol
-      '@ethivia/vacp-runtime':
-        specifier: workspace:*
-        version: link:../../packages/runtime
       '@ethivia/vacp-sdk':
         specifier: workspace:*
         version: link:../../packages/sdk
@@ -732,19 +674,10 @@ importers:
     dependencies:
       '@ethivia/vacp-duckdb':
         specifier: workspace:*
-        version: link:../../packages/data-duckdb
+        version: link:../../packages/duckdb
       '@ethivia/vacp-example-shared':
         specifier: workspace:*
         version: link:../shared
-      '@ethivia/vacp-presence':
-        specifier: workspace:*
-        version: link:../../packages/presence-core
-      '@ethivia/vacp-protocol':
-        specifier: workspace:*
-        version: link:../../packages/protocol
-      '@ethivia/vacp-runtime':
-        specifier: workspace:*
-        version: link:../../packages/runtime
       '@ethivia/vacp-sdk':
         specifier: workspace:*
         version: link:../../packages/sdk
@@ -815,48 +748,33 @@ importers:
       '@duckdb/duckdb-wasm':
         specifier: 1.32.0
         version: 1.32.0
-      '@ethivia/vacp-analytics':
+      '@ethivia/vacp-overlay':
         specifier: workspace:*
-        version: link:../../packages/analytics
-      '@ethivia/vacp-browser':
-        specifier: workspace:*
-        version: link:../../packages/runtime-browser
+        version: link:../../packages/overlay
       '@ethivia/vacp-posthog':
         specifier: workspace:*
-        version: link:../../packages/analytics-posthog
-      '@ethivia/vacp-presence':
+        version: link:../../packages/posthog
+      '@ethivia/vacp-sdk':
         specifier: workspace:*
-        version: link:../../packages/presence-core
-      '@ethivia/vacp-presence-react':
-        specifier: workspace:*
-        version: link:../../packages/presence-browser
-      '@ethivia/vacp-protocol':
-        specifier: workspace:*
-        version: link:../../packages/protocol
-      '@ethivia/vacp-provenance':
-        specifier: workspace:*
-        version: link:../../packages/provenance-core
-      '@ethivia/vacp-runtime':
-        specifier: workspace:*
-        version: link:../../packages/runtime
-      '@ethivia/vacp-webmcp':
-        specifier: workspace:*
-        version: link:../../packages/transport-webmcp
+        version: link:../../packages/sdk
       posthog-js:
-        specifier: ^1.438.10
+        specifier: 'catalog:'
         version: 1.438.10(@types/react@19.3.0)(react@19.3.1)
 
   examples/vega-lite-gallery:
     dependencies:
       '@ethivia/vacp-duckdb':
         specifier: workspace:*
-        version: link:../../packages/data-duckdb
+        version: link:../../packages/duckdb
       '@ethivia/vacp-example-shared':
         specifier: workspace:*
         version: link:../shared
-      '@ethivia/vacp-vega-lite':
+      '@ethivia/vacp-sdk':
         specifier: workspace:*
-        version: link:../../packages/adapter-vega-lite
+        version: link:../../packages/sdk
+      '@ethivia/vacp-vega':
+        specifier: workspace:*
+        version: link:../../packages/vega
       vega:
         specifier: 'catalog:'
         version: 6.4.0
@@ -878,31 +796,31 @@ importers:
     dependencies:
       '@ethivia/vacp-duckdb':
         specifier: workspace:*
-        version: link:../../packages/data-duckdb
+        version: link:../../packages/duckdb
       '@ethivia/vacp-example-shared':
         specifier: workspace:*
         version: link:../shared
-      '@ethivia/vacp-protocol':
+      '@ethivia/vacp-sdk':
         specifier: workspace:*
-        version: link:../../packages/protocol
+        version: link:../../packages/sdk
       '@ethivia/vacp-vgplot':
         specifier: workspace:*
-        version: link:../../packages/adapter-vgplot
+        version: link:../../packages/vgplot
       '@uwdata/mosaic-core':
         specifier: 'catalog:'
-        version: 0.33.0
+        version: 0.35.0
       '@uwdata/mosaic-inputs':
         specifier: 'catalog:'
-        version: 0.33.0
+        version: 0.35.0
       '@uwdata/mosaic-plot':
         specifier: 'catalog:'
-        version: 0.33.0
+        version: 0.35.0
       '@uwdata/mosaic-spec':
         specifier: 'catalog:'
-        version: 0.33.0
+        version: 0.35.0
       '@uwdata/vgplot':
         specifier: 'catalog:'
-        version: 0.33.0
+        version: 0.35.0
       marked:
         specifier: ^17.0.6
         version: 17.0.6
@@ -917,142 +835,53 @@ importers:
         specifier: 'catalog:'
         version: 1.2.0(@opentelemetry/api@1.9.1)(@types/node@24.19.2)(@vitest/ui@5.0.4)(esbuild@0.28.2)(jiti@2.7.0)(playwright@1.64.1)(tsx@4.23.15)(typescript@6.0.3)(yaml@2.9.1)
 
-  packages/adapter-vega-lite:
+  packages/ai:
     dependencies:
-      '@ethivia/vacp-duckdb':
-        specifier: workspace:*
-        version: link:../data-duckdb
-      '@ethivia/vacp-presence':
-        specifier: workspace:*
-        version: link:../presence-core
-      '@ethivia/vacp-protocol':
-        specifier: workspace:*
-        version: link:../protocol
-      '@ethivia/vacp-runtime':
-        specifier: workspace:*
-        version: link:../runtime
-    devDependencies:
-      '@duckdb/node-api':
-        specifier: 'catalog:'
-        version: 1.5.6-r.1
-      vega:
-        specifier: 'catalog:'
-        version: 6.4.0
-      vega-lite:
-        specifier: 'catalog:'
-        version: 6.5.0(vega@6.4.0)
-
-  packages/adapter-vgplot:
-    dependencies:
-      '@ethivia/vacp-duckdb':
-        specifier: workspace:*
-        version: link:../data-duckdb
-      '@ethivia/vacp-presence':
-        specifier: workspace:*
-        version: link:../presence-core
-      '@ethivia/vacp-protocol':
-        specifier: workspace:*
-        version: link:../protocol
-      '@ethivia/vacp-runtime':
-        specifier: workspace:*
-        version: link:../runtime
-      '@uwdata/mosaic-core':
-        specifier: 'catalog:'
-        version: 0.33.0
-    devDependencies:
-      '@duckdb/node-api':
-        specifier: 'catalog:'
-        version: 1.5.6-r.1
-      '@uwdata/mosaic-inputs':
-        specifier: 'catalog:'
-        version: 0.33.0
-      '@uwdata/mosaic-plot':
-        specifier: 'catalog:'
-        version: 0.33.0
-      '@uwdata/mosaic-sql':
-        specifier: 'catalog:'
-        version: 0.33.0
-
-  packages/agent-ai-sdk:
-    dependencies:
-      '@ethivia/vacp-bridge':
-        specifier: workspace:*
-        version: link:../transport-bridge
-      '@ethivia/vacp-protocol':
-        specifier: workspace:*
-        version: link:../protocol
       '@types/json-schema':
         specifier: 7.0.15
         version: 7.0.15
+    devDependencies:
+      '@ethivia/vacp-sdk':
+        specifier: workspace:^
+        version: link:../sdk
       ai:
         specifier: 'catalog:'
         version: 7.0.141(zod@4.6.7)
       zod:
         specifier: 'catalog:'
         version: 4.6.7
-    devDependencies:
-      '@ethivia/vacp-runtime':
-        specifier: workspace:*
-        version: link:../runtime
 
-  packages/analytics:
+  packages/duckdb:
     dependencies:
-      '@ethivia/vacp-protocol':
-        specifier: workspace:*
-        version: link:../protocol
-    devDependencies:
-      '@ethivia/vacp-runtime':
-        specifier: workspace:*
-        version: link:../runtime
-
-  packages/analytics-posthog:
-    dependencies:
-      '@ethivia/vacp-analytics':
-        specifier: workspace:*
-        version: link:../analytics
-      posthog-js:
-        specifier: ^1.438.10
-        version: 1.438.10(@types/react@19.3.0)(react@19.3.1)
-
-  packages/data-duckdb:
-    dependencies:
-      '@duckdb/duckdb-wasm':
-        specifier: 1.32.0
-        version: 1.32.0
-      '@ethivia/vacp-protocol':
-        specifier: workspace:*
-        version: link:../protocol
       '@types/emscripten':
         specifier: 'catalog:'
         version: 1.41.6
       apache-arrow:
         specifier: 'catalog:'
         version: 17.0.0
-
-  packages/inspector-core:
-    dependencies:
-      '@ethivia/vacp-protocol':
-        specifier: workspace:*
-        version: link:../protocol
-      zod:
-        specifier: 'catalog:'
-        version: 4.6.7
     devDependencies:
-      '@ethivia/vacp-runtime':
-        specifier: workspace:*
-        version: link:../runtime
-      tsx:
-        specifier: 'catalog:'
-        version: 4.23.15
+      '@duckdb/duckdb-wasm':
+        specifier: 1.32.0
+        version: 1.32.0
+      '@ethivia/vacp-sdk':
+        specifier: workspace:^
+        version: link:../sdk
 
-  packages/presence-browser:
+  packages/overlay:
     dependencies:
-      '@ethivia/vacp-presence':
-        specifier: workspace:*
-        version: link:../presence-core
       '@stylexjs/stylex':
         specifier: 'catalog:'
         version: 0.19.1
+    devDependencies:
+      '@ethivia/vacp-sdk':
+        specifier: workspace:^
+        version: link:../sdk
+      '@types/react':
+        specifier: 'catalog:'
+        version: 19.3.0
+      '@types/react-dom':
+        specifier: 'catalog:'
+        version: 19.3.0(@types/react@19.3.0)
       react:
         specifier: 'catalog:'
         version: 19.3.1
@@ -1060,112 +889,111 @@ importers:
         specifier: 'catalog:'
         version: 19.3.1(react@19.3.1)
       streamdown:
-        specifier: 2.7.0
+        specifier: 'catalog:'
         version: 2.7.0(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(supports-color@7.2.0)
-    devDependencies:
-      '@types/react':
-        specifier: 'catalog:'
-        version: 19.3.0
-      '@types/react-dom':
-        specifier: 'catalog:'
-        version: 19.3.0(@types/react@19.3.0)
       tsx:
         specifier: 'catalog:'
         version: 4.23.15
 
-  packages/presence-core:
-    dependencies:
-      '@ethivia/vacp-protocol':
-        specifier: workspace:*
-        version: link:../protocol
-      '@ethivia/vacp-provenance':
-        specifier: workspace:*
-        version: link:../provenance-core
+  packages/posthog:
     devDependencies:
-      '@ethivia/vacp-runtime':
-        specifier: workspace:*
-        version: link:../runtime
+      '@ethivia/vacp-sdk':
+        specifier: workspace:^
+        version: link:../sdk
+      posthog-js:
+        specifier: 'catalog:'
+        version: 1.438.10(@types/react@19.3.0)(react@19.3.1)
       tsx:
         specifier: 'catalog:'
         version: 4.23.15
-
-  packages/protocol:
-    dependencies:
-      zod:
-        specifier: 'catalog:'
-        version: 4.6.7
-
-  packages/provenance-core:
-    dependencies:
-      '@ethivia/vacp-protocol':
-        specifier: workspace:*
-        version: link:../protocol
-    devDependencies:
-      '@ethivia/vacp-runtime':
-        specifier: workspace:*
-        version: link:../runtime
-      tsx:
-        specifier: 'catalog:'
-        version: 4.23.15
-
-  packages/runtime:
-    dependencies:
-      '@ethivia/vacp-protocol':
-        specifier: workspace:*
-        version: link:../protocol
-      zod:
-        specifier: 'catalog:'
-        version: 4.6.7
-
-  packages/runtime-browser:
-    dependencies:
-      '@ethivia/vacp-protocol':
-        specifier: workspace:*
-        version: link:../protocol
-      '@ethivia/vacp-runtime':
-        specifier: workspace:*
-        version: link:../runtime
 
   packages/sdk:
     dependencies:
-      '@ethivia/vacp-protocol':
-        specifier: workspace:*
-        version: link:../protocol
-      '@ethivia/vacp-runtime':
-        specifier: workspace:*
-        version: link:../runtime
-      zod:
-        specifier: 'catalog:'
-        version: 4.6.7
-    devDependencies:
-      '@ethivia/vacp-browser':
-        specifier: workspace:*
-        version: link:../runtime-browser
-
-  packages/transport-bridge:
-    dependencies:
-      '@ethivia/vacp-protocol':
-        specifier: workspace:*
-        version: link:../protocol
-
-  packages/transport-webmcp:
-    dependencies:
-      '@ethivia/vacp-protocol':
-        specifier: workspace:*
-        version: link:../protocol
       webmcp-types:
         specifier: 'catalog:'
         version: 0.1.10
     devDependencies:
-      '@ethivia/vacp-runtime':
-        specifier: workspace:*
-        version: link:../runtime
       ajv:
         specifier: 'catalog:'
         version: 8.20.0
+      tsx:
+        specifier: 'catalog:'
+        version: 4.23.15
+      zod:
+        specifier: 'catalog:'
+        version: 4.6.7
+
+  packages/vega:
+    devDependencies:
+      '@duckdb/node-api':
+        specifier: 'catalog:'
+        version: 1.5.6-r.1
+      '@ethivia/vacp-sdk':
+        specifier: workspace:^
+        version: link:../sdk
+      vega:
+        specifier: 'catalog:'
+        version: 6.4.0
+      vega-lite:
+        specifier: 'catalog:'
+        version: 6.5.0(vega@6.4.0)
+
+  packages/vgplot:
+    devDependencies:
+      '@duckdb/node-api':
+        specifier: 'catalog:'
+        version: 1.5.6-r.1
+      '@ethivia/vacp-sdk':
+        specifier: workspace:^
+        version: link:../sdk
+      '@uwdata/mosaic-core':
+        specifier: 'catalog:'
+        version: 0.35.0
+      '@uwdata/mosaic-inputs':
+        specifier: 'catalog:'
+        version: 0.35.0
+      '@uwdata/mosaic-plot':
+        specifier: 'catalog:'
+        version: 0.35.0
+      '@uwdata/mosaic-sql':
+        specifier: 'catalog:'
+        version: 0.35.0
 
   scripts:
     devDependencies:
+      '@types/node':
+        specifier: 'catalog:'
+        version: 24.19.2
+      typescript:
+        specifier: 'catalog:'
+        version: 6.0.3
+      yaml:
+        specifier: ^2.9.1
+        version: 2.9.1
+      zod:
+        specifier: 'catalog:'
+        version: 4.6.7
+
+  tools:
+    devDependencies:
+      '@babel/core':
+        specifier: 'catalog:'
+        version: 7.29.7(supports-color@7.2.0)
+      '@babel/plugin-syntax-jsx':
+        specifier: 'catalog:'
+        version: 7.29.7(@babel/core@7.29.7(supports-color@7.2.0))
+      '@babel/plugin-syntax-typescript':
+        specifier: 'catalog:'
+        version: 7.29.7(@babel/core@7.29.7(supports-color@7.2.0))
+      '@oxlint/plugins':
+        specifier: 1.88.0
+        version: 1.88.0
+      '@stylexjs/babel-plugin':
+        specifier: 'catalog:'
+        version: 0.19.1(supports-color@7.2.0)
+      '@types/babel__core':
+        specifier: 'catalog:'
+        version: 7.20.5
       '@types/node':
         specifier: 'catalog:'
         version: 24.19.2
@@ -1175,9 +1003,6 @@ importers:
       typescript:
         specifier: 'catalog:'
         version: 6.0.3
-      zod:
-        specifier: 'catalog:'
-        version: 4.6.7
 
 packages:
 
@@ -1828,12 +1653,14 @@ packages:
   '@opentelemetry/sdk-trace-base@2.11.0':
     resolution: {integrity: sha512-H19x/TX/LZdqiYOjM7fqtSxwlplC5pgelavqbQdHbhdq0q/AI/TGkM2dfGuuynTXmJPeF2HoZVoPDu+TGoW78A==}
     engines: {node: ^18.19.0 || >=20.6.0}
+    deprecated: Use @opentelemetry/sdk-trace package
     peerDependencies:
       '@opentelemetry/api': '>=1.3.0 <1.10.0'
 
   '@opentelemetry/sdk-trace-node@2.11.0':
     resolution: {integrity: sha512-CuvCMJmZxswhNLlM2LfuLOW3h3fZujA4hsG4B+Sz4dX2zvaXO8Ng74cnDHWD64gLszTlhiG3c0iNUjj4g+0/sA==}
     engines: {node: ^18.19.0 || >=20.6.0}
+    deprecated: Use @opentelemetry/sdk-trace package
     peerDependencies:
       '@opentelemetry/api': '>=1.0.0 <1.10.0'
 
@@ -2913,6 +2740,9 @@ packages:
   '@smithy/core@3.36.0':
     resolution: {integrity: sha512-3hJiwG1F5t1SoXqp/yOCmYXziyx7ZVqF63S5W6YU201e/qwVaHPex+E/3vvyY9a3ORq/b+BydeNZpP2saQ9X2g==}
     engines: {node: '>=18.0.0'}
+    deprecated: |-
+      Deprecated due to a bug in custom logger data redaction. Upgrade to the latest version. If you used a custom logger with this
+        version, review your logs and rotate any credentials or other secrets. See https://github.com/aws/aws-sdk-js-v3/issues/8393.
 
   '@smithy/credential-provider-imds@4.5.2':
     resolution: {integrity: sha512-A9uSdn72ozbRUSit0eib0TW7nXuNPlaeM0zcGkJ+nE6tFcSDbnmtwoxbTCFBukVQcszDAyvsd7+rTduPTXpygg==}
@@ -3258,31 +3088,31 @@ packages:
   '@ungap/structured-clone@1.4.0':
     resolution: {integrity: sha512-1mEZtMKPM09vDmQt5y7YvmN2+DFTP7Tg0EWXdic8/C6VRnpb33e4ghisCIE3WZjsE2N8mf+QV1Zqh7ZFYLWInQ==}
 
-  '@uwdata/flechette@2.7.0':
-    resolution: {integrity: sha512-+d4JwDnBJsxjH7zMz5QSDOVQQYqFdAQYSaR6lfBazFz28C5eIBiL5s4jqLEWJKcc43fSU1m6yHMcWeRUCTNH+g==}
+  '@uwdata/flechette@2.7.1':
+    resolution: {integrity: sha512-7rj4kkFmeePTuspAz5r/k0Esa18JplC5c5uLsaKQWmSBY2+SGdKRJRSqiRaA8HI19lfjh6+VSBXXyne0iVG68Q==}
 
-  '@uwdata/mosaic-core@0.33.0':
-    resolution: {integrity: sha512-snFVk+szk+l+iPrYWMK1GtzPbe0ljxLy925+bJKc+AjjY0bNCkN+3W2sVpa8e8mCeb3tCHbVPhKSDXZbQHWLqg==}
+  '@uwdata/mosaic-core@0.35.0':
+    resolution: {integrity: sha512-lTcEio+6FwdPA/Z2nt6SBmvCkku9aNRxPSbgPIlMgHKfmQDyE0RYf0J4Xpd6wTNPN0cx9YIYHk378wKMpoTr8g==}
     peerDependencies:
-      '@uwdata/mosaic-duckdb': ^0.33.0
+      '@uwdata/mosaic-duckdb': ^0.35.0
     peerDependenciesMeta:
       '@uwdata/mosaic-duckdb':
         optional: true
 
-  '@uwdata/mosaic-inputs@0.33.0':
-    resolution: {integrity: sha512-GtIRtx6R2SHcFByTOf+v90UlXhR9IdZmtvRq9rbsxi1mu6gyws7Gywz33I50P/uS6UHO96Ny5+V5kwEeaHyY6g==}
+  '@uwdata/mosaic-inputs@0.35.0':
+    resolution: {integrity: sha512-ZGTna0B+oeN8YMrMw6kcIZxvrUpkRyoY4F3N60G56I/w8HRi8orlpycpej10ESFgGAnSvO4SO4mQBPdy326Ljg==}
 
-  '@uwdata/mosaic-plot@0.33.0':
-    resolution: {integrity: sha512-xpJdqW+nsro2KmsW4uYF1Jkz7m6HIyRRs30/RdZNMnaftzoj5PK4WTqKSFF/4n7xeD/uGWQpjByzwIOtz0LgUw==}
+  '@uwdata/mosaic-plot@0.35.0':
+    resolution: {integrity: sha512-gBhcKqI/KOUAQCmjdTUltfgyGZFWqVJetZS2AEKdUpcnBz+gA4Gro4Lms1DUiCYtd4XcAYu4AlrbWkuU+sAyoQ==}
 
-  '@uwdata/mosaic-spec@0.33.0':
-    resolution: {integrity: sha512-HiWrKMSKBhLyilK/PIYho5y0aEsJcW11WoYtDAbsw4YV9YtScXOeON9g/4xnFcyVIlZrWkPOOJMJcgBLkciIaw==}
+  '@uwdata/mosaic-spec@0.35.0':
+    resolution: {integrity: sha512-/Y1s3A37LBl8Rf2vIUnb4mlnl96E/8xWtBn4elU1bT2NPWDWe3mwTNcvt1/nlhc3Q2nGimLkvAUFH3puxmadPA==}
 
-  '@uwdata/mosaic-sql@0.33.0':
-    resolution: {integrity: sha512-q4wxAj4b4QpcStdaGJ1V5qhqedjBNIOrO4zI1IrKQl32KW2rcsCHCnIMIesIFO5bqgbEq909VK8kCiwYZ7VedQ==}
+  '@uwdata/mosaic-sql@0.35.0':
+    resolution: {integrity: sha512-KDE3dt7bZu4fH5AvNzHe6lpiKvi2BFmSry8jQSwS419sxqAToE//rfFDmCmuhlNi3kcBNYQnytR0YaH6NEHvaA==}
 
-  '@uwdata/vgplot@0.33.0':
-    resolution: {integrity: sha512-YVXq0aCBXGTKx5Q85P/ALQmlKKy9DmIfWsw4diNnSXTlxajP4Gbh6knk9+5w5prEoUqUm4p54pjy40iJGCEbDA==}
+  '@uwdata/vgplot@0.35.0':
+    resolution: {integrity: sha512-O89XWWyn6y8/wBVCDR0M0pXk1YwQuw0uKjfbRP4aPZjkXhyY9tzQabeADEo6SGgmpgDtEfOlnuL3ciGk2hv7lQ==}
 
   '@uwdata/wk-geojson@0.0.1':
     resolution: {integrity: sha512-4RpnKbdrphwzP+BwgzuGRqA/s03oT1rzHAKdU43Ozn8J1BCTwS+2iAGQ7YQAnrCkCi213WtQ7VYaFjVtvZotPQ==}
@@ -8017,49 +7847,49 @@ snapshots:
 
   '@ungap/structured-clone@1.4.0': {}
 
-  '@uwdata/flechette@2.7.0':
+  '@uwdata/flechette@2.7.1':
     dependencies:
       '@uwdata/wk-geojson': 0.0.1
 
-  '@uwdata/mosaic-core@0.33.0':
+  '@uwdata/mosaic-core@0.35.0':
     dependencies:
       '@duckdb/duckdb-wasm': 1.32.0
-      '@uwdata/flechette': 2.7.0
-      '@uwdata/mosaic-sql': 0.33.0
+      '@uwdata/flechette': 2.7.1
+      '@uwdata/mosaic-sql': 0.35.0
 
-  '@uwdata/mosaic-inputs@0.33.0':
+  '@uwdata/mosaic-inputs@0.35.0':
     dependencies:
-      '@uwdata/mosaic-core': 0.33.0
-      '@uwdata/mosaic-sql': 0.33.0
+      '@uwdata/mosaic-core': 0.35.0
+      '@uwdata/mosaic-sql': 0.35.0
     transitivePeerDependencies:
       - '@uwdata/mosaic-duckdb'
 
-  '@uwdata/mosaic-plot@0.33.0':
+  '@uwdata/mosaic-plot@0.35.0':
     dependencies:
       '@observablehq/plot': 0.6.17
-      '@uwdata/flechette': 2.7.0
-      '@uwdata/mosaic-core': 0.33.0
-      '@uwdata/mosaic-sql': 0.33.0
+      '@uwdata/flechette': 2.7.1
+      '@uwdata/mosaic-core': 0.35.0
+      '@uwdata/mosaic-sql': 0.35.0
       d3: 7.9.0
     transitivePeerDependencies:
       - '@uwdata/mosaic-duckdb'
 
-  '@uwdata/mosaic-spec@0.33.0':
+  '@uwdata/mosaic-spec@0.35.0':
     dependencies:
-      '@uwdata/mosaic-core': 0.33.0
-      '@uwdata/mosaic-sql': 0.33.0
-      '@uwdata/vgplot': 0.33.0
+      '@uwdata/mosaic-core': 0.35.0
+      '@uwdata/mosaic-sql': 0.35.0
+      '@uwdata/vgplot': 0.35.0
     transitivePeerDependencies:
       - '@uwdata/mosaic-duckdb'
 
-  '@uwdata/mosaic-sql@0.33.0': {}
+  '@uwdata/mosaic-sql@0.35.0': {}
 
-  '@uwdata/vgplot@0.33.0':
+  '@uwdata/vgplot@0.35.0':
     dependencies:
-      '@uwdata/mosaic-core': 0.33.0
-      '@uwdata/mosaic-inputs': 0.33.0
-      '@uwdata/mosaic-plot': 0.33.0
-      '@uwdata/mosaic-sql': 0.33.0
+      '@uwdata/mosaic-core': 0.35.0
+      '@uwdata/mosaic-inputs': 0.35.0
+      '@uwdata/mosaic-plot': 0.35.0
+      '@uwdata/mosaic-sql': 0.35.0
     transitivePeerDependencies:
       - '@uwdata/mosaic-duckdb'
 

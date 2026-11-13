@@ -8,8 +8,11 @@ test.use({
 });
 useWebMcp();
 
-/** Invoke a registered WebMCP tool the way a browser agent would, timing the call from the agent's side. */
-async function call(page: Page, suffix: string, params: Record<string, unknown> = {}) {
+/**
+ * Invoke a registered WebMCP tool the way a browser agent would, timing the call from the agent's side.
+ * `name` is the end of the tool name or an action name, whose dots the tool name spells as `_`.
+ */
+async function call(page: Page, name: string, params: Record<string, unknown> = {}) {
   return page.evaluate(
     async ({ suffix, params }) => {
       const context = document.modelContext!;
@@ -22,12 +25,12 @@ async function call(page: Page, suffix: string, params: Record<string, unknown> 
       const result = JSON.parse(await context.executeTool(tool, input));
       return { result, elapsed: performance.now() - started };
     },
-    { suffix, params },
+    { suffix: name.replaceAll('.', '_'), params },
   );
 }
 
 async function selectionRef(page: Page, title: string) {
-  const { result } = await call(page, 'vacp.observe');
+  const { result } = await call(page, 'vacp_observe');
   const node = result.graph.nodes.find(
     (node: { kind: string; title?: string }) => node.kind === 'Selection' && node.title === title,
   );
@@ -96,7 +99,7 @@ for (const scenario of scenarios) {
           page.evaluate(
             async (suffix) =>
               ((await document.modelContext?.getTools()) ?? []).some((tool) => tool.name.endsWith(suffix)),
-            scenario.action,
+            scenario.action.replaceAll('.', '_'),
           ),
         appReady,
       )
@@ -104,7 +107,7 @@ for (const scenario of scenarios) {
     await expect(page.locator('[data-vacp-bubble]')).toHaveCount(0);
 
     // The agent speaks first; its sentence streams into the bubble before anything moves.
-    await call(page, 'vacp.progress', { message: scenario.narration });
+    await call(page, 'vacp_progress', { message: scenario.narration });
     const bubble = page.locator('[data-vacp-bubble]');
     await expect(bubble).toBeVisible();
     await expect(bubble.locator('[data-vacp-summary]')).toContainText(scenario.narration);
@@ -127,7 +130,7 @@ for (const scenario of scenarios) {
     await expect(bubble.locator('[data-vacp-heading]')).toHaveText(scenario.subject);
     await page.screenshot({ path: testInfo.outputPath('narrated-step.png') });
 
-    await call(page, 'vacp.progress', { message: scenario.closing, done: true });
+    await call(page, 'vacp_progress', { message: scenario.closing, done: true });
     await expect(bubble.locator('[data-vacp-summary]')).toContainText(scenario.closing);
     await expect(bubble.locator('[data-vacp-mark][data-busy]')).toHaveCount(0);
     await expect(bubble.locator('[data-vacp-mark] svg')).toBeVisible();

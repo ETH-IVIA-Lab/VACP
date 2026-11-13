@@ -8,6 +8,8 @@
     "isolatedModules": true,
     "skipLibCheck": true,
     "verbatimModuleSyntax": true,
+    "customConditions": ["vacp-source"],
+    "jsx": "react-jsx",
     "noEmit": true,
     "types": ["node"]
   }

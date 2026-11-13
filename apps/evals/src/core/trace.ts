@@ -20,15 +20,8 @@ export type StepRecord = {
   usage: Usage;
 };
 
-/** The graph and state reads of both tool surfaces: the bridge tools and WebMCP's `vacp` namespace. */
-const readTools = new Set([
-  'vacp_observe',
-  'vacp_capabilities',
-  'vacp_state',
-  'vacp.observe',
-  'vacp.capabilities',
-  'vacp.state',
-]);
+/** The graph and state reads, which the bridge tools and WebMCP name alike. */
+const readTools = new Set(['vacp_observe', 'vacp_capabilities', 'vacp_state']);
 
 /** A VACP result envelope with `ok: false` is a failed call, however the tool returned it. */
 function failedEnvelope(output: string): boolean {

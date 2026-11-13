@@ -2,9 +2,10 @@ import { expect, type Page } from '@playwright/test';
 
 /**
  * Invoke a registered WebMCP tool the way a browser agent would, once the page's registry holds it.
+ * `name` is the end of the tool name or an action name, whose dots the tool name spells as `_`.
  * Action tools require the step's own sentence; calls that do not test narration get a neutral one.
  */
-export async function tool(page: Page, suffix: string, params: Record<string, unknown> = {}) {
+export async function tool(page: Page, name: string, params: Record<string, unknown> = {}) {
   return page.evaluate(
     async ({ suffix, params }) => {
       const context = document.modelContext!;
@@ -21,7 +22,7 @@ export async function tool(page: Page, suffix: string, params: Record<string, un
       const input = required.includes('narration') ? { narration: 'Adjusting the view.', ...params } : params;
       return JSON.parse(await context.executeTool(action, input));
     },
-    { suffix, params },
+    { suffix: name.replaceAll('.', '_'), params },
   );
 }
 

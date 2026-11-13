@@ -1,6 +1,6 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
-import { vacpHumanActor, type VacpActor } from '@ethivia/vacp-protocol';
+import { vacpHumanActor } from '@ethivia/vacp-sdk';
 
 import './index.css';
 import App from './App';
@@ -31,17 +31,14 @@ export async function mount(target: HTMLElement): Promise<() => void> {
       },
       signal: lifetime.signal,
     });
-    const refresh = (actor: VacpActor, message: string) => {
-      void runtime.refresh({ actor, message }).catch(() => {});
-    };
     const root = createRoot(element);
     cleanup.push(() => root.unmount());
     root.render(
       <StrictMode>
-        <App onInteraction={(message) => refresh(vacpHumanActor, message)} />
+        <App onInteraction={(message) => void runtime.record({ actor: vacpHumanActor, message }).catch(() => {})} />
       </StrictMode>,
     );
-    refresh({ id: 'system', kind: 'system' }, 'init');
+    void runtime.record({ message: 'init' }).catch(() => {});
     return dispose;
   } catch (error) {
     dispose();

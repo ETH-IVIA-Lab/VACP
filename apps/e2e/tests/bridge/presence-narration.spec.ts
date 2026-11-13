@@ -17,7 +17,7 @@ async function open(page: Page) {
       () =>
         page.evaluate(async () =>
           ((await document.modelContext?.getTools()) ?? []).some((tool) =>
-            tool.name.endsWith('vgplot.set_interval_1d'),
+            tool.name.endsWith('vgplot_set_interval_1d'),
           ),
         ),
       appReady,
@@ -91,13 +91,13 @@ const steps = [
 test('every narrated step streams, records, and replays its own sentence', async ({ page }) => {
   const errors = await open(page);
   const summary = page.locator('[data-vacp-summary]');
-  await tool(page, 'vacp.progress', { message: 'Filtering for young female gymnasts and aquatics athletes.' });
+  await tool(page, 'vacp_progress', { message: 'Filtering for young female gymnasts and aquatics athletes.' });
   for (const step of steps) {
     expect((await tool(page, step.contract, { ...step.params, narration: step.narration })).ok).toBe(true);
     // The live bubble shows this step's sentence while the step is on screen.
     await expect(summary).toHaveText(step.narration);
   }
-  await tool(page, 'vacp.progress', {
+  await tool(page, 'vacp_progress', {
     message: 'Young female gymnasts and aquatics athletes are in view.',
     done: true,
   });
@@ -121,7 +121,7 @@ test('an agent that starts with a step still gets one request trail from start t
     await expect(bubble.locator('[data-vacp-summary]')).toHaveText(step.narration);
     await expect(bubble.locator('[data-vacp-heading]')).not.toHaveText(/^Step \d+ of \d+$/);
   }
-  await tool(page, 'vacp.progress', {
+  await tool(page, 'vacp_progress', {
     message: 'Young female gymnasts and aquatics athletes are in view.',
     done: true,
   });
@@ -141,7 +141,7 @@ test('a step executed without narration names its change instead of repeating an
 }) => {
   const errors = await open(page);
   const opening = 'Filtering for young female gymnasts and aquatics athletes.';
-  await tool(page, 'vacp.progress', { message: opening });
+  await tool(page, 'vacp_progress', { message: opening });
   // A host can execute through the bridge without a sentence; the step carries the live words once.
   for (const step of steps) {
     const result = await page.evaluate(async ({ contract, params }) => {
@@ -151,7 +151,7 @@ test('a step executed without narration names its change instead of repeating an
     }, step);
     expect(result.ok).toBe(true);
   }
-  await tool(page, 'vacp.progress', {
+  await tool(page, 'vacp_progress', {
     message: 'Young female gymnasts and aquatics athletes are in view.',
     done: true,
   });
@@ -167,9 +167,9 @@ test('a step executed without narration names its change instead of repeating an
 test('an answer given without a step stays on screen until the person dismisses it', async ({ page }) => {
   const errors = await open(page);
   const bubble = page.locator('[data-vacp-bubble]');
-  await tool(page, 'vacp.progress', { message: 'Counting the medalists in this cohort.' });
-  await tool(page, 'vacp.state', {});
-  await tool(page, 'vacp.progress', { message: 'This cohort has 873 medalists.', done: true });
+  await tool(page, 'vacp_progress', { message: 'Counting the medalists in this cohort.' });
+  await tool(page, 'vacp_state', {});
+  await tool(page, 'vacp_progress', { message: 'This cohort has 873 medalists.', done: true });
   await expect(bubble.locator('[data-vacp-summary]')).toHaveText('This cohort has 873 medalists.');
   // Well past the time a finished turn lingers.
   await page.waitForTimeout(4000);

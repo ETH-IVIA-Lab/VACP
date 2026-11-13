@@ -10,7 +10,7 @@ from importlib.util import find_spec
 from pathlib import Path
 
 import vacp
-from vacp import ProviderComposer, as_dict
+from vacp import Runtime, as_dict
 
 
 def test_installed_base_distribution() -> None:
@@ -28,9 +28,9 @@ def test_installed_base_distribution() -> None:
     for dependency in ('fastmcp', 'playwright', 'starlette'):
         assert find_spec(dependency) is None
 
-    composer = ProviderComposer([])
+    runtime = Runtime([])
     try:
-        observation = asyncio.run(composer.observe())
+        observation = asyncio.run(runtime.observe())
         assert as_dict(observation)['graph'] == {
             'sources': [],
             'ownership': {'nodes': {}, 'actions': {}},
@@ -39,7 +39,7 @@ def test_installed_base_distribution() -> None:
             'actions': [],
         }
     finally:
-        composer.dispose()
+        runtime.dispose()
 
     executable = shutil.which('vacp')
     assert executable is not None

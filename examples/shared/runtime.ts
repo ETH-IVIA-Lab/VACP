@@ -1,11 +1,14 @@
-import { createBrowserPresence } from '@ethivia/vacp-presence-react';
-import { streamdownText } from '@ethivia/vacp-presence-react/streamdown';
-import { paceAgentPresence, type PresencePresentation } from '@ethivia/vacp-presence';
-import type { VacpProvider } from '@ethivia/vacp-protocol';
-import { createProvenanceReplay } from '@ethivia/vacp-provenance';
-import { createVacpRestorer, type VacpRuntime } from '@ethivia/vacp-runtime';
-import { installVacpRuntime } from '@ethivia/vacp-browser';
-import { installVacpWebMcp } from '@ethivia/vacp-webmcp';
+import { createPresenceOverlay } from '@ethivia/vacp-overlay';
+import { streamdownText } from '@ethivia/vacp-overlay/streamdown';
+import { paceAgentPresence, type PresencePresentation } from '@ethivia/vacp-sdk/presence';
+import {
+  createProvenanceReplay,
+  createVacpRestorer,
+  installVacpRuntime,
+  type VacpProvider,
+  type VacpRuntime,
+} from '@ethivia/vacp-sdk';
+import { installVacpWebMcp } from '@ethivia/vacp-sdk/agent';
 import { installExampleAnalytics } from './analytics';
 import { exampleOptions } from './config';
 
@@ -47,7 +50,7 @@ export async function installExampleRuntime(args: {
     cleanup.push(installation.dispose);
     const { runtime } = installation;
 
-    const replay = createProvenanceReplay(runtime, { restore: createVacpRestorer(runtime).restore });
+    const replay = createProvenanceReplay(runtime, { restore: createVacpRestorer(runtime) });
     cleanup.push(() => replay.dispose());
     const interrupt = (event: Event) => {
       if (event.isTrusted && replay.getState().phase === 'restoring') replay.interrupt();
@@ -57,7 +60,7 @@ export async function installExampleRuntime(args: {
       for (const type of inputEvents) root.removeEventListener(type, interrupt, true);
     });
 
-    const presence = createBrowserPresence(runtime, {
+    const presence = createPresenceOverlay(runtime, {
       appearance: { text: streamdownText, bubble: { width: 290 }, durationMs: 460 },
       replay,
     });

@@ -1,0 +1,30 @@
+// @ethivia/vacp-sdk/presence: where an agent's steps land on screen, and the presence engine renderers build on.
+export {
+  type AgentPresence,
+  createAgentPresence,
+  paceAgentPresence,
+  type PresenceActivity,
+  presenceAnchor,
+  type PresenceArrival,
+  type PresenceFrame,
+  type PresenceFreshness,
+  type PresenceGeometry,
+  type PresenceNavigation,
+  type PresenceOptions,
+  type PresencePacing,
+  type PresencePoint,
+  type PresencePresentation,
+  type PresenceRenderer,
+  type PresenceResolver,
+  type PresenceSource,
+  type PresenceTarget,
+  type PresenceTrailFrame,
+} from '../presence';
+export {
+  createElementPresenceResolver,
+  createRefPresentation,
+  elementPresenceTarget,
+  observePresenceLayout,
+  svgPresenceTarget,
+  viewportPresenceTarget,
+} from '../presence/dom';

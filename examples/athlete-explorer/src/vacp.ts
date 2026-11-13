@@ -1,15 +1,19 @@
 import { z } from 'zod';
-import { vacpHumanActor, type VacpNodeKind, type VacpProvider } from '@ethivia/vacp-protocol';
-import { createVacpProvider, registerVacpApplyStateAction } from '@ethivia/vacp-runtime';
-import { createVacpActions, createVacpRefBuilder } from '@ethivia/vacp-sdk';
-import { createVegaLiteProvider } from '@ethivia/vacp-vega-lite';
-import { createVegaLitePresentation } from '@ethivia/vacp-vega-lite/presentation';
-import { createVgplotProvider } from '@ethivia/vacp-vgplot';
-import { createVgplotPresentation } from '@ethivia/vacp-vgplot/presentation';
-import { countDuckDbTablesOnce } from '@ethivia/vacp-duckdb';
+import {
+  createVacpActions,
+  createVacpProvider,
+  createVacpRefBuilder,
+  registerVacpApplyStateAction,
+  vacpHumanActor,
+  type VacpNodeKind,
+  type VacpProvider,
+} from '@ethivia/vacp-sdk';
+import { createVegaLitePresentation, createVegaLiteProvider } from '@ethivia/vacp-vega';
+import { createVgplotPresentation, createVgplotProvider } from '@ethivia/vacp-vgplot';
+import { countDuckDbTablesOnce } from '@ethivia/vacp-sdk/data';
 import { installExampleRuntime } from '@ethivia/vacp-example-shared';
 import { exampleOptions } from '@ethivia/vacp-example-shared/config';
-import { createElementPresenceResolver, observePresenceLayout } from '@ethivia/vacp-presence/dom';
+import { createElementPresenceResolver, observePresenceLayout } from '@ethivia/vacp-sdk/presence';
 import type { Cohort } from './model';
 import type { Charts } from './charts';
 import type { Dashboard } from './app';
@@ -37,13 +41,18 @@ export async function connectVacp(args: {
     view: charts.view,
     spec: charts.spec,
     vgSpec: charts.vgSpec,
-    options: { appId, viewId, vizId: 'physique', title: 'Height and weight' },
+    appId,
+    viewId,
+    vizId: 'physique',
+    title: 'Height and weight',
   });
   const age = createVgplotProvider({
     root: dashboard.age,
     plots: [{ plotId: 'age', plot: charts.plot }],
     data: { duckdb: charts.data, sql: exampleOptions.enableSql, describe: countDuckDbTablesOnce(charts.data) },
-    options: { appId, viewId, title: 'Age distribution' },
+    appId,
+    viewId,
+    title: 'Age distribution',
   });
   const [bodyView, bodyBrush, ageView, ageBrush] = await Promise.all([
     nodeRef(body, 'Visualization'),
@@ -83,7 +92,7 @@ export async function connectVacp(args: {
       model.setSex(sex);
       return model.summary();
     });
-  registerVacpApplyStateAction(actions.registry, (state) => {
+  registerVacpApplyStateAction(actions, (state) => {
     const selected =
       state[sports] === undefined
         ? undefined
@@ -102,7 +111,7 @@ export async function connectVacp(args: {
   });
   const cohort = createVacpProvider({
     source: { id: 'vacp-source://vacp-examples/athletes/cohort', type: 'cohort', title: 'Sport comparison' },
-    actions: actions.registry,
+    actions,
     subscribe: (invalidate) => model.subscribe(invalidate),
     project: () => ({
       graph: {
@@ -121,7 +130,6 @@ export async function connectVacp(args: {
           { from: bodyBrush, to: controls, kind: 'filters' },
           { from: ageBrush, to: controls, kind: 'filters' },
         ],
-        actions: actions.registry.list(),
       },
       state: {
         [controls]: { ...model.filters, ...model.summary() },
@@ -144,15 +152,15 @@ export async function connectVacp(args: {
           }),
         },
       },
-      { provider: body, presentation: createVegaLitePresentation({ provider: body, root: dashboard.body }) },
-      { provider: age, presentation: createVgplotPresentation({ provider: age, root: dashboard.age }) },
+      { provider: body, presentation: createVegaLitePresentation(body) },
+      { provider: age, presentation: createVgplotPresentation(age) },
     ],
     root,
     sessionKey: 'athletes',
     analytics: { vacp_app_id: appId, vacp_view_id: viewId },
     signal,
   });
-  await runtime.refresh({ actor: { id: 'system', kind: 'system' }, message: 'Initial athlete view' });
+  await runtime.record({ message: 'Initial athlete view' });
   signal.throwIfAborted();
   const releaseHuman = dashboard.subscribeInteractions((control) => {
     const message =
@@ -162,7 +170,7 @@ export async function connectVacp(args: {
           ? `Selected ${model.filters.sports.join(' and ')}`
           : 'Selected all sports';
     void runtime
-      .refresh({
+      .record({
         actor: vacpHumanActor,
         message,
         focus: { ref: control === 'sex' ? sex : sports, detail: { sports: [...model.filters.sports] } },

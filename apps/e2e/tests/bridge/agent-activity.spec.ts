@@ -30,11 +30,11 @@ test('thinking appears before execution, follows real athlete actions, and respe
   await expect.poll(painted).not.toBe(initial);
   expect(await page.locator('[data-vacp-ripple]').count()).toBe(0);
   await page.waitForFunction(async () =>
-    ((await document.modelContext?.getTools()) ?? []).some((tool) => tool.name === 'vacp.action.cohort.set_sports'),
+    ((await document.modelContext?.getTools()) ?? []).some((tool) => tool.name === 'vacp_cohort_set_sports'),
   );
   const applied = await page.evaluate(async () => {
     const context = document.modelContext!;
-    const tool = (await context.getTools()).find((tool) => tool.name === 'vacp.action.cohort.set_sports')!;
+    const tool = (await context.getTools()).find((tool) => tool.name === 'vacp_cohort_set_sports')!;
     return JSON.parse(
       await context.executeTool(tool, { sports: ['rowing', 'canoe'], narration: 'Comparing rowers and canoeists.' }),
     );

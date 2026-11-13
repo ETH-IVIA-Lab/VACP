@@ -49,7 +49,7 @@ test('Portless routes docs, gallery and standalone examples with working HMR', a
 
   try {
     await exec('pnpm', ['exec', 'portless', 'proxy', 'start'], { cwd: repoRoot, env, timeout: 20_000 });
-    const apps = spawn('make', ['dev-all'], {
+    const apps = spawn('pnpm', ['dev:all'], {
       cwd: repoRoot,
       env,
       detached: process.platform !== 'win32',

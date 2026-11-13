@@ -125,7 +125,7 @@ class Observation:
 
 @dataclass(frozen=True)
 class ActionRequest:
-    """An action a caller asks to run. The composer, or the page's runtime, assigns `call_id` when None or blank."""
+    """An action a caller asks to run. The Python runtime, or the page's, assigns `call_id` when None or blank."""
 
     name: str
     params: object = _OMITTED
@@ -139,7 +139,7 @@ class ActionRequest:
 
 @dataclass(frozen=True)
 class ActionCall:
-    """A request as the composer runs it, with the caller's `call_id` or the one it assigned."""
+    """A request as the runtime runs it, with the caller's `call_id` or the one it assigned."""
 
     call_id: str
     name: str
@@ -167,7 +167,7 @@ class ActionContext:
 
     def ensure_open(self) -> None:
         if self.closed():
-            raise RuntimeError('VACP composer is disposed')
+            raise RuntimeError('VACP runtime is disposed')
 
 
 class PreparedAction:
@@ -234,7 +234,7 @@ class SimpleProvider:
     dispose: Callable[[], None] = _nothing
 
 
-class ProviderComposer:
+class Runtime:
     def __init__(self, providers: Sequence[Provider]) -> None:
         self.session_id = uuid4().hex
         self._providers = tuple(providers)
@@ -268,7 +268,7 @@ class ProviderComposer:
 
     def _ensure_active(self) -> None:
         if self._disposed:
-            raise RuntimeError('VACP composer is disposed')
+            raise RuntimeError('VACP runtime is disposed')
 
     async def observe(self) -> Observation:
         return (await self._read()).observation
@@ -314,7 +314,7 @@ class ProviderComposer:
             require_action(current, call)
         except AvailabilityError as error:
             return ActionResult(call.call_id, False, error={'message': str(error), 'details': error.details})
-        # The composer owns the call ID, so a provider cannot answer under another one.
+        # The runtime owns the call ID, so a provider cannot answer under another one.
         return replace(await prepared.execute(), call_id=call.call_id)
 
     def dispose(self) -> None:

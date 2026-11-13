@@ -4,21 +4,14 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "typecheck": "tsc -p tsconfig.json --noEmit",
     "test:e2e": "playwright test"
   },
   "devDependencies": {
-    "@ethivia/vacp-browser": "workspace:*",
     "@ethivia/vacp-example-shared": "workspace:*",
-    "@ethivia/vacp-inspector": "workspace:*",
-    "@ethivia/vacp-presence": "workspace:*",
-    "@ethivia/vacp-presence-react": "workspace:*",
-    "@ethivia/vacp-protocol": "workspace:*",
-    "@ethivia/vacp-runtime": "workspace:*",
+    "@ethivia/vacp-overlay": "workspace:*",
     "@ethivia/vacp-sdk": "workspace:*",
-    "@ethivia/vacp-vega-lite": "workspace:*",
+    "@ethivia/vacp-vega": "workspace:*",
     "@ethivia/vacp-vgplot": "workspace:*",
-    "@ethivia/vacp-webmcp": "workspace:*",
     "@playwright/test": "catalog:",
     "@types/node": "catalog:",
     "micromark": "catalog:",

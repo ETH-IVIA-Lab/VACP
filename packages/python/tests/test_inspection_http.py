@@ -12,14 +12,14 @@ from vacp import (
     Node,
     OperationSemantics,
     PreparedAction,
-    ProviderComposer,
     ProviderObservation,
+    Runtime,
     SimpleProvider,
     SourceDescription,
 )
 from vacp.http import create_inspection_app
 
-CALL_IDS = json.loads((Path(__file__).parents[2] / 'protocol/test/fixtures/call-id.json').read_text())
+CALL_IDS = json.loads((Path(__file__).parents[2] / 'sdk/test/protocol/fixtures/call-id.json').read_text())
 
 
 def test_http_client_observes_and_executes_one_host_owned_session() -> None:
@@ -60,7 +60,7 @@ def test_http_client_observes_and_executes_one_host_owned_session() -> None:
         nonlocal closed
         closed = True
 
-    session = ProviderComposer(
+    session = Runtime(
         [
             SimpleProvider(
                 SourceDescription('vacp-source://test', 'test', 'Test'),
@@ -89,8 +89,8 @@ def test_http_client_observes_and_executes_one_host_owned_session() -> None:
     assert closed
 
 
-def test_http_operations_pass_the_call_id_to_the_composer_as_written() -> None:
-    session = ProviderComposer(
+def test_http_operations_pass_the_call_id_to_the_runtime_as_written() -> None:
+    session = Runtime(
         [
             SimpleProvider(
                 SourceDescription('vacp-source://test', 'test', 'Test'),

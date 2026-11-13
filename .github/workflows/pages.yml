@@ -47,7 +47,7 @@ jobs:
       - name: Build documentation
         env:
           BASE_PATH: ${{ github.event_name == 'pull_request' && format('/{0}', github.event.repository.name) || steps.pages.outputs.base_path }}
-        run: make docs
+        run: pnpm --filter @ethivia/vacp-docs build
 
       - name: Confirm this commit is still the tip of main
         id: latest

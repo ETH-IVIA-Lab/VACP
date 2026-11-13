@@ -91,7 +91,7 @@ test('an agent brush in the built athletes route lands on the native Mosaic brus
       () =>
         page.evaluate(async () =>
           ((await document.modelContext?.getTools()) ?? []).some((tool) =>
-            tool.name.endsWith('vgplot.set_interval_1d'),
+            tool.name.endsWith('vgplot_set_interval_1d'),
           ),
         ),
       appReady,
@@ -106,7 +106,7 @@ test('an agent brush in the built athletes route lands on the native Mosaic brus
       })
     ).ok,
   ).toBe(true);
-  expect((await tool(page, 'vacp.progress', { message: 'Ages 22 to 28 are selected.', done: true })).ok).toBe(true);
+  expect((await tool(page, 'vacp_progress', { message: 'Ages 22 to 28 are selected.', done: true })).ok).toBe(true);
   const bubble = page.locator('[data-vacp-bubble]');
   await expect(bubble.locator('[data-vacp-heading]')).toHaveText('Conclusion');
   // The request's recorded step outlines the native brush it left behind.

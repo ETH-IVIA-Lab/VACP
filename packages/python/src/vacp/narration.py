@@ -1,7 +1,7 @@
 """
 The agent-facing narration contract every VACP transport offers.
 
-`packages/protocol/test/fixtures/narration.json` holds the same values for TypeScript, so the
+`packages/sdk/test/protocol/fixtures/narration.json` holds the same values for TypeScript, so the
 Python server asks for the same thing as WebMCP and the AI SDK. Lengths count code points.
 """
 

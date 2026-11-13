@@ -1,0 +1,69 @@
+{
+  "name": "@ethivia/vacp-overlay",
+  "version": "0.1.0",
+  "description": "Show a VACP agent's cursor, narration, and checkpoints over your page, rendered with React.",
+  "keywords": [
+    "agents",
+    "react",
+    "vacp",
+    "visual-analytics"
+  ],
+  "homepage": "https://docs.vacp.dev/api/overlay",
+  "bugs": "https://github.com/ETH-IVIA-Lab/VACP/issues",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ETH-IVIA-Lab/VACP.git",
+    "directory": "packages/overlay"
+  },
+  "files": [
+    "dist"
+  ],
+  "type": "module",
+  "exports": {
+    ".": {
+      "vacp-source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./streamdown": {
+      "vacp-source": "./src/streamdown.tsx",
+      "types": "./dist/streamdown.d.ts",
+      "default": "./dist/streamdown.js"
+    }
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build": "vp pack",
+    "test": "tsx --conditions=vacp-source --test --test-timeout=10000 test/*.test.ts"
+  },
+  "dependencies": {
+    "@stylexjs/stylex": "catalog:"
+  },
+  "devDependencies": {
+    "@ethivia/vacp-sdk": "workspace:^",
+    "@types/react": "catalog:",
+    "@types/react-dom": "catalog:",
+    "react": "catalog:",
+    "react-dom": "catalog:",
+    "streamdown": "catalog:",
+    "tsx": "catalog:"
+  },
+  "peerDependencies": {
+    "@ethivia/vacp-sdk": "workspace:^",
+    "@types/react": "^19.3.0",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
+    "streamdown": "^2.7.0"
+  },
+  "peerDependenciesMeta": {
+    "@types/react": {
+      "optional": true
+    },
+    "streamdown": {
+      "optional": true
+    }
+  }
+}

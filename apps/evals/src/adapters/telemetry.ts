@@ -17,7 +17,6 @@ import { dirname } from 'node:path';
 import type { ExecutionRecord } from '../core/scenario';
 import type { Trace } from '../core/trace';
 import type { Usage } from '../core/usage';
-import type { RecordOptions } from '../ports';
 
 const iso = (time: [number, number]) => new Date(hrTimeToMilliseconds(time)).toISOString();
 
@@ -104,8 +103,7 @@ function text(value: unknown): string {
  * `HarnessAgent` all report: one step per model call with its duration, served model, and usage, then
  * each tool call with its result and execution time. A call's own total settles its steps' usage.
  */
-export function traceRecorder(trace: Trace, options: RecordOptions = {}): Telemetry {
-  const name = options.toolName ?? ((each: string) => each);
+export function traceRecorder(trace: Trace): Telemetry {
   const responseMs = new Map<string, number[]>();
   const executed = new Map<string, { ms: number; output: unknown; ok: boolean }>();
   const steps = new Map<string, number[]>();
@@ -131,7 +129,7 @@ export function traceRecorder(trace: Trace, options: RecordOptions = {}): Teleme
       steps.set(step.callId, [...(steps.get(step.callId) ?? []), index]);
       trace.assistant(step.text, step.reasoningText);
       for (const call of step.toolCalls) {
-        const tool = name(call.toolName);
+        const tool = call.toolName;
         trace.toolCall(tool, call.input);
         const run = executed.get(call.toolCallId);
         executed.delete(call.toolCallId);

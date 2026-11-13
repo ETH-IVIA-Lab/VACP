@@ -19,8 +19,8 @@ class BrowserConfig:
     # dimensions are provided.
     headless: bool = False
     url: str = 'http://localhost:5173/'
-    # Embedded browser window mode. `fullscreen` and `maximized` apply to Chromium only.
-    window_mode: Literal['default', 'maximized', 'fullscreen'] = 'fullscreen'
+    # Browser window size. `fullscreen` and `maximized` apply to Chromium only.
+    window_mode: Literal['default', 'maximized', 'fullscreen'] = 'default'
     # Host screen size hint for embedded browser windows.
     screen_width: int | None = None
     screen_height: int | None = None

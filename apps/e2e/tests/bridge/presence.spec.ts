@@ -40,7 +40,7 @@ test('custom SDK actions produce passive presence through native WebMCP without 
     const result = await page.evaluate(async () => {
       const context = document.modelContext!;
       const tools = await context.getTools();
-      const tool = tools.find((tool) => tool.name === 'vacp.action.parallel_coords.set_brush_ranges')!;
+      const tool = tools.find((tool) => tool.name === 'vacp_parallel_coords_set_brush_ranges')!;
       let inputEvents = 0;
       const onInput = () => inputEvents++;
       document.addEventListener('pointerdown', onInput);

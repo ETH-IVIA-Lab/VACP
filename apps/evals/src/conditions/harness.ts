@@ -3,9 +3,9 @@ import { createClaudeCode, type ClaudeCodeHarnessSettings } from '@ai-sdk/harnes
 import { createCodex, type CodexHarnessSettings } from '@ai-sdk/harness-codex';
 import { createOpenCode, type OpenCodeHarnessSettings } from '@ai-sdk/harness-opencode';
 import { createPi, type PiHarnessSettings } from '@ai-sdk/harness-pi';
-import { createVacpAgentTools } from '@ethivia/vacp-ai-sdk';
-import { vacpAgentActor, vacpAgentTools } from '@ethivia/vacp-protocol';
-import { createVacpTransport } from '@ethivia/vacp-bridge';
+import { createVacpAgentTools } from '@ethivia/vacp-ai';
+import { vacpAgentActor } from '@ethivia/vacp-sdk';
+import { vacpAgentTools } from '@ethivia/vacp-sdk/agent';
 import { isStepCount, type TelemetryOptions, type ToolSet } from 'ai';
 import { join } from 'node:path';
 
@@ -83,7 +83,7 @@ export function harnessCondition(options: HarnessConditionOptions): Condition {
           settings: options.settings,
         },
         async conversation({ page, signal: runSignal, maxSteps, telemetry }) {
-          const vacp = createVacpAgentTools(createVacpTransport(page.bridge));
+          const vacp = createVacpAgentTools(page.bridge);
           // HarnessAgent reports telemetry only when it is configured, unlike registered AI SDK calls.
           const agent = agentFor(vacp, maxSteps, telemetry());
           const sandbox = await LocalSandbox.create(sandboxes);

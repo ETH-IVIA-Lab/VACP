@@ -15,7 +15,7 @@ function stop(child: ChildProcess) {
 
 /**
  * Serve the example gallery for one run. `dev` serves the current source, so a hillclimb round's
- * edits apply without a build; `preview` serves `make build-apps` output as people receive it.
+ * edits apply without a build; `preview` serves `pnpm build` output as people receive it.
  * Portless stays off so the URL is plain `http://127.0.0.1:<port>/`.
  */
 export async function serveGallery(repoRoot: string, mode: ServeMode, port: number, signal: AbortSignal) {

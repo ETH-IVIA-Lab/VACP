@@ -1,6 +1,6 @@
 import { expect, type Page } from '@playwright/test';
 import { test, useWebMcp } from '../helpers/test';
-import type { VacpExecutionControl, VacpExecutionSource } from '@ethivia/vacp-protocol';
+import type { VacpExecutionControl, VacpExecutionSource } from '@ethivia/vacp-sdk';
 import { gotoApp } from '../helpers/servers';
 import { tool } from '../helpers/presence';
 
@@ -34,7 +34,7 @@ test('native input abandons a pending restoration without rollback or late effec
     ).ok,
   ).toBe(true);
   await expect(page.locator('.athlete-summary strong').first()).toHaveText('506');
-  expect((await tool(page, 'vacp.progress', { message: 'Paddlers aged 22 to 28 are in view.', done: true })).ok).toBe(
+  expect((await tool(page, 'vacp_progress', { message: 'Paddlers aged 22 to 28 are in view.', done: true })).ok).toBe(
     true,
   );
   const bubble = page.locator('[data-vacp-bubble]');
@@ -111,7 +111,7 @@ test('native input abandons a pending restoration without rollback or late effec
       }),
     )
     .toBe(0);
-  const result = await tool(page, 'vacp.data_sql', {
+  const result = await tool(page, 'vacp_data_sql', {
     handleRef: 'vacp://vacp-examples/athletes/data/main',
     sql: 'SELECT count(*)::INTEGER AS n FROM vacp_handle',
   });

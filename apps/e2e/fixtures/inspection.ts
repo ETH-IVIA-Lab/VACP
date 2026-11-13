@@ -1,2 +1,2 @@
-export { createInspectionIndex, createInspectorSession } from '@ethivia/vacp-inspector';
-export { createRuntimeInspectorClient } from '@ethivia/vacp-inspector/runtime';
+export { createInspectionIndex, createInspectorSession } from '@ethivia/vacp-sdk/inspector';
+export { createRuntimeInspectorClient } from '@ethivia/vacp-sdk/inspector';

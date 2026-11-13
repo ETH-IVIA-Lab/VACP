@@ -1,12 +1,15 @@
 import type { Coordinator } from '@uwdata/mosaic-core';
 import { astToDOM, parseSpec } from '@uwdata/mosaic-spec';
 import { createAPIContext } from '@uwdata/vgplot';
-import { createVgplotProvider, type VgplotPlotLike, type VgplotTableLike } from '@ethivia/vacp-vgplot';
-import { createVgplotPresentation } from '@ethivia/vacp-vgplot/presentation';
-import { countDuckDbTablesOnce, type VacpDuckDbClient } from '@ethivia/vacp-duckdb';
+import {
+  createVgplotPresentation,
+  createVgplotProvider,
+  type VgplotPlotLike,
+  type VgplotTableLike,
+} from '@ethivia/vacp-vgplot';
+import { countDuckDbTablesOnce, type VacpDuckDbClient } from '@ethivia/vacp-sdk/data';
 import { installExampleRuntime } from '@ethivia/vacp-example-shared';
 import { exampleOptions } from '@ethivia/vacp-example-shared/config';
-import { abortable } from '@ethivia/vacp-protocol';
 import type { GalleryEntry } from './gallery';
 
 function isPlotLike(value: unknown): value is VgplotPlotLike {
@@ -58,15 +61,18 @@ export async function renderSpec(
     stage.replaceChildren(element);
     const clients = discoverClients(element);
     // A plot attaches its legends and initializes its interactors when it renders.
-    await abortable(signal, () => Promise.all(clients.plots.map(({ plot }) => plot.update?.())));
+    await Promise.all(clients.plots.map(({ plot }) => plot.update?.()));
+    signal.throwIfAborted();
     const provider = createVgplotProvider({
       root: element,
       ...clients,
       data: { duckdb, sql: exampleOptions.enableSql, describe: countDuckDbTablesOnce(duckdb) },
-      options: { appId, viewId, title: entry.title },
+      appId,
+      viewId,
+      title: entry.title,
     });
     await installExampleRuntime({
-      sources: [{ provider, presentation: createVgplotPresentation({ provider, root: element }) }],
+      sources: [{ provider, presentation: createVgplotPresentation(provider) }],
       root: element,
       sessionKey: viewId,
       analytics: { vacp_app_id: appId, vacp_view_id: viewId },

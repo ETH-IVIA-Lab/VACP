@@ -3,6 +3,7 @@ packages:
   - examples/*
   - packages/*
   - scripts
+  - tools
 # The Markdown pages in docs/ sit outside apps/docs, so the Vue modules VitePress compiles them into
 # resolve from the repository root.
 publicHoistPattern:
@@ -51,14 +52,14 @@ catalog:
   vega-lite: ^6.5.0
   # One Mosaic release for the workspace. The vgplot adapter recognizes interactors, legends, and inputs
   # by class identity, so the application and the adapter must share each Mosaic package.
-  '@uwdata/mosaic-core': 0.33.0
-  '@uwdata/mosaic-inputs': 0.33.0
-  '@uwdata/mosaic-plot': 0.33.0
-  '@uwdata/mosaic-spec': 0.33.0
-  '@uwdata/mosaic-sql': 0.33.0
-  '@uwdata/vgplot': 0.33.0
+  '@uwdata/mosaic-core': 0.35.0
+  '@uwdata/mosaic-inputs': 0.35.0
+  '@uwdata/mosaic-plot': 0.35.0
+  '@uwdata/mosaic-spec': 0.35.0
+  '@uwdata/mosaic-sql': 0.35.0
+  '@uwdata/vgplot': 0.35.0
   # One DuckDB-Wasm for the workspace, Mosaic's included, so apps ship and load a single engine build.
-  # Mosaic 0.33 declares 1.33.1-dev57.0, whose remote extension downloads stalled in browser runs.
+  # Mosaic declares 1.33.1 prereleases, whose remote extension downloads stall in browser runs.
   '@duckdb/duckdb-wasm': 1.32.0
   # Arrow tables cross between DuckDB-Wasm and the data client, so both read one Arrow release.
   apache-arrow: 17.0.0
@@ -71,6 +72,8 @@ catalog:
   ai: ^7.0.141
   '@ai-sdk/openai-compatible': ^3.0.69
   ajv: 8.20.0
+  posthog-js: ^1.438.10
+  streamdown: 2.7.0
 overrides:
   '@duckdb/duckdb-wasm': 'catalog:'
   yaml: 'catalog:'

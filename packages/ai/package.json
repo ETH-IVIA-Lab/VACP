@@ -1,0 +1,50 @@
+{
+  "name": "@ethivia/vacp-ai",
+  "version": "0.1.0",
+  "description": "Run an AI SDK agent that reads and changes a VACP page.",
+  "keywords": [
+    "agents",
+    "ai-sdk",
+    "vacp",
+    "visual-analytics"
+  ],
+  "homepage": "https://docs.vacp.dev/api/ai",
+  "bugs": "https://github.com/ETH-IVIA-Lab/VACP/issues",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ETH-IVIA-Lab/VACP.git",
+    "directory": "packages/ai"
+  },
+  "files": [
+    "dist"
+  ],
+  "type": "module",
+  "exports": {
+    ".": {
+      "vacp-source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build": "vp pack",
+    "test": "tsx --conditions=vacp-source --test --test-timeout=10000 test/*.test.ts"
+  },
+  "dependencies": {
+    "@types/json-schema": "7.0.15"
+  },
+  "devDependencies": {
+    "@ethivia/vacp-sdk": "workspace:^",
+    "ai": "catalog:",
+    "zod": "catalog:"
+  },
+  "peerDependencies": {
+    "@ethivia/vacp-sdk": "workspace:^",
+    "ai": "^7.0.141",
+    "zod": "^4.6.7"
+  }
+}

@@ -1,7 +1,6 @@
 import { posthog } from 'posthog-js';
-import { installVacpRuntimeAnalytics } from '@ethivia/vacp-analytics';
-import { createPosthogProvider } from '@ethivia/vacp-posthog';
-import type { VacpRuntime } from '@ethivia/vacp-runtime';
+import { installVacpPosthog } from '@ethivia/vacp-posthog';
+import type { VacpRuntime } from '@ethivia/vacp-sdk';
 
 const apiKey: unknown = import.meta.env.VACP_POSTHOG_API_KEY;
 const apiHost: unknown = import.meta.env.VACP_POSTHOG_API_HOST;
@@ -25,10 +24,9 @@ if (typeof apiKey === 'string' && apiKey) {
 
 export function installExampleAnalytics(bridge: VacpRuntime, properties: Record<string, unknown>): () => void {
   if (typeof apiKey !== 'string' || !apiKey) return () => {};
-  return installVacpRuntimeAnalytics({
-    bridge,
-    provider: createPosthogProvider(posthog),
+  posthog.startSessionRecording();
+  return installVacpPosthog(bridge, posthog, {
     captureSnapshots: import.meta.env.VACP_POSTHOG_CAPTURE_SNAPSHOTS === '1',
-    getBaseProperties: () => properties,
+    properties,
   }).dispose;
 }

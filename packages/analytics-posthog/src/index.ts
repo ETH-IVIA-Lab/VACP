@@ -1,1 +1,0 @@
-export { createPosthogProvider } from './provider';

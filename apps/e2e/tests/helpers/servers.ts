@@ -17,7 +17,7 @@ const applications = {
   'react-dashboard': { cwd: exampleDir('react-dashboard'), command: vp('dev'), dev: true },
   'vega-lite-gallery': { cwd: exampleDir('vega-lite-gallery'), command: vp('dev'), dev: true },
   'vgplot-gallery': { cwd: exampleDir('vgplot-gallery'), command: vp('dev'), dev: true },
-  // Served from `make build-apps` output, as people receive them.
+  // Served from `pnpm build` output, as people receive them.
   'gallery-build': { cwd: exampleDir('gallery'), command: vp('preview'), dev: false },
   docs: { cwd: resolve(repoRoot, 'apps/docs'), command: 'node_modules/.bin/vitepress preview .', dev: false },
 } as const;

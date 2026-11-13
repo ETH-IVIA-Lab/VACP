@@ -1,4 +1,3 @@
-import { createHash } from 'node:crypto';
 import {
   dynamicTool,
   fingerprintTools,
@@ -13,20 +12,13 @@ import type { AgentPage, Condition, PageTool } from '../ports';
 import { browserAssistantInstructions } from './instructions';
 
 /**
- * Model APIs accept `[A-Za-z0-9_-]{1,64}` tool names, and WebMCP names use dots. Every host that
- * hands the catalog to such a model has to alias it, and this one aliases deterministically.
+ * The catalog as AI SDK tools under their registered names, which model APIs accept as written. A
+ * browser-side failure reaches the model as the tool's error.
  */
-export function toolAlias(name: string, limit = 64): string {
-  const safe = name.replace(/[^A-Za-z0-9_-]/g, '_');
-  if (safe.length <= limit) return safe;
-  return `${safe.slice(0, limit - 9)}_${createHash('sha256').update(name).digest('hex').slice(0, 8)}`;
-}
-
-/** The catalog as AI SDK tools under model-safe aliases. A browser-side failure reaches the model as the tool's error. */
 function pageTools(page: AgentPage, catalog: readonly PageTool[]): ToolSet {
   return Object.fromEntries(
     catalog.map((tool) => [
-      toolAlias(tool.name),
+      tool.name,
       dynamicTool({
         description: tool.description,
         inputSchema: jsonSchema(tool.inputSchema),
@@ -61,16 +53,13 @@ export function webmcpCondition(options: WebMcpConditionOptions = {}): Condition
         },
         async conversation({ page, trace, signal, maxSteps, telemetry }) {
           const messages: ModelMessage[] = [];
-          const names = new Map<string, string>();
-          const settings = telemetry({ toolName: (alias) => names.get(alias) ?? alias });
+          const settings = telemetry();
           return {
             async say(message) {
               messages.push({ role: 'user', content: message });
               let text = '';
               for (let step = 0; step < maxSteps; step++) {
-                const catalog = await page.tools();
-                for (const tool of catalog) names.set(toolAlias(tool.name), tool.name);
-                const tools = pageTools(page, catalog);
+                const tools = pageTools(page, await page.tools());
                 trace.catalog(JSON.stringify(await fingerprintTools(tools)));
                 const result = await generateText({
                   model: model.language,

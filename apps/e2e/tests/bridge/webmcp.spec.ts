@@ -1,7 +1,5 @@
-import type * as VacpRuntime from '@ethivia/vacp-runtime';
-import type * as VacpRuntimeBrowser from '@ethivia/vacp-browser';
 import type * as VacpSdk from '@ethivia/vacp-sdk';
-import type * as VacpWebMcp from '@ethivia/vacp-webmcp';
+import type * as VacpWebMcp from '@ethivia/vacp-sdk/agent';
 import { expect } from '@playwright/test';
 import { test, useWebMcp } from '../helpers/test';
 import { repoRoot } from '../helpers/paths';
@@ -24,7 +22,7 @@ test('native WebMCP projects composed providers and unregisters them on disposal
     const context = document.modelContext;
     if (!context) throw new Error('Current WebMCP API unavailable');
     const tools = await context.getTools();
-    const capabilities = tools.find((tool) => tool.name === 'vacp.capabilities');
+    const capabilities = tools.find((tool) => tool.name === 'vacp_capabilities');
     if (!capabilities) throw new Error('Missing graph tool');
     return {
       ...JSON.parse(await context.executeTool(capabilities, {})),
@@ -34,7 +32,7 @@ test('native WebMCP projects composed providers and unregisters them on disposal
   expect(graph.graph.nodes.length).toBeGreaterThan(0);
   expect(graph.graph.edges.length).toBeGreaterThan(0);
   // Each available action is its own tool beside the graph reads.
-  expect(graph.tools).toContain('vacp.action.parallel_coords.set_dimension_order');
+  expect(graph.tools).toContain('vacp_parallel_coords_set_dimension_order');
 
   await page.evaluate(
     async ({ root }) => {
@@ -62,20 +60,20 @@ test('native WebMCP projects composed providers and unregisters them on disposal
     .toEqual(
       expect.arrayContaining([
         'unrelated',
-        'vacp.action.parallel_coords.set_dimension_order',
-        'vacp.action.threshold.set',
-        'vacp.capabilities',
-        'vacp.observe',
-        'vacp.state',
+        'vacp_parallel_coords_set_dimension_order',
+        'vacp_threshold_set',
+        'vacp_capabilities',
+        'vacp_observe',
+        'vacp_state',
       ]),
     );
   const results = await page.evaluate(async () => {
     const context = document.modelContext!;
     const tools = await context.getTools();
-    const action = tools.find((tool) => tool.name === 'vacp.action.threshold.set')!;
-    const observe = tools.find((tool) => tool.name === 'vacp.observe')!;
-    const state = tools.find((tool) => tool.name === 'vacp.state')!;
-    const progress = tools.find((tool) => tool.name === 'vacp.progress')!;
+    const action = tools.find((tool) => tool.name === 'vacp_threshold_set')!;
+    const observe = tools.find((tool) => tool.name === 'vacp_observe')!;
+    const state = tools.find((tool) => tool.name === 'vacp_state')!;
+    const progress = tools.find((tool) => tool.name === 'vacp_progress')!;
     return {
       schema: action.inputSchema,
       valid: JSON.parse(await context.executeTool(action, { value: 42, narration: 'Raising the threshold to 42.' })),
@@ -114,10 +112,7 @@ test('native WebMCP projects composed providers and unregisters them on disposal
   expect(results.state.mode).toBe('full');
   expect(results.state.snapshot.state['vacp://example/threshold'].value).toBe(42);
   await expect(page.locator('#custom-threshold')).toHaveValue('42');
-  await page.evaluate(async (root) => {
-    const { uninstallVacpRuntime } = await import(`/@fs${root}/packages/runtime-browser/src/index.ts`);
-    uninstallVacpRuntime();
-  }, repoRoot);
+  await page.evaluate(() => (window.__vacp as VacpSdk.VacpRuntime).dispose());
   await expect
     .poll(() => page.evaluate(async () => (await document.modelContext?.getTools())?.map((tool) => tool.name)))
     .toEqual(['unrelated']);
@@ -133,7 +128,7 @@ test('native WebMCP accepts generated unions, nullable inputs, and recursive ref
     const { exerciseWebMcpSchemas } = await import(`/@fs${root}/apps/e2e/fixtures/webmcp.ts`);
     return exerciseWebMcpSchemas();
   }, repoRoot);
-  expect(results.schemas['schema.action.scalar']).toMatchObject({
+  expect(results.schemas['schema_scalar']).toMatchObject({
     type: 'object',
     required: ['params', 'narration'],
     properties: {
@@ -145,7 +140,7 @@ test('native WebMCP accepts generated unions, nullable inputs, and recursive ref
       },
     },
   });
-  const schema = results.schemas['schema.action.tree'].properties.params;
+  const schema = results.schemas['schema_tree'].properties.params;
   const resolve = (reference: string) => {
     expect(reference).toMatch(/^#\//);
     return reference
@@ -173,12 +168,10 @@ test('native cancellation reaches SDK handlers with DOM publication enabled', as
   });
   await gotoApp(page, 'cars-parallel-coords');
   const result = await page.evaluate(async (root) => {
-    const { createVacpActions }: typeof VacpSdk = await import(`/@fs${root}/packages/sdk/src/index.ts`);
-    const { createVacpProvider }: typeof VacpRuntime = await import(`/@fs${root}/packages/runtime/src/index.ts`);
-    const { installVacpRuntime }: typeof VacpRuntimeBrowser = await import(
-      `/@fs${root}/packages/runtime-browser/src/index.ts`
-    );
-    const { installVacpWebMcp }: typeof VacpWebMcp = await import(`/@fs${root}/packages/transport-webmcp/src/index.ts`);
+    const { createVacpActions }: typeof VacpSdk = await import(`/@fs${root}/packages/sdk/src/entries/index.ts`);
+    const { createVacpProvider }: typeof VacpSdk = await import(`/@fs${root}/packages/sdk/src/entries/index.ts`);
+    const { installVacpRuntime }: typeof VacpSdk = await import(`/@fs${root}/packages/sdk/src/entries/index.ts`);
+    const { installVacpWebMcp }: typeof VacpWebMcp = await import(`/@fs${root}/packages/sdk/src/entries/agent.ts`);
     let began!: () => void;
     let cancelled!: () => void;
     const started = new Promise<void>((resolve) => {
@@ -204,15 +197,15 @@ test('native cancellation reaches SDK handlers with DOM publication enabled', as
     });
     const provider = createVacpProvider({
       source: { id: 'vacp-source://webmcp-cancellation', type: 'test', title: 'Cancellation test' },
-      actions: actions.registry,
-      project: () => ({ graph: { nodes: [], edges: [], actions: actions.registry.list() }, state: {} }),
+      actions,
+      project: () => ({ graph: { nodes: [] }, state: {} }),
       subscribe: () => () => {},
     });
     const integration = installVacpRuntime({ providers: [provider], exposeBridge: true, injectDomSnapshot: true });
     const webmcp = await installVacpWebMcp(integration.runtime);
     if (!webmcp || !document.modelContext) throw new Error('Native WebMCP unavailable');
     try {
-      const tool = (await document.modelContext.getTools()).find((entry) => entry.name === 'vacp.action.wait');
+      const tool = (await document.modelContext.getTools()).find((entry) => entry.name === 'vacp_wait');
       if (!tool) throw new Error('Missing wait tool');
       const controller = new AbortController();
       const execution = document.modelContext

@@ -1,0 +1,46 @@
+{
+  "name": "@ethivia/vacp-posthog",
+  "version": "0.1.0",
+  "description": "Send VACP provenance records to PostHog.",
+  "keywords": [
+    "agents",
+    "posthog",
+    "vacp",
+    "visual-analytics"
+  ],
+  "homepage": "https://docs.vacp.dev/api/posthog",
+  "bugs": "https://github.com/ETH-IVIA-Lab/VACP/issues",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ETH-IVIA-Lab/VACP.git",
+    "directory": "packages/posthog"
+  },
+  "files": [
+    "dist"
+  ],
+  "type": "module",
+  "exports": {
+    ".": {
+      "vacp-source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build": "vp pack",
+    "test": "tsx --conditions=vacp-source --test --test-timeout=10000 test/*.test.ts"
+  },
+  "devDependencies": {
+    "@ethivia/vacp-sdk": "workspace:^",
+    "posthog-js": "catalog:",
+    "tsx": "catalog:"
+  },
+  "peerDependencies": {
+    "@ethivia/vacp-sdk": "workspace:^",
+    "posthog-js": "^1.438.10"
+  }
+}

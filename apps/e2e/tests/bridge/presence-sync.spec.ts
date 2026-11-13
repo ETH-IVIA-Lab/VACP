@@ -59,7 +59,7 @@ async function open(page: Page, url: string) {
   await expect
     .poll(async () =>
       page.evaluate(async () =>
-        ((await document.modelContext?.getTools()) ?? []).some((tool) => tool.name.endsWith('cohort.set_sports')),
+        ((await document.modelContext?.getTools()) ?? []).some((tool) => tool.name.endsWith('cohort_set_sports')),
       ),
     )
     .toBe(true);

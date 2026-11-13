@@ -57,7 +57,7 @@ for (const engine of ['vega-lite', 'vgplot'] as const) {
     await page.evaluate(() => window.__vacpStream!.update('Looking at **patterns** across the selected area.'));
     await expect(page.locator('[data-vacp-summary]')).toContainText('selected area.');
     if (engine === 'vega-lite') {
-      const graph = (await tool(page, 'vacp.observe')).graph;
+      const graph = (await tool(page, 'vacp_observe')).graph;
       const selection = (title: string) =>
         graph.nodes.find((node: { kind: string; title: string }) => node.kind === 'Selection' && node.title === title)
           .ref;
@@ -67,7 +67,7 @@ for (const engine of ['vega-lite', 'vgplot'] as const) {
       await expect.poll(() => rendered(page, engine)).not.toEqual(before);
       const first = await rendered(page, engine);
       const handleRef = graph.nodes.find((node: { kind: string }) => node.kind === 'DataHandle').ref;
-      const bounds = await tool(page, 'vacp.data_sql', {
+      const bounds = await tool(page, 'vacp_data_sql', {
         handleRef,
         sql: 'SELECT min(monthdate_date) AS lo, max(monthdate_date) AS hi FROM vacp_handle WHERE month(date) BETWEEN 6 AND 8',
       });

@@ -17,9 +17,9 @@ from vacp import (
     Observation,
     OperationSemantics,
     PreparedAction,
-    ProviderComposer,
     ProviderObservation,
     RefParameter,
+    Runtime,
     SimpleProvider,
     SourceDescription,
     resolve_availability,
@@ -34,7 +34,7 @@ def preparing(run: Callable[[ActionCall], ActionResult | Awaitable[ActionResult]
     return lambda call, _context: PreparedAction(lambda: run(call))
 
 
-CASES = json.loads((Path(__file__).parents[2] / 'protocol/test/fixtures/availability.json').read_text())
+CASES = json.loads((Path(__file__).parents[2] / 'sdk/test/protocol/fixtures/availability.json').read_text())
 
 
 @pytest.mark.parametrize('case', CASES, ids=[case['name'] for case in CASES])
@@ -134,27 +134,27 @@ async def test_discovery_and_inspection_share_one_execution_guard() -> None:
         mutations += 1
         return ActionResult(call.call_id, True)
 
-    composer = ProviderComposer(
+    runtime = Runtime(
         [SimpleProvider(SourceDescription('vacp-source://chart', 'chart', 'Chart'), project, preparing(invoke))]
     )
     try:
-        assert (await composer.observe()).graph.actions == ()
-        assert (await composer.observe()).state == {}
-        assert len((await composer.inspect()).graph.actions) == 1
-        assert not (await composer.execute(ActionRequest('click'))).ok
+        assert (await runtime.observe()).graph.actions == ()
+        assert (await runtime.observe()).state == {}
+        assert len((await runtime.inspect()).graph.actions) == 1
+        assert not (await runtime.execute(ActionRequest('click'))).ok
         assert mutations == 0
         ready = True
-        assert len((await composer.observe()).graph.actions) == 1
-        assert (await composer.execute(ActionRequest('click'))).ok
+        assert len((await runtime.observe()).graph.actions) == 1
+        assert (await runtime.execute(ActionRequest('click'))).ok
         ready = False
-        assert not (await composer.execute(ActionRequest('click'))).ok
+        assert not (await runtime.execute(ActionRequest('click'))).ok
         assert mutations == 1
     finally:
-        composer.dispose()
+        runtime.dispose()
 
 
 @pytest.mark.asyncio
-async def test_composer_owns_invocation_across_observation() -> None:
+async def test_runtime_owns_invocation_across_observation() -> None:
     entered = asyncio.Event()
     release = asyncio.Event()
 
@@ -168,7 +168,7 @@ async def test_composer_owns_invocation_across_observation() -> None:
             {},
         )
 
-    composer = ProviderComposer(
+    runtime = Runtime(
         [
             SimpleProvider(
                 SourceDescription('vacp-source://input', 'test', 'Input'),
@@ -179,11 +179,11 @@ async def test_composer_owns_invocation_across_observation() -> None:
     )
     try:
         params = {'value': 'original'}
-        executing = asyncio.create_task(composer.execute(ActionRequest('run', params)))
+        executing = asyncio.create_task(runtime.execute(ActionRequest('run', params)))
         await entered.wait()
         params['value'] = 'changed'
         release.set()
         assert (await executing).result == {'value': 'original'}
     finally:
         release.set()
-        composer.dispose()
+        runtime.dispose()

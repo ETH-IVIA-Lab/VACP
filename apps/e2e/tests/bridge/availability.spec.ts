@@ -11,12 +11,12 @@ test('dashboard discovery follows dataset, selection, restoration, and native vi
   // Applying a saved state is acquisition too: replay restores views recorded before any dataset loaded.
   const acquisitionActions = ['dashboard.set_dataset', 'vacp.apply_state'];
   const acquisitionTools = [
-    'vacp.action.dashboard.set_dataset',
-    'vacp.action.vacp.apply_state',
-    'vacp.capabilities',
-    'vacp.observe',
-    'vacp.progress',
-    'vacp.state',
+    'vacp_capabilities',
+    'vacp_dashboard_set_dataset',
+    'vacp_observe',
+    'vacp_progress',
+    'vacp_state',
+    'vacp_vacp_apply_state',
   ];
   await gotoApp(page, 'react-dashboard');
   const names = () =>
@@ -54,13 +54,13 @@ test('dashboard discovery follows dataset, selection, restoration, and native vi
   await test.step('native WebMCP acquisition reveals the chart and its prerequisites', async () => {
     const loaded = await page.evaluate(async () => {
       const context = document.modelContext!;
-      const tool = (await context.getTools()).find((tool) => tool.name === 'vacp.action.dashboard.set_dataset')!;
+      const tool = (await context.getTools()).find((tool) => tool.name === 'vacp_dashboard_set_dataset')!;
       return JSON.parse(await context.executeTool(tool, { id: 'iris', narration: 'Loading the iris measurements.' }));
     });
     expect(loaded.ok).toBe(true);
     await expect(page.locator('svg circle[data-point-id]')).toHaveCount(150);
     await expect.poll(names).toContain('dashboard.set_brush_2d');
-    await expect.poll(tools).toContain('vacp.action.dashboard.set_brush_2d');
+    await expect.poll(tools).toContain('vacp_dashboard_set_brush_2d');
     const dependencies = await page.evaluate(() => {
       const graph = JSON.parse(document.querySelector('script[data-vacp="snapshot-graph"]')!.textContent!).graph;
       const action = graph.actions.find((candidate: { name: string }) => candidate.name === 'dashboard.set_brush_2d');
@@ -103,8 +103,8 @@ test('dashboard discovery follows dataset, selection, restoration, and native vi
         params: { ids: [] },
       });
       if (!cleared.ok) throw new Error(cleared.error.message);
-      const { createVacpRestorer } = await import(`/@fs${root}/packages/runtime/src/index.ts`);
-      const result = await createVacpRestorer(bridge).restore(saved);
+      const { createVacpRestorer } = await import(`/@fs${root}/packages/sdk/src/entries/index.ts`);
+      const result = await createVacpRestorer(bridge)(saved);
       const state = (await bridge.inspect()).state;
       const scatter = Object.keys(state).find((ref) => ref.endsWith('/mark/scatter'))!;
       const rejected = await bridge.execute({
@@ -126,7 +126,7 @@ test('dashboard discovery follows dataset, selection, restoration, and native vi
     await expect(page.locator('svg circle[data-point-id]')).toHaveCount(0);
     await expect.poll(names).not.toContain('dashboard.set_brush_2d');
     await expect.poll(names).toContain('dashboard.set_encoding');
-    await expect.poll(tools).not.toContain('vacp.action.dashboard.set_brush_2d');
+    await expect.poll(tools).not.toContain('vacp_dashboard_set_brush_2d');
     const inspection = await page.evaluate(async (root) => {
       const { createInspectionIndex, createInspectorSession, createRuntimeInspectorClient } = await import(
         `/@fs${root}/apps/e2e/fixtures/inspection.ts`
@@ -177,9 +177,9 @@ test('native WebMCP lets an operation withdraw itself without losing its complet
   await gotoApp(page, 'react-dashboard');
   const result = await page.evaluate(async (root) => {
     const { createVacpRuntime, createVacpProvider, VacpActionRegistry } = await import(
-      `/@fs${root}/packages/runtime/src/index.ts`
+      `/@fs${root}/packages/sdk/src/entries/index.ts`
     );
-    const { installVacpWebMcp } = await import(`/@fs${root}/packages/transport-webmcp/src/index.ts`);
+    const { installVacpWebMcp } = await import(`/@fs${root}/packages/sdk/src/entries/agent.ts`);
     const actions = new VacpActionRegistry();
     let available = true;
     actions.register(
@@ -218,14 +218,14 @@ test('native WebMCP lets an operation withdraw itself without losing its complet
     const installation = await installVacpWebMcp(runtime, { namespace: 'lifecycle' });
     try {
       const context = document.modelContext!;
-      const tool = (await context.getTools()).find((candidate) => candidate.name === 'lifecycle.action.complete')!;
+      const tool = (await context.getTools()).find((candidate) => candidate.name === 'lifecycle_complete')!;
       const response = JSON.parse(await context.executeTool(tool, { narration: 'Completing the task.' }));
       await installation.refresh();
       return {
         response,
         tools: (await context.getTools())
           .map((candidate) => candidate.name)
-          .filter((name) => name.startsWith('lifecycle.'))
+          .filter((name) => name.startsWith('lifecycle_'))
           .sort(),
         observation: await runtime.observe(),
         inspection: await runtime.inspect(),
@@ -237,10 +237,10 @@ test('native WebMCP lets an operation withdraw itself without losing its complet
   }, repoRoot);
   expect(result.response).toMatchObject({ ok: true, result: 'completed' });
   expect(result.tools).toEqual([
-    'lifecycle.capabilities',
-    'lifecycle.observe',
-    'lifecycle.progress',
-    'lifecycle.state',
+    'lifecycle_capabilities',
+    'lifecycle_observe',
+    'lifecycle_progress',
+    'lifecycle_state',
   ]);
   expect(result.observation.graph.actions).toEqual([]);
   expect(result.inspection.graph.actions.map((action: { name: string }) => action.name)).toEqual(['complete']);

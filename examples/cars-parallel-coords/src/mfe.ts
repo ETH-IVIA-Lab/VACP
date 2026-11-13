@@ -1,7 +1,7 @@
 import './styles.css';
 import { createParallelCoordsChart } from './chart';
 import { loadCarsDataset } from './data';
-import { vacpHumanActor } from '@ethivia/vacp-protocol';
+import { vacpHumanActor } from '@ethivia/vacp-sdk';
 import { connectVacp } from './vacp';
 
 const template = `
@@ -61,7 +61,7 @@ export async function mount(target: HTMLElement): Promise<() => void> {
       signal: lifetime.signal,
     });
     gesture = (message) => {
-      void runtime.refresh({ actor: vacpHumanActor, message }).catch(() => {});
+      void runtime.record({ actor: vacpHumanActor, message }).catch(() => {});
     };
     listen(element('#reset-brush'), 'click', () => {
       chart.resetBrushes();
@@ -72,7 +72,7 @@ export async function mount(target: HTMLElement): Promise<() => void> {
       gesture('reset dimension order');
     });
     listen(window, 'resize', () => chart.render());
-    void runtime.refresh({ actor: { id: 'system', kind: 'system' }, message: 'init' }).catch(() => {});
+    void runtime.record({ message: 'init' }).catch(() => {});
     return dispose;
   } catch (error) {
     dispose();

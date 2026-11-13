@@ -1,24 +1,28 @@
 import { z } from 'zod';
-import type { VacpDataHandleState, VacpDataSchemaColumn, VacpGraphFragment, VacpRef } from '@ethivia/vacp-protocol';
 import {
+  createVacpActions,
   createVacpProvider,
+  createVacpRefBuilder,
   registerVacpApplyStateAction,
-  registerVacpDataSchemaAction,
-  registerVacpDataSqlAction,
+  type VacpAnalyticalProjection,
+  type VacpRef,
   type VacpRuntime,
-} from '@ethivia/vacp-runtime';
-import { createVacpActions, createVacpRefBuilder } from '@ethivia/vacp-sdk';
+} from '@ethivia/vacp-sdk';
 import {
   createDuckDbDataSchemaHandler,
   createDuckDbDataSqlHandler,
-  createDuckDbWasmClient,
   describeDuckDbTable,
   makeVacpDuckDbTableName,
+  registerVacpDataSchemaAction,
+  registerVacpDataSqlAction,
   sqlIdentifier,
-} from '@ethivia/vacp-duckdb';
+  type VacpDataHandleState,
+  type VacpDataSchemaColumn,
+} from '@ethivia/vacp-sdk/data';
+import { createDuckDbWasmClient } from '@ethivia/vacp-duckdb';
 import { exampleDuckDbBundles, installExampleRuntime } from '@ethivia/vacp-example-shared';
 import { exampleOptions } from '@ethivia/vacp-example-shared/config';
-import { elementPresenceTarget, observePresenceLayout, svgPresenceTarget } from '@ethivia/vacp-presence/dom';
+import { elementPresenceTarget, observePresenceLayout, svgPresenceTarget } from '@ethivia/vacp-sdk/presence';
 import type { BrushRange, CarDatum, ParallelCoordsChart } from './chart';
 
 function numberExtent(data: CarDatum[], dim: string): BrushRange {
@@ -168,7 +172,7 @@ export async function connectVacp(args: {
   const hoverState = z.object({ hoveredId: z.number().int().nullable() });
 
   registerVacpApplyStateAction(
-    actions.registry,
+    actions,
     (state) => {
       const owned = new Set<string>([brushRef, orderRef, hoverRef, handleRef]);
       for (const ref of Object.keys(state))
@@ -220,13 +224,13 @@ export async function connectVacp(args: {
     },
   });
   if (exampleOptions.enableSql)
-    registerVacpDataSqlAction(actions.registry, sql, {
+    registerVacpDataSqlAction(actions, sql, {
       inputRefs: [handleRef],
       description: 'Query the cars with DuckDB SQL. `vacp_handle` holds the cars inside every brush.',
     });
 
   registerVacpDataSchemaAction(
-    actions.registry,
+    actions,
     createDuckDbDataSchemaHandler({
       duckdb,
       resolveHandle: (ref) => (ref === handleRef ? { table: tableName } : null),
@@ -234,8 +238,7 @@ export async function connectVacp(args: {
     { inputRefs: [handleRef], description: 'Return the columns, types, and row count of the cars table.' },
   );
 
-  const graph: VacpGraphFragment = {
-    actions: actions.registry.list(),
+  const graph: VacpAnalyticalProjection['graph'] = {
     nodes: [
       { ref: viewRef, kind: 'View', layer: 'ViewLayer', title: args.title },
       { ref: vizRef, kind: 'Visualization', layer: 'VisualizationLayer', title: 'Parallel coordinates (SVG)' },
@@ -288,7 +291,7 @@ export async function connectVacp(args: {
       type: 'parallel-coordinates',
       title: args.title,
     },
-    actions: actions.registry,
+    actions,
     subscribe: (invalidate) => chart.subscribe(invalidate),
     project: () => {
       const st = chart.getState();

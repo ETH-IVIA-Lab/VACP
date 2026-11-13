@@ -1,4 +1,4 @@
-import type { VacpAgentActivityHandle, VacpPageBridge } from '@ethivia/vacp-protocol';
+import type { VacpAgentActivityHandle, VacpPageBridge } from '@ethivia/vacp-sdk';
 import type {} from 'webmcp-types';
 
 import type { ExecutionRecord } from '../../core/scenario';

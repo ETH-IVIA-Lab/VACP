@@ -1,6 +1,4 @@
-import { createVacpProvider } from '@ethivia/vacp-runtime';
-import { installVacpRuntime } from '@ethivia/vacp-browser';
-import { createVacpActions } from '@ethivia/vacp-sdk';
+import { createVacpActions, createVacpProvider, installVacpRuntime, vacpHumanActor } from '@ethivia/vacp-sdk';
 import { z } from 'zod';
 
 const thresholdParams = z.object({ value: z.number().finite().min(0).max(100) });
@@ -24,35 +22,28 @@ export function connectThreshold(input: ThresholdControl) {
 
   const provider = createVacpProvider({
     source: { id: 'vacp-source://example/threshold', type: 'control', title: 'Threshold control' },
-    actions: actions.registry,
+    actions,
     project: () => ({
       graph: {
         nodes: [{ ref, kind: 'Param', layer: 'ConfigLayer', title: 'Threshold' }],
-        edges: [],
-        actions: actions.registry.list(),
       },
       state: { [ref]: { value: input.valueAsNumber } },
     }),
-    subscribe: (invalidate) => {
-      input.addEventListener('input', invalidate);
-      return () => input.removeEventListener('input', invalidate);
-    },
   });
   const { runtime, dispose } = installVacpRuntime({
     providers: [provider],
     exposeBridge: true,
-    injectDomSnapshot: true,
   });
 
-  const onInput = () => {
-    void runtime.refresh({ actor: { id: 'human', kind: 'human' }, message: 'Threshold changed' }).catch(() => {});
+  const onChange = () => {
+    void runtime.record({ actor: vacpHumanActor, message: 'Threshold changed' }).catch(() => {});
   };
-  input.addEventListener('input', onInput);
+  input.addEventListener('change', onChange);
 
   return {
     runtime,
     dispose() {
-      input.removeEventListener('input', onInput);
+      input.removeEventListener('change', onChange);
       dispose();
     },
   };

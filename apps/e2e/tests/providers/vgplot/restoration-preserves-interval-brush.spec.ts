@@ -35,7 +35,7 @@ test('explicit apply_state restores a recorded interval brush and later human br
   await expect.poll(async () => (await painted()).width).toBeGreaterThan(2);
   const recorded = await painted();
   await page.evaluate(() =>
-    globalThis.__vacp.refresh({ actor: { id: 'human', kind: 'human' }, message: 'First brush' }),
+    globalThis.__vacp.record({ actor: { id: 'human', kind: 'human' }, message: 'First brush' }),
   );
   await brush(0.6, 0.9);
   await expect.poll(near).toBe(false);

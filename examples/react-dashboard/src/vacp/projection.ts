@@ -1,9 +1,5 @@
-import {
-  type VacpActionDescriptor,
-  type VacpDataHandleData,
-  type VacpDataHandleState,
-  type VacpGraphFragment,
-} from '@ethivia/vacp-protocol';
+import type { VacpAnalyticalProjection } from '@ethivia/vacp-sdk';
+import type { VacpDataHandleData, VacpDataHandleState } from '@ethivia/vacp-sdk/data';
 import { listDatasets, type Dataset } from '../datasets/registry';
 import { numericValues, quantile } from '../lib/dashboard';
 import { selectionWhere } from './data';
@@ -15,12 +11,7 @@ function summarizeNumericField(dataset: Dataset, field: string) {
   return values.length ? { min: values[0]!, q1: quantile(values, 0.25) } : undefined;
 }
 
-export function projectDashboard(
-  snapshot: DashboardSnapshot,
-  actions: VacpActionDescriptor[],
-  data: VacpDataHandleData,
-  title: string,
-) {
+export function projectDashboard(snapshot: DashboardSnapshot, data: VacpDataHandleData, title: string) {
   const { dataset, datasetId, encoding, selectedIds, brush2d } = snapshot;
   const chartReason = !encoding.x || !encoding.y ? 'Choose both axes to display the chart' : undefined;
   const {
@@ -40,8 +31,7 @@ export function projectDashboard(
     brush2dRef,
     handleRef,
   } = dashboardRefs;
-  const graph: VacpGraphFragment = {
-    actions,
+  const graph: VacpAnalyticalProjection['graph'] = {
     nodes: [
       { ref: appRef, kind: 'App', layer: 'ViewLayer', title: 'VACP examples' },
       { ref: viewRef, kind: 'View', layer: 'ViewLayer', title },

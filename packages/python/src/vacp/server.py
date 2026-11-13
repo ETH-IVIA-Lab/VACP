@@ -77,6 +77,16 @@ Sentence: TypeAlias = Annotated[str, StringConstraints(min_length=1, max_length=
 Milliseconds: TypeAlias = Annotated[int, Field(ge=0, le=120_000)]
 
 
+def _contract(name: str) -> dict[str, Any]:
+    """The title, description, and annotations of an agent tool, as every transport gives them."""
+    tool = AGENT_TOOLS[name]
+    return {
+        'title': tool['title'],
+        'description': tool['description'],
+        'annotations': {'readOnlyHint': tool['readOnly']},
+    }
+
+
 def create_mcp(
     client: VacpBridgeClient,
     *,
@@ -94,19 +104,11 @@ def create_mcp(
         lifespan=lifespan,
     )
 
-    @mcp.tool(
-        title='VACP Observation',
-        description=AGENT_TOOLS['vacp_observe']['description'],
-        annotations={'readOnlyHint': True},
-    )
+    @mcp.tool(**_contract('vacp_observe'))
     async def vacp_observe() -> dict[str, object]:
         return tool_result(tool_read(await client.observe()))
 
-    @mcp.tool(
-        title='VACP Capabilities',
-        description=AGENT_TOOLS['vacp_capabilities']['description'],
-        annotations={'readOnlyHint': True},
-    )
+    @mcp.tool(**_contract('vacp_capabilities'))
     async def vacp_capabilities(
         refs: list[Ref] | None = None,
         prefixes: list[Ref] | None = None,
@@ -127,11 +129,7 @@ def create_mcp(
         )
         return tool_result(tool_read(await client.get_capabilities(request)))
 
-    @mcp.tool(
-        title='VACP State',
-        description=AGENT_TOOLS['vacp_state']['description'],
-        annotations={'readOnlyHint': True},
-    )
+    @mcp.tool(**_contract('vacp_state'))
     async def vacp_state(
         since: Name | None = None,
         refs: list[Ref] | None = None,
@@ -139,18 +137,14 @@ def create_mcp(
     ) -> dict[str, object]:
         return tool_result(await client.get_state(state_request(since=since, refs=refs, includeSummary=includeSummary)))
 
-    @mcp.tool(title='VACP Execute Action', description=AGENT_TOOLS['vacp_execute']['description'])
+    @mcp.tool(**_contract('vacp_execute'))
     async def vacp_execute(
         name: Name,
         narration: Annotated[Sentence, Field(description=NARRATION_GUIDANCE)],
         params: object = MISSING,
-        call_id: str | None = None,
     ) -> dict[str, object]:
-        call = (
-            ActionRequest(name.strip(), call_id=call_id)
-            if params is MISSING
-            else ActionRequest(name.strip(), params, call_id=call_id)
-        )
+        # The page's runtime assigns the call ID, which the result carries.
+        call = ActionRequest(name.strip()) if params is MISSING else ActionRequest(name.strip(), params)
         # The execution carries the step's own sentence, live and in replay.
         res = await client.execute(call, narration=parse_narration(narration))
         # Fields the bridge left out stay out, as the other transports return them.
@@ -163,7 +157,7 @@ def create_mcp(
             }
         )
 
-    @mcp.tool(title='Tell the person what you are doing', description=AGENT_TOOLS['vacp_progress']['description'])
+    @mcp.tool(**_contract('vacp_progress'))
     async def vacp_progress(
         message: Annotated[Sentence, Field(description=PROGRESS_FIELDS['message'])],
         done: Annotated[bool, Field(description=PROGRESS_FIELDS['done'])] = False,
@@ -177,17 +171,17 @@ def create_mcp(
     @mcp.tool(title='VACP Open URL')
     async def vacp_open_url(
         url: Name,
-        wait_for_bridge: bool = True,
-        timeout_ms: Annotated[int, Field(ge=0, le=300_000)] = 60_000,
+        waitForBridge: bool = True,
+        timeoutMs: Annotated[int, Field(ge=0, le=300_000)] = 60_000,
     ) -> dict[str, object]:
         """
-        Navigate the VACP browser page to a URL. With `wait_for_bridge`, wait until the in-page VACP
+        Navigate the VACP browser page to a URL. With `waitForBridge`, wait until the in-page VACP
         bridge answers.
         """
         current = page()
         await current.goto(url, wait_until='domcontentloaded')
-        if wait_for_bridge:
-            await wait_for_vacp_bridge(client, timeout_ms)
+        if waitForBridge:
+            await wait_for_vacp_bridge(client, timeoutMs)
         return {'url': current.url, 'title': await current.title()}
 
     @mcp.tool(title='VACP Page Info', annotations={'readOnlyHint': True})
@@ -202,13 +196,13 @@ def create_mcp(
         return mcp
 
     @mcp.tool(title='Browser Screenshot')
-    async def browser_screenshot(path: Name, full_page: bool = True) -> dict[str, object]:
+    async def browser_screenshot(path: Name, fullPage: bool = True) -> dict[str, object]:
         """
         Capture a screenshot of the current page. Creates the parent directory when it does not exist.
         """
         out_path = Path(path).expanduser()
         out_path.parent.mkdir(parents=True, exist_ok=True)
-        await page().screenshot(path=str(out_path), full_page=full_page)
+        await page().screenshot(path=str(out_path), full_page=fullPage)
         return {'ok': True, 'path': str(out_path)}
 
     @mcp.tool(title='Browser Evaluate', annotations={'readOnlyHint': False, 'destructiveHint': True})
@@ -229,12 +223,12 @@ def create_mcp(
 
     @mcp.tool(title='Browser Wait For Selector')
     async def browser_wait_for_selector(
-        selector: Name, timeout_ms: Milliseconds = 15_000, state: BrowserSelectorState | None = None
+        selector: Name, timeoutMs: Milliseconds = 15_000, state: BrowserSelectorState | None = None
     ) -> dict[str, object]:
         """
         Wait until a selector reaches the requested Playwright state.
         """
-        await page().wait_for_selector(selector, timeout=timeout_ms, state=state)
+        await page().wait_for_selector(selector, timeout=timeoutMs, state=state)
         return {'ok': True}
 
     @mcp.tool(title='Browser Click')

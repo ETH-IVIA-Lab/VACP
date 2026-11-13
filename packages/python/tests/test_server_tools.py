@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import math
+import re
 from pathlib import Path
 from typing import Any
 from unittest.mock import AsyncMock
@@ -27,7 +28,7 @@ from vacp.narration import NARRATION_GUIDANCE, NARRATION_MAX_LENGTH, PROGRESS_FI
 from vacp.provider import ActionRequest, ActionResult
 from vacp.server import create_mcp
 
-PROTOCOL_FIXTURES = Path(__file__).parents[2] / 'protocol/test/fixtures'
+PROTOCOL_FIXTURES = Path(__file__).parents[2] / 'sdk/test/protocol/fixtures'
 
 
 class _FakeClient(VacpBridgeClient):
@@ -197,11 +198,10 @@ async def test_execute_replies_with_the_bridge_result_and_leaves_out_missing_fie
             'name': 'vacp.data_sql',
             'narration': 'Counting the rows in view.',
             'params': {'handleRef': 'vacp://x', 'sql': 'select 1'},
-            'call_id': 'c1',
         },
     )
     assert res == {
-        'callId': 'c1',
+        'callId': 'assigned',
         'ok': True,
         'result': {'name': 'vacp.data_sql', 'params': {'handleRef': 'vacp://x', 'sql': 'select 1'}},
     }
@@ -226,12 +226,14 @@ async def test_mcp_execution_preserves_json_values_and_omission_through_the_brow
     tool = await mcp.get_tool('vacp_execute')
     assert isinstance(tool, FunctionTool)
     for supplied in cases:
-        call = ActionRequest('custom.input', call_id='c1', **supplied)
+        call = (
+            ActionRequest('custom.input', supplied['params']) if 'params' in supplied else ActionRequest('custom.input')
+        )
         assert call.has_params is ('params' in supplied)
-        arguments = {'name': 'custom.input', 'narration': 'Reading the input.', 'call_id': 'c1', **supplied}
+        arguments = {'name': 'custom.input', 'narration': 'Reading the input.', **supplied}
         result = await tool.run(arguments)
         assert result.is_error is False
-        assert payloads[-1] == {'callId': 'c1', 'name': 'custom.input', **supplied}
+        assert payloads[-1] == {'name': 'custom.input', **supplied}
 
 
 CALL_IDS = json.loads((PROTOCOL_FIXTURES / 'call-id.json').read_text())
@@ -239,7 +241,7 @@ CALL_IDS = json.loads((PROTOCOL_FIXTURES / 'call-id.json').read_text())
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize('supplied', [*CALL_IDS['assigned'], *CALL_IDS['kept']])
-async def test_mcp_execution_passes_the_call_id_to_the_page_as_written_and_replies_with_the_runtimes(
+async def test_the_bridge_client_passes_the_call_id_to_the_page_as_written_and_returns_the_runtimes(
     supplied: dict[str, str | None],
 ) -> None:
     page = AsyncMock(spec=Page)
@@ -252,15 +254,33 @@ async def test_mcp_execution_passes_the_call_id_to_the_page_as_written_and_repli
         return json.dumps({'callId': 'runtime-1', 'ok': True})
 
     page.evaluate.side_effect = evaluate
-    tool = await create_mcp(PlaywrightVacpBridgeClient(lambda: page)).get_tool('vacp_execute')
-    assert isinstance(tool, FunctionTool)
-    arguments: dict[str, str | None] = {'name': 'custom.input', 'narration': 'Reading the input.'}
-    if 'callId' in supplied:
-        arguments['call_id'] = supplied['callId']
-    result = await tool.run(arguments)
+    client = PlaywrightVacpBridgeClient(lambda: page)
+    result = await client.execute(
+        ActionRequest('custom.input', call_id=supplied.get('callId')), narration='Reading the input.'
+    )
     # A null call ID is absent, so the page receives none and its runtime assigns one.
     sent = {key: value for key, value in supplied.items() if value is not None}
     assert payloads == [{**sent, 'name': 'custom.input'}]
+    assert result.call_id == 'runtime-1'
+
+
+@pytest.mark.asyncio
+async def test_mcp_execution_takes_no_call_id_and_replies_with_the_runtimes() -> None:
+    page = AsyncMock(spec=Page)
+    payloads: list[object] = []
+
+    def evaluate(_expression: str, argument: dict[str, object]) -> object:
+        if 'version' in argument:
+            return True
+        payloads.append(argument['payload'])
+        return json.dumps({'callId': 'runtime-1', 'ok': True})
+
+    page.evaluate.side_effect = evaluate
+    tool = await create_mcp(PlaywrightVacpBridgeClient(lambda: page)).get_tool('vacp_execute')
+    assert isinstance(tool, FunctionTool)
+    assert 'callId' not in tool.parameters['properties']
+    result = await tool.run({'name': 'custom.input', 'narration': 'Reading the input.'})
+    assert payloads == [{'name': 'custom.input'}]
     assert result.structured_content == {'callId': 'runtime-1', 'ok': True}
 
 
@@ -292,6 +312,14 @@ async def test_create_mcp_registers_page_tools_when_page_provided() -> None:
         'vacp_open_url',
         'vacp_page_info',
     }
+
+
+@pytest.mark.asyncio
+async def test_every_tool_input_field_is_camel_case() -> None:
+    mcp = create_mcp(_FakeClient(), page=_FakePage, enable_browser_tools=True)
+    fields = {field for tool in await mcp.list_tools() for field in tool.parameters.get('properties', {})}
+    assert {'waitForBridge', 'timeoutMs', 'fullPage'} <= fields
+    assert [field for field in fields if not re.fullmatch(r'[a-z][A-Za-z0-9]*', field)] == []
 
 
 @pytest.mark.asyncio
@@ -369,7 +397,7 @@ async def test_browser_bridge_progress_speaks_through_the_runtime_narrator() -> 
     assert '.narrate(' in expression
 
 
-FIXTURE = json.loads((Path(__file__).parents[2] / 'protocol/test/fixtures/narration.json').read_text())
+FIXTURE = json.loads((Path(__file__).parents[2] / 'sdk/test/protocol/fixtures/narration.json').read_text())
 
 
 def test_narration_contract_matches_every_transport() -> None:
@@ -419,7 +447,11 @@ async def test_mcp_tools_match_the_agent_tools_of_every_transport() -> None:
     tools = {tool.name: tool for tool in await mcp.list_tools()}
     assert set(tools) == set(AGENT_TOOLS)
     for name, contract in AGENT_TOOLS.items():
+        assert tools[name].title == contract['title']
         assert tools[name].description == contract['description']
+        annotations = tools[name].annotations
+        assert annotations is not None
+        assert annotations.read_only_hint is contract['readOnly']
         assert set(tools[name].parameters.get('properties', {})) == set(contract['input'])
 
 

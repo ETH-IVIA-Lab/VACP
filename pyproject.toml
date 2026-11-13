@@ -1,5 +1,7 @@
 [tool.uv]
 required-version = ">=0.13.1"
+# `uv run` installs every group, so the test, lint, and release tools need no extra flags.
+default-groups = "all"
 # Resolve releases at least 18 hours old, matching minimumReleaseAge in pnpm-workspace.yaml.
 exclude-newer = "18 hours"
 
