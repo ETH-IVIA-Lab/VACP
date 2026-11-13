@@ -63,7 +63,7 @@ test('human provenance stays invisible while retained agent presence follows doc
       })
     ).ok,
   ).toBe(true);
-  expect((await tool(page, 'vacp.progress', { message: 'Men aged 22 to 28 are in view.', done: true })).ok).toBe(true);
+  expect((await tool(page, 'vacp_progress', { message: 'Men aged 22 to 28 are in view.', done: true })).ok).toBe(true);
   // The finished request's recorded steps keep tracking the page as it scrolls.
   const bubble = page.locator('[data-vacp-bubble]');
   await expect(bubble.locator('[data-vacp-heading]')).toHaveText('Conclusion');

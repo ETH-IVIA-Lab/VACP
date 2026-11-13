@@ -1,15 +1,17 @@
 import { exampleDuckDbBundles } from '@ethivia/vacp-example-shared';
-import { registerVacpDataSchemaAction, registerVacpDataSqlAction } from '@ethivia/vacp-runtime';
 import type { VacpActions } from '@ethivia/vacp-sdk';
 import {
   createDuckDbDataSchemaHandler,
   createDuckDbDataSqlHandler,
-  createDuckDbWasmClient,
   describeDuckDbTable,
   makeVacpDuckDbTableName,
+  registerVacpDataSchemaAction,
+  registerVacpDataSqlAction,
   sqlStringLiteral,
-} from '@ethivia/vacp-duckdb';
-import type { VacpDataHandleData, VacpDataSchemaColumn } from '@ethivia/vacp-protocol';
+  type VacpDataHandleData,
+  type VacpDataSchemaColumn,
+} from '@ethivia/vacp-sdk/data';
+import { createDuckDbWasmClient } from '@ethivia/vacp-duckdb';
 import type { DatasetId } from '../datasets/registry';
 import type { DashboardSnapshot, ReactDashboardModel } from './model';
 import { dashboardRefs } from './refs';
@@ -74,14 +76,14 @@ export function createDashboardData(actions: VacpActions, model: ReactDashboardM
     },
   });
   if (enableSql)
-    registerVacpDataSqlAction(actions.registry, sql, {
+    registerVacpDataSqlAction(actions, sql, {
       availability: { requires: [handleRef] },
       inputRefs: [handleRef],
       description: 'Query the current dataset via DuckDB SQL.',
     });
 
   registerVacpDataSchemaAction(
-    actions.registry,
+    actions,
     createDuckDbDataSchemaHandler({
       duckdb,
       resolveHandle: async (ref) => {

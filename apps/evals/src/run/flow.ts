@@ -12,7 +12,7 @@ import { flowLabel, flowRecordPath, NO_MODEL, variantPaths, type Flow, type Vari
 import type { InvocationRecord, ResultRow } from '../results/rows';
 import { appendJsonl, holdLock, readJsonl, repairTail, writeJsonl } from '../results/store';
 import type { Suite } from '../suite';
-import { assertFreshBuilds, vacpRevision } from './environment';
+import { vacpRevision } from './environment';
 import { runOne } from './run';
 
 export type RunOptions = {
@@ -101,7 +101,6 @@ async function runJobs(
       `${jobs.length} to run (${options.scenarios.length * reps - jobs.length} already recorded)`,
   );
   if (!jobs.length) return;
-  assertFreshBuilds(suite.repoRoot);
 
   // A gallery that stops answering fails every remaining run the same way, so the flow stops and a
   // rerun resumes the jobs it never started.

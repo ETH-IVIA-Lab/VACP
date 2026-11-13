@@ -1,0 +1,19 @@
+{
+  "name": "@ethivia/vacp-tools",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test --test-concurrency=1 oxlint/anti-slop/rules/*.test.ts oxlint/anti-slop/effect/rules/*.test.ts && tsx --test stylex/*.test.ts && tsc -p oxlint/anti-slop/tsconfig.json --noEmit"
+  },
+  "devDependencies": {
+    "@babel/core": "catalog:",
+    "@babel/plugin-syntax-jsx": "catalog:",
+    "@babel/plugin-syntax-typescript": "catalog:",
+    "@oxlint/plugins": "1.88.0",
+    "@stylexjs/babel-plugin": "catalog:",
+    "@types/babel__core": "catalog:",
+    "@types/node": "catalog:",
+    "tsx": "catalog:",
+    "typescript": "catalog:"
+  }
+}

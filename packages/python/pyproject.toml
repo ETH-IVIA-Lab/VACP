@@ -1,6 +1,6 @@
 [project]
 name = "vacp"
-version = "0.1.1"
+version = "0.2.0"
 description = "Python providers and integrations for the Visual Analytics Context Protocol"
 readme = "README.md"
 license = "Apache-2.0"

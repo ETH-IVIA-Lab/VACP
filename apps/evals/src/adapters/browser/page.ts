@@ -1,10 +1,5 @@
-import {
-  VACP_SCHEMA_VERSION,
-  type VacpActor,
-  type VacpAgentActivityHandle,
-  type VacpGraph,
-} from '@ethivia/vacp-protocol';
-import { compileVacpWebMcpTools } from '@ethivia/vacp-webmcp';
+import { compileVacpWebMcpTools, VACP_SCHEMA_VERSION } from '@ethivia/vacp-sdk/agent';
+import type { VacpActor, VacpAgentActivityHandle, VacpGraph } from '@ethivia/vacp-sdk';
 import type { BrowserContext, Page } from 'playwright';
 import type { ExampleOptions } from '@ethivia/vacp-example-shared/config';
 

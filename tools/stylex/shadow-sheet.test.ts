@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import test from 'node:test';
 import { stylexShadowSheet } from './shadow-sheet';
 
-const root = new URL('../../packages/presence-browser/src/', import.meta.url).pathname;
+const root = new URL('../../packages/overlay/src/', import.meta.url).pathname;
 const plugin = stylexShadowSheet({ root, id: 'virtual:sheet' });
 // The plugin declares plain function hooks; the tests call them as a bundler would.
 const load = plugin.load as (this: { addWatchFile(file: string): void }, id: string) => string | undefined;
@@ -17,7 +17,7 @@ test('every presence style is compiled away, leaving no StyleX call to run in th
     .filter((name) => /\.tsx?$/.test(name))
     .map((name) => ({ name, source: readFileSync(join(root, name), 'utf8') }))
     .filter(({ source }) => source.includes('@stylexjs/stylex'));
-  assert.ok(modules.length > 0, 'presence-browser has StyleX modules');
+  assert.ok(modules.length > 0, 'the overlay has StyleX modules');
   for (const { name, source } of modules) {
     const compiled = hooks.transform(source, join(root, name));
     assert.ok(compiled, `${name} compiles`);

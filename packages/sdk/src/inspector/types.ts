@@ -1,0 +1,66 @@
+import type { VacpActionRequest, VacpActionResult, VacpObservation, VacpRef, VacpRestore } from '../protocol';
+
+export type InspectorRequest = { signal: AbortSignal };
+
+/** A host-owned analytical session. Optional methods describe available capabilities. */
+export interface InspectorClient {
+  readonly id: string;
+  readonly title: string;
+  /** Complete catalog, including unavailable entities and operations. */
+  observe(options: InspectorRequest): Promise<VacpObservation>;
+  execute?(call: VacpActionRequest, options: InspectorRequest): Promise<VacpActionResult>;
+  subscribe?(invalidate: () => void): () => void;
+  restore?: VacpRestore;
+  reveal?(ref: VacpRef, options: InspectorRequest): void | Promise<void>;
+}
+
+export type InspectionSnapshot<T> = T extends Date
+  ? string | null
+  : T extends object
+    ? { readonly [Key in keyof T]: InspectionSnapshot<T[Key]> }
+    : T;
+export type InspectionObservation = InspectionSnapshot<VacpObservation>;
+export type InspectionRecord = { readonly id: number; readonly observation: InspectionObservation };
+
+export type InspectorAction =
+  | { readonly kind: 'execute'; readonly call: InspectionSnapshot<VacpActionRequest> }
+  | { readonly kind: 'restore'; readonly observation: InspectionObservation };
+
+export type InspectorActionState =
+  | { readonly status: 'idle' }
+  | { readonly status: 'running'; readonly action: InspectorAction }
+  | {
+      readonly status: 'complete';
+      readonly action: InspectorAction;
+      readonly result: InspectionSnapshot<VacpActionResult>;
+    }
+  | { readonly status: 'error'; readonly action: InspectorAction; readonly error: Error }
+  | { readonly status: 'capture-error'; readonly action: InspectorAction; readonly error: Error };
+
+export type InspectorState = {
+  readonly status: 'idle' | 'loading' | 'ready' | 'error' | 'disposed';
+  readonly observation: InspectionObservation | null;
+  readonly observationError: Error | null;
+  readonly records: readonly InspectionRecord[];
+  readonly action: InspectorActionState;
+};
+
+export type InspectorSessionOptions = {
+  /** Number of changed observations to retain. Defaults to 0. */
+  historyLimit?: number;
+};
+
+export interface InspectorSession {
+  readonly client: InspectorClient;
+  getState(): InspectorState;
+  /** Listen to state changes. Subscription alone performs no I/O. */
+  subscribe(listener: () => void): () => void;
+  /** Start observation and source invalidation. Repeated starts are idempotent. */
+  start(): void;
+  refresh(): Promise<void>;
+  execute(call: VacpActionRequest, options?: { signal?: AbortSignal }): Promise<VacpActionResult>;
+  restore(observation: InspectionObservation, options?: { signal?: AbortSignal }): Promise<VacpActionResult>;
+  reveal(ref: VacpRef, options?: { signal?: AbortSignal }): Promise<void>;
+  clearHistory(): void;
+  dispose(): void;
+}

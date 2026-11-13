@@ -8,7 +8,7 @@ const cohortRef = 'vacp://vacp-examples/athletes/cohort';
 const bodyRef = 'vacp://vacp-examples/athletes/physique/param/body';
 const handleRef = 'vacp://vacp-examples/athletes/data/main';
 async function count(page: Page, where: string) {
-  const result = await tool(page, 'vacp.data_sql', {
+  const result = await tool(page, 'vacp_data_sql', {
     handleRef,
     sql: `SELECT count(*)::INTEGER AS n FROM vacp_all WHERE ${where}`,
   });
@@ -25,7 +25,7 @@ async function histogramTotal(page: Page) {
 }
 async function expectCount(page: Page, expected: number) {
   await expect(page.locator('.athlete-summary strong').first()).toHaveText(expected.toLocaleString('en-US'));
-  await expect.poll(async () => (await tool(page, 'vacp.state')).snapshot.state[cohortRef].count).toBe(expected);
+  await expect.poll(async () => (await tool(page, 'vacp_state')).snapshot.state[cohortRef].count).toBe(expected);
 }
 
 /** Page the native sports list to a row; selection must survive paging. */
@@ -73,7 +73,7 @@ test('three providers compose one live athlete cohort across native views and We
   await expect
     .poll(() => page.evaluate(async () => (await document.modelContext?.getTools())?.length ?? 0), { timeout: 45000 })
     .toBeGreaterThan(10);
-  const observation = await tool(page, 'vacp.observe');
+  const observation = await tool(page, 'vacp_observe');
   expect(observation.graph.sources.map((source: { type: string }) => source.type).sort()).toEqual([
     'cohort',
     'vega-lite',
@@ -139,10 +139,10 @@ test('three providers compose one live athlete cohort across native views and We
   const female = await count(page, `sport = 'rowing' AND sex = 'female' AND age BETWEEN 22 AND 28 AND ${bodyWhere}`);
   await expectCount(page, female);
   await expect(page.getByRole('combobox', { name: 'Sex' })).toHaveValue('female');
-  const state = (await tool(page, 'vacp.state')).snapshot.state[cohortRef];
+  const state = (await tool(page, 'vacp_state')).snapshot.state[cohortRef];
   expect(state.age).toEqual([22, 28]);
   expect(state.body).not.toBeNull();
-  const data = await tool(page, 'vacp.data_sql', {
+  const data = await tool(page, 'vacp_data_sql', {
     handleRef,
     sql: 'SELECT count(*)::INTEGER AS n FROM vacp_handle',
   });
@@ -165,7 +165,7 @@ test('three providers compose one live athlete cohort across native views and We
   await page.mouse.down();
   await page.mouse.move(box.x + box.width * 0.4, box.y + box.height * 0.5, { steps: 4 });
   await page.mouse.up();
-  await expect.poll(async () => (await tool(page, 'vacp.state')).snapshot.state[cohortRef].age).not.toEqual([22, 28]);
+  await expect.poll(async () => (await tool(page, 'vacp_state')).snapshot.state[cohortRef].age).not.toEqual([22, 28]);
   await page.screenshot({ path: testInfo.outputPath('composed.png'), fullPage: true });
   expect(
     (await tool(page, 'vega_lite.set_selection', { ref: bodyRef, value: { x: [31.1, 31.9], y: [2.1, 2.15] } })).ok,
@@ -189,7 +189,7 @@ test('a height-only brush on the physique chart filters the cohort across every 
     .poll(
       () =>
         page.evaluate(async () =>
-          ((await document.modelContext?.getTools()) ?? []).some((tool) => tool.name.endsWith('vacp.data_sql')),
+          ((await document.modelContext?.getTools()) ?? []).some((tool) => tool.name.endsWith('vacp_data_sql')),
         ),
       appReady,
     )
@@ -217,7 +217,7 @@ test('a height-only brush on the physique chart filters the cohort across every 
   await expect
     .poll(() => histogramTotal(page))
     .toBe(await count(page, `sex = 'female' AND sport = 'aquatics' AND ${tall}`));
-  expect((await tool(page, 'vacp.state')).snapshot.state[cohortRef].body).not.toBeNull();
+  expect((await tool(page, 'vacp_state')).snapshot.state[cohortRef].body).not.toBeNull();
   expect(errors).toEqual([]);
 });
 

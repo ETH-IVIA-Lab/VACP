@@ -1,0 +1,50 @@
+{
+  "name": "@ethivia/vacp-vega",
+  "version": "0.1.0",
+  "description": "VACP provider for Vega-Lite charts: parameters, selections, encodings, data, and presence targets.",
+  "keywords": [
+    "agents",
+    "vacp",
+    "vega",
+    "vega-lite",
+    "visual-analytics"
+  ],
+  "homepage": "https://docs.vacp.dev/api/vega",
+  "bugs": "https://github.com/ETH-IVIA-Lab/VACP/issues",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ETH-IVIA-Lab/VACP.git",
+    "directory": "packages/vega"
+  },
+  "files": [
+    "dist"
+  ],
+  "type": "module",
+  "exports": {
+    ".": {
+      "vacp-source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build": "vp pack",
+    "test": "TZ=America/Los_Angeles tsx --conditions=vacp-source --test --test-timeout=10000 test/*.test.ts",
+    "bench": "tsx --conditions=vacp-source bench/observation.ts && tsx --conditions=vacp-source bench/data.ts"
+  },
+  "devDependencies": {
+    "@duckdb/node-api": "catalog:",
+    "@ethivia/vacp-sdk": "workspace:^",
+    "vega": "catalog:",
+    "vega-lite": "catalog:"
+  },
+  "peerDependencies": {
+    "@ethivia/vacp-sdk": "workspace:^",
+    "vega": "^6.4.0",
+    "vega-lite": "^6.5.0"
+  }
+}

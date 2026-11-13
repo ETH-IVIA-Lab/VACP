@@ -3,13 +3,13 @@ import { test } from '../helpers/test';
 import { repoRoot } from '../helpers/paths';
 import { appServer } from '../helpers/servers';
 
-test('the ref resolver matches the exact ref in its attribute and points at the first placeable match under its root', async ({
+test('the ref presentation matches the exact ref in its attribute and points at the first placeable match under its root', async ({
   page,
 }) => {
   await page.goto(appServer('vega-lite-gallery').url);
   const result = await page.evaluate(async (rootPath) => {
-    const { createRefPresenceResolver }: typeof import('@ethivia/vacp-presence/dom') = await import(
-      `/@fs${rootPath}/packages/presence-core/src/dom.ts`
+    const { createRefPresentation }: typeof import('@ethivia/vacp-sdk/presence') = await import(
+      `/@fs${rootPath}/packages/sdk/src/entries/presence.ts`
     );
     const first = 'vacp://items/first';
     const quoted = 'vacp://items/say "hi" \\ [now]';
@@ -38,8 +38,8 @@ test('the ref resolver matches the exact ref in its attribute and points at the 
       return { kind: 'region', x, y, width, height };
     };
     try {
-      const marked = createRefPresenceResolver(root);
-      const items = createRefPresenceResolver(root, 'data-item');
+      const marked = createRefPresentation(root).resolve;
+      const items = createRefPresentation(root, 'data-item').resolve;
       return {
         first: { actual: await marked({ ref: first }, options), expected: box('#first') },
         quoted: { actual: await marked({ ref: quoted }, options), expected: box('#quoted') },

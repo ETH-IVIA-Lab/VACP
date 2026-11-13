@@ -21,8 +21,8 @@ from vacp import (
     OperationResultDescriptor,
     OperationSemantics,
     PreparedAction,
-    ProviderComposer,
     ProviderObservation,
+    Runtime,
     SimpleProvider,
     SourceDescription,
     as_dict,
@@ -30,7 +30,7 @@ from vacp import (
 
 Prepare: TypeAlias = Callable[[ActionCall, ActionContext], PreparedAction]
 
-CALL_IDS = json.loads((Path(__file__).parents[2] / 'protocol/test/fixtures/call-id.json').read_text())
+CALL_IDS = json.loads((Path(__file__).parents[2] / 'sdk/test/protocol/fixtures/call-id.json').read_text())
 
 
 def preparing(run: Callable[[ActionCall], ActionResult | Awaitable[ActionResult]]) -> Prepare:
@@ -79,7 +79,7 @@ def source(source_id: str, ref: str, operation: str, *, edge: Edge | None = None
 async def test_composition_preserves_ownership_relations_freshness_and_routing() -> None:
     widget_ref = 'vacp://widget/filter'
     chart_ref = 'vacp://notebook/chart'
-    composer = ProviderComposer(
+    runtime = Runtime(
         [
             source('vacp-source://widget', widget_ref, 'widget.update'),
             source(
@@ -91,7 +91,7 @@ async def test_composition_preserves_ownership_relations_freshness_and_routing()
         ]
     )
     try:
-        observation = await composer.observe()
+        observation = await runtime.observe()
         assert observation.node_owners == {
             widget_ref: 'vacp-source://widget',
             chart_ref: 'vacp-source://notebook',
@@ -112,27 +112,27 @@ async def test_composition_preserves_ownership_relations_freshness_and_routing()
             'role': 'visualization',
             'ref': chart_ref,
         }
-        assert await composer.execute(ActionRequest('notebook.evaluate', call_id='run')) == ActionResult(
+        assert await runtime.execute(ActionRequest('notebook.evaluate', call_id='run')) == ActionResult(
             'run', True, result='vacp-source://notebook'
         )
     finally:
-        composer.dispose()
+        runtime.dispose()
 
 
 @pytest.mark.asyncio
 async def test_composition_rejects_competing_node_owners() -> None:
-    composer = ProviderComposer(
+    runtime = Runtime(
         [
             source('vacp-source://one', 'vacp://shared', 'one'),
             source('vacp-source://two', 'vacp://shared', 'two'),
         ]
     )
     with pytest.raises(ValueError, match='owned by both'):
-        await composer.observe()
+        await runtime.observe()
 
 
 @pytest.mark.asyncio
-async def test_composer_routes_a_changed_catalog_and_disposes_once() -> None:
+async def test_runtime_routes_a_changed_catalog_and_disposes_once() -> None:
     current = source('vacp-source://dynamic', 'vacp://dynamic', 'first')
     close_count = 0
 
@@ -141,17 +141,17 @@ async def test_composer_routes_a_changed_catalog_and_disposes_once() -> None:
         close_count += 1
 
     current.dispose = close
-    composer = ProviderComposer([current])
-    await composer.observe()
+    runtime = Runtime([current])
+    await runtime.observe()
     current.observe = source('vacp-source://dynamic', 'vacp://dynamic', 'second').observe
-    result = await composer.execute(ActionRequest('second'))
+    result = await runtime.execute(ActionRequest('second'))
     assert result.ok
-    assert not (await composer.execute(ActionRequest('first'))).ok
-    composer.dispose()
-    composer.dispose()
+    assert not (await runtime.execute(ActionRequest('first'))).ok
+    runtime.dispose()
+    runtime.dispose()
     assert close_count == 1
     with pytest.raises(RuntimeError, match='disposed'):
-        await composer.observe()
+        await runtime.observe()
 
 
 @pytest.mark.asyncio
@@ -174,10 +174,10 @@ async def test_disposal_rejects_pending_observations_before_operation_dispatch()
         return ActionResult(call.call_id, True)
 
     current.observe, current.prepare = observe, preparing(invoke)
-    composer = ProviderComposer([current])
-    pending = asyncio.create_task(composer.execute(ActionRequest('run')))
+    runtime = Runtime([current])
+    pending = asyncio.create_task(runtime.execute(ActionRequest('run')))
     await entered.wait()
-    composer.dispose()
+    runtime.dispose()
     release.set()
     with pytest.raises(RuntimeError, match='disposed'):
         await pending
@@ -201,10 +201,10 @@ async def test_disposal_during_preparation_prevents_execution() -> None:
         return PreparedAction(lambda: run(call))
 
     current.prepare = prepare
-    composer = ProviderComposer([current])
-    pending = asyncio.create_task(composer.execute(ActionRequest('run')))
+    runtime = Runtime([current])
+    pending = asyncio.create_task(runtime.execute(ActionRequest('run')))
     await entered.wait()
-    composer.dispose()
+    runtime.dispose()
     release.set()
     with pytest.raises(RuntimeError, match='disposed'):
         await pending
@@ -212,7 +212,7 @@ async def test_disposal_during_preparation_prevents_execution() -> None:
 
 
 @pytest.mark.asyncio
-async def test_a_completed_result_stands_when_the_composer_is_disposed_during_execution() -> None:
+async def test_a_completed_result_stands_when_the_runtime_is_disposed_during_execution() -> None:
     current = source('source', 'node', 'run')
     entered, release = asyncio.Event(), asyncio.Event()
 
@@ -222,16 +222,16 @@ async def test_a_completed_result_stands_when_the_composer_is_disposed_during_ex
         return ActionResult(call.call_id, True, result='applied')
 
     current.prepare = preparing(run)
-    composer = ProviderComposer([current])
-    pending = asyncio.create_task(composer.execute(ActionRequest('run', call_id='call')))
+    runtime = Runtime([current])
+    pending = asyncio.create_task(runtime.execute(ActionRequest('run', call_id='call')))
     await entered.wait()
-    composer.dispose()
+    runtime.dispose()
     release.set()
     assert await pending == ActionResult('call', True, result='applied')
 
 
 @pytest.mark.asyncio
-async def test_composer_assigns_a_missing_or_blank_call_id_and_keeps_any_other_as_written() -> None:
+async def test_runtime_assigns_a_missing_or_blank_call_id_and_keeps_any_other_as_written() -> None:
     current = source('source', 'node', 'run')
     prepared: list[str] = []
 
@@ -240,39 +240,39 @@ async def test_composer_assigns_a_missing_or_blank_call_id_and_keeps_any_other_a
         return ActionResult(call.call_id, True)
 
     current.prepare = preparing(invoke)
-    composer = ProviderComposer([current])
+    runtime = Runtime([current])
     try:
         ids: list[str] = []
         for supplied in CALL_IDS['assigned']:
             request = ActionRequest('run', call_id=supplied.get('callId'))
-            first = await composer.execute(request)
-            second = await composer.execute(request)
+            first = await runtime.execute(request)
+            second = await runtime.execute(request)
             assert first.call_id != second.call_id
             assert supplied.get('callId') not in (first.call_id, second.call_id)
             ids += [first.call_id, second.call_id]
         for supplied in CALL_IDS['kept']:
-            result = await composer.execute(ActionRequest('run', call_id=supplied['callId']))
+            result = await runtime.execute(ActionRequest('run', call_id=supplied['callId']))
             assert result.call_id == supplied['callId']
             ids.append(result.call_id)
         assert prepared == ids
     finally:
-        composer.dispose()
+        runtime.dispose()
 
 
 @pytest.mark.asyncio
 async def test_a_result_carries_the_call_id_even_when_the_provider_answers_under_another() -> None:
     current = source('source', 'node', 'run')
     current.prepare = preparing(lambda call: ActionResult('provider-chosen', True))
-    composer = ProviderComposer([current])
+    runtime = Runtime([current])
     try:
-        assert (await composer.execute(ActionRequest('run', call_id='mine'))).call_id == 'mine'
-        assert (await composer.execute(ActionRequest('run'))).call_id != 'provider-chosen'
+        assert (await runtime.execute(ActionRequest('run', call_id='mine'))).call_id == 'mine'
+        assert (await runtime.execute(ActionRequest('run'))).call_id != 'provider-chosen'
     finally:
-        composer.dispose()
+        runtime.dispose()
 
 
 @pytest.mark.asyncio
-async def test_composer_rejects_a_call_id_that_is_not_a_string() -> None:
+async def test_runtime_rejects_a_call_id_that_is_not_a_string() -> None:
     current = source('source', 'node', 'run')
     prepared: list[str] = []
 
@@ -281,14 +281,14 @@ async def test_composer_rejects_a_call_id_that_is_not_a_string() -> None:
         return ActionResult(call.call_id, True)
 
     current.prepare = preparing(invoke)
-    composer = ProviderComposer([current])
+    runtime = Runtime([current])
     try:
         for supplied in CALL_IDS['rejected']:
             with pytest.raises(TypeError, match='call_id must be a string'):
-                await composer.execute(ActionRequest('run', call_id=supplied['callId']))
+                await runtime.execute(ActionRequest('run', call_id=supplied['callId']))
         assert prepared == []
     finally:
-        composer.dispose()
+        runtime.dispose()
 
 
 @pytest.mark.asyncio
@@ -309,13 +309,13 @@ async def test_a_failed_preparation_is_a_failure_result_before_any_effect() -> N
         raise ValueError('Expected a value')
 
     current.prepare = prepare
-    composer = ProviderComposer([current])
+    runtime = Runtime([current])
     try:
-        assert await composer.execute(ActionRequest('run', call_id='call')) == ActionResult(
+        assert await runtime.execute(ActionRequest('run', call_id='call')) == ActionResult(
             'call', False, error={'message': 'Expected a value'}
         )
     finally:
-        composer.dispose()
+        runtime.dispose()
 
 
 @pytest.mark.asyncio
@@ -329,18 +329,18 @@ async def test_observations_are_captured_once_and_isolated_from_providers_and_co
         )
 
     current.observe = observe
-    composer = ProviderComposer([current])
+    runtime = Runtime([current])
     try:
-        first = await composer.observe()
+        first = await runtime.observe()
         values = first.state['vacp://node']
         assert isinstance(values, dict)
         values['values'].append('consumer')
         shared['values'] = ['provider']
         assert first.state['vacp://node'] == {'values': [1, 2, 'consumer']}
-        assert (await composer.inspect()).state['vacp://node'] == {'values': ['provider']}
+        assert (await runtime.inspect()).state['vacp://node'] == {'values': ['provider']}
         assert shared == {'values': ['provider']}
     finally:
-        composer.dispose()
+        runtime.dispose()
 
 
 def test_failed_construction_releases_acquired_subscriptions() -> None:
@@ -356,7 +356,7 @@ def test_failed_construction_releases_acquired_subscriptions() -> None:
     first, second = source('first', 'a', 'a'), source('second', 'b', 'b')
     first.subscribe, second.subscribe = subscribe, fail
     with pytest.raises(RuntimeError, match='Cannot subscribe'):
-        ProviderComposer([first, second])
+        Runtime([first, second])
     assert not attached
 
 
@@ -372,13 +372,13 @@ def test_disposal_releases_every_source_even_when_cleanup_fails() -> None:
     first.dispose = failing_cleanup
     second.subscribe = lambda _callback: lambda: released.append('second subscription')
     second.dispose = lambda: released.append('second provider')
-    composer = ProviderComposer([first, second])
+    runtime = Runtime([first, second])
     with pytest.raises(RuntimeError, match='Cleanup failed'):
-        composer.dispose()
+        runtime.dispose()
     assert sorted(released) == ['failed cleanup', 'failed cleanup', 'second provider', 'second subscription']
-    composer.dispose()
+    runtime.dispose()
     with pytest.raises(RuntimeError, match='disposed'):
-        composer.subscribe(lambda: None)
+        runtime.subscribe(lambda: None)
 
 
 @pytest.mark.asyncio
@@ -402,20 +402,20 @@ async def test_subscriber_failure_does_not_change_operation_result_or_skip_other
         raise RuntimeError('Broken viewer')
 
     current.subscribe, current.prepare = subscribe, preparing(invoke)
-    composer = ProviderComposer([current])
-    composer.subscribe(fail)
-    composer.subscribe(lambda: notified.append('changed'))
+    runtime = Runtime([current])
+    runtime.subscribe(fail)
+    runtime.subscribe(lambda: notified.append('changed'))
     try:
-        assert (await composer.execute(ActionRequest('run'))).ok
+        assert (await runtime.execute(ActionRequest('run'))).ok
         assert notified == ['changed']
         assert 'Broken viewer' in caplog.text
     finally:
-        composer.dispose()
+        runtime.dispose()
 
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize('supplied', [False, True])
-async def test_composer_preserves_parameter_presence(supplied: bool) -> None:
+async def test_runtime_preserves_parameter_presence(supplied: bool) -> None:
     provider = source('vacp-source://params', 'vacp://params', 'reset')
     seen: list[bool] = []
 
@@ -426,11 +426,11 @@ async def test_composer_preserves_parameter_presence(supplied: bool) -> None:
         return PreparedAction(lambda: ActionResult(call.call_id, True))
 
     provider.prepare = prepare
-    composer = ProviderComposer([provider])
+    runtime = Runtime([provider])
     try:
         request = ActionRequest('reset', None) if supplied else ActionRequest('reset')
-        result = await composer.execute(request)
+        result = await runtime.execute(request)
         assert result.ok, result.error
         assert seen == [supplied]
     finally:
-        composer.dispose()
+        runtime.dispose()

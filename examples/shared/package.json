@@ -8,20 +8,11 @@
     "./config": "./config.ts",
     "./html": "./html.ts"
   },
-  "scripts": {
-    "typecheck": "tsc -p tsconfig.json --noEmit"
-  },
   "dependencies": {
     "@duckdb/duckdb-wasm": "catalog:",
-    "@ethivia/vacp-analytics": "workspace:*",
-    "@ethivia/vacp-browser": "workspace:*",
+    "@ethivia/vacp-overlay": "workspace:*",
     "@ethivia/vacp-posthog": "workspace:*",
-    "@ethivia/vacp-presence": "workspace:*",
-    "@ethivia/vacp-presence-react": "workspace:*",
-    "@ethivia/vacp-protocol": "workspace:*",
-    "@ethivia/vacp-provenance": "workspace:*",
-    "@ethivia/vacp-runtime": "workspace:*",
-    "@ethivia/vacp-webmcp": "workspace:*",
-    "posthog-js": "^1.438.10"
+    "@ethivia/vacp-sdk": "workspace:*",
+    "posthog-js": "catalog:"
   }
 }

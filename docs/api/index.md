@@ -1,35 +1,25 @@
 # API reference
 
-Each package page lists its entry points, signatures, options with defaults, return values, errors, and lifecycle. Protocol records and Agent tools document the contracts every package and transport share. The [core concepts](../concepts/) page defines the records these APIs exchange.
+Each page documents one package entry or one shared contract: every exported name with its signature, behavior, options and defaults, return value, and errors. [Install](../install/) lists the packages and their peer dependencies, and [Concepts](../concepts/) defines the terms these pages use.
 
-## Contracts
+## @ethivia/vacp-sdk
 
-- [Protocol records](./protocol): nodes, edges, operations, observations, state updates, freshness, availability, executions, and provenance records from `@ethivia/vacp-protocol`.
-- [Agent tools](./agent-tools): the five shared agent tools, their inputs, results, and bounds.
+- [Actions and providers](./actions): `createVacpActions`, `createVacpProvider`, `VacpActionRegistry`, the standard actions, and subscription helpers.
+- [Runtime and page bridge](./runtime): `createVacpRuntime`, `installVacpRuntime`, the DOM snapshot, restoration, and actors.
+- [Provenance and replay](./provenance): `createProvenanceReplay`, checkpoints, and value attribution.
+- [Protocol types](./protocol): nodes, edges, actions, observations, state updates, freshness, availability, executions, and provenance records.
+- [`/data`](./data): data handles, and registration and DuckDB handlers for the `vacp.data_sql` and `vacp.data_schema` actions.
+- [`/presence`](./presence): the presence engine, targets, and pacing.
+- [`/agent`](./agent): the page bridge reader, the agent tools over it, WebMCP registration, and the tool contract.
+- [`/inspector`](./inspector): inspection sessions, graph indexes, and clients.
+- [Agent tools](./agent-tools): the five agent tools, their inputs, results, and bounds.
 
-## Runtime
+## Integrations
 
-- [`@ethivia/vacp-runtime`](./runtime): `createVacpRuntime`, `createVacpProvider`, standard operations, restoration, and execution activity.
-- [`@ethivia/vacp-browser`](./browser): `installVacpRuntime`, `getVacpBridge`, and the DOM snapshot format.
-- [`@ethivia/vacp-sdk`](./sdk): `createVacpActions` and `createVacpRefBuilder` for custom providers.
-
-## Providers
-
-- [`@ethivia/vacp-vega-lite`](./vega-lite): `createVegaLiteProvider` and its operations.
-- [`@ethivia/vacp-vgplot`](./vgplot): `createVgplotProvider` and its operations.
-- [`@ethivia/vacp-duckdb`](./data-duckdb): DuckDB clients and the `vacp.data_sql` and `vacp.data_schema` handlers.
-
-## Agents
-
-- [`@ethivia/vacp-bridge`](./transport-bridge): `createVacpTransport` over a page bridge.
-- [`@ethivia/vacp-ai-sdk`](./agent-ai-sdk): AI SDK tools, an agent, and a chat runtime.
-- [`@ethivia/vacp-webmcp`](./webmcp): `installVacpWebMcp` and the tools it registers.
-- [`vacp` (Python)](./python): the MCP server CLI, Python providers, and the inspection endpoint.
-
-## Presence and history
-
-- [`@ethivia/vacp-presence`](./presence-core): headless presence, targets, and pacing.
-- [`@ethivia/vacp-presence-react`](./presence-browser): the browser overlay and its appearance options.
-- [`@ethivia/vacp-provenance`](./provenance): checkpoints, value attribution, and replay.
-- [`@ethivia/vacp-inspector`](./inspector): inspection sessions, graph indexes, and clients.
-- [`@ethivia/vacp-analytics`](./analytics): runtime telemetry, and `createPosthogProvider` from `@ethivia/vacp-posthog`.
+- [`@ethivia/vacp-vega`](./vega): the Vega-Lite provider and presentation.
+- [`@ethivia/vacp-vgplot`](./vgplot): the Mosaic vgplot provider and presentation.
+- [`@ethivia/vacp-duckdb`](./duckdb): a DuckDB-Wasm client.
+- [`@ethivia/vacp-ai`](./ai): AI SDK tools, an agent, and a chat runtime.
+- [`@ethivia/vacp-overlay`](./overlay): the browser presence overlay and Markdown bubbles.
+- [`@ethivia/vacp-posthog`](./posthog): provenance events in PostHog.
+- [`vacp` (Python)](./python): the MCP server, Python providers, and the inspection endpoint.

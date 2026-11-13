@@ -3,21 +3,21 @@ import { micromark } from 'micromark';
 import { test } from '../helpers/test';
 import { appServer } from '../helpers/servers';
 
-test('documentation serves the integration guide with its executable example and reaches the reference', async ({
+test('documentation serves the custom provider guide with its executable example and reaches the reference', async ({
   page,
 }, testInfo) => {
   const server = appServer('docs');
   const errors: string[] = [];
   page.on('pageerror', (error) => errors.push(error.message));
-  await page.goto(`${server.url}integrate/`);
-  await expect(page.locator('.vp-doc h1')).toHaveText('Connect an application');
+  await page.goto(`${server.url}custom-provider/`);
+  await expect(page.locator('.vp-doc h1')).toHaveText('Custom provider');
   await expect(page.locator('.vp-doc')).toContainText('connectThreshold');
   await expect(page.locator('.vp-doc')).toContainText("from '@ethivia/vacp-sdk'");
   await page.getByRole('link', { name: 'API reference', exact: true }).first().click();
-  await page.getByRole('link', { name: '@ethivia/vacp-browser', exact: true }).first().click();
-  await expect(page.locator('.vp-doc h1')).toHaveText('@ethivia/vacp-browser');
+  await page.getByRole('link', { name: 'Runtime and page bridge', exact: true }).first().click();
+  await expect(page.locator('.vp-doc h1')).toHaveText('Runtime and page bridge');
   await expect(page.locator('.vp-doc')).toContainText('installVacpRuntime');
-  await page.screenshot({ path: testInfo.outputPath('runtime-browser-reference.png'), fullPage: true });
+  await page.screenshot({ path: testInfo.outputPath('browser-reference.png'), fullPage: true });
   expect(errors).toEqual([]);
 });
 
@@ -55,9 +55,9 @@ test('llms.txt indexes the guide as Markdown views whose links reach views and f
     expect.arrayContaining([
       'What is VACP?',
       'Get started',
-      'Connect an application',
+      'Custom provider',
       'Connect an agent',
-      '@ethivia/vacp-sdk',
+      'Actions and providers',
     ]),
   );
   const targets = new Set<string>();
@@ -79,5 +79,5 @@ test('the overview renders its architecture diagram', async ({ page }) => {
   await page.goto(`${server.url}what-is-vacp/`);
   const diagram = page.getByRole('img', { name: 'VACP architecture' });
   await expect(diagram).toBeVisible();
-  await expect(diagram).toContainText('@ethivia/vacp-runtime');
+  await expect(diagram).toContainText('@ethivia/vacp-sdk');
 });

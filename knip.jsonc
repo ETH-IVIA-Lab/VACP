@@ -2,11 +2,11 @@
   "$schema": "https://unpkg.com/knip@6/schema-jsonc.json",
   // Vendored plugin code is validated by its own rule tests and type check.
   "ignore": ["tools/oxlint/anti-slop/**"],
-  // Make is supplied by the host.
-  "ignoreBinaries": ["make"],
+  // uv is supplied by the host.
+  "ignoreBinaries": ["uv"],
   "workspaces": {
     ".": {
-      "entry": ["vite.shared.ts", "tools/oxlint/anti-slop/**/*.test.ts", "examples/custom-integration/threshold.ts"],
+      "entry": ["vite.shared.ts", "examples/custom-integration/threshold.ts"],
     },
     "scripts": {
       "entry": ["*.ts"],
@@ -23,7 +23,7 @@
       // src/index.ts is the authoring API that suites and scenarios build on.
       "entry": ["evals.config.ts", "src/index.ts", "test/*.test.ts"],
     },
-    "packages/agent-ai-sdk": {
+    "packages/ai": {
       // @ai-sdk/provider's public declarations import json-schema, whose types it omits from dependencies.
       "ignoreDependencies": ["@types/json-schema"],
     },

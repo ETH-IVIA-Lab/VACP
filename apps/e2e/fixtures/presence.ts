@@ -1,20 +1,20 @@
 import embed from 'vega-embed';
-import { createVegaLiteProvider } from '@ethivia/vacp-vega-lite';
-import { createVegaLitePresentation } from '@ethivia/vacp-vega-lite/presentation';
-import { vacpAgentActor, type VacpRef } from '@ethivia/vacp-protocol';
-import { createVacpProvider, createVacpRuntime, VacpActionRegistry } from '@ethivia/vacp-runtime';
-import { createRefPresenceResolver } from '@ethivia/vacp-presence/dom';
+import { createVegaLitePresentation, createVegaLiteProvider } from '@ethivia/vacp-vega';
 import {
-  createBrowserPresence,
-  createBrowserPresenceRenderer,
-  type BrowserPresenceOptions,
-} from '@ethivia/vacp-presence-react';
+  createVacpProvider,
+  createVacpRuntime,
+  VacpActionRegistry,
+  vacpAgentActor,
+  type VacpRef,
+} from '@ethivia/vacp-sdk';
+import { createRefPresentation } from '@ethivia/vacp-sdk/presence';
+import { type PresenceAppearance, createPresenceOverlay, createPresenceOverlayRenderer } from '@ethivia/vacp-overlay';
 
 /** Exercise real Vega rendering with explicit padding and CSS scaling. */
 export async function mountPresenceChart(
   root: HTMLElement,
   renderer: 'svg' | 'canvas',
-  presenceOptions: Parameters<typeof createBrowserPresence>[1] = {},
+  presenceOptions: Parameters<typeof createPresenceOverlay>[1] = {},
 ) {
   const spec = {
     $schema: 'https://vega.github.io/schema/vega-lite/v6.json',
@@ -38,16 +38,18 @@ export async function mountPresenceChart(
     view: result.view,
     vgSpec: result.vgSpec,
     spec,
-    options: { appId: 'presence-test', viewId: renderer, vizId: 'chart' },
+    appId: 'presence-test',
+    viewId: renderer,
+    vizId: 'chart',
   };
   const provider = createVegaLiteProvider(config);
   const runtime = createVacpRuntime({ providers: [provider] });
-  const presence = createBrowserPresence(runtime, {
+  const presence = createPresenceOverlay(runtime, {
     lingerMs: 30_000,
     appearance: { motion: 'reduced' },
     ...presenceOptions,
   });
-  presence.attach(provider, createVegaLitePresentation({ provider, root: config.root }));
+  presence.attach(provider, createVegaLitePresentation(provider));
   const graph = (await runtime.getCapabilities()).graph;
   const action = graph.actions.find((action) => action.operation.contract === 'vega_lite.set_selection')!;
   const ref = graph.nodes.find((node) => node.ref.endsWith('/param/brush'))!.ref;
@@ -95,7 +97,7 @@ function cursorFixture({ width, height } = { width: 1000, height: 600 }) {
     for (const callback of pending) callback(now);
   };
   const render = (
-    renderer: ReturnType<typeof createBrowserPresenceRenderer>,
+    renderer: ReturnType<typeof createPresenceOverlayRenderer>,
     id: string,
     x: number | null,
     kind?: string,
@@ -137,14 +139,14 @@ function cursorFixture({ width, height } = { width: 1000, height: 600 }) {
       ripple: !!shadow.querySelector('[data-vacp-ripple]'),
     };
   };
-  const renderers: ReturnType<typeof createBrowserPresenceRenderer>[] = [];
+  const renderers: ReturnType<typeof createPresenceOverlayRenderer>[] = [];
   return {
     doc,
     tick,
     render,
     read,
-    create(options: BrowserPresenceOptions = {}) {
-      const renderer = createBrowserPresenceRenderer({ ...options, document: doc });
+    create(options: PresenceAppearance = {}) {
+      const renderer = createPresenceOverlayRenderer({ ...options, document: doc });
       renderers.push(renderer);
       return renderer;
     },
@@ -263,7 +265,7 @@ export function measureCursorAppearance() {
 
 /** Check the rendered overlay against independent target rectangles, including during motion. */
 export async function measureBubblePlacement() {
-  const renderer = createBrowserPresenceRenderer({ motion: 'full', hover: false });
+  const renderer = createPresenceOverlayRenderer({ motion: 'full', hover: false });
   const host = [...document.querySelectorAll('[data-vacp-presence]')].at(-1)!.shadowRoot!;
   const actor = { id: 'bubble-test', kind: 'agent' as const, label: 'Analyst' };
   const rectangles = [
@@ -329,7 +331,7 @@ export async function measureBubblePlacement() {
 }
 
 type Region = { x: number; y: number; width: number; height: number };
-type Geometry = import('@ethivia/vacp-presence').PresenceGeometry;
+type Geometry = import('@ethivia/vacp-sdk/presence').PresenceGeometry;
 
 function covered(label: DOMRect, region: Region) {
   return (
@@ -377,7 +379,7 @@ function coverage(label: Element, region: Region) {
 }
 
 /** Show one step of an agent acting on `geometry`, and return the overlay's shadow root. */
-function showStep(doc: Document, renderer: ReturnType<typeof createBrowserPresenceRenderer>, geometry: Geometry) {
+function showStep(doc: Document, renderer: ReturnType<typeof createPresenceOverlayRenderer>, geometry: Geometry) {
   renderer.render({
     reason: 'activity',
     activities: [
@@ -486,9 +488,9 @@ export function measureBubbleJump() {
 }
 
 export function measureGrowingTrailFocus() {
-  const renderer = createBrowserPresenceRenderer({ motion: 'reduced', hover: false });
+  const renderer = createPresenceOverlayRenderer({ motion: 'reduced', hover: false });
   const shadow = [...document.querySelectorAll('[data-vacp-presence]')].at(-1)!.shadowRoot!;
-  const render = (frames: import('@ethivia/vacp-presence').PresenceTrailFrame[]) =>
+  const render = (frames: import('@ethivia/vacp-sdk/presence').PresenceTrailFrame[]) =>
     renderer.render({
       reason: 'activity',
       activities: [
@@ -533,10 +535,10 @@ export function measureGrowingTrailFocus() {
 
 /** An unnarrated recorded step of a two-step request by `vacpAgentActor`, drawn with the host's labels. */
 export function showRecordedStep(
-  labels: BrowserPresenceOptions['labels'],
+  labels: PresenceAppearance['labels'],
   { reviewing, working }: { reviewing: boolean; working: boolean },
 ) {
-  const renderer = createBrowserPresenceRenderer({ motion: 'reduced', hover: false, labels });
+  const renderer = createPresenceOverlayRenderer({ motion: 'reduced', hover: false, labels });
   renderer.render({
     reason: 'activity',
     activities: [
@@ -604,12 +606,12 @@ export async function presentMarkedSteps() {
   });
   const runtime = createVacpRuntime({ providers: [provider] });
   const unplaced: string[] = [];
-  const presence = createBrowserPresence(runtime, {
+  const presence = createPresenceOverlay(runtime, {
     appearance: { motion: 'reduced' },
     lingerMs: 0,
     onUnplaced: (activity) => unplaced.push(activity.execution!.name),
   });
-  presence.attach(provider, { resolve: createRefPresenceResolver(form) });
+  presence.attach(provider, createRefPresentation(form));
   const settle = () => new Promise((resolve) => requestAnimationFrame(() => setTimeout(resolve)));
   const turn = runtime.beginAgentActivity({ actor: vacpAgentActor });
   try {

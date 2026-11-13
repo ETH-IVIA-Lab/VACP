@@ -7,7 +7,6 @@
     "dev": "portless run vitepress dev .",
     "build": "vitepress build .",
     "preview": "vitepress preview .",
-    "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "tsx --test --test-timeout=10000 test/*.test.ts"
   },
   "devDependencies": {

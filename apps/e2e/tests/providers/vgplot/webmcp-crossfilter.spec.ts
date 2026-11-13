@@ -13,7 +13,7 @@ test('WebMCP time changes and reads preserve a human spatial brush with source-s
     .poll(
       () =>
         page.evaluate(
-          async () => (await document.modelContext?.getTools())?.some((tool) => tool.name === 'vacp.observe') ?? false,
+          async () => (await document.modelContext?.getTools())?.some((tool) => tool.name === 'vacp_observe') ?? false,
         ),
       { timeout: 60_000 },
     )
@@ -44,18 +44,18 @@ test('WebMCP time changes and reads preserve a human spatial brush with source-s
   ).toBe(true);
   await expect
     .poll(async () => {
-      const state = (await tool(page, 'vacp.state')).snapshot.state;
+      const state = (await tool(page, 'vacp_state')).snapshot.state;
       return [0, 1, 2].map((index) => state[ref(index)].selectionValue);
     })
     .toEqual([null, manual, [20, 22]]);
-  const observation = await tool(page, 'vacp.observe');
+  const observation = await tool(page, 'vacp_observe');
   expect(observation.state[ref(0)].selectionValue).toBeNull();
   expect(observation.state[ref(1)].selectionValue).toEqual(manual);
   expect(observation.state[ref(2)].selectionValue).toEqual([20, 22]);
   const handleRef = 'vacp://vacp-examples/vgplot/nyc-taxi-rides/data/main';
-  await tool(page, 'vacp.data_schema', { handleRef });
+  await tool(page, 'vacp_data_schema', { handleRef });
   expect(
-    (await tool(page, 'vacp.data_sql', { handleRef, sql: 'SELECT count(*)::INTEGER AS n FROM vacp_handle' })).ok,
+    (await tool(page, 'vacp_data_sql', { handleRef, sql: 'SELECT count(*)::INTEGER AS n FROM vacp_handle' })).ok,
   ).toBe(true);
   expect(
     (
@@ -64,7 +64,7 @@ test('WebMCP time changes and reads preserve a human spatial brush with source-s
       })
     ).ok,
   ).toBe(true);
-  expect((await tool(page, 'vacp.state')).snapshot.state[ref(1)].selectionValue).toEqual(manual);
+  expect((await tool(page, 'vacp_state')).snapshot.state[ref(1)].selectionValue).toEqual(manual);
   await expect(plots.nth(1).locator('rect.selection')).toBeVisible();
   expect(
     (
@@ -74,10 +74,10 @@ test('WebMCP time changes and reads preserve a human spatial brush with source-s
     ).ok,
   ).toBe(true);
   await expect(plots.nth(1).locator('rect.selection')).toBeHidden();
-  expect((await tool(page, 'vacp.apply_state', { state: observation.state })).ok).toBe(true);
+  expect((await tool(page, 'vacp_apply_state', { state: observation.state })).ok).toBe(true);
   await expect
     .poll(async () => {
-      const state = (await tool(page, 'vacp.state')).snapshot.state;
+      const state = (await tool(page, 'vacp_state')).snapshot.state;
       return [0, 1, 2].map((index) => state[ref(index)].selectionValue);
     })
     .toEqual([null, manual, [20, 22]]);
@@ -100,7 +100,7 @@ test('WebMCP taxi brushes update linked rasters, preserve context, and accept ei
     .poll(
       () =>
         page.evaluate(
-          async () => (await document.modelContext?.getTools())?.some((tool) => tool.name === 'vacp.observe') ?? false,
+          async () => (await document.modelContext?.getTools())?.some((tool) => tool.name === 'vacp_observe') ?? false,
         ),
       { timeout: 60_000 },
     )
@@ -111,8 +111,8 @@ test('WebMCP taxi brushes update linked rasters, preserve context, and accept ei
   const bars = await histogram.innerHTML();
 
   // Replay discovery and SQL before the action, as a browser agent does.
-  await tool(page, 'vacp.observe');
-  const query = await tool(page, 'vacp.data_sql', {
+  await tool(page, 'vacp_observe');
+  const query = await tool(page, 'vacp_data_sql', {
     handleRef: 'vacp://vacp-examples/vgplot/nyc-taxi-rides/data/main',
     sql: 'SELECT floor(px/2500)*2500 AS px_bin, floor(py/2500)*2500 AS py_bin, count(*) AS n FROM vacp_all GROUP BY 1, 2 ORDER BY n DESC LIMIT 10',
   });
@@ -139,7 +139,7 @@ test('WebMCP taxi brushes update linked rasters, preserve context, and accept ei
     ).ok,
   ).toBe(true);
   // A subsequent SQL read lets the native query queue drain before comparing rendered output.
-  const rows = await tool(page, 'vacp.data_sql', {
+  const rows = await tool(page, 'vacp_data_sql', {
     handleRef: 'vacp://vacp-examples/vgplot/nyc-taxi-rides/data/main',
     sql: 'SELECT count(*)::INTEGER AS n FROM vacp_handle',
   });

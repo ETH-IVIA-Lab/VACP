@@ -38,8 +38,9 @@ export default defineConfig({
     format: 'esm',
     platform: 'neutral',
     target: 'es2022',
-    dts: true,
-    sourcemap: true,
+    // Declarations resolve sibling packages through their built `dist`, as a consumer does, so every
+    // emitted type names a public entry.
+    dts: { compilerOptions: { customConditions: [] } },
     report: false,
   },
   fmt: {
@@ -71,7 +72,7 @@ export default defineConfig({
     },
     overrides: [
       {
-        files: ['packages/presence-browser/src/**'],
+        files: ['packages/overlay/src/**'],
         plugins: ['react'],
         rules: {
           'react/rules-of-hooks': 'error',
@@ -108,29 +109,20 @@ export default defineConfig({
           ],
         },
       },
+      // Each library imports only the public entries listed for it. The core imports its own layers by
+      // relative path, and packages/sdk/test/layers.test.ts keeps those layers pointing inward.
       ...Object.entries({
-        protocol: [],
-        runtime: ['protocol'],
-        'runtime-browser': ['protocol', 'runtime'],
-        'transport-bridge': ['protocol'],
-        'transport-webmcp': ['protocol'],
-        'data-duckdb': ['protocol'],
-        analytics: ['protocol'],
-        'analytics-posthog': ['analytics'],
-        'agent-ai-sdk': ['protocol', 'bridge'],
-        sdk: ['protocol', 'runtime', 'browser'],
-        'adapter-vega-lite': ['protocol', 'runtime', 'duckdb'],
-        'adapter-vgplot': ['protocol', 'runtime', 'duckdb'],
-        'inspector-core': ['protocol'],
-        'provenance-core': ['protocol'],
-        'presence-core': ['protocol', 'provenance'],
-        'presence-browser': ['protocol', 'presence'],
-        'adapter-vega-lite/src/presentation.ts': ['protocol', 'presence', 'presence/dom'],
-        'adapter-vgplot/src/presentation.ts': ['protocol', 'presence', 'presence/dom'],
+        sdk: [],
+        vega: ['sdk', 'sdk/data', 'sdk/presence'],
+        vgplot: ['sdk', 'sdk/data', 'sdk/presence'],
+        duckdb: ['sdk', 'sdk/data'],
+        ai: ['sdk', 'sdk/agent'],
+        overlay: ['sdk', 'sdk/presence'],
+        posthog: ['sdk'],
       }).map(
         ([owner, dependencies]) =>
           ({
-            files: [owner.includes('/') ? `packages/${owner}` : `packages/${owner}/src/**`],
+            files: [`packages/${owner}/src/**`],
             rules: {
               'no-restricted-imports': [
                 'error',
@@ -141,7 +133,7 @@ export default defineConfig({
                       group: [
                         '@ethivia/vacp-*',
                         '@ethivia/vacp-*/**',
-                        ...dependencies.flatMap((name) => [`!@ethivia/vacp-${name}`, `!@ethivia/vacp-${name}/**`]),
+                        ...dependencies.map((entry) => `!@ethivia/vacp-${entry}`),
                       ],
                       message: 'Keep dependencies inward. Compose adapters in applications.',
                     },

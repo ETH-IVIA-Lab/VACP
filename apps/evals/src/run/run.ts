@@ -1,5 +1,5 @@
 import { SpanStatusCode } from '@opentelemetry/api';
-import type { VacpActor } from '@ethivia/vacp-protocol';
+import type { VacpActor } from '@ethivia/vacp-sdk';
 import { APICallError, RetryError } from 'ai';
 import { relative } from 'node:path';
 
@@ -93,8 +93,8 @@ export async function runOne(scenario: Scenario, rep: number, context: RunContex
       const trace = new Trace();
       const record = (executions: readonly ExecutionRecord[]) =>
         recordExecutions(tracing, executions, context.traceContent);
-      const telemetry: TelemetryFor = (options) => ({
-        integrations: [tracing.otel, traceRecorder(trace, options)],
+      const telemetry: TelemetryFor = () => ({
+        integrations: [tracing.otel, traceRecorder(trace)],
         functionId: flow.condition,
         recordInputs: context.traceContent,
         recordOutputs: context.traceContent,

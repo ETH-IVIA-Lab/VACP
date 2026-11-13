@@ -26,9 +26,9 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     p.add_argument(
         '--transport',
         type=str,
-        choices=['http', 'stdio'],
-        default='http',
-        help='MCP transport mode: http (ASGI at /mcp) or stdio (stdin/stdout).',
+        choices=['stdio', 'http'],
+        default='stdio',
+        help='MCP transport: stdio (stdin and stdout, default) or http (served at /mcp).',
     )
     p.add_argument(
         '--show-banner',
@@ -63,8 +63,8 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         '--window-mode',
         type=str,
         choices=['default', 'maximized', 'fullscreen'],
-        default='fullscreen',
-        help='Initial embedded browser window size mode. Chromium only.',
+        default='default',
+        help='Initial browser window size. maximized and fullscreen apply to Chromium (default: default).',
     )
     p.add_argument(
         '--screen-width',
@@ -119,9 +119,12 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     )
     p.add_argument(
         '--startup-wait-for-bridge',
-        action='store_true',
-        default=False,
-        help='Before exposing MCP, wait for VACP bridge readiness on the initial page.',
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help=(
+            'Before serving tools, wait until the VACP bridge on the initial page answers (default: on). '
+            'On timeout the server logs it and serves the tools, which report the missing bridge.'
+        ),
     )
     p.add_argument(
         '--startup-ready-timeout-ms',
@@ -183,7 +186,11 @@ def main() -> None:
     async def lifespan(_server: FastMCP[None]) -> AsyncGenerator[None, None]:
         async with browser.session() as page:
             if args.startup_wait_for_bridge:
-                await wait_for_vacp_bridge(client, args.startup_ready_timeout_ms)
+                try:
+                    await wait_for_vacp_bridge(client, args.startup_ready_timeout_ms)
+                except RuntimeError as error:
+                    # The page can still load later, and vacp_open_url navigates to it.
+                    log(f'[vacp] {error} (continuing)')
             if args.startup_wait_for_selector:
                 await page.wait_for_selector(
                     args.startup_wait_for_selector,

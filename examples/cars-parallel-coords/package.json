@@ -9,15 +9,11 @@
   "scripts": {
     "dev": "portless run vp dev",
     "build": "vp build",
-    "preview": "vp preview --host 127.0.0.1 --strictPort",
-    "typecheck": "tsc -p tsconfig.json --noEmit"
+    "preview": "vp preview --host 127.0.0.1 --strictPort"
   },
   "dependencies": {
     "@ethivia/vacp-duckdb": "workspace:*",
     "@ethivia/vacp-example-shared": "workspace:*",
-    "@ethivia/vacp-presence": "workspace:*",
-    "@ethivia/vacp-protocol": "workspace:*",
-    "@ethivia/vacp-runtime": "workspace:*",
     "@ethivia/vacp-sdk": "workspace:*",
     "d3": "^7.9.0",
     "zod": "catalog:"

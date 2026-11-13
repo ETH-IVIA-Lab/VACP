@@ -1,94 +1,78 @@
 # Agent presence
 
-Presence shows the person what an agent is doing. A cursor travels to the control or mark each step changes, and a bubble beside it shows the step's sentence. After the request, the person can step back through the agent's checkpoints. Presence follows every call the runtime executes, whether it arrives through MCP, the AI SDK tools, or WebMCP.
+Presence shows the person what an agent does. A cursor travels to the control or mark each step changes, and a bubble beside it shows the agent's sentence for the step. It follows every agent call the runtime executes, whether it arrives through MCP, the AI SDK tools, or WebMCP.
 
-## Add presence
-
-Create a browser presence for the runtime, then attach each provider with its presentation, which tells presence where the provider's entities are on screen:
+```bash
+pnpm add @ethivia/vacp-overlay react react-dom
+```
 
 ```ts
-import { createVegaLiteProvider } from '@ethivia/vacp-vega-lite';
-import { createVegaLitePresentation } from '@ethivia/vacp-vega-lite/presentation';
-import { createBrowserPresence } from '@ethivia/vacp-presence-react';
-import { installVacpRuntime } from '@ethivia/vacp-browser';
+import { createPresenceOverlay } from '@ethivia/vacp-overlay';
+import { createVegaLitePresentation } from '@ethivia/vacp-vega';
 
-const provider = createVegaLiteProvider({ root, view, spec, vgSpec, options });
-const { runtime, dispose } = installVacpRuntime({ providers: [provider], exposeBridge: true, injectDomSnapshot: true });
-const presence = createBrowserPresence(runtime);
-presence.attach(provider, createVegaLitePresentation({ provider, root }));
+const presence = createPresenceOverlay(runtime);
+presence.attach(provider, createVegaLitePresentation(provider));
 
-// On unmount:
+// When the view unmounts:
 presence.dispose();
-dispose();
 ```
 
-For vgplot, use `createVgplotPresentation({ provider, root })` from `@ethivia/vacp-vgplot/presentation`. Replacing or detaching a provider releases its targets.
+The overlay works in a page written with any framework. It renders with React internally, so install `react` and `react-dom` even when your app uses neither. `runtime` comes from `const { runtime } = installVacpRuntime(...)`. `createPresenceOverlay` renders the overlay into its own [shadow root](https://developer.mozilla.org/en-US/docs/Web/API/Web_components/Using_shadow_DOM), so it adds no stylesheet to your page and leaves clicks, focus, and scrolling to the person. `attach` takes one provider and its [presentation](../concepts/#presence), which tells presence where the provider's entities appear on screen. `provider` is your [Vega-Lite provider](../vega-lite/), created with the `root` element the chart renders into. Disposing the runtime also removes the overlay.
 
-The overlay renders in its own [shadow root](https://developer.mozilla.org/en-US/docs/Web/API/Web_components/Using_shadow_DOM) and leaves pointer events, keyboard focus, and scrolling to the person. It shows agent actors. Human and system changes stay in [provenance](../provenance/) without a cursor. Pass `includeActor(actor)` to choose which actors appear.
+Presence shows agents. Changes by a person or the system go to [provenance](../provenance/) without a cursor.
 
-## Narration
+## Attach a Mosaic view
 
-Every step an agent executes carries its own sentence, passed as `narration`:
+For a [Mosaic vgplot](../vgplot/) dashboard, attach the provider with the vgplot presentation:
 
 ```ts
-await runtime.execute(
-  { name: 'cohort.set_sports', params: { sports: ['rowing', 'canoe'] } },
-  { actor, narration: 'Keeping rowing and canoe to compare the two paddle sports.' },
-);
+import { createVgplotPresentation } from '@ethivia/vacp-vgplot';
+
+presence.attach(provider, createVgplotPresentation(provider));
 ```
 
-The bubble shows the sentence as the step begins, while the cursor travels to its target. Opening and closing sentences come from the agent's progress tool, as [Actors, turns, and narration](../concepts/#actors-turns-and-narration) describes. A step without its own sentence names its change and the view, such as "Filter range applied to Age distribution".
+`attach` returns a function that detaches the provider. Removing or replacing the provider in the runtime detaches it as well.
 
-An application that runs its own agent loop can publish progress directly:
+## Point at your own controls
+
+For a provider you write yourself, mark the element that shows each ref with `data-vacp-ref`, and point presence at the marked elements:
 
 ```ts
-const work = runtime.beginAgentActivity({ actor, summary: 'Comparing rowers and canoeists' });
-try {
-  await runtime.execute(call, { actor, narration: 'Keeping rowing and canoe.' });
-  work.end({ summary: 'The comparison is ready.' });
-} catch (error) {
-  work.end({ outcome: 'failed' });
-  throw error;
-}
+import { createRefPresentation } from '@ethivia/vacp-sdk/presence';
+
+// <form id="settings"><input type="range" data-vacp-ref="vacp://example/threshold" /></form>
+const settings = document.querySelector('#settings')!;
+
+presence.attach(provider, createRefPresentation(settings));
 ```
 
-Sentences are public text for the person: at most 280 characters for a step or a progress sentence, and 500 for a summary a host passes to `beginAgentActivity`. Keep reasoning, tool arguments, and query results out of them.
+`createRefPresentation` points at the first rendered element under `settings` that carries the step's focus ref, and measures again when `settings` resizes or its content changes. The action names its focus with `.focus(() => ({ ref }))`, as in [Describe actions](../custom-provider/#describe-actions). Add `interaction: { kind: 'drag' }` to the focus to choose the cursor shape.
 
-## Replay the trail
+When an element depends on more than the ref, such as a list item picked by the focus `detail`, pass your own lookup to `createElementPresenceResolver((focus) => element)`. A canvas or WebGL view implements a `PresenceResolver` that returns a point or a region in viewport coordinates. Pass `onUnplaced(activity)` to `createPresenceOverlay` to log the steps presence could not place. The [presence reference](../api/presence) lists the target helpers.
 
-Pass a replay controller when you create presence, and the person can step through an agent's request after it finishes. The trail is the sequence of frames for one turn, shown beside the agent's cursor:
+## Let the person replay the steps
+
+Pass a replay controller, and after a request the person can step back through the agent's checkpoints from the bubble:
 
 ```ts
-import { createProvenanceReplay } from '@ethivia/vacp-provenance';
-import { createVacpRestorer } from '@ethivia/vacp-runtime';
+import { createProvenanceReplay, createVacpRestorer } from '@ethivia/vacp-sdk';
 
-const restorer = createVacpRestorer(runtime);
-const replay = createProvenanceReplay(runtime, { restore: restorer.restore });
-const presence = createBrowserPresence(runtime, { replay });
+const replay = createProvenanceReplay(runtime, { restore: createVacpRestorer(runtime) });
+const presence = createPresenceOverlay(runtime, { replay });
 
-// On unmount, release both:
+// When the view unmounts:
 presence.dispose();
 replay.dispose();
 ```
 
-| Frame      | Words                       | View                                           |
-| ---------- | --------------------------- | ---------------------------------------------- |
-| Start      | The turn's opening sentence | The state before the first step                |
-| Step       | That step's sentence        | The state after the step, cursor at its target |
-| Conclusion | The turn's closing sentence | The live state the turn left behind            |
-
-After a turn ends, its conclusion stays on screen. Hovering or focusing the bubble reveals back and forward arrows, and a rail of marks names every frame.
-
-Selecting a frame restores the charts through each source's `vacp.apply_state` operation. New work by the person or the agent ends the review and keeps the new state. When a restoration applies only part of a checkpoint, the trail notes that the view may differ from the recording.
-
-Presence borrows the replay controller and never disposes it. See [Provenance and replay](../provenance/) for the controller's own contract.
+Hovering or focusing the bubble shows back and forward arrows and a rail with one mark per step. Selecting a step restores every view through its source's `vacp.apply_state` action. The Vega-Lite and vgplot providers register it, and [Restore recorded state](../custom-provider/#restore-recorded-state) adds it to your own provider. New work by the person or the agent ends the review and keeps the new state. Presence never disposes the controller. [Provenance and replay](../provenance/) covers the controller itself.
 
 ## Pace the steps
 
-By default an agent's steps run as fast as it calls them. Pacing makes each step readable: the cursor arrives, the change happens, and the result holds before the next step:
+An agent's steps run as fast as it calls them. `paceAgentPresence` holds each step so the person can follow it:
 
 ```ts
-import { paceAgentPresence } from '@ethivia/vacp-presence';
+import { paceAgentPresence } from '@ethivia/vacp-sdk/presence';
 
 const stopPacing = paceAgentPresence(runtime, presence, {
   arrivalTimeoutMs: 900,
@@ -97,68 +81,35 @@ const stopPacing = paceAgentPresence(runtime, presence, {
 });
 ```
 
-Only executions this viewer shows wait, so a person's own interactions never slow down. Pauses never change a result. Missing geometry skips the approach and keeps the configured pauses. Call `stopPacing()` to remove the pauses and keep the viewer.
+Each agent step waits up to `arrivalTimeoutMs` for the cursor to reach its target, pauses `beforeExecuteMs`, runs, and holds the result for `afterExecuteMs`. Only steps this overlay shows wait, so a person's own input never slows down. A `window.__vacp.execute` call from the console runs as the agent, so it waits too. Call `stopPacing()` to remove the pauses.
 
-## Point at custom targets
+## Render Markdown in the bubble
 
-A custom operation names what it focuses on. Mark the element that shows each ref with `data-vacp-ref`:
-
-```html
-<form id="settings">
-  <input type="range" data-vacp-ref="vacp://example/threshold" />
-</form>
+```bash
+pnpm add streamdown
 ```
 
-Then `createRefPresenceResolver(root)` points presence at the marked element:
+```ts
+import { streamdownText } from '@ethivia/vacp-overlay/streamdown';
+
+const presence = createPresenceOverlay(runtime, { appearance: { text: streamdownText } });
+```
+
+[Streamdown](https://streamdown.ai) renders Markdown that arrives in pieces. `streamdownText` reveals each sentence word by word as streamed Markdown. Without it the bubble shows plain text.
+
+## Change the look
+
+`appearance` sets the overlay's size, colors, motion, and words:
 
 ```ts
-import { createRefPresenceResolver, observePresenceLayout } from '@ethivia/vacp-presence/dom';
-
-const settings = document.querySelector('#settings')!;
-
-actions
-  .operation('mutation', 'threshold.set', 'Set the threshold')
-  .params(z.object({ value: z.number().min(0).max(100) }))
-  .focus(() => ({ ref: 'vacp://example/threshold', interaction: { kind: 'drag', axis: 'x' } }))
-  .handle(({ value }) => setThreshold(value));
-
-presence.attach(provider, {
-  resolve: createRefPresenceResolver(settings),
-  subscribe: (invalidate) => observePresenceLayout(settings, invalidate),
+const presence = createPresenceOverlay(runtime, {
+  appearance: { bubble: { width: 290 }, cursor: { size: 24 }, labels: { dismiss: 'Schließen' } },
 });
 ```
 
-The resolver takes the first element under `root` that carries the ref and that presence can place, so hidden copies, templates, and scripts with the same ref are passed over. A second argument names another attribute. When a ref reaches its element through your own model, such as a list item picked by the focus `detail`, pass that lookup to `createElementPresenceResolver((focus) => element)`. Pass `onUnplaced(activity)` when you create presence to receive each live or recorded step that an attached presentation could not place while the step was shown, such as a step whose ref no element carries.
+`labels` translates the overlay's controls and the sentences it writes for steps the agent did not narrate. The overlay follows the person's reduced-motion setting. The [overlay reference](../api/overlay) lists every option with its default. To draw presence with your own renderer, use `createAgentPresence` from the [presence reference](../api/presence).
 
-`interaction.kind` chooses the cursor: a pointing hand for `point` and `activate`, a crosshair for `brush`, an open hand for `drag` and `pan`, a caret for `edit`, arrows for `resize`, and a magnifier for `zoom`. A step without a focus points at the first entity in its `affects` that the presentation can place. Canvas and WebGL applications implement `PresenceResolver` directly and return a point, a region, or a path in viewport coordinates.
+## Next
 
-## Customize the overlay
-
-```ts
-const presence = createBrowserPresence(runtime, {
-  maxActors: 3,
-  appearance: {
-    motion: 'system',
-    bubble: { width: 290 },
-    cursor: { size: 24 },
-    ripple: { color: '#16a34a' },
-    labels: { dismiss: 'Schließen' },
-  },
-});
-```
-
-`motion: 'system'` follows the reduced-motion preference. `labels` translates or renames the overlay's frame names, controls, and the bubble's sentences for steps the agent did not narrate. The [presence-browser reference](../api/presence-browser) lists every appearance option with its default, the cursor assets, and the streamed Markdown text renderer in `@ethivia/vacp-presence-react/streamdown`.
-
-## Build another surface
-
-`@ethivia/vacp-presence` runs without the browser. Give it a renderer, and it calls `render(frame)` with the activities to show and the replay navigation:
-
-```ts
-import { createAgentPresence } from '@ethivia/vacp-presence';
-
-const presence = createAgentPresence(runtime, {
-  renderer: { render: (frame) => renderActivityFeed(frame.activities, frame.navigation) },
-});
-```
-
-See the [presence-core reference](../api/presence-core) for `PresenceFrame`, `PresenceActivity`, and the execution stream.
+- [Provenance and replay](../provenance/)
+- [Connect an agent](../agents/)

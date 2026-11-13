@@ -1,7 +1,6 @@
 import embed from 'vega-embed';
-import { createVegaLiteProvider } from '@ethivia/vacp-vega-lite';
-import { createVegaLitePresentation } from '@ethivia/vacp-vega-lite/presentation';
-import type { VacpDuckDbClient } from '@ethivia/vacp-duckdb';
+import { createVegaLitePresentation, createVegaLiteProvider } from '@ethivia/vacp-vega';
+import type { VacpDuckDbClient } from '@ethivia/vacp-sdk/data';
 import { installExampleRuntime } from '@ethivia/vacp-example-shared';
 import { exampleOptions } from '@ethivia/vacp-example-shared/config';
 import type { GalleryEntry } from './gallery';
@@ -24,10 +23,13 @@ export async function renderSpec(
       spec,
       vgSpec: embedded.vgSpec,
       data: { duckdb, sql: exampleOptions.enableSql },
-      options: { appId, viewId, vizId: entry.id, title: entry.title },
+      appId,
+      viewId,
+      vizId: entry.id,
+      title: entry.title,
     });
     await installExampleRuntime({
-      sources: [{ provider, presentation: createVegaLitePresentation({ provider, root: stage }) }],
+      sources: [{ provider, presentation: createVegaLitePresentation(provider) }],
       root: stage,
       sessionKey: viewId,
       analytics: { vacp_app_id: appId, vacp_view_id: viewId, vacp_viz_id: entry.id },

@@ -1,29 +1,70 @@
 {
   "name": "@ethivia/vacp-sdk",
   "version": "0.1.0",
-  "private": true,
+  "description": "Make an analysis operable by AI agents: define actions, compose providers, install the runtime in the page, and replay what changed.",
+  "keywords": [
+    "agents",
+    "mcp",
+    "vacp",
+    "visual-analytics",
+    "webmcp"
+  ],
+  "homepage": "https://docs.vacp.dev/api/",
+  "bugs": "https://github.com/ETH-IVIA-Lab/VACP/issues",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ETH-IVIA-Lab/VACP.git",
+    "directory": "packages/sdk"
+  },
   "files": [
     "dist"
   ],
   "type": "module",
   "exports": {
     ".": {
-      "vacp-source": "./src/index.ts",
-      "types": "./dist/index.d.ts",
-      "default": "./dist/index.js"
+      "vacp-source": "./src/entries/index.ts",
+      "types": "./dist/entries/index.d.ts",
+      "default": "./dist/entries/index.js"
+    },
+    "./data": {
+      "vacp-source": "./src/entries/data.ts",
+      "types": "./dist/entries/data.d.ts",
+      "default": "./dist/entries/data.js"
+    },
+    "./presence": {
+      "vacp-source": "./src/entries/presence.ts",
+      "types": "./dist/entries/presence.d.ts",
+      "default": "./dist/entries/presence.js"
+    },
+    "./agent": {
+      "vacp-source": "./src/entries/agent.ts",
+      "types": "./dist/entries/agent.d.ts",
+      "default": "./dist/entries/agent.js"
+    },
+    "./inspector": {
+      "vacp-source": "./src/entries/inspector.ts",
+      "types": "./dist/entries/inspector.d.ts",
+      "default": "./dist/entries/inspector.js"
     }
+  },
+  "publishConfig": {
+    "access": "public"
   },
   "scripts": {
     "build": "vp pack",
-    "test": "tsx --test --test-timeout=10000 test/*.test.ts",
-    "bench": "tsx bench/actions.ts"
+    "test": "TZ=America/Los_Angeles tsx --conditions=vacp-source --test --test-timeout=10000 'test/**/*.test.ts'",
+    "bench": "tsx --conditions=vacp-source bench/actions/actions.ts && tsx --conditions=vacp-source bench/runtime/runtime.ts && node --expose-gc --import tsx --conditions=vacp-source bench/runtime/lifetime.ts && tsx --conditions=vacp-source bench/runtime/discovery.ts && tsx --conditions=vacp-source bench/browser/snapshot.ts && tsx --conditions=vacp-source bench/webmcp/registration.ts && tsx --conditions=vacp-source bench/provenance/replay.ts && tsx --conditions=vacp-source bench/presence/presence.ts && tsx --conditions=vacp-source bench/inspector/inspection.ts"
   },
   "dependencies": {
-    "@ethivia/vacp-protocol": "workspace:*",
-    "@ethivia/vacp-runtime": "workspace:*",
-    "zod": "catalog:"
+    "webmcp-types": "catalog:"
   },
   "devDependencies": {
-    "@ethivia/vacp-browser": "workspace:*"
+    "ajv": "catalog:",
+    "tsx": "catalog:",
+    "zod": "catalog:"
+  },
+  "peerDependencies": {
+    "zod": "^4.6.7"
   }
 }

@@ -18,6 +18,7 @@ exclude-newer-span = "PT18H"
 members = [
     "vacp",
 ]
+default-groups = "all"
 
 [manifest.dependency-groups]
 dev = [
@@ -2338,7 +2339,7 @@ wheels = [
 
 [[package]]
 name = "vacp"
-version = "0.1.1"
+version = "0.2.0"
 source = { editable = "packages/python" }
 
 [package.optional-dependencies]

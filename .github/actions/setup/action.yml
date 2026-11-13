@@ -6,6 +6,10 @@ inputs:
     description: Also install uv and the locked Python workspace.
     required: false
     default: 'false'
+  python-version:
+    description: The Python that uv installs and runs. Empty selects the release in .python-version.
+    required: false
+    default: ''
 
 runs:
   using: composite
@@ -19,17 +23,18 @@ runs:
 
     - name: Install JavaScript dependencies
       shell: bash
-      run: make setup-web
+      run: pnpm install --frozen-lockfile
 
-    # uv reads its minimum release from pyproject.toml. Makefile selects the development Python.
+    # uv reads its minimum release from pyproject.toml and the development Python from .python-version.
     - name: Set up uv
       if: inputs.python == 'true'
       uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
       with:
         enable-cache: true
         cache-dependency-glob: uv.lock
+        python-version: ${{ inputs.python-version }}
 
     - name: Install Python dependencies
       if: inputs.python == 'true'
       shell: bash
-      run: make setup-python
+      run: uv sync --locked

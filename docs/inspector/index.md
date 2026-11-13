@@ -1,15 +1,16 @@
-# Inspection surfaces
+# Inspector
 
-`@ethivia/vacp-inspector` connects a custom interface, such as a debugging panel or a teaching view, to an analytical session. It reads the complete catalog, executes operations, keeps optional history, and indexes the graph for lookups. Your interface decides what to show and how people navigate it.
-
-## Connect a runtime
+`@ethivia/vacp-sdk/inspector` connects your own interface, such as a debugging panel or a teaching view, to a running analysis. An inspector session reads the full graph, including unavailable nodes and actions with their reasons, runs actions, and keeps optional history. Your interface decides what to show.
 
 ```ts
-import { createInspectionIndex, createInspectorSession } from '@ethivia/vacp-inspector';
-import { createRuntimeInspectorClient } from '@ethivia/vacp-inspector/runtime';
+import {
+  createInspectionIndex,
+  createInspectorSession,
+  createRuntimeInspectorClient,
+} from '@ethivia/vacp-sdk/inspector';
 
 const client = createRuntimeInspectorClient({ id: 'analysis', title: 'Analysis', runtime });
-const session = createInspectorSession(client, { historyLimit: 50 });
+const session = createInspectorSession(client);
 
 const unsubscribe = session.subscribe(() => {
   const { observation } = session.getState();
@@ -24,69 +25,59 @@ unsubscribe();
 session.dispose();
 ```
 
-Creating a session and subscribing perform no reads. `start()` reads the source and follows its changes, and repeated calls do nothing more. `refresh()` reads once. `dispose()` cancels the session's requests and releases its subscription, and leaves the runtime running.
+`runtime` comes from `const { runtime } = installVacpRuntime(...)`, and `render` stands for your own drawing code. `id` and `title` name the session in your interface. `start()` reads the graph and follows its changes. `getState()` returns the same object until something changes, so React's `useSyncExternalStore` can read it directly. `dispose()` cancels the session's requests and leaves the runtime running.
 
-`getState()` returns the same object until something changes, so React's `useSyncExternalStore` can read it directly. It holds `status`, the current `observation`, an `observationError`, the retained `records`, and the current `operation`.
+## Look up an entity
 
-## Read the graph
+Build one index for each observation you show:
 
-The runtime client reads `inspect()`, which keeps unavailable nodes and operations with their reasons. Index the observation your interface shows:
+- `index.entity(ref)` returns the node with its source, value, summary, freshness, edges, actions, availability, prerequisites, and dependents.
+- `index.action(name)` returns an action's descriptor, owning source, availability, and prerequisites.
+- `index.availableActions` lists the actions that can run now.
 
-| Lookup                   | Returns                                                                                                                 |
-| ------------------------ | ----------------------------------------------------------------------------------------------------------------------- |
-| `index.entity(ref)`      | The node, its source, value, summary, freshness, edges, related operations, availability, prerequisites, and dependents |
-| `index.action(name)`     | The descriptor, owning source, availability, and prerequisites                                                          |
-| `index.availableActions` | The operations that run now                                                                                             |
-| `index.source(id)`       | The source description                                                                                                  |
+The [inspector reference](../api/inspector#createinspectionindex) lists every field.
 
-`entity(ref).hasValue` tells a missing state entry from a present `undefined`. Build one index per displayed observation.
-
-Captured observations are frozen plain records and arrays. Dates become ISO strings, or `null` for invalid dates. A client that returns Maps, Sets, typed arrays, class instances, or cycles fails capture with an error naming the path of the value.
-
-## Execute operations
+## Run an action
 
 ```ts
-const result = await session.execute({ name: action.name, params });
+const result = await session.execute({ name: 'threshold.set', params: { value: 42 } });
 ```
 
-The provider validates `params` and runs the operation. `state.operation` tracks the running call, its result, or a transport error, and each completed operation schedules a fresh read. A session runs one operation at a time. Pass `{ signal }` to `execute`, `restore`, or `reveal` to stop waiting. Cancellation signals the client and cannot undo a change already applied.
+The provider validates `params` before anything changes. A session runs one action at a time, tracks it in `getState().action`, and reads the graph again when it finishes. Pass `{ signal }` to stop waiting. A change the provider already applied stays applied.
 
-## History and restoration
-
-`historyLimit` sets how many changed observations `state.records` keeps. It defaults to 0. Showing a recorded observation reads nothing from the source.
-
-To restore one, give the client a `restore` capability and call `session.restore(record.observation)`. With the runtime client, pass the restorer:
+## Keep and restore history
 
 ```ts
-const restorer = createVacpRestorer(runtime);
-const client = createRuntimeInspectorClient({ id: 'analysis', title: 'Analysis', runtime, restore: restorer.restore });
+import { createVacpRestorer } from '@ethivia/vacp-sdk';
+
+const restore = createVacpRestorer(runtime);
+const client = createRuntimeInspectorClient({ id: 'analysis', title: 'Analysis', runtime, restore });
+const session = createInspectorSession(client, { historyLimit: 50 });
 ```
 
-A client may also implement `reveal(ref)` to scroll its host to an entity.
+`historyLimit` sets how many changed observations `getState().records` keeps. Showing a recorded observation reads nothing from the runtime. `session.restore(record.observation)` applies a recorded observation through each source's `vacp.apply_state` action.
 
-## Connect another source
+## Inspect a Python application
 
-Implement `InspectorClient` for any transport: `id`, `title`, and `observe({ signal })` are required, and `execute`, `subscribe`, `restore`, and `reveal` are optional. `execute` resolves with a result whose `callId` is the request's, or one the host assigned when the request's is absent, null, or blank. One client is one analytical session. Create a new inspector session to switch sessions.
-
-For a Python application, serve the composed providers over HTTP and connect from the browser:
+The `vacp` Python package serves composed providers over HTTP with the `http` extra:
 
 ```python
 from vacp.http import create_inspection_app
 
-app = create_inspection_app(composer, title='Analysis')
+app = create_inspection_app(runtime, title='Analysis')
 ```
+
+`runtime` is your `Runtime`, and `app` serves it under `/api/vacp`. Run `app` in an [ASGI](https://asgi.readthedocs.io) server such as [Uvicorn](https://www.uvicorn.org). ASGI is the interface between Python web servers and applications. Then connect from the browser:
 
 ```ts
-import { connectHttpInspectorClient } from '@ethivia/vacp-inspector/http';
+import { connectHttpInspectorClient } from '@ethivia/vacp-sdk/inspector';
 
-const client = await connectHttpInspectorClient({ url: 'http://127.0.0.1:8796/api/vacp', intervalMs: 1000 });
+const client = await connectHttpInspectorClient({ url: 'http://127.0.0.1:8796/api/vacp' });
 ```
 
-Mount `app` in an [ASGI](https://asgi.readthedocs.io) server such as Uvicorn, with the `vacp[http]` extra installed.
+The client polls every second while the session has subscribers. Pass `intervalMs: 0` to read only on `refresh()`, and `fetch` to add credentials. If the server restarts, requests fail until you connect a new client. Your server owns authentication and allowed origins. For any other transport, implement `InspectorClient` as the [inspector reference](../api/inspector#inspectorclient) describes.
 
-- The client reads the server's session identity from `/session` and sends it with every request, so a restarted server fails requests until the client reconnects.
-- Polling runs while the session has subscribers. Pass `intervalMs: 0` to turn it off.
-- Pass `fetch` to add credentials.
-- The host owns authentication and allowed origins. The session identity identifies the server process and grants no access.
+## Next
 
-To validate payloads from another transport, use `parseObservation` and `parseActionResult` from `@ethivia/vacp-protocol/validation`.
+- [Provenance and replay](../provenance/)
+- [Inspector reference](../api/inspector)

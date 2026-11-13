@@ -198,11 +198,11 @@ test('react-dashboard replay returns to the empty dashboard and forward through 
   await expect
     .poll(() =>
       page.evaluate(async () =>
-        ((await document.modelContext?.getTools()) ?? []).some((tool) => tool.name.endsWith('dashboard.set_dataset')),
+        ((await document.modelContext?.getTools()) ?? []).some((tool) => tool.name.endsWith('dashboard_set_dataset')),
       ),
     )
     .toBe(true);
-  expect((await tool(page, 'vacp.progress', { message: 'Comparing the two datasets.' })).ok).toBe(true);
+  expect((await tool(page, 'vacp_progress', { message: 'Comparing the two datasets.' })).ok).toBe(true);
   expect((await tool(page, 'dashboard.set_dataset', { id: 'mtcars', narration: 'Loading the cars.' })).ok).toBe(true);
   expect(
     (
@@ -216,7 +216,7 @@ test('react-dashboard replay returns to the empty dashboard and forward through 
     ).ok,
   ).toBe(true);
   expect((await tool(page, 'dashboard.set_dataset', { id: 'iris', narration: 'Switching to iris.' })).ok).toBe(true);
-  expect((await tool(page, 'vacp.progress', { message: 'Iris is in view.', done: true })).ok).toBe(true);
+  expect((await tool(page, 'vacp_progress', { message: 'Iris is in view.', done: true })).ok).toBe(true);
 
   const bubble = page.locator('[data-vacp-bubble]');
   const heading = bubble.locator('[data-vacp-heading]');

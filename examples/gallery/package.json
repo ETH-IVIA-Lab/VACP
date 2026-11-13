@@ -7,8 +7,7 @@
     "dev": "pnpm generate && portless run vp dev",
     "build": "pnpm generate && vp build",
     "preview": "vp preview --host 127.0.0.1 --strictPort",
-    "typecheck": "tsc -p tsconfig.json --noEmit",
-    "generate": "tsx scripts/sync-generated.ts"
+    "generate": "tsx --conditions=vacp-source scripts/sync-generated.ts"
   },
   "dependencies": {
     "@ethivia/vacp-example-athlete-explorer": "workspace:*",

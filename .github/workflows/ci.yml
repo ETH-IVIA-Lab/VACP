@@ -64,7 +64,7 @@ jobs:
         uses: ./.github/actions/setup
 
       - name: Check formatting
-        run: make format-check
+        run: pnpm exec vp fmt --check
 
   quality:
     name: Lint and types
@@ -83,17 +83,8 @@ jobs:
         with:
           python: 'true'
 
-      - name: Check formatting, lint rules, and TypeScript types
-        run: make lint
-
-      - name: Check Python types
-        run: make python-typecheck
-
-      - name: Check unused files, exports, and dependencies
-        run: make knip
-
-      - name: Test the lint rules
-        run: make test-tools
+      - name: Check formatting, lint rules, types, unused code, and Python
+        run: pnpm check
 
   test:
     name: Unit tests
@@ -113,7 +104,10 @@ jobs:
           python: 'true'
 
       - name: Test JavaScript and Python packages
-        run: make test
+        run: pnpm test
+
+      - name: Test the packed npm packages
+        run: pnpm test:packages
 
   python:
     name: Python ${{ matrix.python-version }} distributions
@@ -131,18 +125,15 @@ jobs:
         with:
           persist-credentials: false
 
+      # setup-uv exports the matrix Python as UV_PYTHON for the steps that follow.
       - name: Set up workspace
         uses: ./.github/actions/setup
-
-      - name: Set up uv
-        uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
         with:
-          enable-cache: true
-          cache-dependency-glob: uv.lock
+          python: 'true'
           python-version: ${{ matrix.python-version }}
 
       - name: Test wheels and source distributions
-        run: make python-test-package PYTHON=${{ matrix.python-version }}
+        run: pnpm py:package
 
   build:
     name: Build
@@ -158,14 +149,9 @@ jobs:
 
       - name: Set up workspace
         uses: ./.github/actions/setup
-        with:
-          python: 'true'
 
       - name: Build libraries, examples, and docs
-        run: make build
-
-      - name: Build Python distributions
-        run: make package
+        run: pnpm build
 
       # The browser shards serve these builds, so each one skips the build.
       - name: Upload builds for the browser suite
@@ -205,10 +191,10 @@ jobs:
           name: browser-builds
 
       - name: Install Chromium
-        run: make browser-install
+        run: pnpm e2e:install
 
       - name: Run browser shard
-        run: make browser-test PLAYWRIGHT_ARGS=--shard=${{ matrix.shard }}/4
+        run: pnpm --filter @ethivia/vacp-e2e test:e2e --shard=${{ matrix.shard }}/4
 
       - name: Upload shard report
         if: ${{ !cancelled() }}

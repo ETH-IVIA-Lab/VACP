@@ -1,0 +1,60 @@
+import {
+  fnv1a64Hex,
+  stableStringify,
+  type VacpFreshness,
+  type VacpGraphFragment,
+  type VacpProvider,
+  type VacpRef,
+  type VacpSourceDescription,
+} from '../protocol';
+import type { VacpActionExecutor } from './action-registry';
+import { nowIso } from './runtime/helpers';
+
+export type VacpAnalyticalProjection<NodeData = Record<string, unknown>> = {
+  /** `edges` defaults to none, and `actions` to what the provider's `actions` registry lists. */
+  graph: Omit<VacpGraphFragment<NodeData>, 'edges' | 'actions'> &
+    Partial<Pick<VacpGraphFragment<NodeData>, 'edges' | 'actions'>>;
+  state: Record<VacpRef, unknown>;
+  summary?: Record<VacpRef, unknown>;
+  freshness?: Record<VacpRef, VacpFreshness>;
+  /** Version of the complete graph, state, summary, and freshness. Computed from content when omitted. */
+  revision?: string;
+};
+
+/** Bind a pure source description and analytical projector to live operations. */
+export function createVacpProvider<NodeData = Record<string, unknown>>(args: {
+  source: VacpSourceDescription;
+  actions: Pick<VacpActionExecutor, 'prepare'> & { list?: () => VacpGraphFragment<NodeData>['actions'] };
+  project: NoInfer<() => VacpAnalyticalProjection<NodeData> | Promise<VacpAnalyticalProjection<NodeData>>>;
+  /** Report changes that nobody attributes. Report a person's changes with `runtime.record({ actor })`. */
+  subscribe?: (invalidate: () => void) => () => void;
+  dispose?: () => void;
+}): VacpProvider<NodeData> {
+  return {
+    source: args.source,
+    observe: async () => {
+      const projected = await args.project();
+      const graph: VacpGraphFragment<NodeData> = {
+        ...projected.graph,
+        edges: projected.graph.edges ?? [],
+        actions: projected.graph.actions ?? args.actions.list?.() ?? [],
+      };
+      const revision =
+        projected.revision == null
+          ? `src_${fnv1a64Hex(stableStringify({ graph, state: projected.state, summary: projected.summary, freshness: projected.freshness }))}`
+          : projected.revision;
+
+      return {
+        revision,
+        observedAt: nowIso(),
+        graph,
+        state: projected.state,
+        summary: projected.summary,
+        freshness: projected.freshness,
+      };
+    },
+    prepare: (call, options) => args.actions.prepare(call, options),
+    subscribe: args.subscribe ?? (() => () => {}),
+    dispose: args.dispose,
+  };
+}

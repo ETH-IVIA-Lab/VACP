@@ -1,0 +1,53 @@
+{
+  "name": "@ethivia/vacp-vgplot",
+  "version": "0.1.0",
+  "description": "VACP provider for Mosaic vgplot dashboards: selections, inputs, marks, data, and presence targets.",
+  "keywords": [
+    "agents",
+    "mosaic",
+    "vacp",
+    "vgplot",
+    "visual-analytics"
+  ],
+  "homepage": "https://docs.vacp.dev/api/vgplot",
+  "bugs": "https://github.com/ETH-IVIA-Lab/VACP/issues",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ETH-IVIA-Lab/VACP.git",
+    "directory": "packages/vgplot"
+  },
+  "files": [
+    "dist"
+  ],
+  "type": "module",
+  "exports": {
+    ".": {
+      "vacp-source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build": "vp pack",
+    "test": "tsx --conditions=vacp-source --test --test-timeout=10000 test/*.test.ts"
+  },
+  "devDependencies": {
+    "@duckdb/node-api": "catalog:",
+    "@ethivia/vacp-sdk": "workspace:^",
+    "@uwdata/mosaic-core": "catalog:",
+    "@uwdata/mosaic-inputs": "catalog:",
+    "@uwdata/mosaic-plot": "catalog:",
+    "@uwdata/mosaic-sql": "catalog:"
+  },
+  "peerDependencies": {
+    "@ethivia/vacp-sdk": "workspace:^",
+    "@uwdata/mosaic-core": ">=0.35.0",
+    "@uwdata/mosaic-inputs": ">=0.35.0",
+    "@uwdata/mosaic-plot": ">=0.35.0",
+    "@uwdata/mosaic-sql": ">=0.35.0"
+  }
+}

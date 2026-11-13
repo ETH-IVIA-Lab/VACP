@@ -4,7 +4,7 @@ layout: home
 hero:
   name: VACP
   text: Visual Analytics Context Protocol
-  tagline: AI agents read and change visual analyses through named operations, while the person using them watches each step.
+  tagline: Let an AI agent read and change your charts while you watch each step.
   actions:
     - theme: brand
       text: What is VACP?
@@ -17,16 +17,16 @@ hero:
       link: https://examples.vacp.dev/
 
 features:
-  - title: One observation
-    details: The graph of views, selections, parameters, and data handles, their current state, and output freshness, read together from every source on the page.
-    link: /concepts/#observations
-  - title: Named operations
-    details: Agents brush, filter, and query by name with validated parameters. VACP validates the parameters before anything on screen changes.
-    link: /concepts/#operations
-  - title: Agents beside people
-    details: A cursor and one sentence per step show what the agent is doing. Replay restores the charts to each checkpoint of its request.
+  - title: Read what is on screen
+    details: An agent reads the charts, filters, and data on your page, with their current values.
+    link: /concepts/#observation
+  - title: Change charts by name
+    details: An agent brushes a range or filters a table by calling a named action. VACP checks the request before anything on screen changes.
+    link: /concepts/#action
+  - title: Watch each step
+    details: A cursor and one sentence per step show what the agent is doing. Replay takes the charts back to any step.
     link: /presence/
-  - title: MCP, AI SDK, and WebMCP
-    details: External agents connect through the Python MCP server. In-page agents use AI SDK tools, and browser agents use WebMCP.
+  - title: Connect your agent
+    details: Claude Code, Codex, and Cursor connect through MCP, the protocol they use to call tools. You can also run an agent inside your page.
     link: /agents/
 ---

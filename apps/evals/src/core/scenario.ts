@@ -1,4 +1,4 @@
-import type { VacpActor, VacpExecution, VacpOperationKind } from '@ethivia/vacp-protocol';
+import type { VacpActor, VacpExecution, VacpOperationKind } from '@ethivia/vacp-sdk';
 
 import type { Assertion } from './assertions';
 

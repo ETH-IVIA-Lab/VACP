@@ -1,6 +1,5 @@
-import { createVacpToolLoopAgent, defaultVacpAgentInstructions, vacpAgentDefaults } from '@ethivia/vacp-ai-sdk';
-import { vacpAgentActor, vacpAgentTools } from '@ethivia/vacp-protocol';
-import { createVacpTransport } from '@ethivia/vacp-bridge';
+import { createVacpToolLoopAgent, defaultVacpAgentInstructions, vacpAgentDefaults } from '@ethivia/vacp-ai';
+import { vacpAgentTools } from '@ethivia/vacp-sdk/agent';
 import type { ModelMessage } from 'ai';
 
 import type { Condition } from '../ports';
@@ -12,8 +11,8 @@ export type VacpAgentConditionOptions = {
 };
 
 /**
- * VACP's own agent, `createVacpToolLoopAgent`, driving the page's runtime through the transport an
- * application wires: the `vacp_*` tools over the in-page bridge, with the suite's model.
+ * VACP's own agent, `createVacpToolLoopAgent`, driving the page's runtime as an application wires it:
+ * the `vacp_*` tools over the in-page bridge, with the suite's model. Each request is one turn.
  */
 export function vacpAgentCondition(options: VacpAgentConditionOptions = {}): Condition {
   const instructions = options.instructions ?? defaultVacpAgentInstructions;
@@ -23,7 +22,7 @@ export function vacpAgentCondition(options: VacpAgentConditionOptions = {}): Con
     async start({ model }) {
       return {
         description: {
-          loop: '@ethivia/vacp-ai-sdk createVacpToolLoopAgent',
+          loop: '@ethivia/vacp-ai createVacpToolLoopAgent',
           instructions,
           tools: Object.keys(vacpAgentTools).join(', '),
           settings: { temperature },
@@ -31,7 +30,7 @@ export function vacpAgentCondition(options: VacpAgentConditionOptions = {}): Con
         async conversation({ page, signal, maxSteps, telemetry }) {
           const agent = createVacpToolLoopAgent({
             model: model.language,
-            transport: createVacpTransport(page.bridge),
+            runtime: page.bridge,
             instructions,
             maxSteps,
             temperature,
@@ -42,19 +41,7 @@ export function vacpAgentCondition(options: VacpAgentConditionOptions = {}): Con
           return {
             async say(message) {
               messages.push({ role: 'user', content: message });
-              // One request is one turn: the model's sentences and steps join it, and its outcome closes it.
-              const turn = page.bridge.beginAgentActivity({ actor: vacpAgentActor });
-              let outcome: 'completed' | 'failed' | 'cancelled' = 'failed';
-              let result: Awaited<ReturnType<typeof agent.generate>>;
-              try {
-                result = await agent.generate({ messages, abortSignal: signal });
-                outcome = 'completed';
-              } catch (error) {
-                if (signal.aborted) outcome = 'cancelled';
-                throw error;
-              } finally {
-                turn.end({ outcome });
-              }
+              const result = await agent.generate({ messages, abortSignal: signal });
               messages.push(...result.response.messages);
               const stop =
                 result.finishReason === 'length'

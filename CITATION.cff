@@ -2,6 +2,7 @@ cff-version: 1.2.0
 message: If you use VACP in your research, please cite the paper.
 title: 'VACP: Visual Analytics Context Protocol'
 type: software
+license: Apache-2.0
 authors:
   - family-names: Stähle
     given-names: Tobias

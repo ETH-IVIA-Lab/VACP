@@ -1,0 +1,50 @@
+{
+  "name": "@ethivia/vacp-duckdb",
+  "version": "0.1.0",
+  "description": "Run VACP data handles on DuckDB-Wasm in the browser.",
+  "keywords": [
+    "agents",
+    "duckdb",
+    "duckdb-wasm",
+    "vacp",
+    "visual-analytics"
+  ],
+  "homepage": "https://docs.vacp.dev/api/duckdb",
+  "bugs": "https://github.com/ETH-IVIA-Lab/VACP/issues",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ETH-IVIA-Lab/VACP.git",
+    "directory": "packages/duckdb"
+  },
+  "files": [
+    "dist"
+  ],
+  "type": "module",
+  "exports": {
+    ".": {
+      "vacp-source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build": "vp pack",
+    "test": "TZ=America/Los_Angeles tsx --conditions=vacp-source --test --test-timeout=10000 test/*.test.ts"
+  },
+  "dependencies": {
+    "@types/emscripten": "catalog:",
+    "apache-arrow": "catalog:"
+  },
+  "devDependencies": {
+    "@duckdb/duckdb-wasm": "catalog:",
+    "@ethivia/vacp-sdk": "workspace:^"
+  },
+  "peerDependencies": {
+    "@duckdb/duckdb-wasm": ">=1.32.0",
+    "@ethivia/vacp-sdk": "workspace:^"
+  }
+}

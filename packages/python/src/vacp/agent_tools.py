@@ -1,9 +1,10 @@
 """
 The tools a model uses to reach a page through its bridge.
 
-`packages/protocol/test/fixtures/agent-tools.json`, `tool-read.json`, and `tool-result.json` hold the
-same names, input fields, descriptions, guidance, requests, reads, and result bounds for TypeScript,
-so an MCP client gets the tools `@ethivia/vacp-ai-sdk` gives an in-page agent.
+`packages/sdk/test/protocol/fixtures/agent-tools.json`, `tool-read.json`, and `tool-result.json` hold the
+same names, titles, input fields, descriptions, guidance, requests, reads, and result bounds for
+TypeScript, so an MCP client gets the tools `@ethivia/vacp-ai` gives an in-page agent. Every input
+field is camelCase.
 """
 
 from __future__ import annotations
@@ -15,37 +16,52 @@ from vacp.narration import PROGRESS_GUIDANCE
 
 
 class AgentTool(TypedDict):
+    title: str
     description: str
     input: list[str]
+    readOnly: bool
 
 
 AGENT_TOOLS: dict[str, AgentTool] = {
     'vacp_observe': {
+        'title': 'Observe the page',
         'description': ('Read the graph, available actions, state, revision, and output freshness in one observation.'),
         'input': [],
+        'readOnly': True,
     },
     'vacp_capabilities': {
+        'title': 'Read the graph',
         'description': (
             'Read the graph and its available actions. Scope the read by refs, prefixes, kinds, or layers once '
             'targets are known. Name actions in vacp_execute by graph.actions[].name.'
         ),
         'input': ['refs', 'prefixes', 'kinds', 'layers', 'includeActions', 'includeEdges', 'includeNodeData'],
+        'readOnly': True,
     },
     'vacp_state': {
+        'title': 'Read the state',
         'description': (
             'Read state keyed by stable refs. Without since it returns the full state and a token. With since set '
             'to the token of an earlier read it returns only what changed since then. refs limits the read.'
         ),
         'input': ['since', 'refs', 'includeSummary'],
+        'readOnly': True,
     },
     'vacp_execute': {
+        'title': 'Run an action',
         'description': (
             'Run one semantic action by its name from the graph, with params matching its parameters schema and '
             'a narration sentence for this step. Returns { callId, ok, result, error }.'
         ),
-        'input': ['name', 'params', 'narration', 'call_id'],
+        'input': ['name', 'params', 'narration'],
+        'readOnly': False,
     },
-    'vacp_progress': {'description': PROGRESS_GUIDANCE, 'input': ['message', 'done']},
+    'vacp_progress': {
+        'title': 'Tell the person what you are doing',
+        'description': PROGRESS_GUIDANCE,
+        'input': ['message', 'done'],
+        'readOnly': False,
+    },
 }
 
 TOOL_GUIDANCE = ' '.join(

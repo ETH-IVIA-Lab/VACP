@@ -8,7 +8,7 @@ const workspaceRoot = fileURLToPath(new URL('.', import.meta.url));
 /** Presence components are styled with StyleX and adopt the compiled sheet into their shadow root. */
 export function vacpPresenceSheet(root: string): Plugin {
   return stylexShadowSheet({
-    root: resolve(root, 'packages/presence-browser/src'),
+    root: resolve(root, 'packages/overlay/src'),
     id: 'virtual:vacp-presence-sheet',
   });
 }

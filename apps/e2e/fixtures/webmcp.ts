@@ -1,7 +1,6 @@
 import { z } from 'zod';
-import { createVacpProvider, createVacpRuntime } from '@ethivia/vacp-runtime';
-import { createVacpActions } from '@ethivia/vacp-sdk';
-import { installVacpWebMcp } from '@ethivia/vacp-webmcp';
+import { createVacpActions, createVacpProvider, createVacpRuntime } from '@ethivia/vacp-sdk';
+import { installVacpWebMcp } from '@ethivia/vacp-sdk/agent';
 
 export async function exerciseWebMcpSchemas() {
   const context = document.modelContext;
@@ -27,8 +26,8 @@ export async function exerciseWebMcpSchemas() {
     .handle(({ label, children }) => [label, ...children.map((child) => child.label)]);
   const provider = createVacpProvider({
     source: { id: 'vacp-source://schema-test', type: 'test', title: 'Schema inputs' },
-    actions: actions.registry,
-    project: () => ({ graph: { nodes: [], edges: [], actions: actions.registry.list() }, state: {} }),
+    actions,
+    project: () => ({ graph: { nodes: [] }, state: {} }),
     subscribe: () => () => {},
   });
   const runtime = createVacpRuntime({ providers: [provider] });
@@ -36,13 +35,13 @@ export async function exerciseWebMcpSchemas() {
     await installVacpWebMcp(runtime, { namespace: 'schema' });
     const tools = await context.getTools();
     const execute = async (name: string, params: unknown) => {
-      const tool = tools.find((entry) => entry.name === `schema.action.${name}`);
+      const tool = tools.find((entry) => entry.name === `schema_${name}`);
       if (!tool) throw new Error(`Missing schema tool: ${name}`);
       return JSON.parse(await context.executeTool(tool, { params, narration: 'Checking the input.' }));
     };
     return {
       schemas: Object.fromEntries(
-        tools.filter((tool) => tool.name.startsWith('schema.action.')).map((tool) => [tool.name, tool.inputSchema]),
+        tools.filter((tool) => tool.name.startsWith('schema_')).map((tool) => [tool.name, tool.inputSchema]),
       ),
       scalar: await execute('scalar', 4),
       text: await execute('scalar', 'hello'),

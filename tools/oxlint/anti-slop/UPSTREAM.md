@@ -2,7 +2,7 @@
 
 Vendored from `dmmulroy/anti-slop` commit `c44ef22ca116d0ba62a3ff663a0bd13a3f3fa40b`, using that checkout's `skills/install-anti-slop/assets/anti-slop` bundle and matching `src/**/*.test.ts` tests.
 
-The generic plugin is enabled through the root Vite+ configuration. Its tests and TypeScript checks run through the Makefile. Effect-specific rules are retained with their tests but are not enabled because this repository does not declare Effect.
+The generic plugin is enabled through the root Vite+ configuration. Its tests and TypeScript checks run in the `@ethivia/vacp-tools` package's `test` script, which `pnpm test` includes. Effect-specific rules are retained with their tests but are not enabled because this repository does not declare Effect.
 
 The root MIT license and nested vendored license/provenance files are preserved. `preset.ts` and `tsconfig.json` are local integration files.
 

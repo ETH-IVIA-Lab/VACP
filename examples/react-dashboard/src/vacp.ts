@@ -1,10 +1,8 @@
 import { z } from 'zod';
-import { createVacpProvider, type VacpRuntime } from '@ethivia/vacp-runtime';
-import { createVacpActions } from '@ethivia/vacp-sdk';
+import { createVacpActions, createVacpProvider, type VacpRuntime } from '@ethivia/vacp-sdk';
 import { installExampleRuntime } from '@ethivia/vacp-example-shared';
 import { exampleOptions } from '@ethivia/vacp-example-shared/config';
-import { elementPresenceTarget, observePresenceLayout } from '@ethivia/vacp-presence/dom';
-import type { PresenceTarget } from '@ethivia/vacp-presence';
+import { elementPresenceTarget, observePresenceLayout, type PresenceTarget } from '@ethivia/vacp-sdk/presence';
 import { registerDashboardActions } from './vacp/actions';
 import { createDashboardData } from './vacp/data';
 import { projectDashboard } from './vacp/projection';
@@ -30,11 +28,11 @@ export function connectVacp(args: {
       type: 'react-dashboard',
       title: 'React analytics dashboard',
     },
-    actions: actions.registry,
+    actions,
     subscribe: model.subscribe,
     project: () => {
       const snapshot = model.read();
-      return projectDashboard(snapshot, actions.registry.list(), data.describe(snapshot.datasetId), title);
+      return projectDashboard(snapshot, data.describe(snapshot.datasetId), title);
     },
   });
 
