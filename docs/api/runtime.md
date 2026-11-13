@@ -1,149 +1,271 @@
-# @ethivia/vacp-runtime
+# Runtime and page bridge
 
-The runtime composes providers, executes operations, records provenance, and publishes agent activity. It runs in any JavaScript environment. [`@ethivia/vacp-browser`](./browser) installs one in a page.
+The runtime composes providers into one graph, executes actions, records provenance, and publishes agent activity. `installVacpRuntime` creates one in a page and publishes it as the page bridge, which [`getVacpBridge`](./agent#getvacpbridge) reads. `createVacpRuntime` creates one in any JavaScript environment.
+
+```ts
+import {
+  createVacpRestorer,
+  createVacpRuntime,
+  installVacpRuntime,
+  vacpAgentActor,
+  vacpHumanActor,
+  type VacpActor,
+  type VacpAgentActivityHandle,
+  type VacpExecutionControl,
+  type VacpExecutionSource,
+  type VacpPageBridge,
+  type VacpRestorationResult,
+  type VacpRestore,
+  type VacpRuntime,
+} from '@ethivia/vacp-sdk';
+```
+
+## installVacpRuntime
+
+```ts
+function installVacpRuntime(options: {
+  providers: readonly VacpProvider[];
+  exposeBridge: boolean;
+  injectDomSnapshot?: boolean;
+  sessionKey?: string;
+  globalKey?: string;
+  runtimeId?: string;
+}): { runtime: VacpRuntime; dispose(): void };
+```
+
+Installs one runtime per `globalKey` and attaches `providers` to it.
+
+- `providers`: required. The [providers](./actions#vacpprovider) this installation attaches.
+- `exposeBridge`: required. `true` publishes the runtime at `window[globalKey]`. `false` keeps it reachable through the returned `runtime` alone.
+- `injectDomSnapshot`: defaults to `false`. `true` writes each observation into `application/json` script elements, described in [DOM snapshot](#dom-snapshot).
+- `sessionKey`: names the analytical session. A key that differs from the installed runtime's replaces every source and starts another provenance epoch.
+- `globalKey`: the `window` property of the bridge, and the key installations share. Default: `'__vacp'`.
+- `runtimeId`: the runtime's identity. Default: a random ID.
+
+A second installation at the same `globalKey` reuses the runtime. Providers with other source IDs join it, and a provider with an attached source ID replaces that source.
+
+Returns the `runtime` and `dispose()`. `dispose()` detaches the providers this installation attached. When no provider remains, it disposes the runtime and removes the bridge and the snapshot scripts. Later calls do nothing.
 
 ## createVacpRuntime
 
 ```ts
-createVacpRuntime(options: {
+function createVacpRuntime(options: {
   providers: readonly VacpProvider[];
   sessionKey?: string;
   runtimeId?: string;
   historyLimit?: number;
-}): VacpRuntime
+}): VacpRuntime;
 ```
 
-Composes `providers` and subscribes to their invalidations. `historyLimit` bounds the provenance journal and defaults to 256 records. `runtimeId` defaults to a random ID. `sessionKey` names the analytical session. Throws when two providers share a source ID.
+Composes `providers` into one runtime and subscribes to their invalidations.
 
-### Reads
+- `providers`: required. Each source ID appears once.
+- `sessionKey`: names the analytical session.
+- `runtimeId`: the runtime's identity. Default: a random ID.
+- `historyLimit`: the provenance records the runtime keeps. Past it, the oldest record drops. Default: `256`.
 
-| Method                      | Returns                                                                         |
-| --------------------------- | ------------------------------------------------------------------------------- |
-| `observe()`                 | `Promise<VacpObservation>`: the available graph, state, summaries, freshness    |
-| `inspect()`                 | `Promise<VacpObservation>`: the complete catalog with availability declarations |
-| `getCapabilities(request?)` | `Promise<VacpCapabilitiesSnapshot>`, scoped by `VacpCapabilitiesRequest`        |
-| `getState(request?)`        | `Promise<VacpStateUpdate>`: full with a token, or a delta since `request.since` |
-| `getProvenance()`           | The frozen provenance snapshot                                                  |
-| `getActiveExecutions()`     | Executions that have not settled                                                |
-| `getAgentActivities()`      | Current public agent activity                                                   |
+Returns a [`VacpRuntime`](#vacpruntime). Throws when two providers share a source ID, and a `RangeError` when `historyLimit` is not a positive integer.
 
-### Execution
+## VacpRuntime
 
 ```ts
-runtime.execute(call: VacpActionRequest, options?: VacpActionExecutionOptions): Promise<VacpActionResult>
+interface VacpRuntime extends VacpPageBridge, VacpExecutionControl {
+  readonly signal: AbortSignal;
+  readonly providerIds: readonly string[];
+  attachProviders(providers: readonly VacpProvider[]): () => void;
+  getProviderBinding(provider: VacpProvider): { id: string; signal: AbortSignal };
+  update(next: { providers: readonly VacpProvider[]; sessionKey?: string }): void;
+  getAgentActivities(): readonly AgentActivity[];
+  subscribeAgentActivities(listener: (activity: AgentActivity) => void): () => void;
+  subscribeCapabilities(listener: (snapshot: VacpCapabilitiesSnapshot) => void): () => void;
+  subscribeSnapshots(
+    listener: (snapshots: {
+      observation: VacpObservation;
+      capabilities: VacpCapabilitiesSnapshot;
+      state: VacpStateSnapshot;
+    }) => void,
+  ): () => void;
+  dispose(): void;
+}
+// AgentActivity: { id; actor: VacpActor; phase: 'thinking' | 'completed' | 'failed' | 'cancelled'; summary?; at }
 ```
 
-Routes the call to the operation's owner, checks availability, prepares the call, waits for execution gates, checks availability again, and executes once. The runtime assigns a `callId` when the call's is absent, null, or blank and keeps any other as written. The result, the execution, and the provenance record carry it. The actor defaults to `vacpAgentActor`, and the handler receives the resolved actor as `context.actor`. The result is `{ ok: false }` for an unknown or unavailable operation, invalid parameters, or a handler failure. Cancelling `options.signal` before execution prevents the change. Recording happens once, after the result is known, and a later failure never replaces that result.
+The runtime holds the members of [`VacpPageBridge`](#vacppagebridge) and [`VacpExecutionControl`](#vacpexecutioncontrol), plus these:
+
+- `signal`: aborts on `dispose()`.
+- `providerIds`: the attached source IDs.
+- `attachProviders(providers)`: adds sources, or replaces attached ones with the same source ID, in one step. Returns a function that detaches the sources this call attached and still owns. Throws when `providers` repeats a source ID.
+- `getProviderBinding(provider)`: the provider's current attachment. Replacing or detaching the provider aborts `signal`, and the next attachment has another `id`. Throws when the provider is not attached.
+- `update({ providers, sessionKey? })`: replaces every source. A `sessionKey` that differs from the current one cancels running executions, clears agent activity, and starts another provenance epoch with a `session` record.
+- `getAgentActivities()`: each actor's open or last turn.
+- `subscribeAgentActivities(listener)`: receives every turn change.
+- `subscribeCapabilities(listener)`: receives the capabilities snapshot when the graph changes.
+- `subscribeSnapshots(listener)`: receives the observation, capabilities, and state after each read that changed.
+- `dispose()`: cancels pending calls, releases subscriptions, and disposes the attached providers. Later calls do nothing.
+
+Each `subscribe*` function returns a function that removes the listener.
+
+## VacpPageBridge
 
 ```ts
-runtime.refresh(options?: { actor?: VacpActor; message?: string; focus?: VacpFocus }): Promise<VacpStateSnapshot>
+interface VacpPageBridge extends VacpExecutionSource, ProvenanceSource, VacpAgentActivityControl {
+  readonly version: '0.1.0';
+  readonly runtimeId: string;
+  readonly sessionKey: string | undefined;
+  observe(): Promise<VacpObservation>;
+  inspect(): Promise<VacpObservation>;
+  getCapabilities(request?: VacpCapabilitiesRequest): Promise<VacpCapabilitiesSnapshot>;
+  getState(request?: VacpStateRequest): Promise<VacpStateUpdate>;
+  execute(call: VacpActionRequest, options?: { signal?; actor?; narration?; restoration? }): Promise<VacpActionResult>;
+  record(options?: { actor?: VacpActor; message?: string; focus?: VacpFocus }): Promise<VacpStateSnapshot>;
+}
 ```
 
-Reads the sources and records the change as an observation by `actor`, the system actor by default. Call it after a person changes the application.
+The runtime as a page publishes it at `window.__vacp`. It adds [provenance](./provenance#provenancesource), [agent activity](./agent#vacpagentactivitycontrol), and [executions](#vacpexecutionsource) to these members:
+
+- `observe()`: one [observation](./protocol#vacpobservation) of the nodes and actions available at the time of the read, with state, summaries, and freshness.
+- `inspect()`: the complete catalog, including unavailable nodes and actions. Execution still checks current availability.
+- `getCapabilities(request?)`: the graph, scoped by a [`VacpCapabilitiesRequest`](./agent#vacpcapabilitiesrequest). A scoped read keeps the transitive prerequisites of matching nodes. `includeActions`, `includeEdges`, and `includeNodeData` default to `true`.
+- `getState(request?)`: a [`VacpStateUpdate`](./protocol#vacpstateupdate). Without `since`, or with a token the runtime does not hold, it is `mode: 'full'` with a `token`. With a held token, it is `mode: 'delta'` with the changes since that read.
+- `execute(call, options?)`: runs one action, described below.
+- `record(options?)`: reads the sources and records the result as an external observation by `actor`, the system actor by default. Call it after a person changes the application.
+
+### execute
+
+`execute` routes the call to the source that owns the action, checks availability, prepares the call, waits for [execution gates](#vacpexecutioncontrol), checks availability again, and executes once. It records one provenance record once the result is known.
+
+- `call.callId`: kept as written. The runtime assigns one when it is absent, null, or blank. The result, execution, and record carry it.
+- `options.actor`: the actor the call is attributed to. Default: [`vacpAgentActor`](#actors).
+- `options.narration`: the step's sentence for the person watching, at most 280 code points.
+- `options.signal`: cancels the call. Aborting before execution prevents the change. Changes already applied stay.
+- `options.restoration`: `{ id, entryId? }` marks a call that restores recorded state. Restoring calls belong to no agent turn.
+
+Resolves to `{ ok: false }` for an unknown or unavailable action, invalid parameters, or a handler failure. An availability failure carries `details.code`: `unknown-action`, `action-unavailable`, or `input-unavailable`. Throws a `TypeError` for a `callId` that is neither a string nor null, or for an unusable `narration`. Rejects with the abort reason when the call is cancelled.
 
 ### Agent activity
 
-| Method                                             | Behavior                                                                                                 |
-| -------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
-| `beginAgentActivity({ actor, summary?, signal? })` | Opens a turn. The handle's `update(summary)` replaces its words, `end({ outcome?, summary? })` closes it |
-| `narrate({ actor, message, done?, signal? })`      | Speaks one sentence. Opens a turn when none is open, or joins the open one. `done: true` closes it       |
+`beginAgentActivity` and `narrate` publish an agent's public progress as turns. Their signatures are on [`VacpAgentActivityControl`](./agent#vacpagentactivitycontrol).
 
-A summary is at most 500 Unicode code points, trimmed of the same whitespace as narration. A turn that `narrate` or a first step opened closes after 60 seconds with no sentence and no step, once the actor has no execution in flight. A turn opened with `beginAgentActivity` stays open until its handle ends it. An agent's first execution with no turn open opens one, so every step of a request shares one `activityId`. The runtime keeps at most 32 actors with an open turn. Opening a turn for another actor cancels the oldest one.
+- `beginAgentActivity({ actor, summary?, signal? })`: opens a turn and returns a [`VacpAgentActivityHandle`](#vacpagentactivityhandle). The turn stays open until the handle ends it, or `signal` aborts.
+- `narrate({ actor, message, done?, signal? })`: speaks one sentence. It joins the actor's open turn or opens one. Later sentences replace its words, and `done: true` closes it.
+- An agent's first execution with no open turn opens one, so the steps of one request share an `activityId`.
+- A turn that `narrate` or a step opened closes after 60 seconds without a sentence or a step, once the actor has no execution in flight.
+- A summary is at most 500 code points. The runtime keeps 32 actors with an open turn at most, and opening a 33rd cancels the oldest.
 
-### Subscriptions
-
-| Method                               | Publishes                                                                      |
-| ------------------------------------ | ------------------------------------------------------------------------------ |
-| `subscribeProvenance(listener)`      | `{ epoch, revision, record }` for each record, `record: null` on a new session |
-| `subscribeExecutions(listener)`      | Every `VacpExecution` phase                                                    |
-| `subscribeAgentActivities(listener)` | Every activity change                                                          |
-| `subscribeCapabilities(listener)`    | The capabilities snapshot when the graph changes                               |
-| `subscribeSnapshots(listener)`       | `{ observation, capabilities, state }` after each read that changed            |
-
-Each returns a function that removes the listener.
-
-### Sources and lifecycle
-
-| Member                                          | Behavior                                                                                               |
-| ----------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
-| `attachProviders(providers)`                    | Adds or replaces sources by source ID and returns a function that detaches the ones this call attached |
-| `update({ providers, sessionKey? })`            | Replaces every source. A changed `sessionKey` starts a new provenance epoch                            |
-| `getProviderBinding(provider)`                  | `{ id, signal }` for the provider's current attachment. Replacing the provider aborts `signal`         |
-| `addExecutionGate(gate, { timeoutMs, stage? })` | Adds a bounded wait `before` (default) or `after` execution. Returns its removal                       |
-| `providerIds`                                   | The attached source IDs                                                                                |
-| `runtimeId`, `sessionKey`                       | The runtime's identity and current session                                                             |
-| `signal`                                        | Aborted by `dispose()`                                                                                 |
-| `dispose()`                                     | Cancels pending calls, releases subscriptions, and disposes attached providers                         |
-
-## createVacpProvider
+## VacpAgentActivityHandle
 
 ```ts
-createVacpProvider(options: {
-  source: VacpSourceDescription;
-  actions: Pick<VacpActionRegistry, 'prepare'>;
-  project: () => VacpAnalyticalProjection | Promise<VacpAnalyticalProjection>;
-  subscribe: (invalidate: () => void) => () => void;
-  dispose?: () => void;
-}): VacpProvider
+type VacpAgentActivityHandle = {
+  update(summary: string): void;
+  end(options?: { outcome?: 'completed' | 'failed' | 'cancelled'; summary?: string }): void;
+};
 ```
 
-Builds a provider from a projection. `project()` returns `{ graph: VacpGraphFragment, state, summary?, freshness?, revision? }` for one read. When `revision` is absent, the provider derives it from the projected content. Call `invalidate` whenever a later projection may differ. Node data defaults to `Record<string, unknown>`, so nodes may carry differently shaped `data`. Pass a type argument, as in `createVacpProvider<Selection>(...)`, to give every node one data type.
+Controls one turn opened by `beginAgentActivity`. `update` replaces the turn's words. `end` closes it with `outcome`, `completed` by default, and keeps the last summary unless it receives one. A handle of a closed turn does nothing.
 
-## VacpActionRegistry
+## VacpExecutionSource
 
 ```ts
-new VacpActionRegistry(sourceId?: VacpSourceId)
-registry.register(descriptor, handler, preparation?): VacpActionDescriptor
-registry.list(): VacpActionDescriptor[]
-registry.unregister(name: string): void
-registry.prepare(call, options?): Promise<VacpPreparedAction>
+interface VacpExecutionSource {
+  readonly signal: AbortSignal;
+  getActiveExecutions(): readonly VacpExecution[];
+  subscribeExecutions(listener: (execution: VacpExecution) => void): () => void;
+}
 ```
 
-Holds one source's operations. `handler(params, context)` receives the parsed parameters and the `VacpActionExecutionContext`. With a `sourceId`, registered names are qualified as `source_<hash>.<name>`, so composed sources never collide. `preparation` is `{ parse, focus?, affects? }`: `parse` validates the raw parameters before anything changes. `register` throws on a duplicate name. `prepare` throws for an unknown operation. `@ethivia/vacp-sdk`'s `createVacpActions` builds on this registry.
+Publishes each [`VacpExecution`](./protocol#vacpexecution) phase. `getActiveExecutions()` returns the executions that have not settled, so a late subscriber sees work already in flight.
 
-`executeVacpAction(provider, call, context)` prepares and executes a `VacpActionCall` on one provider without the runtime's call ID assignment, routing, availability checks, or recording. `context.actor` names the actor the call is attributed to, such as `vacpAgentActor`. Use it to test a provider.
-
-## Standard operations
+## VacpExecutionControl
 
 ```ts
-registerVacpApplyStateAction(registry, prepare, options?: { affects?; description? })
-registerVacpDataSqlAction(registry, handler, options?: { availability?; inputRefs?; description? })
-registerVacpDataSchemaAction(registry, handler, options?: { availability?; inputRefs?; description? })
-registerVacpWidgetOptionsAction(registry, handler, options?: { availability?; inputRefs?; description? })
+interface VacpExecutionControl {
+  readonly signal: AbortSignal;
+  addExecutionGate(
+    gate: (execution: VacpExecution, signal: AbortSignal) => void | Promise<void>,
+    options: { timeoutMs: number; stage?: 'before' | 'after' },
+  ): () => void;
+}
 ```
 
-Each registers its [standard contract](./protocol#standard-contracts) with parameter validation and returns the descriptor. Invalid parameters fail with the same `invalid-params` details as `@ethivia/vacp-sdk` operations. `prepare` for `vacp.apply_state` receives the desired state and returns the function that applies it, called with the `VacpActionExecutionContext`. Throw from `prepare` to reject a state before anything changes. Agents can call `vacp.apply_state` too, so reject every state the source's operations refuse. `@ethivia/vacp-duckdb` provides the SQL and schema handlers.
+Adds a bounded wait to every execution, such as presence [pacing](./presence#paceagentpresence).
 
-### parseVacpParams
+- `gate`: runs for each execution. `signal` aborts when the wait ends.
+- `options.timeoutMs`: the longest wait in milliseconds. Required, finite, and at least 0.
+- `options.stage`: `before` runs between preparation and execution. `after` runs once the result is known and never changes it. Default: `'before'`.
 
-```ts
-parseVacpParams<Schema extends ZodType>(action: string, schema: Schema): (value: unknown) => Promise<output<Schema>>
-```
+Returns a function that removes the gate. Throws for an invalid `timeoutMs` or a gate already added.
 
-Returns a parser for a `VacpActionRegistry` registration's `parse` option. It resolves to the schema's output, or rejects with a `VacpActionError` whose `details` are `{ code: 'invalid-params', issues }`. Each `VacpParameterIssue` is `{ path, code, message }`, with `errors` per branch for a union failure and nested `issues` for a key or element failure. Submitted values never appear in the issues.
+## DOM snapshot
+
+With `injectDomSnapshot: true`, the runtime writes each observation into `application/json` script elements. The base script's ID is `<globalKey>_snapshot`, `__vacp_snapshot` by default, and it holds a `vacp.dom_snapshot` manifest that links the other scripts by ID.
+
+| Script        | `data-vacp`              | Contents                                                                                       |
+| ------------- | ------------------------ | ---------------------------------------------------------------------------------------------- |
+| Manifest      | `snapshot`               | `observation.revision`, sources, freshness, and the IDs of the graph, state index, and catalog |
+| Graph         | `snapshot-graph`         | Nodes, edges, and actions, with a `token` that changes with the graph                          |
+| State catalog | `snapshot-state-catalog` | One entry per ref with its `scriptId`, kind, layer, and title, and a `token` for the catalog   |
+| State index   | `snapshot-state-index`   | `revision`, `baseRevision`, `changedRefs`, `removedRefs`, and whether the catalog changed      |
+| Ref           | `snapshot-ref`           | One ref's `value` and optional `summary`                                                       |
+
+Every script carries `data-vacp-root` with the base script ID. Each ref script carries `data-vacp-snapshot-ref` with its ref.
+
+The runtime writes when the observation revision or the graph changes. Unchanged refs keep their script text, and the graph and catalog scripts change only when their content does. The state index names the revision it describes and, after the first write, the revision written before it:
+
+- A reader at `baseRevision` reaches `revision` by rereading the ref scripts in `changedRefs` and dropping those in `removedRefs`. When `catalog.changed` is true, it rereads the catalog first to find the scripts of added refs.
+- A write at the same revision, such as after a graph change that leaves state alone, has `baseRevision` equal to `revision` and empty lists.
+- A reader at any other revision rereads the catalog and every ref script it lists.
 
 ## createVacpRestorer
 
 ```ts
-const restorer = createVacpRestorer(runtime);
-restorer.restore(state: Record<VacpRef, unknown>, options?: VacpActionExecutionOptions): Promise<VacpRestorationResult>
+function createVacpRestorer(
+  runtime: Pick<VacpPageBridge, 'inspect' | 'execute'> & { readonly signal: AbortSignal },
+): (
+  state: Readonly<Record<VacpRef, unknown>>,
+  options?: { signal?; actor?; narration?; restoration? },
+) => Promise<VacpRestorationResult>;
 ```
 
-Splits `state` by source ownership, read through `inspect()`, and executes each source's `vacp.apply_state` operation as `vacpHumanActor` unless `options.actor` names another. Requests through one restorer run one at a time. Every ref must have an owner with exactly one `vacp.apply_state` operation, checked before any source changes. A failed check returns `{ ok: false, error: { message } }` and applies nothing. After the check, sources restore independently. Success returns `{ ok: true, result: { sources } }`, and a failure in any source returns `{ ok: false, error: { message, details: { sources } } }`, both with one `{ sourceId, action, result }` per source. `restore` keeps no reference to the restorer, so pass it where a `VacpRestore` is expected.
+Returns a [`VacpRestore`](#vacprestore) that restores a state keyed by ref through each owning source's `vacp.apply_state` action. Each call reads ownership with `inspect()`, then executes each source's share of `state`. Calls to one returned function run one at a time.
 
-## Subscription helpers
+- `options.actor`: the actor of each call. Default: [`vacpHumanActor`](#actors).
+- `options.restoration`: marks the calls as restorations. Default: `{ id }` with one ID per call.
+- `options.signal`: cancels the request together with the runtime's `signal`.
+
+Every ref must belong to a source with exactly one `vacp.apply_state` action, checked before any source changes. After the check, sources restore independently, and the call waits for all of them.
+
+Resolves to a [`VacpRestorationResult`](#vacprestorationresult). A failed check resolves to `{ ok: false, error: { message } }` and applies nothing. Rejects when `options.signal` or the runtime aborts.
+
+## VacpRestorationResult
 
 ```ts
-createSharedSubscription(connect: (resource, invalidate) => () => void): (resource, listener) => () => void
-createProviderSubscription(bind: (notify) => () => void, options: { quietMs: number }): { subscribe(listener): () => void; dispose(): void }
+type VacpRestorationResult =
+  | { callId: string; ok: true; result: { sources: Outcome[] } }
+  | { callId: string; ok: false; error: { message: string; details?: { sources: Outcome[] } } };
+// Outcome: { sourceId: VacpSourceId; action: string; result: VacpActionResult }
 ```
 
-`createSharedSubscription` connects a native resource once while it has listeners, and disconnects after the last leaves. `createProviderSubscription` binds lazily on the first listener, coalesces notifications within `quietMs`, and isolates listener failures.
+One `Outcome` per source that the restoration called. A failure in any source fails the whole result, with every source's outcome in `details.sources`.
 
-## composeVacpProviders
+## VacpRestore
 
 ```ts
-composeVacpProviders(providers): { read(): Promise<VacpResolvedObservation>; subscribe(listener): () => void; dispose(options?): void }
+type VacpRestore = (
+  state: Readonly<Record<VacpRef, unknown>>,
+  options: { signal?; actor?; narration?; restoration? },
+) => Promise<VacpActionResult>;
 ```
 
-Composes providers for a host that manages its own reads and execution. `read()` returns `{ inspection, observation, availability }` from one coherent read across the providers, retrying while a provider invalidates during the read.
+The restoration function [`createProvenanceReplay`](./provenance#createprovenancereplay) and [inspector clients](./inspector#inspectorclient) accept, such as `createVacpRestorer(runtime)`.
+
+## Actors
+
+```ts
+type VacpActor = { id: string; kind: 'agent' | 'human' | 'system'; label?: string };
+const vacpAgentActor: VacpActor; // { id: 'agent', kind: 'agent' }
+const vacpHumanActor: VacpActor; // { id: 'human', kind: 'human' }
+```
+
+A `VacpActor` names who made a change. The host supplies it beside the call, never inside an action's parameters. `label` replaces the name a viewer gives the actor's `kind`, such as the presence overlay's [`labels`](./overlay#labels).
+
+`vacpAgentActor` is the actor every agent transport and `execute` use when the host names none. `vacpHumanActor` is the actor of restorations and replay. Both are frozen.

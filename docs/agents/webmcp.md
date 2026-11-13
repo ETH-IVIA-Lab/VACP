@@ -1,9 +1,9 @@
 # WebMCP
 
-[WebMCP](https://webmachinelearning.github.io/webmcp/) is a proposed browser API through which a page registers tools for agents that run in the browser. `@ethivia/vacp-webmcp` registers every available VACP operation as a tool on `document.modelContext`. Calls run through the VACP runtime, so presence, provenance, and availability checks apply as they do for any other agent.
+`installVacpWebMcp` registers each available action on your page as a tool for agents that run in the browser. [WebMCP](https://webmachinelearning.github.io/webmcp/) is a proposed browser API, `document.modelContext`, through which a page offers tools to such agents.
 
 ```ts
-import { installVacpWebMcp } from '@ethivia/vacp-webmcp';
+import { installVacpWebMcp } from '@ethivia/vacp-sdk/agent';
 
 const webmcp = await installVacpWebMcp(runtime, {
   onError: (cause) => console.error('WebMCP registration failed', cause),
@@ -13,54 +13,39 @@ const webmcp = await installVacpWebMcp(runtime, {
 webmcp?.dispose();
 ```
 
-`installVacpWebMcp` resolves to an installation once the first registration completes, or to `undefined` when the browser has no `document.modelContext`. A failed first registration rejects the promise. The runtime does not need to be exposed at `window.__vacp`.
+`runtime` comes from `const { runtime } = installVacpRuntime(...)`. The promise resolves once the first registration completes, and rejects if it fails. It resolves to `undefined` in a browser without `document.modelContext`, so the same code runs everywhere. `onError` receives failures of later registrations. Calls run through the runtime, so presence, provenance, and availability checks apply as they do for every other agent.
 
-## Tools
+## Tools the agent sees
 
-| Tool                 | Input                                      | Result                                                     |
-| -------------------- | ------------------------------------------ | ---------------------------------------------------------- |
-| `vacp.observe`       | none                                       | One observation: graph, state, revision, and freshness     |
-| `vacp.capabilities`  | The `vacp_capabilities` scope fields       | The graph, scoped as requested                             |
-| `vacp.state`         | `since`, `refs`, `includeSummary`          | A full state read with its token, or a delta since `since` |
-| `vacp.progress`      | `message`, `done`                          | Shows one sentence to the person watching                  |
-| `vacp.action.<name>` | The operation's parameters and `narration` | The operation's result envelope                            |
+| Tool                | What it does                                                   |
+| ------------------- | -------------------------------------------------------------- |
+| `vacp_observe`      | Reads the graph, state, and freshness                          |
+| `vacp_capabilities` | Reads the graph, scoped as requested                           |
+| `vacp_state`        | Reads state, or the changes since a state token                |
+| `vacp_progress`     | Shows an opening or closing sentence to the person watching    |
+| `vacp_<name>`       | Runs one action with its parameters and a `narration` sentence |
 
-Each available operation is its own tool, so the graph that `vacp.observe` and `vacp.capabilities` return leaves operations out. An operation tool takes the operation's parameters directly, with `narration` beside them, when its schema is a plain object schema. A schema that is not an object, has a `narration` property, references other schemas with `$ref`, or constrains the whole object, such as with `additionalProperties`, keeps its parameters under `params`:
+The reads and `vacp_progress` carry the names the [MCP server](./#connect-an-mcp-client) and the AI SDK tools use. An action tool spells each `.` of the action name as `_`, so `threshold.set` becomes `vacp_threshold_set`. Every name fits the `[A-Za-z0-9_-]{1,64}` rule of model APIs, so a browser agent can hand the catalog to its model as registered. The graphs these tools return leave actions out, because each action is its own tool. The installation follows the runtime. An action that becomes available gains a tool, and one that becomes unavailable loses it. A call without a valid `narration` returns an error result and runs nothing, so the agent can read the message and retry. The [WebMCP reference](../api/agent#installvacpwebmcp) gives the input rules for each action tool.
 
-```json
-{ "params": "hello", "narration": "Searching for hello." }
+## Name and attribute the tools
+
+Pass `namespace` to give each runtime its own tool prefix, such as `namespace: 'sales'` for `sales_observe`. Pass `actor` to attribute the calls to someone other than `vacpAgentActor`.
+
+## Remove the tools
+
+`webmcp.dispose()` removes the tools and leaves the runtime running. Disposing the runtime, or aborting a `signal` you pass in the options, removes them as well.
+
+## Try it in Chromium
+
+Chromium implements WebMCP behind flags. Start Chromium with these two flags, then open any page that runs VACP, such as the [example gallery](https://examples.vacp.dev/):
+
+```text
+--enable-experimental-web-platform-features --enable-features=WebMCPTesting
 ```
 
-A call whose `narration` is missing, blank, or longer than 280 characters returns `{ ok: false, error: { message } }` and runs nothing. Errors arrive as results so the agent can read the message and retry, since browsers replace a thrown tool error with a generic one.
+Every example registers its tools in a browser that supports the API. The WebMCP [implementation status](https://github.com/webmachinelearning/webmcp/blob/main/implementation-status.md) tracks other browsers.
 
-## Options
+## Next
 
-| Option      | Default                 | Meaning                                                         |
-| ----------- | ----------------------- | --------------------------------------------------------------- |
-| `actor`     | `vacpAgentActor`        | Attribution of every step and sentence                          |
-| `namespace` | `"vacp"`                | Prefix of every tool name, so several runtimes can share a page |
-| `onError`   |                         | Receives a failed registration after a capability change        |
-| `signal`    |                         | Removes the tools when aborted                                  |
-| `context`   | `document.modelContext` | The registry to register into                                   |
-
-Tool names allow letters, digits, underscores, hyphens, and dots. A name that collides with another owner's tool fails registration and replaces nothing.
-
-## Changes and cleanup
-
-The installation follows the runtime's capability changes. A tool whose definition is unchanged keeps its registration. A changed operation replaces its tool without cancelling a call already in progress. Revisions that arrive during a registration merge into the next one. `await webmcp.refresh()` waits until the current graph, or a newer one, is registered. `webmcp.error` holds the last automatic failure until a refresh succeeds.
-
-`webmcp.dispose()` removes the tools and leaves the runtime running. Disposing the runtime also removes them.
-
-A call that the agent cancels stops waiting, and the signal reaches the operation's handler. A handler that already applied its change keeps it, and a result that completed before the cancellation is still returned.
-
-## Browser support
-
-WebMCP is experimental. Chromium implements it behind flags: start Chromium with `--enable-experimental-web-platform-features --enable-features=WebMCPTesting`. See the [implementation status](https://github.com/webmachinelearning/webmcp/blob/main/implementation-status.md) for other browsers. The browser suite runs the integration against Chromium's native `document.modelContext`.
-
-Run the cars example and open it in a WebMCP-enabled Chromium:
-
-```bash
-pnpm --filter @ethivia/vacp-example-cars-parallel-coords dev
-```
-
-Open `https://cars-parcoords.examples.vacp.localhost/`. Every example registers its tools when the browser supports the API.
+- [Show the agent's steps with presence](../presence/)
+- [WebMCP reference](../api/agent#installvacpwebmcp)

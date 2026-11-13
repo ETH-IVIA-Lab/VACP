@@ -1,166 +1,93 @@
 # Core concepts
 
-An observation is one read of a page's analysis: the graph of entities and operations, the state of each entity, and whether each output is current. Agents, presence, replay, and inspection surfaces all start from an observation. The examples use the threshold integration from [Connect an application](../integrate/), one range input that controls a threshold between 0 and 100.
+VACP describes a visual analysis as data an agent can read and act on. This page defines each term once, using one small analysis: a histogram of exam scores with a brush selection that filters a table of students.
 
-## Refs
+## Provider
 
-A ref is a stable identifier for one analytical entity, written as a `vacp://` URI:
+A **source** is a system that owns analytical values, such as a Vega-Lite chart, a Mosaic vgplot dashboard, or a set of controls in your app. A **provider** wraps one source. It reports the source's part of the graph and its current state, and it applies actions through the source's own API. `@ethivia/vacp-vega` and `@ethivia/vacp-vgplot` create providers for their libraries. `createVacpProvider` creates one for anything else, as [Custom provider](../custom-provider/) shows.
 
-```text
-vacp://example/threshold
-vacp://analysis/overview/scatter/param/brush
-```
+## Runtime
 
-A provider derives refs from its own model, such as a view ID, a parameter name, or a mark index. A ref stays the same across rerenders and across reads, so an agent can name an entity it saw in an earlier read. Agents treat refs as opaque. They read refs from the graph and pass them back unchanged.
+The **runtime** composes every provider on the page. It tracks which source owns each node and action, executes actions, and records [provenance](#provenance). `installVacpRuntime` creates the runtime for a page. [Compose sources](../composition/) puts several providers in one runtime.
 
-## Sources and ownership
+## Graph, node, and ref
 
-A source is one system that owns analytical values, identified by a `vacp-source://` ID. A provider binds one source and contributes its part of the graph. When the runtime composes several providers, it records which source owns each node and each operation:
+The **graph** lists what exists in the analysis. Here is the graph for the scores histogram:
 
 ```json
 {
-  "sources": [{ "id": "vacp-source://example/threshold", "type": "control", "title": "Threshold control" }],
-  "ownership": {
-    "nodes": { "vacp://example/threshold": "vacp-source://example/threshold" },
-    "actions": { "threshold.set": "vacp-source://example/threshold" }
-  }
-}
-```
-
-Each node and each operation has exactly one owner. Edges may cross sources, so a widget in one source can control a chart in another. [Compose sources](../composition/) covers several providers in one runtime.
-
-## The graph
-
-The graph describes what exists. `nodes` lists the entities, `edges` the relationships between them, and `actions` the operations.
-
-```json
-{
-  "nodes": [{ "ref": "vacp://example/threshold", "kind": "Param", "layer": "ConfigLayer", "title": "Threshold" }],
-  "edges": [],
-  "actions": [
+  "nodes": [
+    { "ref": "vacp://scores/histogram", "kind": "View", "layer": "ViewLayer", "title": "Scores" },
     {
-      "name": "threshold.set",
-      "description": "Set the threshold between 0 and 100",
-      "operation": { "kind": "mutation", "affects": ["vacp://example/threshold"] }
-    }
+      "ref": "vacp://scores/histogram/brush",
+      "kind": "Selection",
+      "layer": "InteractionFeedbackLayer",
+      "title": "Score brush"
+    },
+    { "ref": "vacp://scores/students", "kind": "DataHandle", "layer": "DataLayer", "title": "Students" }
+  ],
+  "edges": [
+    { "from": "vacp://scores/histogram", "to": "vacp://scores/histogram/brush", "kind": "contains" },
+    { "from": "vacp://scores/histogram/brush", "to": "vacp://scores/students", "kind": "controls" }
+  ],
+  "actions": [
+    { "name": "scores.brush", "operation": { "kind": "mutation", "affects": ["vacp://scores/histogram/brush"] } }
   ]
 }
 ```
 
-- `kind` names what the entity is: `View`, `Visualization`, `Mark`, `Selection`, `Param`, `Widget`, `DataHandle`, and other core kinds, or any string a provider defines.
-- `layer` groups entities by role: `ConfigLayer`, `ViewLayer`, `VisualizationLayer`, `DataLayer`, or `InteractionFeedbackLayer`.
-- Edges have a `kind` such as `contains`, `controls`, `derivedFrom`, or `targets`.
+A **node** is one analytical entity: a view, a mark, a selection, a parameter, a widget, or a data handle. Its `kind` names what it is, and its `layer` groups it by role. Edges relate nodes. `contains` places the brush in the histogram, and `controls` says the brush filters the students table.
 
-Containment alone carries no analytical meaning. A provider adds `controls` or `derivedFrom` when it knows that a control filters data or that a chart reads it.
+A **ref** is a node's stable `vacp://` identifier. The provider derives it from its own model, such as a view ID or a parameter name, so the ref stays the same across rerenders and reads. Agents read refs from the graph and pass them back unchanged.
 
-## State and summaries
+## State
 
-State holds the current value of each entity, keyed by ref. Keep values JSON, since transports serialize them and restoration applies them back:
+**State** holds the current value of each node, keyed by ref. A selection's state is in data units:
 
 ```json
-{ "state": { "vacp://example/threshold": { "value": 42 } } }
+{ "vacp://scores/histogram/brush": { "kind": "Interval1D", "selectionValue": [60, 80] } }
 ```
 
-A selection's state is its range or its selected points in data units, such as `[22, 28]` for an age brush in years. A summary, keyed the same way, holds a short description of a value too large for state, such as a row count or a domain.
+## Action
 
-## Freshness
-
-Some outputs lag behind their inputs, such as a chart that recomputes after a filter changes. Freshness reports, per output, whether it reflects its current input:
-
-```json
-{
-  "freshness": {
-    "vacp://analysis/overview/scatter": { "status": "current", "inputRevision": "r12", "outputRevision": "r12" }
-  }
-}
-```
-
-The status is `current`, `stale`, `running`, or `error`. A provider reports `current` only when the source states that its output matches an input revision. An output without a freshness record has unknown freshness.
-
-## Availability
-
-A provider publishes its complete catalog, and each node or operation can state when it is usable. Agent reads disclose only what is available now, while `inspect()` returns the complete catalog for inspection surfaces. Execution checks availability again before it applies a change. [Declare availability](../availability/) gives the rules.
-
-## Observations
-
-An observation combines the graph, state, summaries, ownership, and freshness, with a `revision` that changes whenever any of them changes:
+An **action** is a named change or query an agent can execute, listed in `graph.actions`. In code, `createVacpActions().operation(kind, name, description)` defines one, and each entry's `operation` field holds its kind, contract, and affected refs. It declares its parameters as JSON Schema, its kind (`mutation`, `creation`, `evaluation`, or `query`), and the refs it affects. The runtime executes a call in two steps. It validates the parameters first, and only a valid call reaches the source:
 
 ```js
-const observation = await window.__vacp.observe();
-// { version, revision, observedAt, graph, state, summary, freshness }
+await window.__vacp.execute({ name: 'scores.brush', params: { range: [60, 80] } });
 ```
 
-Use `observe()` when values must describe the same moment, as [Compose sources](../composition/#read-several-sources-at-once) explains. `getCapabilities()` and `getState()` return scoped views of the same data, and `getState({ since: token })` returns only what changed since an earlier read.
+A **contract** is a name for what an action does that several sources can share, such as `vacp.data_sql` for a SQL query over a data handle. An action states its contract in `operation.contract`. Action names can carry a source prefix, so an agent finds an action by its contract and then calls its `name`.
 
-## Operations
+The graph lists only the actions that can run in the current state. [Declare availability](../availability/) explains how a provider marks an action as unavailable. [Protocol types](../api/protocol) gives every field of an action and lists the [standard contracts](../api/protocol#standard-contracts).
 
-An operation is a named change or query that an agent or an interface can execute. The protocol calls its record an action: operations appear in `graph.actions`, each described by a `VacpActionDescriptor`, and `execute()` takes a `VacpActionRequest`. The descriptor states what the operation does to the analysis:
+## Observation
 
-```json
-{
-  "name": "threshold.set",
-  "description": "Set the threshold between 0 and 100",
-  "parameters": {
-    "type": "object",
-    "properties": { "value": { "type": "number", "minimum": 0, "maximum": 100 } },
-    "required": ["value"]
-  },
-  "operation": { "kind": "mutation", "affects": ["vacp://example/threshold"] }
-}
-```
+An **observation** is one read of the whole page: the graph, the state, and a `revision` that changes when either changes. It can also report freshness, which says whether a chart has caught up with its inputs. Read one with `await window.__vacp.observe()`. [Get started](../get-started/#read-the-page-as-an-agent-does) shows a complete observation.
 
-| Field                     | Meaning                                                                    |
-| ------------------------- | -------------------------------------------------------------------------- |
-| `name`                    | The routing name, unique across the composed graph                         |
-| `parameters`              | [JSON Schema](https://json-schema.org) for the call's `params`             |
-| `operation.kind`          | `mutation`, `creation`, `evaluation`, or `query`                           |
-| `operation.contract`      | A shared meaning several sources can implement, such as `vacp.data_sql`    |
-| `operation.inputRefs`     | Existing entities whose values the operation reads                         |
-| `operation.affects`       | Existing entities the operation may change                                 |
-| `operation.refParameters` | Parameters whose values are refs                                           |
-| `operation.results`       | State, entities, data, visualizations, or artifacts the operation produces |
+## Page bridge
 
-A call runs in two phases. Preparation validates every parameter and resolves the native target without changing anything. Execution then applies the change once. A call with invalid parameters fails during preparation with `error.details.code: 'invalid-params'` and an issue with the `path` of each failed check, and the analysis stays as it was.
+The **page bridge** is the runtime published at `window.__vacp`. It offers the reads and execution an agent needs, plus provenance and activity for interfaces built for people. Agents reach it in three ways:
 
-```js
-await window.__vacp.execute({ name: 'threshold.set', params: { value: 42 } });
-// { callId: '7c9e6679-7425-40de-944b-e07fc1f90ae7', ok: true, result: { value: 42 } }
-```
+- External clients such as Claude Code, Codex, and Cursor use the MCP server in the `vacp` Python package, which drives the page in Chromium. [MCP](https://modelcontextprotocol.io) is the protocol these clients use to call tools.
+- Agents in the page use the tools from `@ethivia/vacp-ai`, built on the [AI SDK](https://ai-sdk.dev), Vercel's TypeScript library for model calls.
+- Browser agents use [WebMCP](../agents/webmcp), a proposed browser API through which a page registers each action as a tool.
 
-Several sources can implement one contract under different names, so an agent [finds an operation by its contract](../composition/#find-an-operation-by-contract) and then executes its `name`.
+[Connect an agent](../agents/) compares them. [Runtime and page bridge](../api/runtime) lists every method.
 
-### Standard contracts
+## Data handle
 
-| Contract              | Purpose                                                               |
-| --------------------- | --------------------------------------------------------------------- |
-| `vacp.apply_state`    | Apply recorded state to a source, for replay and restoration          |
-| `vacp.data_sql`       | Run a SQL query over a data handle's rows                             |
-| `vacp.data_schema`    | Read a data handle's columns, types, row count, and bounded summaries |
-| `vacp.widget_options` | Page through the options of a menu or search widget                   |
-
-[Protocol records](../api/protocol#standard-contracts) lists each contract's parameters.
-
-## Data handles
-
-A `DataHandle` node stands for a table the application already holds, so the graph carries the handle and the rows stay in their database. Its `vacp.data_sql` operation reads two relations:
-
-- `vacp_handle` holds the rows the view shows now, narrowed by the current selections.
-- `vacp_all` holds every row the source loaded.
+A **data handle** is a `DataHandle` node for a table your app already holds. The graph carries the handle, and the rows stay in their database. An agent queries it with SQL through the `vacp.data_sql` action, which reads two relations. `vacp_handle` holds the rows the view shows under the current selections, and `vacp_all` holds every row:
 
 ```sql
-SELECT sport, count(*) AS athletes FROM vacp_handle GROUP BY sport ORDER BY athletes DESC
+SELECT grade, count(*) AS students FROM vacp_handle GROUP BY grade
 ```
 
-[Data handles](../api/protocol#data-handles) lists the fields of a handle's node and state.
+`@ethivia/vacp-sdk/data` creates handles and their SQL actions over any [DuckDB](https://duckdb.org) client. [Data](../api/data) documents it.
 
-## Actors, turns, and narration
+## Presence
 
-Every change has an actor: an `agent`, a `human`, or the `system`. The host supplies the actor with the call. Model output never sets it.
-
-A turn is one agent request. It opens with the agent's first sentence or its first step, and it closes with the closing sentence. Each step carries its own sentence for the person watching, passed as `narration`. The progress tool adds an opening sentence before the first step and a closing sentence when the request is done. [Agent presence](../presence/) shows each sentence as its step begins, and replay shows the same words.
+**Presence** shows the person what the agent is doing. A cursor travels to each step's target, and a bubble beside it shows the sentence the agent sent with the step, its narration. `@ethivia/vacp-overlay` draws the cursor and bubble. A **presentation** tells presence where a provider's refs appear on screen. `createVegaLitePresentation` and `createVgplotPresentation` create one for their libraries. [Agent presence](../presence/) sets it up.
 
 ## Provenance
 
-The runtime records every completed operation and every observed change in a journal of immutable records: operations with their actor and narration, changes a person made in the page, turn endings, and session boundaries. `@ethivia/vacp-provenance` derives checkpoints from these records, and a viewer restores a checkpoint through each source's `vacp.apply_state` operation. [Provenance and replay](../provenance/) covers the journal and restoration.
-
-Next, [connect an application](../integrate/), or add VACP to a [Vega-Lite](../vega-lite/) or [Mosaic vgplot](../vgplot/) view.
+**Provenance** is the list of records the runtime keeps for every change. Each record names its actor: the `agent`, the `human` using the page, or the `system`. Records cover executed actions, observed changes, and the boundaries of turns and sessions. A turn groups the steps of one agent request. From these records, VACP derives checkpoints and replays the analysis to each one. [Provenance and replay](../provenance/) covers the records and replay.

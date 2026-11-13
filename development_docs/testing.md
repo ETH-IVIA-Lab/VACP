@@ -2,13 +2,12 @@
 
 Tests protect behavior at the boundary a consumer uses: package exports for libraries, the page bridge and native rendering for providers, and the rendered page for presence and the docs.
 
-| Suite           | Command                     | Covers                                                                  |
-| --------------- | --------------------------- | ----------------------------------------------------------------------- |
-| Unit            | `make test`                 | Each package's `test/` through its public entry, plus Python            |
-| Package imports | `make test-package-imports` | Every public export in native Node and a strict NodeNext consumer       |
-| Lint rules      | `make test-tools`           | The vendored anti-slop rules and the StyleX sheet compiler              |
-| Browser         | `make e2e`                  | Examples, presence, WebMCP, the built gallery, and the docs             |
-| Benchmarks      | `make bench`                | Hot paths, run one package at a time. See [performance](performance.md) |
+| Suite           | Command              | Covers                                                                                                               |
+| --------------- | -------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| Unit            | `pnpm test`          | Each package's `test/` through its public entry, the lint rules and StyleX compiler in `tools`, plus Python          |
+| Package imports | `pnpm test:packages` | Every public export of the packed tarballs, with their declared peers, in native Node and a strict NodeNext consumer |
+| Browser         | `pnpm e2e`           | Examples, presence, WebMCP, the built gallery, and the docs                                                          |
+| Benchmarks      | `pnpm bench`         | Hot paths, run one package at a time. See [performance](performance.md)                                              |
 
 Unit tests run with `node --test` and a 10-second deadline, 20 seconds for the eval suite, so a missing asynchronous signal fails instead of hanging. Timing contracts use controlled clocks and observable phases. Benchmarks are never correctness checks.
 
@@ -35,7 +34,7 @@ A successful result envelope proves that the runtime dispatched the call. To pro
 
 Keep one witness per contract at the boundary that can prove it:
 
-- Preparation rejects invalid input before any native change, and the prepared operation runs once.
+- Preparation rejects invalid input before any native change, and the prepared action runs once.
 - Replacing a provider cancels its old binding. Replacing an unrelated source leaves active work alone.
 - Attaching and detaching observation preserves native controls, rendering, return values, and promise identity, in either order. Failed setup releases what it acquired.
 - Freshness belongs to an input and output revision, and superseded work never publishes as current.

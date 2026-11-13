@@ -1,77 +1,149 @@
-# Protocol records
+# Protocol types
 
-`@ethivia/vacp-protocol` defines the records every VACP package and the Python server exchange. It runs in any JavaScript environment. `@ethivia/vacp-protocol/validation` adds Zod parsers for payloads that arrive over a wire.
+These types describe what every VACP package and the Python server exchange: refs, graphs, actions, observations, state, executions, and provenance records. They run in any JavaScript environment. [Runtime and page bridge](./runtime) describes the objects that produce them, and [Actions and providers](./actions#vacpprovider) the `VacpProvider` that returns them.
 
-## Identity
+```ts
+import type {
+  ProvenanceRecord,
+  VacpActionDescriptor,
+  VacpActionExecutionContext,
+  VacpActionRequest,
+  VacpActionResult,
+  VacpAvailability,
+  VacpCapabilitiesSnapshot,
+  VacpEdge,
+  VacpEdgeKind,
+  VacpExecution,
+  VacpFocus,
+  VacpFreshness,
+  VacpGraph,
+  VacpGraphFragment,
+  VacpInteraction,
+  VacpLayer,
+  VacpNode,
+  VacpNodeKind,
+  VacpObservation,
+  VacpOperationKind,
+  VacpRef,
+  VacpSourceDescription,
+  VacpSourceId,
+  VacpStateSnapshot,
+  VacpStateUpdate,
+  VacpTurnRecord,
+  VacpWidgetOptionsResult,
+} from '@ethivia/vacp-sdk';
+```
+
+## VacpRef
 
 ```ts
 type VacpRef = `vacp://${string}`;
-type VacpSourceId = `vacp-source://${string}`;
-type VacpSourceDescription = { id: VacpSourceId; type: string; title: string; description?: string; data?: object };
 ```
 
-A ref names one entity and stays the same across reads. `isVacpRef(value)` checks the prefix. A source's `type` is an open family name such as `application`, `widget`, or `notebook`.
+Names one entity and stays the same across reads.
 
-## Graph
+## VacpSourceId
 
 ```ts
-type VacpNode = {
+type VacpSourceId = `vacp-source://${string}`;
+```
+
+Names one analytical source in a composed view.
+
+## VacpSourceDescription
+
+```ts
+type VacpSourceDescription<Data = Record<string, unknown>> = {
+  id: VacpSourceId;
+  type: string;
+  title: string;
+  description?: string;
+  data?: Data;
+};
+```
+
+`type` is an open family name such as `application`, `widget`, or `notebook`.
+
+## VacpNode
+
+```ts
+type VacpNode<Data = Record<string, unknown>> = {
   ref: VacpRef;
   kind: VacpNodeKind;
   layer: VacpLayer;
   title?: string;
   description?: string;
-  data?: object;
+  data?: Data;
   availability?: VacpAvailability;
 };
+```
+
+One entity in the graph.
+
+## VacpNodeKind
+
+The core values are `App`, `View`, `Visualization`, `Mark`, `EncodingChannel`, `EncodedField`, `Legend`, `Axis`, `Selection`, `Param`, `Widget`, `DataHandle`, and `InteractionTarget`. Any other string is a kind a provider defines.
+
+## VacpLayer
+
+The core values are `ConfigLayer`, `ViewLayer`, `VisualizationLayer`, `DataLayer`, and `InteractionFeedbackLayer`. Any other string is a layer a provider defines.
+
+## VacpEdge
+
+```ts
 type VacpEdge = { from: VacpRef; to: VacpRef; kind: VacpEdgeKind };
-type VacpGraph = {
+```
+
+One relationship between two nodes.
+
+## VacpEdgeKind
+
+The core values are `contains`, `controls`, `derivedFrom`, and `targets`. Any other string is a relationship a provider defines.
+
+## VacpGraph
+
+```ts
+type VacpGraph<NodeData = Record<string, unknown>> = {
   sources: VacpSourceDescription[];
   ownership: { nodes: Record<VacpRef, VacpSourceId>; actions: Record<string, VacpSourceId> };
-  nodes: VacpNode[];
+  nodes: VacpNode<NodeData>[];
   edges: VacpEdge[];
   actions: VacpActionDescriptor[];
 };
-type VacpGraphFragment = Omit<VacpGraph, 'sources' | 'ownership'>;
 ```
 
-| Type           | Core values                                                                                                                                                    |
-| -------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `VacpNodeKind` | `App`, `View`, `Visualization`, `Mark`, `EncodingChannel`, `EncodedField`, `Legend`, `Axis`, `Selection`, `Param`, `Widget`, `DataHandle`, `InteractionTarget` |
-| `VacpLayer`    | `ConfigLayer`, `ViewLayer`, `VisualizationLayer`, `DataLayer`, `InteractionFeedbackLayer`                                                                      |
-| `VacpEdgeKind` | `contains`, `controls`, `derivedFrom`, `targets`                                                                                                               |
+The composed graph. `ownership` maps each node and action to the source that routes it.
 
-Each type also accepts any other string, for kinds, layers, and relationships a provider defines. A provider returns a `VacpGraphFragment`. Composition adds `sources` and `ownership`.
+## VacpGraphFragment
 
-## Availability
+```ts
+type VacpGraphFragment<NodeData = Record<string, unknown>> = Omit<VacpGraph<NodeData>, 'sources' | 'ownership'>;
+```
+
+One provider's graph, before composition adds `sources` and `ownership`.
+
+## VacpAvailability
 
 ```ts
 type VacpAvailability = { requires?: readonly VacpRef[]; unavailable?: string };
-type VacpAvailabilityStatus = { available: boolean; blockedBy: readonly VacpRef[]; reason?: string };
 ```
 
-`resolveVacpAvailability(graph)` resolves every node and operation and throws on a missing prerequisite or a cycle. `assertVacpActionAvailable(resolution, call)` throws a `VacpAvailabilityError` whose `details` is a `VacpAvailabilityFailure`:
+The availability of a node or action. Omitting it means available. The [Availability guide](../availability/) shows how to declare it.
+
+- `requires`: nodes that must all be available. A missing ref or a cycle makes the graph invalid.
+- `unavailable`: a nonempty reason the host gives for the capability being unavailable.
+
+## VacpActionDescriptor
 
 ```ts
-type VacpAvailabilityFailure =
-  | { code: 'unknown-action'; action: string }
-  | { code: 'action-unavailable'; action: string; status: VacpAvailabilityStatus }
-  | { code: 'input-unavailable'; action: string; ref: VacpRef; status?: VacpAvailabilityStatus };
-```
-
-`resolveVacpObservation(observation)` returns the complete `inspection`, the disclosed `observation`, and the `availability` resolution of one read.
-
-## Operations
-
-```ts
-type VacpActionDescriptor = {
+type VacpActionDescriptor<Parameters = Record<string, unknown>> = {
   name: string;
   title?: string;
   description: string;
-  parameters?: object; // JSON Schema
+  parameters?: Parameters; // JSON Schema
   availability?: VacpAvailability;
   operation: {
-    kind: 'mutation' | 'creation' | 'evaluation' | 'query';
+    kind: VacpOperationKind;
     contract?: string;
     inputRefs?: VacpRef[];
     affects?: VacpRef[];
@@ -85,149 +157,279 @@ type VacpActionDescriptor = {
     }>;
   };
 };
-type VacpActionRequest = { callId?: string | null; name: string; params?: unknown };
-type VacpActionCall = VacpActionRequest & { callId: string };
-type VacpActionResult =
-  | { callId: string; ok: true; result?: unknown }
-  | { callId: string; ok: false; error: { message: string; details?: unknown } };
 ```
 
-A caller passes a `VacpActionRequest` to `execute`. The runtime assigns `callId` when the request's is absent, null, or blank, and keeps any other `callId` as written. Blank means made only of [Unicode White_Space](https://www.unicode.org/reports/tr44/#White_Space) characters, the set `parseVacpNarration` trims. `execute` throws a `TypeError` for a `callId` that is neither a string nor null. Providers prepare the resulting `VacpActionCall`, and its result, execution, and provenance record carry the same `callId`.
+One action.
 
-`primaryOperationRef(descriptor)` returns the operation's first `affects` ref, else its first `inputRefs` ref, else its first result ref.
+- `name`: the unique execution identity across the composed graph.
+- `operation.contract`: a shared meaning independent of `name`, such as a [standard contract](#standard-contracts).
+- `operation.inputRefs`: the entities the action reads.
+- `operation.affects`: the entities that may change when it succeeds.
+- `operation.refParameters`: parameters whose values are refs resolved when the action is called.
+- `operation.results`: what the action produces.
+
+## VacpOperationKind
 
 ```ts
-type VacpActionExecutionOptions = {
+type VacpOperationKind = 'mutation' | 'creation' | 'evaluation' | 'query';
+```
+
+Declares what an action does to the analysis. A `query` leaves the analysis as it was, so it produces no [checkpoint](./provenance#provenancecheckpoints) and never ends a review. Every other kind counts as a change.
+
+## VacpActionRequest
+
+```ts
+type VacpActionRequest<Params = unknown, Name extends string = string> = {
+  callId?: string | null;
+  name: Name;
+  params?: Params;
+};
+```
+
+What a caller passes to [`execute`](./runtime#execute). The runtime assigns `callId` when it is absent, null, or made only of [Unicode White_Space](https://www.unicode.org/reports/tr44/#White_Space) characters, and keeps any other value as written.
+
+## VacpActionResult
+
+```ts
+type VacpActionResult<Result = unknown, ErrorDetails = unknown> =
+  | { callId: string; ok: true; result?: Result }
+  | { callId: string; ok: false; error: { message: string; details?: ErrorDetails } };
+```
+
+The outcome of one call. It carries the same `callId` as its execution and provenance record.
+
+## VacpActionExecutionContext
+
+```ts
+type VacpActionExecutionContext = {
+  actor: VacpActor;
   signal?: AbortSignal;
-  actor?: VacpActor;
   narration?: string;
   restoration?: { id: string; entryId?: string };
 };
-type VacpActionExecutionContext = VacpActionExecutionOptions & { actor: VacpActor };
 ```
 
-Execution options belong to the host and never travel inside a call. `narration` is the step's sentence, parsed by `parseVacpNarration`. `restoration` marks a call that restores recorded state. A caller may omit `actor`. The runtime resolves it once, and a prepared action's `execute` and every handler receive a `VacpActionExecutionContext` with that `actor`.
+The options an action runs with, passed to every handler and to a prepared action's `execute`. They belong to the host and never travel inside a call.
 
-`new VacpActionError(message, details)` reports a failure whose `details` reach the result unchanged.
+- `actor`: the actor the call is attributed to, resolved once by the runtime.
+- `signal`: aborts when the caller cancels the call or the provider is replaced.
+- `narration`: the step's sentence.
+- `restoration`: marks a call that restores recorded state.
 
-### Standard contracts
+## Standard contracts
 
-| Constant                     | Value                 | Parameters                              | Result                              |
-| ---------------------------- | --------------------- | --------------------------------------- | ----------------------------------- |
-| `VACP_APPLY_STATE_ACTION`    | `vacp.apply_state`    | `{ state: Record<VacpRef, unknown> }`   | Provider-defined, with skipped refs |
-| `VACP_DATA_SQL_ACTION`       | `vacp.data_sql`       | `{ handleRef, sql, format?, maxRows? }` | `VacpDataSqlResult`                 |
-| `VACP_DATA_SCHEMA_ACTION`    | `vacp.data_schema`    | `{ handleRef, detail?, sampleRows? }`   | `VacpDataSchemaResult`              |
-| `VACP_WIDGET_OPTIONS_ACTION` | `vacp.widget_options` | `{ ref, offset?, limit?, query? }`      | `VacpWidgetOptionsResult`           |
+| Contract              | Parameters                              | Result                                                 |
+| --------------------- | --------------------------------------- | ------------------------------------------------------ |
+| `vacp.apply_state`    | `{ state: Record<VacpRef, unknown> }`   | Defined by the provider, with the refs it skipped      |
+| `vacp.data_sql`       | `{ handleRef, sql, format?, maxRows? }` | [SQL rows or Arrow](./data#createduckdbdatasqlhandler) |
+| `vacp.data_schema`    | `{ handleRef, detail?, sampleRows? }`   | [`VacpDataSchemaResult`](./data#vacpdataschemaresult)  |
+| `vacp.widget_options` | `{ ref, offset?, limit?, query? }`      | [`VacpWidgetOptionsResult`](#vacpwidgetoptionsresult)  |
 
-`vacp.data_sql` returns `{ format: 'json', resolvedSql, columns, rows, truncated }` by default, with at most 500 rows. `format: 'arrow_ipc_base64'` returns `{ format, resolvedSql, arrowIpcBase64 }`. `vacp.data_schema` describes `vacp_handle`, and `vacp_all` when it reads another relation. `detail: 'full'` adds bounded numeric, temporal, and top-category summaries.
+An action that implements a contract sets `operation.contract` to its name. `vacp.data_sql` returns at most 500 JSON rows by default.
 
-## Observations and state
+## VacpWidgetOptionsResult
 
 ```ts
-type VacpObservation = {
+type VacpWidgetOptionsResult =
+  | {
+      ref: VacpRef;
+      offset: number;
+      limit: number;
+      count: number;
+      truncated: boolean;
+      options: Array<{ value: unknown; label?: string }>;
+    }
+  | { ref: VacpRef; kind: 'Widget'; readError: string };
+```
+
+One page of a widget's options, or `readError` when the widget could not be read.
+
+## VacpObservation
+
+```ts
+type VacpObservation<NodeData = Record<string, unknown>> = {
   version: '0.1.0';
   revision: string;
   observedAt: string;
-  graph: VacpGraph;
+  graph: VacpGraph<NodeData>;
   state: Record<VacpRef, unknown>;
   summary?: Record<VacpRef, unknown>;
   freshness?: Record<VacpRef, VacpFreshness>;
 };
+```
+
+One coherent read of the graph, state, summaries, and output freshness.
+
+## VacpFreshness
+
+```ts
 type VacpFreshness = {
   status: 'current' | 'stale' | 'running' | 'error';
   inputRevision?: string;
   outputRevision?: string;
   message?: string;
 };
-type VacpCapabilitiesRequest = { refs?; prefixes?; kinds?; layers?; includeActions?; includeEdges?; includeNodeData? };
-type VacpStateRequest = { since?: string; refs?: VacpRef[]; includeSummary?: boolean };
-type VacpStateUpdate =
-  | { mode: 'full'; token: string; snapshot: { state; summary? }; scope?; version; createdAt }
-  | {
-      mode: 'delta';
-      token: string;
-      baseToken: string;
-      delta: { changed; removed; summaryChanged?; summaryRemoved? };
-      scope?;
-      version;
-      createdAt;
-    };
 ```
 
-`VACP_SCHEMA_VERSION` is `'0.1.0'`. A state read without `since`, or with an unknown token, returns `mode: 'full'`. With a known token it returns the changes since that read. `includeActions`, `includeEdges`, and `includeNodeData` default to `true` on the bridge. A scoped capability read keeps the transitive prerequisites of matching nodes as context.
+Whether an output reflects its inputs. `inputRevision` is the input state the output is based on, and `outputRevision` is the output the ref holds. A ref without freshness has unknown freshness.
 
-## Bridges and providers
+## VacpCapabilitiesSnapshot
 
 ```ts
-interface VacpWindowBridge {
-  readonly version: '0.1.0';
-  observe(): Promise<VacpObservation>;
-  getCapabilities(request?: VacpCapabilitiesRequest): Promise<VacpCapabilitiesSnapshot>;
-  getState(request?: VacpStateRequest): Promise<VacpStateUpdate>;
-  execute(call: VacpActionRequest, options?: VacpActionExecutionOptions): Promise<VacpActionResult>;
-}
-interface VacpPageBridge extends VacpWindowBridge, VacpProvenanceSource, VacpAgentActivityControl, VacpExecutionSource {
-  readonly runtimeId: string;
-  readonly sessionKey: string | undefined;
-  inspect(): Promise<VacpObservation>;
-  refresh(options?: { actor?: VacpActor; message?: string; focus?: VacpFocus }): Promise<VacpStateSnapshot>;
-}
-interface VacpProvider {
-  readonly source: VacpSourceDescription;
-  observe(): VacpProviderObservation | Promise<VacpProviderObservation>;
-  prepare(call: VacpActionCall, options?: VacpActionExecutionOptions): Promise<VacpPreparedAction>;
-  subscribe(invalidate: () => void): () => void;
-  dispose?(): void;
-}
-type VacpPreparedAction = {
-  intent: { focus?: VacpFocus; affects: VacpRef[] };
-  execute(context: VacpActionExecutionContext): Promise<VacpActionResult>;
+type VacpCapabilitiesSnapshot<NodeData = Record<string, unknown>> = {
+  version: '0.1.0';
+  createdAt: string;
+  graph: VacpGraph<NodeData>;
 };
 ```
 
-`VacpWindowBridge` is what agent transports read. `VacpPageBridge` is what a page publishes at `window.__vacp`. A provider's `observe()` returns `{ revision, observedAt, graph: VacpGraphFragment, state, summary?, freshness? }`, and its revision changes whenever any part changes. `prepare` validates the call and resolves its target without changing the source. The returned `execute` runs once.
+The result of `getCapabilities`, which a [`VacpCapabilitiesRequest`](./agent#vacpcapabilitiesrequest) scopes.
 
-## Actors, executions, and activity
+## VacpStateSnapshot
 
 ```ts
-type VacpActor = { id: string; kind: 'agent' | 'human' | 'system'; label?: string };
-type VacpFocus = { ref: VacpRef; detail?: unknown; interaction?: VacpInteraction };
+type VacpStateSnapshot<State = Record<VacpRef, unknown>, Summary = Record<VacpRef, unknown>> = {
+  version: '0.1.0';
+  createdAt: string;
+  state: State;
+  summary?: Summary;
+};
+```
+
+State and optional summaries keyed by ref.
+
+## VacpStateUpdate
+
+```ts
+type VacpStateUpdate =
+  | {
+      version: '0.1.0';
+      createdAt: string;
+      mode: 'full';
+      token: string;
+      scope?: { refs?: VacpRef[] };
+      snapshot: VacpStateSnapshot;
+    }
+  | {
+      version: '0.1.0';
+      createdAt: string;
+      mode: 'delta';
+      token: string;
+      baseToken: string;
+      scope?: { refs?: VacpRef[] };
+      delta: {
+        changed: Record<VacpRef, unknown>;
+        removed: VacpRef[];
+        summaryChanged?: Record<VacpRef, unknown>;
+        summaryRemoved?: VacpRef[];
+      };
+    };
+```
+
+The result of `getState`, which a [`VacpStateRequest`](./agent#vacpstaterequest) scopes. Pass `token` as `since` on the next read.
+
+## VacpExecution
+
+```ts
+type VacpExecution = {
+  id: string;
+  sequence: number;
+  callId: string;
+  name: string;
+  title?: string;
+  operationKind?: VacpOperationKind;
+  actor: VacpActor;
+  activityId?: string;
+  narration?: string;
+  sourceId?: VacpSourceId;
+  bindingId?: string;
+  restoration?: { id: string; entryId?: string };
+  phase: 'accepted' | 'prepared' | 'running' | 'succeeded' | 'failed' | 'cancelled';
+  at: string;
+  intent?: { focus?: VacpFocus; affects: VacpRef[] };
+  message?: string;
+};
+```
+
+One call's lifecycle, published by [`VacpExecutionSource`](./runtime#vacpexecutionsource). Execution completion is independent of the freshness of affected outputs.
+
+- `sequence`: monotonic within the runtime.
+- `activityId`: the actor's turn when the execution began. Steps of one request share it.
+- `narration`: the step's sentence, fixed when the runtime accepts the step.
+- `phase`: `succeeded`, `failed`, and `cancelled` are settled.
+- `message`: a failure summary.
+
+## VacpFocus
+
+```ts
+type VacpFocus<Detail = unknown> = { ref: VacpRef; detail?: Detail; interaction?: VacpInteraction };
+```
+
+What a step points at. `detail` is serializable data the provider owns.
+
+## VacpInteraction
+
+```ts
 type VacpInteraction = {
-  kind: 'point' | 'activate' | 'brush' | 'drag' | 'pan' | 'zoom' | 'edit' | 'resize' | string;
+  kind: 'point' | 'activate' | 'brush' | 'drag' | 'pan' | 'zoom' | 'edit' | 'resize' | (string & {});
   axis?: 'x' | 'y' | 'xy';
   direction?: 'in' | 'out';
 };
 ```
 
-`vacpAgentActor` is `{ id: 'agent', kind: 'agent' }`, the actor every agent transport uses when the host names none. `vacpHumanActor` is `{ id: 'human', kind: 'human' }`, the actor of restorations. An actor's `label` replaces the name a viewer gives its `kind`, such as the presence overlay's [`labels`](./presence-browser#labels).
+What kind of interaction a step performs. A renderer picks its assets and feedback from it.
 
-A `VacpExecution` describes one call's lifecycle: `id`, monotonic `sequence`, `callId`, `name`, `actor`, `activityId`, `narration`, `sourceId`, `intent`, and `phase`, one of `accepted`, `prepared`, `running`, `succeeded`, `failed`, or `cancelled`. `isVacpExecutionSettled(execution)` is true for the last three. `VacpExecutionSource` publishes executions through `getActiveExecutions()` and `subscribeExecutions(listener)`. `VacpExecutionControl.addExecutionGate(gate, { timeoutMs, stage })` adds a bounded wait before or after execution.
-
-`VacpAgentActivityControl` publishes public progress:
-
-| Method                                             | Behavior                                                                                                         |
-| -------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
-| `beginAgentActivity({ actor, summary?, signal? })` | Opens a turn and returns a handle with `update(summary)` and `end({ outcome?, summary? })`                       |
-| `narrate({ actor, message, done?, signal? })`      | The first sentence opens a turn or joins one the host began, later sentences replace its words, `done` closes it |
-
-## Provenance
-
-`VacpProvenanceRecord` is a union on `kind`: `action`, `observation`, `turn`, and `session`. An action record's optional `beforeCaptureId` identifies the runtime read used for its `before`. Equal IDs prove a shared capture across serialized records. Separate reads receive distinct IDs even when their values and revisions match. See [Provenance and replay](../provenance/) for each record's fields. `VacpProvenanceSource` provides `getProvenance()` and `subscribeProvenance(listener)`.
-
-| Function                  | Returns                                                   |
-| ------------------------- | --------------------------------------------------------- |
-| `provenanceActor(record)` | The record's actor, from its execution for action records |
-| `provenanceFocus(record)` | The record's focus, when it has one                       |
-| `provenanceTurn(record)`  | The `activityId` of the turn the record belongs to        |
+## ProvenanceRecord
 
 ```ts
-type VacpRestore = (
-  state: Readonly<Record<VacpRef, unknown>>,
-  options: VacpActionExecutionOptions,
-) => Promise<VacpActionResult>;
+type ProvenanceRecord = { id: string; at: string; message?: string } & (
+  | {
+      kind: 'action';
+      execution: VacpExecution; // phase: 'succeeded' | 'failed' | 'cancelled'
+      call: VacpActionRequest & { callId: string };
+      result: VacpActionResult;
+      captureErrors?: readonly { field: 'result'; message: string }[];
+      beforeCaptureId?: string;
+      before?: VacpObservation;
+      observation?: VacpObservation;
+    }
+  | {
+      kind: 'observation';
+      cause:
+        | { kind: 'external' }
+        | {
+            kind: 'concurrent';
+            executions: readonly { executionId: string; restoration?: { id: string; entryId?: string } }[];
+          };
+      actor: VacpActor;
+      observation: VacpObservation;
+      focus?: VacpFocus;
+    }
+  | { kind: 'session'; actor: VacpActor }
+  | {
+      kind: 'turn';
+      actor: VacpActor;
+      activityId: string;
+      outcome: 'completed' | 'failed' | 'cancelled';
+      opening?: string;
+    }
+);
 ```
 
-`VacpRestore` is the restoration port replay controllers and inspector clients accept.
+One captured fact in the runtime's [provenance](./provenance#provenancesource).
+
+- `action`: a finished call. `before` and `observation` hold the state around it. `captureErrors` lists fields left out because they could not be captured. Equal `beforeCaptureId` values prove that two records share the read behind `before`, and distinct reads have distinct IDs even when their values match.
+- `observation`: a state read. `cause` is `external` for a change outside any execution, and `concurrent` while listed executions ran.
+- `session`: a session boundary.
+- `turn`: an agent's turn ended. `message` holds its closing sentence and `opening` its first one. The turn's steps carry the same `activityId` on their executions.
+
+## VacpTurnRecord
+
+```ts
+type VacpTurnRecord = Extract<ProvenanceRecord, { kind: 'turn' }>;
+```
+
+The record of one finished agent turn.
 
 ## Data handles
 
@@ -238,7 +440,7 @@ A `DataHandle` node stands for a table its provider can query. Its node `data` a
 | `table`          | node `data` | The relation the handle's SQL reads                                                                   |
 | `columns`        | node `data` | That relation's columns, once the provider knows them                                                 |
 | `metadata`       | node `data` | What the data is, from the host's `data.describe` hook                                                |
-| `rowCount`       | state       | The rows the relation holds now, or `null` when neither the provider nor its host has a current count |
+| `rowCount`       | state       | The rows the relation holds at the read, or `null` when neither the provider nor its host has a count |
 | `selectionWhere` | state       | The predicate the current selections add, or `null` when none narrows `vacp_handle`                   |
 | `stats`          | state       | Current figures from the host's `data.describe` hook                                                  |
 
@@ -272,36 +474,4 @@ A handle's node and its state in an observation:
 }
 ```
 
-The node's description says which rows `vacp_handle` and `vacp_all` hold. `vacp.data_schema` describes the relation behind `vacp_handle` under the `vacp_handle` key. When `vacp_all` reads a different relation, the result also describes it under the `vacp_all` key.
-
-`vacpDataHandle(read, describe?)` builds the node `data` and state from what a provider read and what its host's `VacpDataHandleDescriber` states. A host's row count replaces the provider's, as for vgplot's Mosaic tables, which report no count of their own. A describer that throws states nothing. `VacpDataHandleData`, `VacpDataHandleState`, and `VacpDataHandleFacts` type these shapes.
-
-## Agent tools
-
-| Export                                                                | Contents                                                                                      |
-| --------------------------------------------------------------------- | --------------------------------------------------------------------------------------------- |
-| `vacpAgentTools`                                                      | Each tool's name, input fields, and description                                               |
-| `vacpAgentToolGuidance`                                               | The shared instructions the default agent and the MCP server give the model                   |
-| `vacpNarrationGuidance`, `vacpProgressGuidance`, `vacpProgressFields` | The wording of the narration field and the progress tool                                      |
-| `parseVacpNarration(value, field?)`                                   | A trimmed sentence of at most `VACP_NARRATION_MAX_LENGTH` (280) code points, or a `TypeError` |
-| `vacpToolCapabilitiesRequest(input)`, `vacpToolStateRequest(input)`   | The bridge request for a tool's input                                                         |
-| `vacpToolRead(read)`                                                  | A graph read without source ownership                                                         |
-| `vacpToolResult(value, limits?)`                                      | The value cut to `VACP_TOOL_RESULT_LIMITS`                                                    |
-
-See [Agent tools](./agent-tools) for the bounds.
-
-## Values and utilities
-
-| Export                           | Behavior                                                                                                                                              |
-| -------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `stableStringify(value)`         | JSON with sorted object keys                                                                                                                          |
-| `fnv1a64Hex(text)`               | A 64-bit FNV-1a hash as hexadecimal                                                                                                                   |
-| `sameVacpValue(a, b)`            | Structural equality of JSON values                                                                                                                    |
-| `captureVacpValue(value)`        | A reader function. Plain records and arrays are cloned once and frozen for every reader. Dates, Maps, and other mutable built-ins are copied per read |
-| `abortable(signal, run)`         | Runs `run` and rejects with the signal's reason when it aborts first                                                                                  |
-| `parseVacpInstant(text, clock)`  | An ISO date or date-time on a `local` or `utc` clock, as epoch milliseconds. Throws a `RangeError` for other text                                     |
-| `formatVacpWallClock(ms, clock)` | Wall-clock text for an instant on a clock                                                                                                             |
-
-## Validation
-
-`@ethivia/vacp-protocol/validation` exports Zod parsers for untrusted payloads: `parseObservation`, `parseActionResult`, `parseCapabilitiesRequest`, `parseStateRequest`, and `vacpRefSchema`. Each returns the typed record or throws a Zod error.
+The node's description says which rows `vacp_handle` and `vacp_all` hold. [`vacpDataHandle`](./data#vacpdatahandle) builds these fields.

@@ -13,7 +13,7 @@ import { repoRoot } from '../helpers/paths';
 const exec = promisify(execFile);
 
 const surfaces = [
-  { name: 'docs.vacp', path: '/integrate/', kind: 'docs' },
+  { name: 'docs.vacp', path: '/custom-provider/', kind: 'docs' },
   { name: 'examples.vacp', path: '/', kind: 'gallery' },
   { name: 'vega-lite.examples.vacp', path: '/', kind: 'example' },
   { name: 'vgplot.examples.vacp', path: '/', kind: 'example' },
@@ -96,7 +96,7 @@ test('Portless routes docs, gallery and standalone examples with working HMR', a
           )
           .toBe(200);
         if (surface.kind === 'docs') {
-          await expect(page.locator('.vp-doc h1')).toHaveText('Connect an application');
+          await expect(page.locator('.vp-doc h1')).toHaveText('Custom provider');
         } else if (surface.kind === 'gallery') {
           await expect(page.locator('.gallery-card')).toHaveCount(
             surfaces.filter((surface) => surface.kind === 'example').length,

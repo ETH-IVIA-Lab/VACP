@@ -39,14 +39,14 @@ Tests and evals set `__vacpExampleOptions` in an init script before the page loa
 
 ## The examples
 
-| Example                | Sources                                                           | Custom operations                                                                                                                                             |
+| Example                | Sources                                                           | Custom actions                                                                                                                                                |
 | ---------------------- | ----------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `athlete-explorer`     | Vega-Lite physique chart, vgplot age histogram, cohort controls   | `cohort.set_sports`, `cohort.set_sex`                                                                                                                         |
 | `vgplot-gallery`       | One vgplot specification per entry, from `src/specs/*.yaml`       |                                                                                                                                                               |
 | `vega-lite-gallery`    | One Vega-Lite specification per entry, from `src/specs/*.vl.json` |                                                                                                                                                               |
 | `react-dashboard`      | Recharts views and a TanStack table over Iris and Motor Trend     | `dashboard.set_dataset`, `set_encoding`, `set_selected_ids`, `toggle_selected_id`, `set_brush_2d`, `clear_brush_2d`, `select_by_quantiles`, `clear_selection` |
 | `cars-parallel-coords` | D3 parallel coordinates over 392 cars                             | `parallel_coords.set_brush_ranges`, `reset_brushes`, `set_dimension_order`, `reset_dimension_order`, `set_hover`                                              |
-| `custom-integration`   | One range input, the snippet `docs/integrate` embeds              | `threshold.set`                                                                                                                                               |
+| `custom-integration`   | One range input, the snippet `docs/custom-provider` embeds        | `threshold.set`                                                                                                                                               |
 
 Every example with data registers `vacp.data_sql` and `vacp.data_schema` over DuckDB-Wasm, and `vacp.apply_state` for replay.
 
@@ -56,7 +56,7 @@ The vgplot gallery uses Mosaic's global coordinator, because Mosaic inputs and t
 
 `examples/gallery` serves every example from one Vite process. `examples.manifest.ts` lists the routes, titles, and module loaders. `scripts/sync-generated.ts` writes one HTML entry and copies the public assets per route before `dev` and `build`. It writes only changed files, so a running dev server does not reload. Edit the script, never its generated output.
 
-`make build` writes a static site to `examples/gallery/dist`, one directory per route. `VACP_BASE_PATH=/some/path/` builds it for hosting below the domain root. `infra/examples.Dockerfile` serves the same output with nginx. Each route loads the DuckDB-Wasm engine from `dist/assets`, about 34 MB for the exception-handling build, so serve `.wasm` files compressed. The `gaia`, `nyc-taxi-rides`, and `observable-latency` specifications stream data from a remote bucket, and parquet specifications load DuckDB's parquet extension from `extensions.duckdb.org`.
+`pnpm build` writes a static site to `examples/gallery/dist`, one directory per route. `VACP_BASE_PATH=/some/path/` builds it for hosting below the domain root. `infra/examples.Dockerfile` serves the same output with nginx. Each route loads the DuckDB-Wasm engine from `dist/assets`, about 34 MB for the exception-handling build, so serve `.wasm` files compressed. The `gaia`, `nyc-taxi-rides`, and `observable-latency` specifications stream data from a remote bucket, and parquet specifications load DuckDB's parquet extension from `extensions.duckdb.org`.
 
 ## Source resolution
 

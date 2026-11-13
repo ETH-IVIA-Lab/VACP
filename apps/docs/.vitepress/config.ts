@@ -8,7 +8,7 @@ const repository = 'https://github.com/ETH-IVIA-Lab/VACP';
 const basePath = process.env.BASE_PATH?.replace(/\/+$/, '') ?? '';
 const YEAR = new Date().getFullYear();
 const description =
-  'Lets AI agents read and change visual analyses through named operations, alongside the person using them.';
+  'Lets AI agents read and change visual analyses through named actions, alongside the person using them.';
 const examples = { text: 'Examples', link: '/examples/' };
 
 const guide = [
@@ -17,13 +17,14 @@ const guide = [
     items: [
       { text: 'What is VACP?', link: '/what-is-vacp/' },
       { text: 'Get started', link: '/get-started/' },
+      { text: 'Install', link: '/install/' },
       { text: 'Core concepts', link: '/concepts/' },
     ],
   },
   {
     text: 'Connect sources',
     items: [
-      { text: 'Connect an application', link: '/integrate/' },
+      { text: 'Custom provider', link: '/custom-provider/' },
       { text: 'Vega-Lite', link: '/vega-lite/' },
       { text: 'Mosaic vgplot', link: '/vgplot/' },
       { text: 'Compose sources', link: '/composition/' },
@@ -38,11 +39,11 @@ const guide = [
     ],
   },
   {
-    text: 'Presence and history',
+    text: 'Presence and provenance',
     items: [
       { text: 'Agent presence', link: '/presence/' },
       { text: 'Provenance and replay', link: '/provenance/' },
-      { text: 'Inspection surfaces', link: '/inspector/' },
+      { text: 'Inspector', link: '/inspector/' },
     ],
   },
   examples,
@@ -52,45 +53,29 @@ const guide = [
 const reference = [
   { text: 'Overview', link: '/api/' },
   {
-    text: 'Contracts',
+    text: '@ethivia/vacp-sdk',
     items: [
-      { text: 'Protocol records', link: '/api/protocol' },
+      { text: 'Actions and providers', link: '/api/actions' },
+      { text: 'Runtime and page bridge', link: '/api/runtime' },
+      { text: 'Provenance and replay', link: '/api/provenance' },
+      { text: 'Protocol types', link: '/api/protocol' },
+      { text: '/data', link: '/api/data' },
+      { text: '/presence', link: '/api/presence' },
+      { text: '/agent', link: '/api/agent' },
+      { text: '/inspector', link: '/api/inspector' },
       { text: 'Agent tools', link: '/api/agent-tools' },
     ],
   },
   {
-    text: 'Runtime',
+    text: 'Integrations',
     items: [
-      { text: '@ethivia/vacp-runtime', link: '/api/runtime' },
-      { text: '@ethivia/vacp-browser', link: '/api/browser' },
-      { text: '@ethivia/vacp-sdk', link: '/api/sdk' },
-    ],
-  },
-  {
-    text: 'Providers',
-    items: [
-      { text: '@ethivia/vacp-vega-lite', link: '/api/vega-lite' },
+      { text: '@ethivia/vacp-vega', link: '/api/vega' },
       { text: '@ethivia/vacp-vgplot', link: '/api/vgplot' },
-      { text: '@ethivia/vacp-duckdb', link: '/api/data-duckdb' },
-    ],
-  },
-  {
-    text: 'Agents',
-    items: [
-      { text: '@ethivia/vacp-bridge', link: '/api/transport-bridge' },
-      { text: '@ethivia/vacp-ai-sdk', link: '/api/agent-ai-sdk' },
-      { text: '@ethivia/vacp-webmcp', link: '/api/webmcp' },
+      { text: '@ethivia/vacp-duckdb', link: '/api/duckdb' },
+      { text: '@ethivia/vacp-ai', link: '/api/ai' },
+      { text: '@ethivia/vacp-overlay', link: '/api/overlay' },
+      { text: '@ethivia/vacp-posthog', link: '/api/posthog' },
       { text: 'vacp (Python)', link: '/api/python' },
-    ],
-  },
-  {
-    text: 'Presence and history',
-    items: [
-      { text: '@ethivia/vacp-presence', link: '/api/presence-core' },
-      { text: '@ethivia/vacp-presence-react', link: '/api/presence-browser' },
-      { text: '@ethivia/vacp-provenance', link: '/api/provenance' },
-      { text: '@ethivia/vacp-inspector', link: '/api/inspector' },
-      { text: '@ethivia/vacp-analytics', link: '/api/analytics' },
     ],
   },
 ];
@@ -122,7 +107,7 @@ export default defineConfig({
   buildEnd: rewriteLlmsLinks,
   vite: {
     // The plugin's dev middleware joins the raw request path onto `outDir`, so `../` reads `.md` and `.txt`
-    // files anywhere on disk. The text views come from `make docs`.
+    // files anywhere on disk. The text views come from the docs build.
     plugins: llms.map((plugin) => ({ ...plugin, configureServer: undefined })),
     publicDir: fileURLToPath(new URL('../public', import.meta.url)),
     cacheDir: process.env.VACP_VITE_CACHE_DIR,

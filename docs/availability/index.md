@@ -1,38 +1,46 @@
 # Declare availability
 
-A provider publishes its complete catalog of nodes and operations. Each one can state when it is usable, and VACP discloses only what is usable now. An agent reading the React dashboard before a dataset loads sees the dataset picker and no brushing operation.
+Availability hides what can't run yet from agents and rejects calls to it. A provider publishes its complete catalog of nodes and actions, and agent reads return only the entries the current state allows.
+
+```bash
+pnpm add @ethivia/vacp-sdk zod
+```
 
 ```ts
-import type { VacpNode } from '@ethivia/vacp-protocol';
+import type { VacpNode } from '@ethivia/vacp-sdk';
 
-const dataset = {
-  ref: 'vacp://dashboard/dataset',
-  kind: 'DataHandle',
-  layer: 'DataLayer',
-  availability: loaded ? undefined : { unavailable: 'Select a dataset' },
-} satisfies VacpNode;
+const dataset = 'vacp://dashboard/dataset';
+const chart = 'vacp://dashboard/chart';
 
-const chart = {
-  ref: 'vacp://dashboard/chart',
-  kind: 'Visualization',
-  layer: 'VisualizationLayer',
-  availability: { requires: ['vacp://dashboard/dataset'] },
-} satisfies VacpNode;
+const nodes = (loaded: boolean): VacpNode[] => [
+  {
+    ref: dataset,
+    kind: 'DataHandle',
+    layer: 'DataLayer',
+    availability: loaded ? undefined : { unavailable: 'Select a dataset' },
+  },
+  { ref: chart, kind: 'Visualization', layer: 'VisualizationLayer', availability: { requires: [dataset] } },
+];
 ```
+
+Return `nodes(loaded)` from your provider's `project()`, as [Custom provider](../custom-provider/) shows. Until `loaded` is true, `observe()` lists neither node.
 
 ## Declare prerequisites
 
-- `requires` lists nodes that must all be available. Prerequisites may live in another source.
-- `unavailable` is a short reason from the host, shown to agents and people.
-- A node or operation without `availability` is available.
-- A missing prerequisite ref or a cycle is an error, even behind an unavailable node.
-- Relationships do not imply prerequisites. `inputRefs`, `affects`, `results`, and `contains` edges hide nothing. An operation that loads a dataset can affect the unavailable dataset node and stay available itself.
+The `availability` field of a node or an action takes two keys:
 
-State prerequisites as facts about the current entities, so a person selecting a dataset and an agent selecting it enable the same operations. For a condition that is not a node, evaluate it in the host and publish `unavailable` with a reason.
+- `requires` lists the refs of nodes that must all be available, in any source.
+- `unavailable` is a short reason from your app. Rejected calls and inspection return it.
 
-Operations declare prerequisites through `.requires(ref)` in `@ethivia/vacp-sdk`:
+An entry without `availability` is available. A missing prerequisite ref or a cycle fails the read with an error. Edges and an action's `affects` hide nothing, so an action can load a dataset whose node is still unavailable.
+
+Actions declare prerequisites with `.requires(ref)`. `selectCategory` is your app's function:
 
 ```ts
+import { createVacpActions } from '@ethivia/vacp-sdk';
+import { z } from 'zod';
+
+const actions = createVacpActions();
 actions
   .operation('mutation', 'chart.select', 'Select a bar')
   .requires('vacp://dashboard/chart')
@@ -40,35 +48,15 @@ actions
   .handle(({ category }) => selectCategory(category));
 ```
 
-An operation whose usability depends on its own state gets its reason in the projection, next to the state it depends on:
+To block an action on a condition such as an empty selection, publish a node with an `unavailable` reason and `.requires()` that node. The [React dashboard](https://examples.vacp.dev/react-dashboard/) does this for its active brush.
 
-```ts
-project: () => ({
-  graph: {
-    nodes,
-    edges,
-    actions: actions.registry.list().map((action) =>
-      action.name === clear.name && !model.selection.length
-        ? { ...action, availability: { ...action.availability, unavailable: 'No selection to clear' } }
-        : action,
-    ),
-  },
-  state: { [selectionRef]: model.selection },
-}),
-```
+## Read the catalog
 
-## What reads disclose
+`observe()`, `getCapabilities()`, and `getState()` return the available nodes, actions, and state. `inspect()` returns the complete catalog with every `availability` declaration, for inspection surfaces and restoration.
 
-| Call                                           | Returns                                                                                     |
-| ---------------------------------------------- | ------------------------------------------------------------------------------------------- |
-| `observe()`, `getCapabilities()`, `getState()` | The available nodes, operations, and state. Edges and ownership follow the disclosed nodes. |
-| `inspect()`                                    | The complete catalog and state, with every `availability` declaration                       |
+## Handle a rejected call
 
-A state delta reports a ref that became unavailable as removed. `inspect()` serves inspection surfaces and restoration, and executes nothing.
-
-Execution checks availability before preparation, and again after preparation and any presentation pause, right before the change. A call to an operation that became unavailable in between fails without changing anything. A ref parameter declared in `operation.refParameters` with `role: 'input'` must name an available node.
-
-A rejected call carries `error.details`:
+The runtime checks availability before it prepares a call and again right before the change. A call that fails changes nothing, and `error.details` says why:
 
 ```json
 {
@@ -78,12 +66,20 @@ A rejected call carries `error.details`:
 }
 ```
 
-`blockedBy` lists the unmet prerequisites the operation declares itself, and `reason` appears when the operation has its own `unavailable` reason. The chart's status in turn names the dataset and its reason, `"Select a dataset"`, which [inspection](#explain-a-blocked-operation) reads.
+`code` is `unknown-action`, `action-unavailable`, or `input-unavailable`. `blockedBy` lists the action's unmet prerequisites, and `reason` holds its own `unavailable` reason if it has one. `input-unavailable` also names the `ref` of an input declared with `role: 'input'` in `operation.refParameters`.
 
-`code` is `unknown-action`, `action-unavailable`, or `input-unavailable`. An `input-unavailable` error also names the `ref` of the unavailable input.
+## Explain a blocked action
 
-## Explain a blocked operation
+`createInspectionIndex` follows a blocked action back to its cause. `runtime` comes from `const { runtime } = installVacpRuntime(...)`:
 
-`createInspectionIndex` from `@ethivia/vacp-inspector` reads the complete catalog. `entity(ref).availability`, `entity(ref).prerequisites`, `entity(ref).dependents`, and `action(name).availability` explain why a node or an operation is blocked, and `availableActions` lists what runs now. See [Inspection surfaces](../inspector/).
+```ts
+import { createInspectionIndex } from '@ethivia/vacp-sdk/inspector';
 
-Python providers declare `Availability(requires=(ref,), unavailable=reason)` on nodes and operations, with the same rules, checked against fixtures shared with the TypeScript protocol.
+const index = createInspectionIndex(await runtime.inspect());
+
+index.action('chart.select')?.availability; // { available: false, blockedBy: ['vacp://dashboard/chart'] }
+index.entity('vacp://dashboard/chart')?.availability; // { available: false, blockedBy: ['vacp://dashboard/dataset'] }
+index.entity('vacp://dashboard/dataset')?.availability; // { available: false, blockedBy: [], reason: 'Select a dataset' }
+```
+
+[Inspector](../inspector/) builds a view on the index. Python providers declare `Availability(requires=(ref,), unavailable=reason)` under the same rules.
