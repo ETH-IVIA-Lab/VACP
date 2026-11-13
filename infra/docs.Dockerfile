@@ -3,6 +3,9 @@ FROM ghcr.io/pnpm/pnpm:12 AS build
 RUN apt-get update \
     && apt-get install -y --no-install-recommends git \
     && rm -rf /var/lib/apt/lists/*
+# pnpm evaluates .pnpmfile.mjs with Node.js before it installs devEngines.runtime. The node shim
+# runs the runtime that devEngines.runtime names, so the pnpmfile and the scripts share it.
+RUN pnpm shim add node
 WORKDIR /app
 COPY .pnpmfile.mjs package.json pnpm-lock.yaml pnpm-workspace.yaml tsconfig.base.json ./
 COPY patches patches
